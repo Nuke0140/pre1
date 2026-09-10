@@ -72,3 +72,24 @@ Work Log:
 
 Stage Summary:
 - Delivered download/preone-product-guide.pdf + .html + assets/ (self-contained editable source)
+
+---
+Task ID: 5
+Agent: main (Super Z)
+Task: Restart app server + PostgreSQL after session restart
+
+Work Log:
+- Found both PostgreSQL (:54329) and app (:3000) down after environment restart
+- Fixed 4 issues blocking PG startup:
+  1. Stale postmaster.pid -> removed
+  2. ICU lib symlinks missing (libicu*.so.60) -> recreated -> libicu*.so.60.2
+  3. pgdata dir permission 0755 -> chmod 700
+  4. initdb runtime dirs deleted (pg_notify, pg_tblspc, pg_logical/snapshots, pg_multixact/*, pg_wal/archive_status, pg_snapshots, pg_serial, pg_stat, pg_stat_tmp) -> recreated empty; WAL redo recovered data cleanly
+- Fixed .env: had been overwritten to SQLite (file:...custom.db) -> restored postgresql://preone:preone@127.0.0.1:54329/preone
+- prisma generate + bun run build (clean) + server start
+- KEY LESSON: sandbox kills plain `nohup &` and `setsid &` background procs between tool calls; `setsid --fork <cmd>` survives (verified across calls). pg_ctl daemonized postgres also survives.
+
+Stage Summary:
+- PostgreSQL 17.10 :54329 + Next.js standalone :3000 both running and stable
+- Smoke matrix: / 200, login (platform+owner) 200, dashboard/students/leads/invoices/announcements 200, attendance 400-no-classroomId (by design), /app/dashboard 200, /onboard 200, tenants api 200
+- Demo accounts intact: platform@preone.in, owner@/principal@/teacher@/accounts@/parent@sunshine.demo (Preone@123)
