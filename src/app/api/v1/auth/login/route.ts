@@ -33,8 +33,36 @@ export async function POST(req: NextRequest) {
     }
 
     const membership = user.memberships[0]
+
+    // No school membership → platform-level staff (client onboarding console).
     if (!membership) {
-      return Errors.business('AUTH_004', 'No school membership found for this account', 403)
+      const token = await signSession({
+        uid: user.id,
+        email: user.email,
+        name: user.fullName,
+        tenantId: null,
+        branchId: null,
+        role: 'PLATFORM_ADMIN',
+      })
+      await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+
+      const res = ok({
+        user: {
+          id: user.id,
+          name: user.fullName,
+          email: user.email,
+          role: 'PLATFORM_ADMIN',
+          tenant: null,
+          branch: null,
+        },
+      })
+      res.cookies.set(SESSION_COOKIE, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: SESSION_MAX_AGE,
+        path: '/',
+      })
+      return res
     }
 
     const branch = membership.branchId

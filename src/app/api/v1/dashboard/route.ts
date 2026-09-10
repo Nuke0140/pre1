@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     // fee aggregation
     const invoices = await db.invoice.findMany({
       where: { tenantId, deletedAt: null },
-      select: ['totalCents', 'paidCents', 'balanceCents', 'dueDate', 'status'],
+      select: { totalCents: true, paidCents: true, balanceCents: true, dueDate: true, status: true },
     })
     const billed = invoices.reduce((s, i) => s + i.totalCents, 0)
     const collected = invoices.reduce((s, i) => s + i.paidCents, 0)

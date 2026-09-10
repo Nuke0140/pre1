@@ -39,3 +39,21 @@ Work Log:
 Stage Summary:
 - Real PreOne logo live across: header, taskbar start, login (2 spots), onboard console, favicon/apple-icon
 - Production server running on :3000 (bun run start); build passed clean
+
+---
+Task ID: 4
+Agent: main (Super Z)
+Task: "ab kya bachaa hai" — final QA pass, find and fix remaining bugs
+
+Work Log:
+- Verified server (prod build :3000) + embedded PostgreSQL 17.10 (port 54329) running
+- Smoke-tested all 15 API endpoints: found dashboard 500 + tenants 500
+- Bug 1 (dashboard): Prisma select written as array ['totalCents',...] → must be object {totalCents:true,...}. Fixed in src/app/api/v1/dashboard/route.ts
+- Bug 2 (tenants): _count.select used relation 'users' but schema relation is 'members'. Fixed in src/app/api/v1/tenants/route.ts
+- Bug 3 (onboarding blocker): platform@preone.in (no TenantUser membership) got 403 at login → client-onboarding console unusable. Login route now signs PLATFORM_ADMIN session (tenantId:null) for membership-less users
+- Rebuilt + restarted via pkill standalone/server.js (note: pkill "next start" doesn't match bun standalone proc)
+- Final matrix: all 14 APIs 200 (attendance 400 = requires classroomId, correct); 10 /app pages 200 for owner; /onboard 200 for platform admin; RBAC redirects verified both ways
+
+Stage Summary:
+- Zero known bugs remaining; full QA matrix green
+- Demo logins: platform@preone.in / owner@sunshine.demo etc, password Preone@123

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const tenants = await db.tenant.findMany({
       include: {
-        _count: { select: { students: true, branches: true, users: true } },
+        _count: { select: { students: true, branches: true, members: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         createdAt: t.createdAt,
         students: t._count.students,
         branches: t._count.branches,
-        users: t._count.users,
+        users: t._count.members,
       }))
     )
   } catch (e) {
