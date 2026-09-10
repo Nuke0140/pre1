@@ -303,6 +303,7 @@ a{color:var(--preone-primary);text-decoration:none}
 .ic-pink{background:var(--preone-pink-soft);color:var(--preone-pink)}
 .ic-orange{background:var(--preone-orange-soft);color:var(--preone-orange)}
 .ic-yellow{background:var(--preone-star-yellow-soft);color:#B37B00}
+.ic-red{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
 .ic-green{background:var(--success-soft);color:var(--success)}
 .ic-cyan{background:color-mix(in srgb,var(--preone-cyan) 14%,transparent);color:#0891B2}
 
@@ -576,6 +577,7 @@ a{color:var(--preone-primary);text-decoration:none}
 .g-purple{background:linear-gradient(135deg,#7C3AED,#9F67FF)}
 .g-blue{background:linear-gradient(135deg,#3B82F6,#60A5FA)}
 .g-pink{background:linear-gradient(135deg,#F0006E,#f784ae)}
+.g-red{background:linear-gradient(135deg,#EF4444,#f87171)}
 .g-orange{background:linear-gradient(135deg,#F97316,#ffb066)}
 .g-green{background:linear-gradient(135deg,#10B981,#34d399)}
 .g-yellow{background:linear-gradient(135deg,#FFB800,#ffd257)}

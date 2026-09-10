@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
           tenantId: t.id,
           branchId: branch.id,
           academicSessionId: acad.id,
-          name: `${p.charAt(0)}${p.slice(1).toLowerCase()} Sunshine`,
+          name: `${p.charAt(0)}${p.slice(1).toLowerCase()} A`,
           code: `${p.slice(0, 3)}-A`,
           programType: p,
           capacity: programDefaults[p]?.capacity ?? 20,

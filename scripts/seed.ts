@@ -334,6 +334,7 @@ async function main() {
         paymentId: payment.id,
         receiptNumber: `RCT-${fy}-${String(recCount + 1).padStart(4, '0')}`,
         amountCents,
+        tenantId,
       },
     })
     const paid = inv.paidCents + amountCents

@@ -39,6 +39,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'settings:read', 'settings:write',
     'users:read', 'users:write',
     'audit:read',
+    'operations:read', 'operations:write', // M01 command centre + follow-up actions
   ],
   COORDINATOR: [
     'students:read', 'students:write',
@@ -49,6 +50,7 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'academics:read', 'academics:write',
     'timeline:read',
     'settings:read', 'users:read',
+    'operations:read', 'operations:write', // M01
   ],
   TEACHER: [
     'students:read',
@@ -56,12 +58,14 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'academics:read', 'academics:write',
     'communication:read',
     'timeline:read',
+    'operations:read', 'operations:write', // M01 own follow-ups + daily ops
   ],
   ACCOUNTS: [
     'students:read',
     'finance:read', 'finance:write',
     'attendance:read',
     'audit:read',
+    'operations:read', // M01 fee follow-ups visibility
   ],
   RECEPTION: [
     'students:read', 'students:write',

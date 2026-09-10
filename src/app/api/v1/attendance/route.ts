@@ -3,6 +3,10 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { isoDate } from '@/lib/format'
+import { dayStatus } from '@/lib/calendar'
+import { resolveSessionId } from '@/lib/academic'
+import { registerIntegrations } from '@/lib/integrations'
+import { emit } from '@/lib/events'
 
 /** GET /api/v1/attendance?classroomId=&date= — class register for a day */
 export async function GET(req: NextRequest) {
@@ -53,18 +57,22 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/v1/attendance — bulk mark for a class (attendance:mark) */
+/** POST /api/v1/attendance — bulk mark for a class (attendance:mark)
+ *  M01: working-day/holiday guard (OPERATING + Calendar), academic-year scoping,
+ *  ABSENT/LATE → AttendanceExceptionDetected (follow-up + parent note via integrations). */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
+  registerIntegrations()
 
   try {
     const body = await req.json()
-    const { classroomId, date, entries } = body as {
+    const { classroomId, date, entries, force } = body as {
       classroomId: string
       date: string
       entries: { studentId: string; status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'LEAVE'; notes?: string }[]
+      force?: boolean
     }
     if (!classroomId || !date || !Array.isArray(entries)) {
       return Errors.validation('classroomId, date and entries[] are required')
@@ -75,14 +83,24 @@ export async function POST(req: NextRequest) {
     })
     if (!classroom) return Errors.notFound('Classroom')
 
+    // calendar consumption — M00 config is the single source of truth (Spec §12/§25)
+    const day = await dayStatus(session.tenantId, date, classroom.branchId)
+    if (!day.attendanceExpected && !force) {
+      return Errors.business(
+        'BUSINESS_SCHOOL_CLOSED',
+        `Attendance not expected on ${date} (${day.status.replace('_', ' ').toLowerCase()}${day.eventTitle ? `: ${day.eventTitle}` : ''}). Send force=true to override — override is audited.`
+      )
+    }
+
     const dateObj = new Date(date)
+    const sessionRow = await resolveSessionId(session.tenantId, { classroomId })
     let upserts = 0
-    const absentNames: string[] = []
+    const exceptions: { studentId: string; status: string; name: string }[] = []
 
     await db.$transaction(async (tx) => {
       for (const e of entries) {
         const student = await tx.student.findFirst({
-          where: { id: e.studentId, tenantId: session.tenantId },
+          where: { id: e.studentId, tenantId: session.tenantId! },
         })
         if (!student) continue
         await tx.attendance.upsert({
@@ -96,18 +114,37 @@ export async function POST(req: NextRequest) {
             status: e.status,
             notes: e.notes,
             markedById: session.uid,
+            academicSessionId: sessionRow?.id,
           },
           update: {
             status: e.status,
             notes: e.notes,
             markedById: session.uid,
             markedAt: new Date(),
+            academicSessionId: sessionRow?.id,
           },
         })
         upserts++
-        if (e.status === 'ABSENT') absentNames.push(student.firstName)
+        if (e.status === 'ABSENT' || e.status === 'LATE') {
+          exceptions.push({ studentId: e.studentId, status: e.status, name: student.firstName })
+        }
       }
     })
+
+    // exception detection → follow-up + parent communication (Spec §12 daily flow)
+    for (const ex of exceptions) {
+      await emit({
+        type: 'AttendanceExceptionDetected',
+        tenantId: session.tenantId,
+        studentId: ex.studentId,
+        classroomId,
+        date,
+        status: ex.status as 'ABSENT' | 'LATE',
+        detail: ex.status === 'LATE'
+          ? `Marked LATE on ${date}. Reason/notes to follow.`
+          : `Marked ABSENT on ${date}. Reason capture + follow-up required.`,
+      })
+    }
 
     const { audit: auditLog } = await import('@/lib/sequence')
     await auditLog({
@@ -117,10 +154,16 @@ export async function POST(req: NextRequest) {
       action: 'CREATE',
       entity: 'Attendance',
       entityId: classroomId,
-      summary: `Attendance marked for ${classroom.name} on ${date} — ${upserts} students`,
+      summary: `Attendance marked for ${classroom.name} on ${date} — ${upserts} students${!day.attendanceExpected ? ' (FORCED on closed day)' : ''}, exceptions: ${exceptions.length}`,
     })
 
-    return ok({ markedCount: upserts, absentCount: absentNames.length })
+    return ok({
+      markedCount: upserts,
+      absentCount: exceptions.filter((x) => x.status === 'ABSENT').length,
+      lateCount: exceptions.filter((x) => x.status === 'LATE').length,
+      exceptionsRaised: exceptions.length,
+      dayStatus: day.status,
+    })
   } catch (e) {
     return Errors.system(e)
   }

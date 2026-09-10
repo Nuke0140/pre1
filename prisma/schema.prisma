@@ -250,11 +250,58 @@ enum TimelineEntryType {
   NOTE
   PHOTO
   PICKUP
+  HEALTH_CHECK
 }
 
 enum ObservationStatus {
   DRAFT
   PUBLISHED
+}
+
+// ── M01 — end-to-end integration (additive) ──
+
+enum ObservationConcern {
+  NORMAL
+  PROGRESS
+  NEEDS_ATTENTION
+  URGENT
+}
+
+enum FollowUpDomain {
+  ATTENDANCE
+  HEALTH
+  SAFETY
+  LEARNING
+  CARE
+  ADMISSION
+  FINANCE
+  OPERATIONS
+}
+
+enum FollowUpSeverity {
+  INFO
+  WARNING
+  URGENT
+  EMERGENCY
+}
+
+/// OPEN → ACKNOWLEDGED → IN_PROGRESS → WAITING → RESOLVED → CLOSED (reopen allowed)
+/// Notification ≠ resolution — only explicit transitions change status (M01 §42/§43).
+enum FollowUpStatus {
+  OPEN
+  ACKNOWLEDGED
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum StudentAllocationStatus {
+  ACTIVE
+  COMPLETED
+  TRANSFERRED
+  PROMOTED
+  WITHDRAWN
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -393,6 +440,9 @@ model Tenant {
   calendarEvents    CalendarEvent[]
   schoolConfigs     SchoolConfig[]
   staffProfiles     StaffProfile[]
+  followUps         FollowUp[]
+  allocations       StudentAllocation[]
+  receipts          Receipt[]
 
   @@map("tenants")
 }
@@ -492,6 +542,11 @@ model AcademicSession {
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   classrooms Classroom[]
   calendarEvents CalendarEvent[]
+  allocations    StudentAllocation[]
+  attendances    Attendance[]
+  invoices       Invoice[]
+  timelineEntries TimelineEntry[]
+  observations   Observation[]
 
   @@unique([tenantId, name])
   @@map("academic_sessions")
@@ -523,6 +578,8 @@ model Classroom {
   students       Student[]      @relation("StudentCurrentClassroom")
   attendances    Attendance[]
   observations   Observation[]
+  followUps      FollowUp[]
+  allocations    StudentAllocation[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -560,6 +617,8 @@ model Student {
   payments       Payment[]
   timelineEntries TimelineEntry[]
   observations   Observation[]
+  followUps      FollowUp[]
+  allocations    StudentAllocation[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -579,6 +638,7 @@ model Guardian {
   isPrimaryContact Boolean      @default(false)
   userId           String?      @unique // link to Parent portal login
   user             User?        @relation("GuardianPortalUser", fields: [userId], references: [id], onDelete: SetNull)
+  pickupPin        String? // optional PIN for pickup verification (STUDENT_PARENT.PIN_MATCH)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   deletedAt        DateTime?
@@ -644,7 +704,7 @@ model AdmissionApplication {
   id                String            @id @default(uuid())
   tenantId          String
   branchId          String
-  applicationNumber String            @unique
+  applicationNumber String
   leadId            String?
   programType       ProgramType
   childFirstName    String
@@ -672,6 +732,7 @@ model AdmissionApplication {
   lead      Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
   documents ApplicationDocument[]
 
+  @@unique([tenantId, applicationNumber])
   @@index([tenantId, status])
   @@index([branchId])
   @@map("admission_applications")
@@ -714,6 +775,8 @@ model Attendance {
   tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
   student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  academicSessionId String?
 
   @@unique([studentId, date])
   @@index([classroomId, date])
@@ -783,6 +846,8 @@ model Invoice {
   student  Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
   items    InvoiceItem[]
   payments Payment[]
+  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  academicSessionId String?
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId, status])
@@ -837,8 +902,10 @@ model Receipt {
   issuedAt      DateTime @default(now())
 
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String
 
-  @@unique([receiptNumber])
+  @@unique([tenantId, receiptNumber])
   @@map("receipts")
 }
 
@@ -884,6 +951,8 @@ model TimelineEntry {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   observation Observation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
+  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  academicSessionId String?
 
   @@index([studentId, createdAt])
   @@index([tenantId, createdAt])
@@ -903,10 +972,14 @@ model Observation {
   narrative     String
   milestoneTags String?
   status        ObservationStatus @default(DRAFT)
+  category      String? // learning area from CURRICULUM config (M01 §17)
+  concern       ObservationConcern @default(NORMAL) // deterministic triage — never a diagnosis (M01 §18)
   observedAt    DateTime          @default(now())
   publishedAt   DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  academicSessionId String?
 
   tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   student   Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -915,6 +988,81 @@ model Observation {
 
   @@index([tenantId, studentId])
   @@map("observations")
+}
+
+// ────────────────────────────────────────────────────────────────────────────────────
+// M01 — OPERATIONAL EXCEPTION / FOLLOW-UP ENGINE + ACADEMIC ALLOCATION HISTORY
+// (additive; unified problem-solving backbone per M01 Impact Map I-2 / I-8)
+// ────────────────────────────────────────────────────────────────────────────────────
+
+/// The ONE reusable exception + follow-up aggregate. Raised by domain events
+/// (absence, health, safety, learning, finance...); resolved by a human —
+/// notification alone never resolves (M01 §42/§43).
+model FollowUp {
+  id              String           @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  academicSessionId String?
+  classroomId     String?
+  studentId       String?
+  domain          FollowUpDomain
+  severity        FollowUpSeverity @default(WARNING)
+  status          FollowUpStatus   @default(OPEN)
+  sourceType      String // e.g. Attendance, Observation, PickupAttempt, Invoice
+  sourceId        String?
+  dedupeKey       String? @unique // idempotent raising per source (e.g. attendance:{studentId}:{date})
+  title           String
+  detail          String?
+  responsibleRole UserRole         @default(TEACHER)
+  assignedToId    String?
+  dueAt           DateTime?
+  actionTaken     String?
+  outcome         String?
+  resolvedAt      DateTime?
+  resolvedByName  String?
+  closedAt        DateTime?
+  createdById     String?
+  createdByName   String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student   Student?   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, severity])
+  @@index([studentId])
+  @@map("follow_ups")
+}
+
+/// Per-academic-year allocation history — mutable per year, history never
+/// overwritten (M01 §10). Student.currentClassroomId stays the live pointer.
+model StudentAllocation {
+  id                String                 @id @default(uuid())
+  tenantId          String
+  studentId         String
+  academicSessionId String
+  classroomId       String
+  programType       ProgramType
+  status            StudentAllocationStatus @default(ACTIVE)
+  startedAt         DateTime               @default(now())
+  endedAt           DateTime?
+  reason            String?
+  createdById       String?
+  createdByName     String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom       Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  academicSession AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId])
+  @@index([academicSessionId])
+  @@index([classroomId])
+  @@map("student_allocations")
 }
 
 // ────────────────────────────────────────────────────────────────────

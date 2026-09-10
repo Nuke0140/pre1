@@ -1,0 +1,2382 @@
+You are continuing implementation of the existing PreOne Preschool Management Platform.
+
+This is NOT a greenfield project.
+
+M00 — Preschool Creation & Setup has already been implemented.
+
+The next objective is to connect M00 to the existing PreOne bounded contexts and complete the end-to-end preschool lifecycle so that PreOne does not merely store information, but actually operates the preschool workflow from configuration through daily child care, learning, parent communication, finance, reporting, and year-end continuation.
+
+============================================================
+0. ABSOLUTE RULES
+============================================================
+
+DO NOT:
+
+- redesign the existing architecture
+- replace existing bounded contexts
+- create duplicate Student, Parent, Teacher, Academic Year, Branch, Fee, Attendance, Notification or Curriculum systems
+- bypass existing RBAC
+- bypass existing audit
+- bypass tenant/school/branch/academic-year isolation
+- create parallel APIs where an existing API already exists
+- create a second business-rule engine
+- create a second notification engine
+- create a second configuration system
+- directly query another bounded context's tables if the architecture forbids it
+- silently modify locked ADR decisions
+- remove existing working functionality
+
+FIRST inspect and understand:
+
+- PreOne Master PRD
+- PreOne DDD
+- PreOne BRC
+- PreOne ADRs
+- PreOne ERD/database schema
+- PreOne API Contract Catalog
+- UI Design Philosophy
+- Parent Portal
+- Teacher Portal
+- M00 Implementation Impact Map
+- Existing implemented M00 code
+
+Then produce an implementation impact map before coding.
+
+============================================================
+1. CURRENT STATE
+============================================================
+
+M00 — Preschool Creation & Setup is already implemented.
+
+Existing M00 capabilities include:
+
+- school creation
+- tenant creation
+- first admin
+- school profile
+- branch
+- branding
+- programs
+- facilities
+- operating configuration
+- roles
+- staff foundation
+- academic year
+- classes
+- sections
+- capacity
+- teacher assignment
+- curriculum configuration
+- calendar
+- admission configuration
+- student/parent configuration
+- finance configuration
+- daily operations configuration
+- health & safety configuration
+- communication configuration
+- document configuration
+- data import
+- setup validation
+- go-live
+- setup state machine
+- dependency engine
+- setup dashboard
+- guided setup pages
+
+M00 currently establishes configuration.
+
+The remaining work is:
+
+A. M00 → Existing Module Integration
+B. Complete Preschool Lifecycle
+C. End-to-End Preschool Problem-Solving Workflows
+
+============================================================
+2. TARGET PRODUCT
+============================================================
+
+The final product must behave like:
+
+PRESCHOOL CREATION
+        ↓
+PRESCHOOL SETUP
+        ↓
+ACADEMIC YEAR
+        ↓
+ACADEMIC STRUCTURE
+        ↓
+ADMISSION
+        ↓
+STUDENT ONBOARDING
+        ↓
+CLASS / SECTION ALLOCATION
+        ↓
+TEACHER ASSIGNMENT
+        ↓
+DAILY PRESCHOOL OPERATIONS
+        ↓
+CHILD CARE
+        ↓
+LEARNING
+        ↓
+OBSERVATION
+        ↓
+ACTION / INTERVENTION
+        ↓
+PARENT COMMUNICATION
+        ↓
+FOLLOW-UP
+        ↓
+OUTCOME
+        ↓
+PROGRESS
+        ↓
+REPORTING
+        ↓
+FINANCE / ADMINISTRATION
+        ↓
+YEAR-END
+        ↓
+NEXT ACADEMIC YEAR
+        ↓
+CONTINUOUS SCHOOL OPERATION
+
+This must be an actual connected system.
+
+Not merely a collection of modules.
+
+============================================================
+3. CORE PRODUCT PRINCIPLE
+============================================================
+
+For every important preschool event, PreOne must be able to answer:
+
+WHAT HAPPENED?
+        ↓
+WHO IS AFFECTED?
+        ↓
+DOES IT REQUIRE ATTENTION?
+        ↓
+WHAT SHOULD HAPPEN NEXT?
+        ↓
+WHO SHOULD ACT?
+        ↓
+WHO SHOULD BE INFORMED?
+        ↓
+WAS THE ACTION COMPLETED?
+        ↓
+WHAT WAS THE OUTCOME?
+
+This is the core problem-solving loop.
+
+Use:
+
+EVENT
+→ DETECTION
+→ DECISION
+→ ACTION
+→ COMMUNICATION
+→ FOLLOW-UP
+→ OUTCOME
+
+Do not make every module independently solve this pattern.
+
+Reuse the appropriate domain services and cross-context events.
+
+============================================================
+4. PHASE 0 — IMPACT MAP FIRST
+============================================================
+
+Before coding create:
+
+docs/M01_End_to_End_Integration_Impact_Map.md
+
+For every integration identify:
+
+Feature
+→ Source Context
+→ Target Context
+→ Existing Entity
+→ Existing API
+→ Existing Event
+→ Existing BRC Rule
+→ Existing ADR
+→ Existing UI
+→ Required UI Change
+→ Required API Change
+→ Required DB Change
+→ Dependency
+→ Security Scope
+→ Audit Requirement
+→ Acceptance Criteria
+
+Example:
+
+M00 Academic Year
+→ Settings
+→ Academics
+→ AcademicSession
+→ existing API
+→ Student Allocation
+→ Attendance
+→ Fees
+→ Reports
+
+Do not proceed to implementation until this map exists.
+
+============================================================
+5. PHASE 1 — M00 CONFIGURATION CONSUMPTION
+============================================================
+
+Every configuration created during M00 must become the single source of truth for existing modules.
+
+Build integration adapters/services only where necessary.
+
+The pattern must be:
+
+M00 CONFIG
+    ↓
+DOMAIN CONFIGURATION
+    ↓
+DOMAIN WORKFLOW
+
+Do NOT copy M00 values into duplicate configuration tables unless the architecture explicitly requires a snapshot.
+
+Examples:
+
+School operating hours
+→ Attendance
+
+Academic calendar
+→ Attendance
+
+Program capacity
+→ Admission
+
+Fee configuration
+→ Finance
+
+Section teacher assignment
+→ Teacher Portal
+
+Section membership
+→ Student / Teacher / Attendance / Academics
+
+Communication templates
+→ Notification Service
+
+Health rules
+→ Health/Safety workflows
+
+============================================================
+6. ACADEMIC YEAR INTEGRATION
+============================================================
+
+Academic Year is a mandatory operational context.
+
+Every applicable operational flow must resolve:
+
+tenant
+→ school
+→ branch
+→ academic year
+
+Do not allow current-year operational data to accidentally mix with historical years.
+
+Existing architecture requires operational records such as attendance, fee invoices, daily sheets, observations and assessments to carry academic-year context.
+
+Implement and verify:
+
+Current Academic Year
+→ default operational scope
+
+Historical Academic Year
+→ queryable
+→ read-only where appropriate
+
+New Academic Year
+→ independent allocation/configuration
+
+Year-end
+→ transactional transition
+
+Never overwrite historical allocations.
+
+============================================================
+7. ACADEMIC STRUCTURE INTEGRATION
+============================================================
+
+Connect:
+
+Academic Year
+ ↓
+Program
+ ↓
+Class
+ ↓
+Section
+ ↓
+Classroom
+ ↓
+Teacher
+ ↓
+Students
+
+Every downstream workflow must resolve this structure.
+
+Examples:
+
+Teacher dashboard:
+Teacher
+→ assigned sections
+→ students
+
+Attendance:
+Section
+→ students
+→ daily attendance
+
+Academics:
+Section
+→ curriculum
+→ lesson
+→ observations
+
+Parent:
+Student
+→ current section
+→ teacher
+→ learning information
+
+Finance:
+Student
+→ program
+→ academic year
+→ fee plan
+
+============================================================
+8. ADMISSION → STUDENT LIFECYCLE
+============================================================
+
+Implement the complete admission lifecycle using the existing Admissions context.
+
+Flow:
+
+Lead / Enquiry
+ ↓
+Application
+ ↓
+Eligibility
+ ↓
+Document Collection
+ ↓
+Medical Information
+ ↓
+Counselling where applicable
+ ↓
+Review
+ ↓
+Approval
+ ↓
+Fee Plan Selection
+ ↓
+Admission Confirmation
+ ↓
+StudentCreated
+ ↓
+Student becomes owned by Student context
+ ↓
+Parent / Guardian relationship
+ ↓
+Academic Allocation
+ ↓
+Section Assignment
+ ↓
+Teacher visibility
+
+Do not create a second student record when an admission is approved.
+
+Admission must maintain provisional student information until approval according to the existing domain model.
+
+After approval, emit/use the existing StudentCreated event.
+
+============================================================
+9. CAPACITY MANAGEMENT
+============================================================
+
+Connect M00 capacity configuration to actual admission/enrollment.
+
+Flow:
+
+Program Capacity
++
+Section Capacity
+        ↓
+Available Seats
+        ↓
+Admission
+        ↓
+Enrollment
+
+Rules:
+
+Current enrollment < capacity
+→ allow
+
+Current enrollment >= capacity
+→ block new allocation
+
+If an override exists:
+→ require authorized approval
+→ audit
+
+Display:
+
+Capacity
+Current
+Available
+Waitlist
+
+Do not allow silent overbooking.
+
+============================================================
+10. STUDENT ALLOCATION
+============================================================
+
+Student is the master aggregate.
+
+Academic allocation is mutable per academic year.
+
+Flow:
+
+Student
+ ↓
+Academic Year
+ ↓
+Program
+ ↓
+Class
+ ↓
+Section
+ ↓
+Teacher
+ ↓
+Classroom
+
+Maintain historical allocations.
+
+Do not overwrite previous academic-year allocation.
+
+Support:
+
+- initial allocation
+- section change
+- transfer
+- promotion
+- withdrawal
+- archive
+
+Every change must be auditable.
+
+============================================================
+11. TEACHER PORTAL INTEGRATION
+============================================================
+
+Teacher portal must consume actual assignments.
+
+Teacher login
+ ↓
+Branch scope
+ ↓
+Academic Year
+ ↓
+Assigned Classes
+ ↓
+Assigned Sections
+ ↓
+Students
+
+Teacher must NOT manually recreate class lists.
+
+Teacher dashboard should surface:
+
+TODAY
+
+- attendance pending
+- daily sheet pending
+- health/safety alerts
+- children needing attention
+- activities
+- observations due
+- parent messages
+- follow-ups
+
+The teacher should see actions, not configuration tables.
+
+============================================================
+12. ATTENDANCE INTEGRATION
+============================================================
+
+Connect M00:
+
+- school timings
+- working days
+- holidays
+- late rules
+- section configuration
+
+to Attendance.
+
+Daily flow:
+
+School Open
+ ↓
+Working Day?
+ ↓
+Yes
+ ↓
+Section Attendance
+ ↓
+Student Attendance
+ ↓
+Late detection
+ ↓
+Absence detection
+ ↓
+Required action
+ ↓
+Parent notification
+ ↓
+Follow-up if necessary
+
+Use the existing AttendanceSheet aggregate.
+
+Attendance sheet is per classroom/section per day.
+
+Do not violate immutability rules.
+
+Corrections must use existing adjustment/correction mechanism.
+
+============================================================
+13. DAILY PRESCHOOL OPERATIONS
+============================================================
+
+Build the complete daily classroom loop.
+
+Morning:
+
+School opens
+ ↓
+Teacher sees assigned class
+ ↓
+Expected students
+ ↓
+Arrival
+ ↓
+Health check where configured
+ ↓
+Attendance
+
+During day:
+
+Meals
+ ↓
+Nap
+ ↓
+Bathroom
+ ↓
+Mood
+ ↓
+Activities
+ ↓
+Observations
+ ↓
+Incidents if any
+ ↓
+Pickup preparation
+
+End of day:
+
+Daily sheet review
+ ↓
+Exceptions
+ ↓
+Parent communication
+ ↓
+Teacher submission
+
+The system must distinguish:
+
+NORMAL
+ATTENTION REQUIRED
+URGENT
+
+============================================================
+14. CHILD STATE / EXCEPTION ENGINE
+============================================================
+
+Do NOT create an uncontrolled AI diagnosis system.
+
+Create a deterministic operational exception layer.
+
+Examples:
+
+Attendance:
+Absent without expected reason
+
+Health:
+Health check exception
+
+Care:
+Meal skipped
+Nap abnormal
+Repeated bathroom issue
+
+Behaviour:
+Repeated unusual mood/behavior observation
+
+Learning:
+Milestone not progressing
+Repeated difficulty
+
+Safety:
+Unauthorized pickup attempt
+Incident
+
+Each exception:
+
+Event
+ ↓
+Severity
+ ↓
+Responsible role
+ ↓
+Action
+ ↓
+Communication
+ ↓
+Follow-up
+ ↓
+Resolution
+
+Every unresolved exception must remain visible.
+
+============================================================
+15. HEALTH & SAFETY
+============================================================
+
+Use existing Health/Safety rules and BRC.
+
+Core flow:
+
+Health Check
+ ↓
+Normal?
+   ├─ YES → continue
+   └─ NO
+        ↓
+     isolate / appropriate action
+        ↓
+     authorized staff
+        ↓
+     parent communication
+        ↓
+     pickup / medical action
+        ↓
+     incident/health record
+        ↓
+     follow-up
+        ↓
+     resolution
+
+Emergency flows must have appropriate priority and escalation.
+
+Never treat health alerts as normal informational notifications.
+
+============================================================
+16. PICKUP / AUTHORIZED RELEASE
+============================================================
+
+Connect:
+
+Student
+ ↓
+Authorized Pickup
+ ↓
+Identity Verification
+ ↓
+Section
+ ↓
+Release
+
+Rules must come from existing BRC.
+
+Unauthorized person:
+→ BLOCK
+
+Mismatch:
+→ BLOCK + alert/escalation
+
+Valid authorization:
+→ release
+→ audit
+
+Transport integration should be used if configured.
+
+============================================================
+17. LEARNING LOOP
+============================================================
+
+Academics must become an action loop.
+
+Current domain model:
+
+CurriculumPlan
+ ↓
+LessonPlan
+ ↓
+LearningOutcome
+ ↓
+Milestone
+ ↓
+Observation
+ ↓
+ReportCard
+
+Extend operationally to:
+
+Curriculum
+ ↓
+Planned Activity
+ ↓
+Teacher Delivery
+ ↓
+Observation
+ ↓
+Child Need
+ ↓
+Suggested Next Action
+ ↓
+Teacher Action
+ ↓
+New Observation
+ ↓
+Outcome
+
+The critical missing connection is:
+
+OBSERVATION → ACTION → OUTCOME
+
+not just:
+
+OBSERVATION → REPORT
+
+============================================================
+18. TEACHER OBSERVATION FLOW
+============================================================
+
+Teacher records:
+
+- category
+- notes
+- activity/context
+- date
+- optional media
+
+System checks:
+
+- observation frequency
+- milestone relationship
+- student
+- section
+- academic year
+
+After observation:
+
+NORMAL
+→ continue
+
+INTERESTING PROGRESS
+→ update progress signal
+
+NEEDS ATTENTION
+→ create follow-up
+
+URGENT/SENSITIVE
+→ appropriate escalation
+
+Do not automatically make medical/psychological diagnoses.
+
+============================================================
+19. LEARNING FOLLOW-UP
+============================================================
+
+If observation indicates a learning need:
+
+Observation
+ ↓
+Need identified
+ ↓
+Suggested activity / strategy
+ ↓
+Teacher reviews
+ ↓
+Teacher executes
+ ↓
+Follow-up observation
+ ↓
+Compare outcome
+
+Store:
+
+Initial observation
+Action
+Date
+Responsible teacher
+Follow-up observation
+Outcome
+
+This creates a real learning improvement loop.
+
+============================================================
+20. PARENT COMMUNICATION
+============================================================
+
+Use the existing Notification bounded context.
+
+Every notification must have:
+
+event
+→ recipient
+→ channel
+→ template
+→ delivery
+→ receipt
+
+Examples:
+
+Attendance
+→ parent
+
+Health incident
+→ parent
+
+Daily update
+→ parent
+
+Learning observation
+→ parent where configured
+
+Fee reminder
+→ parent
+
+Announcement
+→ target audience
+
+Do NOT hardcode notification behavior into every module.
+
+Centralize through existing communication infrastructure.
+
+============================================================
+21. PARENT EXPERIENCE
+============================================================
+
+Parent Portal must not be merely a data viewer.
+
+Home should answer:
+
+“How is my child doing today?”
+
+Provide:
+
+TODAY
+
+Safety
+Care
+Attendance
+Mood
+Meals
+Nap
+Activities
+Learning
+Teacher updates
+Important attention items
+
+Then:
+
+PROGRESS
+
+Observations
+Milestones
+Learning areas
+Reports
+
+Then:
+
+ACTION
+
+Messages
+Follow-ups
+Forms
+Payments
+Approvals
+
+Sensitive/internal school notes must never leak to parents.
+
+Parent visibility must follow existing RBAC/privacy rules.
+
+============================================================
+22. DAILY PARENT UPDATE
+============================================================
+
+Where configured:
+
+Daily operations
+ ↓
+Relevant child events
+ ↓
+Teacher review
+ ↓
+Draft summary
+ ↓
+Teacher approval
+ ↓
+Parent notification
+
+If AI is used:
+
+AI may draft.
+
+AI may NOT:
+
+- independently diagnose
+- independently make sensitive decisions
+- bypass teacher review where required
+- bypass RBAC
+- publish sensitive information without approval
+
+Use existing AI gateway and governance.
+
+============================================================
+23. FINANCE INTEGRATION
+============================================================
+
+Connect:
+
+Program
+ ↓
+Academic Year
+ ↓
+Fee Plan
+ ↓
+Student
+ ↓
+Invoice
+ ↓
+Payment
+ ↓
+Receipt
+
+Use Invoice as existing billing aggregate.
+
+Once issued:
+
+Do not mutate invoice directly.
+
+Corrections:
+→ Adjustment / Credit Note according to existing architecture.
+
+Finance events may trigger:
+
+- reminders
+- overdue alerts
+- receipts
+- payment confirmations
+
+============================================================
+24. ADMISSION → FINANCE CONNECTION
+============================================================
+
+Admission:
+
+Application
+ ↓
+Approved
+ ↓
+Fee Plan Selected
+ ↓
+Admission Fee / Registration
+ ↓
+Payment
+ ↓
+Confirmation
+ ↓
+Student Created
+
+Do not allow inconsistent states such as:
+
+Student active
+but
+mandatory admission configuration incomplete
+
+unless explicitly allowed by business rules.
+
+============================================================
+25. CALENDAR INTEGRATION
+============================================================
+
+Calendar configuration must feed:
+
+Attendance
+Academics
+Events
+Parent communication
+Reports
+
+Example:
+
+Holiday
+→ attendance not expected
+
+Working day
+→ attendance expected
+
+Event day
+→ event workflow
+
+Parent meeting
+→ communication + scheduling
+
+Assessment period
+→ academic workflow
+
+============================================================
+26. STAFF / HR INTEGRATION
+============================================================
+
+Staff created in M00 must connect to HR context.
+
+Staff:
+
+Profile
+ ↓
+Role
+ ↓
+Branch
+ ↓
+Employment
+ ↓
+Assignment
+ ↓
+Attendance
+ ↓
+Leave
+ ↓
+Payroll
+
+Teacher-specific:
+
+Staff
+ ↓
+Teacher role
+ ↓
+Academic Year
+ ↓
+Class/Section assignment
+
+Do not create duplicate teacher entities.
+
+============================================================
+27. ADMINISTRATION / BRANCH INTEGRATION
+============================================================
+
+Branch must become the administrative boundary for:
+
+- facilities
+- compliance metadata
+- assets
+- vendors
+- approval matrix
+
+Use existing Branch aggregate.
+
+Setup-created facilities must become visible to Administration.
+
+============================================================
+28. TRANSPORT INTEGRATION
+============================================================
+
+If transport is enabled:
+
+Student
+ ↓
+Transport Enrollment
+ ↓
+Route
+ ↓
+Vehicle
+ ↓
+Driver
+ ↓
+Pickup Point
+ ↓
+Pickup Authorization
+ ↓
+Tracking
+ ↓
+Drop Confirmation
+
+If transport is not enabled:
+
+Do not show transport workflows.
+
+Feature exposure must use existing feature flags/configuration.
+
+============================================================
+29. INVENTORY INTEGRATION
+============================================================
+
+If inventory is enabled:
+
+Preschool needs:
+
+- classroom supplies
+- meal supplies
+- cleaning supplies
+- medical supplies
+- activity material
+
+Flow:
+
+Requirement
+ ↓
+Inventory
+ ↓
+Consumption
+ ↓
+Reorder
+
+Use existing Inventory context.
+
+Do not build inventory into Daily Operations.
+
+============================================================
+30. REPORTING INTEGRATION
+============================================================
+
+Reports must consume cross-context read models.
+
+Required dashboards:
+
+Owner/Principal:
+
+- enrollment
+- attendance
+- fees
+- staff
+- capacity
+- incidents
+- learning progress
+- parent engagement
+- operational exceptions
+
+Teacher:
+
+- today's attendance
+- student care
+- observations
+- pending actions
+
+Parent:
+
+- child's attendance
+- care
+- learning
+- progress
+- fees
+- communication
+
+Reports must respect:
+
+tenant
+school
+branch
+academic year
+RBAC
+
+============================================================
+31. CROSS-CONTEXT EVENT MODEL
+============================================================
+
+Where appropriate use domain events.
+
+Examples:
+
+SchoolSetupCompleted
+AcademicYearCreated
+ProgramConfigured
+SectionCreated
+TeacherAssigned
+ApplicationSubmitted
+ApplicationApproved
+StudentCreated
+StudentAllocated
+AttendanceSubmitted
+AttendanceExceptionDetected
+HealthIncidentCreated
+ParentNotificationRequested
+ObservationRecorded
+FollowUpCreated
+FollowUpCompleted
+InvoiceIssued
+PaymentReceived
+AcademicYearClosed
+StudentPromoted
+
+Do not create events merely for CRUD.
+
+Events must represent meaningful domain state changes.
+
+============================================================
+32. FOLLOW-UP ENGINE
+============================================================
+
+Create a reusable follow-up concept only if it fits existing architecture.
+
+Follow-up must support:
+
+source event
+student
+responsible role
+priority
+due date
+status
+action
+outcome
+completed by
+completed at
+
+Example:
+
+Observation
+→ Follow-up
+→ Teacher action
+→ Re-observation
+→ Outcome
+
+Health incident
+→ Follow-up
+→ Parent confirmation
+→ Resolution
+
+Admission issue
+→ Follow-up
+→ Document received
+→ Resolution
+
+Do not make Follow-up a generic dumping ground.
+
+Keep domain ownership clear.
+
+============================================================
+33. SCHOOL DAILY OPERATING LOOP
+============================================================
+
+Create a unified operational timeline/read model:
+
+TODAY
+
+School status
+ ↓
+Sections
+ ↓
+Expected children
+ ↓
+Attendance
+ ↓
+Exceptions
+ ↓
+Care events
+ ↓
+Learning activities
+ ↓
+Health incidents
+ ↓
+Parent communications
+ ↓
+Pickup
+ ↓
+Pending follow-ups
+
+This should be the operational centre of the school.
+
+Not merely a collection of reports.
+
+============================================================
+34. PRINCIPAL / OWNER COMMAND CENTRE
+============================================================
+
+The owner/principal dashboard should answer:
+
+“Is my preschool running correctly today?”
+
+Show:
+
+CRITICAL
+- safety incidents
+- unresolved health issues
+- unauthorized pickup attempts
+- serious attendance anomalies
+
+ATTENTION
+- sections understaffed
+- teacher actions pending
+- unresolved follow-ups
+- capacity problems
+- fee issues
+
+NORMAL
+- attendance
+- daily operations
+- learning activity
+- parent communication
+
+Do not overwhelm the user with raw records.
+
+Use exception-driven presentation.
+
+============================================================
+35. END-TO-END CHILD JOURNEY
+============================================================
+
+Implement and test this complete journey:
+
+ENQUIRY
+ ↓
+APPLICATION
+ ↓
+ELIGIBILITY
+ ↓
+DOCUMENTS
+ ↓
+APPROVAL
+ ↓
+FEE PLAN
+ ↓
+PAYMENT
+ ↓
+STUDENT CREATED
+ ↓
+PARENT CREATED/LINKED
+ ↓
+ACADEMIC ALLOCATION
+ ↓
+SECTION
+ ↓
+TEACHER
+ ↓
+FIRST DAY
+ ↓
+ATTENDANCE
+ ↓
+HEALTH CHECK
+ ↓
+DAILY CARE
+ ↓
+LEARNING
+ ↓
+OBSERVATION
+ ↓
+PARENT UPDATE
+ ↓
+FOLLOW-UP
+ ↓
+PROGRESS
+ ↓
+REPORT
+ ↓
+FEE CYCLE
+ ↓
+PROMOTION
+ ↓
+NEXT ACADEMIC YEAR
+
+This must be executable in the application.
+
+============================================================
+36. REAL PRESCHOOL PROBLEM FLOWS
+============================================================
+
+Do not declare the product complete until the following real-world scenarios work end-to-end.
+
+SCENARIO 1 — Child Absent
+
+Expected:
+
+Student expected
+→ absent
+→ absence rule
+→ teacher/system identifies exception
+→ parent notification where configured
+→ reason captured
+→ follow-up if required
+→ resolved
+
+SCENARIO 2 — Child Arrives Unwell
+
+Health check
+→ exception
+→ responsible staff
+→ appropriate isolation/action
+→ parent alert
+→ pickup/medical action
+→ incident record
+→ follow-up
+→ resolution
+
+SCENARIO 3 — Unauthorized Pickup
+
+Pickup attempt
+→ authorization lookup
+→ mismatch
+→ release blocked
+→ alert
+→ audit
+→ escalation
+
+SCENARIO 4 — Child Needs Learning Attention
+
+Observation
+→ concern
+→ suggested action
+→ teacher executes
+→ follow-up observation
+→ outcome
+
+SCENARIO 5 — Section Full
+
+Admission
+→ section capacity checked
+→ full
+→ block
+→ waitlist / alternate section if configured
+
+SCENARIO 6 — Teacher Absent
+
+Teacher unavailable
+→ affected section identified
+→ substitute/authorized action
+→ class remains operational
+→ audit
+
+SCENARIO 7 — Parent Misses Payment
+
+Invoice
+→ due date
+→ overdue
+→ notification
+→ payment
+→ receipt
+→ ledger updated
+
+SCENARIO 8 — Parent Needs Daily Visibility
+
+Daily child events
+→ teacher review
+→ parent summary
+→ parent sees child's day
+
+SCENARIO 9 — Incident Follow-Up
+
+Incident
+→ immediate action
+→ parent communication
+→ follow-up
+→ resolution
+→ management visibility
+
+SCENARIO 10 — Academic Year Change
+
+Current year
+→ close year
+→ preserve historical data
+→ create new year
+→ promotion
+→ new allocation
+→ new attendance/fees/academic context
+
+============================================================
+37. PROBLEM-SOLVING MATRIX
+============================================================
+
+Create:
+
+docs/PreOne_Problem_Solving_Matrix.md
+
+Columns:
+
+Problem
+Actor
+Trigger
+Detection
+Decision
+Action
+Communication
+Follow-up
+Outcome
+Domain
+Event
+BRC Rule
+API
+UI
+Audit
+Acceptance Criteria
+
+Minimum problems:
+
+- child absent
+- child late
+- child unwell
+- injury/incident
+- unauthorized pickup
+- missing parent document
+- class over capacity
+- teacher absent
+- activity missed
+- learning concern
+- parent complaint
+- fee overdue
+- payment received
+- transport delay
+- emergency
+- incomplete daily sheet
+- unresolved follow-up
+- academic year transition
+
+============================================================
+38. DOMAIN INTEGRATION MATRIX
+============================================================
+
+Create:
+
+docs/PreOne_Domain_Integration_Matrix.md
+
+Rows:
+
+M00
+Admissions
+Student
+Academics
+Daily Operations
+Health/Safety
+Communication
+Finance
+HR
+Administration
+Transport
+Inventory
+Reports
+Parent Portal
+Teacher Portal
+
+Columns:
+
+Reads From
+Writes To
+Events Produced
+Events Consumed
+APIs
+Business Rules
+Security
+Academic Year Scope
+Branch Scope
+Tenant Scope
+
+============================================================
+39. UI PRINCIPLE
+============================================================
+
+Do not turn the application into a giant collection of CRUD pages.
+
+For each persona:
+
+OWNER / PRINCIPAL
+→ exceptions + decisions + school health
+
+TEACHER
+→ today's children + actions + care + learning
+
+PARENT
+→ child's wellbeing + day + progress + action
+
+ADMIN
+→ setup + records + workflows
+
+FINANCE
+→ money + collections + reconciliation
+
+Each UI should expose the work that the user needs to perform.
+
+============================================================
+40. TEACHER WORKLOAD REDUCTION
+============================================================
+
+A teacher must not become a data-entry operator.
+
+Where existing architecture permits:
+
+Teacher action
+→ structured event
+
+System derives:
+
+daily timeline
+attendance state
+care summary
+parent draft
+follow-up
+progress signals
+
+Use smart defaults.
+
+Allow bulk actions.
+
+Allow minimal-tap daily workflows.
+
+AI may assist with drafting/summarization but must not replace controlled business decisions.
+
+============================================================
+41. PARENT EXPERIENCE PRINCIPLE
+============================================================
+
+Parent should not need to understand PreOne's internal modules.
+
+Parent thinks:
+
+“My child.”
+
+Therefore organize parent experience around:
+
+MY CHILD
+ ↓
+TODAY
+ ↓
+CARE
+ ↓
+LEARNING
+ ↓
+HEALTH
+ ↓
+COMMUNICATION
+ ↓
+PROGRESS
+ ↓
+FEES
+ ↓
+DOCUMENTS
+
+Not:
+
+Attendance Module
+Academics Module
+Communication Module
+Finance Module
+
+The internal architecture may remain domain-based.
+
+The parent experience should remain child-centric.
+
+============================================================
+42. OPERATIONAL EXCEPTION MODEL
+============================================================
+
+Every operational exception must have:
+
+severity
+status
+owner
+created_at
+due_at where applicable
+action
+communication status
+resolution
+audit
+
+Statuses:
+
+OPEN
+ACKNOWLEDGED
+IN_PROGRESS
+WAITING
+RESOLVED
+CLOSED
+
+Do not allow important exceptions to disappear after notification.
+
+Notification != Resolution.
+
+============================================================
+43. NOTIFICATION VS WORKFLOW
+============================================================
+
+This is critical.
+
+Never assume:
+
+Notification sent = problem solved.
+
+Example:
+
+Health incident
+→ notification sent
+→ still OPEN
+→ parent response
+→ child picked up
+→ follow-up
+→ RESOLVED
+
+Similarly:
+
+Fee reminder
+→ reminder sent
+→ payment pending
+→ payment received
+→ resolved
+
+============================================================
+44. AUDITABILITY
+============================================================
+
+Every meaningful workflow mutation must record:
+
+actor
+timestamp
+tenant
+school
+branch
+academic year
+action
+entity
+before
+after
+reason where required
+
+Follow existing audit architecture.
+
+Do not invent a second audit mechanism.
+
+============================================================
+45. SECURITY
+============================================================
+
+Every cross-domain workflow must preserve:
+
+tenant isolation
+school isolation
+branch isolation
+academic year isolation
+RBAC
+sensitive-data protection
+
+Parent must only see linked child data.
+
+Teacher must only see assigned/authorized students.
+
+Branch staff must not see unauthorized branches.
+
+Historical academic-year data must remain correctly scoped.
+
+Health data must have stricter access where required.
+
+============================================================
+46. API INTEGRATION
+============================================================
+
+Before adding an API:
+
+CHECK EXISTING API CONTRACT CATALOG.
+
+If existing API:
+→ reuse/extend
+
+If genuinely missing:
+→ add according to existing contract conventions
+
+Do not create:
+
+/new-student-system
+/new-attendance-system
+/new-parent-system
+
+if existing domain APIs already exist.
+
+Create integration endpoints only where orchestration is genuinely required.
+
+Potential orchestration APIs:
+
+/api/v1/operations/today
+/api/v1/operations/exceptions
+/api/v1/operations/follow-ups
+/api/v1/student/:id/timeline
+/api/v1/student/:id/current-state
+
+These are suggestions only.
+
+First inspect existing API contracts.
+
+============================================================
+47. READ MODELS / DASHBOARDS
+============================================================
+
+Do not violate bounded-context ownership.
+
+If cross-context dashboards require combined data:
+
+Use:
+
+published APIs
+events
+read models
+reporting views
+
+Do not directly couple contexts through private tables.
+
+============================================================
+48. DATABASE
+============================================================
+
+Before adding any table:
+
+1. inspect existing schema
+2. inspect DDD aggregate
+3. inspect existing entity
+4. inspect API contract
+5. inspect BRC
+6. inspect ADR
+
+Only add DB structures where genuinely missing.
+
+All applicable tables must follow existing:
+
+tenant_id
+school_id
+branch_id
+academic_year_id
+created_by
+updated_by
+
+and other project conventions.
+
+Do not introduce schema patterns inconsistent with existing architecture.
+
+============================================================
+49. BRC ENFORCEMENT
+============================================================
+
+Every workflow must identify applicable business rules.
+
+Examples:
+
+Attendance
+→ attendance rules
+
+Pickup
+→ pickup authorization rules
+
+Admission
+→ eligibility rules
+
+Finance
+→ fee rules
+
+Observation
+→ observation frequency
+
+Parent notification
+→ notification rules
+
+Do not implement business logic only in UI.
+
+Business rules belong in backend/domain layer.
+
+============================================================
+50. ADR COMPLIANCE
+============================================================
+
+Before implementation inspect relevant ADRs.
+
+Especially:
+
+- tenancy
+- school/branch isolation
+- academic-year isolation
+- identity/RBAC
+- audit
+- data architecture
+- event architecture
+- API architecture
+- AI governance
+
+If implementation conflicts with an accepted/locked ADR:
+
+STOP.
+
+Document the conflict.
+
+Do not silently override the ADR.
+
+============================================================
+51. TEST STRATEGY
+============================================================
+
+Create tests at four levels:
+
+1. Unit
+2. API/integration
+3. Cross-domain workflow
+4. Browser E2E
+
+Mandatory E2E:
+
+NEW SCHOOL
+→ M00 SETUP
+→ GO LIVE
+→ CREATE ACADEMIC YEAR
+→ CREATE PROGRAM
+→ CREATE CLASS
+→ CREATE SECTION
+→ ASSIGN TEACHER
+→ CREATE ADMISSION
+→ APPROVE
+→ CREATE STUDENT
+→ LINK PARENT
+→ ALLOCATE STUDENT
+→ TEACHER LOGIN
+→ ATTENDANCE
+→ DAILY CARE
+→ OBSERVATION
+→ PARENT UPDATE
+→ FEE
+→ REPORT
+→ YEAR-END
+→ NEXT YEAR
+
+============================================================
+52. E2E ACCEPTANCE TEST
+============================================================
+
+The final test should simulate:
+
+A real preschool opening for a new academic year.
+
+Starting from:
+
+empty/new tenant
+
+Ending with:
+
+operational preschool
+
+with:
+
+- students
+- parents
+- teachers
+- sections
+- attendance
+- daily operations
+- learning
+- observations
+- communication
+- fees
+- reports
+
+Then simulate at least 10 exceptions/problems.
+
+Every problem must be:
+
+detected
+→ acted upon
+→ communicated where applicable
+→ followed up
+→ resolved
+→ auditable
+
+============================================================
+53. DATA CONSISTENCY TESTS
+============================================================
+
+Verify:
+
+One admission
+→ one resulting student
+
+One student
+→ correct parent links
+
+One student
+→ correct academic allocation
+
+One section
+→ correct teacher
+
+One invoice
+→ correct student/year
+
+One attendance sheet
+→ correct section/date/year
+
+One observation
+→ correct student/year/curriculum
+
+One parent
+→ only authorized children
+
+No cross-branch leakage.
+
+No cross-academic-year pollution.
+
+============================================================
+54. REGRESSION
+============================================================
+
+After every integration phase run:
+
+existing smoke tests
+existing E2E
+RBAC tests
+tenant isolation tests
+branch isolation tests
+academic-year isolation tests
+API contract tests
+UI regression
+
+M00 must remain fully functional.
+
+============================================================
+55. PERFORMANCE
+============================================================
+
+Do not create N+1 cross-domain queries.
+
+Use existing read models / batching / appropriate APIs.
+
+Respect existing architecture performance targets.
+
+Operational dashboard should not load entire historical data.
+
+Default:
+
+current branch
++
+current academic year
++
+today
+
+Historical queries must be explicitly requested.
+
+============================================================
+56. OBSERVABILITY
+============================================================
+
+For important workflow failures log:
+
+workflow
+event
+entity
+tenant
+school
+branch
+academic year
+actor
+failure reason
+
+Add traceability from:
+
+UI action
+→ API
+→ domain action
+→ event
+→ downstream effect
+
+============================================================
+57. IMPLEMENTATION ORDER
+============================================================
+
+Do NOT build everything randomly.
+
+Implement in this order:
+
+PHASE 1
+M00 configuration consumption
+
+PHASE 2
+Academic Year + Program/Class/Section integration
+
+PHASE 3
+Admissions → Student lifecycle
+
+PHASE 4
+Student → Teacher → Parent integration
+
+PHASE 5
+Attendance + Daily Operations
+
+PHASE 6
+Health & Safety
+
+PHASE 7
+Academics + Observation + Follow-up
+
+PHASE 8
+Communication
+
+PHASE 9
+Finance
+
+PHASE 10
+Reports / command centre
+
+PHASE 11
+Transport / Inventory / HR integrations where applicable
+
+PHASE 12
+Year-end / promotion / next academic year
+
+PHASE 13
+End-to-end problem-solving validation
+
+============================================================
+58. EACH PHASE MUST FOLLOW
+============================================================
+
+For every phase:
+
+STEP 1
+Inspect existing implementation
+
+STEP 2
+Update impact map
+
+STEP 3
+Identify reuse
+
+STEP 4
+Identify missing pieces
+
+STEP 5
+Implement backend
+
+STEP 6
+Implement events/integration
+
+STEP 7
+Implement UI
+
+STEP 8
+Write unit tests
+
+STEP 9
+Write integration tests
+
+STEP 10
+Run E2E
+
+STEP 11
+Run regression
+
+STEP 12
+Review security
+
+STEP 13
+Review BRC/ADR compliance
+
+STEP 14
+Document completion
+
+============================================================
+59. DEFINITION OF DONE — M00 INTEGRATION
+============================================================
+
+M00 integration is complete when:
+
+Every important M00 configuration is consumed by the appropriate existing domain.
+
+Examples:
+
+Academic Year
+→ Academics
+→ Admissions
+→ Student
+→ Attendance
+→ Finance
+→ Reports
+
+Program
+→ Admissions
+→ Curriculum
+→ Classes
+→ Fees
+
+Section
+→ Students
+→ Teacher
+→ Attendance
+→ Academics
+
+Operating Rules
+→ Daily Operations
+
+Health Configuration
+→ Health/Safety
+
+Communication Configuration
+→ Notification service
+
+============================================================
+60. DEFINITION OF DONE — COMPLETE LIFECYCLE
+============================================================
+
+Complete lifecycle is done when:
+
+A child can move through:
+
+Enquiry
+→ Admission
+→ Student
+→ Parent
+→ Allocation
+→ Teacher
+→ Daily Operations
+→ Learning
+→ Observation
+→ Parent Communication
+→ Progress
+→ Fees
+→ Reports
+→ Promotion
+→ Next Academic Year
+
+without manual database intervention.
+
+============================================================
+61. DEFINITION OF DONE — PROBLEM SOLVING
+============================================================
+
+The product is considered genuinely preschool-problem-solving only when:
+
+For real preschool problems:
+
+1. The system detects the relevant event.
+2. The correct person knows what to do.
+3. The required action can be completed.
+4. The right people are informed.
+5. The system remembers unresolved work.
+6. Follow-up is visible.
+7. Resolution is recorded.
+8. Management can see unresolved exceptions.
+9. Parent sees appropriate child-facing information.
+10. Historical evidence remains auditable.
+
+============================================================
+62. FINAL PRODUCT TEST
+============================================================
+
+Ask:
+
+“If a real preschool uses PreOne for one complete academic year, can PreOne help the school:
+
+- set itself up
+- admit children
+- onboard families
+- allocate children
+- organize teachers
+- run attendance
+- manage daily care
+- handle health/safety
+- conduct learning
+- record observations
+- identify children needing attention
+- follow up
+- communicate with parents
+- collect fees
+- manage staff
+- manage operations
+- report performance
+- close the academic year
+- promote students
+- start the next year
+
+without breaking data integrity or requiring manual database intervention?”
+
+If NO:
+
+identify the broken workflow.
+
+Do not mark the product complete.
+
+============================================================
+63. REQUIRED FINAL DOCUMENTATION
+============================================================
+
+Produce:
+
+docs/M01_End_to_End_Integration_Impact_Map.md
+
+docs/PreOne_Domain_Integration_Matrix.md
+
+docs/PreOne_Problem_Solving_Matrix.md
+
+docs/PreOne_Child_Lifecycle.md
+
+docs/PreOne_Daily_Operating_Loop.md
+
+docs/PreOne_End_to_End_Test_Matrix.md
+
+Each document must reference the existing:
+
+PRD
+DDD
+BRC
+ADR
+API Contract Catalog
+ERD
+
+============================================================
+64. FINAL DELIVERY REPORT
+============================================================
+
+At completion report:
+
+1. What was reused
+2. What was extended
+3. What was newly created
+4. Which APIs changed
+5. Which DB models changed
+6. Which events were added
+7. Which BRC rules were implemented
+8. Which ADRs were touched
+9. Which UI flows changed
+10. Which parent flows changed
+11. Which teacher flows changed
+12. Which owner flows changed
+13. E2E test count
+14. Regression test count
+15. Security test count
+16. Problem-solving scenario results
+17. Known remaining gaps
+
+Never claim “complete” merely because the UI exists.
+
+The final completion criterion is:
+
+REAL PRESCHOOL
+→ REAL CHILD
+→ REAL OPERATION
+→ REAL EXCEPTION
+→ REAL ACTION
+→ REAL COMMUNICATION
+→ REAL FOLLOW-UP
+→ REAL OUTCOME
+
+all working end-to-end.

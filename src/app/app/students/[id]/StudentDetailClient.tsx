@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, CalendarDays, Users, Wallet, Sparkles, Smartphone, Clock3,
+  Shuffle, ShieldCheck, ShieldAlert,
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
+import { Modal } from '@/components/preone/Modal'
+import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 
 interface Props {
@@ -23,6 +26,7 @@ interface Props {
     admissionDate: string
     classroom: { name: string; programType: string; teacher: string | null } | null
     guardians: {
+      guardianId: string
       name: string; relationship: string; phone: string; email: string | null
       isPrimary: boolean; canPickup: boolean
     }[]
@@ -47,7 +51,56 @@ const TL_DOT: Record<string, string> = {
 
 export function StudentDetailClient({ student }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [tab, setTab] = useState('overview')
+  const [allocOpen, setAllocOpen] = useState(false)
+  const [classrooms, setClassrooms] = useState<{ id: string; name: string; capacity: number; programType: string }[]>([])
+  const [history, setHistory] = useState<{ classroom: string; session: string; status: string; startedAt: string; endedAt: string | null; reason: string | null }[] | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const loadHistory = useCallback(async () => {
+    const r = await fetch(`/api/v1/students/${student.id}/allocate`).then((r) => r.json())
+    if (r.success) setHistory(r.data.history)
+  }, [student.id])
+
+  useEffect(() => {
+    fetch('/api/v1/classrooms?pageSize=100').then((r) => r.json()).then((j) => {
+      if (j.success) setClassrooms(j.data)
+    }).catch(() => {})
+    loadHistory()
+  }, [loadHistory])
+
+  const allocate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    const fd = new FormData(e.currentTarget)
+    const res = await fetch(`/api/v1/students/${student.id}/allocate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ classroomId: fd.get('classroomId'), reason: fd.get('reason') || undefined }),
+    })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) {
+      toast.success('Allocation updated', `Now in ${json.data.classroom} — history preserved`)
+      setAllocOpen(false)
+      loadHistory()
+      router.refresh()
+    } else toast.error('Allocation blocked', json.error?.message)
+  }
+
+  const release = async (guardianId: string, guardianName: string) => {
+    setBusy(true)
+    const res = await fetch('/api/v1/operations/pickup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId: student.id, guardianId }),
+    })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) toast.success('Released', `${guardianName} verified — pickup recorded on child timeline`)
+    else toast.error('RELEASE BLOCKED', json.error?.message || 'Not an authorised pickup contact — safety follow-up raised')
+  }
 
   return (
     <>
@@ -76,6 +129,9 @@ export function StudentDetailClient({ student }: Props) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setAllocOpen(true)}>
+            <Shuffle size={13} /> Change section
+          </button>
           <div className="stat-mini" style={{ minWidth: 100 }}>
             <b>{student.attendance.pct}%</b>
             <span>Attendance</span>
@@ -146,6 +202,11 @@ export function StudentDetailClient({ student }: Props) {
                   <span className={`badge ${g.canPickup ? 'b-success' : 'b-neutral'}`}>
                     {g.canPickup ? 'Can pickup' : 'No pickup'}
                   </span>
+                  {g.canPickup && (
+                    <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => release(g.guardianId, g.name)}>
+                      <ShieldCheck size={13} /> Release
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -265,6 +326,58 @@ export function StudentDetailClient({ student }: Props) {
           </div>
         </div>
       )}
+
+      {/* Allocation history (never overwritten — M01 Spec §10) */}
+      {history && history.length > 0 && (
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <div className="card-title">Allocation history</div>
+              <div className="card-sub">Per academic year — promotions and transfers preserve the full trail</div>
+            </div>
+            <Shuffle size={16} style={{ color: 'var(--foreground-muted)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {history.map((h) => (
+              <div key={h.classroom + h.startedAt} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <b style={{ fontSize: 13, flex: 1 }}>{h.classroom}</b>
+                <span className="t-caption">{h.session}</span>
+                <StatusBadge status={h.status} />
+                <span className="t-caption">{fmtDate(h.startedAt)}{h.endedAt ? ` → ${fmtDate(h.endedAt)}` : ' → now'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Allocate / transfer modal */}
+      <Modal open={allocOpen} onClose={() => setAllocOpen(false)} title="Allocate / Transfer" subtitle="Capacity-guarded · audited · history preserved" icon={<Shuffle size={20} />}>
+        <form onSubmit={allocate}>
+          <div className="field" style={{ marginBottom: 12 }}>
+            <label>New section <span className="req">*</span></label>
+            <select className="select" name="classroomId" required defaultValue="">
+              <option value="" disabled>Select section</option>
+              {classrooms.filter((c) => c.name !== student.classroom?.name).map((c) => (
+                <option key={c.id} value={c.id}>{c.name} — {enumLabel(c.programType)} (cap {c.capacity})</option>
+              ))}
+            </select>
+            <span className="helper">Full sections are blocked with a visible exception (no silent overbooking).</span>
+          </div>
+          <div className="field">
+            <label>Reason</label>
+            <select className="select" name="reason" defaultValue="Section change">
+              <option>Section change</option>
+              <option>TRANSFER</option>
+              <option>Program move</option>
+              <option>Parent request</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setAllocOpen(false)}>Cancel</button>
+            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Allocate</button>
+          </div>
+        </form>
+      </Modal>
     </>
   )
 }

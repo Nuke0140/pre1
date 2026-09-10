@@ -14,6 +14,8 @@ interface Observation {
   classroom: string | null
   narrative: string
   milestoneTags: string | null
+  category?: string | null
+  concern?: string
   status: string
   observedAt: string
 }
@@ -49,12 +51,20 @@ export default function AcademicsPage() {
         studentId: fd.get('studentId'),
         narrative: fd.get('narrative'),
         milestoneTags: fd.get('milestoneTags'),
+        category: fd.get('category') || undefined,
+        concern: fd.get('concern') || undefined,
       }),
     })
     const json = await res.json()
     setBusy(false)
     if (json.success) {
-      toast.success('Observation saved as draft', 'Publish it to share with parents')
+      const concern = json.data?.concern
+      toast.success(
+        'Observation saved as draft',
+        concern === 'NEEDS_ATTENTION' || concern === 'URGENT'
+          ? 'Learning follow-up raised — action + re-observation track ho jayega'
+          : 'Publish it to share with parents'
+      )
       setOpen(false)
       load()
     } else toast.error('Failed', json.error?.message)
@@ -111,6 +121,9 @@ export default function AcademicsPage() {
                     <b style={{ fontSize: 14 }}>{o.studentName}</b>
                     {o.classroom && <span className="t-caption">{o.classroom}</span>}
                     <StatusBadge status={o.status} />
+                    {o.concern === 'NEEDS_ATTENTION' && <span className="badge b-warning">Needs attention</span>}
+                    {o.concern === 'URGENT' && <span className="badge b-danger">Urgent</span>}
+                    {o.category && <span className="badge b-primary" style={{ height: 22, fontSize: 11 }}>{o.category}</span>}
                   </div>
                   <p className="t-body" style={{ marginTop: 4 }}>{o.narrative}</p>
                   {o.milestoneTags && (
@@ -150,6 +163,30 @@ export default function AcademicsPage() {
               placeholder="Anaya built a 12-block tower today and explained balance to her friends — emerging spatial reasoning and leadership…"
               style={{ minHeight: 110 }} />
             <span className="helper">Teacher approval ke baad publish hota hai (PRD rule).</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="field">
+              <label>Learning area</label>
+              <select className="select" name="category" defaultValue="">
+                <option value="">—</option>
+                <option>Language &amp; Literacy</option>
+                <option>Numeracy</option>
+                <option>Motor Skills</option>
+                <option>Social-Emotional</option>
+                <option>Creative Arts</option>
+              </select>
+              <span className="helper">From CURRICULUM config</span>
+            </div>
+            <div className="field">
+              <label>Triage (deterministic — no diagnosis)</label>
+              <select className="select" name="concern" defaultValue="NORMAL">
+                <option value="NORMAL">Normal — continue</option>
+                <option value="PROGRESS">Interesting progress</option>
+                <option value="NEEDS_ATTENTION">Needs attention (follow-up)</option>
+                <option value="URGENT">Urgent (escalate)</option>
+              </select>
+              <span className="helper">Attention/Urgent → learning follow-up loop</span>
+            </div>
           </div>
           <div className="field">
             <label>Milestone Tags</label>

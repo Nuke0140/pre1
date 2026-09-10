@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
 import { redirect } from 'next/navigation'
 import { DashboardClient } from './DashboardClient'
+import { TeacherToday } from './TeacherToday'
+import { ParentToday } from './ParentToday'
 
 export default async function DashboardPage() {
   const session = await getSession()
@@ -15,6 +17,11 @@ export default async function DashboardPage() {
     const setup = await db.schoolSetup.findUnique({ where: { tenantId }, select: { status: true } })
     if (setup && setup.status !== 'LIVE') redirect('/app/setup')
   }
+
+  // M01 — role-specific action boards consume the dedicated read-model APIs
+  // (teacher sees actions not config tables §11; parent is child-centric §21/§41)
+  if (session.role === 'TEACHER') return <TeacherToday />
+  if (session.role === 'PARENT') return <ParentToday />
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)

@@ -153,3 +153,27 @@ Stage Summary:
 - Deliverables: docs/M00_Implementation_Impact_Map.md, engine+APIs+UI live, scripts/m00-e2e.sh reusable
 - Screenshots: download/shot-m00-{dashboard,steps,config2,blocked2,settings}.png
 - Server: prod build on :3000, PG on :54329, demo accounts unchanged
+
+---
+Task ID: 9
+Agent: main (Super Z)
+Task: M01 — End-to-End Integration (M00 → full preschool lifecycle; 64-section brief)
+
+Work Log:
+- Phase 0 FIRST: docs/M01_End_to_End_Integration_Impact_Map.md — 12 config-consumption rows, 15 integration rows (I-1..I-15), RBAC/DB/API/UI deltas, implementation order (no coding before map)
+- Schema (additive): +5 enums (ObservationConcern, FollowUpDomain/Severity/Status, StudentAllocationStatus), TimelineEntryType+=HEALTH_CHECK, +2 models (FollowUp, StudentAllocation), +academicSessionId on Attendance/Invoice/TimelineEntry/Observation, Guardian.pickupPin, Observation.category/concern
+- FIXED pre-existing cross-tenant bug: applicationNumber & receiptNumber were GLOBAL unique while numbering is per-tenant → tenant-scoped unique + backfilled receipts.tenantId (M01 §53 catch)
+- Engine libs: src/lib/config.ts (typed SchoolConfig accessor+defaults), academic.ts (session resolvers), calendar.ts (dayStatus), capacity.ts, followups.ts (raise/transition/resolveByDedupeKey; notification≠resolution), events.ts (in-process domain event seam), notify.ts (funnel over Announcement/TimelineEntry — no second notification engine), integrations.ts (event→FU/notify wiring)
+- APIs new: /operations/{today,exceptions,follow-ups,follow-ups/[id],pickup}, /care (GET+POST bulk, config-gated), /teacher/today, /parent/today, /students/[id]/allocate (GET history+POST w/ capacity guard), /applications/[id]/waitlist, /invoices/[id]/remind, /academic-years/[id]/{close,promote}; EXT: attendance (calendar guard+AY+exception events), observations (category/concern→learning FU), invoices (overdue sync+AY+events), payments (PaymentReceived→auto-resolve FU), approve (required-docs gate+FINANCE dueDayOffset+allocation row+events), leads/convert (doc checklist — was missing, broke approve)
+- RBAC additive: operations:read/write → PRINCIPAL/COORDINATOR/TEACHER, operations:read → ACCOUNTS; PARENT unchanged
+- UI: /app/operations command centre (CRITICAL/ATTENTION/NORMAL bands, sections grid, FU queue w/ resolve), dashboard role-split (TEACHER→TeacherToday quick-tap care+follow-ups; PARENT→ParentToday child-centric), nav Operations (+g-red/ic-red classes), academics composer (category+concern), student detail (allocate modal+history+pickup release), finance remind button
+- E2E scripts/m01-e2e.sh: 49/49 PASS — full journey incl. 2 admissions, attendance exceptions, care config-gating, health/incident escalation, learning loop closure, pickup block, overdue→remind→payment→auto-resolve, capacity full block, promote w/ history; fixture m01-fixture.mjs (parent user+guardian link, test harness only)
+- Regression: smoke.sh 31/31, m00-e2e.sh 41/41 — M00 untouched
+- Bugs fixed during E2E: users API excludes PARENT (by design — fixture), fixture email case (login lowercases), bash quoting in asserts, single-student test data
+- Ops: pg-start.sh now self-heals (stale pid, ICU symlinks, runtime dirs, port 54329 re-enforce, .env restore); postgresql.conf sandbox reset to 5432 detected+fixed; server restart = pkill -9 -f next-server + setsid --fork standalone
+- Docs: M01_End_to_End_Integration_Impact_Map, PreOne_Domain_Integration_Matrix, PreOne_Problem_Solving_Matrix, PreOne_Child_Lifecycle, PreOne_Daily_Operating_Loop, PreOne_End_to_End_Test_Matrix
+
+Stage Summary:
+- M01 DoD met: child journeys enquiry→admission→allocation→daily ops→learning→communication→fees→reports→promotion→next AY with ZERO manual DB intervention; 10 problem scenarios detect→act→communicate→follow-up→resolve→audit
+- Known gaps (documented, by design): Transport/Inventory/Leave/Payroll contexts don't exist in MVP (feature flags OFF, Impact Map I-15); AI daily-summary drafting not wired (existing AI gateway untouched); notification channels beyond IN_APP need providers
+- Server: prod build :3000; PG :54329 (1+2 tenants); demo accounts unchanged; total automated checks 121 green (49+41+31)

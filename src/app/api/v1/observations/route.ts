@@ -3,6 +3,10 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
+import { getDomainConfig, getCurriculum } from '@/lib/config'
+import { resolveSessionId } from '@/lib/academic'
+import { emit } from '@/lib/events'
+import { registerIntegrations } from '@/lib/integrations'
 
 /** GET /api/v1/observations — list (teacher sees own; principal sees all) */
 export async function GET(req: NextRequest) {
@@ -31,6 +35,8 @@ export async function GET(req: NextRequest) {
         classroom: o.classroom?.name ?? null,
         narrative: o.narrative,
         milestoneTags: o.milestoneTags,
+        category: o.category,
+        concern: o.concern,
         status: o.status,
         observedAt: o.observedAt,
         publishedAt: o.publishedAt,
@@ -41,18 +47,24 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/v1/observations — record observation (min 20 chars per PRD) */
+/** POST /api/v1/observations — record observation (min 20 chars per PRD)
+ *  M01 learning loop (Spec §17-19): category (CURRICULUM learning areas) +
+ *  deterministic concern triage (NORMAL/PROGRESS/NEEDS_ATTENTION/URGENT — never
+ *  a diagnosis). NEEDS_ATTENTION/URGENT → Learning follow-up via event seam. */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'academics:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
+  registerIntegrations()
 
   try {
     const body = await req.json()
-    const { studentId, narrative, milestoneTags } = body as {
+    const { studentId, narrative, milestoneTags, category, concern } = body as {
       studentId: string
       narrative: string
       milestoneTags?: string
+      category?: string
+      concern?: 'NORMAL' | 'PROGRESS' | 'NEEDS_ATTENTION' | 'URGENT'
     }
     if (!studentId || !narrative) {
       return Errors.validation('studentId and narrative are required')
@@ -60,11 +72,25 @@ export async function POST(req: NextRequest) {
     if (narrative.trim().length < 20) {
       return Errors.validation('Observation narrative must be at least 20 characters', 'narrative')
     }
+    if (concern && !['NORMAL', 'PROGRESS', 'NEEDS_ATTENTION', 'URGENT'].includes(concern)) {
+      return Errors.validation('concern must be NORMAL, PROGRESS, NEEDS_ATTENTION or URGENT')
+    }
 
     const student = await db.student.findFirst({
       where: { id: studentId, tenantId: session.tenantId },
     })
     if (!student) return Errors.notFound('Student')
+
+    // category validated against CURRICULUM config learning areas (when provided)
+    if (category) {
+      const curriculum = getCurriculum(await getDomainConfig(session.tenantId, 'CURRICULUM'))
+      const areas: string[] = curriculum.learningAreas || []
+      if (areas.length > 0 && !areas.includes(category)) {
+        return Errors.validation(`category must be one of the configured learning areas: ${areas.join(', ')}`)
+      }
+    }
+
+    const sessionRow = await resolveSessionId(session.tenantId, { classroomId: student.currentClassroomId })
 
     const observation = await db.observation.create({
       data: {
@@ -74,9 +100,26 @@ export async function POST(req: NextRequest) {
         teacherId: session.uid,
         narrative: narrative.trim(),
         milestoneTags: milestoneTags || null,
+        category: category || null,
+        concern: concern || 'NORMAL',
         status: 'DRAFT',
+        academicSessionId: sessionRow?.id,
       },
     })
+
+    // learning loop: observation → action → outcome (via follow-up engine)
+    if (concern === 'NEEDS_ATTENTION' || concern === 'URGENT') {
+      await emit({
+        type: 'ObservationRecorded',
+        tenantId: session.tenantId,
+        studentId,
+        observationId: observation.id,
+        concern,
+        category: category || null,
+        title: concern === 'URGENT' ? `Urgent learning concern — ${student.firstName}` : `Learning attention needed — ${student.firstName}`,
+        detail: narrative.trim().slice(0, 280),
+      })
+    }
 
     await audit({
       tenantId: session.tenantId,
@@ -85,10 +128,10 @@ export async function POST(req: NextRequest) {
       action: 'CREATE',
       entity: 'Observation',
       entityId: observation.id,
-      summary: `Observation recorded for ${student.firstName}`,
+      summary: `Observation recorded for ${student.firstName}${category ? ` [${category}]` : ''}${concern && concern !== 'NORMAL' ? ` — ${concern}` : ''}`,
     })
 
-    return ok({ observationId: observation.id }, undefined, 201)
+    return ok({ observationId: observation.id, concern: concern || 'NORMAL' }, undefined, 201)
   } catch (e) {
     return Errors.system(e)
   }

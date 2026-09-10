@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
+import { emit } from '@/lib/events'
+import { registerIntegrations } from '@/lib/integrations'
 
 /**
  * POST /api/v1/invoices/{id}/payments — record a payment against an invoice.
@@ -16,6 +18,7 @@ export async function POST(
   const session = await requireApi(req, 'finance:write')
   if (isResponse(session)) return session
   const { id } = await params
+  registerIntegrations()
 
   try {
     const body = await req.json()
@@ -69,12 +72,12 @@ export async function POST(
       })
 
       const receipt = await tx.receipt.create({
-        data: { paymentId: payment.id, receiptNumber, amountCents },
+        data: { paymentId: payment.id, receiptNumber, amountCents, tenantId: session.tenantId! },
       })
 
       await tx.invoice.update({
         where: { id: invoice.id },
-        data: { paidCents, balanceCents, status: newStatus, paidAt: newStatus === 'PAID' ? new Date() : null },
+        data: { paidCents, balanceCents, status: newStatus },
       })
 
       return { payment, receipt, newStatus }
@@ -89,6 +92,17 @@ export async function POST(
         title: `Fee payment received — ${paymentNumber}`,
         body: `₹${amountCents / 100} received via ${method}. Receipt ${receiptNumber} issued.`,
       },
+    })
+
+    // M01: payment closes the fee loop — auto-resolves the open FINANCE follow-up
+    await emit({
+      type: 'PaymentReceived',
+      tenantId: session.tenantId!,
+      invoiceId: invoice.id,
+      studentId: invoice.studentId,
+      paymentNumber,
+      amountCents,
+      fullyPaid: result.newStatus === 'PAID',
     })
 
     await audit({

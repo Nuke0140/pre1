@@ -46,6 +46,7 @@ export default async function StudentDetailPage({
             }
           : null,
         guardians: student.guardians.map((g) => ({
+          guardianId: g.guardianId,
           name: g.guardian.fullName,
           relationship: g.guardian.relationship,
           phone: g.guardian.phone,

@@ -1,0 +1,2002 @@
+     1→You are continuing implementation of the existing PreOne Preschool Management Platform.
+     2→
+     3→This is NOT a greenfield project.
+     4→
+     5→M00 — Preschool Creation & Setup has already been implemented.
+     6→
+     7→The next objective is to connect M00 to the existing PreOne bounded contexts and complete the end-to-end preschool lifecycle so that PreOne does not merely store information, but actually operates the preschool workflow from configuration through daily child care, learning, parent communication, finance, reporting, and year-end continuation.
+     8→
+     9→============================================================
+    10→0. ABSOLUTE RULES
+    11→============================================================
+    12→
+    13→DO NOT:
+    14→
+    15→- redesign the existing architecture
+    16→- replace existing bounded contexts
+    17→- create duplicate Student, Parent, Teacher, Academic Year, Branch, Fee, Attendance, Notification or Curriculum systems
+    18→- bypass existing RBAC
+    19→- bypass existing audit
+    20→- bypass tenant/school/branch/academic-year isolation
+    21→- create parallel APIs where an existing API already exists
+    22→- create a second business-rule engine
+    23→- create a second notification engine
+    24→- create a second configuration system
+    25→- directly query another bounded context's tables if the architecture forbids it
+    26→- silently modify locked ADR decisions
+    27→- remove existing working functionality
+    28→
+    29→FIRST inspect and understand:
+    30→
+    31→- PreOne Master PRD
+    32→- PreOne DDD
+    33→- PreOne BRC
+    34→- PreOne ADRs
+    35→- PreOne ERD/database schema
+    36→- PreOne API Contract Catalog
+    37→- UI Design Philosophy
+    38→- Parent Portal
+    39→- Teacher Portal
+    40→- M00 Implementation Impact Map
+    41→- Existing implemented M00 code
+    42→
+    43→Then produce an implementation impact map before coding.
+    44→
+    45→============================================================
+    46→1. CURRENT STATE
+    47→============================================================
+    48→
+    49→M00 — Preschool Creation & Setup is already implemented.
+    50→
+    51→Existing M00 capabilities include:
+    52→
+    53→- school creation
+    54→- tenant creation
+    55→- first admin
+    56→- school profile
+    57→- branch
+    58→- branding
+    59→- programs
+    60→- facilities
+    61→- operating configuration
+    62→- roles
+    63→- staff foundation
+    64→- academic year
+    65→- classes
+    66→- sections
+    67→- capacity
+    68→- teacher assignment
+    69→- curriculum configuration
+    70→- calendar
+    71→- admission configuration
+    72→- student/parent configuration
+    73→- finance configuration
+    74→- daily operations configuration
+    75→- health & safety configuration
+    76→- communication configuration
+    77→- document configuration
+    78→- data import
+    79→- setup validation
+    80→- go-live
+    81→- setup state machine
+    82→- dependency engine
+    83→- setup dashboard
+    84→- guided setup pages
+    85→
+    86→M00 currently establishes configuration.
+    87→
+    88→The remaining work is:
+    89→
+    90→A. M00 → Existing Module Integration
+    91→B. Complete Preschool Lifecycle
+    92→C. End-to-End Preschool Problem-Solving Workflows
+    93→
+    94→============================================================
+    95→2. TARGET PRODUCT
+    96→============================================================
+    97→
+    98→The final product must behave like:
+    99→
+   100→PRESCHOOL CREATION
+   101→        ↓
+   102→PRESCHOOL SETUP
+   103→        ↓
+   104→ACADEMIC YEAR
+   105→        ↓
+   106→ACADEMIC STRUCTURE
+   107→        ↓
+   108→ADMISSION
+   109→        ↓
+   110→STUDENT ONBOARDING
+   111→        ↓
+   112→CLASS / SECTION ALLOCATION
+   113→        ↓
+   114→TEACHER ASSIGNMENT
+   115→        ↓
+   116→DAILY PRESCHOOL OPERATIONS
+   117→        ↓
+   118→CHILD CARE
+   119→        ↓
+   120→LEARNING
+   121→        ↓
+   122→OBSERVATION
+   123→        ↓
+   124→ACTION / INTERVENTION
+   125→        ↓
+   126→PARENT COMMUNICATION
+   127→        ↓
+   128→FOLLOW-UP
+   129→        ↓
+   130→OUTCOME
+   131→        ↓
+   132→PROGRESS
+   133→        ↓
+   134→REPORTING
+   135→        ↓
+   136→FINANCE / ADMINISTRATION
+   137→        ↓
+   138→YEAR-END
+   139→        ↓
+   140→NEXT ACADEMIC YEAR
+   141→        ↓
+   142→CONTINUOUS SCHOOL OPERATION
+   143→
+   144→This must be an actual connected system.
+   145→
+   146→Not merely a collection of modules.
+   147→
+   148→============================================================
+   149→3. CORE PRODUCT PRINCIPLE
+   150→============================================================
+   151→
+   152→For every important preschool event, PreOne must be able to answer:
+   153→
+   154→WHAT HAPPENED?
+   155→        ↓
+   156→WHO IS AFFECTED?
+   157→        ↓
+   158→DOES IT REQUIRE ATTENTION?
+   159→        ↓
+   160→WHAT SHOULD HAPPEN NEXT?
+   161→        ↓
+   162→WHO SHOULD ACT?
+   163→        ↓
+   164→WHO SHOULD BE INFORMED?
+   165→        ↓
+   166→WAS THE ACTION COMPLETED?
+   167→        ↓
+   168→WHAT WAS THE OUTCOME?
+   169→
+   170→This is the core problem-solving loop.
+   171→
+   172→Use:
+   173→
+   174→EVENT
+   175→→ DETECTION
+   176→→ DECISION
+   177→→ ACTION
+   178→→ COMMUNICATION
+   179→→ FOLLOW-UP
+   180→→ OUTCOME
+   181→
+   182→Do not make every module independently solve this pattern.
+   183→
+   184→Reuse the appropriate domain services and cross-context events.
+   185→
+   186→============================================================
+   187→4. PHASE 0 — IMPACT MAP FIRST
+   188→============================================================
+   189→
+   190→Before coding create:
+   191→
+   192→docs/M01_End_to_End_Integration_Impact_Map.md
+   193→
+   194→For every integration identify:
+   195→
+   196→Feature
+   197→→ Source Context
+   198→→ Target Context
+   199→→ Existing Entity
+   200→→ Existing API
+   201→→ Existing Event
+   202→→ Existing BRC Rule
+   203→→ Existing ADR
+   204→→ Existing UI
+   205→→ Required UI Change
+   206→→ Required API Change
+   207→→ Required DB Change
+   208→→ Dependency
+   209→→ Security Scope
+   210→→ Audit Requirement
+   211→→ Acceptance Criteria
+   212→
+   213→Example:
+   214→
+   215→M00 Academic Year
+   216→→ Settings
+   217→→ Academics
+   218→→ AcademicSession
+   219→→ existing API
+   220→→ Student Allocation
+   221→→ Attendance
+   222→→ Fees
+   223→→ Reports
+   224→
+   225→Do not proceed to implementation until this map exists.
+   226→
+   227→============================================================
+   228→5. PHASE 1 — M00 CONFIGURATION CONSUMPTION
+   229→============================================================
+   230→
+   231→Every configuration created during M00 must become the single source of truth for existing modules.
+   232→
+   233→Build integration adapters/services only where necessary.
+   234→
+   235→The pattern must be:
+   236→
+   237→M00 CONFIG
+   238→    ↓
+   239→DOMAIN CONFIGURATION
+   240→    ↓
+   241→DOMAIN WORKFLOW
+   242→
+   243→Do NOT copy M00 values into duplicate configuration tables unless the architecture explicitly requires a snapshot.
+   244→
+   245→Examples:
+   246→
+   247→School operating hours
+   248→→ Attendance
+   249→
+   250→Academic calendar
+   251→→ Attendance
+   252→
+   253→Program capacity
+   254→→ Admission
+   255→
+   256→Fee configuration
+   257→→ Finance
+   258→
+   259→Section teacher assignment
+   260→→ Teacher Portal
+   261→
+   262→Section membership
+   263→→ Student / Teacher / Attendance / Academics
+   264→
+   265→Communication templates
+   266→→ Notification Service
+   267→
+   268→Health rules
+   269→→ Health/Safety workflows
+   270→
+   271→============================================================
+   272→6. ACADEMIC YEAR INTEGRATION
+   273→============================================================
+   274→
+   275→Academic Year is a mandatory operational context.
+   276→
+   277→Every applicable operational flow must resolve:
+   278→
+   279→tenant
+   280→→ school
+   281→→ branch
+   282→→ academic year
+   283→
+   284→Do not allow current-year operational data to accidentally mix with historical years.
+   285→
+   286→Existing architecture requires operational records such as attendance, fee invoices, daily sheets, observations and assessments to carry academic-year context.
+   287→
+   288→Implement and verify:
+   289→
+   290→Current Academic Year
+   291→→ default operational scope
+   292→
+   293→Historical Academic Year
+   294→→ queryable
+   295→→ read-only where appropriate
+   296→
+   297→New Academic Year
+   298→→ independent allocation/configuration
+   299→
+   300→Year-end
+   301→→ transactional transition
+   302→
+   303→Never overwrite historical allocations.
+   304→
+   305→============================================================
+   306→7. ACADEMIC STRUCTURE INTEGRATION
+   307→============================================================
+   308→
+   309→Connect:
+   310→
+   311→Academic Year
+   312→ ↓
+   313→Program
+   314→ ↓
+   315→Class
+   316→ ↓
+   317→Section
+   318→ ↓
+   319→Classroom
+   320→ ↓
+   321→Teacher
+   322→ ↓
+   323→Students
+   324→
+   325→Every downstream workflow must resolve this structure.
+   326→
+   327→Examples:
+   328→
+   329→Teacher dashboard:
+   330→Teacher
+   331→→ assigned sections
+   332→→ students
+   333→
+   334→Attendance:
+   335→Section
+   336→→ students
+   337→→ daily attendance
+   338→
+   339→Academics:
+   340→Section
+   341→→ curriculum
+   342→→ lesson
+   343→→ observations
+   344→
+   345→Parent:
+   346→Student
+   347→→ current section
+   348→→ teacher
+   349→→ learning information
+   350→
+   351→Finance:
+   352→Student
+   353→→ program
+   354→→ academic year
+   355→→ fee plan
+   356→
+   357→============================================================
+   358→8. ADMISSION → STUDENT LIFECYCLE
+   359→============================================================
+   360→
+   361→Implement the complete admission lifecycle using the existing Admissions context.
+   362→
+   363→Flow:
+   364→
+   365→Lead / Enquiry
+   366→ ↓
+   367→Application
+   368→ ↓
+   369→Eligibility
+   370→ ↓
+   371→Document Collection
+   372→ ↓
+   373→Medical Information
+   374→ ↓
+   375→Counselling where applicable
+   376→ ↓
+   377→Review
+   378→ ↓
+   379→Approval
+   380→ ↓
+   381→Fee Plan Selection
+   382→ ↓
+   383→Admission Confirmation
+   384→ ↓
+   385→StudentCreated
+   386→ ↓
+   387→Student becomes owned by Student context
+   388→ ↓
+   389→Parent / Guardian relationship
+   390→ ↓
+   391→Academic Allocation
+   392→ ↓
+   393→Section Assignment
+   394→ ↓
+   395→Teacher visibility
+   396→
+   397→Do not create a second student record when an admission is approved.
+   398→
+   399→Admission must maintain provisional student information until approval according to the existing domain model.
+   400→
+   401→After approval, emit/use the existing StudentCreated event.
+   402→
+   403→============================================================
+   404→9. CAPACITY MANAGEMENT
+   405→============================================================
+   406→
+   407→Connect M00 capacity configuration to actual admission/enrollment.
+   408→
+   409→Flow:
+   410→
+   411→Program Capacity
+   412→+
+   413→Section Capacity
+   414→        ↓
+   415→Available Seats
+   416→        ↓
+   417→Admission
+   418→        ↓
+   419→Enrollment
+   420→
+   421→Rules:
+   422→
+   423→Current enrollment < capacity
+   424→→ allow
+   425→
+   426→Current enrollment >= capacity
+   427→→ block new allocation
+   428→
+   429→If an override exists:
+   430→→ require authorized approval
+   431→→ audit
+   432→
+   433→Display:
+   434→
+   435→Capacity
+   436→Current
+   437→Available
+   438→Waitlist
+   439→
+   440→Do not allow silent overbooking.
+   441→
+   442→============================================================
+   443→10. STUDENT ALLOCATION
+   444→============================================================
+   445→
+   446→Student is the master aggregate.
+   447→
+   448→Academic allocation is mutable per academic year.
+   449→
+   450→Flow:
+   451→
+   452→Student
+   453→ ↓
+   454→Academic Year
+   455→ ↓
+   456→Program
+   457→ ↓
+   458→Class
+   459→ ↓
+   460→Section
+   461→ ↓
+   462→Teacher
+   463→ ↓
+   464→Classroom
+   465→
+   466→Maintain historical allocations.
+   467→
+   468→Do not overwrite previous academic-year allocation.
+   469→
+   470→Support:
+   471→
+   472→- initial allocation
+   473→- section change
+   474→- transfer
+   475→- promotion
+   476→- withdrawal
+   477→- archive
+   478→
+   479→Every change must be auditable.
+   480→
+   481→============================================================
+   482→11. TEACHER PORTAL INTEGRATION
+   483→============================================================
+   484→
+   485→Teacher portal must consume actual assignments.
+   486→
+   487→Teacher login
+   488→ ↓
+   489→Branch scope
+   490→ ↓
+   491→Academic Year
+   492→ ↓
+   493→Assigned Classes
+   494→ ↓
+   495→Assigned Sections
+   496→ ↓
+   497→Students
+   498→
+   499→Teacher must NOT manually recreate class lists.
+   500→
+   501→Teacher dashboard should surface:
+   502→
+   503→TODAY
+   504→
+   505→- attendance pending
+   506→- daily sheet pending
+   507→- health/safety alerts
+   508→- children needing attention
+   509→- activities
+   510→- observations due
+   511→- parent messages
+   512→- follow-ups
+   513→
+   514→The teacher should see actions, not configuration tables.
+   515→
+   516→============================================================
+   517→12. ATTENDANCE INTEGRATION
+   518→============================================================
+   519→
+   520→Connect M00:
+   521→
+   522→- school timings
+   523→- working days
+   524→- holidays
+   525→- late rules
+   526→- section configuration
+   527→
+   528→to Attendance.
+   529→
+   530→Daily flow:
+   531→
+   532→School Open
+   533→ ↓
+   534→Working Day?
+   535→ ↓
+   536→Yes
+   537→ ↓
+   538→Section Attendance
+   539→ ↓
+   540→Student Attendance
+   541→ ↓
+   542→Late detection
+   543→ ↓
+   544→Absence detection
+   545→ ↓
+   546→Required action
+   547→ ↓
+   548→Parent notification
+   549→ ↓
+   550→Follow-up if necessary
+   551→
+   552→Use the existing AttendanceSheet aggregate.
+   553→
+   554→Attendance sheet is per classroom/section per day.
+   555→
+   556→Do not violate immutability rules.
+   557→
+   558→Corrections must use existing adjustment/correction mechanism.
+   559→
+   560→============================================================
+   561→13. DAILY PRESCHOOL OPERATIONS
+   562→============================================================
+   563→
+   564→Build the complete daily classroom loop.
+   565→
+   566→Morning:
+   567→
+   568→School opens
+   569→ ↓
+   570→Teacher sees assigned class
+   571→ ↓
+   572→Expected students
+   573→ ↓
+   574→Arrival
+   575→ ↓
+   576→Health check where configured
+   577→ ↓
+   578→Attendance
+   579→
+   580→During day:
+   581→
+   582→Meals
+   583→ ↓
+   584→Nap
+   585→ ↓
+   586→Bathroom
+   587→ ↓
+   588→Mood
+   589→ ↓
+   590→Activities
+   591→ ↓
+   592→Observations
+   593→ ↓
+   594→Incidents if any
+   595→ ↓
+   596→Pickup preparation
+   597→
+   598→End of day:
+   599→
+   600→Daily sheet review
+   601→ ↓
+   602→Exceptions
+   603→ ↓
+   604→Parent communication
+   605→ ↓
+   606→Teacher submission
+   607→
+   608→The system must distinguish:
+   609→
+   610→NORMAL
+   611→ATTENTION REQUIRED
+   612→URGENT
+   613→
+   614→============================================================
+   615→14. CHILD STATE / EXCEPTION ENGINE
+   616→============================================================
+   617→
+   618→Do NOT create an uncontrolled AI diagnosis system.
+   619→
+   620→Create a deterministic operational exception layer.
+   621→
+   622→Examples:
+   623→
+   624→Attendance:
+   625→Absent without expected reason
+   626→
+   627→Health:
+   628→Health check exception
+   629→
+   630→Care:
+   631→Meal skipped
+   632→Nap abnormal
+   633→Repeated bathroom issue
+   634→
+   635→Behaviour:
+   636→Repeated unusual mood/behavior observation
+   637→
+   638→Learning:
+   639→Milestone not progressing
+   640→Repeated difficulty
+   641→
+   642→Safety:
+   643→Unauthorized pickup attempt
+   644→Incident
+   645→
+   646→Each exception:
+   647→
+   648→Event
+   649→ ↓
+   650→Severity
+   651→ ↓
+   652→Responsible role
+   653→ ↓
+   654→Action
+   655→ ↓
+   656→Communication
+   657→ ↓
+   658→Follow-up
+   659→ ↓
+   660→Resolution
+   661→
+   662→Every unresolved exception must remain visible.
+   663→
+   664→============================================================
+   665→15. HEALTH & SAFETY
+   666→============================================================
+   667→
+   668→Use existing Health/Safety rules and BRC.
+   669→
+   670→Core flow:
+   671→
+   672→Health Check
+   673→ ↓
+   674→Normal?
+   675→   ├─ YES → continue
+   676→   └─ NO
+   677→        ↓
+   678→     isolate / appropriate action
+   679→        ↓
+   680→     authorized staff
+   681→        ↓
+   682→     parent communication
+   683→        ↓
+   684→     pickup / medical action
+   685→        ↓
+   686→     incident/health record
+   687→        ↓
+   688→     follow-up
+   689→        ↓
+   690→     resolution
+   691→
+   692→Emergency flows must have appropriate priority and escalation.
+   693→
+   694→Never treat health alerts as normal informational notifications.
+   695→
+   696→============================================================
+   697→16. PICKUP / AUTHORIZED RELEASE
+   698→============================================================
+   699→
+   700→Connect:
+   701→
+   702→Student
+   703→ ↓
+   704→Authorized Pickup
+   705→ ↓
+   706→Identity Verification
+   707→ ↓
+   708→Section
+   709→ ↓
+   710→Release
+   711→
+   712→Rules must come from existing BRC.
+   713→
+   714→Unauthorized person:
+   715→→ BLOCK
+   716→
+   717→Mismatch:
+   718→→ BLOCK + alert/escalation
+   719→
+   720→Valid authorization:
+   721→→ release
+   722→→ audit
+   723→
+   724→Transport integration should be used if configured.
+   725→
+   726→============================================================
+   727→17. LEARNING LOOP
+   728→============================================================
+   729→
+   730→Academics must become an action loop.
+   731→
+   732→Current domain model:
+   733→
+   734→CurriculumPlan
+   735→ ↓
+   736→LessonPlan
+   737→ ↓
+   738→LearningOutcome
+   739→ ↓
+   740→Milestone
+   741→ ↓
+   742→Observation
+   743→ ↓
+   744→ReportCard
+   745→
+   746→Extend operationally to:
+   747→
+   748→Curriculum
+   749→ ↓
+   750→Planned Activity
+   751→ ↓
+   752→Teacher Delivery
+   753→ ↓
+   754→Observation
+   755→ ↓
+   756→Child Need
+   757→ ↓
+   758→Suggested Next Action
+   759→ ↓
+   760→Teacher Action
+   761→ ↓
+   762→New Observation
+   763→ ↓
+   764→Outcome
+   765→
+   766→The critical missing connection is:
+   767→
+   768→OBSERVATION → ACTION → OUTCOME
+   769→
+   770→not just:
+   771→
+   772→OBSERVATION → REPORT
+   773→
+   774→============================================================
+   775→18. TEACHER OBSERVATION FLOW
+   776→============================================================
+   777→
+   778→Teacher records:
+   779→
+   780→- category
+   781→- notes
+   782→- activity/context
+   783→- date
+   784→- optional media
+   785→
+   786→System checks:
+   787→
+   788→- observation frequency
+   789→- milestone relationship
+   790→- student
+   791→- section
+   792→- academic year
+   793→
+   794→After observation:
+   795→
+   796→NORMAL
+   797→→ continue
+   798→
+   799→INTERESTING PROGRESS
+   800→→ update progress signal
+   801→
+   802→NEEDS ATTENTION
+   803→→ create follow-up
+   804→
+   805→URGENT/SENSITIVE
+   806→→ appropriate escalation
+   807→
+   808→Do not automatically make medical/psychological diagnoses.
+   809→
+   810→============================================================
+   811→19. LEARNING FOLLOW-UP
+   812→============================================================
+   813→
+   814→If observation indicates a learning need:
+   815→
+   816→Observation
+   817→ ↓
+   818→Need identified
+   819→ ↓
+   820→Suggested activity / strategy
+   821→ ↓
+   822→Teacher reviews
+   823→ ↓
+   824→Teacher executes
+   825→ ↓
+   826→Follow-up observation
+   827→ ↓
+   828→Compare outcome
+   829→
+   830→Store:
+   831→
+   832→Initial observation
+   833→Action
+   834→Date
+   835→Responsible teacher
+   836→Follow-up observation
+   837→Outcome
+   838→
+   839→This creates a real learning improvement loop.
+   840→
+   841→============================================================
+   842→20. PARENT COMMUNICATION
+   843→============================================================
+   844→
+   845→Use the existing Notification bounded context.
+   846→
+   847→Every notification must have:
+   848→
+   849→event
+   850→→ recipient
+   851→→ channel
+   852→→ template
+   853→→ delivery
+   854→→ receipt
+   855→
+   856→Examples:
+   857→
+   858→Attendance
+   859→→ parent
+   860→
+   861→Health incident
+   862→→ parent
+   863→
+   864→Daily update
+   865→→ parent
+   866→
+   867→Learning observation
+   868→→ parent where configured
+   869→
+   870→Fee reminder
+   871→→ parent
+   872→
+   873→Announcement
+   874→→ target audience
+   875→
+   876→Do NOT hardcode notification behavior into every module.
+   877→
+   878→Centralize through existing communication infrastructure.
+   879→
+   880→============================================================
+   881→21. PARENT EXPERIENCE
+   882→============================================================
+   883→
+   884→Parent Portal must not be merely a data viewer.
+   885→
+   886→Home should answer:
+   887→
+   888→“How is my child doing today?”
+   889→
+   890→Provide:
+   891→
+   892→TODAY
+   893→
+   894→Safety
+   895→Care
+   896→Attendance
+   897→Mood
+   898→Meals
+   899→Nap
+   900→Activities
+   901→Learning
+   902→Teacher updates
+   903→Important attention items
+   904→
+   905→Then:
+   906→
+   907→PROGRESS
+   908→
+   909→Observations
+   910→Milestones
+   911→Learning areas
+   912→Reports
+   913→
+   914→Then:
+   915→
+   916→ACTION
+   917→
+   918→Messages
+   919→Follow-ups
+   920→Forms
+   921→Payments
+   922→Approvals
+   923→
+   924→Sensitive/internal school notes must never leak to parents.
+   925→
+   926→Parent visibility must follow existing RBAC/privacy rules.
+   927→
+   928→============================================================
+   929→22. DAILY PARENT UPDATE
+   930→============================================================
+   931→
+   932→Where configured:
+   933→
+   934→Daily operations
+   935→ ↓
+   936→Relevant child events
+   937→ ↓
+   938→Teacher review
+   939→ ↓
+   940→Draft summary
+   941→ ↓
+   942→Teacher approval
+   943→ ↓
+   944→Parent notification
+   945→
+   946→If AI is used:
+   947→
+   948→AI may draft.
+   949→
+   950→AI may NOT:
+   951→
+   952→- independently diagnose
+   953→- independently make sensitive decisions
+   954→- bypass teacher review where required
+   955→- bypass RBAC
+   956→- publish sensitive information without approval
+   957→
+   958→Use existing AI gateway and governance.
+   959→
+   960→============================================================
+   961→23. FINANCE INTEGRATION
+   962→============================================================
+   963→
+   964→Connect:
+   965→
+   966→Program
+   967→ ↓
+   968→Academic Year
+   969→ ↓
+   970→Fee Plan
+   971→ ↓
+   972→Student
+   973→ ↓
+   974→Invoice
+   975→ ↓
+   976→Payment
+   977→ ↓
+   978→Receipt
+   979→
+   980→Use Invoice as existing billing aggregate.
+   981→
+   982→Once issued:
+   983→
+   984→Do not mutate invoice directly.
+   985→
+   986→Corrections:
+   987→→ Adjustment / Credit Note according to existing architecture.
+   988→
+   989→Finance events may trigger:
+   990→
+   991→- reminders
+   992→- overdue alerts
+   993→- receipts
+   994→- payment confirmations
+   995→
+   996→============================================================
+   997→24. ADMISSION → FINANCE CONNECTION
+   998→============================================================
+   999→
+  1000→Admission:
+  1001→
+  1002→Application
+  1003→ ↓
+  1004→Approved
+  1005→ ↓
+  1006→Fee Plan Selected
+  1007→ ↓
+  1008→Admission Fee / Registration
+  1009→ ↓
+  1010→Payment
+  1011→ ↓
+  1012→Confirmation
+  1013→ ↓
+  1014→Student Created
+  1015→
+  1016→Do not allow inconsistent states such as:
+  1017→
+  1018→Student active
+  1019→but
+  1020→mandatory admission configuration incomplete
+  1021→
+  1022→unless explicitly allowed by business rules.
+  1023→
+  1024→============================================================
+  1025→25. CALENDAR INTEGRATION
+  1026→============================================================
+  1027→
+  1028→Calendar configuration must feed:
+  1029→
+  1030→Attendance
+  1031→Academics
+  1032→Events
+  1033→Parent communication
+  1034→Reports
+  1035→
+  1036→Example:
+  1037→
+  1038→Holiday
+  1039→→ attendance not expected
+  1040→
+  1041→Working day
+  1042→→ attendance expected
+  1043→
+  1044→Event day
+  1045→→ event workflow
+  1046→
+  1047→Parent meeting
+  1048→→ communication + scheduling
+  1049→
+  1050→Assessment period
+  1051→→ academic workflow
+  1052→
+  1053→============================================================
+  1054→26. STAFF / HR INTEGRATION
+  1055→============================================================
+  1056→
+  1057→Staff created in M00 must connect to HR context.
+  1058→
+  1059→Staff:
+  1060→
+  1061→Profile
+  1062→ ↓
+  1063→Role
+  1064→ ↓
+  1065→Branch
+  1066→ ↓
+  1067→Employment
+  1068→ ↓
+  1069→Assignment
+  1070→ ↓
+  1071→Attendance
+  1072→ ↓
+  1073→Leave
+  1074→ ↓
+  1075→Payroll
+  1076→
+  1077→Teacher-specific:
+  1078→
+  1079→Staff
+  1080→ ↓
+  1081→Teacher role
+  1082→ ↓
+  1083→Academic Year
+  1084→ ↓
+  1085→Class/Section assignment
+  1086→
+  1087→Do not create duplicate teacher entities.
+  1088→
+  1089→============================================================
+  1090→27. ADMINISTRATION / BRANCH INTEGRATION
+  1091→============================================================
+  1092→
+  1093→Branch must become the administrative boundary for:
+  1094→
+  1095→- facilities
+  1096→- compliance metadata
+  1097→- assets
+  1098→- vendors
+  1099→- approval matrix
+  1100→
+  1101→Use existing Branch aggregate.
+  1102→
+  1103→Setup-created facilities must become visible to Administration.
+  1104→
+  1105→============================================================
+  1106→28. TRANSPORT INTEGRATION
+  1107→============================================================
+  1108→
+  1109→If transport is enabled:
+  1110→
+  1111→Student
+  1112→ ↓
+  1113→Transport Enrollment
+  1114→ ↓
+  1115→Route
+  1116→ ↓
+  1117→Vehicle
+  1118→ ↓
+  1119→Driver
+  1120→ ↓
+  1121→Pickup Point
+  1122→ ↓
+  1123→Pickup Authorization
+  1124→ ↓
+  1125→Tracking
+  1126→ ↓
+  1127→Drop Confirmation
+  1128→
+  1129→If transport is not enabled:
+  1130→
+  1131→Do not show transport workflows.
+  1132→
+  1133→Feature exposure must use existing feature flags/configuration.
+  1134→
+  1135→============================================================
+  1136→29. INVENTORY INTEGRATION
+  1137→============================================================
+  1138→
+  1139→If inventory is enabled:
+  1140→
+  1141→Preschool needs:
+  1142→
+  1143→- classroom supplies
+  1144→- meal supplies
+  1145→- cleaning supplies
+  1146→- medical supplies
+  1147→- activity material
+  1148→
+  1149→Flow:
+  1150→
+  1151→Requirement
+  1152→ ↓
+  1153→Inventory
+  1154→ ↓
+  1155→Consumption
+  1156→ ↓
+  1157→Reorder
+  1158→
+  1159→Use existing Inventory context.
+  1160→
+  1161→Do not build inventory into Daily Operations.
+  1162→
+  1163→============================================================
+  1164→30. REPORTING INTEGRATION
+  1165→============================================================
+  1166→
+  1167→Reports must consume cross-context read models.
+  1168→
+  1169→Required dashboards:
+  1170→
+  1171→Owner/Principal:
+  1172→
+  1173→- enrollment
+  1174→- attendance
+  1175→- fees
+  1176→- staff
+  1177→- capacity
+  1178→- incidents
+  1179→- learning progress
+  1180→- parent engagement
+  1181→- operational exceptions
+  1182→
+  1183→Teacher:
+  1184→
+  1185→- today's attendance
+  1186→- student care
+  1187→- observations
+  1188→- pending actions
+  1189→
+  1190→Parent:
+  1191→
+  1192→- child's attendance
+  1193→- care
+  1194→- learning
+  1195→- progress
+  1196→- fees
+  1197→- communication
+  1198→
+  1199→Reports must respect:
+  1200→
+  1201→tenant
+  1202→school
+  1203→branch
+  1204→academic year
+  1205→RBAC
+  1206→
+  1207→============================================================
+  1208→31. CROSS-CONTEXT EVENT MODEL
+  1209→============================================================
+  1210→
+  1211→Where appropriate use domain events.
+  1212→
+  1213→Examples:
+  1214→
+  1215→SchoolSetupCompleted
+  1216→AcademicYearCreated
+  1217→ProgramConfigured
+  1218→SectionCreated
+  1219→TeacherAssigned
+  1220→ApplicationSubmitted
+  1221→ApplicationApproved
+  1222→StudentCreated
+  1223→StudentAllocated
+  1224→AttendanceSubmitted
+  1225→AttendanceExceptionDetected
+  1226→HealthIncidentCreated
+  1227→ParentNotificationRequested
+  1228→ObservationRecorded
+  1229→FollowUpCreated
+  1230→FollowUpCompleted
+  1231→InvoiceIssued
+  1232→PaymentReceived
+  1233→AcademicYearClosed
+  1234→StudentPromoted
+  1235→
+  1236→Do not create events merely for CRUD.
+  1237→
+  1238→Events must represent meaningful domain state changes.
+  1239→
+  1240→============================================================
+  1241→32. FOLLOW-UP ENGINE
+  1242→============================================================
+  1243→
+  1244→Create a reusable follow-up concept only if it fits existing architecture.
+  1245→
+  1246→Follow-up must support:
+  1247→
+  1248→source event
+  1249→student
+  1250→responsible role
+  1251→priority
+  1252→due date
+  1253→status
+  1254→action
+  1255→outcome
+  1256→completed by
+  1257→completed at
+  1258→
+  1259→Example:
+  1260→
+  1261→Observation
+  1262→→ Follow-up
+  1263→→ Teacher action
+  1264→→ Re-observation
+  1265→→ Outcome
+  1266→
+  1267→Health incident
+  1268→→ Follow-up
+  1269→→ Parent confirmation
+  1270→→ Resolution
+  1271→
+  1272→Admission issue
+  1273→→ Follow-up
+  1274→→ Document received
+  1275→→ Resolution
+  1276→
+  1277→Do not make Follow-up a generic dumping ground.
+  1278→
+  1279→Keep domain ownership clear.
+  1280→
+  1281→============================================================
+  1282→33. SCHOOL DAILY OPERATING LOOP
+  1283→============================================================
+  1284→
+  1285→Create a unified operational timeline/read model:
+  1286→
+  1287→TODAY
+  1288→
+  1289→School status
+  1290→ ↓
+  1291→Sections
+  1292→ ↓
+  1293→Expected children
+  1294→ ↓
+  1295→Attendance
+  1296→ ↓
+  1297→Exceptions
+  1298→ ↓
+  1299→Care events
+  1300→ ↓
+  1301→Learning activities
+  1302→ ↓
+  1303→Health incidents
+  1304→ ↓
+  1305→Parent communications
+  1306→ ↓
+  1307→Pickup
+  1308→ ↓
+  1309→Pending follow-ups
+  1310→
+  1311→This should be the operational centre of the school.
+  1312→
+  1313→Not merely a collection of reports.
+  1314→
+  1315→============================================================
+  1316→34. PRINCIPAL / OWNER COMMAND CENTRE
+  1317→============================================================
+  1318→
+  1319→The owner/principal dashboard should answer:
+  1320→
+  1321→“Is my preschool running correctly today?”
+  1322→
+  1323→Show:
+  1324→
+  1325→CRITICAL
+  1326→- safety incidents
+  1327→- unresolved health issues
+  1328→- unauthorized pickup attempts
+  1329→- serious attendance anomalies
+  1330→
+  1331→ATTENTION
+  1332→- sections understaffed
+  1333→- teacher actions pending
+  1334→- unresolved follow-ups
+  1335→- capacity problems
+  1336→- fee issues
+  1337→
+  1338→NORMAL
+  1339→- attendance
+  1340→- daily operations
+  1341→- learning activity
+  1342→- parent communication
+  1343→
+  1344→Do not overwhelm the user with raw records.
+  1345→
+  1346→Use exception-driven presentation.
+  1347→
+  1348→============================================================
+  1349→35. END-TO-END CHILD JOURNEY
+  1350→============================================================
+  1351→
+  1352→Implement and test this complete journey:
+  1353→
+  1354→ENQUIRY
+  1355→ ↓
+  1356→APPLICATION
+  1357→ ↓
+  1358→ELIGIBILITY
+  1359→ ↓
+  1360→DOCUMENTS
+  1361→ ↓
+  1362→APPROVAL
+  1363→ ↓
+  1364→FEE PLAN
+  1365→ ↓
+  1366→PAYMENT
+  1367→ ↓
+  1368→STUDENT CREATED
+  1369→ ↓
+  1370→PARENT CREATED/LINKED
+  1371→ ↓
+  1372→ACADEMIC ALLOCATION
+  1373→ ↓
+  1374→SECTION
+  1375→ ↓
+  1376→TEACHER
+  1377→ ↓
+  1378→FIRST DAY
+  1379→ ↓
+  1380→ATTENDANCE
+  1381→ ↓
+  1382→HEALTH CHECK
+  1383→ ↓
+  1384→DAILY CARE
+  1385→ ↓
+  1386→LEARNING
+  1387→ ↓
+  1388→OBSERVATION
+  1389→ ↓
+  1390→PARENT UPDATE
+  1391→ ↓
+  1392→FOLLOW-UP
+  1393→ ↓
+  1394→PROGRESS
+  1395→ ↓
+  1396→REPORT
+  1397→ ↓
+  1398→FEE CYCLE
+  1399→ ↓
+  1400→PROMOTION
+  1401→ ↓
+  1402→NEXT ACADEMIC YEAR
+  1403→
+  1404→This must be executable in the application.
+  1405→
+  1406→============================================================
+  1407→36. REAL PRESCHOOL PROBLEM FLOWS
+  1408→============================================================
+  1409→
+  1410→Do not declare the product complete until the following real-world scenarios work end-to-end.
+  1411→
+  1412→SCENARIO 1 — Child Absent
+  1413→
+  1414→Expected:
+  1415→
+  1416→Student expected
+  1417→→ absent
+  1418→→ absence rule
+  1419→→ teacher/system identifies exception
+  1420→→ parent notification where configured
+  1421→→ reason captured
+  1422→→ follow-up if required
+  1423→→ resolved
+  1424→
+  1425→SCENARIO 2 — Child Arrives Unwell
+  1426→
+  1427→Health check
+  1428→→ exception
+  1429→→ responsible staff
+  1430→→ appropriate isolation/action
+  1431→→ parent alert
+  1432→→ pickup/medical action
+  1433→→ incident record
+  1434→→ follow-up
+  1435→→ resolution
+  1436→
+  1437→SCENARIO 3 — Unauthorized Pickup
+  1438→
+  1439→Pickup attempt
+  1440→→ authorization lookup
+  1441→→ mismatch
+  1442→→ release blocked
+  1443→→ alert
+  1444→→ audit
+  1445→→ escalation
+  1446→
+  1447→SCENARIO 4 — Child Needs Learning Attention
+  1448→
+  1449→Observation
+  1450→→ concern
+  1451→→ suggested action
+  1452→→ teacher executes
+  1453→→ follow-up observation
+  1454→→ outcome
+  1455→
+  1456→SCENARIO 5 — Section Full
+  1457→
+  1458→Admission
+  1459→→ section capacity checked
+  1460→→ full
+  1461→→ block
+  1462→→ waitlist / alternate section if configured
+  1463→
+  1464→SCENARIO 6 — Teacher Absent
+  1465→
+  1466→Teacher unavailable
+  1467→→ affected section identified
+  1468→→ substitute/authorized action
+  1469→→ class remains operational
+  1470→→ audit
+  1471→
+  1472→SCENARIO 7 — Parent Misses Payment
+  1473→
+  1474→Invoice
+  1475→→ due date
+  1476→→ overdue
+  1477→→ notification
+  1478→→ payment
+  1479→→ receipt
+  1480→→ ledger updated
+  1481→
+  1482→SCENARIO 8 — Parent Needs Daily Visibility
+  1483→
+  1484→Daily child events
+  1485→→ teacher review
+  1486→→ parent summary
+  1487→→ parent sees child's day
+  1488→
+  1489→SCENARIO 9 — Incident Follow-Up
+  1490→
+  1491→Incident
+  1492→→ immediate action
+  1493→→ parent communication
+  1494→→ follow-up
+  1495→→ resolution
+  1496→→ management visibility
+  1497→
+  1498→SCENARIO 10 — Academic Year Change
+  1499→
+  1500→Current year
+  1501→→ close year
+  1502→→ preserve historical data
+  1503→→ create new year
+  1504→→ promotion
+  1505→→ new allocation
+  1506→→ new attendance/fees/academic context
+  1507→
+  1508→============================================================
+  1509→37. PROBLEM-SOLVING MATRIX
+  1510→============================================================
+  1511→
+  1512→Create:
+  1513→
+  1514→docs/PreOne_Problem_Solving_Matrix.md
+  1515→
+  1516→Columns:
+  1517→
+  1518→Problem
+  1519→Actor
+  1520→Trigger
+  1521→Detection
+  1522→Decision
+  1523→Action
+  1524→Communication
+  1525→Follow-up
+  1526→Outcome
+  1527→Domain
+  1528→Event
+  1529→BRC Rule
+  1530→API
+  1531→UI
+  1532→Audit
+  1533→Acceptance Criteria
+  1534→
+  1535→Minimum problems:
+  1536→
+  1537→- child absent
+  1538→- child late
+  1539→- child unwell
+  1540→- injury/incident
+  1541→- unauthorized pickup
+  1542→- missing parent document
+  1543→- class over capacity
+  1544→- teacher absent
+  1545→- activity missed
+  1546→- learning concern
+  1547→- parent complaint
+  1548→- fee overdue
+  1549→- payment received
+  1550→- transport delay
+  1551→- emergency
+  1552→- incomplete daily sheet
+  1553→- unresolved follow-up
+  1554→- academic year transition
+  1555→
+  1556→============================================================
+  1557→38. DOMAIN INTEGRATION MATRIX
+  1558→============================================================
+  1559→
+  1560→Create:
+  1561→
+  1562→docs/PreOne_Domain_Integration_Matrix.md
+  1563→
+  1564→Rows:
+  1565→
+  1566→M00
+  1567→Admissions
+  1568→Student
+  1569→Academics
+  1570→Daily Operations
+  1571→Health/Safety
+  1572→Communication
+  1573→Finance
+  1574→HR
+  1575→Administration
+  1576→Transport
+  1577→Inventory
+  1578→Reports
+  1579→Parent Portal
+  1580→Teacher Portal
+  1581→
+  1582→Columns:
+  1583→
+  1584→Reads From
+  1585→Writes To
+  1586→Events Produced
+  1587→Events Consumed
+  1588→APIs
+  1589→Business Rules
+  1590→Security
+  1591→Academic Year Scope
+  1592→Branch Scope
+  1593→Tenant Scope
+  1594→
+  1595→============================================================
+  1596→39. UI PRINCIPLE
+  1597→============================================================
+  1598→
+  1599→Do not turn the application into a giant collection of CRUD pages.
+  1600→
+  1601→For each persona:
+  1602→
+  1603→OWNER / PRINCIPAL
+  1604→→ exceptions + decisions + school health
+  1605→
+  1606→TEACHER
+  1607→→ today's children + actions + care + learning
+  1608→
+  1609→PARENT
+  1610→→ child's wellbeing + day + progress + action
+  1611→
+  1612→ADMIN
+  1613→→ setup + records + workflows
+  1614→
+  1615→FINANCE
+  1616→→ money + collections + reconciliation
+  1617→
+  1618→Each UI should expose the work that the user needs to perform.
+  1619→
+  1620→============================================================
+  1621→40. TEACHER WORKLOAD REDUCTION
+  1622→============================================================
+  1623→
+  1624→A teacher must not become a data-entry operator.
+  1625→
+  1626→Where existing architecture permits:
+  1627→
+  1628→Teacher action
+  1629→→ structured event
+  1630→
+  1631→System derives:
+  1632→
+  1633→daily timeline
+  1634→attendance state
+  1635→care summary
+  1636→parent draft
+  1637→follow-up
+  1638→progress signals
+  1639→
+  1640→Use smart defaults.
+  1641→
+  1642→Allow bulk actions.
+  1643→
+  1644→Allow minimal-tap daily workflows.
+  1645→
+  1646→AI may assist with drafting/summarization but must not replace controlled business decisions.
+  1647→
+  1648→============================================================
+  1649→41. PARENT EXPERIENCE PRINCIPLE
+  1650→============================================================
+  1651→
+  1652→Parent should not need to understand PreOne's internal modules.
+  1653→
+  1654→Parent thinks:
+  1655→
+  1656→“My child.”
+  1657→
+  1658→Therefore organize parent experience around:
+  1659→
+  1660→MY CHILD
+  1661→ ↓
+  1662→TODAY
+  1663→ ↓
+  1664→CARE
+  1665→ ↓
+  1666→LEARNING
+  1667→ ↓
+  1668→HEALTH
+  1669→ ↓
+  1670→COMMUNICATION
+  1671→ ↓
+  1672→PROGRESS
+  1673→ ↓
+  1674→FEES
+  1675→ ↓
+  1676→DOCUMENTS
+  1677→
+  1678→Not:
+  1679→
+  1680→Attendance Module
+  1681→Academics Module
+  1682→Communication Module
+  1683→Finance Module
+  1684→
+  1685→The internal architecture may remain domain-based.
+  1686→
+  1687→The parent experience should remain child-centric.
+  1688→
+  1689→============================================================
+  1690→42. OPERATIONAL EXCEPTION MODEL
+  1691→============================================================
+  1692→
+  1693→Every operational exception must have:
+  1694→
+  1695→severity
+  1696→status
+  1697→owner
+  1698→created_at
+  1699→due_at where applicable
+  1700→action
+  1701→communication status
+  1702→resolution
+  1703→audit
+  1704→
+  1705→Statuses:
+  1706→
+  1707→OPEN
+  1708→ACKNOWLEDGED
+  1709→IN_PROGRESS
+  1710→WAITING
+  1711→RESOLVED
+  1712→CLOSED
+  1713→
+  1714→Do not allow important exceptions to disappear after notification.
+  1715→
+  1716→Notification != Resolution.
+  1717→
+  1718→============================================================
+  1719→43. NOTIFICATION VS WORKFLOW
+  1720→============================================================
+  1721→
+  1722→This is critical.
+  1723→
+  1724→Never assume:
+  1725→
+  1726→Notification sent = problem solved.
+  1727→
+  1728→Example:
+  1729→
+  1730→Health incident
+  1731→→ notification sent
+  1732→→ still OPEN
+  1733→→ parent response
+  1734→→ child picked up
+  1735→→ follow-up
+  1736→→ RESOLVED
+  1737→
+  1738→Similarly:
+  1739→
+  1740→Fee reminder
+  1741→→ reminder sent
+  1742→→ payment pending
+  1743→→ payment received
+  1744→→ resolved
+  1745→
+  1746→============================================================
+  1747→44. AUDITABILITY
+  1748→============================================================
+  1749→
+  1750→Every meaningful workflow mutation must record:
+  1751→
+  1752→actor
+  1753→timestamp
+  1754→tenant
+  1755→school
+  1756→branch
+  1757→academic year
+  1758→action
+  1759→entity
+  1760→before
+  1761→after
+  1762→reason where required
+  1763→
+  1764→Follow existing audit architecture.
+  1765→
+  1766→Do not invent a second audit mechanism.
+  1767→
+  1768→============================================================
+  1769→45. SECURITY
+  1770→============================================================
+  1771→
+  1772→Every cross-domain workflow must preserve:
+  1773→
+  1774→tenant isolation
+  1775→school isolation
+  1776→branch isolation
+  1777→academic year isolation
+  1778→RBAC
+  1779→sensitive-data protection
+  1780→
+  1781→Parent must only see linked child data.
+  1782→
+  1783→Teacher must only see assigned/authorized students.
+  1784→
+  1785→Branch staff must not see unauthorized branches.
+  1786→
+  1787→Historical academic-year data must remain correctly scoped.
+  1788→
+  1789→Health data must have stricter access where required.
+  1790→
+  1791→============================================================
+  1792→46. API INTEGRATION
+  1793→============================================================
+  1794→
+  1795→Before adding an API:
+  1796→
+  1797→CHECK EXISTING API CONTRACT CATALOG.
+  1798→
+  1799→If existing API:
+  1800→→ reuse/extend
+  1801→
+  1802→If genuinely missing:
+  1803→→ add according to existing contract conventions
+  1804→
+  1805→Do not create:
+  1806→
+  1807→/new-student-system
+  1808→/new-attendance-system
+  1809→/new-parent-system
+  1810→
+  1811→if existing domain APIs already exist.
+  1812→
+  1813→Create integration endpoints only where orchestration is genuinely required.
+  1814→
+  1815→Potential orchestration APIs:
+  1816→
+  1817→/api/v1/operations/today
+  1818→/api/v1/operations/exceptions
+  1819→/api/v1/operations/follow-ups
+  1820→/api/v1/student/:id/timeline
+  1821→/api/v1/student/:id/current-state
+  1822→
+  1823→These are suggestions only.
+  1824→
+  1825→First inspect existing API contracts.
+  1826→
+  1827→============================================================
+  1828→47. READ MODELS / DASHBOARDS
+  1829→============================================================
+  1830→
+  1831→Do not violate bounded-context ownership.
+  1832→
+  1833→If cross-context dashboards require combined data:
+  1834→
+  1835→Use:
+  1836→
+  1837→published APIs
+  1838→events
+  1839→read models
+  1840→reporting views
+  1841→
+  1842→Do not directly couple contexts through private tables.
+  1843→
+  1844→============================================================
+  1845→48. DATABASE
+  1846→============================================================
+  1847→
+  1848→Before adding any table:
+  1849→
+  1850→1. inspect existing schema
+  1851→2. inspect DDD aggregate
+  1852→3. inspect existing entity
+  1853→4. inspect API contract
+  1854→5. inspect BRC
+  1855→6. inspect ADR
+  1856→
+  1857→Only add DB structures where genuinely missing.
+  1858→
+  1859→All applicable tables must follow existing:
+  1860→
+  1861→tenant_id
+  1862→school_id
+  1863→branch_id
+  1864→academic_year_id
+  1865→created_by
+  1866→updated_by
+  1867→
+  1868→and other project conventions.
+  1869→
+  1870→Do not introduce schema patterns inconsistent with existing architecture.
+  1871→
+  1872→============================================================
+  1873→49. BRC ENFORCEMENT
+  1874→============================================================
+  1875→
+  1876→Every workflow must identify applicable business rules.
+  1877→
+  1878→Examples:
+  1879→
+  1880→Attendance
+  1881→→ attendance rules
+  1882→
+  1883→Pickup
+  1884→→ pickup authorization rules
+  1885→
+  1886→Admission
+  1887→→ eligibility rules
+  1888→
+  1889→Finance
+  1890→→ fee rules
+  1891→
+  1892→Observation
+  1893→→ observation frequency
+  1894→
+  1895→Parent notification
+  1896→→ notification rules
+  1897→
+  1898→Do not implement business logic only in UI.
+  1899→
+  1900→Business rules belong in backend/domain layer.
+  1901→
+  1902→============================================================
+  1903→50. ADR COMPLIANCE
+  1904→============================================================
+  1905→
+  1906→Before implementation inspect relevant ADRs.
+  1907→
+  1908→Especially:
+  1909→
+  1910→- tenancy
+  1911→- school/branch isolation
+  1912→- academic-year isolation
+  1913→- identity/RBAC
+  1914→- audit
+  1915→- data architecture
+  1916→- event architecture
+  1917→- API architecture
+  1918→- AI governance
+  1919→
+  1920→If implementation conflicts with an accepted/locked ADR:
+  1921→
+  1922→STOP.
+  1923→
+  1924→Document the conflict.
+  1925→
+  1926→Do not silently override the ADR.
+  1927→
+  1928→============================================================
+  1929→51. TEST STRATEGY
+  1930→============================================================
+  1931→
+  1932→Create tests at four levels:
+  1933→
+  1934→1. Unit
+  1935→2. API/integration
+  1936→3. Cross-domain workflow
+  1937→4. Browser E2E
+  1938→
+  1939→Mandatory E2E:
+  1940→
+  1941→NEW SCHOOL
+  1942→→ M00 SETUP
+  1943→→ GO LIVE
+  1944→→ CREATE ACADEMIC YEAR
+  1945→→ CREATE PROGRAM
+  1946→→ CREATE CLASS
+  1947→→ CREATE SECTION
+  1948→→ ASSIGN TEACHER
+  1949→→ CREATE ADMISSION
+  1950→→ APPROVE
+  1951→→ CREATE STUDENT
+  1952→→ LINK PARENT
+  1953→→ ALLOCATE STUDENT
+  1954→→ TEACHER LOGIN
+  1955→→ ATTENDANCE
+  1956→→ DAILY CARE
+  1957→→ OBSERVATION
+  1958→→ PARENT UPDATE
+  1959→→ FEE
+  1960→→ REPORT
+  1961→→ YEAR-END
+  1962→→ NEXT YEAR
+  1963→
+  1964→============================================================
+  1965→52. E2E ACCEPTANCE TEST
+  1966→============================================================
+  1967→
+  1968→The final test should simulate:
+  1969→
+  1970→A real preschool opening for a new academic year.
+  1971→
+  1972→Starting from:
+  1973→
+  1974→empty/new tenant
+  1975→
+  1976→Ending with:
+  1977→
+  1978→operational preschool
+  1979→
+  1980→with:
+  1981→
+  1982→- students
+  1983→- parents
+  1984→- teachers
+  1985→- sections
+  1986→- attendance
+  1987→- daily operations
+  1988→- learning
+  1989→- observations
+  1990→- communication
+  1991→- fees
+  1992→- reports
+  1993→
+  1994→Then simulate at least 10 exceptions/problems.
+  1995→
+  1996→Every problem must be:
+  1997→
+  1998→detected
+  1999→→ acted upon
+  2000→→ communicated where applicable
+
+[showing lines 1-2000 of 2382; use offset=2001 with limit to continue reading]

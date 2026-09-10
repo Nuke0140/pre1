@@ -31,7 +31,8 @@ export async function nextNumber(
       break
     }
     case 'receipt': {
-      const c = await db.receipt.count({ where: { receiptNumber: { startsWith: prefix } } })
+      // tenant-scoped sequence — receiptNumber is unique per tenant (M01 §53 fix)
+      const c = await db.receipt.count({ where: { tenantId, receiptNumber: { startsWith: prefix } } })
       seq = c + 1
       break
     }

@@ -3,6 +3,31 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
+import { resolveSessionId } from '@/lib/academic'
+import { emit } from '@/lib/events'
+import { registerIntegrations } from '@/lib/integrations'
+
+/**
+ * Overdue sync — ISSUED + dueDate < today → OVERDUE (Spec §23, Scenario 7).
+ * Called on read so the ledger is always truthful; transitions audited via
+ * InvoiceOverdue follow-up events (deduped per invoice).
+ */
+export async function syncOverdue(tenantId: string) {
+  const now = new Date()
+  const stale = await db.invoice.findMany({
+    where: { tenantId, status: 'ISSUED', dueDate: { lt: now }, deletedAt: null },
+    select: { id: true, studentId: true, invoiceNumber: true, balanceCents: true },
+    take: 200,
+  })
+  for (const inv of stale) {
+    await db.invoice.update({ where: { id: inv.id }, data: { status: 'OVERDUE' } })
+    await emit({
+      type: 'InvoiceOverdue', tenantId, invoiceId: inv.id, studentId: inv.studentId,
+      invoiceNumber: inv.invoiceNumber, balanceCents: inv.balanceCents,
+    })
+  }
+  return stale.length
+}
 
 /** GET /api/v1/invoices — list w/ filters (studentId, status) */
 export async function GET(req: NextRequest) {
@@ -16,6 +41,8 @@ export async function GET(req: NextRequest) {
     const status = sp.get('status')
     const page = Math.max(1, parseInt(sp.get('page') || '1'))
     const pageSize = Math.min(100, parseInt(sp.get('pageSize') || '50'))
+
+    await syncOverdue(session.tenantId)
 
     const where = {
       tenantId: session.tenantId,
@@ -70,6 +97,7 @@ export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'finance:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
+  registerIntegrations()
 
   try {
     const body = await req.json()
@@ -88,6 +116,7 @@ export async function POST(req: NextRequest) {
 
     const subtotal = lineItems.reduce((s, i) => s + Math.round(i.amountCents), 0)
     const invoiceNumber = await nextNumber('invoice', session.tenantId)
+    const sessionRow = await resolveSessionId(session.tenantId, { classroomId: student.currentClassroomId })
 
     const invoice = await db.invoice.create({
       data: {
@@ -102,6 +131,7 @@ export async function POST(req: NextRequest) {
         balanceCents: subtotal,
         status: 'ISSUED',
         issuedById: session.uid,
+        academicSessionId: sessionRow?.id,
         items: {
           create: lineItems.map((i) => ({
             feeHead: (i.feeHead as 'TUITION') || 'OTHER',
@@ -110,6 +140,11 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
+    })
+
+    await emit({
+      type: 'InvoiceIssued', tenantId: session.tenantId, invoiceId: invoice.id,
+      studentId, invoiceNumber, totalCents: subtotal, dueDate: new Date(dueDate),
     })
 
     await audit({

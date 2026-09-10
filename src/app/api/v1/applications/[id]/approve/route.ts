@@ -3,6 +3,10 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
+import { emit } from '@/lib/events'
+import { registerIntegrations } from '@/lib/integrations'
+import { getDomainConfig, getAdmissionConfig } from '@/lib/config'
+import { classroomSeats } from '@/lib/capacity'
 
 /**
  * POST /api/v1/applications/{id}/approve — Admission approval.
@@ -16,6 +20,7 @@ export async function POST(
   const session = await requireApi(req, 'admissions:approve')
   if (isResponse(session)) return session
   const { id } = await params
+  registerIntegrations()
 
   try {
     const app = await db.admissionApplication.findUnique({ where: { id } })
@@ -28,10 +33,26 @@ export async function POST(
     const body = await req.json().catch(() => ({}))
     const classroomId: string | undefined = body.classroomId
 
+    // M00 ADMISSION config is the source of truth for required documents
+    const admCfg = getAdmissionConfig(await getDomainConfig(session.tenantId!, 'ADMISSION'))
+    const requiredDocs: string[] = admCfg.requiredDocuments || []
+    if (requiredDocs.length > 0) {
+      const docs = await db.applicationDocument.findMany({ where: { applicationId: id } })
+      const missing = requiredDocs.filter(
+        (d) => d !== 'PREVIOUS_SCHOOL_REPORT' && !docs.some((doc) => doc.docType === d && doc.verified)
+      )
+      if (missing.length > 0) {
+        return Errors.business(
+          'BUSINESS_DOCS_PENDING',
+          `Required documents not verified: ${missing.join(', ')}. Verify before approval.`
+        )
+      }
+    }
+
     const classroom = classroomId
-      ? await db.classroom.findFirst({ where: { id: classroomId, tenantId: session.tenantId } })
+      ? await db.classroom.findFirst({ where: { id: classroomId, tenantId: session.tenantId! } })
       : await db.classroom.findFirst({
-          where: { tenantId: session.tenantId, programType: app.programType, isActive: true },
+          where: { tenantId: session.tenantId!, programType: app.programType, isActive: true },
         })
     if (!classroom) {
       return Errors.business(
@@ -44,8 +65,12 @@ export async function POST(
       where: { currentClassroomId: classroom.id, status: 'ACTIVE' },
     })
     if (capacity >= classroom.capacity) {
-      return Errors.business('BUSINESS_CLASS_FULL', `Classroom ${classroom.name} is at full capacity`)
+      return Errors.business(
+        'BUSINESS_CLASS_FULL',
+        `Classroom ${classroom.name} is at full capacity (${capacity}/${classroom.capacity}). Waitlist the application or allocate another section.`
+      )
     }
+    void classroomSeats // capacity surfaced in response below
 
     const result = await db.$transaction(async (tx) => {
       const studentCount = await tx.student.count({ where: { tenantId: session.tenantId! } })
@@ -86,7 +111,7 @@ export async function POST(
         include: { items: true },
       })
 
-      let invoice = null
+      let invoice: { id: string; invoiceNumber: string; totalCents: number; dueDate: Date } | null = null
       if (feePlan) {
         const admissionItem = feePlan.items.find((i) => i.feeHead === 'ADMISSION')
         const items = admissionItem
@@ -94,8 +119,10 @@ export async function POST(
           : feePlan.items
         const subtotal = items.reduce((s, i) => s + i.amountCents, 0)
         const invoiceNumber = await nextNumber('invoice', session.tenantId!)
+        const finCfg = await getDomainConfig(session.tenantId!, 'FINANCE')
+        const dueOffset = Number(finCfg.dueDayOffset) > 0 ? Number(finCfg.dueDayOffset) : 15
         const dueDate = new Date()
-        dueDate.setDate(dueDate.getDate() + 15)
+        dueDate.setDate(dueDate.getDate() + dueOffset)
 
         invoice = await tx.invoice.create({
           data: {
@@ -110,6 +137,7 @@ export async function POST(
             balanceCents: subtotal,
             status: 'ISSUED',
             issuedById: session.uid,
+            academicSessionId: classroom.academicSessionId,
             items: {
               create: items.map((i) => ({
                 feeHead: i.feeHead,
@@ -120,6 +148,22 @@ export async function POST(
           },
         })
       }
+
+      // M01: allocation history row (mutable per AY, never overwritten)
+      await tx.studentAllocation.create({
+        data: {
+          tenantId: session.tenantId!,
+          studentId: student.id,
+          academicSessionId: classroom.academicSessionId,
+          classroomId: classroom.id,
+          programType: classroom.programType,
+          status: 'ACTIVE',
+          startedAt: new Date(),
+          reason: 'Admission enrolment',
+          createdById: session.uid,
+          createdByName: session.name,
+        },
+      })
 
       await tx.admissionApplication.update({
         where: { id },
@@ -153,6 +197,33 @@ export async function POST(
       return { student, invoice }
     })
 
+    // M01 domain events → follow-ups/comms/audit fan-out (in-process seam)
+    await emit({
+      type: 'StudentCreated',
+      tenantId: session.tenantId!,
+      studentId: result.student.id,
+      name: `${result.student.firstName} ${result.student.lastName || ''}`.trim(),
+      classroomId: classroom.id,
+    })
+    await emit({
+      type: 'StudentAllocated',
+      tenantId: session.tenantId!,
+      studentId: result.student.id,
+      classroomId: classroom.id,
+      reason: 'Admission enrolment',
+    })
+    if (result.invoice) {
+      await emit({
+        type: 'InvoiceIssued',
+        tenantId: session.tenantId!,
+        invoiceId: result.invoice.id,
+        studentId: result.student.id,
+        invoiceNumber: result.invoice.invoiceNumber,
+        totalCents: result.invoice.totalCents,
+        dueDate: result.invoice.dueDate,
+      })
+    }
+
     await audit({
       tenantId: session.tenantId,
       actorId: session.uid,
@@ -167,6 +238,7 @@ export async function POST(
       studentId: result.student.id,
       admissionNo: result.student.admissionNo,
       classroom: classroom.name,
+      seats: { capacity: classroom.capacity, current: capacity + 1, available: Math.max(0, classroom.capacity - capacity - 1) },
       invoiceNumber: result.invoice?.invoiceNumber ?? null,
     })
   } catch (e) {

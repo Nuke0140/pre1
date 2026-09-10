@@ -1,0 +1,1120 @@
+     1→     1→// ════════════════════════════════════════════════════════════════════
+     2→     2→// PreOne — Enterprise Preschool Operating System
+     3→     3→// Prisma Schema (PostgreSQL) — MVP implementation of PreOne_Prisma_Schema_v3.0
+     4→     4→// Conventions (frozen in docs):
+     5→     5→//   · tenantId discriminator on every business table (multi-tenancy ADR)
+     6→     6→//   · money as integer paise (*_cents) — never float
+     7→     7→//   · soft delete via deletedAt
+     8→     8→//   · UUID ids, snake_case table names via @@map
+     9→     9→// ════════════════════════════════════════════════════════════════════
+    10→    10→
+    11→    11→generator client {
+    12→    12→  provider = "prisma-client-js"
+    13→    13→}
+    14→    14→
+    15→    15→datasource db {
+    16→    16→  provider = "postgresql"
+    17→    17→  url      = env("DATABASE_URL")
+    18→    18→}
+    19→    19→
+    20→    20→// ────────────────────────────────────────────────────────────────────
+    21→    21→// ENUMS
+    22→    22→// ────────────────────────────────────────────────────────────────────
+    23→    23→
+    24→    24→enum TenantType {
+    25→    25→  SCHOOL
+    26→    26→  CHAIN
+    27→    27→  FRANCHISE
+    28→    28→  DEMO
+    29→    29→  TEST
+    30→    30→}
+    31→    31→
+    32→    32→enum TenantStatus {
+    33→    33→  PENDING_ACTIVATION
+    34→    34→  ACTIVE
+    35→    35→  SUSPENDED
+    36→    36→  TERMINATED
+    37→    37→}
+    38→    38→
+    39→    39→enum SubscriptionPlanCode {
+    40→    40→  FREE
+    41→    41→  STARTER
+    42→    42→  PRO
+    43→    43→  ENTERPRISE
+    44→    44→}
+    45→    45→
+    46→    46→enum UserRole {
+    47→    47→  PLATFORM_ADMIN
+    48→    48→  OWNER
+    49→    49→  PRINCIPAL
+    50→    50→  COORDINATOR
+    51→    51→  TEACHER
+    52→    52→  ACCOUNTS
+    53→    53→  RECEPTION
+    54→    54→  PARENT
+    55→    55→}
+    56→    56→
+    57→    57→enum UserStatus {
+    58→    58→  ACTIVE
+    59→    59→  INACTIVE
+    60→    60→  SUSPENDED
+    61→    61→  PENDING
+    62→    62→}
+    63→    63→
+    64→    64→enum AcademicSessionStatus {
+    65→    65→  PLANNED
+    66→    66→  ACTIVE
+    67→    67→  CLOSING
+    68→    68→  CLOSED
+    69→    69→  ARCHIVED
+    70→    70→}
+    71→    71→
+    72→    72→enum ProgramType {
+    73→    73→  PLAYGROUP
+    74→    74→  NURSERY
+    75→    75→  LKG
+    76→    76→  UKG
+    77→    77→  DAYCARE
+    78→    78→}
+    79→    79→
+    80→    80→enum Gender {
+    81→    81→  MALE
+    82→    82→  FEMALE
+    83→    83→  OTHER
+    84→    84→  UNSPECIFIED
+    85→    85→}
+    86→    86→
+    87→    87→enum BloodGroup {
+    88→    88→  A_POSITIVE
+    89→    89→  A_NEGATIVE
+    90→    90→  B_POSITIVE
+    91→    91→  B_NEGATIVE
+    92→    92→  AB_POSITIVE
+    93→    93→  AB_NEGATIVE
+    94→    94→  O_POSITIVE
+    95→    95→  O_NEGATIVE
+    96→    96→  UNKNOWN
+    97→    97→}
+    98→    98→
+    99→    99→enum StudentStatus {
+   100→   100→  ACTIVE
+   101→   101→  INACTIVE
+   102→   102→  TRANSFERRED
+   103→   103→  GRADUATED
+   104→   104→  ARCHIVED
+   105→   105→}
+   106→   106→
+   107→   107→enum Relationship {
+   108→   108→  FATHER
+   109→   109→  MOTHER
+   110→   110→  GRANDPARENT
+   111→   111→  LEGAL_GUARDIAN
+   112→   112→  OTHER
+   113→   113→}
+   114→   114→
+   115→   115→enum LeadSource {
+   116→   116→  WEBSITE
+   117→   117→  WALK_IN
+   118→   118→  PHONE
+   119→   119→  REFERRAL
+   120→   120→  FACEBOOK
+   121→   121→  INSTAGRAM
+   122→   122→  GOOGLE_ADS
+   123→   123→  EVENT
+   124→   124→  PARTNER
+   125→   125→  OTHER
+   126→   126→}
+   127→   127→
+   128→   128→enum LeadStatus {
+   129→   129→  NEW
+   130→   130→  CONTACTED
+   131→   131→  QUALIFIED
+   132→   132→  NURTURE
+   133→   133→  APPLICATION_STARTED
+   134→   134→  CONVERTED
+   135→   135→  LOST
+   136→   136→  DUPLICATE
+   137→   137→}
+   138→   138→
+   139→   139→enum ApplicationStatus {
+   140→   140→  SUBMITTED
+   141→   141→  DOCUMENT_PENDING
+   142→   142→  VERIFIED
+   143→   143→  UNDER_REVIEW
+   144→   144→  APPROVED
+   145→   145→  REJECTED
+   146→   146→  WAITLISTED
+   147→   147→  ENROLLED
+   148→   148→  WITHDRAWN
+   149→   149→}
+   150→   150→
+   151→   151→enum DocumentType {
+   152→   152→  BIRTH_CERTIFICATE
+   153→   153→  AADHAAR
+   154→   154→  PHOTO
+   155→   155→  MEDICAL_CERTIFICATE
+   156→   156→  ADDRESS_PROOF
+   157→   157→  PARENT_ID
+   158→   158→  OTHER
+   159→   159→}
+   160→   160→
+   161→   161→enum AttendanceStatus {
+   162→   162→  PRESENT
+   163→   163→  ABSENT
+   164→   164→  LATE
+   165→   165→  HALF_DAY
+   166→   166→  LEAVE
+   167→   167→}
+   168→   168→
+   169→   169→enum FeeHeadCategory {
+   170→   170→  TUITION
+   171→   171→  ADMISSION
+   172→   172→  TRANSPORT
+   173→   173→  MEAL
+   174→   174→  ACTIVITY
+   175→   175→  MATERIALS
+   176→   176→  LATE_FEE
+   177→   177→  OTHER
+   178→   178→}
+   179→   179→
+   180→   180→enum FeeFrequency {
+   181→   181→  ONE_TIME
+   182→   182→  MONTHLY
+   183→   183→  QUARTERLY
+   184→   184→  HALF_YEARLY
+   185→   185→  ANNUALLY
+   186→   186→}
+   187→   187→
+   188→   188→enum InvoiceStatus {
+   189→   189→  DRAFT
+   190→   190→  ISSUED
+   191→   191→  PARTIALLY_PAID
+   192→   192→  PAID
+   193→   193→  OVERDUE
+   194→   194→  CANCELLED
+   195→   195→  WRITTEN_OFF
+   196→   196→}
+   197→   197→
+   198→   198→enum PaymentMethod {
+   199→   199→  CASH
+   200→   200→  CHEQUE
+   201→   201→  CARD
+   202→   202→  UPI
+   203→   203→  NET_BANKING
+   204→   204→  WALLET
+   205→   205→  BANK_TRANSFER
+   206→   206→  ONLINE
+   207→   207→}
+   208→   208→
+   209→   209→enum PaymentStatus {
+   210→   210→  PENDING
+   211→   211→  SUCCESS
+   212→   212→  FAILED
+   213→   213→  REFUNDED
+   214→   214→}
+   215→   215→
+   216→   216→enum AnnouncementType {
+   217→   217→  GENERAL
+   218→   218→  HOLIDAY
+   219→   219→  EMERGENCY
+   220→   220→  EVENT
+   221→   221→  ACHIEVEMENT
+   222→   222→  IMPORTANT
+   223→   223→  FEE_REMINDER
+   224→   224→  ACADEMIC
+   225→   225→}
+   226→   226→
+   227→   227→enum AudienceType {
+   228→   228→  ALL_PARENTS
+   229→   229→  BRANCH_PARENTS
+   230→   230→  CLASS_PARENTS
+   231→   231→  ALL_STAFF
+   232→   232→  SCHOOL_WIDE
+   233→   233→}
+   234→   234→
+   235→   235→enum AnnouncementStatus {
+   236→   236→  DRAFT
+   237→   237→  PUBLISHED
+   238→   238→  CANCELLED
+   239→   239→}
+   240→   240→
+   241→   241→enum TimelineEntryType {
+   242→   242→  ARRIVAL
+   243→   243→  MEAL
+   244→   244→  NAP
+   245→   245→  ACTIVITY
+   246→   246→  BATHROOM
+   247→   247→  OBSERVATION
+   248→   248→  MILESTONE
+   249→   249→  INCIDENT
+   250→   250→  NOTE
+   251→   251→  PHOTO
+   252→   252→  PICKUP
+   253→   253→}
+   254→   254→
+   255→   255→enum ObservationStatus {
+   256→   256→  DRAFT
+   257→   257→  PUBLISHED
+   258→   258→}
+   259→   259→
+   260→   260→// ────────────────────────────────────────────────────────────────────
+   261→   261→// M00 — PRESCHOOL CREATION & SETUP (foundation domain)
+   262→   262→// ────────────────────────────────────────────────────────────────────
+   263→   263→
+   264→   264→enum SetupStatus {
+   265→   265→  NOT_STARTED
+   266→   266→  IN_PROGRESS
+   267→   267→  BLOCKED
+   268→   268→  READY_FOR_REVIEW
+   269→   269→  READY_FOR_GO_LIVE
+   270→   270→  LIVE
+   271→   271→}
+   272→   272→
+   273→   273→enum SetupStepStatus {
+   274→   274→  PENDING
+   275→   275→  COMPLETE
+   276→   276→  BLOCKED
+   277→   277→  SKIPPED
+   278→   278→}
+   279→   279→
+   280→   280→enum SetupApplicability {
+   281→   281→  MANDATORY
+   282→   282→  OPTIONAL
+   283→   283→  RECOMMENDED
+   284→   284→}
+   285→   285→
+   286→   286→enum ValidationKind {
+   287→   287→  SETUP_VALIDATION
+   288→   288→  GO_LIVE_CHECK
+   289→   289→}
+   290→   290→
+   291→   291→enum ValidationOverall {
+   292→   292→  PASS
+   293→   293→  WARNING
+   294→   294→  BLOCKED
+   295→   295→}
+   296→   296→
+   297→   297→enum FacilityType {
+   298→   298→  CLASSROOM
+   299→   299→  ACTIVITY_AREA
+   300→   300→  PLAY_AREA
+   301→   301→  NAP_AREA
+   302→   302→  MEAL_AREA
+   303→   303→  WASHROOM
+   304→   304→  MEDICAL
+   305→   305→  OTHER
+   306→   306→}
+   307→   307→
+   308→   308→enum EmploymentType {
+   309→   309→  REGULAR
+   310→   310→  PART_TIME
+   311→   311→  CONTRACT
+   312→   312→  INTERN
+   313→   313→}
+   314→   314→
+   315→   315→enum CalendarEventType {
+   316→   316→  HOLIDAY
+   317→   317→  VACATION
+   318→   318→  EVENT
+   319→   319→  PARENT_MEETING
+   320→   320→  ASSESSMENT
+   321→   321→  SPECIAL_DAY
+   322→   322→}
+   323→   323→
+   324→   324→enum ConfigDomain {
+   325→   325→  OPERATING
+   326→   326→  ADMISSION
+   327→   327→  STUDENT_PARENT
+   328→   328→  FINANCE
+   329→   329→  DAILY_OPERATIONS
+   330→   330→  HEALTH_SAFETY
+   331→   331→  COMMUNICATION
+   332→   332→  DOCUMENT_TEMPLATES
+   333→   333→  CURRICULUM
+   334→   334→  BRANDING
+   335→   335→}
+   336→   336→
+   337→   337→// ────────────────────────────────────────────────────────────────────
+   338→   338→// PLATFORM (SaaS layer)
+   339→   339→// ────────────────────────────────────────────────────────────────────
+   340→   340→
+   341→   341→model Tenant {
+   342→   342→  id                String              @id @default(uuid())
+   343→   343→  name              String
+   344→   344→  code              String              @unique
+   345→   345→  type              TenantType          @default(SCHOOL)
+   346→   346→  status            TenantStatus        @default(PENDING_ACTIVATION)
+   347→   347→  subscriptionPlan  SubscriptionPlanCode @default(STARTER)
+   348→   348→  maxBranches       Int                 @default(1)
+   349→   349→  maxStudents       Int                 @default(100)
+   350→   350→  // contact / branding
+   351→   351→  address           String?
+   352→   352→  city              String?
+   353→   353→  state             String?
+   354→   354→  pincode           String?
+   355→   355→  phone             String?
+   356→   356→  email             String?
+   357→   357→  website           String?
+   358→   358→  logoUrl           String?
+   359→   359→  gstNumber         String?
+   360→   360→  panNumber         String?
+   361→   361→  academicYearStartMonth Int            @default(4)
+   362→   362→  timezone          String              @default("Asia/Kolkata")
+   363→   363→  locale            String              @default("en-IN")
+   364→   364→  onboardingStep    Int                 @default(0)
+   365→   365→  onboardedAt       DateTime?
+   366→   366→  createdAt         DateTime            @default(now())
+   367→   367→  updatedAt         DateTime            @updatedAt
+   368→   368→  deletedAt         DateTime?
+   369→   369→
+   370→   370→  branches          Branch[]
+   371→   371→  members           TenantUser[]
+   372→   372→  academicSessions  AcademicSession[]
+   373→   373→  classrooms        Classroom[]
+   374→   374→  students          Student[]
+   375→   375→  guardians         Guardian[]
+   376→   376→  leads             Lead[]
+   377→   377→  applications      AdmissionApplication[]
+   378→   378→  attendance        Attendance[]
+   379→   379→  feePlans          FeePlan[]
+   380→   380→  invoices          Invoice[]
+   381→   381→  payments          Payment[]
+   382→   382→  announcements     Announcement[]
+   383→   383→  timelineEntries   TimelineEntry[]
+   384→   384→  observations      Observation[]
+   385→   385→  auditLogs         AuditLog[]
+   386→   386→
+   387→   387→  // M00 — setup foundation
+   388→   388→  schoolSetup       SchoolSetup?
+   389→   389→  setupSteps        SchoolSetupStep[]
+   390→   390→  setupValidations  SchoolSetupValidationRun[]
+   391→   391→  programs          Program[]
+   392→   392→  facilities        Facility[]
+   393→   393→  calendarEvents    CalendarEvent[]
+   394→   394→  schoolConfigs     SchoolConfig[]
+   395→   395→  staffProfiles     StaffProfile[]
+   396→   396→
+   397→   397→  @@map("tenants")
+   398→   398→}
+   399→   399→
+   400→   400→model Branch {
+   401→   401→  id           String   @id @default(uuid())
+   402→   402→  tenantId     String
+   403→   403→  name         String
+   404→   404→  code         String
+   405→   405→  address      String?
+   406→   406→  city         String?
+   407→   407→  state        String?
+   408→   408→  pincode      String?
+   409→   409→  phone        String?
+   410→   410→  email        String?
+   411→   411→  timingOpen   String   @default("08:30")
+   412→   412→  timingClose  String   @default("16:00")
+   413→   413→  capacity     Int?
+   414→   414→  isMain       Boolean  @default(false)
+   415→   415→  isActive     Boolean  @default(true)
+   416→   416→  createdAt    DateTime @default(now())
+   417→   417→  updatedAt    DateTime @updatedAt
+   418→   418→  deletedAt    DateTime?
+   419→   419→
+   420→   420→  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+   421→   421→
+   422→   422→  facilities    Facility[]
+   423→   423→  staffProfiles StaffProfile[]
+   424→   424→  calendarEvents CalendarEvent[]
+   425→   425→
+   426→   426→  @@unique([tenantId, code])
+   427→   427→  @@index([tenantId])
+   428→   428→  @@map("branches")
+   429→   429→}
+   430→   430→
+   431→   431→// ────────────────────────────────────────────────────────────────────
+   432→   432→// IDENTITY — User is global (a parent can belong to many schools)
+   433→   433→// ────────────────────────────────────────────────────────────────────
+   434→   434→
+   435→   435→model User {
+   436→   436→  id           String    @id @default(uuid())
+   437→   437→  email        String    @unique
+   438→   438→  phone        String?
+   439→   439→  passwordHash String
+   440→   440→  fullName     String
+   441→   441→  avatarUrl    String?
+   442→   442→  status       UserStatus @default(ACTIVE)
+   443→   443→  locale       String    @default("en-IN")
+   444→   444→  lastLoginAt  DateTime?
+   445→   445→  createdAt    DateTime  @default(now())
+   446→   446→  updatedAt    DateTime  @updatedAt
+   447→   447→  deletedAt    DateTime?
+   448→   448→
+   449→   449→  memberships  TenantUser[]
+   450→   450→  taughtClasses Classroom[]  @relation("ClassPrimaryTeacher")
+   451→   451→  guardianProfile Guardian?  @relation("GuardianPortalUser")
+   452→   452→  staffProfile    StaffProfile?
+   453→   453→
+   454→   454→  @@map("users")
+   455→   455→}
+   456→   456→
+   457→   457→model TenantUser {
+   458→   458→  id        String    @id @default(uuid())
+   459→   459→  tenantId  String
+   460→   460→  userId    String
+   461→   461→  role      UserRole
+   462→   462→  branchId  String?
+   463→   463→  status    UserStatus @default(ACTIVE)
+   464→   464→  createdAt DateTime  @default(now())
+   465→   465→  updatedAt DateTime  @updatedAt
+   466→   466→  deletedAt DateTime?
+   467→   467→
+   468→   468→  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   469→   469→  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+   470→   470→
+   471→   471→  @@unique([tenantId, userId])
+   472→   472→  @@index([userId])
+   473→   473→  @@index([tenantId, role])
+   474→   474→  @@map("tenant_users")
+   475→   475→}
+   476→   476→
+   477→   477→// ────────────────────────────────────────────────────────────────────
+   478→   478→// ACADEMICS STRUCTURE
+   479→   479→// ────────────────────────────────────────────────────────────────────
+   480→   480→
+   481→   481→model AcademicSession {
+   482→   482→  id        String               @id @default(uuid())
+   483→   483→  tenantId  String
+   484→   484→  name      String
+   485→   485→  startDate DateTime
+   486→   486→  endDate   DateTime
+   487→   487→  status    AcademicSessionStatus @default(ACTIVE)
+   488→   488→  isCurrent Boolean              @default(false)
+   489→   489→  createdAt DateTime             @default(now())
+   490→   490→  updatedAt DateTime             @updatedAt
+   491→   491→
+   492→   492→  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   493→   493→  classrooms Classroom[]
+   494→   494→  calendarEvents CalendarEvent[]
+   495→   495→
+   496→   496→  @@unique([tenantId, name])
+   497→   497→  @@map("academic_sessions")
+   498→   498→}
+   499→   499→
+   500→   500→model Classroom {
+   501→   501→  id                String       @id @default(uuid())
+   502→   502→  tenantId          String
+   503→   503→  branchId          String
+   504→   504→  academicSessionId String
+   505→   505→  name              String
+   506→   506→  code              String
+   507→   507→  programType       ProgramType
+   508→   508→  capacity          Int          @default(20)
+   509→   509→  primaryTeacherId  String?
+   510→   510→  ageBandMinMonths  Int?
+   511→   511→  ageBandMaxMonths  Int?
+   512→   512→  programId         String?
+   513→   513→  facilityId        String?
+   514→   514→  isActive          Boolean      @default(true)
+   515→   515→  createdAt         DateTime     @default(now())
+   516→   516→  updatedAt         DateTime     @updatedAt
+   517→   517→
+   518→   518→  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   519→   519→  academicSession AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Restrict)
+   520→   520→  primaryTeacher User?          @relation("ClassPrimaryTeacher", fields: [primaryTeacherId], references: [id], onDelete: SetNull)
+   521→   521→  program        Program?       @relation(fields: [programId], references: [id], onDelete: SetNull)
+   522→   522→  facility       Facility?      @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+   523→   523→  students       Student[]      @relation("StudentCurrentClassroom")
+   524→   524→  attendances    Attendance[]
+   525→   525→  observations   Observation[]
+   526→   526→
+   527→   527→  @@unique([tenantId, code])
+   528→   528→  @@index([branchId])
+   529→   529→  @@map("classrooms")
+   530→   530→}
+   531→   531→
+   532→   532→// ────────────────────────────────────────────────────────────────────
+   533→   533→// STUDENT LIFECYCLE
+   534→   534→// ────────────────────────────────────────────────────────────────────
+   535→   535→
+   536→   536→model Student {
+   537→   537→  id                 String        @id @default(uuid())
+   538→   538→  tenantId           String
+   539→   539→  branchId           String
+   540→   540→  admissionNo        String
+   541→   541→  firstName          String
+   542→   542→  lastName           String?
+   543→   543→  dob                DateTime
+   544→   544→  gender             Gender
+   545→   545→  status             StudentStatus @default(ACTIVE)
+   546→   546→  admissionDate      DateTime      @default(now())
+   547→   547→  photoUrl           String?
+   548→   548→  bloodGroup         BloodGroup?
+   549→   549→  address            String?
+   550→   550→  currentClassroomId String?
+   551→   551→  createdAt          DateTime      @default(now())
+   552→   552→  updatedAt          DateTime      @updatedAt
+   553→   553→  deletedAt          DateTime?
+   554→   554→
+   555→   555→  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+   556→   556→  currentClassroom Classroom?      @relation("StudentCurrentClassroom", fields: [currentClassroomId], references: [id], onDelete: SetNull)
+   557→   557→  guardians      StudentGuardian[]
+   558→   558→  attendances    Attendance[]
+   559→   559→  invoices       Invoice[]
+   560→   560→  payments       Payment[]
+   561→   561→  timelineEntries TimelineEntry[]
+   562→   562→  observations   Observation[]
+   563→   563→
+   564→   564→  @@unique([tenantId, admissionNo])
+   565→   565→  @@index([tenantId, branchId])
+   566→   566→  @@index([tenantId, status])
+   567→   567→  @@index([currentClassroomId])
+   568→   568→  @@map("students")
+   569→   569→}
+   570→   570→
+   571→   571→model Guardian {
+   572→   572→  id               String       @id @default(uuid())
+   573→   573→  tenantId         String
+   574→   574→  fullName         String
+   575→   575→  relationship     Relationship
+   576→   576→  phone            String
+   577→   577→  email            String?
+   578→   578→  occupation       String?
+   579→   579→  isPrimaryContact Boolean      @default(false)
+   580→   580→  userId           String?      @unique // link to Parent portal login
+   581→   581→  user             User?        @relation("GuardianPortalUser", fields: [userId], references: [id], onDelete: SetNull)
+   582→   582→  createdAt        DateTime     @default(now())
+   583→   583→  updatedAt        DateTime     @updatedAt
+   584→   584→  deletedAt        DateTime?
+   585→   585→
+   586→   586→  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   587→   587→  studentLinks  StudentGuardian[]
+   588→   588→
+   589→   589→  @@index([tenantId, phone])
+   590→   590→  @@map("guardians")
+   591→   591→}
+   592→   592→
+   593→   593→model StudentGuardian {
+   594→   594→  id           String     @id @default(uuid())
+   595→   595→  studentId    String
+   596→   596→  guardianId   String
+   597→   597→  isPrimary    Boolean    @default(false)
+   598→   598→  canPickup    Boolean    @default(true)
+   599→   599→  isFeePayer   Boolean    @default(true)
+   600→   600→  receivesComm Boolean    @default(true)
+   601→   601→  createdAt    DateTime   @default(now())
+   602→   602→
+   603→   603→  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   604→   604→  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+   605→   605→
+   606→   606→  @@unique([studentId, guardianId])
+   607→   607→  @@map("student_guardians")
+   608→   608→}
+   609→   609→
+   610→   610→// ────────────────────────────────────────────────────────────────────
+   611→   611→// CRM + ADMISSIONS
+   612→   612→// ────────────────────────────────────────────────────────────────────
+   613→   613→
+   614→   614→model Lead {
+   615→   615→  id                      String     @id @default(uuid())
+   616→   616→  tenantId                String
+   617→   617→  branchId                String?
+   618→   618→  leadNumber              String
+   619→   619→  source                  LeadSource @default(WALK_IN)
+   620→   620→  status                  LeadStatus @default(NEW)
+   621→   621→  parentName              String
+   622→   622→  phone                   String
+   623→   623→  email                   String?
+   624→   624→  childName               String?
+   625→   625→  childDob                DateTime?
+   626→   626→  interestedProgram       ProgramType?
+   627→   627→  notes                   String?
+   628→   628→  assignedToId            String?
+   629→   629→  nextFollowUpAt          DateTime?
+   630→   630→  convertedApplicationId  String?
+   631→   631→  createdAt               DateTime   @default(now())
+   632→   632→  updatedAt               DateTime   @updatedAt
+   633→   633→  deletedAt               DateTime?
+   634→   634→
+   635→   635→  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   636→   636→  applications AdmissionApplication[]
+   637→   637→
+   638→   638→  @@unique([tenantId, leadNumber])
+   639→   639→  @@index([tenantId, status])
+   640→   640→  @@map("crm_leads")
+   641→   641→}
+   642→   642→
+   643→   643→model AdmissionApplication {
+   644→   644→  id                String            @id @default(uuid())
+   645→   645→  tenantId          String
+   646→   646→  branchId          String
+   647→   647→  applicationNumber String            @unique
+   648→   648→  leadId            String?
+   649→   649→  programType       ProgramType
+   650→   650→  childFirstName    String
+   651→   651→  childLastName     String?
+   652→   652→  childDob          DateTime
+   653→   653→  childGender       Gender
+   654→   654→  parentName        String
+   655→   655→  parentPhone       String
+   656→   656→  parentEmail       String?
+   657→   657→  previousSchool    String?
+   658→   658→  status            ApplicationStatus @default(SUBMITTED)
+   659→   659→  submittedAt       DateTime?
+   660→   660→  verifiedAt        DateTime?
+   661→   661→  approvedAt        DateTime?
+   662→   662→  rejectedAt        DateTime?
+   663→   663→  rejectionReason   String?
+   664→   664→  notes             String?
+   665→   665→  studentId         String?
+   666→   666→  classroomId       String?
+   667→   667→  createdAt         DateTime          @default(now())
+   668→   668→  updatedAt         DateTime          @updatedAt
+   669→   669→  deletedAt         DateTime?
+   670→   670→
+   671→   671→  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   672→   672→  lead      Lead?                 @relation(fields: [leadId], references: [id], onDelete: SetNull)
+   673→   673→  documents ApplicationDocument[]
+   674→   674→
+   675→   675→  @@index([tenantId, status])
+   676→   676→  @@index([branchId])
+   677→   677→  @@map("admission_applications")
+   678→   678→}
+   679→   679→
+   680→   680→model ApplicationDocument {
+   681→   681→  id            String       @id @default(uuid())
+   682→   682→  applicationId String
+   683→   683→  docType       DocumentType
+   684→   684→  fileName      String
+   685→   685→  verified      Boolean      @default(false)
+   686→   686→  verifiedAt    DateTime?
+   687→   687→  remarks       String?
+   688→   688→  createdAt     DateTime     @default(now())
+   689→   689→
+   690→   690→  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+   691→   691→
+   692→   692→  @@index([applicationId])
+   693→   693→  @@map("application_documents")
+   694→   694→}
+   695→   695→
+   696→   696→// ────────────────────────────────────────────────────────────────────
+   697→   697→// DAILY OPERATIONS
+   698→   698→// ────────────────────────────────────────────────────────────────────
+   699→   699→
+   700→   700→model Attendance {
+   701→   701→  id          String           @id @default(uuid())
+   702→   702→  tenantId    String
+   703→   703→  branchId    String
+   704→   704→  classroomId String
+   705→   705→  studentId   String
+   706→   706→  date        DateTime         @db.Date
+   707→   707→  status      AttendanceStatus
+   708→   708→  notes       String?
+   709→   709→  markedById  String?
+   710→   710→  markedAt    DateTime         @default(now())
+   711→   711→  createdAt   DateTime         @default(now())
+   712→   712→  updatedAt   DateTime         @updatedAt
+   713→   713→
+   714→   714→  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   715→   715→  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+   716→   716→  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   717→   717→
+   718→   718→  @@unique([studentId, date])
+   719→   719→  @@index([classroomId, date])
+   720→   720→  @@index([tenantId, date])
+   721→   721→  @@map("attendance")
+   722→   722→}
+   723→   723→
+   724→   724→// ────────────────────────────────────────────────────────────────────
+   725→   725→// FINANCE — money in integer paise
+   726→   726→// ────────────────────────────────────────────────────────────────────
+   727→   727→
+   728→   728→model FeePlan {
+   729→   729→  id               String       @id @default(uuid())
+   730→   730→  tenantId         String
+   731→   731→  branchId         String?
+   732→   732→  name             String
+   733→   733→  programType      ProgramType
+   734→   734→  totalAnnualCents Int
+   735→   735→  installmentCount Int          @default(1)
+   736→   736→  isActive         Boolean      @default(true)
+   737→   737→  createdAt        DateTime     @default(now())
+   738→   738→  updatedAt        DateTime     @updatedAt
+   739→   739→
+   740→   740→  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   741→   741→  items  FeePlanItem[]
+   742→   742→
+   743→   743→  @@index([tenantId, programType])
+   744→   744→  @@map("fee_plans")
+   745→   745→}
+   746→   746→
+   747→   747→model FeePlanItem {
+   748→   748→  id           String          @id @default(uuid())
+   749→   749→  feePlanId    String
+   750→   750→  feeHead      FeeHeadCategory
+   751→   751→  label        String
+   752→   752→  amountCents  Int
+   753→   753→  frequency    FeeFrequency
+   754→   754→
+   755→   755→  feePlan FeePlan @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+   756→   756→
+   757→   757→  @@map("fee_plan_items")
+   758→   758→}
+   759→   759→
+   760→   760→model Invoice {
+   761→   761→  id             String        @id @default(uuid())
+   762→   762→  tenantId       String
+   763→   763→  branchId       String
+   764→   764→  studentId      String
+   765→   765→  invoiceNumber  String
+   766→   766→  title          String        @default("Fee Invoice")
+   767→   767→  issueDate      DateTime      @default(now())
+   768→   768→  dueDate        DateTime
+   769→   769→  subtotalCents  Int
+   770→   770→  discountCents  Int           @default(0)
+   771→   771→  taxCents       Int           @default(0)
+   772→   772→  totalCents     Int
+   773→   773→  paidCents      Int           @default(0)
+   774→   774→  balanceCents   Int
+   775→   775→  status         InvoiceStatus @default(ISSUED)
+   776→   776→  notes          String?
+   777→   777→  issuedById     String?
+   778→   778→  createdAt      DateTime      @default(now())
+   779→   779→  updatedAt      DateTime      @updatedAt
+   780→   780→  deletedAt      DateTime?
+   781→   781→
+   782→   782→  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+   783→   783→  student  Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+   784→   784→  items    InvoiceItem[]
+   785→   785→  payments Payment[]
+   786→   786→
+   787→   787→  @@unique([tenantId, invoiceNumber])
+   788→   788→  @@index([tenantId, status])
+   789→   789→  @@index([studentId])
+   790→   790→  @@map("invoices")
+   791→   791→}
+   792→   792→
+   793→   793→model InvoiceItem {
+   794→   794→  id          String           @id @default(uuid())
+   795→   795→  invoiceId   String
+   796→   796→  feeHead     FeeHeadCategory
+   797→   797→  description String
+   798→   798→  amountCents Int
+   799→   799→
+   800→   800→  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+   801→   801→
+   802→   802→  @@map("invoice_items")
+   803→   803→}
+   804→   804→
+   805→   805→model Payment {
+   806→   806→  id            String         @id @default(uuid())
+   807→   807→  tenantId      String
+   808→   808→  invoiceId     String?
+   809→   809→  studentId     String
+   810→   810→  paymentNumber String
+   811→   811→  amountCents   Int
+   812→   812→  method        PaymentMethod
+   813→   813→  transactionRef String?
+   814→   814→  status        PaymentStatus  @default(SUCCESS)
+   815→   815→  paymentDate   DateTime       @default(now())
+   816→   816→  receivedById  String?
+   817→   817→  notes         String?
+   818→   818→  createdAt     DateTime       @default(now())
+   819→   819→  updatedAt     DateTime       @updatedAt
+   820→   820→
+   821→   821→  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+   822→   822→  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+   823→   823→  student Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+   824→   824→  receipt Receipt?
+   825→   825→
+   826→   826→  @@unique([tenantId, paymentNumber])
+   827→   827→  @@index([tenantId, status])
+   828→   828→  @@index([studentId])
+   829→   829→  @@map("payments")
+   830→   830→}
+   831→   831→
+   832→   832→model Receipt {
+   833→   833→  id            String   @id @default(uuid())
+   834→   834→  paymentId     String   @unique
+   835→   835→  receiptNumber String
+   836→   836→  amountCents   Int
+   837→   837→  issuedAt      DateTime @default(now())
+   838→   838→
+   839→   839→  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+   840→   840→
+   841→   841→  @@unique([receiptNumber])
+   842→   842→  @@map("receipts")
+   843→   843→}
+   844→   844→
+   845→   845→// ────────────────────────────────────────────────────────────────────
+   846→   846→// COMMUNICATION
+   847→   847→// ────────────────────────────────────────────────────────────────────
+   848→   848→
+   849→   849→model Announcement {
+   850→   850→  id          String             @id @default(uuid())
+   851→   851→  tenantId    String
+   852→   852→  branchId    String?
+   853→   853→  classroomId String?
+   854→   854→  title       String
+   855→   855→  body        String
+   856→   856→  type        AnnouncementType   @default(GENERAL)
+   857→   857→  audience    AudienceType       @default(SCHOOL_WIDE)
+   858→   858→  status      AnnouncementStatus @default(PUBLISHED)
+   859→   859→  authorId    String?
+   860→   860→  publishedAt DateTime           @default(now())
+   861→   861→  createdAt   DateTime           @default(now())
+   862→   862→  updatedAt   DateTime           @updatedAt
+   863→   863→
+   864→   864→  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   865→   865→
+   866→   866→  @@index([tenantId, publishedAt])
+   867→   867→  @@map("announcements")
+   868→   868→}
+   869→   869→
+   870→   870→model TimelineEntry {
+   871→   871→  id           String            @id @default(uuid())
+   872→   872→  tenantId     String
+   873→   873→  studentId    String
+   874→   874→  classroomId  String?
+   875→   875→  type         TimelineEntryType
+   876→   876→  title        String
+   877→   877→  body         String?
+   878→   878→  mood         String?
+   879→   879→  photoUrl     String?
+   880→   880→  authorId     String?
+   881→   881→  observationId String?
+   882→   882→  createdAt    DateTime          @default(now())
+   883→   883→
+   884→   884→  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   885→   885→  student     Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   886→   886→  observation Observation? @relation(fields: [observationId], references: [id], onDelete: SetNull)
+   887→   887→
+   888→   888→  @@index([studentId, createdAt])
+   889→   889→  @@index([tenantId, createdAt])
+   890→   890→  @@map("timeline_entries")
+   891→   891→}
+   892→   892→
+   893→   893→// ────────────────────────────────────────────────────────────────────
+   894→   894→// ACADEMICS — observations feed the parent timeline
+   895→   895→// ────────────────────────────────────────────────────────────────────
+   896→   896→
+   897→   897→model Observation {
+   898→   898→  id            String            @id @default(uuid())
+   899→   899→  tenantId      String
+   900→   900→  studentId     String
+   901→   901→  classroomId   String?
+   902→   902→  teacherId     String?
+   903→   903→  narrative     String
+   904→   904→  milestoneTags String?
+   905→   905→  status        ObservationStatus @default(DRAFT)
+   906→   906→  observedAt    DateTime          @default(now())
+   907→   907→  publishedAt   DateTime?
+   908→   908→  createdAt     DateTime          @default(now())
+   909→   909→  updatedAt     DateTime          @updatedAt
+   910→   910→
+   911→   911→  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   912→   912→  student   Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+   913→   913→  classroom Classroom?     @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+   914→   914→  timeline  TimelineEntry[]
+   915→   915→
+   916→   916→  @@index([tenantId, studentId])
+   917→   917→  @@map("observations")
+   918→   918→}
+   919→   919→
+   920→   920→// ────────────────────────────────────────────────────────────────────
+   921→   921→// AUDIT — immutable, every state change
+   922→   922→// ────────────────────────────────────────────────────────────────────
+   923→   923→
+   924→   924→model AuditLog {
+   925→   925→  id        String   @id @default(uuid())
+   926→   926→  tenantId  String?
+   927→   927→  actorId   String?
+   928→   928→  actorName String?
+   929→   929→  action    String
+   930→   930→  entity    String
+   931→   931→  entityId  String?
+   932→   932→  summary   String?
+   933→   933→  createdAt DateTime @default(now())
+   934→   934→
+   935→   935→  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+   936→   936→
+   937→   937→  @@index([tenantId, createdAt])
+   938→   938→  @@index([entity, entityId])
+   939→   939→  @@map("audit_logs")
+   940→   940→}
+   941→   941→
+   942→   942→// ────────────────────────────────────────────────────────────────────
+   943→   943→// M00 — PRESCHOOL CREATION & SETUP — new foundational entities
+   944→   944→// (additive; all tenant-scoped per multi-tenancy ADR)
+   945→   945→// ────────────────────────────────────────────────────────────────────
+   946→   946→
+   947→   947→/// Persistent setup state machine — exactly one per tenant (M00 §3)
+   948→   948→model SchoolSetup {
+   949→   949→  id               String      @id @default(uuid())
+   950→   950→  tenantId         String      @unique
+   951→   951→  status           SetupStatus @default(NOT_STARTED)
+   952→   952→  startedAt        DateTime?
+   953→   953→  goLiveAt         DateTime?
+   954→   954→  goLiveByName     String?
+   955→   955→  lastValidationAt DateTime?
+   956→   956→  createdAt        DateTime    @default(now())
+   957→   957→  updatedAt        DateTime    @updatedAt
+   958→   958→
+   959→   959→  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   960→   960→
+   961→   961→  @@map("school_setups")
+   962→   962→}
+   963→   963→
+   964→   964→/// Per-step persistent state: who/when completed, why blocked, drift detection (M00 §3)
+   965→   965→model SchoolSetupStep {
+   966→   966→  id                String             @id @default(uuid())
+   967→   967→  tenantId          String
+   968→   968→  stepKey           String
+   969→   969→  status            SetupStepStatus    @default(PENDING)
+   970→   970→  applicability     SetupApplicability @default(MANDATORY)
+   971→   971→  blockedReason     String?
+   972→   972→  completedById     String?
+   973→   973→  completedByName   String?
+   974→   974→  completedAt       DateTime?
+   975→   975→  dataSnapshot      Json?              // snapshot at completion → "changed after completion" drift flag
+   976→   976→  changedAfterCompletion Boolean       @default(false)
+   977→   977→  lastCheckedAt     DateTime           @default(now())
+   978→   978→  lastUpdatedById   String?
+   979→   979→  createdAt         DateTime           @default(now())
+   980→   980→  updatedAt         DateTime           @updatedAt
+   981→   981→
+   982→   982→  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+   983→   983→
+   984→   984→  @@unique([tenantId, stepKey])
+   985→   985→  @@index([tenantId, status])
+   986→   986→  @@map("school_setup_steps")
+   987→   987→}
+   988→   988→
+   989→   989→/// Persisted validation / go-live check runs (M00 §28)
+   990→   990→model SchoolSetupValidationRun {
+   991→   991→  id         String            @id @default(uuid())
+   992→   992→  tenantId   String
+   993→   993→  kind       ValidationKind
+   994→   994→  overall    ValidationOverall
+   995→   995→  result     Json              // categories[] { key, label, status, findings[] }
+   996→   996→  runById    String?
+   997→   997→  runByName  String?
+   998→   998→  createdAt  DateTime          @default(now())
+   999→   999→
+  1000→  1000→  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1001→  1001→
+  1002→  1002→  @@index([tenantId, createdAt])
+  1003→  1003→  @@map("school_setup_validation_runs")
+  1004→  1004→}
+  1005→  1005→
+  1006→  1006→/// Configurable program master data (M00 §5/§9) — legacy ProgramType link kept for existing contracts
+  1007→  1007→model Program {
+  1008→  1008→  id              String      @id @default(uuid())
+  1009→  1009→  tenantId        String
+  1010→  1010→  code            String
+  1011→  1011→  name            String
+  1012→  1012→  programType     ProgramType
+  1013→  1013→  description     String?
+  1014→  1014→  ageMinMonths    Int?
+  1015→  1015→  ageMaxMonths    Int?
+  1016→  1016→  durationMonths  Int?
+  1017→  1017→  capacity        Int         @default(20)
+  1018→  1018→  isActive        Boolean     @default(true)
+  1019→  1019→  createdAt       DateTime    @default(now())
+  1020→  1020→  updatedAt       DateTime    @updatedAt
+  1021→  1021→  deletedAt       DateTime?
+  1022→  1022→
+  1023→  1023→  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1024→  1024→  classrooms Classroom[]
+  1025→  1025→
+  1026→  1026→  @@unique([tenantId, code])
+  1027→  1027→  @@index([tenantId, isActive])
+  1028→  1028→  @@map("programs")
+  1029→  1029→}
+  1030→  1030→
+  1031→  1031→/// Infrastructure tree: Branch → Facility (M00 §6/§10)
+  1032→  1032→model Facility {
+  1033→  1033→  id             String       @id @default(uuid())
+  1034→  1034→  tenantId       String
+  1035→  1035→  branchId       String
+  1036→  1036→  type           FacilityType
+  1037→  1037→  name           String
+  1038→  1038→  code           String
+  1039→  1039→  capacity       Int?
+  1040→  1040→  floorOrArea    String?
+  1041→  1041→  ageSuitability String?
+  1042→  1042→  isActive       Boolean      @default(true)
+  1043→  1043→  createdAt      DateTime     @default(now())
+  1044→  1044→  updatedAt      DateTime     @updatedAt
+  1045→  1045→  deletedAt      DateTime?
+  1046→  1046→
+  1047→  1047→  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1048→  1048→  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  1049→  1049→  classrooms Classroom[]
+  1050→  1050→
+  1051→  1051→  @@unique([tenantId, code])
+  1052→  1052→  @@index([tenantId, branchId])
+  1053→  1053→  @@map("facilities")
+  1054→  1054→}
+  1055→  1055→
+  1056→  1056→/// Staff employment foundation — identity/RBAC stays in User + TenantUser (M00 §9)
+  1057→  1057→model StaffProfile {
+  1058→  1058→  id                    String         @id @default(uuid())
+  1059→  1059→  tenantId              String
+  1060→  1060→  userId                String         @unique
+  1061→  1061→  branchId              String?
+  1062→  1062→  employeeCode          String
+  1063→  1063→  designation           String?
+  1064→  1064→  qualification         String?
+  1065→  1065→  joiningDate           DateTime?
+  1066→  1066→  employmentType        EmploymentType @default(REGULAR)
+  1067→  1067→  emergencyContactName  String?
+  1068→  1068→  emergencyContactPhone String?
+  1069→  1069→  status                UserStatus     @default(ACTIVE)
+  1070→  1070→  createdAt             DateTime       @default(now())
+  1071→  1071→  updatedAt             DateTime       @updatedAt
+  1072→  1072→  deletedAt             DateTime?
+  1073→  1073→
+  1074→  1074→  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1075→  1075→  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1076→  1076→  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  1077→  1077→
+  1078→  1078→  @@unique([tenantId, employeeCode])
+  1079→  1079→  @@index([tenantId])
+  1080→  1080→  @@map("staff_profiles")
+  1081→  1081→}
+  1082→  1082→
+  1083→  1083→/// School calendar entries (M00 §13) — working days live in SchoolConfig(OPERATING)
+  1084→  1084→model CalendarEvent {
+  1085→  1085→  id                String            @id @default(uuid())
+  1086→  1086→  tenantId          String
+  1087→  1087→  branchId          String?
+  1088→  1088→  academicSessionId String?
+  1089→  1089→  date              DateTime          @db.Date
+  1090→  1090→  type              CalendarEventType
+  1091→  1091→  title             String
+  1092→  1092→  notes             String?
+  1093→  1093→  createdAt         DateTime          @default(now())
+  1094→  1094→  updatedAt         DateTime          @updatedAt
+  1095→  1095→
+  1096→  1096→  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1097→  1097→  branch         Branch?          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  1098→  1098→  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  1099→  1099→
+  1100→  1100→  @@index([tenantId, date])
+  1101→  1101→  @@map("calendar_events")
+  1102→  1102→}
+  1103→  1103→
+  1104→  1104→/// JSON configuration per domain — ONLY for domains with no natural entity (M00 §41 one source of truth)
+  1105→  1105→model SchoolConfig {
+  1106→  1106→  id             String      @id @default(uuid())
+  1107→  1107→  tenantId       String
+  1108→  1108→  domain         ConfigDomain
+  1109→  1109→  data           Json
+  1110→  1110→  updatedById    String?
+  1111→  1111→  updatedByName  String?
+  1112→  1112→  createdAt      DateTime    @default(now())
+  1113→  1113→  updatedAt      DateTime    @updatedAt
+  1114→  1114→
+  1115→  1115→  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  1116→  1116→
+  1117→  1117→  @@unique([tenantId, domain])
+  1118→  1118→  @@map("school_configs")
+  1119→  1119→}
+  1120→  1120→

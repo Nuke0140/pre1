@@ -48,6 +48,16 @@ export async function POST(
         where: { id: lead.id },
         data: { status: 'APPLICATION_STARTED', convertedApplicationId: app.id },
       })
+      // mandatory doc checklist — SAME as direct applications POST (BRC §Eligibility):
+      // a converted application must collect + verify documents before approval
+      await tx.applicationDocument.createMany({
+        data: [
+          { applicationId: app.id, docType: 'BIRTH_CERTIFICATE', fileName: 'birth-certificate.pdf' },
+          { applicationId: app.id, docType: 'PHOTO', fileName: 'child-photo.jpg' },
+          { applicationId: app.id, docType: 'PARENT_ID', fileName: 'parent-id.pdf' },
+          { applicationId: app.id, docType: 'MEDICAL_CERTIFICATE', fileName: 'medical-fitness.pdf' },
+        ],
+      })
       return app
     })
 

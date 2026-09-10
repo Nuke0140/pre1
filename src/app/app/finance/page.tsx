@@ -97,6 +97,18 @@ export default function FinancePage() {
     }
   }
 
+  const sendReminder = async () => {
+    if (!detail) return
+    setBusy(true)
+    const res = await fetch(`/api/v1/invoices/${detail.id}/remind`, { method: 'POST' })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) {
+      toast.success('Reminder sent', 'Fee follow-up stays open until payment is received (notification ≠ resolution)')
+      load()
+    } else toast.error('Failed', json.error?.message)
+  }
+
   const createInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setBusy(true)
@@ -253,6 +265,11 @@ export default function FinancePage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button className="btn btn-ghost" onClick={() => setDetail(null)}>Close</button>
+              {detail.balanceCents > 0 && !['CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && (
+                <button className="btn btn-outline" disabled={busy} onClick={sendReminder}>
+                  Send reminder
+                </button>
+              )}
               {detail.balanceCents > 0 && !['CANCELLED', 'WRITTEN_OFF'].includes(detail.status) && (
                 <button className="btn btn-primary" onClick={() => setPayOpen(true)}>
                   <IndianRupee size={15} /> Record Payment
