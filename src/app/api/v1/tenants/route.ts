@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
+import { SETUP_STEPS } from '@/lib/setup/steps'
 import bcrypt from 'bcryptjs'
 
 /** GET /api/v1/tenants — platform admin: all clients (tenants) */
@@ -118,6 +119,23 @@ export async function POST(req: NextRequest) {
         DAYCARE: { capacity: 20, min: 18, max: 72 },
       }
       const progs: string[] = Array.isArray(programs) && programs.length ? programs : ['PLAYGROUP', 'NURSERY']
+      // M00: Program master rows (configurable) linked to legacy ProgramType for existing contracts
+      const programRows = await Promise.all(
+        progs.map((p) =>
+          tx.program.create({
+            data: {
+              tenantId: t.id,
+              code: p,
+              name: `${p.charAt(0)}${p.slice(1).toLowerCase()}`,
+              programType: p as never,
+              ageMinMonths: programDefaults[p]?.min ?? null,
+              ageMaxMonths: programDefaults[p]?.max ?? null,
+              capacity: programDefaults[p]?.capacity ?? 20,
+            },
+          })
+        )
+      )
+      const programIdByType = Object.fromEntries(programRows.map((p) => [p.programType, p.id]))
       await tx.classroom.createMany({
         data: progs.map((p, i) => ({
           tenantId: t.id,
@@ -129,6 +147,7 @@ export async function POST(req: NextRequest) {
           capacity: programDefaults[p]?.capacity ?? 20,
           ageBandMinMonths: programDefaults[p]?.min,
           ageBandMaxMonths: programDefaults[p]?.max,
+          programId: programIdByType[p] ?? null,
         })),
       })
 
@@ -166,6 +185,15 @@ export async function POST(req: NextRequest) {
       }
 
       return t
+    })
+
+    // M00: initialize the setup state machine — wizard pre-configured the foundation,
+    // remaining steps evaluate against real data on first status read
+    await db.schoolSetup.create({
+      data: { tenantId: tenant.id, status: 'IN_PROGRESS', startedAt: new Date() },
+    })
+    await db.schoolSetupStep.createMany({
+      data: SETUP_STEPS.map((s) => ({ tenantId: tenant.id, stepKey: s.key, applicability: s.applicability })),
     })
 
     await audit({

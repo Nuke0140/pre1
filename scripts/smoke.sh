@@ -32,11 +32,15 @@ chk "api tenants (platform)" 200 "$code"
 code=$(curl -s -b $OJ -o /dev/null -w '%{http_code}' $BASE/api/v1/tenants --max-time 10)
 chk "api tenants (owner blocked)" 403 "$code"
 
-# 5. Pages
-for pg in app/dashboard app/students app/finance app/admissions app/attendance app/academics app/communication app/timeline app/audit app/settings; do
+# 5. Pages (dashboard: M00 first-login handoff redirects non-live schools to /app/setup)
+for pg in app/students app/finance app/admissions app/attendance app/academics app/communication app/timeline app/audit app/settings; do
   code=$(curl -s -b $OJ -o /dev/null -w '%{http_code}' $BASE/$pg --max-time 10)
   chk "page $pg" 200 "$code"
 done
+code=$(curl -s -b $OJ -o /dev/null -w '%{http_code}' $BASE/app/dashboard --max-time 10)
+chk "page app/dashboard (307 -> setup while not LIVE)" 307 "$code"
+code=$(curl -s -b $OJ -o /dev/null -w '%{http_code}' -L $BASE/app/dashboard --max-time 10)
+chk "page dashboard redirect lands on setup" 200 "$code"
 code=$(curl -s -b $PJ -o /dev/null -w '%{http_code}' $BASE/onboard --max-time 10)
 chk "page /onboard (platform)" 200 "$code"
 code=$(curl -s -b $OJ -o /dev/null -w '%{http_code}' -L $BASE/onboard --max-time 10)

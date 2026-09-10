@@ -1,6 +1,7 @@
 import { can } from '@/lib/auth'
 import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
+import { redirect } from 'next/navigation'
 import { DashboardClient } from './DashboardClient'
 
 export default async function DashboardPage() {
@@ -8,6 +9,13 @@ export default async function DashboardPage() {
   if (!session?.tenantId) return null
 
   const tenantId = session.tenantId
+
+  // M00 — first-login handoff: incomplete setup takes priority over the dashboard
+  if (session.role === 'OWNER' || session.role === 'PRINCIPAL') {
+    const setup = await db.schoolSetup.findUnique({ where: { tenantId }, select: { status: true } })
+    if (setup && setup.status !== 'LIVE') redirect('/app/setup')
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 

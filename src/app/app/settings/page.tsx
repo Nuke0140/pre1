@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { Building2, School, Users, Plus, GraduationCap } from 'lucide-react'
+import { Building2, School, Users, Plus, GraduationCap, Rocket } from 'lucide-react'
 import { PageHead, Avatar, Segmented, Skeleton, Field } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
@@ -78,6 +78,16 @@ export default function SettingsPage() {
   return (
     <>
       <PageHead title="Settings" sub="School setup — classes, staff aur fee plans." />
+
+      {/* M00 — Preschool Setup entry */}
+      <a href="/app/setup" className="card card-hover" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', color: 'inherit', textDecoration: 'none', borderColor: 'var(--preone-primary)' }}>
+        <div className="kpi-ic ic-violet"><Rocket size={18} /></div>
+        <div style={{ flex: 1 }}>
+          <div className="card-title" style={{ fontSize: 14 }}>Preschool Setup (M00)</div>
+          <div className="card-sub">Guided setup status, dependency engine, validation and go-live checklist</div>
+        </div>
+        <span className="badge b-primary">Open</span>
+      </a>
 
       <Segmented
         value={tab}

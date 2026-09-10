@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, ClipboardList, CalendarCheck, IndianRupee,
-  Sparkles, Smartphone, Megaphone, Settings, ScrollText, Building2,
+  Sparkles, Smartphone, Megaphone, Settings, ScrollText, Building2, Rocket,
 } from 'lucide-react'
 import type { Role } from './auth'
 import { can } from './auth'
@@ -17,6 +17,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { key: 'dashboard', label: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, grad: 'g-blue' },
+  { key: 'setup', label: 'Setup', href: '/app/setup', icon: Rocket, grad: 'g-violet', perm: 'settings:read' },
   { key: 'students', label: 'Students', href: '/app/students', icon: Users, grad: 'g-purple', perm: 'students:read' },
   { key: 'admissions', label: 'Admissions', href: '/app/admissions', icon: ClipboardList, grad: 'g-pink', perm: 'admissions:read' },
   { key: 'attendance', label: 'Attendance', href: '/app/attendance', icon: CalendarCheck, grad: 'g-green', perm: 'attendance:read' },

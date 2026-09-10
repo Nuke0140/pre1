@@ -258,6 +258,83 @@ enum ObservationStatus {
 }
 
 // ────────────────────────────────────────────────────────────────────
+// M00 — PRESCHOOL CREATION & SETUP (foundation domain)
+// ────────────────────────────────────────────────────────────────────
+
+enum SetupStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  READY_FOR_REVIEW
+  READY_FOR_GO_LIVE
+  LIVE
+}
+
+enum SetupStepStatus {
+  PENDING
+  COMPLETE
+  BLOCKED
+  SKIPPED
+}
+
+enum SetupApplicability {
+  MANDATORY
+  OPTIONAL
+  RECOMMENDED
+}
+
+enum ValidationKind {
+  SETUP_VALIDATION
+  GO_LIVE_CHECK
+}
+
+enum ValidationOverall {
+  PASS
+  WARNING
+  BLOCKED
+}
+
+enum FacilityType {
+  CLASSROOM
+  ACTIVITY_AREA
+  PLAY_AREA
+  NAP_AREA
+  MEAL_AREA
+  WASHROOM
+  MEDICAL
+  OTHER
+}
+
+enum EmploymentType {
+  REGULAR
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum CalendarEventType {
+  HOLIDAY
+  VACATION
+  EVENT
+  PARENT_MEETING
+  ASSESSMENT
+  SPECIAL_DAY
+}
+
+enum ConfigDomain {
+  OPERATING
+  ADMISSION
+  STUDENT_PARENT
+  FINANCE
+  DAILY_OPERATIONS
+  HEALTH_SAFETY
+  COMMUNICATION
+  DOCUMENT_TEMPLATES
+  CURRICULUM
+  BRANDING
+}
+
+// ────────────────────────────────────────────────────────────────────
 // PLATFORM (SaaS layer)
 // ────────────────────────────────────────────────────────────────────
 
@@ -307,6 +384,16 @@ model Tenant {
   observations      Observation[]
   auditLogs         AuditLog[]
 
+  // M00 — setup foundation
+  schoolSetup       SchoolSetup?
+  setupSteps        SchoolSetupStep[]
+  setupValidations  SchoolSetupValidationRun[]
+  programs          Program[]
+  facilities        Facility[]
+  calendarEvents    CalendarEvent[]
+  schoolConfigs     SchoolConfig[]
+  staffProfiles     StaffProfile[]
+
   @@map("tenants")
 }
 
@@ -323,6 +410,7 @@ model Branch {
   email        String?
   timingOpen   String   @default("08:30")
   timingClose  String   @default("16:00")
+  capacity     Int?
   isMain       Boolean  @default(false)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -330,6 +418,10 @@ model Branch {
   deletedAt    DateTime?
 
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  facilities    Facility[]
+  staffProfiles StaffProfile[]
+  calendarEvents CalendarEvent[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -357,6 +449,7 @@ model User {
   memberships  TenantUser[]
   taughtClasses Classroom[]  @relation("ClassPrimaryTeacher")
   guardianProfile Guardian?  @relation("GuardianPortalUser")
+  staffProfile    StaffProfile?
 
   @@map("users")
 }
@@ -398,6 +491,7 @@ model AcademicSession {
 
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   classrooms Classroom[]
+  calendarEvents CalendarEvent[]
 
   @@unique([tenantId, name])
   @@map("academic_sessions")
@@ -415,6 +509,8 @@ model Classroom {
   primaryTeacherId  String?
   ageBandMinMonths  Int?
   ageBandMaxMonths  Int?
+  programId         String?
+  facilityId        String?
   isActive          Boolean      @default(true)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -422,6 +518,8 @@ model Classroom {
   tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   academicSession AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Restrict)
   primaryTeacher User?          @relation("ClassPrimaryTeacher", fields: [primaryTeacherId], references: [id], onDelete: SetNull)
+  program        Program?       @relation(fields: [programId], references: [id], onDelete: SetNull)
+  facility       Facility?      @relation(fields: [facilityId], references: [id], onDelete: SetNull)
   students       Student[]      @relation("StudentCurrentClassroom")
   attendances    Attendance[]
   observations   Observation[]
@@ -839,4 +937,183 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([entity, entityId])
   @@map("audit_logs")
+}
+
+// ────────────────────────────────────────────────────────────────────
+// M00 — PRESCHOOL CREATION & SETUP — new foundational entities
+// (additive; all tenant-scoped per multi-tenancy ADR)
+// ────────────────────────────────────────────────────────────────────
+
+/// Persistent setup state machine — exactly one per tenant (M00 §3)
+model SchoolSetup {
+  id               String      @id @default(uuid())
+  tenantId         String      @unique
+  status           SetupStatus @default(NOT_STARTED)
+  startedAt        DateTime?
+  goLiveAt         DateTime?
+  goLiveByName     String?
+  lastValidationAt DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("school_setups")
+}
+
+/// Per-step persistent state: who/when completed, why blocked, drift detection (M00 §3)
+model SchoolSetupStep {
+  id                String             @id @default(uuid())
+  tenantId          String
+  stepKey           String
+  status            SetupStepStatus    @default(PENDING)
+  applicability     SetupApplicability @default(MANDATORY)
+  blockedReason     String?
+  completedById     String?
+  completedByName   String?
+  completedAt       DateTime?
+  dataSnapshot      Json?              // snapshot at completion → "changed after completion" drift flag
+  changedAfterCompletion Boolean       @default(false)
+  lastCheckedAt     DateTime           @default(now())
+  lastUpdatedById   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, stepKey])
+  @@index([tenantId, status])
+  @@map("school_setup_steps")
+}
+
+/// Persisted validation / go-live check runs (M00 §28)
+model SchoolSetupValidationRun {
+  id         String            @id @default(uuid())
+  tenantId   String
+  kind       ValidationKind
+  overall    ValidationOverall
+  result     Json              // categories[] { key, label, status, findings[] }
+  runById    String?
+  runByName  String?
+  createdAt  DateTime          @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("school_setup_validation_runs")
+}
+
+/// Configurable program master data (M00 §5/§9) — legacy ProgramType link kept for existing contracts
+model Program {
+  id              String      @id @default(uuid())
+  tenantId        String
+  code            String
+  name            String
+  programType     ProgramType
+  description     String?
+  ageMinMonths    Int?
+  ageMaxMonths    Int?
+  durationMonths  Int?
+  capacity        Int         @default(20)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  classrooms Classroom[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("programs")
+}
+
+/// Infrastructure tree: Branch → Facility (M00 §6/§10)
+model Facility {
+  id             String       @id @default(uuid())
+  tenantId       String
+  branchId       String
+  type           FacilityType
+  name           String
+  code           String
+  capacity       Int?
+  floorOrArea    String?
+  ageSuitability String?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  classrooms Classroom[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId])
+  @@map("facilities")
+}
+
+/// Staff employment foundation — identity/RBAC stays in User + TenantUser (M00 §9)
+model StaffProfile {
+  id                    String         @id @default(uuid())
+  tenantId              String
+  userId                String         @unique
+  branchId              String?
+  employeeCode          String
+  designation           String?
+  qualification         String?
+  joiningDate           DateTime?
+  employmentType        EmploymentType @default(REGULAR)
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  status                UserStatus     @default(ACTIVE)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  deletedAt             DateTime?
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId])
+  @@map("staff_profiles")
+}
+
+/// School calendar entries (M00 §13) — working days live in SchoolConfig(OPERATING)
+model CalendarEvent {
+  id                String            @id @default(uuid())
+  tenantId          String
+  branchId          String?
+  academicSessionId String?
+  date              DateTime          @db.Date
+  type              CalendarEventType
+  title             String
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch?          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  academicSession AcademicSession? @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, date])
+  @@map("calendar_events")
+}
+
+/// JSON configuration per domain — ONLY for domains with no natural entity (M00 §41 one source of truth)
+model SchoolConfig {
+  id             String      @id @default(uuid())
+  tenantId       String
+  domain         ConfigDomain
+  data           Json
+  updatedById    String?
+  updatedByName  String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, domain])
+  @@map("school_configs")
 }

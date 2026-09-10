@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
       where: { tenantId: session.tenantId, isActive: true },
       include: {
         primaryTeacher: { select: { fullName: true } },
+        program: { select: { name: true, code: true } },
         _count: { select: { students: true } },
       },
       orderBy: [{ programType: 'asc' }, { name: 'asc' }],
@@ -24,6 +25,11 @@ export async function GET(req: NextRequest) {
         name: c.name,
         code: c.code,
         programType: c.programType,
+        programId: c.programId,
+        programName: c.program?.name ?? null,
+        branchId: c.branchId,
+        academicSessionId: c.academicSessionId,
+        primaryTeacherId: c.primaryTeacherId,
         capacity: c.capacity,
         teacher: c.primaryTeacher?.fullName ?? null,
         students: c._count.students,
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, programType, capacity, branchId } = body
+    const { name, programType, capacity, branchId, programId, primaryTeacherId, facilityId } = body
     if (!name || !programType) {
       return Errors.validation('name and programType are required')
     }
@@ -66,6 +72,9 @@ export async function POST(req: NextRequest) {
         code: `${programType.slice(0, 3)}-${String.fromCharCode(65 + (count % 26))}`,
         programType,
         capacity: capacity || 20,
+        programId: programId || null,
+        primaryTeacherId: primaryTeacherId || null,
+        facilityId: facilityId || null,
       },
     })
     return ok({ id: classroom.id }, undefined, 201)

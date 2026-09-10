@@ -132,3 +132,24 @@ Stage Summary:
 - RBAC hardened: platform:* permissions now exclusive to PLATFORM_ADMIN
 - Scripts saved: scripts/db-check.mjs, scripts/smoke.sh (reusable startup QA)
 - Demo accounts unchanged: platform@preone.in / owner@|principal@|teacher@|accounts@|parent@sunshine.demo (Preone@123)
+
+---
+Task ID: 8
+Agent: main (Super Z)
+Task: M00 — Preschool Creation & Setup (new foundational domain, brief with 42 sections)
+
+Work Log:
+- Impact map FIRST (per brief): docs/M00_Implementation_Impact_Map.md — entity mapping (no redesign: AcademicSession=AY, Classroom=class/section unit, ProgramType enum kept + new Program master), new entities, 21-step registry, API/UI/security impact, acceptance criteria
+- Schema (additive): +9 enums, +8 models (SchoolSetup, SchoolSetupStep, SchoolSetupValidationRun, Program, Facility, StaffProfile, CalendarEvent, SchoolConfig), +Classroom.programId/facilityId, +Branch.capacity; prisma db push on PG 54329
+- Engine src/lib/setup/: steps.ts (21 steps, MANDATORY/OPTIONAL/RECOMMENDED, dependency graph, 4 phases), engine.ts (predicates derive completion from REAL data — lazy init for pre-M00 tenants, auto-complete with system attribution, drift → changedAfterCompletion, tenant state machine NOT_STARTED→IN_PROGRESS/BLOCKED→READY_FOR_REVIEW→READY_FOR_GO_LIVE→LIVE), validate.ts (15 categories PASS/WARNING/BLOCKED, persisted runs, go-live = all mandatory steps done + no BLOCKED categories)
+- APIs (existing envelope+RBAC settings:read/write+audit): setup/status|progress|dependencies|validate|go-live, setup/steps/[key] {complete|skip|reopen}, setup/config/[domain] (10 JSON domains), setup/school-profile, setup/import/students (CSV preview→commit, no silent dupes); NEW CRUD: branches, programs, facilities, academic-years, calendar, staff (link|new modes, created≠assigned); classrooms POST/PATCH extended (programId, primaryTeacherId, facilityId, capacity over-allocation guard); tenants POST wizard extended in-transaction: Program rows + SchoolSetup + 21 SchoolSetupStep rows
+- UI (existing design system only): nav Setup entry (rocket, g-violet); /app/setup dashboard (progress, 4 phase groups, status/blockers/last-updated/completed-by per step, guidance feed, View Dependencies modal, validation tab 15 category cards, summary tab, go-live confirm); /app/setup/[step] guided pages (config forms driven by step-forms.ts schemas with defaults, CRUD tables+modals, dependency "Why is this blocked?" banner with Fix Configuration links, Skip optional, Save as Draft/Save & Continue with actor attribution); first-login: /app/dashboard server-side redirects OWNER/PRINCIPAL to /app/setup while not LIVE; Settings entry card
+- E2E (scripts/m00-e2e.sh): brand-new tenant via /onboard → engine auto-completed 7 wizard-covered steps → 12 config/CRUD steps → 2 optional skips → READY_FOR_REVIEW 100% → validation WARNING (no blockers) → READY_FOR_GO_LIVE → GO-LIVE → LIVE; teacher role 403 on setup mutations. 41/41 PASS
+- Bugs found & fixed during E2E/browser QA: go-live lacked mandatory-step gate (fixed); READY_FOR_GO_LIVE didn't advance on SETUP_VALIDATION / didn't demote on step reopen (fixed state machine); stepKey→configDomain mismatch (operating_config→OPERATING etc.) showed "Nothing to configure" (fixed via explicit map); config form saved {} on first save (defaults now seeded into state)
+- Regression: smoke.sh updated for designed 307 dashboard redirect → 31/31 PASS; Sunshine demo tenant lazy-init into setup (24%, next=branding)
+
+Stage Summary:
+- M00 complete per brief §40 DoD: new preschool reaches LIVE with zero manual DB configuration
+- Deliverables: docs/M00_Implementation_Impact_Map.md, engine+APIs+UI live, scripts/m00-e2e.sh reusable
+- Screenshots: download/shot-m00-{dashboard,steps,config2,blocked2,settings}.png
+- Server: prod build on :3000, PG on :54329, demo accounts unchanged
