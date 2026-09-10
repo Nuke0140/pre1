@@ -1,0 +1,502 @@
+     1→P R E O N E E N T E R P R I S E
+     2→PreOne Enterprise DDD
+     3→Domain-Driven Design — Enterprise Preschool Operating System
+     4→Document Version: 1.0
+     5→Status: Architecture Freeze
+     6→Date: 2026-07-12
+     7→Product: PreOne — Enterprise Preschool Operating System
+     8→Predecessor: Master PRD v1.0 (Product Freeze)
+     9→Successor: ADR Catalog v1.0 + Database Schema v3
+    10→Classification: Internal Engineering Reference
+    11→Prepared by: PreOne Architecture & Engineering Team
+    12→PreOne Platform DDD v1.0
+    13→
+    14→PreOne DDD v1.0 | Architecture Freeze
+    15→Table of Contents
+    16→1. Introduction...................................................................................................................1
+    17→1.1 Purpose...........................................................................................................................1
+    18→1.2 Scope..............................................................................................................................2
+    19→1.3 Audience.........................................................................................................................3
+    20→1.4 Document Conventions..................................................................................................4
+    21→1.5 Related Documents........................................................................................................5
+    22→2. DDD Overview................................................................................................................5
+    23→2.1 The Translation Pipeline.................................................................................................6
+    24→2.2 Why DDD for PreOne?....................................................................................................7
+    25→2.3 DDD Layers in PreOne....................................................................................................7
+    26→3. Ubiquitous Language......................................................................................................8
+    27→3.1 Business Term → Software Model Mapping..................................................................9
+    28→4. Strategic Design..............................................................................................................9
+    29→4.1 Domain Decomposition................................................................................................10
+    30→4.2 Domain Classification...................................................................................................12
+    31→4.3 Domain Catalog............................................................................................................12
+    32→5. Bounded Contexts........................................................................................................12
+    33→5.1 Eight Bounded Contexts...............................................................................................13
+    34→5.2 Admissions Context......................................................................................................14
+    35→5.3 Student Context...........................................................................................................14
+    36→5.4 Finance Context............................................................................................................14
+    37→5.5 HR Context....................................................................................................................15
+    38→5.6 Inventory Context.........................................................................................................15
+    39→5.7 Transport Context........................................................................................................16
+    40→1
+    41→
+    42→PreOne DDD v1.0 | Architecture Freeze
+    43→5.8 Communication Context..............................................................................................16
+    44→5.9 Platform Context..........................................................................................................16
+    45→6. Context Map.................................................................................................................17
+    46→6.1 High-Level Context Map...............................................................................................17
+    47→6.2 Detailed Context Relationships....................................................................................20
+    48→6.3 Anti-Corruption Layer Strategy....................................................................................20
+    49→7. Domain Model..............................................................................................................21
+    50→7.1 Aggregate Trees per Domain........................................................................................21
+    51→7.2 Marketing & CRM.........................................................................................................21
+    52→7.3 Admissions....................................................................................................................22
+    53→7.4 Student Lifecycle..........................................................................................................24
+    54→7.5 Academics.....................................................................................................................25
+    55→7.6 Daily Operations (Attendance).....................................................................................26
+    56→7.7 Parent Communication................................................................................................27
+    57→7.8 Finance.........................................................................................................................28
+    58→7.9 Inventory......................................................................................................................30
+    59→7.10 HR...............................................................................................................................31
+    60→7.11 Administration............................................................................................................32
+    61→7.12 Reports & Analytics....................................................................................................33
+    62→7.13 Settings.......................................................................................................................34
+    63→7.14 Platform Management...............................................................................................36
+    64→8. Aggregates....................................................................................................................37
+    65→8.1 Aggregate Catalog........................................................................................................38
+    66→8.2 Admission Aggregate....................................................................................................38
+    67→8.3 Student Aggregate........................................................................................................38
+    68→8.4 Invoice Aggregate.........................................................................................................39
+    69→8.5 Payment Aggregate......................................................................................................39
+    70→8.6 Attendance Aggregate..................................................................................................39
+    71→2
+    72→
+    73→PreOne DDD v1.0 | Architecture Freeze
+    74→8.7 Observation Aggregate.................................................................................................39
+    75→8.8 Payslip Aggregate.........................................................................................................40
+    76→8.9 InventoryItem Aggregate.............................................................................................40
+    77→8.10 PurchaseOrder Aggregate..........................................................................................40
+    78→8.11 TransportRoute Aggregate.........................................................................................40
+    79→8.12 Notification Aggregate...............................................................................................41
+    80→8.13 Conversation Aggregate.............................................................................................41
+    81→8.14 ReportCard Aggregate................................................................................................41
+    82→8.15 Tenant Aggregate.......................................................................................................41
+    83→8.16 AuditLog Aggregate....................................................................................................42
+    84→9. Entities.........................................................................................................................42
+    85→9.1 Entity Catalog...............................................................................................................42
+    86→10. Value Objects..............................................................................................................43
+    87→10.1 Value Object Catalog..................................................................................................43
+    88→11. Domain Services.........................................................................................................44
+    89→11.1 Domain Service Catalog..............................................................................................44
+    90→12. Repositories................................................................................................................44
+    91→12.1 Repository Catalog.....................................................................................................45
+    92→13. Domain Events............................................................................................................45
+    93→13.1 Domain Event Catalog................................................................................................47
+    94→14. Specifications..............................................................................................................47
+    95→14.1 Specification Catalog..................................................................................................48
+    96→15. Factories.....................................................................................................................48
+    97→15.1 Factory Catalog...........................................................................................................49
+    98→16. Application Services....................................................................................................49
+    99→16.1 Application Service Catalog........................................................................................51
+   100→17. Domain Policies..........................................................................................................51
+   101→17.1 Policy Catalog.............................................................................................................52
+   102→3
+   103→
+   104→PreOne DDD v1.0 | Architecture Freeze
+   105→18. Anti-Corruption Layer.................................................................................................52
+   106→18.1 ACL Catalog.................................................................................................................53
+   107→19. Integration Events.......................................................................................................54
+   108→19.1 Integration Event Catalog...........................................................................................54
+   109→20. Domain Workflows.....................................................................................................54
+   110→20.1 Workflow Catalog.......................................................................................................55
+   111→20.2 Admission Workflow..................................................................................................55
+   112→20.3 Invoice Lifecycle Workflow.........................................................................................57
+   113→20.4 Attendance Workflow................................................................................................59
+   114→20.5 Observation Workflow...............................................................................................61
+   115→20.6 Refund Workflow.......................................................................................................62
+   116→20.7 Purchase Order Workflow..........................................................................................64
+   117→20.8 Transport Trip Workflow............................................................................................66
+   118→20.9 Tenant Lifecycle Workflow.........................................................................................68
+   119→21. Mapping to PRD..........................................................................................................70
+   120→21.1 FR → Domain Element Mapping................................................................................71
+   121→22. Mapping to BRC..........................................................................................................71
+   122→22.1 BRC Rule → Domain Element Mapping.....................................................................72
+   123→23. Mapping to ADR.........................................................................................................73
+   124→23.1 ADR → Domain Element Mapping.............................................................................73
+   125→24. Mapping to Database..................................................................................................73
+   126→24.1 Aggregate → Table → Prisma → Migration...............................................................74
+   127→24.2 Schema Conventions..................................................................................................75
+   128→25. Coding Guidelines.......................................................................................................76
+   129→25.1 Core Principles............................................................................................................76
+   130→1. Rich Domain Model..................................................................................................77
+   131→2. Thin Controllers........................................................................................................77
+   132→3. Fat Domain...............................................................................................................78
+   133→4
+   134→
+   135→PreOne DDD v1.0 | Architecture Freeze
+   136→4. No Business Logic in Controllers..............................................................................78
+   137→5. Repository Pattern....................................................................................................79
+   138→6. CQRS (where needed)..............................................................................................79
+   139→7. Domain Events for Cross-Context............................................................................80
+   140→8. Naming Conventions................................................................................................80
+   141→9. Immutability of VOs..................................................................................................81
+   142→10. Aggregate Boundary Discipline..............................................................................81
+   143→11. Transaction Boundary = Aggregate Boundary.......................................................82
+   144→12. NestJS Module per Bounded Context....................................................................82
+   145→25.2 NestJS Module Structure............................................................................................83
+   146→25.3 Code Style...................................................................................................................87
+   147→26. Testing Strategy..........................................................................................................88
+   148→26.1 Test Pyramid...............................................................................................................88
+   149→26.2 Test Layers..................................................................................................................89
+   150→26.3 Testing Principles........................................................................................................90
+   151→27. Glossary......................................................................................................................91
+   152→27.1 DDD Terms..................................................................................................................91
+   153→28. Modular DDD Document Split Recommendation........................................................91
+   154→28.1 DDD-001 — Strategic Design......................................................................................92
+   155→28.2 DDD-002 — Tactical Design........................................................................................92
+   156→28.3 DDD-003 — Domain Models Detail............................................................................92
+   157→28.4 DDD-004 — Domain Events & Integration.................................................................93
+   158→28.5 DDD-005 — Implementation Guide...........................................................................93
+   159→28.6 Document Split Summary...........................................................................................93
+   160→28.7 Migration Path............................................................................................................93
+   161→Note: This Table of Contents is generated via field codes. To ensure page number accuracy after editing, please right-
+   162→click the TOC and select "Update Field."
+   163→5
+   164→
+   165→PreOne DDD v1.0 | Architecture Freeze
+   166→1. Introduction
+   167→1.1 Purpose
+   168→हा(cid:2) Document PreOne च्या(cid:2) Business Domain ला(cid:2) Software Model मध्या(cid:9) translate करतो(cid:13). DDD
+   169→(Domain-Driven Design) हा(cid:2) architecture approach आहा(cid:9) जो(cid:13) business च्या(cid:2) complexity ला(cid:2)
+   170→software च्या(cid:2) structure मध्या (cid:9)mirror करतो(cid:13) — ज्या(cid:2)मळे(cid:18) (cid:9) code readable, testable, आणि(cid:21) maintainable
+   171→हा(cid:13)तो(cid:9). PreOne सा(cid:2)रख्या(cid:2) enterprise SaaS मध्या(cid:9) णिजोथे(cid:9) 13+ business domains एक(cid:2)च platform वर
+   172→interact करतो(cid:2)तो, DDD without it असाभ(cid:29) वनी या आहा(cid:9).
+   173→या(cid:2)च Document वरूनी पुढी(cid:18) ला गो(cid:13)ष्टी तोया(cid:2)र हा(cid:13)तो ला: Database Design (Prisma Schema + Migrations),
+   174→Backend Services (NestJS modules per bounded context), APIs (REST + WebSocket),
+   175→Microservices (future split if scale demands), Unit Tests (entity/aggregate/spec), AI Code
+   176→Generation (this document is the primary prompt for AI tools), आणि(cid:21) Implementation
+   177→Roadmap (squad-wise delivery sequence).
+   178→हा(cid:2) document हा(cid:2) single source of truth आहा(cid:9) जो(cid:13) product (PRD) आ(cid:21)i code (implementation) च्या(cid:2)
+   179→मध्या (cid:9)bridge आहा(cid:9). PRD क(cid:2)या build कर(cid:2)याच (cid:9)तो (cid:9)सा(cid:2)गो(cid:29) तो(cid:9); DDD कसा (cid:9)build कर(cid:2)याच (cid:9)तो (cid:9)सा(cid:2)गो(cid:29) तो(cid:9). दो(cid:13)न्हा documents
+   180→एकम(cid:9)क(cid:2)शी(cid:29) reference करतो(cid:2)तो — पु*त्याक(cid:9) Functional Requirement च Domain Model शी mapping
+   181→या(cid:2) document च्या(cid:2) Section 21 मध्या (cid:9)document आहा(cid:9).
+   182→1.2 Scope
+   183→DDD हा(cid:2) फक्तो Domain Model Document आहा(cid:9). हा(cid:2) document स्पुष्टीपु(cid:21) (cid:9)खा(cid:2)ला ला गो(cid:13)ष्टी cover करतो नी(cid:2)हा :
+   184→• UI Design Document नी(cid:2)हा — screens, components, आणि(cid:21) interaction flows UI/UX
+   185→spec मध्या (cid:9)separate आहा(cid:9)तो.
+   186→• Database Document नी(cid:2)हा — schema, indexes, आणि(cid:21) migrations च detail PreOne
+   187→Database Schema v3 मध्या (cid:9)आहा(cid:9). Section 24 फक्तो mapping दोतो(cid:9) (cid:9).
+   188→• API Document नी(cid:2)हा — endpoint signatures, request/response schemas, आणि(cid:21)
+   189→OpenAPI spec व(cid:9)गोळ्या(cid:2) API Contract catalog मध्या (cid:9)आहा(cid:9)तो.
+   190→• Infrastructure Document नी(cid:2)हा — deployment topology, scaling policies, आणि(cid:21)
+   191→observability stack separate run-book मध्या.(cid:9)
+   192→DDD च(cid:2) scope फक्तो हा(cid:2) आहा(cid:9): business domain ला(cid:2) software मध्या(cid:9) model कर(cid:21)(cid:2)र(cid:9) concepts —
+   193→aggregates, entities, value objects, services, repositories, events, specifications, factories,
+   194→policies, workflows — आणि(cid:21) त्या(cid:2)च्(cid:29) या(cid:2) एकमक(cid:9) (cid:2)शी(cid:29) relationships.
+   195→6
+   196→
+   197→PreOne DDD v1.0 | Architecture Freeze
+   198→1.3 Audience
+   199→हा(cid:2) document खा(cid:2)ला ला audiences सा(cid:2)ठी णिलाणिखातो आहा(cid:9):
+   200→• Backend Engineers: Aggregate design, repository patterns, आ(cid:21)i domain services
+   201→implement करण्या(cid:2)सा(cid:2)ठी primary reference.
+   202→• Architects: Bounded context boundaries, context map, आणि(cid:21) cross-cutting policies
+   203→enforce करण्या(cid:2)सा(cid:2)ठी .
+   204→• QA Engineers: Test pyramid understanding — entity/aggregate/spec tests vs
+   205→integration tests.
+   206→• AI Code Assistants: Each section structured as a prompt-able block; AI tools
+   207→(Cursor, Copilot) च्या(cid:2) context मध्या (cid:9)णिदोल्या(cid:2)वर accurate code generation हा(cid:13)तो(cid:9).
+   208→• Product Managers: Technical constraints of features understand करण्या(cid:2)सा(cid:2)ठी — why
+   209→certain features take longer (aggregate refactor) आणि(cid:21) why certain requests are
+   210→rejected (invariants).
+   211→• New Hires: Onboarding reference — domain vocabulary + architectural philosophy
+   212→एक(cid:2) document मध्या.(cid:9)
+   213→1.4 Document Conventions
+   214→• Aggregate names: PascalCase singular (e.g., Invoice, not Invoices).
+   215→• Entity names: PascalCase singular (Student, Parent).
+   216→• Value Object names: PascalCase singular (Address, Money).
+   217→• Service names: verb+Noun+Service (FeeCalculationService, RefundService).
+   218→• Specification names: adjective+Noun+Specification (AgeEligibilitySpecification).
+   219→• Factory names: noun+Factory (StudentFactory).
+   220→• Use Case names: verb+Noun+UseCase (ApproveAdmissionUseCase).
+   221→• Repository names: noun+Repository (StudentRepository).
+   222→• Domain Event names: past-tense verb (StudentCreated, PaymentReceived).
+   223→• Code blocks: monospace font (Consolas); tree diagrams use └ ─ └ characters.
+   224→• Bilingual content: Marathi/Hindi business context + English technical terms
+   225→preserved exactly as user provided.
+   226→7
+   227→
+   228→PreOne DDD v1.0  |  Architecture Freeze
+   229→1.5 Related Documents
+   230→PreOne document series मध्या(cid:9) DDD च(cid:9) specific position आहा(cid:9). खा(cid:2)ला ला documents DDD च (cid:9)
+   231→predecessors आहा(cid:9)तो आणि(cid:21) DDD त्या(cid:2)च्(cid:29) या(cid:2) वर build हा(cid:13)तो(cid:13):
+   232→| Document        | Version | Status        | Relationship to DDD    |
+   233→| --------------- | ------- | ------------- | ---------------------- |
+   234→| Vision Document | v1.0    | Vision Freeze | Strategic intent; DDD  |
+   235→च (cid:9)strategic design
+   236→(bounded contexts)
+   237→Vision च्या(cid:2) pillars शी
+   238→align करतो(cid:9)
+   239→| BPM (Business  | v1.0 | Process Freeze | Business workflows;  |
+   240→| -------------- | ---- | -------------- | -------------------- |
+   241→| Process Map)   |      |                | DDD च (cid:9)Domain  |
+   242→Workflows (Section
+   243→20) BPM च (cid:9)direct
+   244→translation आहा(cid:9)तो
+   245→BRC (Business Rules  v1.0 Business Freeze 176 rules; DDD च (cid:9)
+   246→| Catalog) |     |     | Specifications  |
+   247→| -------- | --- | --- | --------------- |
+   248→(Section 14) +
+   249→Policies (Section 17)
+   250→BRC च (cid:9)
+   251→implementation
+   252→| Master PRD | v1.0 | Product Freeze | Functional  |
+   253→| ---------- | ---- | -------------- | ----------- |
+   254→requirements; DDD च (cid:9)
+   255→PRD Mapping
+   256→(Section 21) पु*त्या(cid:9)क FR
+   257→ला(cid:2) Domain Element
+   258→शी  जो(cid:13)डतो(cid:9)
+   259→| ADR Catalog | v1.0 (planned) | Architecture Freeze | Architecture  |
+   260→| ----------- | -------------- | ------------------- | ------------- |
+   261→decisions; DDD च (cid:9)
+   262→ADR Mapping
+   263→(Section 23) पु*त्या(cid:9)क
+   264→ADR ला(cid:2) Domain
+   265→Element शी  जो(cid:13)डतो(cid:9)
+   266→| Database Schema | v3 (planned) | Schema Freeze | Physical schema;  |
+   267→| --------------- | ------------ | ------------- | ----------------- |
+   268→DDD च (cid:9)DB Mapping
+   269→(Section 24)
+   270→aggregate → table →
+   271→Prisma model trail दोतो(cid:9) (cid:9)
+   272→8
+   273→
+   274→PreOne DDD v1.0 | Architecture Freeze
+   275→Document Version Status Relationship to DDD
+   276→API Contract Catalog v1.0 (planned) API Freeze Endpoint contracts;
+   277→DDD च (cid:9)Application
+   278→Services (Section 16)
+   279→API controllers च (cid:9)
+   280→backing layer आहा(cid:9)तो
+   281→UI/UX Spec v1.0 (planned) Design Freeze Screen flows; DDD शी
+   282→थेटी(cid:9) relation नी(cid:2)हा पु(cid:21)
+   283→user actions PRD द्वा(cid:2)र(cid:9)
+   284→DDD शी connect
+   285→हा(cid:13)तो(cid:2)तो
+   286→2. DDD Overview
+   287→DDD म्हा(cid:21)जो (cid:9)Business Logic Software मध्या (cid:9)या(cid:13)ग्या पु*क(cid:2)र (cid:9)model कर(cid:21).(cid:9) Eric Evans च्या(cid:2) 2003 च्या(cid:2) book नी(cid:9)
+   288→introduce क(cid:9) लाला(cid:9) (cid:2) हा(cid:2) approach आहा(cid:9) जो(cid:13) complex business domains ला(cid:2) software मध्या(cid:9) structure
+   289→करण्या(cid:2)च(cid:2) systematic way दोतो(cid:9) (cid:13). PreOne सा(cid:2)रख्या(cid:2) enterprise system मध्या(cid:9) णिजोथे(cid:9) 13+ domains
+   290→एकम(cid:9)क(cid:2)शी(cid:29) interact करतो(cid:2)तो, DDD without code टी(cid:2)क(cid:21)(cid:9) अशीक्या आहा(cid:9) — क(cid:2)र(cid:21) एखा(cid:2)द्या(cid:2) feature च(cid:2)
+   291→change करतो(cid:2)नी(cid:2) क(cid:13)(cid:21)तो(cid:9) aggregate touch कर(cid:2)याच(cid:9) आणि(cid:21) क(cid:13)(cid:21)तो(cid:9) टी(cid:2)ळे(cid:2)याच(cid:9) हा(cid:9) स्पुष्टी नीसाल्या(cid:2)सा regression
+   292→risk exponential grow करतो(cid:13).
+   293→2.1 The Translation Pipeline
+   294→DDD च(cid:9) core म्हा(cid:21)जो(cid:9) Business च language Software Code मध्या(cid:9) translate करण्या(cid:2)च(cid:2) systematic
+   295→pipeline. PreOne मध्या (cid:9)हा(cid:2) pipeline असा(cid:2) आहा(cid:9):
+   296→Business (Real World)
+   297→↓
+   298→Domain (Mental Model)
+   299→↓
+   300→Software Model (Aggregates + Entities + VOs)
+   301→↓
+   302→Code (NestJS + Prisma + TypeScript)
+   303→पु*त्याक(cid:9) stage तो(cid:9) पुढी(cid:18) ला stage च(cid:2) translation explicit आहा(cid:9). Business experts जो(cid:9) terms व(cid:2)पुरतो(cid:2)तो
+   304→(Admission, Student, Invoice) तो(cid:9)च terms code मध्या (cid:9)class names म्हा(cid:21)जो (cid:9)णिदोसातो(cid:2)तो — हा(cid:13) 'Ubiquitous
+   305→Language' म्हा(cid:21)तो(cid:2)तो आणि(cid:21) Section 3 मध्या (cid:9)detail मध्या (cid:9)cover क(cid:9) ला (cid:9)आहा(cid:9).
+   306→2.2 Why DDD for PreOne?
+   307→PreOne सा(cid:2)ठी DDD च (cid:9)तो नी strong reasons आहा(cid:9)तो:
+   308→9
+   309→
+   310→PreOne DDD v1.0  |  Architecture Freeze
+   311→•  Complex Business Domain: PreOne हा(cid:2) CRUD app नी(cid:2)हा  — 13 domains, 176 business
+   312→rules, 8 compliance frameworks (DPDP, POSH, GST, RTE, FSSR, NBC, ISO 27001,
+   313→State). CRUD approach नी(cid:9) code जोणिटीला हा(cid:13)तो(cid:13) आणि(cid:21) rules everywhere scatter हा(cid:13)तो(cid:2)तो.
+   314→•  Multi-Tenant Enterprise Scale: 10,000+ schools, 100,000+ students, 1M+ parents —
+   315→अशी(cid:2) scale वर monolithic anemic model maintain हा(cid:13)तो नी(cid:2)हा . Bounded contexts enable
+   316→independent scaling आणि(cid:21) squad-wise ownership.
+   317→•  AI-Assisted Development: DDD च(cid:2) structured vocabulary AI tools सा(cid:2)ठी  prompt-able
+   318→आहा(cid:9). 'Create an Invoice aggregate with items, discounts, tax, payment' हा(cid:2) prompt
+   319→DDD-aware AI कड(cid:9) directly executable code generate करतो(cid:13). Anemic model मध्या (cid:9)AI
+   320→ला(cid:2) guess कर(cid:2)व(cid:9) ला(cid:2)गोतो(cid:9).
+   321→2.3 DDD Layers in PreOne
+   322→PreOne च (cid:9)backend NestJS modules खा(cid:2)ला ला DDD layers follow करतो(cid:2)तो:
+   323→| Layer | Responsibility | NestJS Location | Dependencies |
+   324→| ----- | -------------- | --------------- | ------------ |
+   325→Presentation HTTP/WebSocket  controllers/, dto/ Application layer
+   326→|     | controllers, DTOs,  |     | only |
+   327→| --- | ------------------- | --- | ---- |
+   328→validation
+   329→| Application | Use cases,            | usecases/ | Domain layer +       |
+   330→| ----------- | --------------------- | --------- | -------------------- |
+   331→|             | transaction           |           | Infrastructure (via  |
+   332→|             | orchestration, event  |           | interfaces)          |
+   333→dispatch
+   334→| Domain | Aggregates, entities,  | domain/ | Pure TypeScript; zero  |
+   335→| ------ | ---------------------- | ------- | ---------------------- |
+   336→|        | VOs, services, specs,  |         | external deps          |
+   337→factories, policies,
+   338→events
+   339→Infrastructure Prisma repos, Kafka  infrastructure/ Domain interfaces +
+   340→|     | producers, external  |     | external SDKs |
+   341→| --- | -------------------- | --- | ------------- |
+   342→ACLs, Redis cache
+   343→Domain layer हा(cid:2) pure TypeScript आहा(cid:9) — Prisma, NestJS, णिक(cid:29)व(cid:2) क(cid:13)(cid:21)तो हा  external dependency
+   344→domain layer मध्या(cid:9) import नी(cid:2)हा . हा(cid:9) testability साणि(cid:18)नीणि9चतो करतो(cid:9): domain logic च(cid:2) unit test in-
+   345→memory repos साहा run हा(cid:13)तो(cid:13), real database नीक(cid:13). हा  discipline खा(cid:2)सा importance च  आहा(cid:9) क(cid:2)र(cid:21)
+   346→domain rules साव:तो जो(cid:2)स्तो volatile असातो(cid:2)तो आणि(cid:21) त्या(cid:2)च(cid:29) (cid:2) test coverage 100% पु(cid:2)णिहाजो(cid:9).
+   347→10
+   348→
+   349→PreOne DDD v1.0 | Architecture Freeze
+   350→3. Ubiquitous Language
+   351→DDD मधी ला साव:तो महात्त्व(cid:2)च(cid:2) भ(cid:2)गो म्हा(cid:21)जो(cid:9) Ubiquitous Language — business आ(cid:21)i developers एकच
+   352→भ(cid:2)षा(cid:2) व(cid:2)पुरतो(cid:2)तो. Business experts जो(cid:9) terms बो(cid:13)लातो(cid:2)तो तो(cid:9)च terms code मध्या(cid:9) class names, method
+   353→names, आणि(cid:21) database tables मध्या(cid:9) णिदोसातो(cid:2)तो. हा(cid:2) translation layer नीसाल्या(cid:2)मळे(cid:18) (cid:9) communication
+   354→overhead कम हा(cid:13)तो(cid:13) आणि(cid:21) misunderstanding च(cid:2) risk लाग्नी(cid:2)तोनी? णिमटीतो(cid:13).
+   355→PreOne मध्या (cid:9)हा language खा(cid:2)ला ला णिनीयाम follow करतो(cid:9):
+   356→• Marathi/Hindi business terms जो(cid:9) preschool staff व(cid:2)पुरतो(cid:2)तो (Admission, Fees,
+   357→Attendance) तो(cid:9) आहा(cid:9) तोसाच(cid:9) code मध्या.(cid:9)
+   358→• English technical terms (Aggregate, Repository, Specification) standard DDD
+   359→vocabulary व(cid:2)पुरतो(cid:2)तो.
+   360→• Code identifiers PascalCase (Student, AdmissionRepository); database tables
+   361→snake_case (students, admission_repositories).
+   362→• Mix नी(cid:2)हा — एकच concept सा(cid:2)ठी एकच term. 'Student' कधी 'Learner' णिक(cid:29)व(cid:2) 'Child' नी(cid:2)हा
+   363→(व(cid:9)गोळ्या(cid:2) context मध्या (cid:9)'Child' user-facing UI मध्या (cid:9)आहा(cid:9) पु(cid:21) code मध्या (cid:9)नी(cid:2)हा ).
+   364→3.1 Business Term → Software Model Mapping
+   365→खा(cid:2)ला ला table PreOne च्या(cid:2) ubiquitous language च(cid:2) authoritative reference आहा(cid:9). नीव नी feature
+   366→design करतो(cid:2)नी(cid:2) जोर नीव नी term introduce कर(cid:2)याच(cid:2) असा(cid:9)ला तोर या(cid:2) table मध्या(cid:9) entry जो(cid:13)ड(cid:2)व ला(cid:2)गो(cid:9)ला —
+   367→table हा(cid:9) living document आहा(cid:9).
+   368→Business Term Software Model Notes
+   369→Admission Admission Aggregate The complete lifecycle from
+   370→lead to enrolled student; root
+   371→entity carries admission
+   372→number and status
+   373→Student Student Entity Identity-bearing record of a
+   374→child enrolled (or enrolling) in
+   375→a school
+   376→Parent Parent Entity Guardian record linked to
+   377→one or more students; carries
+   378→contact, custody, and
+   379→authorization
+   380→11
+   381→
+   382→PreOne DDD v1.0  |  Architecture Freeze
+   383→| Business Term | Software Model      | Notes                         |
+   384→| ------------- | ------------------- | ----------------------------- |
+   385→| Classroom     | Classroom Aggregate | Physical or logical grouping  |
+   386→of students under a teacher
+   387→for an academic year
+   388→| Attendance | Attendance Entity | Per-student, per-day  |
+   389→| ---------- | ----------------- | --------------------- |
+   390→presence record with check-
+   391→in/check-out timestamps
+   392→| Observation | Observation Entity | Teacher-recorded narrative  |
+   393→| ----------- | ------------------ | --------------------------- |
+   394→note about a child's behavior,
+   395→learning, or milestone
+   396→| Invoice | Invoice Aggregate | Bill raised against a student  |
+   397→| ------- | ----------------- | ------------------------------ |
+   398→for fees; root contains items,
+   399→discount, tax, payment,
+   400→receipt
+   401→| Fee | Fee Entity | Line item within an invoice —  |
+   402→| --- | ---------- | ------------------------------ |
+   403→tuition, transport, meal,
+   404→activity, one-time
+   405→| Fee Plan | FeePlan Value Object | Template defining fee  |
+   406→| -------- | -------------------- | ---------------------- |
+   407→structure, frequency, and
+   408→applicable discounts for a
+   409→program
+   410→| Branch | Branch Entity | A single physical preschool  |
+   411→| ------ | ------------- | ---------------------------- |
+   412→location under a tenant
+   413→(school chain)
+   414→| School | Tenant | Top-level multi-tenant  |
+   415→| ------ | ------ | ----------------------- |
+   416→boundary; one school = one
+   417→tenant; can own multiple
+   418→branches
+   419→| Tenant | Tenant Aggregate | Isolation boundary for all  |
+   420→| ------ | ---------------- | --------------------------- |
+   421→data, config, and users;
+   422→subscription and feature flags
+   423→attach here
+   424→Academic Year AcademicYear Value Object Date-bounded period (e.g.,
+   425→2026–27) controlling
+   426→promotion, fee cycles,
+   427→attendance sheets
+   428→12
+   429→
+   430→PreOne DDD v1.0  |  Architecture Freeze
+   431→| Business Term | Software Model    | Notes                |
+   432→| ------------- | ----------------- | -------------------- |
+   433→| Program       | Program Aggregate | Curriculum offering  |
+   434→(Playgroup, Nursery, LKG,
+   435→UKG) with age band and
+   436→learning outcomes
+   437→| Lead | Lead Entity | Pre-admission prospect  |
+   438→| ---- | ----------- | ----------------------- |
+   439→captured from marketing
+   440→channels, walk-ins, or
+   441→referrals
+   442→| Enquiry | Enquiry Entity | First qualified interaction  |
+   443→| ------- | -------------- | ---------------------------- |
+   444→with a lead — captures
+   445→intent, preferred program,
+   446→source
+   447→| Application | Application Entity | Formally submitted  |
+   448→| ----------- | ------------------ | ------------------- |
+   449→admission request with
+   450→documents and parent
+   451→declarations
+   452→| Approval | Approval Entity | Decision record  |
+   453→| -------- | --------------- | ---------------- |
+   454→(approve/reject/waitlist)
+   455→carrying approver, reason,
+   456→and timestamp
+   457→Business Term → Software Model (cont.)
+   458→| Business Term | Software Model | Notes |
+   459→| ------------- | -------------- | ----- |
+   460→Document Document Value Object Uploaded artifact (birth cert,
+   461→photo, medical) with type,
+   462→URL, verification status
+   463→Medical Record MedicalRecord Value Object Allergies, conditions,
+   464→immunizations, emergency
+   465→contact
+   466→| Payment | Payment Entity | Money receipt against an  |
+   467→| ------- | -------------- | ------------------------- |
+   468→invoice; carries gateway ref,
+   469→mode, status
+   470→| Receipt | Receipt Value Object | Generated proof-of-payment  |
+   471→| ------- | -------------------- | --------------------------- |
+   472→document number issued to
+   473→parent
+   474→13
+   475→
+   476→PreOne DDD v1.0  |  Architecture Freeze
+   477→| Business Term | Software Model        | Notes                         |
+   478→| ------------- | --------------------- | ----------------------------- |
+   479→| Discount      | Discount Value Object | Applied reduction — sibling,  |
+   480→early-bird, staff, scholarship
+   481→— with approval trail
+   482→| Tax | TaxBreakup Value Object | GST or other applicable tax  |
+   483→| --- | ----------------------- | ---------------------------- |
+   484→computation against an
+   485→invoice line
+   486→| Staff | Staff Entity | Employee record — teaching,  |
+   487→| ----- | ------------ | ---------------------------- |
+   488→admin, support — with role,
+   489→branch, payroll link
+   490→| Teacher | Teacher Entity | Staff subtype with classroom  |
+   491→| ------- | -------------- | ----------------------------- |
+   492→assignment, qualifications,
+   493→schedule
+   494→| Payslip | Payslip Aggregate | Monthly salary computation  |
+   495→| ------- | ----------------- | --------------------------- |
+   496→— earnings, deductions, net
+   497→pay, statutory filings
+   498→| Leave | LeaveRequest Aggregate | Staff leave application with  |
+   499→| ----- | ---------------------- | ----------------------------- |
+   500→approvals, balance impact,
+
+[showing lines 1-500 of 4090; use offset=501 with limit to continue reading]

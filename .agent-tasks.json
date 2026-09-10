@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "project": "PreOne",
+  "tasks": [
+    { "id": "1", "title": "Read all PreOne docs", "status": "done" },
+    { "id": "2", "title": "PostgreSQL setup", "status": "done" },
+    { "id": "3", "title": "Prisma schema + push", "status": "in_progress" },
+    { "id": "4", "title": "Design system CSS + components", "status": "pending" },
+    { "id": "5", "title": "Auth + RBAC", "status": "pending" },
+    { "id": "6", "title": "API v1 routes", "status": "pending" },
+    { "id": "7", "title": "Windows Shell UI", "status": "pending" },
+    { "id": "8", "title": "All pages", "status": "pending" },
+    { "id": "9", "title": "Seed data", "status": "pending" },
+    { "id": "10", "title": "E2E verify + complete", "status": "pending" }
+  ]
+}

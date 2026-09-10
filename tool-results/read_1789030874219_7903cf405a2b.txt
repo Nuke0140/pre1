@@ -1,0 +1,300 @@
+  2266→
+  2267→  <div class="demo-row" style="margin-bottom:20px">
+  2268→    <button class="btn btn-primary" onclick="document.getElementById('tbStart').click()"><span class="plogo" style="width:22px;height:22px"></span> Open Start Menu (Live Demo)</button>
+  2269→    <button class="btn btn-outline" onclick="location.hash='#sec-09'"><span class="ic"><svg viewBox="0 0 24 24"><use href="#i-window"/></svg></span>See Shell Anatomy</button>
+  2270→  </div>
+  2271→
+  2272→  <h3 class="sub">Spatial Navigation Flow</h3>
+  2273→  <div class="demo" data-label="4-Step Zero-Sidebar Navigation Architecture">
+  2274→    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--space-16)">
+  2275→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);display:flex;flex-direction:column;gap:8px">
+  2276→        <div style="display:flex;align-items:center;gap:8px"><span class="badge b-primary">Step 1</span><b style="font-size:13.5px">START Button</b></div>
+  2277→        <p style="font-size:12px;color:var(--foreground-muted);margin:0">Official PreOne logo in taskbar. Pressing opens centered Start launcher.</p>
+  2278→      </div>
+  2279→
+  2280→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);display:flex;flex-direction:column;gap:8px">
+  2281→        <div style="display:flex;align-items:center;gap:8px"><span class="badge b-primary">Step 2</span><b style="font-size:13.5px">Launcher Tiles</b></div>
+  2282→        <p style="font-size:12px;color:var(--foreground-muted);margin:0">16 pinned ERP module tiles with live alert badges (Communication 8, AI New).</p>
+  2283→      </div>
+  2284→
+  2285→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);display:flex;flex-direction:column;gap:8px">
+  2286→        <div style="display:flex;align-items:center;gap:8px"><span class="badge b-primary">Step 3</span><b style="font-size:13.5px">Global Search</b></div>
+  2287→        <p style="font-size:12px;color:var(--foreground-muted);margin:0">Press "/" anywhere or type in search input to instant-filter all 16 modules.</p>
+  2288→      </div>
+  2289→
+  2290→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);display:flex;flex-direction:column;gap:8px">
+  2291→        <div style="display:flex;align-items:center;gap:8px"><span class="badge b-primary">Step 4</span><b style="font-size:13.5px">Full Canvas</b></div>
+  2292→        <p style="font-size:12px;color:var(--foreground-muted);margin:0">Module opens full-canvas. Breadcrumbs &amp; Home pin allow 1-click return.</p>
+  2293→      </div>
+  2294→    </div>
+  2295→  </div>
+  2296→
+  2297→  <h3 class="sub">Launcher Tile Interactive States</h3>
+  2298→  <div class="demo" data-label="6 Tile States — 100px touch targets with 46px gradient icons">
+  2299→    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--space-16)">
+  2300→      <div class="sm-tile" style="padding:16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px">
+  2301→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-dashboard"/></svg></span>
+  2302→        <b style="font-size:13px">1 · Default</b>
+  2303→        <span style="font-size:11px;color:var(--foreground-muted)">Resting tile</span>
+  2304→      </div>
+  2305→
+  2306→      <div class="sm-tile" style="padding:16px 12px;background:var(--surface-hover);border:1px solid var(--preone-primary);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transform:translateY(-2px);box-shadow:var(--shadow-card)">
+  2307→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-dashboard"/></svg></span>
+  2308→        <b style="font-size:13px;color:var(--preone-primary)">2 · Hover</b>
+  2309→        <span style="font-size:11px;color:var(--foreground-muted)">-2px rise</span>
+  2310→      </div>
+  2311→
+  2312→      <div class="sm-tile" style="padding:16px 12px;background:var(--preone-primary-soft);border:1px solid var(--preone-primary);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px">
+  2313→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-dashboard"/></svg></span>
+  2314→        <b style="font-size:13px;color:var(--preone-primary)">3 · Active</b>
+  2315→        <span style="font-size:11px;color:var(--preone-primary)">Current module</span>
+  2316→      </div>
+  2317→
+  2318→      <div class="sm-tile" style="padding:16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative">
+  2319→        <span class="badge b-danger" style="position:absolute;top:8px;right:8px;font-size:10px">8</span>
+  2320→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#F0006E,#f784ae);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-chat"/></svg></span>
+  2321→        <b style="font-size:13px">4 · Badge</b>
+  2322→        <span style="font-size:11px;color:var(--foreground-muted)">8 unread</span>
+  2323→      </div>
+  2324→
+  2325→      <div class="sm-tile" style="padding:16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.6">
+  2326→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#94A3B8,#CBD5E1);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-lock"/></svg></span>
+  2327→        <b style="font-size:13px">5 · Locked</b>
+  2328→        <span style="font-size:11px;color:var(--foreground-muted)">Plan upgrade</span>
+  2329→      </div>
+  2330→
+  2331→      <div class="sm-tile" style="padding:16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.4">
+  2332→        <span class="tico" style="width:46px;height:46px;border-radius:var(--radius-12);background:linear-gradient(135deg,#64748B,#94A3B8);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:currentColor"><use href="#i-cog"/></svg></span>
+  2333→        <b style="font-size:13px">6 · Disabled</b>
+  2334→        <span style="font-size:11px;color:var(--foreground-muted)">Inactive</span>
+  2335→      </div>
+  2336→    </div>
+  2337→  </div>
+  2338→
+  2339→  <h3 class="sub">16-Module Preschool Information Architecture (IA)</h3>
+  2340→  <div class="demo" data-label="Canonical 16-Module Information Architecture">
+  2341→    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-16)">
+  2342→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16)">
+  2343→        <b style="font-size:13.5px;color:var(--preone-primary);display:block;margin-bottom:8px">1 · Core Operations</b>
+  2344→        <div style="font-size:12px;line-height:1.7;color:var(--foreground-secondary)">
+  2345→          Dashboard · Admissions (Leads, Pipeline, Visits) · Students · Parents · Teachers · Classes
+  2346→        </div>
+  2347→      </div>
+  2348→
+  2349→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16)">
+  2350→        <b style="font-size:13.5px;color:var(--preone-primary);display:block;margin-bottom:8px">2 · Finance &amp; Growth</b>
+  2351→        <div style="font-size:12px;line-height:1.7;color:var(--foreground-secondary)">
+  2352→          Fee Collections &amp; Receipts · Growth Passport · Operations &amp; Bus Fleet · AI Center Copilot
+  2353→        </div>
+  2354→      </div>
+  2355→
+  2356→      <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16)">
+  2357→        <b style="font-size:13.5px;color:var(--preone-primary);display:block;margin-bottom:8px">3 · Messaging &amp; Administration</b>
+  2358→        <div style="font-size:12px;line-height:1.7;color:var(--foreground-secondary)">
+  2359→          Communication (WhatsApp &amp; SMS) · Reports · Setup · Onboarding · Settings · System Audit
+  2360→        </div>
+  2361→      </div>
+  2362→    </div>
+  2363→  </div>
+  2364→</section>
+  2365→
+  2366→<!-- ════════════════════════════════════════════════════════════════
+  2367→     10 · NAVIGATION
+  2368→     ════════════════════════════════════════════════════════════════ -->
+  2369→
+  2370→
+  2371→<!-- ════════════════════════════════════════════════════════════════
+  2372→     11 · HEADER
+  2373→    ════════════════════════════════════════════════════════════════ -->
+  2374→<section class="panel" id="sec-11" aria-labelledby="h-11" data-keys="top bar breadcrumb campus selector global search notifications avatar profile command center K keyboard">
+  2375→  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-layout"/></svg></span>Layout &amp; Navigation</span>
+  2376→  <div class="panel-head"><h2 id="h-11"><span class="panel-num">11</span> Header &amp; Command Center Search</h2></div>
+  2377→  <p class="panel-desc">The 72px admin header carries identity, location, and global reach: logo, breadcrumb hierarchy, campus switcher, global command search (<kbd>⌘K</kbd>), alert notifications, and administrator profile controls. On mobile, it compresses smoothly into a compact responsive header bar.</p>
+  2378→
+  2379→  <h3 class="sub">Desktop &amp; Mobile Top Bar Anatomy</h3>
+  2380→  <div class="demo" data-label="Admin Header Surface — Desktop (72px) &amp; Mobile Responsive Adaptations">
+  2381→    <div style="display:flex;flex-direction:column;gap:var(--space-16)">
+  2382→      <!-- Desktop Header -->
+  2383→      <div style="padding:12px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--shadow-card)">
+  2384→        <span class="plogo" style="width:90px;height:24px" role="img" aria-label="PreOne logo"></span>
+  2385→        <span style="font-size:12.5px;color:var(--foreground-muted)">Admin <span style="opacity:.5">›</span> Communication <span style="opacity:.5">›</span> <b style="color:var(--foreground)">Chat</b></span>
+  2386→        
+  2387→        <button class="btn btn-outline btn-sm" style="display:flex;align-items:center;gap:6px">Main Campus <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-chevron-down"/></svg></span></button>
+  2388→
+  2389→        <div class="ds-search" style="max-width:280px;margin:0;flex:1">
+  2390→          <div class="input-wrap">
+  2391→            <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span>
+  2392→            <input class="input input-search" style="height:36px;font-size:13px" placeholder="Search students, fees, reports… (⌘K)" aria-label="Global command search">
+  2393→          </div>
+  2394→        </div>
+  2395→
+  2396→        <span style="flex:1"></span>
+  2397→
+  2398→        <button class="btn btn-outline btn-icon btn-sm" style="position:relative" aria-label="3 notifications">
+  2399→          <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg></span>
+  2400→          <span style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--danger);color:#fff;font-size:9.5px;font-weight:800;display:flex;align-items:center;justify-content:center">3</span>
+  2401→        </button>
+  2402→
+  2403→        <div style="display:flex;align-items:center;gap:10px;padding-left:12px;border-left:1px solid var(--border)">
+  2404→          <span class="avatar a-p ring">AR</span>
+  2405→          <span style="line-height:1.25"><b style="font-size:12.5px;display:block">Aarav Mehta</b><span style="font-size:10.5px;color:var(--foreground-muted)">Administrator</span></span>
+  2406→          <span class="ic ic-sm" style="color:var(--foreground-muted)"><svg viewBox="0 0 24 24"><use href="#i-chevron-down"/></svg></span>
+  2407→        </div>
+  2408→      </div>
+  2409→
+  2410→      <!-- Mobile Header -->
+  2411→      <div style="padding:10px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-12);display:flex;align-items:center;justify-content:space-between;max-width:390px">
+  2412→        <div style="display:flex;align-items:center;gap:10px">
+  2413→          <span class="plogo" style="width:72px;height:20px" role="img" aria-label="PreOne logo"></span>
+  2414→          <span style="font-size:13px;font-weight:700">Communication</span>
+  2415→        </div>
+  2416→        <div style="display:flex;align-items:center;gap:10px">
+  2417→          <button class="btn btn-ghost btn-icon btn-sm" aria-label="Search"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span></button>
+  2418→          <button class="btn btn-ghost btn-icon btn-sm" aria-label="Notifications" style="position:relative"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-bell"/></svg></span><span style="position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:var(--danger)"></span></button>
+  2419→          <span class="avatar sm a-p">AR</span>
+  2420→        </div>
+  2421→      </div>
+  2422→    </div>
+  2423→  </div>
+  2424→
+  2425→  <h3 class="sub">⌘K Command Center Search Modal</h3>
+  2426→  <div class="demo" data-label="Grouped Search Results — Entity Context &amp; Keyboard Navigation">
+  2427→    <div style="max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-16);box-shadow:var(--shadow-modal);padding:16px;display:flex;flex-direction:column;gap:12px">
+  2428→      <div class="input-wrap"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span><input class="input input-search" value="aarav" aria-label="Search query" readonly style="font-size:14px;font-weight:600"></div>
+  2429→
+  2430→      <div style="display:flex;flex-direction:column;gap:8px">
+  2431→        <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--preone-primary);text-transform:uppercase">Students (2 matches)</span>
+  2432→        <div class="result-item" style="padding:10px 12px;background:var(--surface-hover);border-radius:var(--radius-12);display:flex;align-items:center;gap:12px;cursor:pointer">
+  2433→          <span class="avatar sm a-p">AS</span>
+  2434→          <div style="flex:1"><b style="font-size:13px;display:block">Aarav Sharma</b><span style="font-size:11.5px;color:var(--foreground-muted)">Nursery B · Roll #14 · ID: #STU-0192</span></div>
+  2435→          <span class="badge b-success" style="font-size:10px">Active</span>
+  2436→        </div>
+  2437→        <div class="result-item" style="padding:10px 12px;background:var(--surface);border-radius:var(--radius-12);display:flex;align-items:center;gap:12px;cursor:pointer">
+  2438→          <span class="avatar sm a-o">AT</span>
+  2439→          <div style="flex:1"><b style="font-size:13px;display:block">Aarav Tiwari</b><span style="font-size:11.5px;color:var(--foreground-muted)">KG A · Roll #08 · ID: #STU-0287</span></div>
+  2440→          <span class="badge b-success" style="font-size:10px">Active</span>
+  2441→        </div>
+  2442→
+  2443→        <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--preone-primary);text-transform:uppercase;margin-top:8px">Parents &amp; Guardians (1 match)</span>
+  2444→        <div class="result-item" style="padding:10px 12px;background:var(--surface);border-radius:var(--radius-12);display:flex;align-items:center;gap:12px;cursor:pointer">
+  2445→          <span class="avatar sm a-b">RS</span>
+  2446→          <div style="flex:1"><b style="font-size:13px;display:block">Ritu Sharma</b><span style="font-size:11.5px;color:var(--foreground-muted)">Parent of Aarav Sharma · Phone: +91 98765 43210</span></div>
+  2447→          <button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px">WhatsApp</button>
+  2448→        </div>
+  2449→      </div>
+  2450→
+  2451→      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--foreground-muted)">
+  2452→        <span>Use <kbd>↑</kbd> <kbd>↓</kbd> to navigate · <kbd>↵</kbd> to select</span>
+  2453→        <span>Press <kbd>ESC</kbd> to dismiss</span>
+  2454→      </div>
+  2455→    </div>
+  2456→  </div>
+  2457→</section>
+  2458→
+  2459→<!-- ════════════════════════════════════════════════════════════════
+  2460→     12 · SIDEBAR
+  2461→    ════════════════════════════════════════════════════════════════ -->
+  2462→<!-- ════════════════════════════════════════════════════════════════
+  2463→     12 · TASKBAR & START MENU (replaces Sidebar)
+  2464→    ════════════════════════════════════════════════════════════════ -->
+  2465→<section class="panel" id="sec-12" aria-labelledby="h-12" data-keys="taskbar start menu windows button pinned clock notifications power user drawer bottom bar launcher shell crown jewel">
+  2466→  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-window"/></svg></span>Layout &amp; Navigation</span>
+  2467→  <div class="panel-head"><h2 id="h-12"><span class="panel-num">12</span> Taskbar &amp; Start Menu (Windows Shell)</h2></div>
+  2468→  <p class="panel-desc">The core operating component of PreOne: a fixed bottom <b>Taskbar</b> — carrying the official PreOne logo Start button, pinned module shortcuts, live notifications, and real-time clock — paired with a floating <b>Start Launcher Menu</b> containing 16 pinned tiles, global command search, and user account controls.</p>
+  2469→
+  2470→  <h3 class="sub">Production Taskbar Anatomy</h3>
+  2471→  <div class="demo" data-label="Taskbar Surface Anatomy — Fixed Bottom Bar (64px) with Theme Toggle">
+  2472→    <div style="display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:var(--radius-16);padding:10px 16px;background:var(--surface);box-shadow:var(--shadow-elevated);flex-wrap:wrap">
+  2473→      <button class="tb-start" style="pointer-events:none" aria-hidden="true"><span class="plogo" style="width:36px;height:36px"></span></button>
+  2474→      <span style="width:1px;height:24px;background:var(--border)"></span>
+  2475→      <button class="tb-pin active" style="pointer-events:none" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-dashboard"/></svg></button>
+  2476→      <button class="tb-pin" style="pointer-events:none" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-users"/></svg></button>
+  2477→      <button class="tb-pin" style="pointer-events:none" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-rupee"/></svg></button>
+  2478→      <button class="tb-pin" style="pointer-events:none" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-chat"/></svg></button>
+  2479→      <span style="margin-left:auto;display:flex;align-items:center;gap:16px">
+  2480→        <!-- Live Interactive Theme Toggle Button -->
+  2481→        <button class="btn btn-outline btn-icon btn-sm" onclick="setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')" aria-label="Toggle light/dark theme" title="Toggle Light / Dark Mode">
+  2482→          <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-moon"/></svg></span>
+  2483→        </button>
+  2484→        <div style="line-height:1.2;text-align:right"><b style="font-size:13px;display:block">10:42 AM</b><span style="font-size:10.5px;color:var(--foreground-muted)">Wed, 14 May</span></div>
+  2485→      </span>
+  2486→    </div>
+  2487→  </div>
+  2488→
+  2489→  <h3 class="sub">Start Menu Launcher Anatomy &amp; Live Interactive Preview</h3>
+  2490→  <div class="two-col" style="margin-top:16px">
+  2491→    <div class="demo tight" data-label="Floating Start Launcher Menu (Open State)">
+  2492→      <div style="border:1px solid var(--border);border-radius:var(--radius-20);overflow:hidden;background:var(--surface-elevated);box-shadow:var(--shadow-modal);max-width:440px">
+  2493→        <div style="padding:14px 14px 8px">
+  2494→          <div class="input-wrap"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg></span><input class="input" placeholder="Search modules, students, settings…" aria-label="Search" readonly style="font-size:13.5px"></div>
+  2495→        </div>
+  2496→        
+  2497→        <div style="padding:4px 14px 12px">
+  2498→          <span style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--preone-primary);text-transform:uppercase;display:block;margin-bottom:8px">Pinned ERP Modules</span>
+  2499→          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+  2500→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+  2501→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#7C3AED,#8B5CF6);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-dashboard"/></svg></span>
+  2502→              <span style="font-size:11.5px;font-weight:600">Dashboard</span>
+  2503→            </div>
+  2504→
+  2505→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+  2506→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#3B82F6,#60A5FA);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-user-plus"/></svg></span>
+  2507→              <span style="font-size:11.5px;font-weight:600">Admissions</span>
+  2508→            </div>
+  2509→
+  2510→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative">
+  2511→              <span class="badge b-danger" style="position:absolute;top:4px;right:4px;font-size:9px;padding:1px 4px">12</span>
+  2512→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#F0006E,#f784ae);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-users"/></svg></span>
+  2513→              <span style="font-size:11.5px;font-weight:600">Students</span>
+  2514→            </div>
+  2515→
+  2516→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+  2517→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#10B981,#5eead4);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-cap"/></svg></span>
+  2518→              <span style="font-size:11.5px;font-weight:600">Teachers</span>
+  2519→            </div>
+  2520→
+  2521→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+  2522→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#FFB800,#ffd977);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-grid"/></svg></span>
+  2523→              <span style="font-size:11.5px;font-weight:600">Classes</span>
+  2524→            </div>
+  2525→
+  2526→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px">
+  2527→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#06B6D4,#67e8f9);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-calendar"/></svg></span>
+  2528→              <span style="font-size:11.5px;font-weight:600">Operations</span>
+  2529→            </div>
+  2530→
+  2531→            <div class="sm-tile" style="padding:10px 4px;background:var(--surface);border-radius:var(--radius-12);text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative">
+  2532→              <span class="badge b-primary" style="position:absolute;top:4px;right:4px;font-size:9px;padding:1px 4px">New</span>
+  2533→              <span style="width:38px;height:38px;border-radius:var(--radius-8);background:linear-gradient(135deg,#7C3AED,#3B82F6);display:flex;align-items:center;justify-content:center;color:#fff"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:currentColor"><use href="#i-sparkles"/></svg></span>
+  2534→              <span style="font-size:11.5px;font-weight:600">AI Center</span>
+  2535→            </div>
+  2536→          </div>
+  2537→        </div>
+  2538→
+  2539→        <div style="padding:10px 14px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+  2540→          <div style="display:flex;align-items:center;gap:10px">
+  2541→            <span class="avatar a-p ring" style="width:32px;height:32px;font-size:12px">NI</span>
+  2542→            <div style="line-height:1.2"><b style="font-size:12px;display:block">Nilesh Mehta</b><span style="font-size:10.5px;color:var(--foreground-muted)">Main Campus Admin</span></div>
+  2543→          </div>
+  2544→          <div style="display:flex;align-items:center;gap:8px">
+  2545→            <button class="btn btn-outline btn-icon btn-sm" onclick="setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')" aria-label="Toggle theme" title="Toggle Light / Dark Mode"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-moon"/></svg></span></button>
+  2546→            <button class="btn btn-outline btn-icon btn-sm" aria-label="Sign out" title="Sign Out"><svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><use href="#i-power"/></svg></button>
+  2547→          </div>
+  2548→        </div>
+  2549→      </div>
+  2550→    </div>
+  2551→
+  2552→    <div class="demo-stack">
+  2553→      <div class="dd do"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>Do</span><p>Keep Start = official logo, unmodified. One tap to open, ESC / click-outside / tile-launch to close. Show live notification badges on tiles.</p></div>
+  2554→      <div class="dd dont"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></span>Don't</span><p>Never reintroduce a persistent sidebar, never nest menus inside the start menu, never hide the Start button on scroll.</p></div>
+  2555→      <div class="card" style="padding:16px;border-radius:var(--radius-16)"><b style="font-size:13px;display:block;margin-bottom:8px">Keyboard Shortcuts</b><div class="kbd-map"><div class="kbd-row"><span style="font-size:12px">Open / Close Start</span><span><kbd>Ctrl</kbd> + <kbd>K</kbd> or <kbd>/</kbd></span></div><div class="kbd-row"><span style="font-size:12px">Navigate Launcher Tiles</span><span><kbd>Tab</kbd> · <kbd>Enter</kbd></span></div><div class="kbd-row"><span style="font-size:12px">Dismiss Launcher</span><span><kbd>Esc</kbd></span></div></div></div>
+  2556→    </div>
+  2557→  </div>
+  2558→</section>
+  2559→
+  2560→<!-- ════════════════════════════════════════════════════════════════
+  2561→     13 · BUTTONS
+  2562→    ════════════════════════════════════════════════════════════════ -->
+  2563→<section class="panel" id="sec-13" aria-labelledby="h-13" data-keys="button primary secondary outline ghost destructive success icon fab link loading disabled playground premium">
+
+[showing lines 2266-2563 of 7666; use offset=2564 with limit to continue reading]

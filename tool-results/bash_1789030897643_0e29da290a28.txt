@@ -1,0 +1,339 @@
+  <div class="panel-head"><h2 id="h-47"><span class="panel-num">47</span> PreO Character System</h2></div>
+  <p class="panel-desc">PreO is the official PreOne character — not a generic mascot. The official 3D render (“the eager learner” — white PreOne tee, purple backpack, mid-stride wave) is embedded once and reused everywhere: same face, hair, skin tone, proportions and clothing on every screen (RULE 14). UI states derive from this single render with elegant overlays — pose variants ship fr
+
+  <!-- PreO Spec Banner -->
+  <div style="margin-bottom:20px;padding:18px 22px;background:linear-gradient(135deg,color-mix(in srgb,#7C3AED 18%,var(--surface-elevated)),color-mix(in srgb,#F0006E 14%,var(--surface-elevated)));border:1px solid color-mix(in srgb,var(--preone-primary) 32%,transparent);border-radius:var(--radius-16);box-shadow:0 12px 32px rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:space-b
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--preone-primary),var(--preone-pink));color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,0.4);flex:none">
+        <span class="ic"><svg viewBox="0 0 24 24"><use href="#i-star"/></svg></span>
+      </div>
+      <div>
+        <b style="font-size:14px;display:block;color:var(--foreground)">Official PreO 3D Character System</b>
+        <span style="font-size:11.5px;color:var(--foreground-muted)">Anatomy: <code style="font-size:11px;color:var(--preone-primary)">Single 3D Master Render</code> · <code style="font-size:11px;color:var(--preone-primary)">12 Base64 Data URI Poses</code> · <code style="font-size:11px;color:var(--preone-primary)">UX Emotion Continuity</code></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge b-primary" style="font-weight:800;font-size:10.5px">12 Pose Renders</span>
+      <span class="badge b-neutral" style="font-size:10.5px">Single Master Asset</span>
+    </div>
+  </div>
+
+  <div class="demo" data-label="12 official PreO character pose renders — embedded as Base64 Data URIs" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);padding:20px;box-shadow:var(--shadow-card)">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px">
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="welcome" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Welcome Waving pose"></span
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="guide" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Guide Important pose"></span>
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="helpful" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Helpful Great Job pose"></s
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="celebration" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Celebration Yay pose"><
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="learning" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Learning pose"></span></di
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="achievement" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Achievement Champion po
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="ai" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — AI Exploring pose"></span></div>
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="empty" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Thinking Empty pose"></span><
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="error" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Thank You Reassurance pose"><
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="shining" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Shining Star pose"></span><
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="awesome" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Awesome pose"></span></div>
+      <div class="preo-card" style="padding:16px 12px;text-align:center;border-radius:var(--radius-16);border:1px solid var(--border-subtle);background:var(--surface-muted);box-shadow:var(--shadow-soft)"><div class="preo" data-state="lets_go" style="margin:0 auto 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,0.25))"><span class="preo-img" role="img" aria-label="PreO — Let's Go pose"></span></div
+    </div>
+  </div>
+
+  <h3 class="sub" style="font-size:14.5px;font-weight:800;margin-top:20px;color:var(--foreground)">Where PreO appears — and never appears</h3>
+  <div class="dd-grid">
+    <div class="dd do"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>Use PreO in</span><p>Login · Signup · Onboarding · Welcome · Empty states · AI Center · Growth Passport · Achievements · Celebration moments · helpful guidance.</p></div>
+    <div class="dd dont"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></span>Never in</span><p>Audit Logs · Financial records · Security settings · Compliance · Dense tables · Technical configuration · serious administrative screens.</p></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     48 · LIVING UNIVERSE
+    ════════════════════════════════════════════════════════════════ -->
+<section class="panel" id="sec-48" aria-labelledby="h-48" data-keys="universe stars planets orbits constellations nebulae rockets glow intensity level full subtle off restrained">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-planet"/></svg></span>Identity System</span>
+  <div class="panel-head"><h2 id="h-48"><span class="panel-num">48</span> Living Universe</h2></div>
+  <p class="panel-desc">The Universe is PreOne's imagination layer — stars, planets, orbits, constellations, nebulae, rockets, glow, soft gradients — always restrained: premium, magical, clean, modern. Never chaotic, game-like or overdecorated (RULE 04, RULE 12). Three intensity levels decide how much Universe any screen earns.</p>
+
+  <!-- Universe Spec Banner -->
+  <div style="margin-bottom:20px;padding:18px 22px;background:linear-gradient(135deg,color-mix(in srgb,#7C3AED 18%,var(--surface-elevated)),color-mix(in srgb,#F0006E 14%,var(--surface-elevated)));border:1px solid color-mix(in srgb,var(--preone-primary) 32%,transparent);border-radius:var(--radius-16);box-shadow:0 12px 32px rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:space-b
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--preone-primary),var(--preone-pink));color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,0.4);flex:none">
+        <span class="ic"><svg viewBox="0 0 24 24"><use href="#i-planet"/></svg></span>
+      </div>
+      <div>
+        <b style="font-size:14px;display:block;color:var(--foreground)">Living Universe System</b>
+        <span style="font-size:11.5px;color:var(--foreground-muted)">Anatomy: <code style="font-size:11px;color:var(--preone-primary)">Level 1 Full</code> · <code style="font-size:11px;color:var(--preone-primary)">Level 2 Subtle Wash</code> · <code style="font-size:11px;color:var(--preone-primary)">Level 3 Off</code></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge b-primary" style="font-weight:800;font-size:10.5px">3 Intensity Levels</span>
+      <span class="badge b-neutral" style="font-size:10.5px">Restrained Cosmic Layer</span>
+    </div>
+  </div>
+
+  <div class="demo-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+    <div class="intensity-demo lvl1" data-universe="1" style="border-radius:var(--radius-16);box-shadow:var(--shadow-card)"><div class="universe-bg"><div class="u-grad"></div></div><span class="lvl-chip l1" style="position:relative;z-index:2;font-weight:800">Level 1 · Full</span><h5 style="margin-top:10px;color:#fff">Login · Signup · Onboarding · Growth Passport · AI · Celebrations</h5><p st
+    <div class="intensity-demo lvl2" data-universe="2" style="border-radius:var(--radius-16);box-shadow:var(--shadow-card)"><div class="universe-bg"><div class="u-grad"></div></div><span class="lvl-chip l2" style="position:relative;z-index:2;font-weight:800">Level 2 · Subtle</span><h5 style="margin-top:10px;color:var(--foreground)">Dashboard hero · Module landing · Welcome · Milestones</h5><p 
+    <div class="intensity-demo" data-universe="3" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);padding:18px;box-shadow:var(--shadow-card)"><span class="lvl-chip l3" style="font-weight:800">Level 3 · Off</span><h5 style="margin-top:10px;color:var(--foreground)">Data tables · CRUD · Settings · Audit · Fees · Security</h5><p style="colo
+  </div>
+
+  <div class="demo tight" data-label="Universe elements · catalog" style="margin-top:20px;border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);padding:20px;box-shadow:var(--shadow-card)">
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center;justify-content:center;padding:12px">
+      <div class="planet-wrap" style="width:76px;height:76px"><div class="planet" style="width:44px;height:44px"></div></div>
+      <div class="planet-wrap" style="width:76px;height:76px"><div class="planet p-pink" style="width:44px;height:44px"></div></div>
+      <div class="planet-wrap" style="width:76px;height:76px"><div class="planet p-sleep" style="width:44px;height:44px"><span class="zzz" style="font-size:10px;top:-8px;right:-10px">z z</span></div></div>
+      <div style="display:flex;gap:10px;align-items:center"><span class="u-star" style="position:static;width:5px;height:5px"></span><span class="u-star" style="position:static;width:7px;height:7px;animation-delay:.6s"></span><span class="u-star" style="position:static;width:4px;height:4px;animation-delay:1.2s"></span><span class="u-star" style="position:static;width:6px;height:6px;animation-delay
+      <div style="position:relative;width:64px;height:64px"><div class="u-orbit" style="inset:0"><span class="u-dot" style="top:0;left:50%;margin-left:-5px"></span></div></div>
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-rocket"/></svg>
+      <div style="width:64px;height:44px;border-radius:14px;background:linear-gradient(120deg,rgba(124,58,237,.35),rgba(59,130,246,.25),rgba(240,0,110,.18));box-shadow:var(--shadow-universe)"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     49 + 50 · LIGHT & DARK MODE
+    ════════════════════════════════════════════════════════════════ -->
+<section class="panel" id="sec-49" aria-labelledby="h-49" data-keys="light mode theme white soft gray purple blue subtle gradients background surface surface-muted surface-selected foreground">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-sun"/></svg></span>Identity System</span>
+  <div class="panel-head"><h2 id="h-49"><span class="panel-num">49</span> Light Mode</h2></div>
+  <p class="panel-desc">The default theme: white surfaces on a soft gray canvas, purple and blue accents, subtle gradients. Every token pair in this file is the light-theme reference.</p>
+
+  <!-- Light Mode Spec Banner -->
+  <div style="margin-bottom:20px;padding:18px 22px;background:linear-gradient(135deg,color-mix(in srgb,#3B82F6 12%,var(--surface-elevated)),var(--surface-elevated));border:1px solid color-mix(in srgb,#3B82F6 28%,transparent);border-radius:var(--radius-16);box-shadow:var(--shadow-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:var(--preone-blue);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(59,130,246,0.35);flex:none">
+        <span class="ic"><svg viewBox="0 0 24 24"><use href="#i-sun"/></svg></span>
+      </div>
+      <div>
+        <b style="font-size:14px;display:block;color:var(--foreground)">Light Mode Architecture</b>
+        <span style="font-size:11.5px;color:var(--foreground-muted)">Anatomy: <code style="font-size:11px;color:var(--preone-blue)">Pure Soft Canvas (#F4F6FC)</code> · <code style="font-size:11.5px;color:var(--preone-blue)">High Contrast AA</code> · <code style="font-size:11px;color:var(--preone-blue)">Crisp Glass Cards</code></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge b-primary" style="font-weight:800;font-size:10.5px">Light Reference</span>
+      <span class="badge b-neutral" style="font-size:10.5px">Token System</span>
+    </div>
+  </div>
+
+  <div class="demo tight" data-label="Light surface pairs" style="border-radius:var(--radius-18);border:1px solid var(--border);background:var(--surface-elevated);padding:22px;box-shadow:var(--shadow-card)">
+    <div class="swatch-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
+      <div class="token-line" style="background:var(--surface-muted);padding:12px 16px;border-radius:14px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span class="tdot" style="width:20px;height:20px;border-radius:6px;background:#F4F6FC;border:1px solid var(--border-subtle);flex:none"></span>
+        <div><span class="tname" style="font-weight:800;color:var(--foreground);font-size:12.5px;display:block">--background</span><span style="font-size:10.5px;color:var(--foreground-muted)">Canvas wash #F4F6FC</span></div>
+      </div>
+
+      <div class="token-line" style="background:var(--surface-muted);padding:12px 16px;border-radius:14px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span class="tdot" style="width:20px;height:20px;border-radius:6px;background:#FFFFFF;border:1px solid var(--border);flex:none"></span>
+        <div><span class="tname" style="font-weight:800;color:var(--foreground);font-size:12.5px;display:block">--surface</span><span style="font-size:10.5px;color:var(--foreground-muted)">Pure white #FFFFFF</span></div>
+      </div>
+
+      <div class="token-line" style="background:var(--surface-muted);padding:12px 16px;border-radius:14px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span class="tdot" style="width:20px;height:20px;border-radius:6px;background:#F1F4FA;border:1px solid var(--border-subtle);flex:none"></span>
+        <div><span class="tname" style="font-weight:800;color:var(--foreground);font-size:12.5px;display:block">--surface-muted</span><span style="font-size:10.5px;color:var(--foreground-muted)">Soft container #F1F4FA</span></div>
+      </div>
+
+      <div class="token-line" style="background:var(--surface-muted);padding:12px 16px;border-radius:14px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span class="tdot" style="width:20px;height:20px;border-radius:6px;background:#F3EEFF;border:1px solid var(--border-subtle);flex:none"></span>
+        <div><span class="tname" style="font-weight:800;color:var(--foreground);font-size:12.5px;display:block">--surface-selected</span><span style="font-size:10.5px;color:var(--foreground-muted)">Violet wash #F3EEFF</span></div>
+      </div>
+
+      <div class="token-line" style="background:var(--surface-muted);padding:12px 16px;border-radius:14px;border:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px">
+        <span class="tdot" style="width:20px;height:20px;border-radius:6px;background:#1E293B;flex:none"></span>
+        <div><span class="tname" style="font-weight:800;color:var(--foreground);font-size:12.5px;display:block">--foreground</span><span style="font-size:10.5px;color:var(--foreground-muted)">Slate body #1E293B</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="sec-50" aria-labelledby="h-50" data-keys="dark mode deep navy glow electric blue cosmic not pure black contrast">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-moon"/></svg></span>Identity System</span>
+  <div class="panel-head"><h2 id="h-50"><span class="panel-num">50</span> Dark Mode Architecture</h2></div>
+  <p class="panel-desc">Deep-space soft dark: a navy-violet canvas washed with lavender and indigo nebulas — never flat black. Dark-glass cards float one step above the canvas; violet-300 lights links and focus. Text keeps AA contrast; glow is earned, not sprayed. Toggle the header moon to switch this entire document (RULE 16).</p>
+
+  <!-- Dark Mode Spec Banner -->
+  <div style="margin-bottom:20px;padding:18px 22px;background:linear-gradient(135deg,#141935,#272E55);border:1px solid #3A4276;border-radius:var(--radius-16);box-shadow:0 12px 32px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;color:#fff">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:38px;height:38px;border-radius:10px;background:#7C3AED;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(124,58,237,0.4);flex:none">
+        <span class="ic"><svg viewBox="0 0 24 24"><use href="#i-moon"/></svg></span>
+      </div>
+      <div>
+        <b style="font-size:14px;display:block;color:#fff">Deep-Space Soft Dark Engine</b>
+        <span style="font-size:11.5px;color:#B9BDD8">Anatomy: <code style="font-size:11px;color:#C4B5FD">Navy-Violet Canvas (#0F132A)</code> · <code style="font-size:11.5px;color:#C4B5FD">AA Contrast</code> · <code style="font-size:11px;color:#C4B5FD">Zero Pure Black (#000)</code></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge b-primary" style="font-weight:800;font-size:10.5px">AA Contrast</span>
+      <span class="badge b-neutral" style="font-size:10.5px">Nebula Gradient Wash</span>
+    </div>
+  </div>
+
+  <div class="demo dark" data-label="Dark component reference" style="border-radius:var(--radius-18);border:1px solid #272E55;background:#141935;padding:22px;box-shadow:0 12px 32px rgba(0,0,0,0.25)">
+    <div class="demo-row" style="gap:12px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary" style="border-radius:999px;font-weight:800" onclick="dsToast('info','Dark Primary','Primary button in dark theme.')">Primary</button>
+      <button class="btn" style="background:#241E4E;color:#D6CCFF;border-radius:999px;font-weight:700" onclick="dsToast('info','Dark Secondary','Secondary button in dark theme.')">Secondary</button>
+      <button class="btn btn-outline" style="color:#F5F7FF;border-color:#3A4276;border-radius:999px;font-weight:700" onclick="dsToast('info','Dark Outline','Outline button in dark theme.')">Outline</button>
+      <span class="badge b-success b-dot" style="font-weight:800;font-size:11px">Success</span>
+      <span class="badge b-warning b-dot" style="font-weight:800;font-size:11px">Warning</span>
+      <span class="badge b-danger b-dot" style="font-weight:800;font-size:11px">Danger</span>
+    </div>
+
+    <div class="demo-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:18px">
+      <div style="background:#181E40;border:1px solid #272E55;border-radius:16px;padding:18px">
+        <b style="font-size:14px;color:#F5F7FF;display:block">Dark card</b>
+        <p style="font-size:12px;color:#B9BDD8;margin:6px 0 0">surface #181E40 · border #272E55 · text #F5F7FF</p>
+      </div>
+
+      <div style="background:linear-gradient(140deg,#1c2050,#141935);border:1px solid #3A4276;border-radius:16px;padding:18px;box-shadow:var(--shadow-universe)">
+        <b style="font-size:14px;color:#F5F7FF;display:block">Glow card · earned</b>
+        <p style="font-size:12px;color:#B9BDD8;margin:6px 0 0">purple glow reserved for AI + universe moments</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dd-grid" style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+    <div class="dd do" style="padding:16px;border-radius:16px;border:1px solid color-mix(in srgb,#10B981 30%,transparent);background:color-mix(in srgb,#10B981 8%,var(--surface-elevated))">
+      <span class="dd-tag" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:var(--success);font-size:13px;margin-bottom:8px">
+        <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>Do
+      </span>
+      <p style="font-size:12.5px;color:var(--foreground-secondary);margin:0;line-height:1.4">Reuse the exact token names — dark values live in <span class="inline-code" style="font-family:var(--font-mono,monospace);font-size:11.5px;color:var(--preone-primary);background:var(--surface-muted);padding:2px 6px;border-radius:4px">[data-theme="dark"]</span> only; the nebula body wash is part of the th
+    </div>
+
+    <div class="dd dont" style="padding:16px;border-radius:16px;border:1px solid color-mix(in srgb,#EF4444 30%,transparent);background:color-mix(in srgb,#EF4444 8%,var(--surface-elevated))">
+      <span class="dd-tag" style="display:inline-flex;align-items:center;gap:6px;font-weight:800;color:var(--danger);font-size:13px;margin-bottom:8px">
+        <span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></span>Don't
+      </span>
+      <p style="font-size:12.5px;color:var(--foreground-secondary);margin:0;line-height:1.4">No pure black (#000) surfaces, no low-contrast gray text, no excessive glow, no hardcoded light hex values that ignore the theme.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     51 · RESPONSIVE
+    ════════════════════════════════════════════════════════════════ -->
+<section class="panel" id="sec-51" aria-labelledby="h-51" data-keys="responsive breakpoints 1440 1280 1024 768 390 375 preview desktop tablet mobile overflow touch targets">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-layout"/></svg></span>Quality</span>
+  <div class="panel-head"><h2 id="h-51"><span class="panel-num">51</span> Responsive</h2></div>
+  <p class="panel-desc">Every component is engineered against the real PreOne shell breakpoints: 1440 / 1280 / 1024 / 768 / 390 / 375px. The system never ships with horizontal overflow, tables collapse to card lists, and filters move into touch-first sheets without losing clarity or hierarchy.</p>
+
+  <!-- Responsive Spec Banner -->
+  <div style="margin-bottom:20px;padding:18px 22px;background:linear-gradient(135deg,color-mix(in srgb,#7C3AED 16%,var(--surface-elevated)),var(--surface-elevated));border:1px solid color-mix(in srgb,#7C3AED 25%,transparent);border-radius:var(--radius-16);box-shadow:var(--shadow-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--preone-primary),var(--preone-blue));color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(124,58,237,0.32);flex:none">
+        <span class="ic"><svg viewBox="0 0 24 24"><use href="#i-layout"/></svg></span>
+      </div>
+      <div>
+        <b style="font-size:14px;display:block;color:var(--foreground)">Responsive Grid System</b>
+        <span style="font-size:11.5px;color:var(--foreground-muted)">Anatomy: <code style="font-size:11px;color:var(--preone-primary)">6 Breakpoints (1440 → 375)</code> · <code style="font-size:11px;color:var(--preone-primary)">Table → Card Collapse</code> · <code style="font-size:11px;color:var(--preone-primary)">Fluid Controls</code></span>
+      </div>
+    </div>
+    <div class="responsive-pillstack" style="display:flex;gap:8px;flex-wrap:wrap">
+      <span class="badge b-primary" style="font-weight:800;font-size:10.5px">6 Breakpoints</span>
+      <span class="badge b-neutral" style="font-size:10.5px">Zero Overflow</span>
+      <span class="badge b-success b-dot" style="font-size:10.5px">Live Verified</span>
+    </div>
+  </div>
+
+  <div class="demo responsive-shell" data-label="Interactive viewport preview" style="padding:0">
+    <div class="responsive-bar">
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--success)"></span><span style="font-size:10.5px;color:var(--foreground-muted)">PreOne · Students · responding live</span></div>
+      <div class="responsive-pillstack">
+        <span class="responsive-pill"><strong>1440</strong> Desktop</span>
+        <span class="responsive-pill"><strong>768</strong> Tablet</span>
+        <span class="responsive-pill"><strong>390</strong> Mobile</span>
+      </div>
+    </div>
+    <div class="responsive-surface">
+      <div class="responsive-toggle seg" role="group" aria-label="Responsive preview width" style="margin-bottom:16px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px">
+        <button data-vp="1440px" aria-pressed="false" style="border-radius:999px;font-weight:700"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-layout"/></svg></span>1440</button>
+        <button data-vp="1280px" aria-pressed="false" style="border-radius:999px;font-weight:700"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></span>1280</button>
+        <button data-vp="1024px" aria-pressed="false" style="border-radius:999px;font-weight:700"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-window"/></svg></span>1024</button>
+        <button data-vp="768px" aria-pressed="false" style="border-radius:999px;font-weight:700"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-grid"/></svg></span>768</button>
+        <button data-vp="390px" aria-pressed="false" style="border-radius:999px;font-weight:700"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-phone"/></svg></span>390</button>
+        <button data-vp="375px" aria-pressed="true" style="border-radius:999px;font-weight:800"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-phone"/></svg></span>375</button>
+      </div>
+      <div style="overflow-x:auto;padding-bottom:8px">
+        <div id="vpFrame" style="width:375px;max-width:100%;margin:0 auto;transition:width var(--motion-slow) var(--ease-standard);border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--background)">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border-subtle)"><span style="width:8px;height:8px;border-radius:50%;background:var(--border-strong)"></span><span style="font-size:10.5px;color:var(--foreground-muted)">PreOne · Students · responding live</span></div>
+          <div style="padding:14px">
+            <div class="filters" style="margin-bottom:12px;gap:8px"><input class="input input-search" placeholder="Search students…" style="min-width:120px;flex:1 1 120px" aria-label="Search"><select class="select" style="height:36px;font-size:12.5px;flex:1 1 110px"><option>All classes</option></select><button class="btn btn-outline btn-sm" data-vp-filter style="min-height:36px"><span class="ic 
+            <div class="dtable-wrap vp-table"><table class="dtable"><thead><tr><th>Student</th><th>Class</th><th>Fees</th><th>Status</th></tr></thead><tbody><tr><td class="cell-strong">Aarav Sharma</td><td>Nursery B</td><td>Paid</td><td><span class="badge b-success b-dot">Active</span></td></tr><tr><td class="cell-strong">Ira Mehta</td><td>KG A</td><td>Due</td><td><span class="badge b-warning b-do
+            <div class="vp-cards" style="display:none;flex-direction:column;gap:10px">
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="avatar sm a-p">AS</span><div style="flex:1"><b style="font-size:12.5px">Aarav Sharma</b><p style="font-size:10.5px;color:var(--foreground-muted);margin:2px 0 0">Nursery B · Paid</p></div><span class="badge b-success b-dot">Active</span></div>
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="avatar sm a-k">IM</span><div style="flex:1"><b style="font-size:12.5px">Ira Mehta</b><p style="font-size:10.5px;color:var(--foreground-muted);margin:2px 0 0">KG A · Due</p></div><span class="badge b-warning b-dot">Pending</span></div>
+              <div class="card" style="padding:12px;display:flex;gap:10px;align-items:center"><span class="avatar sm a-n">VP</span><div style="flex:1"><b style="font-size:12.5px">Vivaan Patil</b><p style="font-size:10.5px;color:var(--foreground-muted);margin:2px 0 0">Nursery A · Paid</p></div><span class="badge b-success b-dot">Active</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="demo-note" style="margin-top:12px">Watch the table collapse into cards and the filter action slide into a mobile-first sheet as the frame narrows — the same behavior every PreOne module must ship.</p>
+    </div>
+  </div>
+  
+  <div class="table-wrap" style="margin-top:16px;border-radius:var(--radius-12);overflow:hidden;border:1px solid var(--border-subtle)"><table class="spec-table">
+    <thead><tr><th>Check @ 1440 / 1280 / 1024 / 768 / 390 / 375</th><th>Pass criteria</th></tr></thead>
+    <tbody>
+      <tr><td>Overflow</td><td>No horizontal scroll on page level; scroll allowed inside tables/code</td></tr>
+      <tr><td>Text wrapping</td><td>Headings wrap, never clip or orphan single characters</td></tr>
+      <tr><td>Touch targets</td><td>≥ 44 × 44px with ≥ 8px spacing</td></tr>
+      <tr><td>Navigation</td><td>Taskbar always visible · pins hide &lt;760px · Start opens as sheet</td></tr>
+      <tr><td>Tables / cards / modals / sheets</td><td>Table→cards, modal→sheet, filters→bottom sheet</td></tr>
+      <tr><td>Charts / images / forms</td><td>Fluid width, no distortion, full-width inputs on mobile</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     52 · ACCESSIBILITY
+    ════════════════════════════════════════════════════════════════ -->
+<section class="panel" id="sec-52" aria-labelledby="h-52" data-keys="accessibility wcag contrast keyboard focus aria labels screen reader reduced motion color independent touch targets">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-access"/></svg></span>Quality</span>
+  <div class="panel-head"><h2 id="h-52"><span class="panel-num">52</span> Accessibility (WCAG 2.1 AA)</h2></div>
+  <p class="panel-desc">Accessibility is not a feature add-on; it is a baseline requirement of the PreOne system (RULE 17). We design for WCAG 2.1 AA from the first pass: readable contrast, keyboard-first navigation, visible focus, semantic structure, assistive labels, reduced-motion support, and mobile targets that never fall below 44 × 44px.</p>
+
+  <div class="two-col" style="gap:20px">
+    <div class="demo tight" data-label="Keyboard map · live" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);padding:20px;box-shadow:var(--shadow-card)">
+      <div class="kbd-map">
+        <div class="kbd-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-size:12.5px;color:var(--foreground)">Focus search</span><span><kbd style="background:var(--surface-muted);color:var(--foreground);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">/</kbd> or <kbd style="background:var(--surface
+        <div class="kbd-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-size:12.5px;color:var(--foreground)">Navigate sections</span><span><kbd style="background:var(--surface-muted);color:var(--foreground);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">Tab</kbd> / <kbd style="background:var(--s
+        <div class="kbd-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-size:12.5px;color:var(--foreground)">Close modal / drawer</span><span><kbd style="background:var(--surface-muted);color:var(--foreground);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">Esc</kbd></span></div>
+        <div class="kbd-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-size:12.5px;color:var(--foreground)">Dismiss toast</span><span><kbd style="background:var(--surface-muted);color:var(--foreground);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">Esc</kbd> or click ×</span></div>
+        <div class="kbd-row" style="display:flex;justify-content:space-between;padding:8px 0"><span style="font-size:12.5px;color:var(--foreground)">Copy any token</span><span><kbd style="background:var(--surface-muted);color:var(--foreground);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">Tab</kbd> to button + <kbd style="background:var(--surface-muted);color:var(--foreground);
+      </div>
+      <p class="demo-note" style="margin-top:12px">Try tabbing now — the focus ring uses <span class="inline-code">--focus-ring</span> and remains visible everywhere.</p>
+    </div>
+    
+    <div class="demo tight" data-label="Contrast commitments" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);padding:20px;box-shadow:var(--shadow-card)">
+      <div class="token-list" style="display:flex;flex-direction:column;gap:8px">
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Body text</span><span style="font-size:11.5px;color:var(--foreground-muted)">≥ 7:1 on --background (AAA)</span></div>
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Secondary text</span><span style="font-size:11.5px;color:var(--foreground-muted)">≥ 4.5:1 (AA)</span></div>
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Accent on white</span><span style="font-size:11.5px;color:var(--foreground-muted)">#7C3AED 4.3:1 — large text and icons</span></div>
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Star Yellow</span><span style="font-size:11.5px;color:var(--foreground-muted)">never on white; dark text on fills</span></div>
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Focus ring</span><span style="font-size:11.5px;color:var(--foreground-muted)">3px, 32% primary — visible everywhere</span></div>
+        <div class="token-line" style="display:flex;justify-content:space-between;padding:8px;background:var(--surface-muted);border-radius:8px"><span class="tname" style="font-weight:700;color:var(--foreground)">Status</span><span style="font-size:11.5px;color:var(--foreground-muted)">icon + color + label, always</span></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="dd-grid" style="margin-top:16px">
+    <div class="dd do"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-check"/></svg></span>Semantics in practice</span><p>Landmarks such as <span class="inline-code">header nav main section aside footer</span>, one <span class="inline-code">h1</span>, labelled form controls, <span class="inline-code">aria-selected</span> tabs, <span class="inline-code">aria-moda
+    <div class="dd dont"><span class="dd-tag"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></span>Never</span><p>Color-only status, hover-only affordances, removed outlines, autoplaying motion without a <span class="inline-code">prefers-reduced-motion</span> fallback, or sub-44px mobile targets.</p></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════════
+     53 · PAGE TEMPLATES
+    ════════════════════════════════════════════════════════════════ -->
+<section class="panel" id="sec-53" aria-labelledby="h-53" data-keys="page templates dashboard list filters table card grid detail profile kanban analytics settings form wizard communication mobile form gallery">
+  <span class="panel-kicker"><span class="ic ic-sm"><svg viewBox="0 0 24 24"><use href="#i-layers"/></svg></span>Quality</span>
+  <div class="panel-head"><h2 id="h-53"><span class="panel-num">53</span> Page Templates (A–L)</h2></div>
+  <p class="panel-desc">Every PreOne screen belongs to one of twelve system templates — A through L. When a new screen is proposed, the template is chosen first; if nothing fits, the system expands, not the page. This keeps the platform coherent, professional, and intentionally scalable.</p>
+
+  <div class="template-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px">
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:24%;height:10px"></div><div class="sk" style="left:12px;top:30px;width:100%;heigh
+    
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:100%;height:12px;opacity:.4"></div><div class="sk" style="left:12px;top:30px;widt
+    
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:100%;height:12px;opacity:.4"></div><div class="sk" style="left:12px;top:30px;widt
+    
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:100%;height:30px;background:linear-gradient(90deg,var(--preone-primary-muted),tra
+    
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:26%;height:100px;opacity:.3"></div><div class="sk" style="left:44%;top:12px;width
+    
+    <div class="tpl-card" style="border-radius:var(--radius-16);border:1px solid var(--border);background:var(--surface-elevated);overflow:hidden;box-shadow:var(--shadow-card)"><div class="tpl-thumb" style="height:120px;position:relative;background:var(--surface-muted)"><div class="sk" style="left:12px;top:12px;width:100%;height:16px;opacity:.35"></div><div class="sk" style="left:12px;top:44px;wid
+    

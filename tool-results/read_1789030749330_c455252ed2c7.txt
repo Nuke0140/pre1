@@ -1,0 +1,2002 @@
+     1→P R E O N E E N T E R P R I S E
+     2→PreOne Prisma
+     3→Schema v3.0
+     4→Prisma Schema — Enterprise Preschool Operating System
+     5→Document Version: 3.0
+     6→Status: Database Implementation Freeze
+     7→Date: 2026-07-14
+     8→Product: PreOne — Enterprise Preschool Operating System
+     9→Predecessor: DDD v1.0, ERD v3.0, ADR v3.0
+    10→Successor: NestJS Backend, Prisma Client, Database Migration, Seed Scripts
+    11→Classification: Internal Engineering Reference
+    12→Prepared by: PreOne Architecture & Database Engineering Team
+    13→PreOne Platform PRISMA v3.0
+    14→
+    15→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+    16→Table of Contents
+    17→1. Introduction...................................................................................................................1
+    18→Document Purpose...............................................................................................................1
+    19→Scope & Applicability............................................................................................................2
+    20→Document Hierarchy............................................................................................................2
+    21→Freeze Declaration................................................................................................................2
+    22→Deliverables..........................................................................................................................3
+    23→Schema Statistics..................................................................................................................4
+    24→2. Prisma Standards............................................................................................................4
+    25→ORM Selection & Version.....................................................................................................5
+    26→ORM Rules............................................................................................................................5
+    27→Prisma Client Usage..............................................................................................................5
+    28→3. Folder Structure............................................................................................................10
+    29→Multi-File Schema Overview..............................................................................................10
+    30→Directory Tree.....................................................................................................................10
+    31→Folder Organization Rules..................................................................................................16
+    32→4. Schema Architecture.....................................................................................................17
+    33→Architecture Overview.......................................................................................................17
+    34→Schema Layers....................................................................................................................17
+    35→Multi-Tenant Strategy........................................................................................................18
+    36→Audit Columns....................................................................................................................18
+    37→Sample Model — Student..................................................................................................18
+    38→5. Common Models..........................................................................................................26
+    39→Models in this Domain.......................................................................................................26
+    40→Base Mixin (Audit Columns)...............................................................................................26
+    41→1
+    42→
+    43→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+    44→6. Identity Models............................................................................................................29
+    45→Models in this Domain.......................................................................................................29
+    46→Enums Defined...................................................................................................................29
+    47→Sample Model — User........................................................................................................29
+    48→7. Marketing & CRM Models.............................................................................................34
+    49→Models in this Domain.......................................................................................................34
+    50→Enums Defined...................................................................................................................34
+    51→Sample Model — Lead.......................................................................................................34
+    52→8. Admissions Models.......................................................................................................41
+    53→Models in this Domain.......................................................................................................41
+    54→Enums Defined...................................................................................................................41
+    55→Admission Workflow..........................................................................................................41
+    56→9. Student Models............................................................................................................42
+    57→Models in this Domain.......................................................................................................42
+    58→Enums Defined...................................................................................................................42
+    59→Canonical Student Model...................................................................................................42
+    60→10. Academics Models......................................................................................................50
+    61→Models in this Domain.......................................................................................................50
+    62→Enums Defined...................................................................................................................50
+    63→Class → Section → Subject Hierarchy................................................................................50
+    64→11. Daily Operations Models.............................................................................................50
+    65→Models in this Domain.......................................................................................................51
+    66→Enums Defined...................................................................................................................51
+    67→Attendance Lifecycle..........................................................................................................51
+    68→12. Communication Models..............................................................................................51
+    69→Models in this Domain.......................................................................................................52
+    70→Enums Defined...................................................................................................................52
+    71→Message → Notification Pattern........................................................................................52
+    72→2
+    73→
+    74→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+    75→13. Finance Models...........................................................................................................52
+    76→Models in this Domain.......................................................................................................52
+    77→Enums Defined...................................................................................................................53
+    78→Immutability Rules.............................................................................................................53
+    79→Invoice Lifecycle.................................................................................................................53
+    80→14. Inventory Models........................................................................................................53
+    81→Models in this Domain.......................................................................................................54
+    82→Enums Defined...................................................................................................................54
+    83→Stock Movement Pattern...................................................................................................54
+    84→15. HR Models..................................................................................................................54
+    85→Models in this Domain.......................................................................................................54
+    86→Enums Defined...................................................................................................................55
+    87→Employee ↔ User Linkage................................................................................................55
+    88→16. Administration Models...............................................................................................55
+    89→Models in this Domain.......................................................................................................55
+    90→Enums Defined...................................................................................................................55
+    91→Audit Log Design.................................................................................................................56
+    92→17. Reports Models..........................................................................................................56
+    93→Models in this Domain.......................................................................................................56
+    94→Enums Defined...................................................................................................................56
+    95→Read-Only Projection Layer................................................................................................56
+    96→18. Settings Models..........................................................................................................57
+    97→Models in this Domain.......................................................................................................57
+    98→Enums Defined...................................................................................................................57
+    99→3-Level Theme Engine Storage...........................................................................................57
+   100→19. Platform Models.........................................................................................................58
+   101→Models in this Domain.......................................................................................................58
+   102→Enums Defined...................................................................................................................58
+   103→3
+   104→
+   105→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   106→Multi-Tenant Hierarchy......................................................................................................58
+   107→Subscription & Plan............................................................................................................58
+   108→20. Relations.....................................................................................................................59
+   109→Overview............................................................................................................................59
+   110→One-to-One Relations.........................................................................................................59
+   111→One-to-Many Relations......................................................................................................61
+   112→Many-to-Many Relations....................................................................................................63
+   113→Cascade Rules.....................................................................................................................64
+   114→21. Constraints.................................................................................................................66
+   115→Overview............................................................................................................................67
+   116→Primary Keys.......................................................................................................................67
+   117→Unique Constraints.............................................................................................................67
+   118→Foreign Keys.......................................................................................................................68
+   119→Check Constraints...............................................................................................................69
+   120→Check Constraint Example..................................................................................................70
+   121→22. Indexes.......................................................................................................................73
+   122→Overview............................................................................................................................73
+   123→Index Types.........................................................................................................................73
+   124→Indexing Rules....................................................................................................................73
+   125→Composite Index Examples................................................................................................74
+   126→Full-Text & GIN Index Example...........................................................................................75
+   127→23. Enums.........................................................................................................................77
+   128→Overview............................................................................................................................77
+   129→Enums by Domain...............................................................................................................78
+   130→Naming Conventions..........................................................................................................78
+   131→Sample Enum Definitions...................................................................................................79
+   132→24. Migrations..................................................................................................................85
+   133→Overview............................................................................................................................85
+   134→4
+   135→
+   136→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   137→Migration Folder Structure.................................................................................................85
+   138→Migration Rules..................................................................................................................88
+   139→CI Pipeline Configuration....................................................................................................89
+   140→Sample Migration...............................................................................................................94
+   141→25. Seed Data.................................................................................................................103
+   142→Overview..........................................................................................................................103
+   143→Master Data......................................................................................................................104
+   144→Identity Defaults...............................................................................................................104
+   145→Demo School....................................................................................................................105
+   146→Lookup Tables...................................................................................................................106
+   147→Seed Script Structure........................................................................................................108
+   148→26. Performance.............................................................................................................114
+   149→Overview..........................................................................................................................115
+   150→Connection Pooling..........................................................................................................115
+   151→Query Optimization..........................................................................................................115
+   152→Partitioning.......................................................................................................................116
+   153→Read Replicas....................................................................................................................116
+   154→Caching Strategy...............................................................................................................117
+   155→Performance Benchmarks................................................................................................117
+   156→Benchmark Verification SQL.............................................................................................118
+   157→27. Naming Standards.....................................................................................................120
+   158→Overview..........................................................................................................................120
+   159→Naming Conventions........................................................................................................120
+   160→Anti-Patterns....................................................................................................................120
+   161→Schema Validator.............................................................................................................122
+   162→Sign-off & Approval........................................................................................................129
+   163→Freeze Declaration...........................................................................................................129
+   164→Approval Matrix................................................................................................................129
+   165→5
+   166→
+   167→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   168→Next Steps.........................................................................................................................129
+   169→Document Control............................................................................................................130
+   170→Right-click the table above and choose “Update Field” to refresh page numbers.
+   171→6
+   172→
+   173→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   174→1. Introduction
+   175→Document Purpose
+   176→This Prisma Schema v3.0 document is the authoritative reference for the complete
+   177→database implementation of the PreOne Enterprise Preschool Operating System. It
+   178→consolidates 288 Prisma models, 84 enum definitions, 412 foreign key relations, full index
+   179→and constraint specifications, 15 migration scripts, comprehensive seed data, and CI/CD
+   180→pipeline configuration into a single Database Implementation Freeze. Every NestJS service,
+   181→every Prisma Client call, and every database migration in the PreOne platform must
+   182→conform to this document.
+   183→This document supersedes the schema snippets scattered across DDD v1.0 and ERD v3.0.
+   184→Where those documents describe the domain model and entity relationships conceptually,
+   185→this document specifies the concrete Prisma schema that engineers will implement. It
+   186→includes the model definitions, the field types, the relation annotations, the index
+   187→declarations, the constraint definitions, the migration scripts, and the seed data. Engineers
+   188→should treat this document as the source of truth for any database-related question.
+   189→Scope & Applicability
+   190→The document covers the entire PostgreSQL-backed data layer for PreOne across all 15
+   191→domain bounded contexts: Identity, Marketing & CRM, Admissions, Student, Academics,
+   192→Daily Operations, Communication, Finance, Inventory, HR, Administration, Reports,
+   193→Settings, Platform, and Common. It governs schema design, relation cardinalities, multi-
+   194→tenant isolation, audit columns, soft-delete semantics, indexing strategy, enum taxonomy,
+   195→migration lifecycle, seed data, performance tuning, and naming conventions. Any engineer,
+   196→contractor, or AI agent touching the prisma/ directory must read this document first.
+   197→The document applies to all PreOne environments: local development, staging, production,
+   198→and the ephemeral preview environments spun up for each pull request. It applies to the
+   199→primary PostgreSQL database; it does NOT apply to Redis (cache), Elasticsearch (search
+   200→indexing), or S3 (file storage) — those have their own schemas documented separately. Any
+   201→data that needs to be queried relationally, transactionally, or with multi-tenant isolation
+   202→lives in PostgreSQL and follows this schema.
+   203→7
+   204→
+   205→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   206→Document Hierarchy
+   207→This document is the successor to DDD v1.0 (domain model), ERD v3.0 (entity-relationship
+   208→design), and ADR v3.0 (architectural decisions). It is the predecessor to the NestJS Backend
+   209→implementation, the Prisma Client codegen pipeline, the database migration runner, and
+   210→the seed scripts. Where this document conflicts with a predecessor, this document takes
+   211→precedence for database execution. Where the NestJS implementation conflicts with this
+   212→document, this document wins; the implementation must be corrected.
+   213→| Document     | Version | Relationship | Authority         |
+   214→| ------------ | ------- | ------------ | ----------------- |
+   215→| DDD Document | v1.0    | Predecessor  | Domain model and  |
+   216→bounded contexts
+   217→| ERD Document | v3.0 | Predecessor | Entity-relationship  |
+   218→| ------------ | ---- | ----------- | -------------------- |
+   219→design
+   220→| ADR Catalog | v3.0 | Predecessor | Architectural  |
+   221→| ----------- | ---- | ----------- | -------------- |
+   222→decisions
+   223→| **Prisma Schema** | **v3.0** | **This document** | **Database  |
+   224→| ----------------- | -------- | ----------------- | ----------- |
+   225→implementation**
+   226→| NestJS Backend | TBD | Successor | Service  |
+   227→| -------------- | --- | --------- | -------- |
+   228→implementations
+   229→| Prisma Client | TBD | Successor | Generated type-safe  |
+   230→| ------------- | --- | --------- | -------------------- |
+   231→client
+   232→| Database Migration | TBD | Successor | Migration runner  |
+   233→| ------------------ | --- | --------- | ----------------- |
+   234→and CI integration
+   235→| Seed Scripts | TBD | Successor | Master and demo  |
+   236→| ------------ | --- | --------- | ---------------- |
+   237→data seeding
+   238→Freeze Declaration
+   239→Status: Database Implementation Freeze. The schema in this document is FROZEN. Any
+   240→change — adding a column, renaming an enum, altering a relation, modifying an index —
+   241→requires (a) a written change request reviewed by the Architecture Council, (b) an updated
+   242→ADR documenting the rationale, (c) a new migration script following the rules in Chapter 24,
+   243→and (d) regeneration of the Prisma Client. Emergency hotfix changes are permitted only for
+   244→security vulnerabilities and data-loss bugs; all other changes wait for the next minor version
+   245→(v3.1, v3.2, etc.).
+   246→8
+   247→
+   248→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   249→The freeze is enforced by: (a) a branch protection rule on the main branch that requires the
+   250→architecture council's approval on any PR touching prisma/; (b) a CI check that fails if the
+   251→prisma migrate diff output is non-empty without a corresponding migration file; (c) a pre-
+   252→commit hook that validates schema naming conventions and audit-column completeness;
+   253→and (d) a quarterly architecture review that audits any schema drift since the last review.
+   254→Deliverables
+   255→This document produces the following production artifacts. Each artifact is independently
+   256→testable and deployable. The engineering team consumes these artifacts in the order listed
+   257→below; skipping any step produces an incomplete or non-functional database layer.
+   258→• schema.prisma (complete 288 tables, organized via prismaSchemaFolder preview
+   259→feature)
+   260→• Domain-wise Prisma Models (15 domain folders, each with its own .prisma files)
+   261→• 84 Enum Definitions (organized by domain, exported from enums/ folder)
+   262→• 412 Foreign Key Relations (with explicit @relation annotations and cascade rules)
+   263→• Indexes & Constraints (composite indexes, GIN full-text indexes, check constraints)
+   264→• 15 Migration Scripts (one per domain, immutable, version-controlled)
+   265→• Seed Data Scripts (master data, identity defaults, demo school, lookup tables)
+   266→• Prisma Client Generation (npm run prisma:generate produces typed client)
+   267→• Database Validation Rules (Zod schemas derived from Prisma types)
+   268→• CI/CD Migration Pipeline (GitHub Actions workflow with prisma migrate)
+   269→Schema Statistics
+   270→The schema is large by any standard. The numbers below reflect the v3.0 freeze and include
+   271→all 15 domain bounded contexts. Each number is verified by the CI pipeline on every PR; any
+   272→drift triggers a failure and blocks merge.
+   273→Metric Count Notes
+   274→Prisma Models 288 Across 15 domain folders
+   275→Enum Definitions 84 Stored as PostgreSQL ENUM
+   276→types
+   277→Foreign Key Relations 412 With explicit cascade rules
+   278→9
+   279→
+   280→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   281→| Metric                  | Count | Notes                       |
+   282→| ----------------------- | ----- | --------------------------- |
+   283→| Domain Bounded Contexts | 15    | Identity, CRM, Admissions,  |
+   284→etc.
+   285→| Migration Scripts | 15  | 001_initial through  |
+   286→| ----------------- | --- | -------------------- |
+   287→015_platform
+   288→| Database Indexes | 850  | B-tree, GIN, partial, hash |
+   289→| ---------------- | ---- | -------------------------- |
+   290→| Constraints      | 612  | PK, UK, FK, CHECK          |
+   291→| Seed Records     | 4500 | Master + identity + demo   |
+   292→school
+   293→10
+   294→
+   295→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   296→2. Prisma Standards
+   297→ORM Selection & Version
+   298→PreOne uses Prisma ORM v5+ as the exclusive database access layer. Direct SQL access via
+   299→pg, knex, or raw queries is FORBIDDEN in application code; the only exception is migration
+   300→scripts that need database features Prisma cannot express (e.g., GIN index creation, full-
+   301→text search triggers). Prisma was chosen over TypeORM and MikroORM because of its
+   302→generated type-safe client, declarative schema syntax, first-class migration tooling, and
+   303→excellent PostgreSQL feature coverage.
+   304→Prisma was selected after a six-week evaluation period during which the team prototyped
+   305→the same Student-management module in Prisma, TypeORM, MikroORM, and Kysely.
+   306→Prisma won on three dimensions: (a) the generated TypeScript client eliminated an entire
+   307→class of runtime errors that TypeORM's decorator-based approach allowed, (b) the
+   308→migration tooling produced reviewable SQL that DBAs could sign off on, and (c) the
+   309→declarative schema syntax was readable enough for product managers to review during
+   310→sprint planning.
+   311→Version: Prisma CLI and @prisma/client are pinned to ^5.18.0 in package.json. Minor
+   312→version upgrades require running the full migration suite against a shadow database in CI
+   313→and verifying zero diff. Major version upgrades (v6, v7) require an Architecture Decision
+   314→Record and a coordinated migration plan; they are not permitted in patch releases.. The CLI,
+   315→the client, and all @prisma/* packages must be on the same minor version. The engine
+   316→binary is auto-downloaded by the postinstall script and pinned via the binaryTargets field in
+   317→generator.prisma.
+   318→ORM Rules
+   319→The six rules below are non-negotiable. They are enforced by code review, by lint rules
+   320→(eslint-plugin-prisma), and by Prisma middleware that fails fast on violations. An engineer
+   321→who breaks these rules in a PR will be asked to refactor before the PR can merge.
+   322→11
+   323→
+   324→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   325→Rule Detail
+   326→Use Prisma Client everywhere All database reads and writes go through the
+   327→generated Prisma Client. No raw queries in
+   328→services, no repositories that wrap pg,
+   329→noKnex usage. Prisma's type safety is the
+   330→contract between the database and the
+   331→application.
+   332→Use Prisma migrations for schema changes Never run prisma db push against any
+   333→environment above local dev. All schema
+   334→changes go through prisma migrate dev
+   335→(local) and prisma migrate deploy
+   336→(CI/staging/prod). Migrations are immutable
+   337→once merged.
+   338→Use transactions for multi-table writes Any operation that writes to two or more
+   339→tables must use prisma.$transaction(). Never
+   340→write multiple tables in sequence without a
+   341→transaction; partial writes corrupt data.
+   342→Use Prisma's typed include/select Always specify which relations to load via
+   343→include or select. Never fetch entire rows
+   344→with all relations (N+1 problem). Use Prisma's
+   345→type inference to ensure compile-time safety
+   346→of relation loading.
+   347→Use Prisma middleware for cross-cutting Tenant isolation, soft-delete filtering, and
+   348→concerns audit logging are implemented as Prisma
+   349→middleware/extensions. Engineers must not
+   350→duplicate these concerns in service code.
+   351→Use Prisma's schema preview features prismaSchemaFolder is enabled for multi-file
+   352→judiciously schema. MultiSchema is NOT enabled (single
+   353→schema). FullTextIndex is enabled for
+   354→PostgreSQL GIN indexes. PostgresExtensions
+   355→is enabled for uuid-ossp and pg_trgm.
+   356→Prisma Client Usage
+   357→The NestJS service example below demonstrates correct Prisma Client usage: explicit
+   358→tenantId filter, explicit relation loading via include, transaction for multi-table writes, and
+   359→proper typing via the generated Prisma types. Every service in the PreOne backend follows
+   360→this pattern.
+   361→// NestJS service example — correct Prisma Client usage
+   362→12
+   363→
+   364→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   365→@Injectable()
+   366→export class StudentService {
+   367→constructor(private prisma: PrismaService) {}
+   368→async findByAdmissionNo(tenantId: string, admissionNo: string) {
+   369→return this.prisma.student.findFirst({
+   370→where: {
+   371→tenantId, // tenant isolation (auto-injected by
+   372→middleware)
+   373→admissionNo, // unique within tenant
+   374→deletedAt: null, // soft-delete filter (auto-injected by
+   375→middleware)
+   376→},
+   377→include: {
+   378→profile: true, // explicit relation load
+   379→branch: { select: { name: true } }, // minimal select to avoid over-
+   380→fetching
+   381→enrollments: {
+   382→where: { academicYear: { isActive: true } },
+   383→include: { section: { include: { class: true } } },
+   384→take: 1,
+   385→},
+   386→},
+   387→});
+   388→}
+   389→async createWithEnrollment(data: CreateStudentDto) {
+   390→return this.prisma.$transaction(async (tx) => {
+   391→const student = await tx.student.create({ data: { ...data.student } });
+   392→await tx.enrollment.create({ data: { ...data.enrollment, studentId:
+   393→student.id } });
+   394→await tx.auditLog.create({ data: { action: 'STUDENT_CREATED', entityId:
+   395→student.id, ... } });
+   396→return student;
+   397→});
+   398→}
+   399→}
+   400→13
+   401→
+   402→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   403→3. Folder Structure
+   404→Multi-File Schema Overview
+   405→PreOne's prisma/ directory uses the prismaSchemaFolder preview feature to split the
+   406→schema across multiple .prisma files organized by domain. Each domain owns its own folder
+   407→with one or more .prisma files. The main schema.prisma file contains only the datasource,
+   408→generator, and preview feature declarations. This structure mirrors the DDD bounded
+   409→contexts and keeps each domain's schema self-contained for easier review and merge
+   410→conflict resolution.
+   411→The prismaSchemaFolder preview feature is enabled in generator.prisma. This feature
+   412→allows the schema to be split across multiple .prisma files, each in its own domain folder.
+   413→Prisma merges these files at generation time into a single logical schema. This structure
+   414→mirrors the DDD bounded contexts and makes schema review easier — a PR touching only
+   415→the Finance domain only needs to touch prisma/finance/, and reviewers can focus on that
+   416→folder.
+   417→Directory Tree
+   418→prisma/
+   419→├── schema.prisma # datasource + generator + preview features
+   420→├── datasource.prisma # datasource block (PostgreSQL, env
+   421→DATABASE_URL)
+   422→├── generator.prisma # generator client block + custom generators
+   423→├── enums/ # 84 enum definitions organized by domain
+   424→│ ├── common.prisma # Gender, YesNo, StatusType, etc.
+   425→│ ├── identity.prisma # UserRole, PermissionAction, AuthProvider
+   426→│ ├── student.prisma # StudentStatus, BloodGroup, Religion
+   427→│ ├── attendance.prisma # AttendanceStatus, AttendanceType
+   428→│ ├── finance.prisma # InvoiceStatus, PaymentMethod, FeeHead
+   429→│ ├── communication.prisma # MessageType, NotificationChannel, Priority
+   430→│ └── ... (84 enums across 15 files)
+   431→├── common/ # Base models shared across domains
+   432→├── platform/ # Tenant, Branch, Subscription, Plan
+   433→├── identity/ # User, Role, Permission, Session, user_role
+   434→├── crm/ # Lead, Campaign, Contact, Activity
+   435→├── admission/ # Application, AdmissionForm, Document
+   436→├── student/ # Student, StudentProfile, Guardian, Enrollment
+   437→├── academics/ # AcademicYear, Class, Section, Subject,
+   438→Timetable
+   439→├── attendance/ # Attendance, AttendanceLog, HolidayCalendar
+   440→├── communication/ # Message, Notification, MessageTemplate,
+   441→Broadcast
+   442→├── finance/ # Invoice, Receipt, FeeHead, Scholarship, Refund
+   443→14
+   444→
+   445→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   446→├── inventory/ # Item, Stock, PurchaseOrder, Supplier, Issuance
+   447→├── hr/ # Employee, Department, Designation, Leave,
+   448→Payroll
+   449→├── administration/ # AuditLog, SystemConfig, BackupJob,
+   450→ImportJob
+   451→├── reports/ # ReportDefinition, ReportSchedule, ReportRun,
+   452→Dashboard
+   453→├── settings/ # SchoolSetting, BranchSetting, ThemeConfig,
+   454→CustomField
+   455→├── migrations/ # 15 immutable migration folders
+   456→│ ├── 001_initial/
+   457→│ ├── 002_identity/
+   458→│ ├── ... (15 migrations total)
+   459→├── seed/ # Seed data scripts (TS)
+   460→│ ├── master-data.seed.ts # countries, states, cities, languages, currencies
+   461→│ ├── identity.seed.ts # super admin, roles, permissions, default users
+   462→│ ├── school.seed.ts # demo school, academic year, classes, sections
+   463→│ ├── lookup.seed.ts # blood groups, religion, nationality, fee heads
+   464→│ └── index.ts # orchestrator
+   465→└── scripts/ # utility scripts
+   466→├── validate-schema.ts # pre-commit schema validator
+   467→├── check-migrations.ts # CI: detect pending migrations
+   468→├── generate-client.ts # custom Prisma Client generation hook
+   469→└── diff-schema.ts # diff against production schema
+   470→Folder Organization Rules
+   471→The folder structure is not just cosmetic — it is enforced by tooling. The pre-commit hook
+   472→(scripts/validate-schema.ts) checks that every .prisma file is in the correct domain folder,
+   473→that no domain folder contains models from another domain, and that enums are defined
+   474→in enums/ and imported where needed.
+   475→• Each domain folder is owned by exactly one engineering team (see RACI matrix in
+   476→Chapter 27).
+   477→• Cross-domain relations are permitted but must be reviewed by both teams in the
+   478→PR.
+   479→• Enums are defined in enums/ and imported across domain schemas using Prisma's
+   480→enum import syntax.
+   481→• The main schema.prisma file MUST NOT contain model definitions; only datasource
+   482→+ generator + preview.
+   483→• All file names use kebab-case; all model names use PascalCase; all field names use
+   484→camelCase.
+   485→15
+   486→
+   487→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   488→• Migration folder names follow NNN_description pattern (e.g., 001_initial,
+   489→002_identity).
+   490→16
+   491→
+   492→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   493→4. Schema Architecture
+   494→Architecture Overview
+   495→PreOne's schema architecture is a single-schema PostgreSQL design with multi-tenant
+   496→isolation enforced at the application layer via Prisma middleware. We do NOT use schema-
+   497→per-tenant or database-per-tenant isolation because (a) the multi-tenant filter is enforced
+   498→programmatically in every query, (b) tenant-aware RLS (Row-Level Security) is enabled as a
+   499→defense-in-depth measure, and (c) the operational cost of per-tenant schemas at 1000+
+   500→schools would be prohibitive. Every business table contains tenantId, branchId, and
+   501→academicYearId columns (where applicable) to enable the cascade filter.
+   502→The shared-database pattern was chosen after evaluating three alternatives: schema-per-
+   503→tenant (operational complexity at 1000+ schemas), database-per-tenant (cost-prohibitive
+   504→at 1000+ databases), and PostgreSQL RLS-only (too easy to bypass with a missed policy).
+   505→The shared-database pattern with application-layer enforcement plus RLS as defense-in-
+   506→depth provides the best balance of cost, complexity, and safety. The Prisma middleware is
+   507→the primary enforcement; if a developer forgets to filter by tenantId, the middleware
+   508→throws and the request fails.
+   509→Schema Layers
+   510→The schema is organized into five horizontal layers. Each layer has a clear responsibility and
+   511→a clear ownership boundary. Layers depend only on lower layers (e.g., Domain depends on
+   512→Identity and Platform, but Identity does not depend on Domain). This prevents circular
+   513→dependencies and keeps the migration order deterministic.
+   514→| Layer | Models | Description |
+   515→| ----- | ------ | ----------- |
+   516→Platform Layer Tenant, Subscription, Plan,  Cross-cutting models that
+   517→|                | Feature, FeatureFlag,      | span all tenants. Managed by  |
+   518→| -------------- | -------------------------- | ----------------------------- |
+   519→|                | AuditLog, SystemConfig     | the platform team.            |
+   520→| Identity Layer | User, Role, Permission,    | Authentication and            |
+   521→|                | Session, RefreshToken,     | authorization. Shared across  |
+   522→|                | user_role, role_permission | all domains; no domain owns   |
+   523→identity.
+   524→| Domain Layer | Student, Admission,        | Business-domain models.  |
+   525→| ------------ | -------------------------- | ------------------------ |
+   526→|              | Attendance, Finance,       | Each domain is owned by  |
+   527→|              | Inventory, HR, Academics,  | one team; cross-domain   |
+   528→|              | Communication              | relations are explicit.  |
+   529→17
+   530→
+   531→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   532→| Layer           | Models                      | Description                 |
+   533→| --------------- | --------------------------- | --------------------------- |
+   534→| Reporting Layer | ReportDefinition,           | Read-only projections of    |
+   535→|                 | ReportSchedule, ReportRun,  | domain data. Reports never  |
+   536→|                 | Dashboard, Widget,          | own data; they reference    |
+   537→|                 | WidgetConfig                | domain tables.              |
+   538→Settings Layer SchoolSetting, BranchSetting,  Per-tenant and per-branch
+   539→|     | ThemeConfig, CustomField,  | configuration. Stored as  |
+   540→| --- | -------------------------- | ------------------------- |
+   541→|     | CustomFieldValue           | JSONB for flexibility.    |
+   542→Multi-Tenant Strategy
+   543→Pattern Shared database, shared schema, tenant-
+   544→discriminator column
+   545→Discriminator tenantId (UUID, indexed, non-null on all
+   546→business tables)
+   547→Enforcement Prisma middleware (primary), PostgreSQL RLS
+   548→(defense-in-depth)
+   549→Cascade tenantId is required on insert. Updates to
+   550→tenantId are FORBIDDEN (immutable). Branch
+   551→changes within a tenant are permitted only
+   552→by Admin role.
+   553→Isolation Each query must filter by tenantId. The
+   554→Prisma middleware automatically injects
+   555→tenantId from the request context. Direct
+   556→prisma.client calls without tenantId in WHERE
+   557→clause are blocked by middleware and fail at
+   558→runtime.
+   559→Audit Columns
+   560→Every   model   inherits   from   a   Base   mixin   that   adds   these   7   columns.   The
+   561→createdBy/updatedBy/deletedBy columns store the user ID (UUID) of the actor. The version
+   562→column is an integer that increments on every update (optimistic concurrency control).
+   563→Soft-delete semantics: deletedAt is nullable. Soft-deleted records have deletedAt != null.
+   564→Prisma middleware filters out soft-deleted records by default. Hard deletes are FORBIDDEN
+   565→except for: audit cleanup jobs (records > 7 years old), temporary OTP codes (TTL 10 min),
+   566→and session cache (TTL 24 h).
+   567→18
+   568→
+   569→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   570→The seven required audit columns are: createdAt, createdBy, updatedAt, updatedBy,
+   571→deletedAt, deletedBy, version. The version column enables optimistic concurrency control:
+   572→when an update is issued, Prisma middleware automatically adds a WHERE version =
+   573→current_version clause and increments the version. If the row was modified by another
+   574→transaction, the update matches zero rows and the service throws a ConcurrencyError.
+   575→Sample Model — Student
+   576→The Student model below is the canonical example. It demonstrates all the conventions:
+   577→UUID primary key, tenantId + branchId multi-tenant columns, admissionNo as tenant-
+   578→scoped unique field, all seven audit columns, explicit relations with cascade rules,
+   579→composite unique constraint, single-column indexes, composite indexes, and a GIN full-text
+   580→index on the name columns. Every model in the schema follows this pattern.
+   581→// Example: Student model with full audit columns, multi-tenant columns, and
+   582→indexes
+   583→model Student {
+   584→id String @id @default(uuid())
+   585→tenantId String
+   586→branchId String
+   587→admissionNo String
+   588→firstName String
+   589→lastName String?
+   590→dob DateTime
+   591→gender Gender
+   592→status StudentStatus
+   593→admissionDate DateTime @default(now())
+   594→photoUrl String?
+   595→bloodGroup BloodGroup?
+   596→religion String?
+   597→nationality String?
+   598→remarks String?
+   599→metadata Json?
+   600→// Audit columns (inherited from Base mixin in actual code; shown here for
+   601→clarity)
+   602→createdAt DateTime @default(now())
+   603→createdBy String
+   604→updatedAt DateTime @updatedAt
+   605→updatedBy String
+   606→deletedAt DateTime?
+   607→deletedBy String?
+   608→version Int @default(1)
+   609→// Relations
+   610→tenant Tenant @relation(fields: [tenantId], references: [id])
+   611→branch Branch @relation(fields: [branchId], references: [id])
+   612→19
+   613→
+   614→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   615→profile StudentProfile?
+   616→enrollments Enrollment[]
+   617→attendances Attendance[]
+   618→guardians Guardian[]
+   619→invoices Invoice[]
+   620→// Constraints
+   621→@@unique([tenantId, admissionNo])
+   622→@@unique([tenantId, branchId, admissionNo])
+   623→// Indexes
+   624→@@index([tenantId])
+   625→@@index([branchId])
+   626→@@index([tenantId, branchId])
+   627→@@index([tenantId, status])
+   628→@@index([tenantId, academicYearId])
+   629→@@index([createdAt])
+   630→@@index([deletedAt])
+   631→@@index([firstName, lastName])
+   632→// Full-text search index (GIN)
+   633→@@index([firstName, lastName], type: Gin)
+   634→@@schema("public")
+   635→@@map("students")
+   636→}
+   637→20
+   638→
+   639→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   640→5. Common Models
+   641→Common models are the shared foundation used by every domain. They include base
+   642→mixins (audit columns), lookup tables (blood groups, religions, nationalities, relationships,
+   643→transport types), geographic tables (countries, states, cities), and universal enums (Gender,
+   644→YesNo, StatusType). These models live in the common/ folder and are imported across the
+   645→schema.
+   646→Models in this Domain
+   647→| Model | Purpose | Key Fields | Indexes |
+   648→| ----- | ------- | ---------- | ------- |
+   649→Country ISO 3166-1 country  id, iso2, iso3, name,  iso2 (unique), iso3
+   650→|     | master (250 records) | phoneCode,  | (unique), name |
+   651→| --- | -------------------- | ----------- | -------------- |
+   652→currencyCode,
+   653→flagEmoji
+   654→| State    | ISO 3166-2           | id, countryId, code,  | countryId,      |
+   655→| -------- | -------------------- | --------------------- | --------------- |
+   656→|          | state/region master  | name                  | code+countryId  |
+   657→|          | (4000+ records)      |                       | (unique)        |
+   658→| City     | City/town master     | id, stateId, name,    | stateId, name,  |
+   659→|          | (150000+ records)    | pincode               | pincode         |
+   660→| Language | ISO 639-1 language   | id, code, name,       | code (unique)   |
+   661→|          | master (184 records) | nativeName            |                 |
+   662→| Currency | ISO 4217 currency    | id, code, name,       | code (unique)   |
+   663→|          | master (180 records) | symbol,               |                 |
+   664→decimalPlaces
+   665→| TimeZone | IANA time zone  | id, name, utcOffset,  | name (unique) |
+   666→| -------- | --------------- | --------------------- | ------------- |
+   667→|          | master (400+    | dstOffset             |               |
+   668→records)
+   669→BloodGroup Blood group lookup  id, code, description code (unique)
+   670→(8 records: A+, A-,
+   671→B+, B-, AB+, AB-, O+,
+   672→O-)
+   673→| Religion | Religion lookup (12  | id, name | name (unique) |
+   674→| -------- | -------------------- | -------- | ------------- |
+   675→records: Hindu,
+   676→Muslim, Christian,
+   677→Sikh, Jain, Buddhist,
+   678→Jewish, Parsi, etc.)
+   679→21
+   680→
+   681→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   682→| Model | Purpose | Key Fields | Indexes |
+   683→| ----- | ------- | ---------- | ------- |
+   684→Relationship Guardian-student  id, name, isPrimary name (unique)
+   685→relationship lookup
+   686→(10 records: Father,
+   687→Mother, Guardian,
+   688→Grandparent, Uncle,
+   689→Aunt, Brother, Sister,
+   690→Other)
+   691→| TransportType | Transport mode  | id, name | name (unique) |
+   692→| ------------- | --------------- | -------- | ------------- |
+   693→lookup (6 records:
+   694→School Bus, Van,
+   695→Auto, Car, Walk,
+   696→Public)
+   697→AuditLog Universal audit trail  id, tenantId,  tenantId, entityType,
+   698→|     | for all CRUD  | entityType, entityId,  | entityId,   |
+   699→| --- | ------------- | ---------------------- | ----------- |
+   700→|     | operations    | action, oldValue,      | performedAt |
+   701→newValue,
+   702→performedBy,
+   703→performedAt
+   704→SystemConfig Platform-level key- id, key, value,  key (unique)
+   705→|     | value configuration | dataType,  |     |
+   706→| --- | ------------------- | ---------- | --- |
+   707→description
+   708→| ImportJob | Bulk import job  | id, tenantId,      | tenantId, status,  |
+   709→| --------- | ---------------- | ------------------ | ------------------ |
+   710→|           | tracking (CSV    | fileName, status,  | startedAt          |
+   711→|           | uploads, etc.)   | totalRows,         |                    |
+   712→processedRows,
+   713→errorRows,
+   714→startedAt,
+   715→completedAt
+   716→ExportJob Report/file export  id, tenantId,  tenantId, status
+   717→|     | job tracking | exportType, status,  |     |
+   718→| --- | ------------ | -------------------- | --- |
+   719→fileUrl, startedAt,
+   720→completedAt
+   721→| FileUpload | Pre-signed URL file  | id, tenantId,        | tenantId,    |
+   722→| ---------- | -------------------- | -------------------- | ------------ |
+   723→|            | metadata for S3      | fileName, fileSize,  | uploadedBy,  |
+   724→|            | uploads              | mimeType, s3Key,     | createdAt    |
+   725→s3Bucket,
+   726→uploadedBy
+   727→22
+   728→
+   729→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   730→Base Mixin (Audit Columns)
+   731→Prisma v5 does not yet support model inheritance (mixins). The audit columns are added to
+   732→each model manually, but their presence is enforced by a pre-commit hook
+   733→(scripts/validate-schema.ts) that fails if any business model is missing any of the seven
+   734→required audit columns. The Prisma middleware auto-populates createdBy/updatedBy
+   735→from the request context and auto-increments version on update.
+   736→// common/base.prisma — Base mixin for audit columns (Prisma v5+ supports
+   737→mixins via generator)
+   738→// In practice, these columns are added to each model manually (Prisma does
+   739→not yet support model inheritance).
+   740→// The Prisma generator is configured with a custom generator that injects
+   741→these into every model.
+   742→// Required audit columns (added to EVERY business model):
+   743→// createdAt DateTime @default(now())
+   744→// createdBy String
+   745→// updatedAt DateTime @updatedAt
+   746→// updatedBy String
+   747→// deletedAt DateTime?
+   748→// deletedBy String?
+   749→// version Int @default(1)
+   750→// These are enforced by:
+   751→// 1. Pre-commit hook (scripts/validate-schema.ts) — fails if any model is
+   752→missing audit columns
+   753→// 2. Prisma middleware — auto-populates createdBy/updatedBy from request
+   754→context,
+   755→// auto-increments version on update, blocks hard delete unless explicitly
+   756→whitelisted
+   757→// 3. CI check — runs the validator on every PR
+   758→23
+   759→
+   760→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   761→6. Identity Models
+   762→The Identity domain owns authentication and authorization for the entire platform. It is the
+   763→only domain whose models are NOT scoped by tenantId (with the exception of SchoolUser,
+   764→which links a User to a Tenant). Identity models are owned by the Platform team and follow
+   765→stricter change-control rules: any change requires Architecture Council approval.
+   766→Models in this Domain
+   767→| Model | Purpose             | Key Fields          | Indexes          |
+   768→| ----- | ------------------- | ------------------- | ---------------- |
+   769→| User  | Platform user       | id, email, phone,   | email (unique),  |
+   770→|       | (unique by email    | passwordHash,       | phone, status    |
+   771→|       | across all tenants) | mfaSecret, status,  |                  |
+   772→lastLoginAt
+   773→SchoolUser Tenant-scoped user  id, userId, tenantId,  userId+tenantId
+   774→|     | profile (links User to  | branchId, role,  | (unique), tenantId,  |
+   775→| --- | ----------------------- | ---------------- | -------------------- |
+   776→|     | Tenant with role)       | designation,     | branchId             |
+   777→employeeCode
+   778→| Role | Role definition   | id, name, code,    | code (unique), scope |
+   779→| ---- | ----------------- | ------------------ | -------------------- |
+   780→|      | (Platform Admin,  | scope, description |                      |
+   781→School Admin,
+   782→Principal, Teacher,
+   783→Parent, Accountant,
+   784→Receptionist,
+   785→Librarian)
+   786→Permission Granular permission  id, code, description,  code (unique),
+   787→|     | (e.g., student.create,  | resource, action | resource+action  |
+   788→| --- | ----------------------- | ---------------- | ---------------- |
+   789→|     | fee.refund)             |                  | (unique)         |
+   790→UserRole Join table: User ↔  id, userId, roleId,  userId, roleId,
+   791→|     | Role (many-to-many) | tenantId, branchId | userId+roleId+tenant |
+   792→| --- | ------------------- | ------------------ | -------------------- |
+   793→Id (unique)
+   794→RolePermission Join table: Role ↔  id, roleId,  roleId, permissionId,
+   795→|     | Permission (many- | permissionId | roleId+permissionId  |
+   796→| --- | ----------------- | ------------ | -------------------- |
+   797→|     | to-many)          |              | (unique)             |
+   798→Session Active user session  id, userId,  userId, refreshToken
+   799→|     | (JWT refresh token,  | refreshToken,  | (unique), expiresAt |
+   800→| --- | -------------------- | -------------- | ------------------- |
+   801→|     | device info)         | deviceInfo,    |                     |
+   802→ipAddress, expiresAt,
+   803→revokedAt
+   804→24
+   805→
+   806→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   807→| Model | Purpose | Key Fields | Indexes |
+   808→| ----- | ------- | ---------- | ------- |
+   809→RefreshToken JWT refresh token  id, userId,  userId, tokenHash
+   810→|     | storage (rotated on  | tokenHash,        | (unique), expiresAt |
+   811→| --- | -------------------- | ----------------- | ------------------- |
+   812→|     | each use)            | parentTokenHash,  |                     |
+   813→expiresAt, usedAt
+   814→PasswordReset Password reset  id, userId,  userId, tokenHash
+   815→|     | token (TTL 30 min) | tokenHash,  | (unique), expiresAt |
+   816→| --- | ------------------ | ----------- | ------------------- |
+   817→expiresAt, usedAt
+   818→EmailVerification Email verification  id, userId, email,  userId, tokenHash
+   819→|     | token (TTL 24 h) | tokenHash,  | (unique), email |
+   820→| --- | ---------------- | ----------- | --------------- |
+   821→verifiedAt, expiresAt
+   822→| MfaChallenge | MFA challenge       | id, userId,     | userId, expiresAt |
+   823→| ------------ | ------------------- | --------------- | ----------------- |
+   824→|              | storage (TOTP, SMS) | challengeCode,  |                   |
+   825→channel, expiresAt,
+   826→verifiedAt
+   827→| AuthProvider | External OAuth       | id, userId, provider,  | userId,             |
+   828→| ------------ | -------------------- | ---------------------- | ------------------- |
+   829→|              | provider link        | providerUserId,        | provider+providerUs |
+   830→|              | (Google, Microsoft,  | accessToken,           | erId (unique)       |
+   831→|              | Apple)               | refreshToken,          |                     |
+   832→expiresAt
+   833→Enums Defined
+   834→| Enum          |     | Values                                    |     |
+   835→| ------------- | --- | ----------------------------------------- | --- |
+   836→| UserRoleScope |     | PLATFORM | TENANT | BRANCH                |     |
+   837→| UserStatus    |     | ACTIVE | INACTIVE | SUSPENDED | LOCKED |  |     |
+   838→PENDING_VERIFICATION
+   839→| AuthenticatorType |     | PASSWORD | TOTP | SMS | EMAIL |  |     |
+   840→| ----------------- | --- | -------------------------------- | --- |
+   841→BIOMETRIC | OAUTH_GOOGLE |
+   842→OAUTH_MICROSOFT | OAUTH_APPLE
+   843→| PermissionAction |     | CREATE | READ | UPDATE | DELETE | EXPORT  |     |
+   844→| ---------------- | --- | ----------------------------------------- | --- |
+   845→| APPROVE | REJECT | ASSIGN
+   846→| PermissionResource |     | STUDENT | TEACHER | PARENT | FEE |  |     |
+   847→| ------------------ | --- | ----------------------------------- | --- |
+   848→ATTENDANCE | ADMISSION | INVOICE |
+   849→RECEIPT | REPORT | USER | ROLE | SETTING |
+   850→THEME | MESSAGE | NOTIFICATION
+   851→| SessionStatus |     | ACTIVE | EXPIRED | REVOKED | REPLACED |     |
+   852→| ------------- | --- | ------------------------------------- | --- |
+   853→25
+   854→
+   855→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   856→Sample Model — User
+   857→The User model is unique across the entire platform (email is globally unique, not tenant-
+   858→scoped). This design allows a single user to belong to multiple tenants (e.g., a parent with
+   859→children in two different PreOne-powered schools). The SchoolUser table links a User to a
+   860→specific Tenant with a role; a user can have different roles in different tenants.
+   861→model User {
+   862→id String @id @default(uuid())
+   863→email String @unique
+   864→phone String?
+   865→passwordHash String?
+   866→mfaSecret String?
+   867→mfaEnabled Boolean @default(false)
+   868→status UserStatus @default(PENDING_VERIFICATION)
+   869→emailVerifiedAt DateTime?
+   870→phoneVerifiedAt DateTime?
+   871→lastLoginAt DateTime?
+   872→failedLoginAttempts Int @default(0)
+   873→lockedUntil DateTime?
+   874→// Audit
+   875→createdAt DateTime @default(now())
+   876→updatedAt DateTime @updatedAt
+   877→deletedAt DateTime?
+   878→version Int @default(1)
+   879→// Relations
+   880→schoolUsers SchoolUser[]
+   881→sessions Session[]
+   882→refreshTokens RefreshToken[]
+   883→passwordResets PasswordReset[]
+   884→emailVerifications EmailVerification[]
+   885→mfaChallenges MfaChallenge[]
+   886→authProviders AuthProvider[]
+   887→auditLogs AuditLog[] @relation("UserAuditActor")
+   888→@@index([status])
+   889→@@index([lastLoginAt])
+   890→@@index([deletedAt])
+   891→@@map("users")
+   892→}
+   893→26
+   894→
+   895→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   896→7. Marketing & CRM Models
+   897→The CRM domain captures marketing leads, enquiry management, and conversion tracking.
+   898→It is the entry point for prospective parents before they submit a formal admission
+   899→application. CRM models are scoped by tenantId and branchId.
+   900→Models in this Domain
+   901→| Model | Purpose | Key Fields | Indexes |
+   902→| ----- | ------- | ---------- | ------- |
+   903→Lead Marketing lead from  id, tenantId,  tenantId, branchId,
+   904→|     | website, walk-in, call,  | branchId,    | leadStatus,  |
+   905→| --- | ------------------------ | ------------ | ------------ |
+   906→|     | or referral              | leadSource,  | leadSource,  |
+   907→|     |                          | leadStatus,  | assignedTo,  |
+   908→|     |                          | parentName,  | createdAt    |
+   909→contactPhone,
+   910→contactEmail,
+   911→childName, childDob,
+   912→interestedClass,
+   913→assignedTo,
+   914→firstContactAt,
+   915→lastContactAt
+   916→Campaign Marketing campaign  id, tenantId, name,  tenantId, channel,
+   917→|     | (Facebook ads,         | channel, startDate,  | status, startDate |
+   918→| --- | ---------------------- | -------------------- | ----------------- |
+   919→|     | Google ads, referral,  | endDate, budget,     |                   |
+   920→|     | event)                 | status, leadsCount,  |                   |
+   921→conversionsCount
+   922→LeadActivity Touch-point log per  id, leadId,  leadId, activityType,
+   923→|     | lead (call, email, visit,  | activityType, notes,  | scheduledAt |
+   924→| --- | -------------------------- | --------------------- | ----------- |
+   925→|     | follow-up)                 | scheduledAt,          |             |
+   926→completedAt,
+   927→performedBy
+   928→LeadSource Lead source lookup  id, tenantId, name,  tenantId, name
+   929→|     | (Website, Walk-in,   | channel,     |     |
+   930→| --- | -------------------- | ------------ | --- |
+   931→|     | Referral, Facebook,  | defaultScore |     |
+   932→Google Ads, Event,
+   933→Phone Inquiry,
+   934→Other)
+   935→LeadScore Lead quality scoring  id, leadId, score,  leadId, score,
+   936→|     | (1-100 scale based  | scoreBreakdown,  | calculatedAt |
+   937→| --- | ------------------- | ---------------- | ------------ |
+   938→|     | on engagement)      | calculatedAt     |              |
+   939→27
+   940→
+   941→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+   942→| Model | Purpose | Key Fields | Indexes |
+   943→| ----- | ------- | ---------- | ------- |
+   944→Contact Contact directory  id, tenantId, name,  tenantId, type,
+   945→|     | (parents, alumni,  | type, email, phone,  | email, phone |
+   946→| --- | ------------------ | -------------------- | ------------ |
+   947→|     | vendors, partners) | organization, tags   |              |
+   948→NewsletterSubscripti Newsletter/opt-in  id, tenantId, email,  tenantId, email,
+   949→| on  | email subscription | source,  | subscribedAt |
+   950→| --- | ------------------ | -------- | ------------ |
+   951→subscribedAt,
+   952→unsubscribedAt
+   953→| Referral | Referral tracking  | id, tenantId,    | tenantId,        |
+   954→| -------- | ------------------ | ---------------- | ---------------- |
+   955→|          | (existing parent   | referrerUserId,  | referrerUserId,  |
+   956→|          | refers new lead)   | referredLeadId,  | status           |
+   957→referralCode, status,
+   958→rewardAmount,
+   959→rewardStatus
+   960→Enums Defined
+   961→| Enum       |     | Values                                 |     |
+   962→| ---------- | --- | -------------------------------------- | --- |
+   963→| LeadStatus |     | NEW | CONTACTED | QUALIFIED | NURTURE  |     |
+   964→| APPLICATION_STARTED | CONVERTED |
+   965→LOST | DUPLICATE
+   966→| LeadSourceChannel |     | WEBSITE | WALK_IN | PHONE | REFERRAL |  |     |
+   967→| ----------------- | --- | --------------------------------------- | --- |
+   968→FACEBOOK | GOOGLE_ADS | INSTAGRAM |
+   969→EVENT | EMAIL | SMS | PARTNER | OTHER
+   970→| LeadActivityType |     | CALL | EMAIL | SMS | WHATSAPP | VISIT |  |     |
+   971→| ---------------- | --- | ---------------------------------------- | --- |
+   972→FOLLOW_UP | MEETING | DEMO |
+   973→DOCUMENT_REQUEST
+   974→| ContactType |     | PARENT | ALUMNI | VENDOR | PARTNER |  |     |
+   975→| ----------- | --- | ------------------------------------- | --- |
+   976→STAFF | OTHER
+   977→| ReferralStatus |     | PENDING | ELIGIBLE | REWARDED | EXPIRED  |     |
+   978→| -------------- | --- | ---------------------------------------- | --- |
+   979→| REJECTED
+   980→Sample Model — Lead
+   981→The Lead model captures prospective parents before they apply for admission. A Lead is
+   982→converted to an AdmissionApplication via the leadToApplication() service method, which
+   983→copies the parent/child/contact fields and creates an Application record. The Lead remains
+   984→28
+   985→
+   986→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+   987→in the table with status CONVERTED for reporting (conversion rate by source, by month, by
+   988→class).
+   989→model Lead {
+   990→id String @id @default(uuid())
+   991→tenantId String
+   992→branchId String?
+   993→leadNumber String
+   994→leadSourceId String
+   995→leadStatus LeadStatus @default(NEW)
+   996→parentName String
+   997→contactPhone String
+   998→contactEmail String?
+   999→childName String?
+  1000→childDob DateTime?
+  1001→childGender Gender?
+  1002→interestedClass String?
+  1003→interestedAcademicYear String?
+  1004→notes String?
+  1005→tags String[]
+  1006→assignedToId String?
+  1007→score Int @default(0)
+  1008→convertedAt DateTime?
+  1009→convertedToApplicationId String?
+  1010→// Audit
+  1011→createdAt DateTime @default(now())
+  1012→createdBy String
+  1013→updatedAt DateTime @updatedAt
+  1014→updatedBy String
+  1015→deletedAt DateTime?
+  1016→version Int @default(1)
+  1017→// Relations
+  1018→tenant Tenant @relation(fields: [tenantId], references: [id])
+  1019→branch Branch? @relation(fields: [branchId], references: [id])
+  1020→leadSource LeadSource @relation(fields: [leadSourceId], references:
+  1021→[id])
+  1022→activities LeadActivity[]
+  1023→scores LeadScore[]
+  1024→@@unique([tenantId, leadNumber])
+  1025→@@index([tenantId, branchId])
+  1026→@@index([tenantId, leadStatus])
+  1027→@@index([tenantId, assignedToId])
+  1028→@@index([tenantId, createdAt])
+  1029→@@index([contactPhone])
+  1030→@@index([contactEmail])
+  1031→@@map("crm_leads")
+  1032→}
+  1033→29
+  1034→
+  1035→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1036→30
+  1037→
+  1038→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1039→8. Admissions Models
+  1040→The Admissions domain handles formal admission applications, document collection,
+  1041→interview scheduling, admission committee review, and offer management. Once an
+  1042→application is approved and the admission fee is paid, a Student record is created and the
+  1043→application transitions to CONVERTED status. The Admission model preserves the
+  1044→application history; the Student model is the live entity.
+  1045→Models in this Domain
+  1046→| Model | Purpose | Key Fields | Indexes |
+  1047→| ----- | ------- | ---------- | ------- |
+  1048→AdmissionApplicatio Formal admission  id, tenantId,  tenantId, branchId,
+  1049→| n   | application (linked to  | branchId,        | status,            |
+  1050→| --- | ----------------------- | ---------------- | ------------------ |
+  1051→|     | Lead or direct)         | applicationNo,   | academicYearId,    |
+  1052→|     |                         | leadId,          | applyingForClass,  |
+  1053→|     |                         | academicYearId,  | createdAt          |
+  1054→applyingForClass,
+  1055→status, parentName,
+  1056→childName, childDob,
+  1057→childGender,
+  1058→primaryContactPhon
+  1059→e,
+  1060→primaryContactEmail
+  1061→, addressLine1,
+  1062→addressLine2, city,
+  1063→state, pincode,
+  1064→countryId,
+  1065→previousSchool,
+  1066→previousClass,
+  1067→siblingName,
+  1068→siblingClass,
+  1069→appliedAt
+  1070→AdmissionForm Form configuration  id, tenantId,  tenantId, branchId,
+  1071→|     | (custom fields per  | branchId,            | academicYearId,  |
+  1072→| --- | ------------------- | -------------------- | ---------------- |
+  1073→|     | branch/academic     | academicYearId,      | isActive         |
+  1074→|     | year)               | formName, sections,  |                  |
+  1075→isActive, startDate,
+  1076→endDate
+  1077→31
+  1078→
+  1079→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1080→| Model | Purpose | Key Fields | Indexes |
+  1081→| ----- | ------- | ---------- | ------- |
+  1082→ApplicationDocumen Documents attached  id, applicationId,  applicationId,
+  1083→| t   | to application (birth  | documentType,          | documentType,  |
+  1084→| --- | ---------------------- | ---------------------- | -------------- |
+  1085→|     | cert, Aadhaar,         | fileUrl, fileName,     | verified       |
+  1086→|     | photos, previous       | fileSize, mimeType,    |                |
+  1087→|     | marks)                 | verified, verifiedBy,  |                |
+  1088→verifiedAt,
+  1089→rejectionReason
+  1090→AdmissionInterview Interview scheduling  id, applicationId,  applicationId,
+  1091→|     | (parent + child   | scheduledAt,   | scheduledAt, status |
+  1092→| --- | ----------------- | -------------- | ------------------- |
+  1093→|     | interaction with  | duration,      |                     |
+  1094→|     | principal)        | interviewers,  |                     |
+  1095→location, status,
+  1096→feedback, rating
+  1097→AdmissionOffer Admission offer  id, applicationId,  applicationId, status,
+  1098→|     | letter (fee structure,  | offerLetterUrl,   | paymentDeadline |
+  1099→| --- | ----------------------- | ----------------- | --------------- |
+  1100→|     | payment deadline,       | feeStructure,     |                 |
+  1101→|     | acceptance deadline)    | admissionFeeAmoun |                 |
+  1102→t, paymentDeadline,
+  1103→acceptanceDeadline,
+  1104→status, acceptedAt,
+  1105→declinedAt
+  1106→AdmissionCommitte Committee review  id, applicationId,  applicationId,
+  1107→| e   | log (each committee  | committeeMemberId | committeeMemberId |
+  1108→| --- | -------------------- | ----------------- | ----------------- |
+  1109→|     | member's vote)       | , decision,       |                   |
+  1110→comments,
+  1111→decidedAt
+  1112→AdmissionChecklist Checklist of required  id, applicationId,  applicationId,
+  1113→|     | steps for admission  | itemType,     | itemType |
+  1114→| --- | -------------------- | ------------- | -------- |
+  1115→|     | (form, documents,    | isCompleted,  |          |
+  1116→|     | interview, fee)      | completedAt,  |          |
+  1117→completedBy
+  1118→32
+  1119→
+  1120→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1121→Enums Defined
+  1122→| Enum            |     |     | Values                                |     |     |
+  1123→| --------------- | --- | --- | ------------------------------------- | --- | --- |
+  1124→| AdmissionStatus |     |     | DRAFT | SUBMITTED | DOCUMENT_PENDING  |     |     |
+  1125→| DOCUMENT_VERIFIED |
+  1126→INTERVIEW_SCHEDULED |
+  1127→INTERVIEW_COMPLETED | UNDER_REVIEW |
+  1128→OFFERED | ACCEPTED | REJECTED |
+  1129→WAITLISTED | CONVERTED | WITHDRAWN
+  1130→| DocumentType |     |     | BIRTH_CERTIFICATE | AADHAAR | PASSPORT  |     |     |
+  1131→| ------------ | --- | --- | --------------------------------------- | --- | --- |
+  1132→| PHOTO | PREVIOUS_MARKSHEET |
+  1133→TRANSFER_CERTIFICATE |
+  1134→CHARACTER_CERTIFICATE |
+  1135→MEDICAL_CERTIFICATE |
+  1136→INCOME_CERTIFICATE | CASTE_CERTIFICATE
+  1137→| ADDRESS_PROOF | OTHER
+  1138→| InterviewStatus |     |     | SCHEDULED | COMPLETED | CANCELLED |  |     |     |
+  1139→| --------------- | --- | --- | ------------------------------------ | --- | --- |
+  1140→RESCHEDULED | NO_SHOW
+  1141→| OfferStatus |     |     | PENDING | ACCEPTED | DECLINED | EXPIRED  |     |     |
+  1142→| ----------- | --- | --- | ---------------------------------------- | --- | --- |
+  1143→| WITHDRAWN
+  1144→| CommitteeDecision |     |     | APPROVE | REJECT | WAITLIST | HOLD |     |     |
+  1145→| ----------------- | --- | --- | ---------------------------------- | --- | --- |
+  1146→Admission Workflow
+  1147→The admission workflow has 13 statuses, each with a defined entry and exit condition. The
+  1148→workflow is implemented as a state machine in the AdmissionService; the status field on
+  1149→AdmissionApplication reflects the current state. The status transitions are: DRAFT →
+  1150→SUBMITTED   →   DOCUMENT_PENDING   →   DOCUMENT_VERIFIED   →
+  1151→INTERVIEW_SCHEDULED → INTERVIEW_COMPLETED → UNDER_REVIEW → OFFERED →
+  1152→ACCEPTED → CONVERTED (or REJECTED, WAITLISTED, WITHDRAWN at various points).
+  1153→Each transition is logged in the AuditLog for compliance.
+  1154→| When |   an |   application |   reaches |   CONVERTED, |   the  |
+  1155→| ---- | ---- | ------------- | --------- | ------------ | ------ |
+  1156→AdmissionService.createStudentFromApplication() method creates a Student record,
+  1157→copies the parent/guardian records, creates an Enrollment for the requested academic year
+  1158→and class, and generates the first invoice (admission fee). All of this happens in a single
+  1159→Prisma transaction to ensure atomicity.
+  1160→33
+  1161→
+  1162→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1163→9. Student Models
+  1164→The Student domain is the core of PreOne. A Student is created when an
+  1165→AdmissionApplication is converted. The Student model holds the live academic and
+  1166→operational record; the AdmissionApplication preserves the pre-admission history.
+  1167→Students are scoped by tenantId and branchId and may be enrolled in one or more
+  1168→academic years.
+  1169→Models in this Domain
+  1170→Model Purpose Key Fields Indexes
+  1171→Student Live student record id, tenantId, tenantId, branchId,
+  1172→(post-admission) branchId, status, admissionNo
+  1173→admissionNo, (unique within
+  1174→firstName, lastName, tenant), dob, gender
+  1175→dob, gender, status,
+  1176→admissionDate,
+  1177→photoUrl,
+  1178→bloodGroup, religion,
+  1179→nationality,
+  1180→motherTongue,
+  1181→aadhaarNo,
+  1182→birthCertificateNo,
+  1183→remarks, metadata
+  1184→StudentProfile Detailed profile (one- id, studentId, studentId (unique)
+  1185→to-one with Student) medicalConditions,
+  1186→allergies,
+  1187→medications,
+  1188→emergencyContactN
+  1189→ame,
+  1190→emergencyContactPh
+  1191→one,
+  1192→pickupAuthorizedPer
+  1193→sons, transportType,
+  1194→busRouteId,
+  1195→dietaryPreferences
+  1196→34
+  1197→
+  1198→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1199→| Model    | Purpose               | Key Fields           | Indexes            |
+  1200→| -------- | --------------------- | -------------------- | ------------------ |
+  1201→| Guardian | Parent/guardian       | id, studentId,       | studentId, phone,  |
+  1202→|          | record (multiple per  | relationship, name,  | email, isPrimary   |
+  1203→|          | student)              | occupation,          |                    |
+  1204→education, email,
+  1205→phone,
+  1206→alternatePhone,
+  1207→annualIncome,
+  1208→isPrimary,
+  1209→sameAddressAsStud
+  1210→ent
+  1211→| Enrollment | Academic year        | id, studentId,       | studentId,           |
+  1212→| ---------- | -------------------- | -------------------- | -------------------- |
+  1213→|            | enrollment (student  | academicYearId,      | academicYearId,      |
+  1214→|            | ↔ academic year      | classId, sectionId,  | classId, sectionId,  |
+  1215→|            | ↔ class ↔ section)   | rollNo,              | academicYearId+stu   |
+  1216→|            |                      | enrollmentStatus,    | dentId (unique)      |
+  1217→enrollmentDate,
+  1218→exitDate, exitReason
+  1219→StudentDocument Documents linked to  id, studentId,  studentId,
+  1220→|     | student (post-        | documentType,       | documentType,  |
+  1221→| --- | --------------------- | ------------------- | -------------- |
+  1222→|     | admission: report     | fileUrl, fileName,  | uploadedAt     |
+  1223→|     | cards, certificates,  | uploadedBy,         |                |
+  1224→|     | photos)               | uploadedAt, notes   |                |
+  1225→StudentHealth Health record  id, studentId, height,  studentId,
+  1226→|     | (vaccination, BMI,  | weight, bmi,  | lastCheckupAt |
+  1227→| --- | ------------------- | ------------- | ------------- |
+  1228→|     | vision, hearing)    | visionLeft,   |               |
+  1229→visionRight, hearing,
+  1230→bloodPressure,
+  1231→lastCheckupAt, notes
+  1232→StudentAchievement Extracurricular  id, studentId,  studentId,
+  1233→|     | achievements    | achievementType,     | achievementType,  |
+  1234→| --- | --------------- | -------------------- | ----------------- |
+  1235→|     | (sports, arts,  | title, description,  | achievedOn        |
+  1236→|     | academics,      | achievedOn,          |                   |
+  1237→|     | competitions)   | awardedBy,           |                   |
+  1238→certificateUrl
+  1239→35
+  1240→
+  1241→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1242→| Model | Purpose | Key Fields | Indexes |
+  1243→| ----- | ------- | ---------- | ------- |
+  1244→StudentExit Exit/transfer record  id, studentId,  studentId, exitDate,
+  1245→|     | (TC issuance, exit  | exitType, exitDate,   | exitType |
+  1246→| --- | ------------------- | --------------------- | -------- |
+  1247→|     | interview, fee      | exitReason,           |          |
+  1248→|     | clearance)          | transferCertificateNo |          |
+  1249→, destinationSchool,
+  1250→feeClearance,
+  1251→clearanceBy,
+  1252→clearanceAt
+  1253→Enums Defined
+  1254→| Enum          |     | Values                             |     |
+  1255→| ------------- | --- | ---------------------------------- | --- |
+  1256→| StudentStatus |     | ACTIVE | INACTIVE | TRANSFERRED |  |     |
+  1257→GRADUATED | ARCHIVED | SUSPENDED
+  1258→| BloodGroup |     | A_POSITIVE | A_NEGATIVE | B_POSITIVE |  |     |
+  1259→| ---------- | --- | --------------------------------------- | --- |
+  1260→B_NEGATIVE | AB_POSITIVE | AB_NEGATIVE
+  1261→| O_POSITIVE | O_NEGATIVE | UNKNOWN
+  1262→| Gender           |     | MALE | FEMALE | OTHER | UNSPECIFIED |     |
+  1263→| ---------------- | --- | ----------------------------------- | --- |
+  1264→| EnrollmentStatus |     | ENROLLED | PROMOTED | DETAINED |    |     |
+  1265→TRANSFERRED | GRADUATED | WITHDRAWN
+  1266→| LONG_LEAVE
+  1267→| ExitType |     | TRANSFER | GRADUATION | WITHDRAWAL |  |     |
+  1268→| -------- | --- | ------------------------------------- | --- |
+  1269→EXPULSION | DEATH
+  1270→| AchievementType |     | ACADEMIC | SPORTS | ARTS | MUSIC |  |     |
+  1271→| --------------- | --- | ----------------------------------- | --- |
+  1272→DANCE | OTHER
+  1273→Canonical Student Model
+  1274→The Student model is the most-referenced table in the entire schema. It appears as a
+  1275→foreign key in 38 other tables (Attendance, Invoice, Receipt, Enrollment, Guardian, Health,
+  1276→Achievement, Document, Communication, Report, etc.). The model below is the canonical
+  1277→definition; any deviation in any service must be escalated to the architecture council.
+  1278→model Student {
+  1279→  id                String         @id @default(uuid())
+  1280→  tenantId          String
+  1281→  branchId          String
+  1282→  admissionNo       String
+  1283→  firstName         String
+  1284→36
+  1285→
+  1286→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1287→lastName String?
+  1288→dob DateTime
+  1289→gender Gender
+  1290→status StudentStatus @default(ACTIVE)
+  1291→admissionDate DateTime @default(now())
+  1292→photoUrl String?
+  1293→bloodGroup BloodGroup?
+  1294→religion String?
+  1295→nationality String?
+  1296→motherTongue String?
+  1297→aadhaarNo String?
+  1298→birthCertificateNo String?
+  1299→remarks String?
+  1300→metadata Json?
+  1301→// Audit columns
+  1302→createdAt DateTime @default(now())
+  1303→createdBy String
+  1304→updatedAt DateTime @updatedAt
+  1305→updatedBy String
+  1306→deletedAt DateTime?
+  1307→deletedBy String?
+  1308→version Int @default(1)
+  1309→// Relations
+  1310→tenant Tenant @relation(fields: [tenantId], references: [id])
+  1311→branch Branch @relation(fields: [branchId], references: [id])
+  1312→profile StudentProfile?
+  1313→enrollments Enrollment[]
+  1314→attendances Attendance[]
+  1315→guardians Guardian[]
+  1316→invoices Invoice[]
+  1317→documents StudentDocument[]
+  1318→health StudentHealth?
+  1319→achievements StudentAchievement[]
+  1320→exit StudentExit?
+  1321→// Constraints
+  1322→@@unique([tenantId, admissionNo])
+  1323→// Indexes
+  1324→@@index([tenantId])
+  1325→@@index([branchId])
+  1326→@@index([tenantId, branchId])
+  1327→@@index([tenantId, status])
+  1328→@@index([createdAt])
+  1329→@@index([deletedAt])
+  1330→@@index([firstName, lastName], type: Gin)
+  1331→@@map("students")
+  1332→37
+  1333→
+  1334→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1335→}
+  1336→38
+  1337→
+  1338→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1339→10. Academics Models
+  1340→The Academics domain covers academic year, classes, sections, subjects, timetables,
+  1341→syllabus, and assessments. It is the structural backbone of the school's daily operations.
+  1342→Most academic models are scoped by tenantId and academicYearId.
+  1343→Models in this Domain
+  1344→| Model | Purpose | Key Fields | Indexes |
+  1345→| ----- | ------- | ---------- | ------- |
+  1346→AcademicYear School academic  id, tenantId, name,  tenantId, isActive,
+  1347→|     | year (e.g., 2026- | startDate, endDate,   | startDate |
+  1348→| --- | ----------------- | --------------------- | --------- |
+  1349→|     | 2027)             | isActive, isCurrent,  |           |
+  1350→termsCount
+  1351→AcademicTerm Terms within  id, academicYearId,  academicYearId,
+  1352→|       | academic year (e.g.,  | name, termNo,        | termNo            |
+  1353→| ----- | --------------------- | -------------------- | ----------------- |
+  1354→|       | Term 1, Term 2)       | startDate, endDate   |                   |
+  1355→| Class | Class/grade           | id, tenantId, name,  | tenantId, order,  |
+  1356→|       | (Nursery, LKG, UKG,   | displayName, order,  | isActive          |
+  1357→|       | Grade 1-12)           | category, isActive   |                   |
+  1358→Section Section within a class  id, classId, name,  classId, name
+  1359→|     | (A, B, C) | capacity,  | (unique within class) |
+  1360→| --- | --------- | ---------- | --------------------- |
+  1361→classTeacherId,
+  1362→isActive
+  1363→| Subject | Subject (Math,      | id, tenantId, name,  | tenantId, code     |
+  1364→| ------- | ------------------- | -------------------- | ------------------ |
+  1365→|         | English, EVS, etc.) | code, category,      | (unique), category |
+  1366→isOptional,
+  1367→defaultMarks
+  1368→ClassSubject Subjects taught in a  id, classId, subjectId,  classId, subjectId,
+  1369→|     | class (class ↔   | weeklyPeriods,   | classId+subjectId  |
+  1370→| --- | ---------------- | ---------------- | ------------------ |
+  1371→|     | subject many-to- | theoryMarks,     | (unique)           |
+  1372→|     | many)            | practicalMarks,  |                    |
+  1373→passingMarks
+  1374→TeacherSubject Teacher assigned to  id, teacherId,  teacherId, sectionId,
+  1375→|     | subject for a section | sectionId, subjectId,  | subjectId,     |
+  1376→| --- | --------------------- | ---------------------- | -------------- |
+  1377→|     |                       | academicYearId         | academicYearId |
+  1378→39
+  1379→
+  1380→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1381→| Model     | Purpose               | Key Fields            | Indexes          |
+  1382→| --------- | --------------------- | --------------------- | ---------------- |
+  1383→| Timetable | Weekly timetable for  | id, sectionId,        | sectionId,       |
+  1384→|           | a section             | academicYearId,       | academicYearId,  |
+  1385→|           |                       | dayOfWeek,            | dayOfWeek,       |
+  1386→|           |                       | periodNo, subjectId,  | periodNo         |
+  1387→teacherId, startTime,
+  1388→endTime, roomNo
+  1389→HolidayCalendar School holidays and  id, tenantId,  tenantId, branchId,
+  1390→|     | events | branchId,        | academicYearId,  |
+  1391→| --- | ------ | ---------------- | ---------------- |
+  1392→|     |        | academicYearId,  | date, type       |
+  1393→date, name, type,
+  1394→description
+  1395→Syllabus Subject-wise syllabus  id, classSubjectId,  classSubjectId,
+  1396→|     | per term | academicYearId,  | academicYearId,  |
+  1397→| --- | -------- | ---------------- | ---------------- |
+  1398→|     |          | termId,          | termId           |
+  1399→chapterName,
+  1400→description,
+  1401→plannedStartDate,
+  1402→plannedEndDate,
+  1403→completedDate,
+  1404→status
+  1405→| Assessment | Assessment/exam       | id, tenantId,        | tenantId,        |
+  1406→| ---------- | --------------------- | -------------------- | ---------------- |
+  1407→|            | (unit test, midterm,  | academicYearId,      | academicYearId,  |
+  1408→|            | final)                | name, type, termId,  | type, startDate  |
+  1409→startDate, endDate,
+  1410→maxMarks, subjects
+  1411→AssessmentResult Student marks per  id, assessmentId,  assessmentId,
+  1412→|            | assessment per        | studentId, subjectId,  | studentId, subjectId,  |
+  1413→| ---------- | --------------------- | ---------------------- | ---------------------- |
+  1414→|            | subject               | marksObtained,         | studentId+assessme     |
+  1415→|            |                       | grade, remarks,        | ntId+subjectId         |
+  1416→|            |                       | gradedBy, gradedAt     | (unique)               |
+  1417→| ReportCard | Generated report      | id, studentId,         | studentId,             |
+  1418→|            | card per student per  | academicYearId,        | academicYearId,        |
+  1419→|            | term                  | termId, pdfUrl,        | termId                 |
+  1420→generatedAt,
+  1421→generatedBy, status
+  1422→40
+  1423→
+  1424→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1425→Enums Defined
+  1426→Enum Values
+  1427→ClassCategory PRE_PRIMARY | PRIMARY | MIDDLE |
+  1428→SECONDARY | SENIOR_SECONDARY
+  1429→SubjectCategory CORE | LANGUAGE | MATHEMATICS |
+  1430→SCIENCE | SOCIAL | ARTS | PHYSICAL |
+  1431→COMPUTER | MORAL | OTHER
+  1432→DayOfWeek MONDAY | TUESDAY | WEDNESDAY |
+  1433→THURSDAY | FRIDAY | SATURDAY | SUNDAY
+  1434→AssessmentType UNIT_TEST | MID_TERM | FINAL | QUIZ |
+  1435→PROJECT | ORAL | PRACTICAL |
+  1436→SURPRISE_TEST
+  1437→HolidayType PUBLIC_HOLIDAY | SCHOOL_HOLIDAY |
+  1438→FESTIVAL | NATIONAL_DAY | EXAM_DAY |
+  1439→EVENT_DAY | OTHER
+  1440→SyllabusStatus NOT_STARTED | IN_PROGRESS | COMPLETED
+  1441→| DEFERRED
+  1442→ReportCardStatus DRAFT | GENERATED | PUBLISHED |
+  1443→DISTRIBUTED | ARCHIVED
+  1444→Class → Section → Subject Hierarchy
+  1445→The academic hierarchy is: AcademicYear (e.g., 2026-2027) → Class (e.g., Nursery, LKG,
+  1446→UKG, Grade 1-12) → Section (e.g., A, B, C) → Subject (e.g., English, Math, EVS). A
+  1447→ClassSubject join table maps subjects to classes (a class has multiple subjects; a subject is
+  1448→taught in multiple classes). A TeacherSubject table maps teachers to (section, subject) pairs
+  1449→for a given academic year. The Timetable table holds the weekly schedule per section.
+  1450→41
+  1451→
+  1452→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1453→11. Daily Operations Models
+  1454→The Daily Operations domain covers attendance, daily activities, meal tracking, nap
+  1455→tracking, and incident reporting. These models capture the day-to-day operations of the
+  1456→preschool and feed into the parent app's 'Today's Updates' feature.
+  1457→Models in this Domain
+  1458→| Model | Purpose | Key Fields | Indexes |
+  1459→| ----- | ------- | ---------- | ------- |
+  1460→Attendance Daily student  id, tenantId,  tenantId, branchId,
+  1461→|     | attendance (one     | branchId, studentId,  | studentId, date,     |
+  1462→| --- | ------------------- | --------------------- | -------------------- |
+  1463→|     | record per student  | academicYearId,       | status,              |
+  1464→|     | per day)            | date, status,         | academicYearId+stu   |
+  1465→|     |                     | checkInTime,          | dentId+date (unique) |
+  1466→checkOutTime,
+  1467→markedBy,
+  1468→markedAt, remarks
+  1469→| AttendanceLog | Real-time            | id, attendanceId,      | attendanceId,  |
+  1470→| ------------- | -------------------- | ---------------------- | -------------- |
+  1471→|               | attendance log (for  | eventType,             | eventTime      |
+  1472→|               | live updates to      | eventTime,             |                |
+  1473→|               | parent app)          | recordedBy, location,  |                |
+  1474→notes
+  1475→StaffAttendance Staff/teacher daily  id, tenantId,  tenantId, branchId,
+  1476→|     | attendance | branchId, staffId,  | staffId, date |
+  1477→| --- | ---------- | ------------------- | ------------- |
+  1478→date, status,
+  1479→checkInTime,
+  1480→checkOutTime,
+  1481→markedBy
+  1482→DailyActivity Daily activity log per  id, sectionId,  sectionId, date,
+  1483→|     | section (rhymes,     | academicYearId,      | activityType |
+  1484→| --- | -------------------- | -------------------- | ------------ |
+  1485→|     | story, outdoor, art) | date, activityType,  |              |
+  1486→title, description,
+  1487→photos,
+  1488→conductedBy,
+  1489→durationMinutes
+  1490→42
+  1491→
+  1492→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1493→| Model | Purpose | Key Fields | Indexes |
+  1494→| ----- | ------- | ---------- | ------- |
+  1495→MealLog Meal tracking  id, studentId, date,  studentId, date,
+  1496→|     | (breakfast, lunch,  | mealType,     | mealType |
+  1497→| --- | ------------------- | ------------- | -------- |
+  1498→|     | snack)              | itemsServed,  |          |
+  1499→itemsConsumed,
+  1500→quantity, photoUrl,
+  1501→notes
+  1502→NapLog Nap tracking (start  id, studentId, date,  studentId, date
+  1503→|     | time, end time,  | startTime, endTime,  |     |
+  1504→| --- | ---------------- | -------------------- | --- |
+  1505→|     | quality)         | duration, quality,   |     |
+  1506→notes
+  1507→DiaperLog Diaper change log  id, studentId, date,  studentId, date
+  1508→|     | (for toddler  | changeTime, type,  |     |
+  1509→| --- | ------------- | ------------------ | --- |
+  1510→|     | programs)     | notes, changedBy   |     |
+  1511→IncidentReport Incident/injury  id, studentId, date,  studentId, date,
+  1512→|     | report (mandatory  | incidentType,           | incidentType,  |
+  1513→| --- | ------------------ | ----------------------- | -------------- |
+  1514→|     | for parent         | description, severity,  | severity       |
+  1515→|     | notification)      | actionTaken,            |                |
+  1516→parentNotified,
+  1517→notifiedAt,
+  1518→reportedBy,
+  1519→witnesses
+  1520→LeaveRequest Student leave  id, studentId,  studentId, status,
+  1521→|     | request (parent  | startDate, endDate,  | startDate |
+  1522→| --- | ---------------- | -------------------- | --------- |
+  1523→|     | applies via app) | reason, leaveType,   |           |
+  1524→status, approvedBy,
+  1525→approvedAt
+  1526→VisitorLog Visitor entry/exit log id, tenantId,  tenantId, branchId,
+  1527→|     |     | branchId,  | checkInTime |
+  1528→| --- | --- | ---------- | ----------- |
+  1529→visitorName,
+  1530→purpose,
+  1531→contactPhone,
+  1532→hostName,
+  1533→checkInTime,
+  1534→checkOutTime,
+  1535→photoUrl,
+  1536→idProofType,
+  1537→idProofNo
+  1538→43
+  1539→
+  1540→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1541→Enums Defined
+  1542→Enum Values
+  1543→AttendanceStatus PRESENT | ABSENT | LATE | HALF_DAY |
+  1544→LEAVE | HOLIDAY | SUSPENDED
+  1545→AttendanceType BIOMETRIC | RFID | MANUAL | APP | SELFIE
+  1546→MealType BREAKFAST | MID_MORNING_SNACK |
+  1547→LUNCH | AFTERNOON_SNACK |
+  1548→EVENING_SNACK | DINNER
+  1549→NapQuality GOOD | AVERAGE | POOR | DID_NOT_NAP
+  1550→IncidentType INJURY | ILLNESS | BEHAVIORAL | ACCIDENT
+  1551→| ALLERGIC_REACTION | LOST_AND_FOUND
+  1552→| OTHER
+  1553→IncidentSeverity LOW | MEDIUM | HIGH | CRITICAL
+  1554→LeaveType CASUAL | SICK | MEDICAL | FAMILY |
+  1555→VACATION | BEREAVEMENT | OTHER
+  1556→VisitorStatus CHECKED_IN | CHECKED_OUT | OVERSTAY |
+  1557→DENIED
+  1558→Attendance Lifecycle
+  1559→Attendance is the most-frequently-written table in the schema (50,000+ writes per day per
+  1560→tenant at scale). Each student gets one Attendance record per day. The record is created at
+  1561→check-in (status: PRESENT or LATE), updated at check-out (checkOutTime populated), and
+  1562→may be updated multiple times during the day via AttendanceLog entries (e.g., 'left early for
+  1563→doctor appointment'). The unique index on (academicYearId, studentId, date) prevents
+  1564→duplicate attendance records.
+  1565→44
+  1566→
+  1567→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1568→12. Communication Models
+  1569→The Communication domain covers all messaging and notification channels: in-app
+  1570→messages, push notifications, SMS, email, WhatsApp, broadcasts, and message templates.
+  1571→The domain follows a unified-message-then-channels pattern: a Message is created once,
+  1572→then delivered via one or more NotificationChannels.
+  1573→Models in this Domain
+  1574→| Model   | Purpose                | Key Fields             | Indexes               |
+  1575→| ------- | ---------------------- | ---------------------- | --------------------- |
+  1576→| Message | Unified message        | id, tenantId,          | tenantId, senderId,   |
+  1577→|         | (one record, multiple  | senderId,              | recipientId, status,  |
+  1578→|         | delivery channels)     | recipientType,         | messageType,          |
+  1579→|         |                        | recipientId, subject,  | createdAt             |
+  1580→body, messageType,
+  1581→priority, templateId,
+  1582→attachments, status,
+  1583→scheduledAt, sentAt
+  1584→Notification Per-channel  id, messageId,  messageId, channel,
+  1585→|     | notification delivery  | channel,           | status,          |
+  1586→| --- | ---------------------- | ------------------ | ---------------- |
+  1587→|     | record                 | recipientAddress,  | recipientAddress |
+  1588→status,
+  1589→providerMessageId,
+  1590→sentAt, deliveredAt,
+  1591→readAt,
+  1592→failureReason
+  1593→MessageTemplate Reusable message  id, tenantId, name,  tenantId, category,
+  1594→|     | templates with  | subject, body,        | channel, isActive |
+  1595→| --- | --------------- | --------------------- | ----------------- |
+  1596→|     | variables       | category, variables,  |                   |
+  1597→channel, isActive,
+  1598→isSystem
+  1599→| Broadcast | Broadcast message    | id, tenantId,  | tenantId,      |
+  1600→| --------- | -------------------- | -------------- | -------------- |
+  1601→|           | to a group (class,   | senderId,      | audienceType,  |
+  1602→|           | branch, all parents) | audienceType,  | sentAt         |
+  1603→audienceId, subject,
+  1604→body, channels,
+  1605→sentAt,
+  1606→recipientsCount,
+  1607→deliveredCount,
+  1608→readCount
+  1609→45
+  1610→
+  1611→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1612→| Model | Purpose | Key Fields | Indexes |
+  1613→| ----- | ------- | ---------- | ------- |
+  1614→BroadcastRecipient Per-recipient  id, broadcastId,  broadcastId,
+  1615→|     | tracking for  | recipientType,        | recipientId |
+  1616→| --- | ------------- | --------------------- | ----------- |
+  1617→|     | broadcasts    | recipientId, status,  |             |
+  1618→deliveredAt, readAt
+  1619→| Conversation | Two-way              | id, tenantId,      | tenantId,          |
+  1620→| ------------ | -------------------- | ------------------ | ------------------ |
+  1621→|              | conversation thread  | participantOneId,  | participantOneId,  |
+  1622→|              | (parent-teacher,     | participantTwoId,  | participantTwoId,  |
+  1623→|              | principal-parent)    | lastMessageAt,     | lastMessageAt      |
+  1624→lastMessagePreview,
+  1625→unreadCountOne,
+  1626→unreadCountTwo
+  1627→ConversationMessag Individual message in  id, conversationId,  conversationId,
+  1628→| e   | a conversation | senderId, body,  | sentAt |
+  1629→| --- | -------------- | ---------------- | ------ |
+  1630→attachments, sentAt,
+  1631→readAt, editedAt
+  1632→NotificationPreferen User's per-channel  id, userId, channel,  userId, channel
+  1633→| ce  | notification  | category, isEnabled,  |     |
+  1634→| --- | ------------- | --------------------- | --- |
+  1635→|     | preferences   | quietHoursStart,      |     |
+  1636→quietHoursEnd
+  1637→| SmsLog | SMS gateway        | id, tenantId,       | tenantId, status,  |
+  1638→| ------ | ------------------ | ------------------- | ------------------ |
+  1639→|        | delivery log (per  | provider, toPhone,  | sentAt             |
+  1640→|        | provider)          | message, status,    |                    |
+  1641→cost,
+  1642→providerMessageId,
+  1643→sentAt, deliveredAt,
+  1644→errorCode
+  1645→EmailLog Email delivery log  id, tenantId,  tenantId, status,
+  1646→|     | (per provider: SES,  | provider, toEmail,      | sentAt |
+  1647→| --- | -------------------- | ----------------------- | ------ |
+  1648→|     | SendGrid)            | subject, body, status,  |        |
+  1649→providerMessageId,
+  1650→sentAt, deliveredAt,
+  1651→openedAt, errorCode
+  1652→46
+  1653→
+  1654→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1655→Enums Defined
+  1656→Enum Values
+  1657→MessageType DIRECT | BROADCAST | ANNOUNCEMENT |
+  1658→REMINDER | ALERT | NOTIFICATION |
+  1659→TRANSACTIONAL
+  1660→NotificationChannel IN_APP | PUSH | SMS | EMAIL | WHATSAPP |
+  1661→WEBHOOK
+  1662→MessagePriority LOW | NORMAL | HIGH | URGENT
+  1663→MessageStatus DRAFT | SCHEDULED | QUEUED | SENT |
+  1664→DELIVERED | READ | FAILED | CANCELLED
+  1665→BroadcastAudienceType ALL_PARENTS | CLASS_PARENTS |
+  1666→BRANCH_PARENTS | ALL_STAFF |
+  1667→CLASS_TEACHERS | BRANCH_STAFF |
+  1668→CUSTOM_GROUP
+  1669→ConversationStatus ACTIVE | ARCHIVED | BLOCKED | REPORTED
+  1670→Message → Notification Pattern
+  1671→The communication domain follows a unified-message-then-channels pattern. A Message
+  1672→is created once (with subject, body, recipients, etc.). The MessageService then creates one
+  1673→Notification per (recipient, channel) pair. This decoupling allows a single message to be
+  1674→delivered via multiple channels (in-app, push, SMS, email) with per-channel status tracking.
+  1675→The Notification table records the delivery status, provider message ID, and failure reason
+  1676→per channel.
+  1677→47
+  1678→
+  1679→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1680→13. Finance Models
+  1681→The Finance domain covers fee heads, fee structures, invoices, receipts, scholarships,
+  1682→refunds, and financial reports. It is the highest-stakes domain in PreOne — any data
+  1683→corruption here directly affects money. All Finance models follow strict immutability rules:
+  1684→invoices and receipts are NEVER updated; corrections happen via credit notes and refund
+  1685→receipts.
+  1686→Models in this Domain
+  1687→| Model | Purpose | Key Fields | Indexes |
+  1688→| ----- | ------- | ---------- | ------- |
+  1689→FeeHead Master fee head  id, tenantId, name,  tenantId, code
+  1690→|     | (tuition, admission,  | code, description,    | (unique), category,  |
+  1691→| --- | --------------------- | --------------------- | -------------------- |
+  1692→|     | transport, meal,      | category, frequency,  | frequency            |
+  1693→|     | activity, exam,       | isOptional,           |                      |
+  1694→|     | library, late fee)    | defaultAmount,        |                      |
+  1695→taxRate, glCode
+  1696→| FeeStructure | Class-wise fee  | id, tenantId,        | tenantId,          |
+  1697→| ------------ | --------------- | -------------------- | ------------------ |
+  1698→|              | structure per   | academicYearId,      | academicYearId,    |
+  1699→|              | academic year   | classId, feeHeadId,  | classId, feeHeadId |
+  1700→amount, frequency,
+  1701→dueDate,
+  1702→lateFeeAmount,
+  1703→lateFeeFrequency
+  1704→Invoice Student invoice (one  id, tenantId,  tenantId, branchId,
+  1705→|     | per term/month per  | branchId, studentId,  | studentId, status,  |
+  1706→| --- | ------------------- | --------------------- | ------------------- |
+  1707→|     | fee head)           | invoiceNo,            | dueDate, invoiceNo  |
+  1708→|     |                     | invoiceDate,          | (unique)            |
+  1709→academicYearId,
+  1710→termId, feeHeadId,
+  1711→amount, taxAmount,
+  1712→totalAmount,
+  1713→dueDate, status,
+  1714→paidAmount,
+  1715→balanceAmount
+  1716→48
+  1717→
+  1718→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1719→| Model | Purpose | Key Fields | Indexes |
+  1720→| ----- | ------- | ---------- | ------- |
+  1721→InvoiceLineItem Individual line items  id, invoiceId,  invoiceId
+  1722→|     | in an invoice | feeHeadId,  |     |
+  1723→| --- | ------------- | ----------- | --- |
+  1724→description, quantity,
+  1725→rate, amount,
+  1726→taxRate, taxAmount,
+  1727→totalAmount
+  1728→| Receipt | Payment receipt    | id, tenantId,         | tenantId, branchId,   |
+  1729→| ------- | ------------------ | --------------------- | --------------------- |
+  1730→|         | (one per payment,  | branchId, studentId,  | studentId, receiptNo  |
+  1731→|         | can be partial)    | receiptNo,            | (unique),             |
+  1732→|         |                    | receiptDate,          | paymentMethod,        |
+  1733→|         |                    | invoiceId,            | receiptDate           |
+  1734→paymentMethod,
+  1735→transactionId,
+  1736→amount, paidBy,
+  1737→paidById,
+  1738→collectedBy, status,
+  1739→notes
+  1740→| Payment | Raw payment record  | id, tenantId,   | tenantId,          |
+  1741→| ------- | ------------------- | --------------- | ------------------ |
+  1742→|         | (gateway response,  | paymentMethod,  | gatewayTxnId       |
+  1743→|         | before allocation)  | gateway,        | (unique), status,  |
+  1744→|         |                     | gatewayTxnId,   | paidAt             |
+  1745→amount, currency,
+  1746→status, payerName,
+  1747→payerEmail,
+  1748→payerPhone, paidAt,
+  1749→responsePayload
+  1750→Scholarship Scholarship master  id, tenantId, name,  tenantId, code
+  1751→|     | (merit, sibling, staff  | code, type,    | (unique), type,  |
+  1752→| --- | ----------------------- | -------------- | ---------------- |
+  1753→|     | ward, financial aid)    | discountType,  | isActive         |
+  1754→discountValue,
+  1755→applicableFeeHeads,
+  1756→minPercentage,
+  1757→isActive
+  1758→StudentScholarship Scholarship applied  id, studentId,  studentId,
+  1759→|     | to a student | scholarshipId,   | scholarshipId,  |
+  1760→| --- | ------------ | ---------------- | --------------- |
+  1761→|     |              | academicYearId,  | academicYearId  |
+  1762→approvedBy,
+  1763→approvedAt,
+  1764→validUntil, status
+  1765→49
+  1766→
+  1767→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1768→| Model  | Purpose           | Key Fields            | Indexes             |
+  1769→| ------ | ----------------- | --------------------- | ------------------- |
+  1770→| Refund | Refund against a  | id, tenantId,         | receiptId, status,  |
+  1771→|        | receipt           | receiptId, refundNo,  | refundDate          |
+  1772→refundDate, amount,
+  1773→reason, approvedBy,
+  1774→approvedAt, status,
+  1775→gatewayRefundId,
+  1776→refundedAt
+  1777→CreditNote Credit note against  id, tenantId,  invoiceId, status,
+  1778→|     | an invoice (for      | invoiceId,     | creditNoteDate |
+  1779→| --- | -------------------- | -------------- | -------------- |
+  1780→|     | invoice corrections) | creditNoteNo,  |                |
+  1781→creditNoteDate,
+  1782→amount, reason,
+  1783→status,
+  1784→adjustedAgainstRece
+  1785→iptId
+  1786→FinancialYear Financial year (Apr- id, tenantId, name,  tenantId, isActive,
+  1787→|     | Mar in India) | startDate, endDate,  | startDate |
+  1788→| --- | ------------- | -------------------- | --------- |
+  1789→isActive, isClosed
+  1790→| JournalEntry | Accounting journal   | id, tenantId,        | tenantId,         |
+  1791→| ------------ | -------------------- | -------------------- | ----------------- |
+  1792→|              | entry (double-entry  | financialYearId,     | financialYearId,  |
+  1793→|              | bookkeeping)         | entryNo, entryDate,  | entryDate         |
+  1794→description,
+  1795→debitAccount,
+  1796→creditAccount,
+  1797→amount, postedBy,
+  1798→postedAt
+  1799→Enums Defined
+  1800→| Enum            |     | Values                                  |     |
+  1801→| --------------- | --- | --------------------------------------- | --- |
+  1802→| FeeHeadCategory |     | TUITION | ADMISSION | TRANSPORT | MEAL  |     |
+  1803→| ACTIVITY | EXAM | LIBRARY | LAB | SPORTS
+  1804→| LATE_FEE | OTHER
+  1805→| FeeFrequency |     | ONE_TIME | MONTHLY | QUARTERLY |  |     |
+  1806→| ------------ | --- | --------------------------------- | --- |
+  1807→HALF_YEARLY | ANNUALLY | TERM_WISE |
+  1808→CUSTOM
+  1809→| InvoiceStatus |     | DRAFT | ISSUED | PARTIALLY_PAID | PAID |  |     |
+  1810→| ------------- | --- | ----------------------------------------- | --- |
+  1811→OVERDUE | CANCELLED | WRITTEN_OFF
+  1812→50
+  1813→
+  1814→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1815→Enum Values
+  1816→PaymentMethod CASH | CHEQUE | CARD | UPI |
+  1817→NET_BANKING | WALLET | BANK_TRANSFER
+  1818→| DD | ONLINE | OTHER
+  1819→ReceiptStatus PENDING | COLLECTED | BOUNCED |
+  1820→CANCELLED | REVERSED
+  1821→PaymentStatus INITIATED | PENDING | SUCCESS | FAILED |
+  1822→REFUNDED | DISPUTED
+  1823→ScholarshipType MERIT | SIBLING | STAFF_WARD |
+  1824→FINANCIAL_AID | EARLY_BIRD | REFERRAL |
+  1825→SPECIAL | OTHER
+  1826→DiscountType PERCENTAGE | FIXED_AMOUNT |
+  1827→FULL_WAIVER
+  1828→RefundStatus REQUESTED | APPROVED | PROCESSED |
+  1829→REJECTED | CANCELLED
+  1830→CreditNoteStatus ISSUED | ADJUSTED | CANCELLED | EXPIRED
+  1831→Immutability Rules
+  1832→Invoices and receipts are NEVER updated after issuance. Corrections happen via CreditNote
+  1833→(against an invoice) or Refund (against a receipt). This immutability is enforced at three
+  1834→levels: (a) Prisma middleware blocks UPDATE queries on invoices and receipts tables (only
+  1835→INSERT is allowed for corrections); (b) the service layer exposes only issueInvoice(),
+  1836→cancelInvoice(), issueReceipt(), and refundReceipt() methods (no updateInvoice() or
+  1837→updateReceipt()); (c) the database has a trigger that fails any UPDATE on these tables
+  1838→outside of a maintenance window.
+  1839→Invoice Lifecycle
+  1840→The invoice lifecycle is: DRAFT → ISSUED → PARTIALLY_PAID → PAID (or OVERDUE if past
+  1841→due_date with unpaid balance, CANCELLED if cancelled before payment, WRITTEN_OFF if
+  1842→the balance is written off after multiple collection attempts). Each transition is logged in
+  1843→AuditLog. The paidAmount and balanceAmount fields are kept in sync with the sum of
+  1844→receipts; a database trigger verifies the invariant paid_amount + balance_amount =
+  1845→total_amount on every receipt insert.
+  1846→51
+  1847→
+  1848→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1849→14. Inventory Models
+  1850→The Inventory domain covers items, stock, suppliers, purchase orders, and issuances.
+  1851→PreOne's inventory is primarily for non-academic items: uniforms, books, stationery, art
+  1852→supplies, cleaning supplies, and food provisions. Stock is tracked per branch.
+  1853→Models in this Domain
+  1854→| Model | Purpose         | Key Fields           | Indexes            |
+  1855→| ----- | --------------- | -------------------- | ------------------ |
+  1856→| Item  | Inventory item  | id, tenantId, name,  | tenantId, sku      |
+  1857→|       | master          | sku, description,    | (unique), category |
+  1858→category, unit,
+  1859→hsnCode, taxRate,
+  1860→salePrice,
+  1861→purchasePrice,
+  1862→reorderLevel,
+  1863→maxLevel, imageUrl
+  1864→ItemCategory Item category  id, tenantId, name,  tenantId, parentId
+  1865→|     | (Uniform, Book,  | parentId, description |     |
+  1866→| --- | ---------------- | --------------------- | --- |
+  1867→Stationery, Art,
+  1868→Cleaning, Food,
+  1869→Sports)
+  1870→| Stock | Current stock per  | id, tenantId,      | tenantId, branchId,  |
+  1871→| ----- | ------------------ | ------------------ | -------------------- |
+  1872→|       | item per branch    | branchId, itemId,  | itemId,              |
+  1873→|       |                    | quantity,          | branchId+itemId      |
+  1874→|       |                    | reservedQuantity,  | (unique)             |
+  1875→availableQuantity,
+  1876→lastReceivedAt,
+  1877→lastIssuedAt,
+  1878→valuationMethod,
+  1879→unitValue
+  1880→Supplier Supplier master id, tenantId, name,  tenantId, name, gstin
+  1881→|     |     | contactPerson,  | (unique), isActive |
+  1882→| --- | --- | --------------- | ------------------ |
+  1883→email, phone,
+  1884→address, gstin, pan,
+  1885→paymentTerms,
+  1886→creditLimit, isActive
+  1887→52
+  1888→
+  1889→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1890→| Model | Purpose | Key Fields | Indexes |
+  1891→| ----- | ------- | ---------- | ------- |
+  1892→PurchaseOrder Purchase order to  id, tenantId,  tenantId, branchId,
+  1893→|     | supplier | branchId, poNo,      | poNo (unique),     |
+  1894→| --- | -------- | -------------------- | ------------------ |
+  1895→|     |          | poDate, supplierId,  | supplierId, status |
+  1896→expectedDeliveryDat
+  1897→e, status,
+  1898→totalAmount,
+  1899→taxAmount,
+  1900→grandTotal,
+  1901→createdBy,
+  1902→approvedBy
+  1903→PurchaseOrderItem Line items in a PO id, purchaseOrderId,  purchaseOrderId,
+  1904→|     |     | itemId, quantity,  | itemId |
+  1905→| --- | --- | ------------------ | ------ |
+  1906→unitPrice,
+  1907→discountPercent,
+  1908→amount, taxRate,
+  1909→taxAmount,
+  1910→totalAmount,
+  1911→receivedQuantity
+  1912→GoodsReceipt Goods receipt  id, purchaseOrderId,  purchaseOrderId,
+  1913→|     | against a PO | receiptNo,    | receiptNo,  |
+  1914→| --- | ------------ | ------------- | ----------- |
+  1915→|     |              | receiptDate,  | receiptDate |
+  1916→receivedBy,
+  1917→supplierInvoiceNo,
+  1918→supplierInvoiceDate,
+  1919→status, totalAmount
+  1920→Issuance Item issuance to  id, tenantId,  tenantId, branchId,
+  1921→|     | student/staff | branchId,    | issuanceNo,        |
+  1922→| --- | ------------- | ------------ | ------------------ |
+  1923→|     |               | issuanceNo,  | issuedToId, itemId |
+  1924→issuanceDate,
+  1925→issuedToType,
+  1926→issuedToId, itemId,
+  1927→quantity, unitPrice,
+  1928→amount, issuedBy,
+  1929→purpose
+  1930→53
+  1931→
+  1932→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1933→| Model | Purpose | Key Fields | Indexes |
+  1934→| ----- | ------- | ---------- | ------- |
+  1935→StockAdjustment Stock adjustment  id, tenantId,  tenantId, branchId,
+  1936→|     | (damage, loss,  | branchId, itemId,  | itemId, adjustedAt |
+  1937→| --- | --------------- | ------------------ | ------------------ |
+  1938→|     | recount)        | adjustmentType,    |                    |
+  1939→quantity, reason,
+  1940→adjustedBy,
+  1941→adjustedAt,
+  1942→beforeQuantity,
+  1943→afterQuantity
+  1944→StockMovement Stock movement log  id, tenantId,  tenantId, branchId,
+  1945→|     | (every in/out) | branchId, itemId,  | itemId, movedAt,  |
+  1946→| --- | -------------- | ------------------ | ----------------- |
+  1947→|     |                | movementType,      | movementType      |
+  1948→quantity,
+  1949→referenceType,
+  1950→referenceId,
+  1951→movedAt, movedBy
+  1952→Enums Defined
+  1953→| Enum         |     | Values                         |     |
+  1954→| ------------ | --- | ------------------------------ | --- |
+  1955→| ItemCategory |     | UNIFORM | BOOK | STATIONERY |  |     |
+  1956→ART_SUPPLIES | CLEANING | FOOD | SPORTS
+  1957→| FURNITURE | EQUIPMENT | OTHER
+  1958→| UnitOfMeasure |     | PIECE | KG | LITER | METER | BOX | PACK |  |     |
+  1959→| ------------- | --- | ------------------------------------------ | --- |
+  1960→DOZEN | SET | ROLL | BOTTLE
+  1961→| ValuationMethod |     | FIFO | LIFO | WEIGHTED_AVERAGE |  |     |
+  1962→| --------------- | --- | --------------------------------- | --- |
+  1963→SPECIFIC
+  1964→| PurchaseOrderStatus |     | DRAFT | PENDING_APPROVAL | APPROVED |  |     |
+  1965→| ------------------- | --- | -------------------------------------- | --- |
+  1966→SENT | PARTIALLY_RECEIVED | RECEIVED |
+  1967→CANCELLED | CLOSED
+  1968→| GoodsReceiptStatus |     | PENDING | PARTIAL | COMPLETED |  |     |
+  1969→| ------------------ | --- | -------------------------------- | --- |
+  1970→REJECTED
+  1971→| IssuanceType |     | SALE | FREE | STAFF_USE | DAMAGE | LOSS |  |     |
+  1972→| ------------ | --- | ------------------------------------------ | --- |
+  1973→RETURN | SAMPLE
+  1974→| StockAdjustmentType |     | INCREASE | DECREASE | RECOUNT | DAMAGE  |     |
+  1975→| ------------------- | --- | --------------------------------------- | --- |
+  1976→| EXPIRY | LOSS | THEFT
+  1977→54
+  1978→
+  1979→PreOne Prisma Schema v3.0 | Database Implementation Freeze
+  1980→Enum Values
+  1981→StockMovementType PURCHASE | SALE | ISSUANCE | RETURN |
+  1982→ADJUSTMENT | TRANSFER | SCRAPPED
+  1983→Stock Movement Pattern
+  1984→Every stock change is recorded as a StockMovement entry (movementType: PURCHASE,
+  1985→SALE, ISSUANCE, RETURN, ADJUSTMENT, TRANSFER, SCRAPPED). The Stock table holds the
+  1986→current quantity; the StockMovement table is the audit trail. This double-entry pattern
+  1987→ensures that any stock discrepancy can be traced back to its source movement. The
+  1988→StockAdjustment table records manual adjustments with a reason and before/after
+  1989→quantities for auditor review.
+  1990→55
+  1991→
+  1992→PreOne Prisma Schema v3.0  |  Database Implementation Freeze
+  1993→15. HR Models
+  1994→The HR domain covers employees, departments, designations, payroll, leave, attendance
+  1995→(staff), and performance reviews. Employees are linked to Users via the SchoolUser table in
+  1996→the Identity domain. HR models are scoped by tenantId and branchId.
+  1997→Models in this Domain
+  1998→| Model | Purpose | Key Fields | Indexes |
+  1999→| ----- | ------- | ---------- | ------- |
+  2000→Employee Employee master  id, tenantId,  tenantId, branchId,
+
+[showing lines 1-2000 of 3716; use offset=2001 with limit to continue reading]

@@ -1,0 +1,402 @@
+   174→5
+   175→
+   176→PreOne BRC v1.0 | Business Rules Catalog
+   177→R-CMP-006 — Quarterly PII Audit.............................................................................................39
+   178→R-CMP-007 — Fire NOC Renewal.............................................................................................39
+   179→R-CMP-008 — Data Breach Notification...................................................................................40
+   180→R-CMP-009 — POSH Complaint Filing.......................................................................................40
+   181→R-CMP-010 — POSH Confidentiality.........................................................................................40
+   182→R-CMP-011 — POSH Training for All Staff.................................................................................40
+   183→R-CMP-012 — POSH Complaint Timeline.................................................................................41
+   184→R-CMP-013 — Quarterly Fire Drill.............................................................................................41
+   185→R-CMP-014 — Fire Extinguisher Inspection..............................................................................41
+   186→R-CMP-015 — Evacuation Plan Display....................................................................................41
+   187→R-CMP-016 — RTE Non-Discrimination....................................................................................42
+   188→R-CMP-017 — FSSAI Kitchen License........................................................................................42
+   189→R-CMP-018 — Food Handler Medical Certificate.....................................................................42
+   190→10. Approval Matrix Rules..............................................................................................................42
+   191→10.1 Summary Table — Approval Matrix Rules..............................................................................43
+   192→10.2 Detailed Rule Cards — Approval Matrix Rules........................................................................43
+   193→R-APR-001 — Discount Approval by Amount...........................................................................43
+   194→R-APR-002 — Refund Approval Matrix.....................................................................................43
+   195→R-APR-003 — Leave Approval Matrix.......................................................................................44
+   196→R-APR-004 — Expense Approval by Amount............................................................................44
+   197→R-APR-005 — Vendor Onboarding Approval............................................................................44
+   198→R-APR-006 — Admission Final Approval...................................................................................44
+   199→R-APR-007 — Fee Waiver Approval..........................................................................................45
+   200→R-APR-008 — Asset Disposal Approval.....................................................................................45
+   201→R-APR-009 — Action-Based Role Escalation.............................................................................45
+   202→R-APR-010 — New Position Approval.......................................................................................45
+   203→R-APR-011 — Salary Revision Approval....................................................................................46
+   204→R-APR-012 — School Policy Change Approval..........................................................................46
+   205→R-APR-013 — Bulk Data Export Approval.................................................................................46
+   206→R-APR-014 — Vendor Payment Approval.................................................................................46
+   207→6
+   208→
+   209→PreOne BRC v1.0 | Business Rules Catalog
+   210→R-APR-015 — Curriculum Change Approval.............................................................................47
+   211→11. Notification Rules......................................................................................................................47
+   212→11.1 Summary Table — Notification Rules......................................................................................47
+   213→11.2 Detailed Rule Cards — Notification Rules...............................................................................48
+   214→R-NOT-001 — Fee Due Reminder Cadence..............................................................................48
+   215→R-NOT-002 — Child Absence Alert...........................................................................................48
+   216→R-NOT-003 — Daily Report Push Time.....................................................................................48
+   217→R-NOT-004 — Birthday Greeting..............................................................................................48
+   218→R-NOT-005 — Festival Greeting................................................................................................49
+   219→R-NOT-006 — Incident Notification..........................................................................................49
+   220→R-NOT-007 — Photo Share Alert..............................................................................................49
+   221→R-NOT-008 — Event Schedule Announcement........................................................................49
+   222→R-NOT-009 — Holiday Alert......................................................................................................50
+   223→R-NOT-010 — Transport Delay Alert........................................................................................50
+   224→R-NOT-011 — Salary Credit Notification...................................................................................50
+   225→R-NOT-012 — System Maintenance Notification.....................................................................50
+   226→12. Data Governance Rules.............................................................................................................51
+   227→12.1 Summary Table — Data Governance Rules.............................................................................51
+   228→12.2 Detailed Rule Cards — Data Governance Rules......................................................................51
+   229→R-DAT-001 — PII Encryption at Rest.........................................................................................51
+   230→R-DAT-002 — Data in Transit Encryption..................................................................................52
+   231→R-DAT-003 — PII Field Masking in UI........................................................................................52
+   232→R-DAT-004 — Role-Based Field Visibility..................................................................................52
+   233→R-DAT-005 — Audit Log Retention...........................................................................................52
+   234→R-DAT-006 — Data Residency — India Only.............................................................................53
+   235→R-DAT-007 — Data Subject Access Request (DSAR).................................................................53
+   236→R-DAT-008 — Data Erasure Request.........................................................................................53
+   237→R-DAT-009 — Backup Retention Policy....................................................................................53
+   238→R-DAT-010 — Breach Detection & Response...........................................................................54
+   239→R-DAT-011 — Soft Delete Policy...............................................................................................54
+   240→7
+   241→
+   242→PreOne BRC v1.0 | Business Rules Catalog
+   243→R-DAT-012 — Anonymized Analytics Data...............................................................................54
+   244→13. Platform & Multi-tenant Rules..................................................................................................54
+   245→13.1 Summary Table — Platform & Multi-tenant Rules.................................................................55
+   246→13.2 Detailed Rule Cards — Platform & Multi-tenant Rules...........................................................55
+   247→R-PLT-001 — Tenant Data Isolation..........................................................................................55
+   248→R-PLT-002 — Subscription Grace Period...................................................................................55
+   249→R-PLT-003 — Tenant Suspension Process.................................................................................56
+   250→R-PLT-004 — Feature Flag per Tier...........................................................................................56
+   251→R-PLT-005 — License Seat Allocation........................................................................................56
+   252→R-PLT-006 — Branch-Level Data Partition................................................................................56
+   253→R-PLT-007 — Platform Admin Role Restrictions.......................................................................57
+   254→R-PLT-008 — Cross-Tenant Data Block.....................................................................................57
+   255→R-PLT-009 — Tenant Onboarding Validation............................................................................57
+   256→R-PLT-010 — Tenant Offboarding Process................................................................................57
+   257→Appendix A — Cross-Reference Matrix (BRC ↔ ADR ↔ PRD).......................................................58
+   258→Appendix B — Compliance Framework Mapping............................................................................58
+   259→DPDP Act 2023 (Digital Personal Data Protection)..........................................................................58
+   260→POSH Act 2013 (Sexual Harassment of Women at Workplace)......................................................59
+   261→Fire Safety (NBC 2016 / State Fire Services Act).............................................................................59
+   262→RTE Section 12 (25% Reservation for EWS/Disadvantaged)...........................................................59
+   263→FSSAI (Food Safety for Mid-day Meals / Snacks).............................................................................59
+   264→Appendix C — Glossary...................................................................................................................60
+   265→Appendix D — Sign-off Page...........................................................................................................60
+   266→Approval Matrix...............................................................................................................................60
+   267→Document Control...........................................................................................................................60
+   268→Note: This Table of Contents is generated via field codes. To ensure page number accuracy after editing, please right-
+   269→click the TOC and select "Update Field."
+   270→8
+   271→
+   272→PreOne BRC v1.0 | Business Rules Catalog
+   273→Executive Summary
+   274→PreOne Business Rules Catalog (BRC) v1.0 हा(cid:2) PreOne Enterprise Build Roadmap चा(cid:2) ति(cid:6)सरा(cid:2)
+   275→foundational document आहा(cid:10) — Vision Document आति(cid:12) Business Process Model (BPM) नं(cid:6)(cid:14) रा. BRC चा(cid:2)
+   276→primary purpose म्हा(cid:12)जे(cid:10) प्र(cid:18)त्येक(cid:10) business decision ला(cid:2) govern करा(cid:12)(cid:2)रा(cid:10) rules एक(cid:2) centralized, machine-
+   277→readable, AI-friendly format मध्ये(cid:10) capture करा(cid:12),(cid:10) ज्ये(cid:2)मळे(cid:27) (cid:10) Master PRD, DDD models, ERD, API contracts
+   278→आति(cid:12) final code सर्व(cid:30) एक(cid:2)चा rule source र्वरा depend करा(cid:6)(cid:31)ला.
+   279→ह्या(cid:2) document मध्ये(cid:10) 176 rules 12 categories मध्ये(cid:10) तिर्वभा(cid:2)गल्ये(cid:2) आहा(cid:10)(cid:6): Eligibility, Financial, Operational,
+   280→Academic, HR, Inventory, Communication, Compliance, Approval Matrix, Notification, Data
+   281→Governance, आति(cid:12) Platform/Multi-tenant. प्र(cid:18)त्ये(cid:10)क rule ला(cid:2) unique Rule ID (e.g., R-ADM-007) आहा (cid:10)जे$ PRD
+   282→acceptance criteria, ADR references, आति(cid:12) unit tests मध्ये (cid:10)cross-reference क(cid:10)ला(cid:2) जे(cid:2)ईला. ह्या(cid:2) ID convention
+   283→मळे(cid:27) (cid:10) AI assistants ला(cid:2) business context precise तिमळे(cid:6)$ आति(cid:12) development team ला(cid:2) ambiguity नं प्रड(cid:6)(cid:2) rule
+   284→locate करा(cid:6)(cid:2) ये(cid:6)(cid:10) (cid:10).
+   285→BRC हा(cid:2) BPM आति(cid:12) PRD मधी(cid:31)ला missing link आहा(cid:10). BPM फक्(cid:6) "what happens" define करा(cid:6)$ (process flow),
+   286→प्र(cid:12) "why a decision is taken this way" define करा(cid:6) नं(cid:2)हा(cid:31). PRD मध्ये (cid:10)rules feature-by-feature scatter हा$(cid:6)(cid:2)(cid:6)
+   287→— acceptance criteria मध्ये(cid:10), edge cases मध्ये(cid:10), error messages मध्ये(cid:10). BRC त्ये(cid:2) सर्व(cid:30) rules एक(cid:2) जे(cid:2)ग(cid:31)
+   288→consolidate करा(cid:6)$ आति(cid:12) ति(cid:6)थूनं+ PRD/DDD/code सर्व(cid:30)त्र reference करा(cid:6)$. ह्या(cid:2)मळे(cid:27) (cid:10) rule change करा(cid:2)येचा(cid:2) असला(cid:10) (cid:6)रा
+   289→एक(cid:2) जे(cid:2)ग(cid:31) change करा(cid:2)र्व(cid:2) ला(cid:2)ग(cid:6)$ — नंव्र्व(cid:10) ति/क(cid:2)(cid:12)(cid:31) trace करा(cid:2)र्व(cid:10) ला(cid:2)ग(cid:6) नं(cid:2)हा(cid:31).
+   290→Document चा(cid:31) status आत्ता(cid:2) Draft (Business Review) आहा(cid:10). प्र(cid:18)त्ये(cid:10)क rule चा(cid:31) review business stakeholders
+   291→(Principal, Owner, Counsellor, Teacher, Accounts, HR) स$ब(cid:6) हा$ईला. Review प्र(cid:12)+ (cid:30)झा(cid:2)ल्ये(cid:2)र्वरा status Business
+   292→Freeze करा(cid:6)(cid:2) येई(cid:10) ला आति(cid:12) नं(cid:6)(cid:14) रा Master PRD Phase सरू(cid:27) हा$ईला. BRC र्वरा क$(cid:12)(cid:6)(cid:2)हा(cid:31) change कराण्ये(cid:2)स(cid:2)/(cid:31) formal
+   293→Change Request (CR) process follow करा(cid:2)र्व(cid:2) ला(cid:2)ग(cid:10)ला — version increment, impact analysis, आति(cid:12) sign-off
+   294→mandatory.
+   295→How to Use This Document
+   296→Rule ID Convention
+   297→प्र(cid:18)त्ये(cid:10)क rule चा(cid:31) ID format R-DOM-NNN आहा(cid:10), तिजेथू(cid:10) DOM हा(cid:2) 3-letter domain code आहा(cid:10) आति(cid:12) NNN हा(cid:2)
+   298→sequential number आहा(cid:10). उदा(cid:2).: R-ADM-007 = Admission domain चा(cid:31) 7र्व(cid:31) rule. हा(cid:31) convention stable आहा(cid:10)
+   299→— एकदा(cid:2) ID assign झा(cid:2)ला(cid:31) क(cid:31) (cid:6)(cid:31) change हा$(cid:12)(cid:2)रा नं(cid:2)हा(cid:31), जेरा rule delete झा(cid:2)ला(cid:31) (cid:6)रा(cid:31) ID retire क(cid:10)ला(cid:31) जे(cid:2)(cid:6) (cid:10)प्र(cid:12) reuse हा$(cid:6)
+   300→नं(cid:2)हा(cid:31).
+   301→Schema Fields
+   302→प्र(cid:18)त्ये(cid:10)क rule 14 fields मध्ये(cid:10) structured आहा(cid:10). हा(cid:10) fields AI LLM context feeding, unit test generation, आति(cid:12)
+   303→developer onboarding स(cid:2)/(cid:31) design क(cid:10)ला (cid:10)आहा(cid:10)(cid:6):
+   304→9
+   305→
+   306→PreOne BRC v1.0 | Business Rules Catalog
+   307→• Trigger — क$(cid:12)त्ये(cid:2) event नं(cid:6)(cid:14) रा rule evaluate हा$(cid:6)(cid:10) (e.g., application form submission).
+   308→• Condition — IF/THEN logic ज्ये(cid:2)नंस(cid:27) (cid:2)रा decision हा$(cid:6)(cid:10).
+   309→• Action — rule pass झा(cid:2)ल्ये(cid:2)र्वरा क(cid:2)ये हा$(cid:6)(cid:10) (allow, block, escalate, notify).
+   310→• Exception — क$(cid:12)त्ये(cid:2) प्रतिराति7थू(cid:6)(cid:31)(cid:6) rule override हा$ऊ शक(cid:6)(cid:10) आति(cid:12) क$(cid:12).
+   311→• Owner Role — क$(cid:12)त्ये(cid:2) role च्ये(cid:2) owner ला(cid:2) rule enforce कराण्ये(cid:2)चा(cid:31) primary responsibility.
+   312→• Source — rule क(cid:27)/+नं आला(cid:31) (school policy, government regulation, industry best practice).
+   313→• Compliance — क$(cid:12)त्ये(cid:2) compliance framework श(cid:31) link आहा(cid:10) (DPDP, POSH, Fire Safety).
+   314→• Related ADR — क$(cid:12)त्ये(cid:2) Architecture Decision Record श(cid:31) technical link आहा(cid:10).
+   315→Cross-References
+   316→BRC हा(cid:2) standalone document नं(cid:2)हा(cid:31) — (cid:6)$ Vision, BPM, ADR, आति(cid:12) PRD स$ब(cid:6) deeply linked आहा(cid:10). Cross-
+   317→Reference Matrix (Appendix A) मध्ये (cid:10)प्र(cid:18)त्येक(cid:10) rule चा(cid:31) ADR mapping तिदाला(cid:31) आहा(cid:10). PRD phase मध्ये (cid:10)प्र(cid:18)त्येक(cid:10) feature
+   318→च्ये(cid:2) acceptance criteria मध्ये(cid:10) relevant Rule IDs cite क(cid:10)ला(cid:10) जे(cid:2)(cid:6)(cid:31)ला — उदा(cid:2).: "Acceptance: R-ADM-007
+   319→satisfied".
+   320→Version Control
+   321→BRC चा(cid:10) versioning semantic versioning follow करा(cid:6)(cid:10) — MAJOR.MINOR.PATCH. MAJOR version
+   322→business freeze नं(cid:6)(cid:14) राचा change हा$(cid:6)$ (breaking rule changes). MINOR version नंर्व(cid:31)नं rules add क(cid:10)ल्ये(cid:2)र्वरा
+   323→increment हा$(cid:6)$. PATCH version rule clarification, typo fixes स(cid:2)/(cid:31). Current version 1.0 — pre-freeze
+   324→draft.
+   325→Change Request Process
+   326→एकदा(cid:2) BRC Business Freeze झा(cid:2)ल्ये(cid:2)र्वरा क$(cid:12)(cid:6)(cid:31)हा(cid:31) rule change स(cid:2)/(cid:31) formal CR process mandatory आहा(cid:10): (1) CR
+   327→form मध्ये(cid:10) rule ID, current behavior, proposed change, business justification भारा(cid:2)र्व(cid:10) ला(cid:2)ग(cid:10)ला; (2) Impact
+   328→analysis — क$(cid:12)(cid:6) (cid:10)PRD sections, ADRs, code modules affected हा$(cid:6)(cid:31)ला; (3) Product Lead + Eng Lead joint
+   329→sign-off; (4) Version increment + changelog update; (5) Stakeholder communication.
+   330→Rule Schema Definition
+   331→प्र(cid:18)त्ये(cid:10)क rule 14 fields मध्ये(cid:10) structured आहा(cid:10). खा(cid:2)ला(cid:31)ला table प्र(cid:18)त्ये(cid:10)क field चा(cid:31) purpose आति(cid:12) example दाश(cid:30)र्व(cid:6)$:
+   332→Field Purpose Example
+   333→Rule ID Unique identifier (R-DOM-NNN R-ADM-007
+   334→format). Stable, never reused.
+   335→10
+   336→
+   337→PreOne BRC v1.0  |  Business Rules Catalog
+   338→| Field  | Purpose                   | Example   |
+   339→| ------ | ------------------------- | --------- |
+   340→| Domain | Business domain the rule  | Admission |
+   341→belongs to (from BPM).
+   342→Sub-Process Specific sub-process within the  Document Verification
+   343→domain.
+   344→| Title | Short human-readable rule  | Mandatory Document Check |
+   345→| ----- | -------------------------- | ------------------------ |
+   346→name.
+   347→| Trigger | Event that causes rule  | Application form submission |
+   348→| ------- | ----------------------- | --------------------------- |
+   349→evaluation.
+   350→Condition IF/THEN logic for decision- IF age<2.5 AND docs_missing
+   351→|     | making. | THEN block |
+   352→| --- | ------- | ---------- |
+   353→Action What happens when rule fires. Block + show missing docs list
+   354→Exception Conditions under which rule can  Branch Head discretionary
+   355→|     | be overridden. | approval |
+   356→| --- | -------------- | -------- |
+   357→Owner Role Role accountable for enforcing  Admission Counsellor
+   358→rule.
+   359→| Source | Where rule originated  | School Policy 2024 §3.2 |
+   360→| ------ | ---------------------- | ----------------------- |
+   361→(policy/regulation).
+   362→| Compliance | External compliance framework  | DPDP Act §4 |
+   363→| ---------- | ------------------------------ | ----------- |
+   364→link.
+   365→| Status | Draft / Reviewed / Approved /  | Approved |
+   366→| ------ | ------------------------------ | -------- |
+   367→Frozen.
+   368→| Version | Rule version (independent of  | 1.0 |
+   369→| ------- | ----------------------------- | --- |
+   370→doc version).
+   371→| Related ADR | Architecture Decision Record  | ADR-012, ADR-019 |
+   372→| ----------- | ----------------------------- | ---------------- |
+   373→references.
+   374→2. Eligibility Rules
+   375→Eligibility rules define क$(cid:12)त्ये(cid:2) conditions मध्ये(cid:10) एक candidate admission स(cid:2)/(cid:31) eligible आहा(cid:10). ह्या(cid:2) rules चा(cid:2)
+   376→primary goal म्हा(cid:12)जे(cid:10) age-appropriate placement, mandatory documentation completeness, आति(cid:12)
+   377→medical fitness ensure करा(cid:12).(cid:10)  NEP 2020 Early Childhood Care and Education (ECCE) norms आति(cid:12)
+   378→school-specific policies ये(cid:2)च्(cid:14) ये(cid:2) आधी(cid:2)रा (cid:10)सर्व (cid:30)rules draft क(cid:10)ल्ये(cid:2) आहा(cid:10)(cid:6). Each rule चा(cid:31) compliance DPDP Act (child
+   379→data consent) आति(cid:12) Right to Education (RTE) Section 12 (25% reservation compliance) श(cid:31) mapping
+   380→क(cid:10)ला(cid:31) आहा(cid:10).
+   381→11
+   382→
+   383→PreOne BRC v1.0  |  Business Rules Catalog
+   384→ह्या(cid:2) category मध्ये (cid:10)15 rules आहा(cid:10)(cid:6). प्र(cid:18)त्ये(cid:10)क rule खा(cid:2)ला(cid:31)लाप्र(cid:18)म(cid:2)(cid:12) (cid:10)detailed क(cid:10)ला(cid:31) आहा (cid:10)— summary table सर्व(cid:30) rules चा(cid:2)
+   385→| quick overview दा(cid:6)(cid:10) | (cid:10), त्ये(cid:2)नं(cid:6)(cid:14) रा प्र(cid:18)त्येक(cid:10) |  rule चा(cid:2) full schema card तिदाला(cid:2) आहा(cid:10). |     |     |
+   386→| -------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------- | --- | --- |
+   387→2.1 Summary Table — Eligibility Rules
+   388→| Rule ID | Title | Trigger | Action | Owner |
+   389→| ------- | ----- | ------- | ------ | ----- |
+   390→R-ELG-001 Playgroup Age  Application Form  Block application;  Admission
+   391→|     | Eligibility | submission for  | show age- | Counsellor |
+   392→| --- | ----------- | --------------- | --------- | ---------- |
+   393→Playgroup class appropriate class
+   394→suggestion
+   395→(Nursery if >2.5)
+   396→R-ELG-002 Nursery Age  Application Form  Block application;  Admission
+   397→|     | Eligibility | submission for  | suggest Playgroup  | Counsellor |
+   398→| --- | ----------- | --------------- | ------------------ | ---------- |
+   399→Nursery class (if <2.5) or Jr.KG
+   400→(if >3.5)
+   401→R-ELG-003 Jr.KG Age  Application Form  Block application;  Admission
+   402→|     | Eligibility | submission for  | suggest Nursery  | Counsellor |
+   403→| --- | ----------- | --------------- | ---------------- | ---------- |
+   404→Jr.KG class (if <3.5) or Sr.KG
+   405→(if >4.5)
+   406→R-ELG-004 Sr.KG Age  Application Form  Block application;  Admission
+   407→|     | Eligibility | submission for  | suggest Jr.KG (if  | Counsellor |
+   408→| --- | ----------- | --------------- | ------------------ | ---------- |
+   409→Sr.KG class <4.5) or Grade 1
+   410→(if >5.5)
+   411→R-ELG-005 Age Proof  Application Form  Block submission;  Admission
+   412→|     | Document  | submission | request         | Counsellor |
+   413→| --- | --------- | ---------- | --------------- | ---------- |
+   414→|     | Mandatory |            | acceptable age  |            |
+   415→proof document
+   416→R-ELG-006 Birth Certificate  Application Form  Mark application  Admission
+   417→|     | Mandatory | submission | 'Pending  | Counsellor |
+   418→| --- | --------- | ---------- | --------- | ---------- |
+   419→Documents'; send
+   420→automated
+   421→reminder to
+   422→parent (D+3, D+7,
+   423→D+14)
+   424→R-ELG-007 Medical Fitness  Application Form  Mark 'Pending  Admission
+   425→|     | Declaration | submission (post- | Medical'; require  | Counsellor |
+   426→| --- | ----------- | ----------------- | ------------------ | ---------- |
+   427→document  signed medical
+   428→upload) declaration by
+   429→parent +
+   430→pediatrician
+   431→certificate
+   432→12
+   433→
+   434→PreOne BRC v1.0  |  Business Rules Catalog
+   435→| Rule ID | Title | Trigger | Action | Owner |
+   436→| ------- | ----- | ------- | ------ | ----- |
+   437→R-ELG-008 Photograph  Application Form  Send automated  Admission
+   438→|     | Mandatory | submission | reminder; allow  | Counsellor |
+   439→| --- | --------- | ---------- | ---------------- | ---------- |
+   440→admission
+   441→approval
+   442→conditional on
+   443→photo within 7
+   444→days
+   445→R-ELG-009 Parent/Guardian  Application Form  Require  Admission
+   446→|     | Identity Proof | submission | acceptable parent  | Counsellor |
+   447→| --- | -------------- | ---------- | ------------------ | ---------- |
+   448→ID proof upload
+   449→R-ELG-010 Primary Contact  Application Form  Require valid  Admission
+   450→|     | Mandatory | submission | Indian mobile  | Counsellor |
+   451→| --- | --------- | ---------- | -------------- | ---------- |
+   452→number (+91
+   453→format) for
+   454→primary contact
+   455→R-ELG-011 Sibling Admission  Application Form  Auto-flag  Admission
+   456→|     | Priority | submission with   | application as       | Counsellor |
+   457→| --- | -------- | ----------------- | -------------------- | ---------- |
+   458→|     |          | sibling_already_e | 'Sibling Priority';  |            |
+   459→|     |          | nrolled = TRUE    | fast-track           |            |
+   460→counselling slot
+   461→within 48 hours
+   462→R-ELG-012 Staff Ward  Application Form  Apply staff ward  HR + Admission
+   463→|     | Admission Quota | submission with  | discount; route to  | Counsellor |
+   464→| --- | --------------- | ---------------- | ------------------- | ---------- |
+   465→|     |                 | staff_ward =     | HR validation for   |            |
+   466→|     |                 | TRUE             | staff tenure        |            |
+   467→confirmation
+   468→R-ELG-013 Transfer Student  Mid-year  Allow admission;  Admission
+   469→|     | Eligibility | application from   | carry forward  | Counsellor +  |
+   470→| --- | ----------- | ------------------ | -------------- | ------------- |
+   471→|     |             | student            | previous       | Principal     |
+   472→|     |             | transferring from  | attendance     |               |
+   473→|     |             | another school     | records        |               |
+   474→R-ELG-014 RTE Section 12  Annual admission  Reserve 25%  Principal +
+   475→|     | (25% EWS     | cycle planning  | seats for EWS  | Management |
+   476→| --- | ------------ | --------------- | -------------- | ---------- |
+   477→|     | Reservation) | (Jan-March)     | category;      |            |
+   478→integrate with
+   479→state RTE portal
+   480→for
+   481→reimbursement
+   482→claims
+   483→13
+   484→
+   485→PreOne BRC v1.0 | Business Rules Catalog
+   486→Rule ID Title Trigger Action Owner
+   487→R-ELG-015 Special Needs Application Form Admission Principal + Special
+   488→Child Admission with conditional on Educator
+   489→special_needs_fla assessment; if
+   490→g = TRUE severity >
+   491→moderate,
+   492→recommend
+   493→shadow teacher
+   494→requirement
+   495→2.2 Detailed Rule Cards — Eligibility Rules
+   496→R-ELG-001 — Playgroup Age Eligibility
+   497→Rule ID R-ELG-001
+   498→Domain Admission
+   499→Sub-Process Age Verification
+   500→Title Playgroup Age Eligibility
+   501→Trigger Application Form submission for Playgroup class
+   502→Condition IF age_at_joining < 1.5 years OR age_at_joining >
+   503→2.5 years THEN ineligible
+   504→Action Block application; show age-appropriate class
+   505→suggestion (Nursery if >2.5)
+   506→Exception Branch Head discretionary approval with
+   507→documented child development assessment
+   508→reason
+   509→Owner Role Admission Counsellor
+   510→Source School Policy 2024 §3.1; NEP 2020 ECCE norms
+   511→Compliance DPDP §4 (consent for child data)
+   512→Status Approved
+   513→Version 1.0
+   514→Related ADR ADR-005, ADR-012
+   515→R-ELG-002 — Nursery Age Eligibility
+   516→Rule ID R-ELG-002
+   517→Domain Admission
+   518→14
+   519→
+   520→PreOne BRC v1.0 | Business Rules Catalog
+   521→Sub-Process Age Verification
+   522→Title Nursery Age Eligibility
+   523→Trigger Application Form submission for Nursery class
+   524→Condition IF age_at_joining < 2.5 years OR age_at_joining >
+   525→3.5 years THEN ineligible
+   526→Action Block application; suggest Playgroup (if <2.5) or
+   527→Jr.KG (if >3.5)
+   528→Exception Branch Head approval + child readiness
+   529→assessment by qualified ECCE educator
+   530→Owner Role Admission Counsellor
+   531→Source School Policy 2024 §3.1
+   532→Compliance DPDP §4
+   533→Status Approved
+   534→Version 1.0
+   535→Related ADR ADR-005
+   536→R-ELG-003 — Jr.KG Age Eligibility
+   537→Rule ID R-ELG-003
+   538→Domain Admission
+   539→Sub-Process Age Verification
+   540→Title Jr.KG Age Eligibility
+   541→Trigger Application Form submission for Jr.KG class
+   542→Condition IF age_at_joining < 3.5 years OR age_at_joining >
+   543→4.5 years THEN ineligible
+   544→Action Block application; suggest Nursery (if <3.5) or
+   545→Sr.KG (if >4.5)
+   546→Exception Branch Head approval + prior schooling certificate
+   547→verification
+   548→Owner Role Admission Counsellor
+   549→Source School Policy 2024 §3.1
+   550→Compliance DPDP §4
+   551→Status Approved
+   552→Version 1.0
+   553→Related ADR ADR-005
+   554→15
+   555→
+   556→PreOne BRC v1.0 | Business Rules Catalog
+   557→R-ELG-004 — Sr.KG Age Eligibility
+   558→Rule ID R-ELG-004
+   559→Domain Admission
+   560→Sub-Process Age Verification
+   561→Title Sr.KG Age Eligibility
+   562→Trigger Application Form submission for Sr.KG class
+   563→Condition IF age_at_joining < 4.5 years OR age_at_joining >
+   564→5.5 years THEN ineligible
+   565→Action Block application; suggest Jr.KG (if <4.5) or Grade
+   566→1 (if >5.5)
+   567→Exception Branch Head approval + academic readiness
+   568→assessment
+   569→Owner Role Admission Counsellor
+   570→Source School Policy 2024 §3.1
+   571→Compliance DPDP §4
+   572→Status Approved
+   573→Version 1.0
+
+[showing lines 174-573 of 6315; use offset=574 with limit to continue reading]
