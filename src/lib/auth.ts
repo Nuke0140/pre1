@@ -74,7 +74,11 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
 
 export function can(role: Role, permission: string): boolean {
   const perms = ROLE_PERMISSIONS[role] || []
-  return perms.includes('*') || perms.includes(permission)
+  if (perms.includes(permission)) return true
+  // '*' grants every SCHOOL-scope permission, but never platform-scope ones —
+  // platform:* is reserved for PLATFORM_ADMIN (tenant plane ≠ school plane).
+  if (perms.includes('*')) return !permission.startsWith('platform:')
+  return false
 }
 
 // ── JWT ──
