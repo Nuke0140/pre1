@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ShieldCheck, Sparkles, Wallet, Users, Eye, EyeOff, LogIn,
 } from 'lucide-react'
-import { PLogoMark } from '@/components/preone/PLogo'
+import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
 
 const DEMO_USERS = [
   { role: 'Owner', email: 'owner@sunshine.demo', desc: 'Full access + analytics' },
@@ -89,11 +89,7 @@ export default function LoginPage() {
           ))}
         </div>
         <div className="login-brand">
-          <PLogoMark size={56} />
-          <div>
-            <b>PreOne</b>
-            <span>Preschool Operating System</span>
-          </div>
+          <PLogoWordmark subtitle="Preschool Operating System" />
         </div>
         <h1>One beautiful operating system for every preschool.</h1>
         <p className="lede">

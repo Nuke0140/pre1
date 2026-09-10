@@ -6,7 +6,7 @@ import {
   Building2, MapPin, School, GraduationCap, UserPlus, Rocket, ArrowRight, ArrowLeft,
   CheckCircle2, Power, LogOut, ExternalLink, Clock3,
 } from 'lucide-react'
-import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
+import { PLogoWordmark } from '@/components/preone/PLogo'
 import { Avatar, Segmented } from '@/components/preone/ui'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
@@ -103,7 +103,6 @@ export function OnboardClient({
       {/* Header */}
       <header className="app-header">
         <div className="h-logo">
-          <PLogoMark size={34} />
           <PLogoWordmark subtitle="Platform Console" />
         </div>
         <div className="h-breadcrumb">

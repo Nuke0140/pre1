@@ -108,7 +108,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       {/* ── Header ── */}
       <header className="app-header">
         <Link href="/app/dashboard" className="h-logo" aria-label="PreOne home">
-          <PLogoMark size={34} />
           <PLogoWordmark />
         </Link>
         <div className="h-breadcrumb">
