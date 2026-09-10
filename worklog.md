@@ -57,3 +57,18 @@ Work Log:
 Stage Summary:
 - Zero known bugs remaining; full QA matrix green
 - Demo logins: platform@preone.in / owner@sunshine.demo etc, password Preone@123
+
+---
+Task ID: 5
+Agent: main (Super Z)
+Task: Short product flow + usage guide PDF for PreOne
+
+Work Log:
+- Routed to Creative Flow brief (guide/handbook); read SKILL.md, creative-flow.md, fonts.md, overflow.md, palette.md, typography.md, pagination.md
+- Built download/preone-product-guide.html (720x1020, Poppins+Nunito self-hosted woff2 in assets/fonts, violet #7C3AED family, real PreOne logo on cover + closing)
+- Content: cover / What is PreOne / Login & Roles (7 demo creds table) / 3-stage Complete Flow (Client Onboarding -> School Setup -> Daily Operations) / 10-module quick reference / 5 Pro Tips / closing band
+- Fixes during QA: cover orbs moved to background radial-gradients (overflow risk + cover_validate false positives); Nunito self-hosted (CDN timing); em-dash nbsp binding; body bg light (dark voids under un-splittable cards); spacing compressed to close orphan 6th page; author metadata via pdf.py meta.set
+- Final: 5 pages, 650 KB, pdf_qa 11/11 PASS, 0 text corruption, fonts embedded
+
+Stage Summary:
+- Delivered download/preone-product-guide.pdf + .html + assets/ (self-contained editable source)
