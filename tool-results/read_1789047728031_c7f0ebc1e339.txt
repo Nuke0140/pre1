@@ -1,0 +1,509 @@
+  2801→|        |           | goods       | quantity +    | ; invoice   | quality check  |
+  2802→|        |           | received    | quality check | matched;    | mandatory      |
+  2803→payment
+  2804→release
+  2805→triggered
+  2806→| AC-034 | Stock Issue | Stock     | Issue stock   | Stock      | Stock ≥ issue  |
+  2807→| ------ | ----------- | --------- | ------------- | ---------- | -------------- |
+  2808→|        |             | available | to classroom  | decremente | qty; purpose   |
+  2809→|        |             |           | with purpose  | d; ledger  | documented     |
+  2810→updated;
+  2811→returnable
+  2812→flag set
+  2813→| AC-035 | Negative   | Stock at 5  | Attempt      | System         | Error    |
+  2814→| ------ | ---------- | ----------- | ------------ | -------------- | -------- |
+  2815→|        | Stock      | units       | issue of 10  | blocks issue;  | message  |
+  2816→|        | Prevention |             | units        | suggests       | clear;   |
+  2817→|        |            |             |              | reorder        | reorder  |
+  2818→suggestion
+  2819→shown
+  2820→| AC-036 | Leave    | Staff has  | Apply for   | Approval    | Balance       |
+  2821→| ------ | -------- | ---------- | ----------- | ----------- | ------------- |
+  2822→|        | Workflow | leave      | leave with  | chain       | check;        |
+  2823→|        |          | balance    | dates +     | triggered;  | coverage      |
+  2824→|        |          |            | reason      | calendar    | alert if      |
+  2825→|        |          |            |             | updated on  | critical role |
+  2826→approval
+  2827→| AC-037 | Payroll    | Attendance    | Accounts    | Payslips    | 100%         |
+  2828→| ------ | ---------- | ------------- | ----------- | ----------- | ------------ |
+  2829→|        | Processing | + leave data  | triggers    | generated;  | accuracy;    |
+  2830→|        |            | complete for  | payroll run | bank file   | staff        |
+  2831→|        |            | month         |             | created;    | notified;    |
+  2832→|        |            |               |             | ledger      | bank file    |
+  2833→|        |            |               |             | updated     | format valid |
+  2834→70
+  2835→
+  2836→PreOne Master PRD v1.0  |  Product Freeze
+  2837→| AC ID | Scenario | Given | When | Then | Expected |
+  2838→| ----- | -------- | ----- | ---- | ---- | -------- |
+  2839→AC-038 Performance  Staff  Manager  Self + peer +  All goals
+  2840→|     | Review | enrolled ≥3  | initiates  | manager       | rated;     |
+  2841→| --- | ------ | ------------ | ---------- | ------------- | ---------- |
+  2842→|     |        | months       | review     | feedback      | feedback   |
+  2843→|     |        |              |            | cycle; final  | ≥50 chars  |
+  2844→|     |        |              |            | rating + dev  | per goal   |
+  2845→plan
+  2846→AC-039 Recruitment Position  HR posts job  Pipeline:  Offer within
+  2847→|     |     | approved    | + collects   | applications  | budget;     |
+  2848→| --- | --- | ----------- | ------------ | ------------- | ----------- |
+  2849→|     |     | with budget | applications | → screening   | onboarding  |
+  2850→|     |     |             |              | → interview   | tasks auto- |
+  2851→|     |     |             |              | → offer →     | created     |
+  2852→onboard
+  2853→| AC-040 | Asset    | Asset       | Scan QR to  | Asset record   | Depreciation  |
+  2854→| ------ | -------- | ----------- | ----------- | -------------- | ------------- |
+  2855→|        | Tracking | registered  | view asset  | shown with     | auto-         |
+  2856→|        |          | with QR     | details     | location,      | calculated;   |
+  2857→|        |          |             |             | assignment,    | audit trail   |
+  2858→|        |          |             |             | maintenance    | visible       |
+  2859→| AC-041 | Visitor  | Visitor     | Capture     | Host           | Photo         |
+  2860→|        | Check-in | arrives;    | details +   | notified;      | mandatory;    |
+  2861→|        |          | reception   | photo +     | visitor badge  | pickup →      |
+  2862→|        |          | logged in   | purpose +   | printed;       | child auth    |
+  2863→|        |          |             | host        | check-in       | contact       |
+  2864→|        |          |             |             | logged         | verified      |
+  2865→AC-042 Unauthorize Visitor  Visitor not in  System  Child not
+  2866→|     | d Pickup | attempts     | authorized    | denies;        | released;    |
+  2867→| --- | -------- | ------------ | ------------- | -------------- | ------------ |
+  2868→|     |          | child pickup | contacts list | parent         | principal    |
+  2869→|     |          |              |               | called; alert  | alerted;     |
+  2870→|     |          |              |               | raised         | audit logged |
+  2871→AC-043 Compliance  Compliance  System  Alert raised  Critical if
+  2872→|        | Alert      | item expiry  | checks daily | to principal +  | expired;      |
+  2873→| ------ | ---------- | ------------ | ------------ | --------------- | ------------- |
+  2874→|        |            | approaching  |              | owner;          | dashboard     |
+  2875→|        |            | (60 days)    |              | renewal task    | reflects      |
+  2876→|        |            |              |              | created         | status        |
+  2877→| AC-044 | Dashboard  | Owner logs   | Open         | Real-time       | Load ≤3s;     |
+  2878→|        | Load       | in           | dashboard    | KPIs            | data refresh  |
+  2879→|        |            |              |              | displayed       | ≤5 min; role- |
+  2880→|        |            |              |              | per role        | based scope   |
+  2881→enforced
+  2882→71
+  2883→
+  2884→PreOne Master PRD v1.0  |  Product Freeze
+  2885→| AC ID  | Scenario    | Given       | When          | Then         | Expected       |
+  2886→| ------ | ----------- | ----------- | ------------- | ------------ | -------------- |
+  2887→| AC-045 | Custom      | User has    | Build custom  | Report       | Fields         |
+  2888→|        | Report      | report-     | report with   | preview +    | compatible     |
+  2889→|        |             | builder     | fields +      | save +       | with source;   |
+  2890→|        |             | permission  | filters       | schedule     | heavy query    |
+  2891→|        |             |             |               | options      | async          |
+  2892→| AC-046 | Predictive  | Sufficient  | Run           | Predictions  | Confidence     |
+  2893→|        | Analytics   | historical  | prediction    | with         | displayed;     |
+  2894→|        |             | data (≥6    | for           | confidence   | recommend      |
+  2895→|        |             | months)     | admission     | score +      | ation tied to  |
+  2896→|        |             |             | conversion    | recommend    | prediction     |
+  2897→ations
+  2898→| AC-047 | School  | Principal  | Edit school    | Impact        | Affects      |
+  2899→| ------ | ------- | ---------- | -------------- | ------------- | ------------ |
+  2900→|        | Config  | logged in  | config (e.g.,  | analysis      | enrolled     |
+  2901→|        | Change  |            | add class)     | shown;        | students →   |
+  2902→|        |         |            |                | cascade with  | explicit     |
+  2903→|        |         |            |                | confirmation  | confirmation |
+  2904→AC-048 Notification  Coordinator  Create  Rule saved;  Channel
+  2905→|     | Rule | has settings  | notification  | test send    | enabled;     |
+  2906→| --- | ---- | ------------- | ------------- | ------------ | ------------ |
+  2907→|     |      | permission    | rule for      | executed;    | template     |
+  2908→|     |      |               | event         | audit logged | valid; test  |
+  2909→delivers
+  2910→| AC-049 | Workflow  | Principal  | Customize  | Within        | Guardrail     |
+  2911→| ------ | --------- | ---------- | ---------- | ------------- | ------------- |
+  2912→|        | Builder   | with       | approval   | guardrails →  | violation →   |
+  2913→|        |           | workflow   | workflow   | saved +       | blocked with  |
+  2914→|        |           | builder    |            | activated     | explanation   |
+  2915→permission
+  2916→| AC-050 | Tenant     | Sales closed;  | Platform     | Tenant        | Unique       |
+  2917→| ------ | ---------- | -------------- | ------------ | ------------- | ------------ |
+  2918→|        | Onboarding | contract       | admin        | created;      | tenant ID;   |
+  2919→|        |            | signed         | creates new  | admin user;   | admin email  |
+  2920→|        |            |                | tenant       | sample data;  | unique; go-  |
+  2921→|        |            |                |              | training      | live plan    |
+  2922→scheduled
+  2923→11.1 Acceptance Criteria Template
+  2924→प$त्याक(cid:13)  AC खा(cid:2)ल(cid:17)ल template नेस  (cid:2)र structured आहे(cid:13). QA team या(cid:2) template चा(cid:2) व(cid:2)पर करूने test cases
+  2925→णिलणिहेत(cid:30) आणि(cid:23) automation scripts develop करत(cid:30):
+  2926→72
+  2927→
+  2928→PreOne Master PRD v1.0  |  Product Freeze
+  2929→| Field          | Description              | Example |
+  2930→| -------------- | ------------------------ | ------- |
+  2931→| Requirement ID | Stable identifier AC-XXX | AC-018  |
+  2932→Scenario Brief scenario description Attendance already marked
+  2933→| Given | Precondition / state | Attendance already marked  |
+  2934→| ----- | -------------------- | -------------------------- |
+  2935→for student today
+  2936→| When | Trigger action           | Teacher submits again      |
+  2937→| ---- | ------------------------ | -------------------------- |
+  2938→| Then | Expected system behavior | System displays duplicate  |
+  2939→attendance validation
+  2940→Expected Result Measurable outcome Edit allowed with reason;
+  2941→original preserved in audit
+  2942→12. Out of Scope
+  2943→Out of Scope section clearly define करत(cid:30) क(cid:2)या PreOne v1.0 मध्या(cid:13) deliver हे(cid:30)(cid:23)(cid:2)र ने(cid:2)हे(cid:17). हे(cid:13) scope
+  2944→management चा(cid:2) critical tool आहे(cid:13) — feature creep prevent करत(cid:30) आणि(cid:23) v1.0 च्या(cid:2) release
+  2945→timeline ल(cid:2) realistic ठे(cid:13)वत(cid:30). खा(cid:2)ल(cid:17)ल items explicitly future versions णिक"व(cid:2) partner ecosystem कडे(cid:13)
+  2946→delegated क(cid:13) ल (cid:13)आहे(cid:13)त.
+  2947→Out of scope decisions चा(cid:2) rationale त(cid:17)ने principles वर आधी(cid:2)णिरत आहे(cid:13): (1) Core focus preservation
+  2948→— preschool-specific workflows ल(cid:2) priority; (2) Build vs Buy — generic capabilities (e.g.,
+  2949→accounting) ल(cid:2) integrate कर(cid:23)(cid:13) अप(cid:13)णिBत ने(cid:2)हे(cid:17); (3) v1.0 timeline — 12-month delivery window
+  2950→मध्या (cid:13)feasible scope only. प$त्याक(cid:13)  out-of-scope item चा(cid:2) revisit plan documented आहे(cid:13).
+  2951→12.1 Explicitly Excluded from v1.0
+  2952→| Item | Reason | Revisit Plan |
+  2953→| ---- | ------ | ------------ |
+  2954→K-12 / College / University  PreOne हे(cid:13) exclusively  Out of strategic scope
+  2955→| support | preschool-specific; K-12  | permanently |
+  2956→| ------- | ------------------------- | ----------- |
+  2957→fundamentally different data
+  2958→model
+  2959→Full accounting system (Tally  Tally/Busy already mature;  v1.1: Tally XML export; v1.2:
+  2960→| replacement) | integrate via export only | real-time sync API |
+  2961→| ------------ | ------------------------- | ------------------ |
+  2962→Transport management with  Complex operational feature;  v1.1+ with partner
+  2963→| live GPS | not core to preschool | integration |
+  2964→| -------- | --------------------- | ----------- |
+  2965→73
+  2966→
+  2967→PreOne Master PRD v1.0  |  Product Freeze
+  2968→| Item | Reason | Revisit Plan |
+  2969→| ---- | ------ | ------------ |
+  2970→Hostel / Residential  Not applicable to preschool  Out of strategic scope
+  2971→| management | segment |     |
+  2972→| ---------- | ------- | --- |
+  2973→Library management Preschools rarely have  v1.2 if demand emerges
+  2974→formal libraries
+  2975→Examination & gradebook  Preschools use observations  Out of strategic scope
+  2976→| (K-12 style) | + milestones, not exams | permanently |
+  2977→| ------------ | ----------------------- | ----------- |
+  2978→Multi-country tax compliance v1.0 India-only (GST);  Year 3+ with global
+  2979→|     | international tax complex | expansion |
+  2980→| --- | ------------------------- | --------- |
+  2981→Third-party marketplace Requires significant seller  v2.0 with ecosystem play
+  2982→onboarding infrastructure
+  2983→Parent community / social  Privacy concerns; not core to  v2.0 with opt-in model
+  2984→| network | operations |     |
+  2985→| ------- | ---------- | --- |
+  2986→AI voice-based daily sheet  Speech-to-text accuracy for  v1.2 with proven accuracy
+  2987→| entry | Indian languages still  |     |
+  2988→| ----- | ----------------------- | --- |
+  2989→improving
+  2990→Biometric child attendance  Privacy concerns with  v1.2 with parent consent +
+  2991→| (face recognition) | minors; tech not mature | legal review |
+  2992→| ------------------ | ----------------------- | ------------ |
+  2993→Wearable device integration  Cost-prohibitive for  v2.0+ with partner
+  2994→| (smart bands)          | preschools      | ecosystem            |
+  2995→| ---------------------- | --------------- | -------------------- |
+  2996→| Multi-currency support | India-only v1.0 | Year 3+ with global  |
+  2997→expansion
+  2998→Offline-first mobile app Online-first acceptable for  v1.2 for low-connectivity
+  2999→|     | v1.0; offline complex | areas |
+  3000→| --- | --------------------- | ----- |
+  3001→Custom integrations  Requires developer  v2.0 with public API
+  3002→| marketplace | ecosystem |     |
+  3003→| ----------- | --------- | --- |
+  3004→Advanced HR (training LMS,  Core HR enough for v1.0;  v1.2+ if demand
+  3005→| recruitment ATS) | advanced HR feature creep |     |
+  3006→| ---------------- | ------------------------- | --- |
+  3007→Marketing automation (email  Marketing CRM focus on lead  v1.2 with marketing module
+  3008→sequences, drip campaigns) pipeline, not automation expansion
+  3009→Parent payment gateway EMI  Requires NBFC partnerships v1.2 with partner
+  3010→options
+  3011→74
+  3012→
+  3013→PreOne Master PRD v1.0 | Product Freeze
+  3014→12.2 Future Roadmap Placeholder
+  3015→खा(cid:2)ल(cid:17)ल items v1.0 च्या(cid:2) बा(cid:2)हे(cid:13)र आहे(cid:13)त प(cid:23) product roadmap मध्या(cid:13) tracked आहे(cid:13)त. हे(cid:13) items Vision v1.0
+  3016→Section 13 (Long-Term Product Vision 5-10 Years) श(cid:17) aligned आहे(cid:13)त:
+  3017→• v1.1 (Q1 2027): Tally XML export, biometric integration improvements, custom
+  3018→report builder enhancements, transport management with partner, voice daily
+  3019→sheet pilot.
+  3020→• v1.2 (Q3 2027): Multi-language expansion (Tamil, Telugu, Kannada), offline-first
+  3021→mobile, advanced HR (LMS), marketing automation, EMI options.
+  3022→• v2.0 (2028+): Marketplace launch, parent community (opt-in), wearable
+  3023→integration, advanced AI (vision-based observations, predictive milestone alerts at
+  3024→scale).
+  3025→• v3.0 (2029+): International expansion (SE Asia, Middle East, Africa), multi-currency,
+  3026→global compliance frameworks, third-party integrations marketplace.
+  3027→13. Traceability Matrix (RTM)
+  3028→Requirement Traceability Matrix (RTM) हे(cid:2) PreOne च्या(cid:2) requirements engineering चा(cid:2) final
+  3029→quality gate आहे(cid:13). या(cid:2)त प$त्याश(cid:13) requirement चा(cid:2) complete trace chain documented आहे(cid:13) — Vision
+  3030→→ BR → FR → BRC → AC → Test Case → Implementation. हे(cid:13) traceability ensure करत(cid:13) क(cid:17)
+  3031→क(cid:30)(cid:23)त(cid:2)हे(cid:17) requirement orphaned ने(cid:2)हे(cid:17) आणि(cid:23) क(cid:30)(cid:23)त(cid:2)हे(cid:17) implementation un-traced ने(cid:2)हे(cid:17).
+  3032→RTM चा(cid:2) primary use case: (1) Impact analysis — BR change क(cid:13) ल(cid:2) तर क(cid:30)(cid:23)त (cid:13)FRs, BRC rules, ACs
+  3033→affected हे(cid:30)त(cid:17)ल; (2) Coverage analysis — क(cid:30)(cid:23)त्या(cid:2) BRs चा(cid:17) ACs प(cid:23)+ (cid:20) झा(cid:2)ल(cid:17) आहे(cid:13)त; (3) Audit
+  3034→compliance — ISO 27001 / SOC 2 audits मध्या (cid:13)traceability mandatory; (4) Onboarding — new
+  3035→team members ल(cid:2) context णिमळेत(cid:30). खा(cid:2)ल(cid:17)ल master table 30 BRs चा(cid:2) trace chain दश(cid:20)वत(cid:30).
+  3036→13.1 Requirements Flow
+  3037→PreOne च्या(cid:2) requirements hierarchy खा(cid:2)ल(cid:17)लप$म(cid:2)(cid:23) (cid:13)आहे(cid:13). हे(cid:17) hierarchy top-down आहे (cid:13)— वरचा(cid:2) layer
+  3038→खा(cid:2)लच्या(cid:2) layer ल(cid:2) drive करत(cid:30), आणि(cid:23) खा(cid:2)लचा(cid:2) layer वरच्या(cid:2) layer चा(cid:2) verification provide करत(cid:30):
+  3039→Vision → Business Requirement (BR) → Functional Requirement (FR) → Business Rule (BRC)
+  3040→→ Acceptance Criteria (AC) → Test Case (TC) → Implementation
+  3041→75
+  3042→
+  3043→PreOne Master PRD v1.0  |  Product Freeze
+  3044→13.2 Master Traceability Matrix
+  3045→| BR ID | BR Title | FR IDs | BRC  | AC IDs | Status |
+  3046→| ----- | -------- | ------ | ---- | ------ | ------ |
+  3047→Category
+  3048→| BR-001 | Student   | FR-006 to  | Eligibility &  | AC-005 to  | Covered |
+  3049→| ------ | --------- | ---------- | -------------- | ---------- | ------- |
+  3050→|        | Admission | FR-010     | Approval       | AC-008     |         |
+  3051→| BR-002 | Parent    | FR-026 to  | Communica      | AC-022 to  | Covered |
+  3052→|        | Communica | FR-029     | tion           | AC-025     |         |
+  3053→tion
+  3054→| BR-003 | Daily       | FR-020 to  | Operational | AC-017 to  | Covered |
+  3055→| ------ | ----------- | ---------- | ----------- | ---------- | ------- |
+  3056→|        | Operations  | FR-025     |             | AC-021     |         |
+  3057→Digital
+  3058→| BR-004 | Fee       | FR-030 to  | Financial | AC-026 to  | Covered |
+  3059→| ------ | --------- | ---------- | --------- | ---------- | ------- |
+  3060→|        | Managemen | FR-035     |           | AC-030     |         |
+  3061→t
+  3062→| BR-005 | Inventory  | FR-036 to  | Inventory | AC-031 to  | Covered |
+  3063→| ------ | ---------- | ---------- | --------- | ---------- | ------- |
+  3064→|        | Managemen  | FR-039     |           | AC-035     |         |
+  3065→t
+  3066→| BR-006 | Multi-School  | FR-054 to  | Platform       | AC-050 to  | Covered |
+  3067→| ------ | ------------- | ---------- | -------------- | ---------- | ------- |
+  3068→|        | SaaS          | FR-056     |                | AC-053     |         |
+  3069→| BR-007 | Lead          | FR-001 to  | Eligibility &  | AC-001 to  | Covered |
+  3070→|        | Capture &     | FR-005     | Notification   | AC-004     |         |
+  3071→CRM
+  3072→| BR-008 | Student      | FR-011 to  | Eligibility | AC-009 to  | Covered |
+  3073→| ------ | ------------ | ---------- | ----------- | ---------- | ------- |
+  3074→|        | Lifecycle    | FR-014     |             | AC-012     |         |
+  3075→| BR-009 | Academic     | FR-015 to  | Academic    | AC-013 to  | Covered |
+  3076→|        | Observations | FR-019     |             | AC-016     |         |
+  3077→| BR-010 | HR & Payroll | FR-040 to  | HR          | AC-036 to  | Covered |
+  3078→|        |              | FR-043     |             | AC-039     |         |
+  3079→| BR-011 | Compliance   | FR-047     | Compliance  | AC-043     | Covered |
+  3080→Managemen
+  3081→t
+  3082→| BR-012 | Real-time     | FR-048 to  | Platform &   | AC-044 to  | Covered |
+  3083→| ------ | ------------- | ---------- | ------------ | ---------- | ------- |
+  3084→|        | Dashboards    | FR-050     | Notification | AC-046     |         |
+  3085→| BR-013 | Notification  | FR-052     | Notification | AC-048     | Covered |
+  3086→Engine
+  3087→76
+  3088→
+  3089→PreOne Master PRD v1.0  |  Product Freeze
+  3090→| BR ID | BR Title | FR IDs | BRC  | AC IDs | Status |
+  3091→| ----- | -------- | ------ | ---- | ------ | ------ |
+  3092→Category
+  3093→| BR-014 | Audit Trail | FR-056   | Platform | AC-052   | Covered   |
+  3094→| ------ | ----------- | -------- | -------- | -------- | --------- |
+  3095→| BR-015 | Mobile Apps | FR-057,  | Platform | AC-022,  | Covered   |
+  3096→|        |             | FR-058   |          | AC-044   |           |
+  3097→| BR-016 | Multi-      | FR-059   | Platform | AC-044   | Covered   |
+  3098→|        | language    |          |          |          | (partial) |
+  3099→Support
+  3100→| BR-017 | Visitor   | FR-045   | Operational  | AC-041,  | Covered |
+  3101→| ------ | --------- | -------- | ------------ | -------- | ------- |
+  3102→|        | Managemen |          | &            | AC-042   |         |
+  3103→|        | t         |          | Compliance   |          |         |
+  3104→| BR-018 | Asset     | FR-044,  | Operational  | AC-040   | Covered |
+  3105→|        | Managemen | FR-046   |              |          |         |
+  3106→t
+  3107→| BR-019 | Event     | FR-029 | Communica | AC-025 | Covered |
+  3108→| ------ | --------- | ------ | --------- | ------ | ------- |
+  3109→|        | Managemen |        | tion      |        |         |
+  3110→t
+  3111→| BR-020 | Report Cards | FR-019 | Academic     | AC-016 | Covered |
+  3112→| ------ | ------------ | ------ | ------------ | ------ | ------- |
+  3113→| BR-021 | Refund       | FR-034 | Financial &  | AC-030 | Covered |
+  3114→|        | Processing   |        | Approval     |        |         |
+  3115→| BR-022 | Bulk         | FR-060 | Platform     | AC-008 | Covered |
+  3116→Import/Expo
+  3117→rt
+  3118→| BR-023 | Custom  | FR-053 | Platform | AC-049 | Covered |
+  3119→| ------ | ------- | ------ | -------- | ------ | ------- |
+  3120→Workflows
+  3121→| BR-024 | Biometric    | FR-020        | Operational | AC-017 | Covered       |
+  3122→| ------ | ------------ | ------------- | ----------- | ------ | ------------- |
+  3123→|        | Attendance   | (integration) |             |        | (integration) |
+  3124→| BR-025 | AI           | FR-016 (AI    | Academic    | AC-013 | Covered       |
+  3125→|        | Observation  | feature)      |             |        |               |
+  3126→Assistant
+  3127→| BR-026 | Parent       | FR-028   | Communica | AC-024 | Covered   |
+  3128→| ------ | ------------ | -------- | --------- | ------ | --------- |
+  3129→|        | Feedback     | (survey) | tion      |        |           |
+  3130→| BR-027 | Third-party  | Future   | Platform  | Future | Deferred  |
+  3131→|        | Integrations |          |           |        | v1.1+     |
+  3132→77
+  3133→
+  3134→PreOne Master PRD v1.0  |  Product Freeze
+  3135→| BR ID | BR Title | FR IDs | BRC  | AC IDs | Status |
+  3136→| ----- | -------- | ------ | ---- | ------ | ------ |
+  3137→Category
+  3138→| BR-028 | Transport  | Future | Operational | Future | Deferred  |
+  3139→| ------ | ---------- | ------ | ----------- | ------ | --------- |
+  3140→|        | Managemen  |        |             |        | v1.1+     |
+  3141→t
+  3142→| BR-029 | Marketplace | Future | Platform | Future | Deferred  |
+  3143→| ------ | ----------- | ------ | -------- | ------ | --------- |
+  3144→v2.0+
+  3145→| BR-030 | Voice Daily  | Future | Operational | Future | Deferred  |
+  3146→| ------ | ------------ | ------ | ----------- | ------ | --------- |
+  3147→|        | Sheet        |        |             |        | v1.2+     |
+  3148→13.3 Coverage Summary
+  3149→RTM coverage analysis खा(cid:2)ल(cid:17)लप$म(cid:2)(cid:23)(cid:13) आहे(cid:13). हे(cid:2) summary identify करत(cid:30) क(cid:30)(cid:23)त(cid:13) BRs v1.0 मध्या(cid:13) fully
+  3150→covered आहे(cid:13)त आणि(cid:23) क(cid:30)(cid:23)त(cid:13) future versions कडे(cid:13) deferred आहे(cid:13)त:
+  3151→| Coverage Status      | BR Count |     | % of Total | Notes            |     |
+  3152→| -------------------- | -------- | --- | ---------- | ---------------- | --- |
+  3153→| Fully Covered (v1.0) | 26       |     | 87%        | P0 + P1 BRs all  |     |
+  3154→covered with FRs +
+  3155→ACs
+  3156→| Partially Covered | 1   |     | 3%  | BR-016 Multi- |     |
+  3157→| ----------------- | --- | --- | --- | ------------- | --- |
+  3158→language: 3 of 8
+  3159→languages in v1.0
+  3160→| Deferred to v1.1+ | 2   |     | 7%  | BR-027 Integrations,  |     |
+  3161→| ----------------- | --- | --- | --- | --------------------- | --- |
+  3162→BR-028 Transport
+  3163→| Deferred to v2.0+ | 1   |     | 3%  | BR-029 Marketplace  |     |
+  3164→| ----------------- | --- | --- | --- | ------------------- | --- |
+  3165→| Deferred to v1.2+ | 1   |     | 3%  | BR-030 Voice daily  |     |
+  3166→sheet
+  3167→| Total | 30  |     | 100% | All 30 BRs traceable  |     |
+  3168→| ----- | --- | --- | ---- | --------------------- | --- |
+  3169→to FR/BRC/AC or
+  3170→deferred
+  3171→78
+  3172→
+  3173→PreOne Master PRD v1.0 | Product Freeze
+  3174→13.4 Traceability Process
+  3175→RTM चा(cid:2) maintenance खा(cid:2)ल(cid:17)ल process द्वा(cid:2)र(cid:13) हे(cid:30)त(cid:30). हे(cid:2) process software development lifecycle चा(cid:2)
+  3176→embedded step आहे(cid:13) — separate RTM update activity ने(cid:2)हे(cid:17):
+  3177→• Requirement Creation: नेव(cid:17)ने BR/FR/AC created करत(cid:2)ने(cid:2) traceability links mandatory.
+  3178→णिबाने(cid:2) trace chain क(cid:30)(cid:23)त(cid:2)हे(cid:17) requirement merged हे(cid:30)(cid:23)(cid:2)र ने(cid:2)हे(cid:17).
+  3179→• Sprint Planning: Each sprint RTM review करत(cid:30) — orphan requirements identified,
+  3180→missing ACs flagged.
+  3181→• Code Review: PR template मध्या (cid:13)"Related AC" field mandatory — code without AC
+  3182→reference rejected.
+  3183→• QA Cycle: Test cases traceable to ACs; AC without test case flagged; coverage
+  3184→report auto-generated.
+  3185→• Release Sign-off: Release readiness check: 100% P0 BRs covered, ≥95% P1 covered,
+  3186→0 orphan ACs.
+  3187→• Quarterly Audit: RTM completeness audit by Product team; gaps remediated within
+  3188→sprint.
+  3189→Appendix A: Document Control
+  3190→Document Control section या(cid:2) PRD च्या(cid:2) versioning, approval, distribution, आणि(cid:23) maintenance
+  3191→चा(cid:2) authoritative record आहे(cid:13). हे(cid:2) section ISO 27001 / SOC 2 documentation requirements श(cid:17)
+  3192→compliant आहे(cid:13).
+  3193→A.1 Version History
+  3194→Version Date Author Changes Status
+  3195→0.1 2026-06-01 Product Team Initial draft — Draft
+  3196→outline +
+  3197→sections 1-3
+  3198→0.5 2026-06-15 Product Team Added sections Draft
+  3199→4-7 (FR, NFR,
+  3200→BR, Roles)
+  3201→0.8 2026-06-25 Product Team Added section 8 Draft
+  3202→(Module
+  3203→Requirements
+  3204→for 13 domains)
+  3205→79
+  3206→
+  3207→PreOne Master PRD v1.0  |  Product Freeze
+  3208→| Version | Date       | Author       | Changes         | Status   |
+  3209→| ------- | ---------- | ------------ | --------------- | -------- |
+  3210→| 0.9     | 2026-07-01 | Product Team | Added sections  | Reviewed |
+  3211→9-13 + Appendix
+  3212→A; integrated
+  3213→BRC v1.0
+  3214→references
+  3215→| 1.0 | 2026-07-12 | Product Team | Product Freeze  | Frozen |
+  3216→| --- | ---------- | ------------ | --------------- | ------ |
+  3217→— reviewed +
+  3218→approved by all
+  3219→stakeholders
+  3220→A.2 Approval Matrix
+  3221→या(cid:2) PRD v1.0 च्या(cid:2) Product Freeze स(cid:2)ठे(cid:17) खा(cid:2)ल(cid:17)ल stakeholders चा(cid:17) approval mandatory हे(cid:30)त(cid:17). सव(cid:20)
+  3222→approvals documented आणि(cid:23) archived आहे(cid:13)त:
+  3223→| Role           | Name       | Department | Approval Date | Signature     |
+  3224→| -------------- | ---------- | ---------- | ------------- | ------------- |
+  3225→| Chief Product  | 【CPO Name】 | Product    | 2026-07-12    | 【Digital      |
+  3226→| Officer        |            |            |               | signature on  |
+  3227→file】
+  3228→| VP Engineering | 【VP Eng  | Engineering | 2026-07-12 | 【Digital      |
+  3229→| -------------- | -------- | ----------- | ---------- | ------------- |
+  3230→|                | Name】    |             |            | signature on  |
+  3231→file】
+  3232→| Compliance  | 【Compliance  | Legal &    | 2026-07-12 | 【Digital      |
+  3233→| ----------- | ------------ | ---------- | ---------- | ------------- |
+  3234→| Officer     | Name】        | Compliance |            | signature on  |
+  3235→file】
+  3236→| Business Head | 【Business  | Business | 2026-07-12 | 【Digital      |
+  3237→| ------------- | ---------- | -------- | ---------- | ------------- |
+  3238→|               | Head Name】 |          |            | signature on  |
+  3239→file】
+  3240→| Operations  | 【Ops Head  | Operations | 2026-07-12 | 【Digital      |
+  3241→| ----------- | ---------- | ---------- | ---------- | ------------- |
+  3242→| Head        | Name】      |            |            | signature on  |
+  3243→file】
+  3244→| Academic  | 【Academic     | Academic | 2026-07-12 | 【Digital      |
+  3245→| --------- | ------------- | -------- | ---------- | ------------- |
+  3246→| Advisor   | Advisor Name】 |          |            | signature on  |
+  3247→file】
+  3248→80
+  3249→
+  3250→PreOne Master PRD v1.0  |  Product Freeze
+  3251→A.3 Review Cadence
+  3252→PRD v1.0 freeze नेत" र खा(cid:2)ल(cid:17)ल review cadence follow क(cid:13) ल(cid:2) जा(cid:2)ईल. हे(cid:17) cadence ensure करत(cid:13) क(cid:17)
+  3253→document living artifact र(cid:2)हेत(cid:30) आणि(cid:23) stale हे(cid:30)त ने(cid:2)हे(cid:17):
+  3254→•  Quarterly Review: Every quarter Product team reviews PRD for accuracy. Minor
+  3255→updates (clarifications, additional examples) push as v1.0.X.
+  3256→•  Semi-Annual Major Review: Every 6 months comprehensive review. New BRs/FRs
+  3257→added as v1.X.0. Stakeholder re-approval required.
+  3258→•  Annual Major Release: Once a year, major version bump (v2.0). Triggers re-baseline
+  3259→of BRC + companion docs.
+  3260→•  Emergency Change: Critical compliance / security changes can be pushed as hotfix
+  3261→with CPO + Compliance Officer approval.
+  3262→A.4 Distribution List
+  3263→या(cid:2) PRD चा(cid:17) access खा(cid:2)ल(cid:17)ल teams ल(cid:2) granted आहे(cid:13). Access control via PreOne internal docs
+  3264→portal; download + share restricted:
+  3265→| Team               | Access Level   | Purpose              |
+  3266→| ------------------ | -------------- | -------------------- |
+  3267→| Product Management | Edit + Comment | Owns PRD; updates +  |
+  3268→clarifications
+  3269→| Engineering (All)  | Read + Comment | Implementation reference  |
+  3270→| ------------------ | -------------- | ------------------------- |
+  3271→| QA                 | Read + Comment | Test case derivation      |
+  3272→| Design / UX        | Read           | UI/UX decisions alignment |
+  3273→| Compliance & Legal | Read + Comment | Compliance review         |
+  3274→| Business / Sales   | Read           | Customer commitments      |
+  3275→alignment
+  3276→| Operations       | Read | Operational readiness |
+  3277→| ---------------- | ---- | --------------------- |
+  3278→| Customer Success | Read | Customer onboarding   |
+  3279→reference
+  3280→| Executive Leadership | Read | Strategic alignment |
+  3281→| -------------------- | ---- | ------------------- |
+  3282→81
+  3283→
+  3284→PreOne Master PRD v1.0  |  Product Freeze
+  3285→A.5 Companion Documents
+  3286→या(cid:2)  PRD  च्या(cid:2)  effective use  स(cid:2)ठे(cid:17) खा(cid:2)ल(cid:17)ल  companion documents reference  क(cid:13) ल(cid:13) जा(cid:2)त(cid:2)त.  हे(cid:13)
+  3287→documents PreOne documentation portal वर available आहे(cid:13)त:
+  3288→| Document               | Version | Relationship                   |
+  3289→| ---------------------- | ------- | ------------------------------ |
+  3290→| PreOne Vision Document | 1.0     | Strategic context for this PRD |
+  3291→| PreOne BPM (Business   | 1.0     | Process flows referenced in    |
+  3292→| Process Map)           |         | Section 8 (Module              |
+  3293→Requirements)
+  3294→| PreOne BRC (Business Rules  | 1.0  | 176 rules referenced in    |
+  3295→| --------------------------- | ---- | -------------------------- |
+  3296→| Catalog)                    |      | Section 6 (Business Rules) |
+  3297→| PreOne ADR (Architecture    | 1-12 | Architecture decisions     |
+  3298→| Decision Records)           |      | referenced throughout      |
+  3299→| PreOne Database Schema      | v2   | Data model for             |
+  3300→implementation
+  3301→PreOne API Specification v1 (OpenAPI) API contracts referenced in
+  3302→Section 8
+  3303→| PreOne Design System | v1  | UI/UX components for  |
+  3304→| -------------------- | --- | --------------------- |
+  3305→implementation
+  3306→| PreOne Test Strategy | v1  | QA approach for ACs in  |
+  3307→| -------------------- | --- | ----------------------- |
+  3308→Section 11
+  3309→82

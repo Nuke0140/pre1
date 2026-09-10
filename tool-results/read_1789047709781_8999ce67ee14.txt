@@ -1,0 +1,2002 @@
+  2000→BRANCH /
+  2001→CLASSROOM
+  2002→| description | text | YES | -   | Purpose of role |
+  2003→| ----------- | ---- | --- | --- | --------------- |
+  2004→PreOne ERD v3.0                                                              Page 53 of 403
+  2005→
+  2006→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2007→| Column    | Type    | Null | Key | Description  |
+  2008→| --------- | ------- | ---- | --- | ------------ |
+  2009→| is_system | boolean | NO   | -   | true = code- |
+  2010→managed (cannot
+  2011→delete)
+  2012→| is_active | boolean | NO  | -   | Default true |
+  2013→| --------- | ------- | --- | --- | ------------ |
+  2014→Indexes
+  2015→| Index Name | Columns | Type |     | Purpose |
+  2016→| ---------- | ------- | ---- | --- | ------- |
+  2017→role_school_code_uidx school_id, code btree_unique Code uniqueness per
+  2018→tenant
+  2019→Foreign Keys
+  2020→•  school_id,schools(id) ON DELETE CASCADE
+  2021→11.4.6 permission
+  2022→Purpose: Atomic capability string (e.g., 'fees.refund.execute'). Permissions are platform-wide
+  2023→dictionary; roles attach via role_permission.
+  2024→Prisma Model: Permission  |  Aggregate: Identity
+  2025→Columns
+  2026→| Column | Type        | Null | Key | Description   |
+  2027→| ------ | ----------- | ---- | --- | ------------- |
+  2028→| code   | varchar(80) | NO   | U   | Dot-notation  |
+  2029→capability
+  2030→(module.action.sc
+  2031→ope)
+  2032→| name        | varchar(120) | NO  | -   | Display name |
+  2033→| ----------- | ------------ | --- | --- | ------------ |
+  2034→| description | text         | YES | -   | What this    |
+  2035→permission allows
+  2036→| module | varchar(32) | NO  | -   | Owning module  |
+  2037→| ------ | ----------- | --- | --- | -------------- |
+  2038→(FINANCE,
+  2039→ADMISSION, etc.)
+  2040→| is_dangerous | boolean | NO  | -   | true = requires  |
+  2041→| ------------ | ------- | --- | --- | ---------------- |
+  2042→extra approval
+  2043→(delete, refund)
+  2044→PreOne ERD v3.0                                                              Page 54 of 403
+  2045→
+  2046→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2047→Indexes
+  2048→| Index Name            | Columns | Type         |     | Purpose            |
+  2049→| --------------------- | ------- | ------------ | --- | ------------------ |
+  2050→| permission_code_uidx  | code    | btree_unique |     | Natural key        |
+  2051→| permission_module_idx | module  | btree        |     | Per-module listing |
+  2052→11.4.7 role_permission
+  2053→Purpose: Junction table linking roles to permissions. RBAC matrix computed from this + user_role.
+  2054→Prisma Model: RolePermission  |  Aggregate: Identity
+  2055→Columns
+  2056→| Column        | Type | Null | Key | Description       |
+  2057→| ------------- | ---- | ---- | --- | ----------------- |
+  2058→| role_id       | UUID | NO   | FK  | → roles(id)       |
+  2059→| permission_id | UUID | NO   | FK  | → permissions(id) |
+  2060→| granted_by    | UUID | YES  | FK  | → users(id) ON    |
+  2061→DELETE SET NULL
+  2062→| granted_at | timestamptz | NO  | -   | Grant timestamp |
+  2063→| ---------- | ----------- | --- | --- | --------------- |
+  2064→Indexes
+  2065→| Index Name | Columns | Type |     | Purpose |
+  2066→| ---------- | ------- | ---- | --- | ------- |
+  2067→role_permission_role_p role_id, permission_id btree_unique No duplicate grants
+  2068→erm_uidx
+  2069→Foreign Keys
+  2070→•  role_id,roles(id) ON DELETE CASCADE
+  2071→•  permission_id,permissions(id) ON DELETE CASCADE
+  2072→11.4.8 user_role
+  2073→Purpose: User ↔ role assignment; optionally scoped to a branch or classroom.
+  2074→Prisma Model: UserRole  |  Aggregate: Identity
+  2075→Columns
+  2076→| Column  | Type | Null | Key | Description |
+  2077→| ------- | ---- | ---- | --- | ----------- |
+  2078→| user_id | UUID | NO   | FK  | → users(id) |
+  2079→PreOne ERD v3.0                                                              Page 55 of 403
+  2080→
+  2081→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2082→| Column    | Type | Null | Key | Description     |
+  2083→| --------- | ---- | ---- | --- | --------------- |
+  2084→| role_id   | UUID | NO   | FK  | → roles(id)     |
+  2085→| branch_id | UUID | YES  | FK  | → branches(id)  |
+  2086→ON DELETE
+  2087→CASCADE (NULL =
+  2088→tenant-wide)
+  2089→| classroom_id | UUID | YES | FK  | → classrooms(id)  |
+  2090→| ------------ | ---- | --- | --- | ----------------- |
+  2091→ON DELETE
+  2092→CASCADE (NULL =
+  2093→branch-wide)
+  2094→| assigned_by | UUID | YES | FK  | → users(id) ON  |
+  2095→| ----------- | ---- | --- | --- | --------------- |
+  2096→DELETE SET NULL
+  2097→| assigned_at | timestamptz | NO  | -   | Assignment  |
+  2098→| ----------- | ----------- | --- | --- | ----------- |
+  2099→timestamp
+  2100→| expires_at | timestamptz | YES | -   | Optional expiry  |
+  2101→| ---------- | ----------- | --- | --- | ---------------- |
+  2102→(for temporary
+  2103→roles)
+  2104→Indexes
+  2105→| Index Name | Columns | Type |     | Purpose |
+  2106→| ---------- | ------- | ---- | --- | ------- |
+  2107→user_role_user_role_sc user_id, role_id,  btree_unique No duplicate scoped
+  2108→| ope_uidx | branch_id,  |     |     | assignments |
+  2109→| -------- | ----------- | --- | --- | ----------- |
+  2110→classroom_id
+  2111→Foreign Keys
+  2112→•  user_id,users(id) ON DELETE CASCADE
+  2113→•  role_id,roles(id) ON DELETE CASCADE
+  2114→11.4.9 session
+  2115→Purpose: Active user session. Used for audit trail and force-logout. JWT is stateless but session table
+  2116→allows revocation.
+  2117→Prisma Model: Session  |  Aggregate: Identity
+  2118→Columns
+  2119→| Column  | Type | Null | Key | Description |
+  2120→| ------- | ---- | ---- | --- | ----------- |
+  2121→| user_id | UUID | NO   | FK  | → users(id) |
+  2122→PreOne ERD v3.0                                                              Page 56 of 403
+  2123→
+  2124→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2125→| Column     | Type        | Null | Key | Description      |
+  2126→| ---------- | ----------- | ---- | --- | ---------------- |
+  2127→| token_jti  | varchar(64) | NO   | U   | JWT ID (unique)  |
+  2128→| ip_address | inet        | NO   | -   | Login IP         |
+  2129→| user_agent | text        | NO   | -   | Login User-Agent |
+  2130→| device_id  | varchar(64) | YES  | -   | Optional device  |
+  2131→fingerprint
+  2132→| issued_at  | timestamptz | NO  | -   | Token issue time |
+  2133→| ---------- | ----------- | --- | --- | ---------------- |
+  2134→| expires_at | timestamptz | NO  | -   | Token expiry     |
+  2135→| revoked_at | timestamptz | YES | -   | Manual revoke    |
+  2136→timestamp
+  2137→Indexes
+  2138→| Index Name             | Columns   | Type         |     | Purpose    |
+  2139→| ---------------------- | --------- | ------------ | --- | ---------- |
+  2140→| session_token_jti_uidx | token_jti | btree_unique |     | JWT lookup |
+  2141→session_user_active_id user_id WHERE  partial Active sessions per user
+  2142→| x   | revoked_at IS NULL |     |     |     |
+  2143→| --- | ------------------ | --- | --- | --- |
+  2144→Foreign Keys
+  2145→•  user_id,users(id) ON DELETE CASCADE
+  2146→•  school_id,schools(id) ON DELETE CASCADE
+  2147→11.4.10 refresh_token
+  2148→Purpose: Long-lived refresh token for JWT rotation. Hashed at rest; rotation invalidates previous.
+  2149→Prisma Model: RefreshToken  |  Aggregate: Identity
+  2150→Columns
+  2151→| Column     | Type         | Null | Key | Description   |
+  2152→| ---------- | ------------ | ---- | --- | ------------- |
+  2153→| user_id    | UUID         | NO   | FK  | → users(id)   |
+  2154→| token_hash | varchar(128) | NO   | U   | SHA-256 hash  |
+  2155→| family_id  | UUID         | NO   | -   | Token family  |
+  2156→(rotation chain)
+  2157→| issued_at  | timestamptz | NO  | -   | Issue time |
+  2158→| ---------- | ----------- | --- | --- | ---------- |
+  2159→| expires_at | timestamptz | NO  | -   | Expiry     |
+  2160→PreOne ERD v3.0                                                              Page 57 of 403
+  2161→
+  2162→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2163→| Column  | Type        | Null | Key | Description     |
+  2164→| ------- | ----------- | ---- | --- | --------------- |
+  2165→| used_at | timestamptz | YES  | -   | When refreshed  |
+  2166→(NULL = still valid)
+  2167→| revoked_at    | timestamptz | YES | -   | Revoke timestamp |
+  2168→| ------------- | ----------- | --- | --- | ---------------- |
+  2169→| revoke_reason | varchar(64) | YES | -   | USER / EXPIRY /  |
+  2170→REUSE_DETECTED
+  2171→/ ADMIN
+  2172→Indexes
+  2173→| Index Name            | Columns    | Type         |     | Purpose     |
+  2174→| --------------------- | ---------- | ------------ | --- | ----------- |
+  2175→| refresh_token_hash_ui | token_hash | btree_unique |     | Auth lookup |
+  2176→dx
+  2177→| refresh_token_family_i | family_id | btree |     | Reuse detection |
+  2178→| ---------------------- | --------- | ----- | --- | --------------- |
+  2179→dx
+  2180→Foreign Keys
+  2181→•  user_id,users(id) ON DELETE CASCADE
+  2182→11.4.11 otp_challenge
+  2183→Purpose: OTP issued for login / phone verification / passwordless flow. Hashed; rate-limited.
+  2184→Prisma Model: OtpChallenge  |  Aggregate: Identity
+  2185→Columns
+  2186→| Column     | Type   | Null | Key | Description     |
+  2187→| ---------- | ------ | ---- | --- | --------------- |
+  2188→| identifier | citext | NO   | -   | Email or phone  |
+  2189→being challenged
+  2190→| channel | varchar(8) | NO  | -   | EMAIL / SMS /  |
+  2191→| ------- | ---------- | --- | --- | -------------- |
+  2192→WHATSAPP
+  2193→| code_hash | varchar(128) | NO  | -   | SHA-256 hash of  |
+  2194→| --------- | ------------ | --- | --- | ---------------- |
+  2195→OTP
+  2196→| purpose | varchar(32) | NO  | -   | LOGIN /  |
+  2197→| ------- | ----------- | --- | --- | -------- |
+  2198→PHONE_VERIFY /
+  2199→PASSWORD_RESE
+  2200→T / MFA
+  2201→| attempts | integer | NO  | -   | Default 0; max 5 |
+  2202→| -------- | ------- | --- | --- | ---------------- |
+  2203→PreOne ERD v3.0                                                              Page 58 of 403
+  2204→
+  2205→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2206→| Column      | Type        | Null | Key | Description        |
+  2207→| ----------- | ----------- | ---- | --- | ------------------ |
+  2208→| expires_at  | timestamptz | NO   | -   | OTP expiry (5 min) |
+  2209→| verified_at | timestamptz | YES  | -   | Successful         |
+  2210→verification
+  2211→| consumed_at | timestamptz | YES | -   | When used  |
+  2212→| ----------- | ----------- | --- | --- | ---------- |
+  2213→(single-use)
+  2214→Indexes
+  2215→| Index Name | Columns | Type |     | Purpose |
+  2216→| ---------- | ------- | ---- | --- | ------- |
+  2217→otp_challenge_identifie identifier, purpose btree Active OTP lookup
+  2218→r_purpose_idx
+  2219→| otp_challenge_expires_ | expires_at WHERE    | partial |     | Cleanup job |
+  2220→| ---------------------- | ------------------- | ------- | --- | ----------- |
+  2221→| idx                    | verified_at IS NULL |         |     |             |
+  2222→Foreign Keys
+  2223→•  school_id,schools(id) ON DELETE CASCADE
+  2224→11.4.12 audit_log
+  2225→Purpose: Immutable forensics record of who-did-what-when. Append-only; never UPDATE/DELETE.
+  2226→Partitioned monthly.
+  2227→Prisma Model: AuditLog  |  Aggregate: PlatformConfig
+  2228→Columns
+  2229→| Column  | Type | Null | Key | Description     |
+  2230→| ------- | ---- | ---- | --- | --------------- |
+  2231→| user_id | UUID | YES  | FK  | → users(id) ON  |
+  2232→DELETE SET NULL
+  2233→(system actions =
+  2234→NULL)
+  2235→| action | AuditAction | NO  | -   | CREATE /  |
+  2236→| ------ | ----------- | --- | --- | --------- |
+  2237→UPDATE /
+  2238→DELETE / LOGIN /
+  2239→LOGOUT / EXPORT
+  2240→/ IMPORT /
+  2241→ACCESS / ERROR
+  2242→PreOne ERD v3.0                                                              Page 59 of 403
+  2243→
+  2244→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2245→| Column | Type        | Null | Key | Description  |
+  2246→| ------ | ----------- | ---- | --- | ------------ |
+  2247→| module | varchar(32) | NO   | -   | Module name  |
+  2248→(FINANCE,
+  2249→ADMISSION)
+  2250→| entity | varchar(64) | NO  | -   | Entity type  |
+  2251→| ------ | ----------- | --- | --- | ------------ |
+  2252→(Student, Invoice)
+  2253→| entity_id | varchar(64) | YES | -   | Entity UUID (string  |
+  2254→| --------- | ----------- | --- | --- | -------------------- |
+  2255→for polymorphic)
+  2256→| old_values | jsonb | YES | -   | Pre-change  |
+  2257→| ---------- | ----- | --- | --- | ----------- |
+  2258→snapshot
+  2259→(UPDATE/DELETE
+  2260→only)
+  2261→| new_values | jsonb | YES | -   | Post-change  |
+  2262→| ---------- | ----- | --- | --- | ------------ |
+  2263→snapshot
+  2264→(CREATE/UPDATE
+  2265→only)
+  2266→| ip_address | inet        | NO  | -   | Actor IP      |
+  2267→| ---------- | ----------- | --- | --- | ------------- |
+  2268→| user_agent | text        | YES | -   | Actor UA      |
+  2269→| request_id | varchar(64) | YES | -   | Trace ID for  |
+  2270→distributed tracing
+  2271→| occurred_at | timestamptz | NO  | -   | Event time  |
+  2272→| ----------- | ----------- | --- | --- | ----------- |
+  2273→(defaults to now)
+  2274→Indexes
+  2275→| Index Name | Columns | Type |     | Purpose |
+  2276→| ---------- | ------- | ---- | --- | ------- |
+  2277→audit_log_entity_idx entity, entity_id btree Per-entity history
+  2278→audit_log_user_idx user_id, occurred_at  btree Per-user history
+  2279→DESC
+  2280→audit_log_module_acti module, action,  btree Forensic queries
+  2281→| on_idx                 | occurred_at DESC |      |     |                   |
+  2282→| ---------------------- | ---------------- | ---- | --- | ----------------- |
+  2283→| audit_log_occurred_bri | occurred_at      | brin |     | Time-series scan  |
+  2284→| n                      |                  |      |     | (compact)         |
+  2285→Foreign Keys
+  2286→•  user_id,users(id) ON DELETE SET NULL
+  2287→•  school_id,schools(id) ON DELETE RESTRICT
+  2288→PreOne ERD v3.0                                                              Page 60 of 403
+  2289→
+  2290→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2291→11.4.13 feature_flag
+  2292→Purpose: Tenant-scoped feature flag for progressive rollout. Evaluated at request time and cached.
+  2293→Prisma Model: FeatureFlag  |  Aggregate: PlatformConfig
+  2294→Columns
+  2295→| Column | Type        | Null | Key | Description          |
+  2296→| ------ | ----------- | ---- | --- | -------------------- |
+  2297→| key    | varchar(64) | NO   | U   | Dot-notation (e.g.,  |
+  2298→'ai.observations.e
+  2299→nabled')
+  2300→| strategy | FeatureFlagStrate | NO  | -   | ON / OFF /    |
+  2301→| -------- | ----------------- | --- | --- | ------------- |
+  2302→|          | gy                |     |     | PERCENTAGE /  |
+  2303→ALLOWLIST /
+  2304→DENYLIST
+  2305→| percentage | integer | YES | -   | 0-100 (NULL for  |
+  2306→| ---------- | ------- | --- | --- | ---------------- |
+  2307→non-percentage)
+  2308→| allowlist | jsonb | YES | -   | Array of user IDs  |
+  2309→| --------- | ----- | --- | --- | ------------------ |
+  2310→or branch IDs
+  2311→| denylist | jsonb | YES | -   | Array of user IDs  |
+  2312→| -------- | ----- | --- | --- | ------------------ |
+  2313→or branch IDs
+  2314→| description | text        | YES | -   | Purpose of flag   |
+  2315→| ----------- | ----------- | --- | --- | ----------------- |
+  2316→| is_active   | boolean     | NO  | -   | Default true      |
+  2317→| expires_at  | timestamptz | YES | -   | Auto-disable date |
+  2318→Indexes
+  2319→| Index Name | Columns | Type |     | Purpose |
+  2320→| ---------- | ------- | ---- | --- | ------- |
+  2321→feature_flag_school_ke school_id, key btree_unique One flag per key per
+  2322→| y_uidx |     |     |     | tenant |
+  2323→| ------ | --- | --- | --- | ------ |
+  2324→Foreign Keys
+  2325→•  school_id,schools(id) ON DELETE CASCADE
+  2326→PreOne ERD v3.0                                                              Page 61 of 403
+  2327→
+  2328→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2329→12. Domain: Marketing & CRM
+  2330→हा(cid:2) domain lead capture सा(cid:8) तो(cid:8) conversion पुया/तो  चा(cid:2) पुण! / funnel आहा(cid:8). Marketing campaigns → leads →
+  2331→enquiries → counselling sessions → application hand-off. Attribution model lead_source शी(cid:15) link हा(cid:18)तो(cid:18);
+  2332→lead_score hot/warm/cold classification automated आहा(cid:8).
+  2333→12.1 Domain KPIs
+  2334→या(cid:2) domain चा (cid:8)operational health measure केरेण(cid:2)रे(cid:8) KPIs खा(cid:2)ला(cid:15)लापु,म(cid:2)ण (cid:8)आहा(cid:8)तो:
+  2335→| KPI                        |     | Target / Definition          |     |
+  2336→| -------------------------- | --- | ---------------------------- | --- |
+  2337→| Lead-to-enquiry conversion |     | ≥70% within 7 days           |     |
+  2338→| Cost per lead (CPL)        |     | Tracked per campaign channel |     |
+  2339→Counsellor response time Median <60 min during business hours
+  2340→| Referral conversion rate |     | ≥35% (highest quality source) |     |
+  2341→| ------------------------ | --- | ----------------------------- | --- |
+  2342→12.2 Table Inventory
+  2343→या(cid:2) domain मध्या(cid:8) 14 tables आहा(cid:8)तो. खा(cid:2)ला(cid:15)ला summary table पु,त्याके(cid:8)  table चा(cid:8) name, Prisma model, aggregate,
+  2344→आणिण purpose capture केरेतो(cid:8):
+  2345→| Table | Prisma Model | Aggregate | Purpose |
+  2346→| ----- | ------------ | --------- | ------- |
+  2347→marketing_campaign MarketingCampaign Campaign Marketing campaign
+  2348→record — channel,
+  2349→budget, attribution
+  2350→window.
+  2351→| lead_source | LeadSource | Campaign | Lead source dictionary  |
+  2352→| ----------- | ---------- | -------- | ----------------------- |
+  2353→(walk-in, referral, online
+  2354→ad). Stable reference
+  2355→for attribution.
+  2356→| lead | Lead | Lead | Pre-admission prospect  |
+  2357→| ---- | ---- | ---- | ----------------------- |
+  2358→captured from
+  2359→campaigns, walk-ins,
+  2360→referrals. Converts to
+  2361→enquiry after
+  2362→qualification.
+  2363→PreOne ERD v3.0                                                              Page 62 of 403
+  2364→
+  2365→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2366→| Table         | Prisma Model | Aggregate | Purpose            |
+  2367→| ------------- | ------------ | --------- | ------------------ |
+  2368→| lead_activity | LeadActivity | Lead      | Timeline of every  |
+  2369→interaction with a lead
+  2370→— call, WhatsApp,
+  2371→email, visit, demo.
+  2372→| enquiry | Enquiry | Lead | Qualified lead with  |
+  2373→| ------- | ------- | ---- | -------------------- |
+  2374→explicit intent —
+  2375→preferred program +
+  2376→branch + timeframe.
+  2377→Becomes application
+  2378→when documents
+  2379→submitted.
+  2380→| follow_up | FollowUp | Lead | Scheduled follow-up  |
+  2381→| --------- | -------- | ---- | -------------------- |
+  2382→task. Distinct from
+  2383→lead_activity (which
+  2384→records completed
+  2385→actions).
+  2386→| referral | Referral | Lead | Referral record —  |
+  2387→| -------- | -------- | ---- | ------------------ |
+  2388→existing parent refers
+  2389→new lead. Eligibility +
+  2390→reward tracked.
+  2391→| referral_reward | ReferralReward | Lead | Issued referral rewards  |
+  2392→| --------------- | -------------- | ---- | ------------------------ |
+  2393→log. Drives finance
+  2394→reconciliation for fee
+  2395→discounts.
+  2396→| whatsapp_opt_in | WhatsAppOptIn | Lead | Parent consent for  |
+  2397→| --------------- | ------------- | ---- | ------------------- |
+  2398→WhatsApp marketing
+  2399→messages. Required by
+  2400→DPDP §11.
+  2401→email_subscription EmailSubscription Lead Parent consent for
+  2402→marketing emails.
+  2403→Unsubscribe tracking
+  2404→per CAN-SPAM/DPDP.
+  2405→| lead_score | LeadScore | Lead | Computed lead score  |
+  2406→| ---------- | --------- | ---- | -------------------- |
+  2407→breakdown. Refreshed
+  2408→nightly by job.
+  2409→PreOne ERD v3.0                                                              Page 63 of 403
+  2410→
+  2411→PreOne ERD v3.0 | Database Schema & Physical Design
+  2412→Table Prisma Model Aggregate Purpose
+  2413→lead_conversion LeadConversion Lead Conversion event log —
+  2414→when lead becomes
+  2415→enquiry, enquiry
+  2416→becomes application,
+  2417→application becomes
+  2418→admission.
+  2419→lead_assignment LeadAssignment Lead Lead-to-counsellor
+  2420→assignment history.
+  2421→Supports round-robin +
+  2422→manual overrides +
+  2423→workload balancing.
+  2424→marketing_channel MarketingChannel Campaign Channel configuration
+  2425→— API keys, templates,
+  2426→rate limits per channel.
+  2427→12.3 ERD Diagram
+  2428→खा(cid:2)ला(cid:15)ला ASCII diagram domain च्या(cid:2) primary tables आणिण त्या(cid:2)च् या(cid:2) एकेमके(cid:8) (cid:2)शी (cid:15) FK relationships देशी/वतो(cid:18). हा(cid:8)
+  2429→diagram simplified आहा(cid:8) — complete FK list पु,त्याके(cid:8) table च्या(cid:2) data dictionary मध्या (cid:8)document आहा(cid:8).
+  2430→┌─ Marketing & CRM (14 tables) ─┐
+  2431→│
+  2432→│ ◆ marketing_campaign → Prisma: MarketingCampaign
+  2433→│ Marketing campaign record — channel, budget, attribution ...
+  2434→│ FKs: school_id → schools(id) ON DELETE CASCADE
+  2435→│
+  2436→│ ◆ lead_source → Prisma: LeadSource
+  2437→│ Lead source dictionary (walk-in, referral, online ad). St...
+  2438→│ Key cols: name(varchar(64))
+  2439→│ FKs: school_id → schools(id) ON DELETE CASCADE
+  2440→│
+  2441→│ ◆ lead → Prisma: Lead
+  2442→│ Pre-admission prospect captured from campaigns, walk-ins,...
+  2443→│ Key cols: preferred_branch_id(UUID), source_id(UUID), campaign_id(UUID),
+  2444→referral_lead_id(UUID), ...
+  2445→│ FKs: school_id → schools(id) ON DELETE CASCADE; assigned_to → users(id) ON
+  2446→DELETE SET NULL; source_id → lead_sources(id) ON DELETE RESTRICT
+  2447→│
+  2448→│ ◆ lead_activity → Prisma: LeadActivity
+  2449→│ Timeline of every interaction with a lead — call, WhatsAp...
+  2450→│ Key cols: lead_id(UUID), actor_id(UUID)
+  2451→│ FKs: lead_id → leads(id) ON DELETE CASCADE; actor_id → users(id) ON DELETE
+  2452→SET NULL; school_id → schools(id) ON DELETE CASCADE
+  2453→│
+  2454→│ ◆ enquiry → Prisma: Enquiry
+  2455→PreOne ERD v3.0 Page 64 of 403
+  2456→
+  2457→PreOne ERD v3.0 | Database Schema & Physical Design
+  2458→│ Qualified lead with explicit intent — preferred program +...
+  2459→│ Key cols: lead_id(UUID), branch_id(UUID)
+  2460→│ FKs: lead_id → leads(id) ON DELETE CASCADE; branch_id → branches(id) ON
+  2461→DELETE RESTRICT; school_id → schools(id) ON DELETE CASCADE
+  2462→│
+  2463→│ ◆ follow_up → Prisma: FollowUp
+  2464→│ Scheduled follow-up task. Distinct from lead_activity (wh...
+  2465→│ Key cols: lead_id(UUID), enquiry_id(UUID), assigned_to(UUID)
+  2466→│ FKs: lead_id → leads(id) ON DELETE CASCADE; assigned_to → users(id) ON
+  2467→DELETE CASCADE; school_id → schools(id) ON DELETE CASCADE
+  2468→│
+  2469→│ ◆ referral → Prisma: Referral
+  2470→│ Referral record — existing parent refers new lead. Eligib...
+  2471→│ Key cols: referrer_parent_id(UUID), referred_lead_id(UUID),
+  2472→referral_code(varchar(16))
+  2473→│ FKs: referred_lead_id → leads(id) ON DELETE CASCADE; referrer_parent_id →
+  2474→parents(id) ON DELETE SET NULL; school_id → schools(id) ON DELETE CASCADE
+  2475→│
+  2476→│ ◆ referral_reward → Prisma: ReferralReward
+  2477→│ Issued referral rewards log. Drives finance reconciliatio...
+  2478→│ Key cols: referral_id(UUID), invoice_credit_id(UUID)
+  2479→│ FKs: referral_id → referrals(id) ON DELETE CASCADE; school_id → schools(id) ON
+  2480→DELETE CASCADE
+  2481→│
+  2482→│ ◆ whatsapp_opt_in → Prisma: WhatsAppOptIn
+  2483→│ Parent consent for WhatsApp marketing messages. Required ...
+  2484→│ FKs: school_id → schools(id) ON DELETE CASCADE
+  2485→│
+  2486→│ ◆ email_subscription → Prisma: EmailSubscription
+  2487→│ Parent consent for marketing emails. Unsubscribe tracking...
+  2488→│ FKs: school_id → schools(id) ON DELETE CASCADE
+  2489→│
+  2490→│ ... and 4 more tables (see Data Dictionary below)
+  2491→│
+  2492→└───────────────────────────────┘
+  2493→12.4 Data Dictionary
+  2494→खा(cid:2)ला(cid:15)ला subsections मध्या(cid:8) domain च्या(cid:2) पु,त्याके(cid:8) table चा(cid:15) column-level data dictionary आहा(cid:8). पु,त्याके(cid:8) table सा(cid:2)ठी(cid:15):
+  2495→(a) purpose, (b) column list [name, type, nullable, key, description], (c) indexes, (d) foreign keys, (e)
+  2496→Prisma model name. Common columns (id, school_id, branch_id, created_at, updated_at,
+  2497→deleted_at) साव/त्र inject हा(cid:18)तो(cid:2)तो आणिण standard audit columns म्हाणने! documented आहा(cid:8)तो.
+  2498→12.4.1 Common Audit Columns (auto-injected)
+  2499→Most tables in this domain include the following common columns. They are omitted from individual
+  2500→table dictionaries for brevity but always present unless explicitly noted:
+  2501→PreOne ERD v3.0 Page 65 of 403
+  2502→
+  2503→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2504→| Column | Type | Null | Key | Description        |
+  2505→| ------ | ---- | ---- | --- | ------------------ |
+  2506→| id     | UUID | NO   | PK  | Surrogate primary  |
+  2507→key (UUID v7)
+  2508→| school_id | UUID | NO  | FK  | Tenant anchor →  |
+  2509→| --------- | ---- | --- | --- | ---------------- |
+  2510→schools(id) ON
+  2511→DELETE RESTRICT
+  2512→| branch_id | UUID | YES | FK  | Branch scope →  |
+  2513→| --------- | ---- | --- | --- | --------------- |
+  2514→branches(id) ON
+  2515→DELETE CASCADE
+  2516→(nullable for
+  2517→school-wide
+  2518→tables)
+  2519→| created_at | timestamptz | NO  | -   | Row creation  |
+  2520→| ---------- | ----------- | --- | --- | ------------- |
+  2521→timestamp (UTC);
+  2522→set by trigger
+  2523→| updated_at | timestamptz | NO  | -   | Last modification  |
+  2524→| ---------- | ----------- | --- | --- | ------------------ |
+  2525→timestamp (UTC);
+  2526→maintained by
+  2527→trigger
+  2528→| created_by | UUID | YES | FK  | Actor → users(id)  |
+  2529→| ---------- | ---- | --- | --- | ------------------ |
+  2530→ON DELETE SET
+  2531→NULL (system
+  2532→actions leave
+  2533→NULL)
+  2534→| updated_by | UUID | YES | FK  | Actor → users(id)  |
+  2535→| ---------- | ---- | --- | --- | ------------------ |
+  2536→ON DELETE SET
+  2537→NULL
+  2538→| deleted_at | timestamptz | YES | IDX | Soft-delete  |
+  2539→| ---------- | ----------- | --- | --- | ------------ |
+  2540→marker (NULL =
+  2541→active); partial
+  2542→index WHERE
+  2543→deleted_at IS
+  2544→NULL
+  2545→12.4.2 marketing_campaign
+  2546→Purpose: Marketing campaign record — channel, budget, attribution window.
+  2547→Prisma Model: MarketingCampaign  |  Aggregate: Campaign
+  2548→PreOne ERD v3.0                                                              Page 66 of 403
+  2549→
+  2550→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2551→Columns
+  2552→| Column  | Type            | Null | Key | Description   |
+  2553→| ------- | --------------- | ---- | --- | ------------- |
+  2554→| name    | varchar(120)    | NO   | -   | Campaign name |
+  2555→| channel | CampaignChannel | NO   | -   | SMS /         |
+  2556→WHATSAPP /
+  2557→EMAIL / SOCIAL /
+  2558→PRINT / RADIO /
+  2559→EVENT
+  2560→| start_date | date | NO  | -   | Campaign start |
+  2561→| ---------- | ---- | --- | --- | -------------- |
+  2562→| end_date   | date | YES | -   | Campaign end   |
+  2563→(NULL =
+  2564→evergreen)
+  2565→| budget_cents | integer | YES | -   | Total spend     |
+  2566→| ------------ | ------- | --- | --- | --------------- |
+  2567→| target_leads | integer | YES | -   | Goal count      |
+  2568→| actual_leads | integer | NO  | -   | Computed count  |
+  2569→(refreshed nightly)
+  2570→| actual_conversion | integer | NO  | -   | Computed count |
+  2571→| ----------------- | ------- | --- | --- | -------------- |
+  2572→s
+  2573→| utm_source   | varchar(64) | YES | -   | UTM source        |
+  2574→| ------------ | ----------- | --- | --- | ----------------- |
+  2575→| utm_medium   | varchar(64) | YES | -   | UTM medium        |
+  2576→| utm_campaign | varchar(64) | YES | -   | UTM campaign      |
+  2577→| status       | varchar(16) | NO  | -   | DRAFT / ACTIVE /  |
+  2578→PAUSED /
+  2579→COMPLETED
+  2580→Indexes
+  2581→| Index Name | Columns | Type |     | Purpose |
+  2582→| ---------- | ------- | ---- | --- | ------- |
+  2583→marketing_campaign_st status, start_date btree Active campaigns
+  2584→atus_idx
+  2585→Foreign Keys
+  2586→•  school_id,schools(id) ON DELETE CASCADE
+  2587→12.4.3 lead_source
+  2588→Purpose: Lead source dictionary (walk-in, referral, online ad). Stable reference for attribution.
+  2589→PreOne ERD v3.0                                                              Page 67 of 403
+  2590→
+  2591→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2592→Prisma Model: LeadSource  |  Aggregate: Campaign
+  2593→Columns
+  2594→| Column            | Type            | Null | Key | Description         |
+  2595→| ----------------- | --------------- | ---- | --- | ------------------- |
+  2596→| name              | varchar(64)     | NO   | U   | Source name         |
+  2597→| channel           | CampaignChannel | NO   | -   | Channel type        |
+  2598→| is_active         | boolean         | NO   | -   | Default true        |
+  2599→| default_score_wei | numeric(3,2)    | NO   | -   | 0.5–2.0 multiplier  |
+  2600→| ght               |                 |      |     | for lead_score      |
+  2601→Indexes
+  2602→| Index Name | Columns | Type |     | Purpose |
+  2603→| ---------- | ------- | ---- | --- | ------- |
+  2604→lead_source_school_na school_id, name btree_unique Unique per tenant
+  2605→me_uidx
+  2606→Foreign Keys
+  2607→•  school_id,schools(id) ON DELETE CASCADE
+  2608→12.4.4 lead
+  2609→Purpose: Pre-admission prospect captured from campaigns, walk-ins, referrals. Converts to enquiry
+  2610→after qualification.
+  2611→Prisma Model: Lead  |  Aggregate: Lead
+  2612→Columns
+  2613→| Column      | Type         | Null | Key | Description |
+  2614→| ----------- | ------------ | ---- | --- | ----------- |
+  2615→| parent_name | varchar(120) | NO   | -   | Contact     |
+  2616→parent/guardian
+  2617→name
+  2618→| phone      | varchar(16)  | NO  | -   | E.164 phone       |
+  2619→| ---------- | ------------ | --- | --- | ----------------- |
+  2620→| email      | citext       | YES | -   | Email if provided |
+  2621→| child_name | varchar(120) | YES | -   | Child name if     |
+  2622→known
+  2623→| child_dob | date | YES | -   | Child DOB for age- |
+  2624→| --------- | ---- | --- | --- | ------------------ |
+  2625→program fit
+  2626→PreOne ERD v3.0                                                              Page 68 of 403
+  2627→
+  2628→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2629→| Column           | Type        | Null | Key | Description      |
+  2630→| ---------------- | ----------- | ---- | --- | ---------------- |
+  2631→| preferred_progra | ProgramType | YES  | -   | PLAYGROUP /      |
+  2632→| m                |             |      |     | NURSERY / LKG /  |
+  2633→UKG / DAYCARE
+  2634→| preferred_branch | UUID | YES | FK  | → branches(id) |
+  2635→| ---------------- | ---- | --- | --- | -------------- |
+  2636→_id
+  2637→| source_id | UUID | NO  | FK  | →   |
+  2638→| --------- | ---- | --- | --- | --- |
+  2639→lead_sources(id)
+  2640→| campaign_id | UUID | YES | FK  | →   |
+  2641→| ----------- | ---- | --- | --- | --- |
+  2642→marketing_campai
+  2643→gns(id)
+  2644→| referral_lead_id | UUID | YES | FK  | Self-ref →  |
+  2645→| ---------------- | ---- | --- | --- | ----------- |
+  2646→leads(id) (referrer)
+  2647→| status | LeadStatus | NO  | -   | NEW →  |
+  2648→| ------ | ---------- | --- | --- | ------ |
+  2649→CONTACTED →
+  2650→QUALIFIED →
+  2651→CONVERTED /
+  2652→LOST
+  2653→| score_tier | LeadScoreTier | NO  | -   | HOT / WARM /  |
+  2654→| ---------- | ------------- | --- | --- | ------------- |
+  2655→COLD / DEAD
+  2656→| score_value | integer | NO  | -   | 0–100 numeric  |
+  2657→| ----------- | ------- | --- | --- | -------------- |
+  2658→score
+  2659→| assigned_to | UUID | YES | FK  | → users(id)  |
+  2660→| ----------- | ---- | --- | --- | ------------ |
+  2661→(counsellor)
+  2662→| assigned_at | timestamptz | YES | -   | Assignment  |
+  2663→| ----------- | ----------- | --- | --- | ----------- |
+  2664→timestamp
+  2665→| first_contacted_at | timestamptz | YES | -   | First outreach |
+  2666→| ------------------ | ----------- | --- | --- | -------------- |
+  2667→| last_contacted_at  | timestamptz | YES | -   | Last outreach  |
+  2668→| converted_at       | timestamptz | YES | -   | When lead      |
+  2669→became enquiry
+  2670→| lost_reason | text | YES | -   | If status=LOST |
+  2671→| ----------- | ---- | --- | --- | -------------- |
+  2672→Indexes
+  2673→| Index Name      | Columns          | Type         |     | Purpose        |
+  2674→| --------------- | ---------------- | ------------ | --- | -------------- |
+  2675→| lead_phone_uidx | phone, school_id | btree_unique |     | Dedup by phone |
+  2676→PreOne ERD v3.0                                                              Page 69 of 403
+  2677→
+  2678→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2679→| Index Name      | Columns | Type  |     | Purpose         |
+  2680→| --------------- | ------- | ----- | --- | --------------- |
+  2681→| lead_status_idx | status  | btree |     | Pipeline filter |
+  2682→lead_assigned_idx assigned_to, status btree Counsellor workload
+  2683→lead_score_idx score_tier, score_value  btree Hot leads first
+  2684→DESC
+  2685→Foreign Keys
+  2686→•  school_id,schools(id) ON DELETE CASCADE
+  2687→•  assigned_to,users(id) ON DELETE SET NULL
+  2688→•  source_id,lead_sources(id) ON DELETE RESTRICT
+  2689→12.4.5 lead_activity
+  2690→Purpose: Timeline of every interaction with a lead — call, WhatsApp, email, visit, demo.
+  2691→Prisma Model: LeadActivity  |  Aggregate: Lead
+  2692→Columns
+  2693→| Column        | Type         | Null | Key | Description      |
+  2694→| ------------- | ------------ | ---- | --- | ---------------- |
+  2695→| lead_id       | UUID         | NO   | FK  | → leads(id)      |
+  2696→| actor_id      | UUID         | YES  | FK  | → users(id)      |
+  2697→| activity_type | FollowUpType | NO   | -   | CALL / WHATSAPP  |
+  2698→/ EMAIL / VISIT /
+  2699→DEMO
+  2700→| scheduled_at | timestamptz | YES | -   | If scheduled   |
+  2701→| ------------ | ----------- | --- | --- | -------------- |
+  2702→| occurred_at  | timestamptz | YES | -   | When actually  |
+  2703→happened
+  2704→| duration_seconds | integer | YES | -   | Call duration if  |
+  2705→| ---------------- | ------- | --- | --- | ----------------- |
+  2706→applicable
+  2707→| outcome | varchar(32) | YES | -   | POSITIVE /  |
+  2708→| ------- | ----------- | --- | --- | ----------- |
+  2709→NEUTRAL /
+  2710→NEGATIVE /
+  2711→NO_RESPONSE
+  2712→| notes            | text        | YES | -   | Free-text notes |
+  2713→| ---------------- | ----------- | --- | --- | --------------- |
+  2714→| next_follow_up_a | timestamptz | YES | -   | Scheduled next  |
+  2715→| t                |             |     |     | step            |
+  2716→PreOne ERD v3.0                                                              Page 70 of 403
+  2717→
+  2718→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2719→Indexes
+  2720→| Index Name             | Columns               | Type  |     | Purpose  |
+  2721→| ---------------------- | --------------------- | ----- | --- | -------- |
+  2722→| lead_activity_lead_idx | lead_id, occurred_at  | btree |     | Timeline |
+  2723→DESC
+  2724→Foreign Keys
+  2725→•  lead_id,leads(id) ON DELETE CASCADE
+  2726→•  actor_id,users(id) ON DELETE SET NULL
+  2727→•  school_id,schools(id) ON DELETE CASCADE
+  2728→12.4.6 enquiry
+  2729→Purpose: Qualified lead with explicit intent — preferred program + branch + timeframe. Becomes
+  2730→application when documents submitted.
+  2731→Prisma Model: Enquiry  |  Aggregate: Lead
+  2732→Columns
+  2733→| Column       | Type        | Null | Key | Description    |
+  2734→| ------------ | ----------- | ---- | --- | -------------- |
+  2735→| lead_id      | UUID        | NO   | FK  | → leads(id)    |
+  2736→| branch_id    | UUID        | NO   | FK  | → branches(id) |
+  2737→| program_type | ProgramType | NO   | -   | PLAYGROUP /    |
+  2738→NURSERY / LKG /
+  2739→UKG / DAYCARE
+  2740→| intended_start_da | date       | NO  | -   | When parent      |
+  2741→| ----------------- | ---------- | --- | --- | ---------------- |
+  2742→| te                |            |     |     | wants to start   |
+  2743→| priority          | varchar(8) | NO  | -   | HIGH / MEDIUM /  |
+  2744→LOW
+  2745→| notes  | text        | YES | -   | Counsellor notes  |
+  2746→| ------ | ----------- | --- | --- | ----------------- |
+  2747→| status | varchar(16) | NO  | -   | OPEN / WAITING /  |
+  2748→CONVERTED /
+  2749→DROPPED
+  2750→| converted_at | timestamptz | YES | -   | When converted  |
+  2751→| ------------ | ----------- | --- | --- | --------------- |
+  2752→to application
+  2753→PreOne ERD v3.0                                                              Page 71 of 403
+  2754→
+  2755→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2756→Indexes
+  2757→| Index Name        | Columns | Type         |     | Purpose     |
+  2758→| ----------------- | ------- | ------------ | --- | ----------- |
+  2759→| enquiry_lead_uidx | lead_id | btree_unique |     | 1:1 to lead |
+  2760→Foreign Keys
+  2761→•  lead_id,leads(id) ON DELETE CASCADE
+  2762→•  branch_id,branches(id) ON DELETE RESTRICT
+  2763→•  school_id,schools(id) ON DELETE CASCADE
+  2764→12.4.7 follow_up
+  2765→Purpose: Scheduled follow-up task. Distinct from lead_activity (which records completed actions).
+  2766→Prisma Model: FollowUp  |  Aggregate: Lead
+  2767→Columns
+  2768→| Column      | Type         | Null | Key | Description      |
+  2769→| ----------- | ------------ | ---- | --- | ---------------- |
+  2770→| lead_id     | UUID         | NO   | FK  | → leads(id)      |
+  2771→| enquiry_id  | UUID         | YES  | FK  | → enquiries(id)  |
+  2772→| assigned_to | UUID         | NO   | FK  | → users(id)      |
+  2773→| type        | FollowUpType | NO   | -   | CALL / WHATSAPP  |
+  2774→/ EMAIL / VISIT /
+  2775→DEMO
+  2776→| scheduled_at | timestamptz | NO  | -   | When to follow up |
+  2777→| ------------ | ----------- | --- | --- | ----------------- |
+  2778→| completed_at | timestamptz | YES | -   | When actually     |
+  2779→completed
+  2780→| status | varchar(16) | NO  | -   | PENDING /  |
+  2781→| ------ | ----------- | --- | --- | ---------- |
+  2782→DONE / SKIPPED /
+  2783→OVERDUE
+  2784→| notes | text | YES | -   | Notes |
+  2785→| ----- | ---- | --- | --- | ----- |
+  2786→Indexes
+  2787→| Index Name | Columns | Type |     | Purpose |
+  2788→| ---------- | ------- | ---- | --- | ------- |
+  2789→follow_up_assigned_sta assigned_to, status,  btree Counsellor task queue
+  2790→| tus_idx | scheduled_at |     |     |     |
+  2791→| ------- | ------------ | --- | --- | --- |
+  2792→PreOne ERD v3.0                                                              Page 72 of 403
+  2793→
+  2794→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2795→Foreign Keys
+  2796→•  lead_id,leads(id) ON DELETE CASCADE
+  2797→•  assigned_to,users(id) ON DELETE CASCADE
+  2798→•  school_id,schools(id) ON DELETE CASCADE
+  2799→12.4.8 referral
+  2800→Purpose: Referral record — existing parent refers new lead. Eligibility + reward tracked.
+  2801→Prisma Model: Referral  |  Aggregate: Lead
+  2802→Columns
+  2803→| Column            | Type | Null | Key | Description        |
+  2804→| ----------------- | ---- | ---- | --- | ------------------ |
+  2805→| referrer_parent_i | UUID | YES  | FK  | → parents(id)      |
+  2806→| d                 |      |      |     | (NULL if external  |
+  2807→referrer)
+  2808→| referred_lead_id | UUID        | NO  | FK  | → leads(id)         |
+  2809→| ---------------- | ----------- | --- | --- | ------------------- |
+  2810→| referral_code    | varchar(16) | NO  | U   | Stable code (e.g.,  |
+  2811→REF-A4F2)
+  2812→| status | ReferralStatus | NO  | -   | PENDING →  |
+  2813→| ------ | -------------- | --- | --- | ---------- |
+  2814→ELIGIBLE →
+  2815→REWARDED /
+  2816→DISQUALIFIED
+  2817→| reward_type | varchar(16) | YES | -   | FEE_DISCOUNT /  |
+  2818→| ----------- | ----------- | --- | --- | --------------- |
+  2819→CASH / VOUCHER
+  2820→| reward_amount_c | integer | YES | -   | Reward value |
+  2821→| --------------- | ------- | --- | --- | ------------ |
+  2822→ents
+  2823→| rewarded_at | timestamptz | YES | -   | When reward  |
+  2824→| ----------- | ----------- | --- | --- | ------------ |
+  2825→issued
+  2826→| qualified_at | timestamptz | YES | -   | When became  |
+  2827→| ------------ | ----------- | --- | --- | ------------ |
+  2828→eligible (lead
+  2829→converted +
+  2830→admission)
+  2831→Indexes
+  2832→| Index Name         | Columns       | Type         |     | Purpose     |
+  2833→| ------------------ | ------------- | ------------ | --- | ----------- |
+  2834→| referral_code_uidx | referral_code | btree_unique |     | Code lookup |
+  2835→PreOne ERD v3.0                                                              Page 73 of 403
+  2836→
+  2837→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2838→Foreign Keys
+  2839→•  referred_lead_id,leads(id) ON DELETE CASCADE
+  2840→•  referrer_parent_id,parents(id) ON DELETE SET NULL
+  2841→•  school_id,schools(id) ON DELETE CASCADE
+  2842→12.4.9 referral_reward
+  2843→Purpose: Issued referral rewards log. Drives finance reconciliation for fee discounts.
+  2844→Prisma Model: ReferralReward  |  Aggregate: Lead
+  2845→Columns
+  2846→| Column      | Type        | Null | Key | Description     |
+  2847→| ----------- | ----------- | ---- | --- | --------------- |
+  2848→| referral_id | UUID        | NO   | FK  | → referrals(id) |
+  2849→| recipient   | varchar(16) | NO   | -   | REFERRER /      |
+  2850→REFERRED
+  2851→| reward_type | varchar(16) | NO  | -   | FEE_DISCOUNT /  |
+  2852→| ----------- | ----------- | --- | --- | --------------- |
+  2853→CASH / VOUCHER
+  2854→| amount_cents      | integer | NO  | -   | Reward value       |
+  2855→| ----------------- | ------- | --- | --- | ------------------ |
+  2856→| invoice_credit_id | UUID    | YES | FK  | → invoices(id) if  |
+  2857→applied as credit
+  2858→| issued_at   | timestamptz | NO  | -   | Issue timestamp   |
+  2859→| ----------- | ----------- | --- | --- | ----------------- |
+  2860→| redeemed_at | timestamptz | YES | -   | When parent used  |
+  2861→the reward
+  2862→Indexes
+  2863→| Index Name | Columns | Type |     | Purpose |
+  2864→| ---------- | ------- | ---- | --- | ------- |
+  2865→referral_reward_referra referral_id btree Per-referral rewards
+  2866→l_idx
+  2867→Foreign Keys
+  2868→•  referral_id,referrals(id) ON DELETE CASCADE
+  2869→•  school_id,schools(id) ON DELETE CASCADE
+  2870→12.4.10 whatsapp_opt_in
+  2871→Purpose: Parent consent for WhatsApp marketing messages. Required by DPDP §11.
+  2872→PreOne ERD v3.0                                                              Page 74 of 403
+  2873→
+  2874→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2875→Prisma Model: WhatsAppOptIn  |  Aggregate: Lead
+  2876→Columns
+  2877→| Column | Type        | Null | Key | Description  |
+  2878→| ------ | ----------- | ---- | --- | ------------ |
+  2879→| phone  | varchar(16) | NO   | -   | E.164        |
+  2880→| source | varchar(32) | NO   | -   | LEAD_FORM /  |
+  2881→ENQUIRY /
+  2882→IMPORT
+  2883→| opted_in_at | timestamptz | NO  | -   | Consent  |
+  2884→| ----------- | ----------- | --- | --- | -------- |
+  2885→timestamp
+  2886→| opted_out_at | timestamptz | YES | -   | Withdrawal  |
+  2887→| ------------ | ----------- | --- | --- | ----------- |
+  2888→timestamp
+  2889→| template_id | varchar(64) | YES | -   | WhatsApp  |
+  2890→| ----------- | ----------- | --- | --- | --------- |
+  2891→template ID
+  2892→Indexes
+  2893→| Index Name           | Columns          | Type  |     | Purpose |
+  2894→| -------------------- | ---------------- | ----- | --- | ------- |
+  2895→| whatsapp_opt_in_phon | phone, school_id | btree |     | Lookup  |
+  2896→e_idx
+  2897→Foreign Keys
+  2898→•  school_id,schools(id) ON DELETE CASCADE
+  2899→12.4.11 email_subscription
+  2900→Purpose: Parent consent for marketing emails. Unsubscribe tracking per CAN-SPAM/DPDP.
+  2901→Prisma Model: EmailSubscription  |  Aggregate: Lead
+  2902→Columns
+  2903→| Column        | Type        | Null | Key | Description |
+  2904→| ------------- | ----------- | ---- | --- | ----------- |
+  2905→| email         | citext      | NO   | -   | Email       |
+  2906→| subscribed_at | timestamptz | NO   | -   | Subscribe   |
+  2907→timestamp
+  2908→| unsubscribed_at | timestamptz | YES | -   | Unsubscribe  |
+  2909→| --------------- | ----------- | --- | --- | ------------ |
+  2910→timestamp
+  2911→| source | varchar(32) | NO  | -   | Origin |
+  2912→| ------ | ----------- | --- | --- | ------ |
+  2913→PreOne ERD v3.0                                                              Page 75 of 403
+  2914→
+  2915→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2916→Indexes
+  2917→| Index Name | Columns | Type |     | Purpose |
+  2918→| ---------- | ------- | ---- | --- | ------- |
+  2919→email_subscription_em email, school_id btree_unique One record per email
+  2920→ail_uidx
+  2921→Foreign Keys
+  2922→•  school_id,schools(id) ON DELETE CASCADE
+  2923→12.4.12 lead_score
+  2924→Purpose: Computed lead score breakdown. Refreshed nightly by job.
+  2925→Prisma Model: LeadScore  |  Aggregate: Lead
+  2926→Columns
+  2927→| Column      | Type          | Null | Key | Description  |
+  2928→| ----------- | ------------- | ---- | --- | ------------ |
+  2929→| lead_id     | UUID          | NO   | FK  | → leads(id)  |
+  2930→| score_value | integer       | NO   | -   | 0–100        |
+  2931→| score_tier  | LeadScoreTier | NO   | -   | HOT (80+) /  |
+  2932→WARM (60+) /
+  2933→COLD (30+) /
+  2934→DEAD (<30)
+  2935→| source_weight | numeric(3,2) | NO  | -   | Source multiplier  |
+  2936→| ------------- | ------------ | --- | --- | ------------------ |
+  2937→applied
+  2938→| engagement_scor | integer | NO  | -   | 0–40 (activity    |
+  2939→| --------------- | ------- | --- | --- | ----------------- |
+  2940→| e               |         |     |     | count weighted)   |
+  2941→| recency_score   | integer | NO  | -   | 0–30 (days since  |
+  2942→last contact)
+  2943→| profile_completen | integer | NO  | -   | 0–30 (filled fields) |
+  2944→| ----------------- | ------- | --- | --- | -------------------- |
+  2945→ess_score
+  2946→| computed_at | timestamptz | NO  | -   | Computation  |
+  2947→| ----------- | ----------- | --- | --- | ------------ |
+  2948→timestamp
+  2949→Indexes
+  2950→| Index Name           | Columns | Type         |     | Purpose     |
+  2951→| -------------------- | ------- | ------------ | --- | ----------- |
+  2952→| lead_score_lead_uidx | lead_id | btree_unique |     | 1:1 to lead |
+  2953→PreOne ERD v3.0                                                              Page 76 of 403
+  2954→
+  2955→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2956→Foreign Keys
+  2957→•  lead_id,leads(id) ON DELETE CASCADE
+  2958→•  school_id,schools(id) ON DELETE CASCADE
+  2959→12.4.13 lead_conversion
+  2960→Purpose: Conversion event log — when lead becomes enquiry, enquiry becomes application,
+  2961→application becomes admission.
+  2962→Prisma Model: LeadConversion  |  Aggregate: Lead
+  2963→Columns
+  2964→| Column     | Type        | Null | Key | Description       |
+  2965→| ---------- | ----------- | ---- | --- | ----------------- |
+  2966→| lead_id    | UUID        | NO   | FK  | → leads(id)       |
+  2967→| from_stage | varchar(16) | NO   | -   | LEAD / ENQUIRY /  |
+  2968→APPLICATION
+  2969→| to_stage | varchar(16) | NO  | -   | ENQUIRY /  |
+  2970→| -------- | ----------- | --- | --- | ---------- |
+  2971→APPLICATION /
+  2972→ADMISSION
+  2973→| converted_at | timestamptz | NO  | -   | Conversion  |
+  2974→| ------------ | ----------- | --- | --- | ----------- |
+  2975→timestamp
+  2976→| duration_hours | numeric(10,2) | NO  | -   | Time in previous  |
+  2977→| -------------- | ------------- | --- | --- | ----------------- |
+  2978→stage
+  2979→| converted_by | UUID | YES | FK  | → users(id) |
+  2980→| ------------ | ---- | --- | --- | ----------- |
+  2981→Indexes
+  2982→| Index Name | Columns | Type |     | Purpose |
+  2983→| ---------- | ------- | ---- | --- | ------- |
+  2984→lead_conversion_lead_i lead_id, converted_at btree Funnel analysis
+  2985→dx
+  2986→Foreign Keys
+  2987→•  lead_id,leads(id) ON DELETE CASCADE
+  2988→•  converted_by,users(id) ON DELETE SET NULL
+  2989→•  school_id,schools(id) ON DELETE CASCADE
+  2990→PreOne ERD v3.0                                                              Page 77 of 403
+  2991→
+  2992→PreOne ERD v3.0  |  Database Schema & Physical Design
+  2993→12.4.14 lead_assignment
+  2994→Purpose: Lead-to-counsellor assignment history. Supports round-robin + manual overrides +
+  2995→workload balancing.
+  2996→Prisma Model: LeadAssignment  |  Aggregate: Lead
+  2997→Columns
+  2998→| Column      | Type | Null | Key | Description        |
+  2999→| ----------- | ---- | ---- | --- | ------------------ |
+  3000→| lead_id     | UUID | NO   | FK  | → leads(id)        |
+  3001→| assigned_to | UUID | NO   | FK  | → users(id)        |
+  3002→| assigned_by | UUID | YES  | FK  | → users(id) (NULL  |
+  3003→= auto)
+  3004→| strategy | varchar(16) | NO  | -   | ROUND_ROBIN /  |
+  3005→| -------- | ----------- | --- | --- | -------------- |
+  3006→MANUAL /
+  3007→SKILL_BASED /
+  3008→BRANCH_BASED
+  3009→| assigned_at   | timestamptz | NO  | -   | Assignment time |
+  3010→| ------------- | ----------- | --- | --- | --------------- |
+  3011→| unassigned_at | timestamptz | YES | -   | When removed    |
+  3012→(reassignment)
+  3013→| reason | text | YES | -   | Reassignment  |
+  3014→| ------ | ---- | --- | --- | ------------- |
+  3015→reason
+  3016→Indexes
+  3017→| Index Name | Columns | Type |     | Purpose |
+  3018→| ---------- | ------- | ---- | --- | ------- |
+  3019→lead_assignment_lead_ lead_id, assigned_at  btree Assignment history
+  3020→| idx | DESC |     |     |     |
+  3021→| --- | ---- | --- | --- | --- |
+  3022→Foreign Keys
+  3023→•  lead_id,leads(id) ON DELETE CASCADE
+  3024→•  assigned_to,users(id) ON DELETE CASCADE
+  3025→•  school_id,schools(id) ON DELETE CASCADE
+  3026→12.4.15 marketing_channel
+  3027→Purpose: Channel configuration — API keys, templates, rate limits per channel.
+  3028→Prisma Model: MarketingChannel  |  Aggregate: Campaign
+  3029→PreOne ERD v3.0                                                              Page 78 of 403
+  3030→
+  3031→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3032→Columns
+  3033→| Column  | Type            | Null | Key | Description  |
+  3034→| ------- | --------------- | ---- | --- | ------------ |
+  3035→| name    | varchar(64)     | NO   | U   | Channel name |
+  3036→| channel | CampaignChannel | NO   | -   | SMS /        |
+  3037→WHATSAPP /
+  3038→EMAIL / SOCIAL /
+  3039→PRINT / RADIO /
+  3040→EVENT
+  3041→| provider_config | jsonb | YES | -   | Provider  |
+  3042→| --------------- | ----- | --- | --- | --------- |
+  3043→credentials
+  3044→(encrypted
+  3045→externally)
+  3046→| rate_limit_per_mi | integer | NO  | -   | Default 100 |
+  3047→| ----------------- | ------- | --- | --- | ----------- |
+  3048→n
+  3049→| is_active | boolean | NO  | -   | Default true |
+  3050→| --------- | ------- | --- | --- | ------------ |
+  3051→Indexes
+  3052→| Index Name | Columns | Type |     | Purpose |
+  3053→| ---------- | ------- | ---- | --- | ------- |
+  3054→marketing_channel_na school_id, name btree_unique Unique per tenant
+  3055→me_uidx
+  3056→Foreign Keys
+  3057→•  school_id,schools(id) ON DELETE CASCADE
+  3058→13. Domain: Admission
+  3059→हा(cid:2) domain lead → enquiry → application → approval → admission pipeline चा(cid:2) formalization आहा(cid:8). Age
+  3060→verification per program, document checklist, fee plan quote, आणिण multi-level approval matrix याथे(cid:8) (cid:8)
+  3061→आहा(cid:8). BRC च्या(cid:2) Eligibility + Approval rules या(cid:2) domain मध्या (cid:8)enforce हा(cid:18)तो(cid:2)तो.
+  3062→13.1 Domain KPIs
+  3063→या(cid:2) domain चा (cid:8)operational health measure केरेण(cid:2)रे(cid:8) KPIs खा(cid:2)ला(cid:15)लापु,म(cid:2)ण (cid:8)आहा(cid:8)तो:
+  3064→KPI Target / Definition
+  3065→Application-to-approval time Median ≤7 days
+  3066→Document verification SLA ≤48 hours
+  3067→PreOne ERD v3.0                                                              Page 79 of 403
+  3068→
+  3069→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3070→| KPI                        |     | Target / Definition |     |
+  3071→| -------------------------- | --- | ------------------- | --- |
+  3072→| Approval matrix compliance |     | 100% (no bypass)    |     |
+  3073→| Waitlist conversion rate   |     | ≥40%                |     |
+  3074→13.2 Table Inventory
+  3075→या(cid:2) domain मध्या(cid:8) 15 tables आहा(cid:8)तो. खा(cid:2)ला(cid:15)ला summary table पु,त्याके(cid:8)  table चा(cid:8) name, Prisma model, aggregate,
+  3076→आणिण purpose capture केरेतो(cid:8):
+  3077→| Table       | Prisma Model | Aggregate   | Purpose             |
+  3078→| ----------- | ------------ | ----------- | ------------------- |
+  3079→| application | Application  | Application | Formally submitted  |
+  3080→admission request with
+  3081→parent declarations +
+  3082→document uploads.
+  3083→application_document ApplicationDocument Application Document uploaded
+  3084→against an application
+  3085→— birth cert, photo,
+  3086→Aadhaar, medical.
+  3087→document_checklist DocumentChecklist Application Per-program
+  3088→mandatory document
+  3089→checklist. Drives
+  3090→verification dashboard.
+  3091→counselling_session CounsellingSession Application Counselling/interaction
+  3092→session with parent +
+  3093→child. Scheduled before
+  3094→approval.
+  3095→| approval | Approval | Application | Approval decision  |
+  3096→| -------- | -------- | ----------- | ------------------ |
+  3097→record. Multi-level
+  3098→matrix based on fee
+  3099→waiver amount +
+  3100→branch.
+  3101→| admission | Admission | Admission | Final admission record  |
+  3102→| --------- | --------- | --------- | ----------------------- |
+  3103→created after all
+  3104→approvals. Triggers
+  3105→student record
+  3106→creation.
+  3107→PreOne ERD v3.0                                                              Page 80 of 403
+  3108→
+  3109→PreOne ERD v3.0 | Database Schema & Physical Design
+  3110→Table Prisma Model Aggregate Purpose
+  3111→waiting_list WaitingList Application Waitlist per
+  3112→branch/program/sessio
+  3113→n. Auto-promotion
+  3114→when seat opens.
+  3115→admission_offer AdmissionOffer Application Formal admission offer
+  3116→letter with fee quote.
+  3117→Sent to parent for
+  3118→acceptance.
+  3119→age_verification AgeVerification Application Age eligibility
+  3120→verification per
+  3121→program (BRC R-
+  3122→ELG-001). Birth cert
+  3123→DOB vs program age
+  3124→band.
+  3125→fee_plan_quote FeePlanQuote Application Fee quote attached to
+  3126→application. Pre-
+  3127→computed based on
+  3128→program + concessions.
+  3129→admission_priority AdmissionPriority Application Priority score factors
+  3130→for admission ranking
+  3131→(sibling, staff child,
+  3132→alumni, distance).
+  3133→sibling_concession SiblingConcession Application Sibling concession
+  3134→record — if a sibling is
+  3135→already enrolled,
+  3136→parent gets fee
+  3137→discount.
+  3138→admission_cancellation AdmissionCancellation Admission Admission cancellation
+  3139→record with refund
+  3140→calculation per policy.
+  3141→admission_audit AdmissionAudit Admission Per-application audit
+  3142→trail — every status
+  3143→change, document
+  3144→upload, approval step.
+  3145→admission_rejection AdmissionRejection Application Rejection record with
+  3146→reason + optional
+  3147→feedback to parent.
+  3148→PreOne ERD v3.0 Page 81 of 403
+  3149→
+  3150→PreOne ERD v3.0 | Database Schema & Physical Design
+  3151→13.3 ERD Diagram
+  3152→खा(cid:2)ला(cid:15)ला ASCII diagram domain च्या(cid:2) primary tables आणिण त्या(cid:2)च् या(cid:2) एकेमके(cid:8) (cid:2)शी (cid:15) FK relationships देशी/वतो(cid:18). हा(cid:8)
+  3153→diagram simplified आहा(cid:8) — complete FK list पु,त्याके(cid:8) table च्या(cid:2) data dictionary मध्या (cid:8)document आहा(cid:8).
+  3154→┌─ Admission (15 tables) ─┐
+  3155→│
+  3156→│ ◆ application → Prisma: Application
+  3157→│ Formally submitted admission request with parent declarat...
+  3158→│ Key cols: application_number(varchar(20)), lead_id(UUID), enquiry_id(UUID),
+  3159→branch_id(UUID), acad...
+  3160→│ FKs: lead_id → leads(id) ON DELETE SET NULL; branch_id → branches(id) ON
+  3161→DELETE RESTRICT; academic_session_id → academic_sessions(id) ON DELETE
+  3162→RESTRICT; +1 more
+  3163→│
+  3164→│ ◆ application_document → Prisma: ApplicationDocument
+  3165→│ Document uploaded against an application — birth cert, ph...
+  3166→│ Key cols: application_id(UUID), verified_by(UUID)
+  3167→│ FKs: application_id → applications(id) ON DELETE CASCADE; verified_by →
+  3168→users(id) ON DELETE SET NULL; school_id → schools(id) ON DELETE CASCADE
+  3169→│
+  3170→│ ◆ document_checklist → Prisma: DocumentChecklist
+  3171→│ Per-program mandatory document checklist. Drives verifica...
+  3172→│ FKs: school_id → schools(id) ON DELETE CASCADE
+  3173→│
+  3174→│ ◆ counselling_session → Prisma: CounsellingSession
+  3175→│ Counselling/interaction session with parent + child. Sche...
+  3176→│ Key cols: application_id(UUID), counsellor_id(UUID)
+  3177→│ FKs: application_id → applications(id) ON DELETE CASCADE; counsellor_id →
+  3178→users(id) ON DELETE RESTRICT; school_id → schools(id) ON DELETE CASCADE
+  3179→│
+  3180→│ ◆ approval → Prisma: Approval
+  3181→│ Approval decision record. Multi-level matrix based on fee...
+  3182→│ Key cols: application_id(UUID), approver_id(UUID)
+  3183→│ FKs: application_id → applications(id) ON DELETE CASCADE; approver_id →
+  3184→users(id) ON DELETE RESTRICT; school_id → schools(id) ON DELETE CASCADE
+  3185→│
+  3186→│ ◆ admission → Prisma: Admission
+  3187→│ Final admission record created after all approvals. Trigg...
+  3188→│ Key cols: admission_number(varchar(20)), application_id(UUID), student_id(UUID),
+  3189→classroom_id(UUI...
+  3190→│ FKs: application_id → applications(id) ON DELETE RESTRICT; student_id →
+  3191→students(id) ON DELETE SET NULL; classroom_id → classrooms(id) ON DELETE SET
+  3192→NULL; +2 more
+  3193→│
+  3194→│ ◆ waiting_list → Prisma: WaitingList
+  3195→│ Waitlist per branch/program/session. Auto-promotion when ...
+  3196→│ Key cols: application_id(UUID), branch_id(UUID), academic_session_id(UUID)
+  3197→│ FKs: application_id → applications(id) ON DELETE CASCADE; branch_id →
+  3198→branches(id) ON DELETE RESTRICT; school_id → schools(id) ON DELETE CASCADE
+  3199→PreOne ERD v3.0 Page 82 of 403
+  3200→
+  3201→PreOne ERD v3.0 | Database Schema & Physical Design
+  3202→│
+  3203→│ ◆ admission_offer → Prisma: AdmissionOffer
+  3204→│ Formal admission offer letter with fee quote. Sent to par...
+  3205→│ Key cols: application_id(UUID), offer_number(varchar(20))
+  3206→│ FKs: application_id → applications(id) ON DELETE CASCADE; school_id →
+  3207→schools(id) ON DELETE CASCADE
+  3208→│
+  3209→│ ◆ age_verification → Prisma: AgeVerification
+  3210→│ Age eligibility verification per program (BRC R-ELG-001)....
+  3211→│ Key cols: application_id(UUID), verified_by(UUID)
+  3212→│ FKs: application_id → applications(id) ON DELETE CASCADE; school_id →
+  3213→schools(id) ON DELETE CASCADE
+  3214→│
+  3215→│ ◆ fee_plan_quote → Prisma: FeePlanQuote
+  3216→│ Fee quote attached to application. Pre-computed based on ...
+  3217→│ Key cols: application_id(UUID), fee_plan_id(UUID)
+  3218→│ FKs: application_id → applications(id) ON DELETE CASCADE; fee_plan_id →
+  3219→fee_plans(id) ON DELETE RESTRICT; school_id → schools(id) ON DELETE CASCADE
+  3220→│
+  3221→│ ... and 5 more tables (see Data Dictionary below)
+  3222→│
+  3223→└─────────────────────────┘
+  3224→13.4 Data Dictionary
+  3225→खा(cid:2)ला(cid:15)ला subsections मध्या(cid:8) domain च्या(cid:2) पु,त्याके(cid:8) table चा(cid:15) column-level data dictionary आहा(cid:8). पु,त्याके(cid:8) table सा(cid:2)ठी(cid:15):
+  3226→(a) purpose, (b) column list [name, type, nullable, key, description], (c) indexes, (d) foreign keys, (e)
+  3227→Prisma model name. Common columns (id, school_id, branch_id, created_at, updated_at,
+  3228→deleted_at) साव/त्र inject हा(cid:18)तो(cid:2)तो आणिण standard audit columns म्हाणने! documented आहा(cid:8)तो.
+  3229→13.4.1 Common Audit Columns (auto-injected)
+  3230→Most tables in this domain include the following common columns. They are omitted from individual
+  3231→table dictionaries for brevity but always present unless explicitly noted:
+  3232→Column Type Null Key Description
+  3233→id UUID NO PK Surrogate primary
+  3234→key (UUID v7)
+  3235→school_id UUID NO FK Tenant anchor →
+  3236→schools(id) ON
+  3237→DELETE RESTRICT
+  3238→PreOne ERD v3.0 Page 83 of 403
+  3239→
+  3240→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3241→| Column    | Type | Null | Key | Description     |
+  3242→| --------- | ---- | ---- | --- | --------------- |
+  3243→| branch_id | UUID | YES  | FK  | Branch scope →  |
+  3244→branches(id) ON
+  3245→DELETE CASCADE
+  3246→(nullable for
+  3247→school-wide
+  3248→tables)
+  3249→| created_at | timestamptz | NO  | -   | Row creation  |
+  3250→| ---------- | ----------- | --- | --- | ------------- |
+  3251→timestamp (UTC);
+  3252→set by trigger
+  3253→| updated_at | timestamptz | NO  | -   | Last modification  |
+  3254→| ---------- | ----------- | --- | --- | ------------------ |
+  3255→timestamp (UTC);
+  3256→maintained by
+  3257→trigger
+  3258→| created_by | UUID | YES | FK  | Actor → users(id)  |
+  3259→| ---------- | ---- | --- | --- | ------------------ |
+  3260→ON DELETE SET
+  3261→NULL (system
+  3262→actions leave
+  3263→NULL)
+  3264→| updated_by | UUID | YES | FK  | Actor → users(id)  |
+  3265→| ---------- | ---- | --- | --- | ------------------ |
+  3266→ON DELETE SET
+  3267→NULL
+  3268→| deleted_at | timestamptz | YES | IDX | Soft-delete  |
+  3269→| ---------- | ----------- | --- | --- | ------------ |
+  3270→marker (NULL =
+  3271→active); partial
+  3272→index WHERE
+  3273→deleted_at IS
+  3274→NULL
+  3275→13.4.2 application
+  3276→Purpose: Formally submitted admission request with parent declarations + document uploads.
+  3277→Prisma Model: Application  |  Aggregate: Application
+  3278→Columns
+  3279→| Column           | Type        | Null | Key | Description      |
+  3280→| ---------------- | ----------- | ---- | --- | ---------------- |
+  3281→| application_numb | varchar(20) | NO   | U   | Format APP-YYYY- |
+  3282→| er               |             |      |     | NNNNN            |
+  3283→PreOne ERD v3.0                                                              Page 84 of 403
+  3284→
+  3285→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3286→| Column  | Type | Null | Key | Description        |
+  3287→| ------- | ---- | ---- | --- | ------------------ |
+  3288→| lead_id | UUID | YES  | FK  | → leads(id) (NULL  |
+  3289→for walk-in
+  3290→applications)
+  3291→| enquiry_id   | UUID        | YES | FK  | → enquiries(id) |
+  3292→| ------------ | ----------- | --- | --- | --------------- |
+  3293→| branch_id    | UUID        | NO  | FK  | → branches(id)  |
+  3294→| program_type | ProgramType | NO  | -   | PLAYGROUP /     |
+  3295→NURSERY / LKG /
+  3296→UKG / DAYCARE
+  3297→| academic_session | UUID | NO  | FK  | →                |
+  3298→| ---------------- | ---- | --- | --- | ---------------- |
+  3299→| _id              |      |     |     | academic_session |
+  3300→s(id)
+  3301→| child_first_name | varchar(64) | NO  | -   | Child first name |
+  3302→| ---------------- | ----------- | --- | --- | ---------------- |
+  3303→| child_last_name  | varchar(64) | NO  | -   | Child last name  |
+  3304→| child_dob        | date        | NO  | -   | Child DOB        |
+  3305→(verified against
+  3306→birth cert)
+  3307→| child_gender | Gender | NO  | -   | MALE / FEMALE /  |
+  3308→| ------------ | ------ | --- | --- | ---------------- |
+  3309→OTHER
+  3310→| child_blood_grou | BloodGroup | YES | -   | If known |
+  3311→| ---------------- | ---------- | --- | --- | -------- |
+  3312→p
+  3313→| preferred_start_d | date          | NO  | -   | When parent       |
+  3314→| ----------------- | ------------- | --- | --- | ----------------- |
+  3315→| ate               |               |     |     | wants to start    |
+  3316→| admission_type    | AdmissionType | NO  | -   | REGULAR / LATE /  |
+  3317→TRANSFER /
+  3318→MID_SESSION /
+  3319→READMISSION
+  3320→| status | ApplicationStatus | NO  | -   | DRAFT →  |
+  3321→| ------ | ----------------- | --- | --- | -------- |
+  3322→SUBMITTED →
+  3323→DOCUMENT_PEN
+  3324→DING → VERIFIED
+  3325→→
+  3326→APPROVED/REJEC
+  3327→TED/WAITLISTED/
+  3328→CANCELLED
+  3329→PreOne ERD v3.0                                                              Page 85 of 403
+  3330→
+  3331→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3332→| Column       | Type        | Null | Key | Description |
+  3333→| ------------ | ----------- | ---- | --- | ----------- |
+  3334→| submitted_at | timestamptz | YES  | -   | Submission  |
+  3335→timestamp
+  3336→| verified_at | timestamptz | YES | -   | Document  |
+  3337→| ----------- | ----------- | --- | --- | --------- |
+  3338→verification
+  3339→complete
+  3340→| approved_at | timestamptz | YES | -   | Final approval |
+  3341→| ----------- | ----------- | --- | --- | -------------- |
+  3342→| rejected_at | timestamptz | YES | -   | Rejection      |
+  3343→timestamp
+  3344→| rejection_reason | RejectionReason | YES | -   | If rejected     |
+  3345→| ---------------- | --------------- | --- | --- | --------------- |
+  3346→| rejection_notes  | text            | YES | -   | Detailed reason |
+  3347→Indexes
+  3348→| Index Name | Columns | Type |     | Purpose |
+  3349→| ---------- | ------- | ---- | --- | ------- |
+  3350→application_number_ui application_number btree_unique Natural key
+  3351→dx
+  3352→| application_status_idx | status                | btree |     | Pipeline filter     |
+  3353→| ---------------------- | --------------------- | ----- | --- | ------------------- |
+  3354→| application_branch_ses | branch_id,            | btree |     | Per-branch pipeline |
+  3355→| sion_idx               | academic_session_id,  |       |     |                     |
+  3356→status
+  3357→Foreign Keys
+  3358→•  lead_id,leads(id) ON DELETE SET NULL
+  3359→•  branch_id,branches(id) ON DELETE RESTRICT
+  3360→•  academic_session_id,academic_sessions(id) ON DELETE RESTRICT
+  3361→•  school_id,schools(id) ON DELETE CASCADE
+  3362→13.4.3 application_document
+  3363→Purpose: Document uploaded against an application — birth cert, photo, Aadhaar, medical.
+  3364→Prisma Model: ApplicationDocument  |  Aggregate: Application
+  3365→Columns
+  3366→| Column         | Type | Null | Key | Description        |
+  3367→| -------------- | ---- | ---- | --- | ------------------ |
+  3368→| application_id | UUID | NO   | FK  | → applications(id) |
+  3369→PreOne ERD v3.0                                                              Page 86 of 403
+  3370→
+  3371→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3372→| Column        | Type         | Null | Key | Description   |
+  3373→| ------------- | ------------ | ---- | --- | ------------- |
+  3374→| document_type | DocumentType | NO   | -   | BIRTH_CERT /  |
+  3375→PHOTO /
+  3376→AADHAAR /
+  3377→MEDICAL /
+  3378→INCOME / CASTE /
+  3379→TRANSFER_CERT /
+  3380→PREV_REPORT /
+  3381→OTHER
+  3382→| file_url        | text        | NO  | -   | CDN URL      |
+  3383→| --------------- | ----------- | --- | --- | ------------ |
+  3384→| file_size_bytes | bigint      | NO  | -   | Size         |
+  3385→| file_hash       | varchar(64) | NO  | -   | SHA-256 for  |
+  3386→dedup
+  3387→| verification_status | VerificationStatus | NO  | -   | PENDING /  |
+  3388→| ------------------- | ------------------ | --- | --- | ---------- |
+  3389→VERIFIED /
+  3390→REJECTED /
+  3391→RESUBMIT
+  3392→| verified_by | UUID        | YES | FK  | → users(id)   |
+  3393→| ----------- | ----------- | --- | --- | ------------- |
+  3394→| verified_at | timestamptz | YES | -   | Verification  |
+  3395→timestamp
+  3396→| rejection_reason | text | YES | -   | If  |
+  3397→| ---------------- | ---- | --- | --- | --- |
+  3398→REJECTED/RESUB
+  3399→MIT
+  3400→| ocr_data | jsonb | YES | -   | Extracted fields  |
+  3401→| -------- | ----- | --- | --- | ----------------- |
+  3402→(e.g., DOB from
+  3403→birth cert)
+  3404→Indexes
+  3405→| Index Name | Columns | Type |     | Purpose |
+  3406→| ---------- | ------- | ---- | --- | ------- |
+  3407→application_document_ application_id,  btree Per-app per-type
+  3408→| app_type_idx | document_type |     |     | lookup |
+  3409→| ------------ | ------------- | --- | --- | ------ |
+  3410→Foreign Keys
+  3411→•  application_id,applications(id) ON DELETE CASCADE
+  3412→•  verified_by,users(id) ON DELETE SET NULL
+  3413→•  school_id,schools(id) ON DELETE CASCADE
+  3414→PreOne ERD v3.0                                                              Page 87 of 403
+  3415→
+  3416→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3417→13.4.4 document_checklist
+  3418→Purpose: Per-program mandatory document checklist. Drives verification dashboard.
+  3419→Prisma Model: DocumentChecklist  |  Aggregate: Application
+  3420→Columns
+  3421→| Column       | Type        | Null | Key | Description  |
+  3422→| ------------ | ----------- | ---- | --- | ------------ |
+  3423→| program_type | ProgramType | NO   | -   | PLAYGROUP /  |
+  3424→NURSERY / LKG /
+  3425→UKG / DAYCARE
+  3426→| document_type     | DocumentType | NO  | -   | Document type   |
+  3427→| ----------------- | ------------ | --- | --- | --------------- |
+  3428→| is_mandatory      | boolean      | NO  | -   | true = required |
+  3429→| verification_meth | varchar(16)  | NO  | -   | MANUAL / OCR /  |
+  3430→| od                |              |     |     | BOTH            |
+  3431→| description       | text         | YES | -   | What this       |
+  3432→document is for
+  3433→Indexes
+  3434→| Index Name | Columns | Type |     | Purpose |
+  3435→| ---------- | ------- | ---- | --- | ------- |
+  3436→document_checklist_pr school_id,  btree_unique One rule per program
+  3437→| ogram_uidx | program_type,  |     |     | per doc |
+  3438→| ---------- | -------------- | --- | --- | ------- |
+  3439→document_type
+  3440→Foreign Keys
+  3441→•  school_id,schools(id) ON DELETE CASCADE
+  3442→13.4.5 counselling_session
+  3443→Purpose: Counselling/interaction session with parent + child. Scheduled before approval.
+  3444→Prisma Model: CounsellingSession  |  Aggregate: Application
+  3445→Columns
+  3446→| Column         | Type        | Null | Key | Description        |
+  3447→| -------------- | ----------- | ---- | --- | ------------------ |
+  3448→| application_id | UUID        | NO   | FK  | → applications(id) |
+  3449→| counsellor_id  | UUID        | NO   | FK  | → users(id)        |
+  3450→| scheduled_at   | timestamptz | NO   | -   | Session time       |
+  3451→PreOne ERD v3.0                                                              Page 88 of 403
+  3452→
+  3453→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3454→| Column           | Type        | Null | Key | Description  |
+  3455→| ---------------- | ----------- | ---- | --- | ------------ |
+  3456→| duration_minutes | integer     | NO   | -   | Default 30   |
+  3457→| mode             | varchar(16) | NO   | -   | IN_PERSON /  |
+  3458→PHONE / VIDEO
+  3459→| status | varchar(16) | NO  | -   | SCHEDULED /  |
+  3460→| ------ | ----------- | --- | --- | ------------ |
+  3461→COMPLETED /
+  3462→CANCELLED /
+  3463→NO_SHOW
+  3464→| child_present | boolean | NO  | -   | Child attended? |
+  3465→| ------------- | ------- | --- | --- | --------------- |
+  3466→| notes         | text    | YES | -   | Counsellor      |
+  3467→observations
+  3468→| recommendation | varchar(16) | YES | -   | APPROVE / REJECT  |
+  3469→| -------------- | ----------- | --- | --- | ----------------- |
+  3470→/ WAITLIST
+  3471→| completed_at | timestamptz | YES | -   | Completion  |
+  3472→| ------------ | ----------- | --- | --- | ----------- |
+  3473→timestamp
+  3474→Indexes
+  3475→| Index Name | Columns | Type |     | Purpose |
+  3476→| ---------- | ------- | ---- | --- | ------- |
+  3477→counselling_session_ap application_id,  btree Per-app sessions
+  3478→| p_idx | scheduled_at |     |     |     |
+  3479→| ----- | ------------ | --- | --- | --- |
+  3480→Foreign Keys
+  3481→•  application_id,applications(id) ON DELETE CASCADE
+  3482→•  counsellor_id,users(id) ON DELETE RESTRICT
+  3483→•  school_id,schools(id) ON DELETE CASCADE
+  3484→13.4.6 approval
+  3485→Purpose: Approval decision record. Multi-level matrix based on fee waiver amount + branch.
+  3486→Prisma Model: Approval  |  Aggregate: Application
+  3487→Columns
+  3488→| Column         | Type | Null | Key | Description        |
+  3489→| -------------- | ---- | ---- | --- | ------------------ |
+  3490→| application_id | UUID | NO   | FK  | → applications(id) |
+  3491→| approver_id    | UUID | NO   | FK  | → users(id)        |
+  3492→PreOne ERD v3.0                                                              Page 89 of 403
+  3493→
+  3494→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3495→| Column         | Type    | Null | Key | Description |
+  3496→| -------------- | ------- | ---- | --- | ----------- |
+  3497→| approval_level | integer | NO   | -   | 1=Branch,   |
+  3498→2=Academic,
+  3499→3=Finance,
+  3500→4=Director
+  3501→| decision | ApprovalDecision | NO  | -   | APPROVED /  |
+  3502→| -------- | ---------------- | --- | --- | ----------- |
+  3503→REJECTED /
+  3504→WAITLISTED /
+  3505→DEFERRED
+  3506→| decision_reason | text        | YES | -   | Reason    |
+  3507→| --------------- | ----------- | --- | --- | --------- |
+  3508→| decided_at      | timestamptz | NO  | -   | Decision  |
+  3509→timestamp
+  3510→| fee_waiver_appro | integer | YES | -   | If waiver  |
+  3511→| ---------------- | ------- | --- | --- | ---------- |
+  3512→| ved_cents        |         |     |     | requested  |
+  3513→| conditions       | jsonb   | YES | -   | Array of   |
+  3514→conditions (e.g.,
+  3515→medical check)
+  3516→Indexes
+  3517→| Index Name             | Columns          | Type  |     | Purpose        |
+  3518→| ---------------------- | ---------------- | ----- | --- | -------------- |
+  3519→| approval_app_level_idx | application_id,  | btree |     | Approval chain |
+  3520→approval_level
+  3521→Foreign Keys
+  3522→•  application_id,applications(id) ON DELETE CASCADE
+  3523→•  approver_id,users(id) ON DELETE RESTRICT
+  3524→•  school_id,schools(id) ON DELETE CASCADE
+  3525→13.4.7 admission
+  3526→Purpose: Final admission record created after all approvals. Triggers student record creation.
+  3527→Prisma Model: Admission  |  Aggregate: Admission
+  3528→PreOne ERD v3.0                                                              Page 90 of 403
+  3529→
+  3530→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3531→Columns
+  3532→| Column          | Type        | Null | Key | Description        |
+  3533→| --------------- | ----------- | ---- | --- | ------------------ |
+  3534→| admission_numbe | varchar(20) | NO   | U   | Format ADM-        |
+  3535→| r               |             |      |     | YYYY-NNNNN         |
+  3536→| application_id  | UUID        | NO   | FK  | → applications(id) |
+  3537→| student_id      | UUID        | YES  | FK  | → students(id)     |
+  3538→(NULL until
+  3539→student created)
+  3540→| classroom_id | UUID | YES | FK  | → classrooms(id)  |
+  3541→| ------------ | ---- | --- | --- | ----------------- |
+  3542→(assigned later)
+  3543→| fee_plan_id    | UUID          | YES | FK  | → fee_plans(id)   |
+  3544→| -------------- | ------------- | --- | --- | ----------------- |
+  3545→| admission_date | date          | NO  | -   | Actual start date |
+  3546→| admission_type | AdmissionType | NO  | -   | Type              |
+  3547→| status         | varchar(16)   | NO  | -   | ACTIVE /          |
+  3548→CANCELLED /
+  3549→GRADUATED /
+  3550→TRANSFERRED
+  3551→| cancelled_at      | timestamptz | YES | -   | If cancelled |
+  3552→| ----------------- | ----------- | --- | --- | ------------ |
+  3553→| cancellation_reas | text        | YES | -   | Reason       |
+  3554→on
+  3555→| refund_due_cents | integer | YES | -   | If applicable |
+  3556→| ---------------- | ------- | --- | --- | ------------- |
+  3557→Indexes
+  3558→| Index Name | Columns | Type |     | Purpose |
+  3559→| ---------- | ------- | ---- | --- | ------- |
+  3560→admission_number_uid admission_number btree_unique Natural key
+  3561→x
+  3562→admission_student_idx student_id WHERE  partial Student lookup
+  3563→student_id IS NOT NULL
+  3564→Foreign Keys
+  3565→•  application_id,applications(id) ON DELETE RESTRICT
+  3566→•  student_id,students(id) ON DELETE SET NULL
+  3567→•  classroom_id,classrooms(id) ON DELETE SET NULL
+  3568→•  fee_plan_id,fee_plans(id) ON DELETE SET NULL
+  3569→PreOne ERD v3.0                                                              Page 91 of 403
+  3570→
+  3571→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3572→•  school_id,schools(id) ON DELETE CASCADE
+  3573→13.4.8 waiting_list
+  3574→Purpose: Waitlist per branch/program/session. Auto-promotion when seat opens.
+  3575→Prisma Model: WaitingList  |  Aggregate: Application
+  3576→Columns
+  3577→| Column           | Type        | Null | Key | Description        |
+  3578→| ---------------- | ----------- | ---- | --- | ------------------ |
+  3579→| application_id   | UUID        | NO   | FK  | → applications(id) |
+  3580→| branch_id        | UUID        | NO   | FK  | → branches(id)     |
+  3581→| program_type     | ProgramType | NO   | -   | Program            |
+  3582→| academic_session | UUID        | NO   | FK  | →                  |
+  3583→| _id              |             |      |     | academic_session   |
+  3584→s(id)
+  3585→| position       | integer | NO  | -   | 1-based rank |
+  3586→| -------------- | ------- | --- | --- | ------------ |
+  3587→| priority_score | integer | NO  | -   | Computed     |
+  3588→(sibling, staff child,
+  3589→etc.)
+  3590→| offered_at       | timestamptz | YES | -   | When seat offered |
+  3591→| ---------------- | ----------- | --- | --- | ----------------- |
+  3592→| offer_expires_at | timestamptz | YES | -   | Offer expiry      |
+  3593→| responded_at     | timestamptz | YES | -   | Parent response   |
+  3594→| response         | varchar(16) | YES | -   | ACCEPTED /        |
+  3595→DECLINED /
+  3596→NO_RESPONSE
+  3597→Indexes
+  3598→| Index Name | Columns | Type |     | Purpose |
+  3599→| ---------- | ------- | ---- | --- | ------- |
+  3600→waiting_list_position_id branch_id,  btree Position-based query
+  3601→| x   | program_type,  |     |     |     |
+  3602→| --- | -------------- | --- | --- | --- |
+  3603→academic_session_id,
+  3604→position
+  3605→Foreign Keys
+  3606→•  application_id,applications(id) ON DELETE CASCADE
+  3607→•  branch_id,branches(id) ON DELETE RESTRICT
+  3608→PreOne ERD v3.0                                                              Page 92 of 403
+  3609→
+  3610→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3611→•  school_id,schools(id) ON DELETE CASCADE
+  3612→13.4.9 admission_offer
+  3613→Purpose: Formal admission offer letter with fee quote. Sent to parent for acceptance.
+  3614→Prisma Model: AdmissionOffer  |  Aggregate: Application
+  3615→Columns
+  3616→| Column          | Type        | Null | Key | Description        |
+  3617→| --------------- | ----------- | ---- | --- | ------------------ |
+  3618→| application_id  | UUID        | NO   | FK  | → applications(id) |
+  3619→| offer_number    | varchar(20) | NO   | U   | OFR-YYYY-NNNNN     |
+  3620→| offered_program | ProgramType | NO   | -   | Program offered    |
+  3621→| fee_quote_cents | integer     | NO   | -   | Annual fee in      |
+  3622→quote
+  3623→| security_deposit_ | integer     | NO  | -   | Refundable      |
+  3624→| ----------------- | ----------- | --- | --- | --------------- |
+  3625→| cents             |             |     |     | deposit         |
+  3626→| offer_letter_url  | text        | NO  | -   | PDF URL         |
+  3627→| issued_at         | timestamptz | NO  | -   | Issue timestamp |
+  3628→| expires_at        | timestamptz | NO  | -   | Offer validity  |
+  3629→(typically 7 days)
+  3630→| accepted_at | timestamptz | YES | -   | Parent acceptance |
+  3631→| ----------- | ----------- | --- | --- | ----------------- |
+  3632→| declined_at | timestamptz | YES | -   | Parent decline    |
+  3633→Indexes
+  3634→| Index Name            | Columns        | Type  |     | Purpose        |
+  3635→| --------------------- | -------------- | ----- | --- | -------------- |
+  3636→| admission_offer_app_i | application_id | btree |     | Per-app offers |
+  3637→dx
+  3638→Foreign Keys
+  3639→•  application_id,applications(id) ON DELETE CASCADE
+  3640→•  school_id,schools(id) ON DELETE CASCADE
+  3641→13.4.10 age_verification
+  3642→Purpose: Age eligibility verification per program (BRC R-ELG-001). Birth cert DOB vs program age
+  3643→band.
+  3644→PreOne ERD v3.0                                                              Page 93 of 403
+  3645→
+  3646→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3647→Prisma Model: AgeVerification  |  Aggregate: Application
+  3648→Columns
+  3649→| Column            | Type         | Null | Key | Description           |
+  3650→| ----------------- | ------------ | ---- | --- | --------------------- |
+  3651→| application_id    | UUID         | NO   | FK  | → applications(id)    |
+  3652→| program_type      | ProgramType  | NO   | -   | Program               |
+  3653→| child_dob_declare | date         | NO   | -   | Parent-declared       |
+  3654→| d                 |              |      |     | DOB                   |
+  3655→| child_dob_verifie | date         | YES  | -   | Birth cert verified   |
+  3656→| d                 |              |      |     | DOB                   |
+  3657→| min_age_required  | numeric(4,1) | NO   | -   | Years (e.g., 2.5 for  |
+  3658→Playgroup)
+  3659→| max_age_require   | numeric(4,1) | NO  | -   | Years (e.g., 3.5 for  |
+  3660→| ----------------- | ------------ | --- | --- | --------------------- |
+  3661→| d                 |              |     |     | Playgroup)            |
+  3662→| age_at_session_st | numeric(4,1) | NO  | -   | Computed              |
+  3663→art
+  3664→| is_eligible | boolean     | NO  | -   | Computed result |
+  3665→| ----------- | ----------- | --- | --- | --------------- |
+  3666→| verified_by | UUID        | YES | FK  | → users(id)     |
+  3667→| verified_at | timestamptz | YES | -   | Verification    |
+  3668→timestamp
+  3669→| override_reason | text | YES | -   | If override  |
+  3670→| --------------- | ---- | --- | --- | ------------ |
+  3671→granted
+  3672→Indexes
+  3673→| Index Name | Columns | Type |     | Purpose |
+  3674→| ---------- | ------- | ---- | --- | ------- |
+  3675→age_verification_app_ui application_id btree_unique 1:1 to application
+  3676→dx
+  3677→Foreign Keys
+  3678→•  application_id,applications(id) ON DELETE CASCADE
+  3679→•  school_id,schools(id) ON DELETE CASCADE
+  3680→13.4.11 fee_plan_quote
+  3681→Purpose: Fee quote attached to application. Pre-computed based on program + concessions.
+  3682→PreOne ERD v3.0                                                              Page 94 of 403
+  3683→
+  3684→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3685→Prisma Model: FeePlanQuote  |  Aggregate: Application
+  3686→Columns
+  3687→| Column             | Type    | Null | Key | Description        |
+  3688→| ------------------ | ------- | ---- | --- | ------------------ |
+  3689→| application_id     | UUID    | NO   | FK  | → applications(id) |
+  3690→| fee_plan_id        | UUID    | NO   | FK  | → fee_plans(id)    |
+  3691→| annual_fee_cents   | integer | NO   | -   | Annual fee         |
+  3692→| security_deposit_  | integer | NO   | -   | Refundable         |
+  3693→| cents              |         |      |     | deposit            |
+  3694→| sibling_concession | integer | NO   | -   | If applicable      |
+  3695→_cents
+  3696→| scholarship_cents | integer | NO  | -   | If applicable     |
+  3697→| ----------------- | ------- | --- | --- | ----------------- |
+  3698→| net_annual_cents  | integer | NO  | -   | After concessions |
+  3699→| installment_count | integer | NO  | -   | 1, 2, 4, 12       |
+  3700→| quote_valid_until | date    | NO  | -   | Quote validity    |
+  3701→Indexes
+  3702→| Index Name            | Columns        | Type  |     | Purpose        |
+  3703→| --------------------- | -------------- | ----- | --- | -------------- |
+  3704→| fee_plan_quote_app_id | application_id | btree |     | Per-app quotes |
+  3705→x
+  3706→Foreign Keys
+  3707→•  application_id,applications(id) ON DELETE CASCADE
+  3708→•  fee_plan_id,fee_plans(id) ON DELETE RESTRICT
+  3709→•  school_id,schools(id) ON DELETE CASCADE
+  3710→13.4.12 admission_priority
+  3711→Purpose: Priority score factors for admission ranking (sibling, staff child, alumni, distance).
+  3712→Prisma Model: AdmissionPriority  |  Aggregate: Application
+  3713→Columns
+  3714→| Column         | Type | Null | Key | Description        |
+  3715→| -------------- | ---- | ---- | --- | ------------------ |
+  3716→| application_id | UUID | NO   | FK  | → applications(id) |
+  3717→PreOne ERD v3.0                                                              Page 95 of 403
+  3718→
+  3719→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3720→| Column | Type        | Null | Key | Description |
+  3721→| ------ | ----------- | ---- | --- | ----------- |
+  3722→| factor | varchar(32) | NO   | -   | SIBLING /   |
+  3723→STAFF_CHILD /
+  3724→ALUMNI /
+  3725→DISTANCE /
+  3726→FIRST_GEN /
+  3727→GIRL_CHILD
+  3728→| weight | integer | NO  | -   | Points (e.g., 20 for  |
+  3729→| ------ | ------- | --- | --- | --------------------- |
+  3730→sibling)
+  3731→| evidence_url | text | YES | -   | Supporting  |
+  3732→| ------------ | ---- | --- | --- | ----------- |
+  3733→document
+  3734→| verified | boolean | NO  | -   | Default false |
+  3735→| -------- | ------- | --- | --- | ------------- |
+  3736→Indexes
+  3737→| Index Name             | Columns        | Type  |     | Purpose         |
+  3738→| ---------------------- | -------------- | ----- | --- | --------------- |
+  3739→| admission_priority_app | application_id | btree |     | Per-app factors |
+  3740→_idx
+  3741→Foreign Keys
+  3742→•  application_id,applications(id) ON DELETE CASCADE
+  3743→•  school_id,schools(id) ON DELETE CASCADE
+  3744→13.4.13 sibling_concession
+  3745→Purpose: Sibling concession record — if a sibling is already enrolled, parent gets fee discount.
+  3746→Prisma Model: SiblingConcession  |  Aggregate: Application
+  3747→Columns
+  3748→| Column             | Type         | Null | Key | Description        |
+  3749→| ------------------ | ------------ | ---- | --- | ------------------ |
+  3750→| application_id     | UUID         | NO   | FK  | → applications(id) |
+  3751→| sibling_student_id | UUID         | NO   | FK  | → students(id)     |
+  3752→| concession_perce   | numeric(5,2) | NO   | -   | e.g., 10.00        |
+  3753→ntage
+  3754→| concession_cents | integer | NO  | -   | Computed  |
+  3755→| ---------------- | ------- | --- | --- | --------- |
+  3756→amount
+  3757→| approved_by | UUID | YES | FK  | → users(id) |
+  3758→| ----------- | ---- | --- | --- | ----------- |
+  3759→PreOne ERD v3.0                                                              Page 96 of 403
+  3760→
+  3761→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3762→| Column      | Type        | Null | Key | Description |
+  3763→| ----------- | ----------- | ---- | --- | ----------- |
+  3764→| approved_at | timestamptz | YES  | -   | Approval    |
+  3765→timestamp
+  3766→Indexes
+  3767→| Index Name | Columns | Type |     | Purpose |
+  3768→| ---------- | ------- | ---- | --- | ------- |
+  3769→sibling_concession_app application_id btree Per-app concessions
+  3770→_idx
+  3771→Foreign Keys
+  3772→•  application_id,applications(id) ON DELETE CASCADE
+  3773→•  sibling_student_id,students(id) ON DELETE RESTRICT
+  3774→•  school_id,schools(id) ON DELETE CASCADE
+  3775→13.4.14 admission_cancellation
+  3776→Purpose: Admission cancellation record with refund calculation per policy.
+  3777→Prisma Model: AdmissionCancellation  |  Aggregate: Admission
+  3778→Columns
+  3779→| Column       | Type | Null | Key | Description      |
+  3780→| ------------ | ---- | ---- | --- | ---------------- |
+  3781→| admission_id | UUID | NO   | FK  | → admissions(id) |
+  3782→| cancelled_by | UUID | NO   | FK  | → users(id)      |
+  3783→| reason       | text | NO   | -   | Cancellation     |
+  3784→reason
+  3785→| cancelled_at       | timestamptz | NO  | -   | Timestamp         |
+  3786→| ------------------ | ----------- | --- | --- | ----------------- |
+  3787→| refund_eligible_ce | integer     | NO  | -   | Per refund policy |
+  3788→nts
+  3789→| refund_processed | integer | YES | -   | Actual refund |
+  3790→| ---------------- | ------- | --- | --- | ------------- |
+  3791→_cents
+  3792→| refund_processed | timestamptz | YES | -   | Refund timestamp |
+  3793→| ---------------- | ----------- | --- | --- | ---------------- |
+  3794→_at
+  3795→PreOne ERD v3.0                                                              Page 97 of 403
+  3796→
+  3797→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3798→Indexes
+  3799→| Index Name | Columns | Type |     | Purpose |
+  3800→| ---------- | ------- | ---- | --- | ------- |
+  3801→admission_cancellation admission_id btree_unique 1:1 to admission
+  3802→_adm_uidx
+  3803→Foreign Keys
+  3804→•  admission_id,admissions(id) ON DELETE RESTRICT
+  3805→•  cancelled_by,users(id) ON DELETE RESTRICT
+  3806→•  school_id,schools(id) ON DELETE CASCADE
+  3807→13.4.15 admission_audit
+  3808→Purpose: Per-application audit trail — every status change, document upload, approval step.
+  3809→Prisma Model: AdmissionAudit  |  Aggregate: Admission
+  3810→Columns
+  3811→| Column         | Type        | Null | Key | Description        |
+  3812→| -------------- | ----------- | ---- | --- | ------------------ |
+  3813→| application_id | UUID        | NO   | FK  | → applications(id) |
+  3814→| actor_id       | UUID        | YES  | FK  | → users(id)        |
+  3815→| event          | varchar(32) | NO   | -   | CREATED /          |
+  3816→SUBMITTED /
+  3817→DOC_UPLOADED /
+  3818→DOC_VERIFIED /
+  3819→COUNSELLING_DO
+  3820→NE / APPROVED /
+  3821→REJECTED /
+  3822→WAITLISTED /
+  3823→OFFERED /
+  3824→ACCEPTED /
+  3825→CANCELLED
+  3826→| from_status | ApplicationStatus | YES | -   | Previous status |
+  3827→| ----------- | ----------------- | --- | --- | --------------- |
+  3828→| to_status   | ApplicationStatus | YES | -   | New status      |
+  3829→| metadata    | jsonb             | YES | -   | Event payload   |
+  3830→| occurred_at | timestamptz       | NO  | -   | Event timestamp |
+  3831→PreOne ERD v3.0                                                              Page 98 of 403
+  3832→
+  3833→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3834→Indexes
+  3835→| Index Name            | Columns          | Type  |     | Purpose     |
+  3836→| --------------------- | ---------------- | ----- | --- | ----------- |
+  3837→| admission_audit_app_i | application_id,  | btree |     | Audit trail |
+  3838→| dx                    | occurred_at DESC |       |     |             |
+  3839→Foreign Keys
+  3840→•  application_id,applications(id) ON DELETE CASCADE
+  3841→•  actor_id,users(id) ON DELETE SET NULL
+  3842→•  school_id,schools(id) ON DELETE CASCADE
+  3843→13.4.16 admission_rejection
+  3844→Purpose: Rejection record with reason + optional feedback to parent.
+  3845→Prisma Model: AdmissionRejection  |  Aggregate: Application
+  3846→Columns
+  3847→| Column           | Type            | Null | Key | Description        |
+  3848→| ---------------- | --------------- | ---- | --- | ------------------ |
+  3849→| application_id   | UUID            | NO   | FK  | → applications(id) |
+  3850→| rejected_by      | UUID            | NO   | FK  | → users(id)        |
+  3851→| reason           | RejectionReason | NO   | -   | Reason             |
+  3852→| feedback_to_pare | text            | YES  | -   | Optional feedback  |
+  3853→nt
+  3854→| rejected_at     | timestamptz | NO  | -   | Timestamp    |
+  3855→| --------------- | ----------- | --- | --- | ------------ |
+  3856→| appeal_eligible | boolean     | NO  | -   | Default true |
+  3857→Indexes
+  3858→| Index Name | Columns | Type |     | Purpose |
+  3859→| ---------- | ------- | ---- | --- | ------- |
+  3860→admission_rejection_ap application_id btree_unique 1:1 to application
+  3861→p_uidx
+  3862→Foreign Keys
+  3863→•  application_id,applications(id) ON DELETE CASCADE
+  3864→•  rejected_by,users(id) ON DELETE RESTRICT
+  3865→•  school_id,schools(id) ON DELETE CASCADE
+  3866→PreOne ERD v3.0                                                              Page 99 of 403
+  3867→
+  3868→PreOne ERD v3.0  |  Database Schema & Physical Design
+  3869→14. Domain: Student Lifecycle
+  3870→हा(cid:2) domain PreOne चा(cid:2) core entity domain आहा(cid:8). Student master record, parent/guardian records,
+  3871→medical history, classroom assignment, promotion, graduation, transfer, आणिण archival — साव/ lifecycle
+  3872→stages याथे(cid:8) ने!  manage हा(cid:18)तो(cid:2)तो. DPDP §17 नेसा(cid:27) (cid:2)रे inactive student records 7 वर्षां>ने  (cid:15) archive हा(cid:18)तो(cid:2)तो.
+  3873→14.1 Domain KPIs
+  3874→या(cid:2) domain चा (cid:8)operational health measure केरेण(cid:2)रे(cid:8) KPIs खा(cid:2)ला(cid:15)लापु,म(cid:2)ण (cid:8)आहा(cid:8)तो:
+  3875→| KPI                    |     | Target / Definition                  |     |
+  3876→| ---------------------- | --- | ------------------------------------ | --- |
+  3877→| Single source of truth |     | 0 duplicate students across branches |     |
+  3878→Promotion completion time ≤24 hours for entire branch at year-end
+  3879→Medical record completeness ≥95% students with allergy + immunization
+  3880→| Archive compliance |     | 100% archived after 7 years (DPDP §17) |     |
+  3881→| ------------------ | --- | -------------------------------------- | --- |
+  3882→14.2 Table Inventory
+  3883→या(cid:2) domain मध्या(cid:8) 22 tables आहा(cid:8)तो. खा(cid:2)ला(cid:15)ला summary table पु,त्याके(cid:8)  table चा(cid:8) name, Prisma model, aggregate,
+  3884→आणिण purpose capture केरेतो(cid:8):
+  3885→| Table   | Prisma Model | Aggregate | Purpose                 |
+  3886→| ------- | ------------ | --------- | ----------------------- |
+  3887→| student | Student      | Student   | Master student record.  |
+  3888→Created at admission;
+  3889→carries identity across
+  3890→branches/sessions.
+  3891→| student_profile | StudentProfile | Student | Extended profile —  |
+  3892→| --------------- | -------------- | ------- | ------------------- |
+  3893→demographics, custody,
+  3894→address. Separate from
+  3895→identity record for
+  3896→privacy boundary.
+  3897→| guardian | Guardian | Student | Parent/guardian master  |
+  3898→| -------- | -------- | ------- | ----------------------- |
+  3899→record. One guardian
+  3900→may be linked to
+  3901→multiple students
+  3902→(siblings).
+  3903→PreOne ERD v3.0                                                              Page 100 of 403
+  3904→
+  3905→PreOne ERD v3.0 | Database Schema & Physical Design
+  3906→Table Prisma Model Aggregate Purpose
+  3907→student_guardian StudentGuardian Student Junction table linking
+  3908→students to guardians
+  3909→with role flags (primary,
+  3910→pickup auth, fee payer).
+  3911→student_medical_recor StudentMedicalRecord Student Medical master record
+  3912→d per student — allergies,
+  3913→conditions, emergency
+  3914→contact, pediatrician.
+  3915→immunization_record ImmunizationRecord Student Per-student
+  3916→immunization history
+  3917→per WHO schedule.
+  3918→allergy Allergy Student Allergy dictionary —
+  3919→reusable allergy types
+  3920→for
+  3921→student_medical_recor
+  3922→d.allergies.
+  3923→student_document StudentDocument Student Per-student document
+  3924→vault — birth cert,
+  3925→Aadhaar, photos,
+  3926→transfer cert, medical
+  3927→reports.
+  3928→student_photo StudentPhoto Student Periodic photo uploads
+  3929→for growth tracking +
+  3930→portfolio. Distinct from
+  3931→profile_photo.
+  3932→student_passport StudentPassport Student Optional
+  3933→passport/ECNR details
+  3934→for international
+  3935→transfer students.
+  3936→classroom Classroom Classroom Logical grouping of
+  3937→students under a
+  3938→teacher for an
+  3939→academic session.
+  3940→Distinct from physical
+  3941→room.
+  3942→section Section Classroom Optional sub-section
+  3943→within a classroom for
+  3944→very large groups.
+  3945→PreOne ERD v3.0 Page 101 of 403
+  3946→
+  3947→PreOne ERD v3.0 | Database Schema & Physical Design
+  3948→Table Prisma Model Aggregate Purpose
+  3949→classroom_assignment ClassroomAssignment Classroom Student → classroom
+  3950→assignment for a
+  3951→session. Maintains
+  3952→history across years.
+  3953→promotion Promotion Student Year-end promotion
+  3954→record. From one
+  3955→classroom to next;
+  3956→detention/graduation
+  3957→tracked.
+  3958→graduation Graduation Student Graduation ceremony
+  3959→record when student
+  3960→completes UKG.
+  3961→transfer Transfer Student Transfer record — to
+  3962→another branch or
+  3963→external school.
+  3964→Generates transfer
+  3965→certificate.
+  3966→archive Archive Student Archive record for
+  3967→inactive students per
+  3968→DPDP §17. Triggers data
+  3969→minimization.
+  3970→student_history StudentHistory Student Append-only historical
+  3971→snapshot of student
+  3972→record at key lifecycle
+  3973→events.
+  3974→student_consent StudentConsent Student Per-student consent
+  3975→records — field trip,
+  3976→media use, medical
+  3977→emergency, data
+  3978→processing.
+  3979→student_tag StudentTag Student Flexible tag system for
+  3980→student grouping
+  3981→(gifted, needs-
+  3982→attention, scholarship,
+  3983→etc.).
+  3984→PreOne ERD v3.0 Page 102 of 403
+  3985→
+  3986→PreOne ERD v3.0 | Database Schema & Physical Design
+  3987→Table Prisma Model Aggregate Purpose
+  3988→student_note StudentNote Student Free-text notes by staff
+  3989→about a student
+  3990→(separate from formal
+  3991→observations).
+  3992→sibling_link SiblingLink Student Sibling relationship
+  3993→between students.
+  3994→Drives sibling
+  3995→concession + grouping.
+  3996→14.3 ERD Diagram
+  3997→खा(cid:2)ला(cid:15)ला ASCII diagram domain च्या(cid:2) primary tables आणिण त्या(cid:2)च् या(cid:2) एकेमके(cid:8) (cid:2)शी (cid:15) FK relationships देशी/वतो(cid:18). हा(cid:8)
+  3998→diagram simplified आहा(cid:8) — complete FK list पु,त्याके(cid:8) table च्या(cid:2) data dictionary मध्या (cid:8)document आहा(cid:8).
+  3999→┌─ Student Lifecycle (22 tables) ─┐
+
+[showing lines 2000-3999 of 15413; use offset=4000 with limit to continue reading]

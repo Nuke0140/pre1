@@ -93,3 +93,20 @@ Stage Summary:
 - PostgreSQL 17.10 :54329 + Next.js standalone :3000 both running and stable
 - Smoke matrix: / 200, login (platform+owner) 200, dashboard/students/leads/invoices/announcements 200, attendance 400-no-classroomId (by design), /app/dashboard 200, /onboard 200, tenants api 200
 - Demo accounts intact: platform@preone.in, owner@/principal@/teacher@/accounts@/parent@sunshine.demo (Preone@123)
+
+---
+Task ID: 6
+Agent: main (Super Z)
+Task: Complete flow audit of PreOne docs -> canonical product flow document (32 sections, DOCX)
+
+Work Log:
+- Loaded docx skill chain: SKILL.md -> routes/create.md -> references/docx-js-core.md, common-rules.md, toc.md, design-system.md (R1 recipe, DM-1 palette, calcTitleLayout/calcCoverSpacing) -> scenes/report.md
+- Launched 5 parallel Explore agents over all 19 source MDs (~111K lines); returned full conflict evidence with quotes: 6 role taxonomies, 4+ admission pipelines, 2 data-model generations (school_id/_cents vs tenantId/Decimal), 3 stacks (Spring vs NestJS vs Next-API), 34-entry conflict register, Growth Passport=UNDEFINED in sources
+- Wrote modular generation scripts in scripts/preone-doc/: helpers.js (DM-1 palette, tbl/note/flow builders), content-part1..7.js (32 sections), generate.js (R1 cover + 3-section architecture: cover / TOC roman / body arabic)
+- Fixed bug: arrays pushed without spread -> fixed via body.flat(Infinity)
+- Pipeline: node generate.js -> add_toc_placeholders.py --auto (107 headings, exit 0) -> postprocess.py (footer PAGE \* ROMAN / \* arabic patches, removed empty pgNumType) -> postcheck.py (0 errors, 2 allowed warnings)
+- Visual QA via LibreOffice->PDF->PNG: cover, TOC, body, conflict-register table, hierarchy flow, RBAC 12-col matrix, clean ending - all correct (81 pages, 76 body pages)
+
+Stage Summary:
+- Deliverables: /home/z/my-project/download/PreOne_Canonical_Product_Flow_Audit_v1.0.docx (editable master) + same-name .pdf
+- Content: 32 sections per brief - conflict register C01-C34, canonical 11 roles (D3), tenant hierarchy (D2), auth Option B, tenant lifecycle DRAFT->PENDING_ACTIVATION->ONBOARDING->ACTIVE->SUSPENDED->ARCHIVED, 5 separated admission status domains, student lifecycle, attendance 5-status + correction model, paise/GST-0%/BRC-slab rulings, Growth Passport RECOMMENDED composition, AI never-write layer, 13 state machines, canonical envelope, 29 edge cases, 29 E2E flows, master flow, 11 open decisions, per-team readiness checklists

@@ -1,0 +1,802 @@
+     1→P R E O N E E N T E R P R I S E
+     2→PreOne Master PRD
+     3→Enterprise Preschool Operating System
+     4→Document Version: 1.0
+     5→Status: Product Freeze
+     6→Date: 2026-07-12
+     7→Product: PreOne — Enterprise Preschool OS
+     8→Predecessor: Vision v1.0, BPM v1.0, BRC v1.0
+     9→Classification: Internal Engineering Reference
+    10→Prepared by: PreOne Product & Engineering Team
+    11→PreOne Platform Master PRD v1.0
+    12→
+    13→PreOne Master PRD v1.0 | Product Freeze
+    14→Table of Contents
+    15→1. Introduction...................................................................................................................1
+    16→1.1 Purpose...........................................................................................................................1
+    17→1.2 Scope..............................................................................................................................2
+    18→1.3 Document Conventions..................................................................................................2
+    19→1.4 Related Documents........................................................................................................2
+    20→2. Product Overview...........................................................................................................3
+    21→2.1 Product Vision................................................................................................................3
+    22→2.2 Objectives.......................................................................................................................3
+    23→2.3 Target Users....................................................................................................................4
+    24→2.4 Product Pillars.................................................................................................................4
+    25→2.5 Architecture Snapshot....................................................................................................5
+    26→3. Business Requirements (BR)...........................................................................................6
+    27→3.1 Business Requirement Template...................................................................................6
+    28→4. Functional Requirements (FR).........................................................................................6
+    29→4.1 Sample FR Detail — FR-001 User Authentication..........................................................7
+    30→4.2 Functional Requirement Template................................................................................7
+    31→5. Non-Functional Requirements (NFR)...............................................................................8
+    32→5.1 Performance...................................................................................................................8
+    33→5.2 Availability......................................................................................................................8
+    34→5.3 Scalability........................................................................................................................9
+    35→5.4 Security...........................................................................................................................9
+    36→5.5 Reliability........................................................................................................................9
+    37→5.6 Maintainability...............................................................................................................9
+    38→5.7 Usability........................................................................................................................10
+    39→1
+    40→
+    41→PreOne Master PRD v1.0 | Product Freeze
+    42→5.8 Localization...................................................................................................................10
+    43→5.9 NFR Template...............................................................................................................10
+    44→6. Business Rules..............................................................................................................10
+    45→6.1 Rule Categories Summary............................................................................................11
+    46→6.2 Sample Business Rules.................................................................................................11
+    47→6.2.1 Eligibility & Admission.........................................................................................11
+    48→6.2.2 Financial & Fee....................................................................................................12
+    49→6.2.3 Compliance..........................................................................................................12
+    50→6.3 Compliance Framework Mapping................................................................................12
+    51→7. User Roles & Permissions..............................................................................................12
+    52→7.1 Role Definitions............................................................................................................13
+    53→7.2 RBAC Permission Matrix...............................................................................................13
+    54→7.3 Permission Principles....................................................................................................13
+    55→8. Module Requirements..................................................................................................15
+    56→8.1 Marketing & CRM.........................................................................................................15
+    57→8.2 Admissions....................................................................................................................15
+    58→8.3 Student Lifecycle..........................................................................................................16
+    59→8.4 Academics.....................................................................................................................16
+    60→8.5 Daily Operations...........................................................................................................17
+    61→8.6 Parent Communication................................................................................................17
+    62→8.7 Finance.........................................................................................................................17
+    63→8.8 Inventory & Procurement............................................................................................18
+    64→8.9 Human Resources.........................................................................................................18
+    65→8.10 Administration............................................................................................................18
+    66→8.11 Reports & Analytics....................................................................................................19
+    67→8.12 Settings.......................................................................................................................19
+    68→8.13 Platform Management...............................................................................................20
+    69→9. Reports & Analytics......................................................................................................20
+    70→2
+    71→
+    72→PreOne Master PRD v1.0 | Product Freeze
+    73→9.1 Operational Reports.....................................................................................................20
+    74→9.2 Academic Reports.........................................................................................................21
+    75→9.3 Financial Reports..........................................................................................................21
+    76→9.4 Management Reports...................................................................................................21
+    77→9.5 Compliance Reports.....................................................................................................21
+    78→10. Integrations................................................................................................................22
+    79→10.1 Payment Gateway Integration...................................................................................22
+    80→10.2 SMS Gateway Integration...........................................................................................22
+    81→10.3 WhatsApp Business Integration.................................................................................22
+    82→10.4 Email Integration........................................................................................................23
+    83→10.5 Biometric Integration.................................................................................................23
+    84→10.6 AI / LLM Integration...................................................................................................23
+    85→10.7 Cloud Storage Integration..........................................................................................23
+    86→10.8 Identity & SSO Integration.........................................................................................24
+    87→11. Acceptance Criteria (AC).............................................................................................24
+    88→11.1 Acceptance Criteria Template....................................................................................24
+    89→12. Out of Scope...............................................................................................................25
+    90→12.1 Explicitly Excluded from v1.0......................................................................................25
+    91→12.2 Future Roadmap Placeholder.....................................................................................25
+    92→13. Traceability Matrix (RTM)...........................................................................................26
+    93→13.1 Requirements Flow....................................................................................................27
+    94→13.2 Master Traceability Matrix.........................................................................................27
+    95→13.3 Coverage Summary....................................................................................................27
+    96→13.4 Traceability Process....................................................................................................28
+    97→Appendix A: Document Control........................................................................................29
+    98→A.1 Version History.............................................................................................................29
+    99→A.2 Approval Matrix...........................................................................................................29
+   100→A.3 Review Cadence...........................................................................................................29
+   101→3
+   102→
+   103→PreOne Master PRD v1.0 | Product Freeze
+   104→A.4 Distribution List............................................................................................................30
+   105→A.5 Companion Documents...............................................................................................31
+   106→Note: This Table of Contents is generated via field codes. To ensure page number accuracy after editing, please right-
+   107→click the TOC and select "Update Field."
+   108→4
+   109→
+   110→PreOne Master PRD v1.0  |  Product Freeze
+   111→1. Introduction
+   112→1.1 Purpose
+   113→या(cid:2) दस्तऐवजा(cid:2)चा(cid:2) उद्देश(cid:13)  PreOne Platform मधी(cid:17)ल सव (cid:20)Functional आणि(cid:23) Business Requirements स्पष्टप(cid:23) (cid:13)
+   114→define कर(cid:23) (cid:13)आहे(cid:13). हे(cid:2) Master PRD product development lifecycle मधी(cid:17)ल authoritative reference
+   115→document आहे(cid:13), जा(cid:30) engineering team ल(cid:2) implementation scope दत(cid:13) (cid:30), QA team ल(cid:2) acceptance
+   116→| criteria दत(cid:13) | (cid:30), आणि(cid:23) business stakeholders ल(cid:2) commitment lock दत(cid:13) |     |     | (cid:30). |
+   117→| ------------------- | ------------------------------------------------------------------------------- | --- | --- | --------- |
+   118→हे(cid:2) document Vision v1.0, BPM v1.0 आणि(cid:23) BRC v1.0 चा(cid:2) natural successor आहे(cid:13). Vision ने(cid:13) "क ठे(cid:13)
+   119→जा(cid:2)याचा"(cid:13)  स(cid:2)णि"#तल,(cid:13)  BPM ने(cid:13) "कस(cid:13) चा(cid:2)लव(cid:2)याचा"(cid:13)  detailed क(cid:13) ल,(cid:13)  BRC ने(cid:13) "क(cid:30)(cid:23)त(cid:13) rules enforce कर(cid:2)याचा"(cid:13)  list
+   120→क(cid:13) ल,(cid:13)  आणि(cid:23) Master PRD आत(cid:2) "क(cid:2)या build कर(cid:2)याचा"(cid:13)  exactly define करत(cid:13). प$त्याक(cid:13)  requirement
+   121→traceable आहे (cid:13)— BR वरूने FR पया(cid:20)त" , FR वरूने BRC rule पया(cid:20)त" , आणि(cid:23) श(cid:13)वट(cid:17) acceptance criterion पया(cid:20)त" .
+   122→1.2 Scope
+   123→PreOne खा(cid:2)ल(cid:17)ल 13 Business Domains कव्हेर कर(cid:13)ल. हे(cid:13) domains DDD philosophy नेस  (cid:2)र bounded
+   124→contexts म्हे(cid:23)ने+  design क(cid:13) ल(cid:13) आहे(cid:13)त — प$त्या(cid:13)क domain चा(cid:17) स्वत,चा(cid:17) data model, business rules,
+   125→workflows आणि(cid:23) APIs आहे(cid:13)त:
+   126→| #   |     | Domain          | Scope Summary  | Primary Persona  |
+   127→| --- | --- | --------------- | -------------- | ---------------- |
+   128→| 1   |     | Marketing & CRM | Lead capture,  | Reception, Owner |
+   129→counselling, follow-
+   130→ups, conversion
+   131→analytics
+   132→| 2   |     | Admissions | Online applications,  | Reception, Principal |
+   133→| --- | --- | ---------- | --------------------- | -------------------- |
+   134→document
+   135→verification,
+   136→workflow
+   137→automation
+   138→| 3   |     | Student Lifecycle | Allocation, transfers,  | Principal,  |
+   139→| --- | --- | ----------------- | ----------------------- | ----------- |
+   140→|     |     |                   | archives, graduation,   | Coordinator |
+   141→alumni
+   142→| 4   |     | Academics | Curriculum,  | Teacher, Coordinator |
+   143→| --- | --- | --------- | ------------ | -------------------- |
+   144→milestones,
+   145→observations,
+   146→portfolios, report
+   147→cards
+   148→5
+   149→
+   150→PreOne Master PRD v1.0  |  Product Freeze
+   151→| #   | Domain           | Scope Summary      | Primary Persona |
+   152→| --- | ---------------- | ------------------ | --------------- |
+   153→| 5   | Daily Operations | Attendance, daily  | Teacher         |
+   154→sheet, meals, nap,
+   155→activities, incidents
+   156→| 6   | Parent        | Announcements,      | Parent, Teacher |
+   157→| --- | ------------- | ------------------- | --------------- |
+   158→|     | Communication | events, chat, SMS,  |                 |
+   159→WhatsApp, email
+   160→| 7   | Finance | Fee plans, invoices,  | Accounts, Owner |
+   161→| --- | ------- | --------------------- | --------------- |
+   162→payments, receipts,
+   163→expenses, refunds
+   164→| 8   | Inventory &  | Purchase requests,  | Accounts,   |
+   165→| --- | ------------ | ------------------- | ----------- |
+   166→|     | Procurement  | POs, GRN, issues,   | Coordinator |
+   167→returns, audits
+   168→| 9   | Human Resources | Staff, recruitment,  | Principal, Owner |
+   169→| --- | --------------- | -------------------- | ---------------- |
+   170→leave, payroll,
+   171→training,
+   172→performance
+   173→| 10  | Administration | Assets, maintenance,   | Principal,  |
+   174→| --- | -------------- | ---------------------- | ----------- |
+   175→|     |                | visitors, compliance,  | Coordinator |
+   176→meal plans
+   177→| 11  | Reports & Analytics | Real-time  | Owner, Principal |
+   178→| --- | ------------------- | ---------- | ---------------- |
+   179→dashboards, KPIs,
+   180→trends, predictions
+   181→| 12  | Settings | Configurations,  | Principal, Owner |
+   182→| --- | -------- | ---------------- | ---------------- |
+   183→templates,
+   184→notification rules,
+   185→integrations
+   186→| 13  | Platform   | Multi-tenant SaaS  | Platform Admin |
+   187→| --- | ---------- | ------------------ | -------------- |
+   188→|     | Management | layer, billing,    |                |
+   189→subscriptions, audit
+   190→1.3 Document Conventions
+   191→हे(cid:2) document क(cid:2)हे(cid:17) standard conventions follow करत(cid:30) जा (cid:13)व(cid:2)चा(cid:23) "आणि(cid:23) reference कर(cid:23) "स(cid:30)प "करत(cid:2)त.
+   192→Requirement IDs (BR-001, FR-001, AC-001) stable identifiers आहे(cid:13)त जा(cid:13) future versions मध्या (cid:13)
+   193→change हे(cid:30)(cid:23)(cid:2)र ने(cid:2)हे(cid:17)त — जार क(cid:30)(cid:23)त(cid:17) requirement deprecate हे(cid:30)ईल तर ID retired क(cid:13) ल(cid:17) जा(cid:2)ईल, reuse
+   194→6
+   195→
+   196→PreOne Master PRD v1.0  |  Product Freeze
+   197→हे(cid:30)(cid:23)(cid:2)र ने(cid:2)हे(cid:17). Priority levels: P0 (must-have for v1.0 GA), P1 (should-have for v1.0 GA), P2 (nice-
+   198→to-have, v1.1+ candidate). Status: Draft, Reviewed, Approved, Frozen.
+   199→Marathi + Hindi + English mixed language convention हे(cid:2) document मध्या (cid:13)जा(cid:2)(cid:23)(cid:17)वपव+ (cid:20)क व(cid:2)परल(cid:2) आहे(cid:13)
+   200→—  business context Marathi/Hindi  मध्या(cid:13)  explain  क(cid:13) ल(cid:2) आहे(cid:13) ज्या(cid:2)मळे  (cid:13)  Indian preschool
+   201→stakeholders ने(cid:2) native resonance णिमळेत(cid:30), आणि(cid:23) technical terms English मध्या(cid:13) ठे(cid:13)वल(cid:13) आहे(cid:13) ज्या(cid:2)मळे  (cid:13)
+   202→engineering team चा(cid:17) implementation clarity र(cid:2)हेत(cid:13). Code snippets, field names, API paths,
+   203→error codes हे(cid:13) always English मध्या (cid:13)आहे(cid:13)त.
+   204→1.4 Related Documents
+   205→| Document       | Version | Status | Role                  |
+   206→| -------------- | ------- | ------ | --------------------- |
+   207→| PreOne Vision  | 1.0     | Frozen | Strategic direction,  |
+   208→| Document       |         |        | target market,        |
+   209→success metrics
+   210→| PreOne BPM         | 1.0  | Frozen | Cross-domain          |
+   211→| ------------------ | ---- | ------ | --------------------- |
+   212→| (Business Process  |      |        | process flows, 13     |
+   213→| Map)               |      |        | domain workflows      |
+   214→| PreOne BRC         | 1.0  | Frozen | 176 rules across 12   |
+   215→| (Business Rules    |      |        | categories, 14-field  |
+   216→| Catalog)           |      |        | schema each           |
+   217→| PreOne ADR         | 1-12 | Frozen | Tech stack, multi-    |
+   218→| (Architecture      |      |        | tenant model,         |
+   219→| Decision Records)  |      |        | identity, AI          |
+   220→architecture
+   221→| PreOne Database  | v2  | Frozen | 69 models across 13  |
+   222→| ---------------- | --- | ------ | -------------------- |
+   223→| Schema           |     |        | modules, Prisma      |
+   224→schema reference
+   225→| PreOne Master PRD  | 1.0 | Product Freeze | Functional + business  |
+   226→| ------------------ | --- | -------------- | ---------------------- |
+   227→| (this document)    |     |                | requirements,          |
+   228→acceptance criteria
+   229→7
+   230→
+   231→PreOne Master PRD v1.0 | Product Freeze
+   232→2. Product Overview
+   233→2.1 Product Vision
+   234→PreOne हे(cid:13) AI-ready Enterprise Preschool Operating System आहे(cid:13) जा(cid:13) Preschool मधी(cid:17)ल सव(cid:20)
+   235→Business Processes एक(cid:2) एक(cid:2)णित्मक Platform वर आ(cid:23)त(cid:13). हे(cid:17) vision statement त(cid:17)ने strategic choices
+   236→represent करत(cid:13): "AI-ready" म्हे(cid:23)जा(cid:13) AI हे(cid:2) bolted-on feature ने(cid:2)हे(cid:17) तर platform च्या(cid:2) architecture
+   237→मध्या(cid:13) embedded आहे(cid:13); "Enterprise" म्हे(cid:23)जा(cid:13) multi-school chains स(cid:2)ठे(cid:17) scalable, RBAC, audit,
+   238→compliance built-in; "Operating System" म्हे(cid:23)जा(cid:13) क(cid:13) वळे ERP ने(cid:2)हे(cid:17) तर daily users चा(cid:2) primary
+   239→workspace.
+   240→हे(cid:13) vision PreOne ल(cid:2) "yet another school ERP" प(cid:2)सने+ स्पष्टप(cid:23)(cid:13) व(cid:13)#ळे(cid:13) करत(cid:13). Generic school ERPs
+   241→फक्त records ट6क5 करत(cid:2)त (attendance, marks, fees) प(cid:23) preschool-specific workflows (daily
+   242→child timeline, learning observations, activity-based curriculum, age-appropriate
+   243→milestones) त्या(cid:2)च्" या(cid:2) data model मध्या(cid:13) fundamentally fit हे(cid:30)ऊ शकत ने(cid:2)हे(cid:17)त. PreOne हे(cid:13) ground-up
+   244→preschool-specific design क(cid:13) लल(cid:13) (cid:13)आहे(cid:13).
+   245→2.2 Objectives
+   246→PreOne चा(cid:13) प(cid:2)चा primary objectives खा(cid:2)ल(cid:17)लप$म(cid:2)(cid:23)(cid:13) आहे(cid:13)त. हे(cid:13) एकमक(cid:13) (cid:2)श" (cid:17) aligned आहे(cid:13)त — क(cid:30)(cid:23)त(cid:2)हे(cid:17)
+   247→single objective स्वत,चा(cid:2) priority claim करू शकत ने(cid:2)हे(cid:17), त्या(cid:2)चा" (cid:2) combined effect PreOne चा (cid:13)product
+   248→character define करत(cid:30):
+   249→• Paperless Operations: Preschool मधी(cid:17)ल प$त्याक(cid:13) record — admission form, attendance
+   250→register, fee receipt, observation note, stock book — digital format मध्या (cid:13)capture
+   251→हे(cid:30)ईल. Paper usage 95%+ कम(cid:17) हे(cid:30)ईल.
+   252→• Mobile-first Experience: Teacher app (tablet-optimized) आणि(cid:23) Parent app (phone-
+   253→first) हे(cid:13) primary surfaces आहे(cid:13)त. Admin portal desktop-first प(cid:23) responsive — owners
+   254→travel करत(cid:2)ने(cid:2) dashboard check करू शकत(cid:17)ल.
+   255→• Enterprise-grade Security: JWT auth, MFA, RBAC, audit trail, AES-256 encryption at-
+   256→rest, TLS 1.3 in-transit, tenant isolation, DPDP Act 2023 compliance, ISO 27001
+   257→alignment.
+   258→• Multi-School SaaS: True multi-tenant architecture — single codebase, school_id
+   259→isolation at every table, per-school configurations, cross-school analytics for chain
+   260→owners. 10,000+ schools target.
+   261→• AI-ready Architecture: AI capabilities embedded across platform — observation
+   262→assistant, daily sheet auto-draft, report card AI paragraph generation, fee default
+   263→prediction, parent reply composer, growth milestone prediction.
+   264→8
+   265→
+   266→PreOne Master PRD v1.0  |  Product Freeze
+   267→2.3 Target Users
+   268→PreOne चा (cid:13)7 primary personas आहे(cid:13)त ज्या(cid:2)च्" या(cid:2)स(cid:2)ठे(cid:17) product design क(cid:13) ल (cid:13)#ल(cid:13)  (cid:13)आहे(cid:13). प$त्याक(cid:13)  persona चा(cid:17)
+   269→distinct context, goals, pain points आणि(cid:23) success metrics आहे(cid:13)त. Feature prioritization चा(cid:2)
+   270→primary framework हे(cid:13) persona coverage matrix आहे(cid:13) — जा(cid:13) feature 2+ personas च्या(cid:2) needs
+   271→address करत(cid:13) त(cid:13) P0.
+   272→| Persona | Role Context | Primary Device | Success Metric |
+   273→| ------- | ------------ | -------------- | -------------- |
+   274→Preschool Owner Business owner /  Desktop + Mobile Revenue visibility +
+   275→|           | investor         |                  | branch ROI           |
+   276→| --------- | ---------------- | ---------------- | -------------------- |
+   277→| Principal | Academic +       | Desktop + Mobile | Operations smooth +  |
+   278→|           | operational head |                  | parent satisfaction  |
+   279→Coordinator Multi-class  Tablet + Desktop Teacher productivity
+   280→|     | supervisor |     | + class outcomes |
+   281→| --- | ---------- | --- | ---------------- |
+   282→Teacher Classroom execution Tablet (primary) Less admin time +
+   283→better observations
+   284→| Parent | Child's guardian | Mobile (primary) | Real-time child  |
+   285→| ------ | ---------------- | ---------------- | ---------------- |
+   286→visibility + easy fee
+   287→pay
+   288→| Accounts Team | Finance operations | Desktop | Fee collection % +  |
+   289→| ------------- | ------------------ | ------- | ------------------- |
+   290→reconciliation
+   291→accuracy
+   292→| Reception | Front desk | Desktop + Tablet | Lead response time +  |
+   293→| --------- | ---------- | ---------------- | --------------------- |
+   294→admission
+   295→conversion
+   296→2.4 Product Pillars
+   297→PreOne चा(cid:13) design decisions प(cid:2)चा pillars श(cid:17) aligned अस(cid:2)व(cid:13) ल(cid:2)#त(cid:2)त. हे(cid:13) pillars design review चा(cid:2)
+   298→framework आहे(cid:13)त आणि(cid:23) जा(cid:13)व्हे(cid:2) feature tradeoffs यात(cid:13) (cid:2)त त(cid:13)व्हे(cid:2) tie-breaker म्हे(cid:23)ने+  व(cid:2)परल (cid:13)जा(cid:2)त(cid:2)त:
+   299→•  Preschool First: Architecture decisions प(cid:2)सने+  UI copy पया(cid:20)त"  preschool context reflect
+   300→हे(cid:30)ईल — activities वर subjects, milestones वर grades, observations वर exams.
+   301→•  Mobile First: Teacher tablet app आणि(cid:23) Parent phone app हे(cid:13) primary surfaces.
+   302→Desktop portal secondary.
+   303→9
+   304→
+   305→PreOne Master PRD v1.0 | Product Freeze
+   306→• Enterprise Ready: Multi-school, multi-branch, RBAC, audit, security, SaaS
+   307→architecture built-in from day 1.
+   308→• AI Ready: AI capabilities platform च्या(cid:2) प$त्याक(cid:13) layer मध्या (cid:13)embedded — data model,
+   309→workflows, notifications, reports, analytics.
+   310→• Simple Yet Powerful: Progressive disclosure — small preschool सहेजा व(cid:2)परू शक(cid:13) ल,
+   311→enterprise chains सहेजा scale करू शकत(cid:17)ल.
+   312→2.5 Architecture Snapshot
+   313→PreOne चा (cid:13)architecture Domain-Driven Design (DDD) philosophy वर आधी(cid:2)णिरत आहे(cid:13). 13 business
+   314→domains हे(cid:13) 13 bounded contexts आहे(cid:13)त ज्या(cid:2)चा" (cid:17) स्वत,चा(cid:17) data models, business rules, workflows
+   315→आणि(cid:23) APIs आहे(cid:13)त. Cross-domain communication event-driven architecture द्वा(cid:2)र (cid:13)हे(cid:30)त (cid:13)— Identity,
+   316→Notification, Audit, Approval, Reporting हे(cid:13) 5 cross-domain flows सव(cid:20) domains ल(cid:2) tie करत(cid:2)त.
+   317→Tech stack: Next.js 16 (frontend + API routes), Prisma ORM (PostgreSQL multi-tenant),
+   318→Redis (cache + queue), S3-compatible object storage (file uploads), Razorpay/Cashfree
+   319→(payments), MSG91/Twilio (SMS), WhatsApp Cloud API, SES/SendGrid (email), LLM APIs (AI
+   320→features). Multi-tenant isolation strategy: shared database with school_id discriminator on
+   321→every table + row-level security policies.
+   322→3. Business Requirements (BR)
+   323→Business Requirements हे(cid:13) "What the business needs" या(cid:2)चा(cid:13) उत्तर दत(cid:13) (cid:2)त. हे(cid:13) requirements
+   324→technical implementation वर depend करत ने(cid:2)हे(cid:17)त — त(cid:13) business outcomes आहे(cid:13)त जा(cid:13) PreOne ने(cid:13)
+   325→achieve कर(cid:2)याचा(cid:13) आहे(cid:13)त. प$त्याक(cid:13) BR चा(cid:2) unique ID, clear objective, measurable business value,
+   326→priority, owner, related domains, dependencies आणि(cid:23) success metrics आहे(cid:13)त.
+   327→खा(cid:2)ल(cid:17)ल 30 Business Requirements 13 domains वर distributed आहे(cid:13)त. Priority distribution: P0
+   328→(must-have v1.0) = 18, P1 (should-have v1.0) = 9, P2 (nice-to-have v1.1+) = 3. हे (cid:13)distribution
+   329→development focus दत(cid:13) (cid:30) — v1.0 चा(cid:2) scope फक्त P0 + P1 आहे(cid:13), P2 explicitly v1.1+ मध्या(cid:13) push क(cid:13) ल (cid:13)
+   330→आहे(cid:13).
+   331→10
+   332→
+   333→PreOne Master PRD v1.0  |  Product Freeze
+   334→| BR ID  | Title     | Priority | Owner      | Dependenci  | Success   |
+   335→| ------ | --------- | -------- | ---------- | ----------- | --------- |
+   336→|        |           |          | Domain     | es          | Metrics   |
+   337→| BR-001 | Student   | P0       | Admissions | Marketing,  | Lead-to-  |
+   338→|        | Admission |          |            | Finance     | enrolled  |
+   339→conversion
+   340→≥25%,
+   341→admission
+   342→TAT ≤7 days
+   343→| BR-002 | Parent    | P0  | Communica | Daily Ops,  | Parent   |
+   344→| ------ | --------- | --- | --------- | ----------- | -------- |
+   345→|        | Communica |     | tion      | Academics   | DAU/MAU  |
+   346→|        | tion      |     |           |             | ≥60%,    |
+   347→message
+   348→response
+   349→time ≤4
+   350→hours
+   351→| BR-003 | Daily       | P0  | Daily Ops | Academics | Daily sheet  |
+   352→| ------ | ----------- | --- | --------- | --------- | ------------ |
+   353→|        | Operations  |     |           |           | completion   |
+   354→|        | Digital     |     |           |           | ≥95%, paper  |
+   355→usage
+   356→reduction
+   357→90%+
+   358→| BR-004 | Fee       | P0  | Finance | Admissions | Fee           |
+   359→| ------ | --------- | --- | ------- | ---------- | ------------- |
+   360→|        | Managemen |     |         |            | collection    |
+   361→|        | t         |     |         |            | ≥92%, online  |
+   362→payment
+   363→adoption
+   364→≥70%
+   365→| BR-005 | Inventory  | P0  | Inventory | Finance,  | Stock     |
+   366→| ------ | ---------- | --- | --------- | --------- | --------- |
+   367→|        | Managemen  |     |           | Admin     | accuracy  |
+   368→|        | t          |     |           |           | ≥98%,     |
+   369→wastage
+   370→reduction
+   371→30%+
+   372→| BR-006 | Multi-School  | P0  | Platform | Settings | 10,000+  |
+   373→| ------ | ------------- | --- | -------- | -------- | -------- |
+   374→|        | SaaS          |     |          |          | schools  |
+   375→scale, 99.9%
+   376→uptime, NRR
+   377→≥110%
+   378→11
+   379→
+   380→PreOne Master PRD v1.0  |  Product Freeze
+   381→| BR ID  | Title      | Priority | Owner     | Dependenci | Success   |
+   382→| ------ | ---------- | -------- | --------- | ---------- | --------- |
+   383→|        |            |          | Domain    | es         | Metrics   |
+   384→| BR-007 | Lead       | P0       | Marketing | Admissions | Lead      |
+   385→|        | Capture &  |          |           |            | response  |
+   386→|        | CRM        |          |           |            | ≤30 min,  |
+   387→lead-to-visit
+   388→≥40%
+   389→| BR-008 | Student   | P0  | Student   | Admissions,  | Zero data  |
+   390→| ------ | --------- | --- | --------- | ------------ | ---------- |
+   391→|        | Lifecycle |     | Lifecycle | Academics    | loss on    |
+   392→transfer,
+   393→alumni
+   394→access
+   395→retained 5
+   396→years
+   397→| BR-009 | Academic     | P0  | Academics | Daily Ops | Observation  |
+   398→| ------ | ------------ | --- | --------- | --------- | ------------ |
+   399→|        | Observations |     |           |           | frequency    |
+   400→≥3/child/we
+   401→ek, parent
+   402→visibility
+   403→100%
+   404→| BR-010 | HR & Payroll | P0  | HR  | Finance | Payroll  |
+   405→| ------ | ------------ | --- | --- | ------- | -------- |
+   406→accuracy
+   407→100%, leave
+   408→transparency
+   409→100%
+   410→| BR-011 | Compliance  | P0  | Admin | Settings,  | 100%          |
+   411→| ------ | ----------- | --- | ----- | ---------- | ------------- |
+   412→|        | Managemen   |     |       | Platform   | compliance    |
+   413→|        | t           |     |       |            | adherence, 0  |
+   414→audit
+   415→findings
+   416→| BR-012 | Real-time  | P0  | Reports | All domains | Dashboard  |
+   417→| ------ | ---------- | --- | ------- | ----------- | ---------- |
+   418→|        | Dashboards |     |         |             | DAU ≥80%   |
+   419→managemen
+   420→t, decision
+   421→speed 5x
+   422→faster
+   423→12
+   424→
+   425→PreOne Master PRD v1.0  |  Product Freeze
+   426→| BR ID  | Title         | Priority | Owner    | Dependenci | Success       |
+   427→| ------ | ------------- | -------- | -------- | ---------- | ------------- |
+   428→|        |               |          | Domain   | es         | Metrics       |
+   429→| BR-013 | Notification  | P0       | Platform | Communica  | Notification  |
+   430→|        | Engine        |          |          | tion       | delivery      |
+   431→≥99%, opt-
+   432→out rate ≤2%
+   433→| BR-014 | Audit Trail | P0  | Platform | All domains | 100% actions  |
+   434→| ------ | ----------- | --- | -------- | ----------- | ------------- |
+   435→logged, log
+   436→retention 7
+   437→years
+   438→| BR-015 | Mobile Apps | P0  | Platform | All domains | App store  |
+   439→| ------ | ----------- | --- | -------- | ----------- | ---------- |
+   440→rating ≥4.5,
+   441→crash-free
+   442→≥99.5%
+   443→| BR-016 | Multi-    | P1  | Platform | Settings | 3 languages     |
+   444→| ------ | --------- | --- | -------- | -------- | --------------- |
+   445→|        | language  |     |          |          | v1.0 (English,  |
+   446→|        | Support   |     |          |          | Marathi,        |
+   447→Hindi), 8 by
+   448→year 3
+   449→| BR-017 | Visitor   | P1  | Admin | Communica | 100% visitor    |
+   450→| ------ | --------- | --- | ----- | --------- | --------------- |
+   451→|        | Managemen |     |       | tion      | check-in        |
+   452→|        | t         |     |       |           | digital, child  |
+   453→pickup auth
+   454→100%
+   455→| BR-018 | Asset     | P1  | Admin | Finance | Asset     |
+   456→| ------ | --------- | --- | ----- | ------- | --------- |
+   457→|        | Managemen |     |       |         | tracking  |
+   458→|        | t         |     |       |         | 100%,     |
+   459→maintenance
+   460→schedule
+   461→adherence
+   462→≥90%
+   463→| BR-019 | Event     | P1  | Communica | Academics,  | Event RSVP  |
+   464→| ------ | --------- | --- | --------- | ----------- | ----------- |
+   465→|        | Managemen |     | tion      | Finance     | rate ≥75%,  |
+   466→|        | t         |     |           |             | event       |
+   467→revenue
+   468→tracking
+   469→100%
+   470→13
+   471→
+   472→PreOne Master PRD v1.0  |  Product Freeze
+   473→| BR ID  | Title        | Priority | Owner     | Dependenci | Success      |
+   474→| ------ | ------------ | -------- | --------- | ---------- | ------------ |
+   475→|        |              |          | Domain    | es         | Metrics      |
+   476→| BR-020 | Report Cards | P1       | Academics | Reports    | Report card  |
+   477→generation
+   478→≤2
+   479→hours/class,
+   480→parent ack
+   481→≥90%
+   482→| BR-021 | Refund     | P1  | Finance | Admissions | Refund TAT  |
+   483→| ------ | ---------- | --- | ------- | ---------- | ----------- |
+   484→|        | Processing |     |         |            | ≤7 days,    |
+   485→100% audit
+   486→trail
+   487→| BR-022 | Bulk        | P1  | Platform | All domains | 10,000       |
+   488→| ------ | ----------- | --- | -------- | ----------- | ------------ |
+   489→|        | Import/Expo |     |          |             | records ≤5   |
+   490→|        | rt          |     |          |             | min, 0 data  |
+   491→corruption
+   492→| BR-023 | Custom    | P1  | Settings | All domains | Workflow  |
+   493→| ------ | --------- | --- | -------- | ----------- | --------- |
+   494→|        | Workflows |     |          |             | builder   |
+   495→adoption
+   496→≥30%
+   497→schools
+   498→| BR-024 | Biometric  | P1  | Daily Ops | HR  | Biometric  |
+   499→| ------ | ---------- | --- | --------- | --- | ---------- |
+   500→|        | Attendance |     |           |     | adoption   |
+   501→≥40% staff,
+   502→spoof rate
+   503→0%
+   504→| BR-025 | AI           | P1  | Academics | Daily Ops | AI          |
+   505→| ------ | ------------ | --- | --------- | --------- | ----------- |
+   506→|        | Observation  |     |           |           | suggestion  |
+   507→|        | Assistant    |     |           |           | acceptance  |
+   508→≥40%,
+   509→teacher time
+   510→saved ≥30%
+   511→| BR-026 | Parent   | P1  | Communica | Reports | NPS ≥50,  |
+   512→| ------ | -------- | --- | --------- | ------- | --------- |
+   513→|        | Feedback |     | tion      |         | feedback  |
+   514→response
+   515→rate ≥30%
+   516→| BR-027 | Third-party  | P2  | Platform | Settings | 10+           |
+   517→| ------ | ------------ | --- | -------- | -------- | ------------- |
+   518→|        | Integrations |     |          |          | integrations  |
+   519→v1.1+
+   520→14
+   521→
+   522→PreOne Master PRD v1.0  |  Product Freeze
+   523→| BR ID  | Title       | Priority | Owner    | Dependenci | Success         |
+   524→| ------ | ----------- | -------- | -------- | ---------- | --------------- |
+   525→|        |             |          | Domain   | es         | Metrics         |
+   526→| BR-028 | Transport   | P2       | Admin    | Communica  | Live tracking,  |
+   527→|        | Managemen   |          |          | tion       | route           |
+   528→|        | t           |          |          |            | optimization    |
+   529→| BR-029 | Marketplace | P2       | Platform | Finance    | 10+ vendors,    |
+   530→5%
+   531→conversion
+   532→| BR-030 | Voice-based  | P2  | Daily Ops | Academics | Voice entry  |
+   533→| ------ | ------------ | --- | --------- | --------- | ------------ |
+   534→|        | Daily Sheet  |     |           |           | adoption     |
+   535→≥20%
+   536→teachers
+   537→3.1 Business Requirement Template
+   538→प$त्याक(cid:13)  Business Requirement खा(cid:2)ल(cid:17)ल template नेस  (cid:2)र structured आहे(cid:13). हे(cid:2) template future BR
+   539→additions स(cid:2)ठे(cid:17) reference format आहे(cid:13):
+   540→| Field                   |     | Description                   |     | Example |     |
+   541→| ----------------------- | --- | ----------------------------- | --- | ------- | --- |
+   542→| Business Requirement ID |     | Stable identifier, format BR- |     | BR-001  |     |
+   543→XXX
+   544→| Title |     | Concise business outcome  |     | Student Admission |     |
+   545→| ----- | --- | ------------------------- | --- | ----------------- | --- |
+   546→name
+   547→| Objective |     | What the system shall do (1- |     | System shall support        |     |
+   548→| --------- | --- | ---------------------------- | --- | --------------------------- | --- |
+   549→|           |     | 2 sentences)                 |     | complete digital admission  |     |
+   550→lifecycle.
+   551→Business Value Why this matters to the  Faster admissions, reduced
+   552→|     |     | business |     | paperwork, better  |     |
+   553→| --- | --- | -------- | --- | ------------------ | --- |
+   554→conversion tracking.
+   555→| Priority |     | P0/P1/P2 with rationale |     | P0 — core revenue-driving  |     |
+   556→| -------- | --- | ----------------------- | --- | -------------------------- | --- |
+   557→workflow
+   558→| Owner |     | Domain accountable for  |     | Admissions Domain |     |
+   559→| ----- | --- | ----------------------- | --- | ----------------- | --- |
+   560→delivery
+   561→| Related Domains |     | Other domains impacted |     | Marketing, Finance |     |
+   562→| --------------- | --- | ---------------------- | --- | ------------------ | --- |
+   563→15
+   564→
+   565→PreOne Master PRD v1.0  |  Product Freeze
+   566→| Field |     | Description | Example |     |
+   567→| ----- | --- | ----------- | ------- | --- |
+   568→Dependencies Predecessor requirements or  Marketing lead data, Finance
+   569→|     |     | systems | invoice engine |     |
+   570→| --- | --- | ------- | -------------- | --- |
+   571→Success Metrics Measurable acceptance  Lead-to-enrolled ≥25%, TAT
+   572→|     |     | criteria | ≤7 days |     |
+   573→| --- | --- | -------- | ------- | --- |
+   574→4. Functional Requirements (FR)
+   575→Functional Requirements हे(cid:13) "System क(cid:2)या कर(cid:13)ल?" या(cid:2)चा(cid:13) उत्तर दत(cid:13) (cid:2)त. हे(cid:13) requirements business
+   576→requirements ल(cid:2) actionable system behavior मध्या(cid:13) translate करत(cid:2)त. प$त्याक(cid:13)  FR चा(cid:2) unique ID,
+   577→description, actors, preconditions, workflow, inputs, outputs, validations, exceptions,
+   578→related business rules आणि(cid:23) priority आहे(cid:13).
+   579→खा(cid:2)ल(cid:17)ल 60 Functional Requirements 13 domains वर distributed आहे(cid:13)त. प$त्याक(cid:13)  FR detailed
+   580→implementation spec चा(cid:2) anchor point आहे (cid:13)— engineering team त्या(cid:2)च्या(cid:2) आधी(cid:2)र (cid:13)user stories आणि(cid:23)
+   581→technical tasks derive कर(cid:13)ल. Priority distribution: P0 = 36, P1 = 18, P2 = 6.
+   582→| FR ID  | Title           | Domain    | Priority | Related BR |
+   583→| ------ | --------------- | --------- | -------- | ---------- |
+   584→| FR-001 | Lead Capture    | Marketing | P0       | BR-007     |
+   585→| FR-002 | Lead Follow-up  | Marketing | P0       | BR-007     |
+   586→Tracking
+   587→| FR-003 | Counselling  | Marketing | P0  | BR-007 |
+   588→| ------ | ------------ | --------- | --- | ------ |
+   589→Session Booking
+   590→| FR-004 | Lead Conversion  | Marketing | P1  | BR-007 |
+   591→| ------ | ---------------- | --------- | --- | ------ |
+   592→Analytics
+   593→| FR-005 | Campaign  | Marketing | P2  | BR-007 |
+   594→| ------ | --------- | --------- | --- | ------ |
+   595→Tracking
+   596→| FR-006 | Online  | Admissions | P0  | BR-001 |
+   597→| ------ | ------- | ---------- | --- | ------ |
+   598→Application
+   599→Form
+   600→| FR-007 | Document  | Admissions | P0  | BR-001 |
+   601→| ------ | --------- | ---------- | --- | ------ |
+   602→Verification
+   603→| FR-008 | Admission  | Admissions | P0  | BR-001 |
+   604→| ------ | ---------- | ---------- | --- | ------ |
+   605→Workflow
+   606→16
+   607→
+   608→PreOne Master PRD v1.0  |  Product Freeze
+   609→| FR ID  | Title         | Domain     | Priority | Related BR |
+   610→| ------ | ------------- | ---------- | -------- | ---------- |
+   611→| FR-009 | Offer Letter  | Admissions | P0       | BR-001     |
+   612→Generation
+   613→| FR-010 | Student Record  | Admissions | P0  | BR-001 |
+   614→| ------ | --------------- | ---------- | --- | ------ |
+   615→Creation
+   616→| FR-011 | Class & Section  | Student   | P0  | BR-008 |
+   617→| ------ | ---------------- | --------- | --- | ------ |
+   618→|        | Allocation       | Lifecycle |     |        |
+   619→| FR-012 | Student          | Student   | P0  | BR-008 |
+   620→|        | Transfer         | Lifecycle |     |        |
+   621→| FR-013 | Student          | Student   | P0  | BR-008 |
+   622→|        | Promotion        | Lifecycle |     |        |
+   623→| FR-014 | Student          | Student   | P1  | BR-008 |
+   624→|        | Archives &       | Lifecycle |     |        |
+   625→Alumni
+   626→| FR-015 | Curriculum  | Academics | P0  | BR-009 |
+   627→| ------ | ----------- | --------- | --- | ------ |
+   628→Management
+   629→| FR-016 | Observation  | Academics | P0  | BR-009 |
+   630→| ------ | ------------ | --------- | --- | ------ |
+   631→Recording
+   632→| FR-017 | Milestone  | Academics | P0  | BR-009 |
+   633→| ------ | ---------- | --------- | --- | ------ |
+   634→Tracker
+   635→| FR-018 | Portfolio  | Academics | P1  | BR-009 |
+   636→| ------ | ---------- | --------- | --- | ------ |
+   637→Generation
+   638→| FR-019 | Report Card  | Academics | P1  | BR-020 |
+   639→| ------ | ------------ | --------- | --- | ------ |
+   640→Generation
+   641→| FR-020 | Attendance  | Daily Ops | P0  | BR-003 |
+   642→| ------ | ----------- | --------- | --- | ------ |
+   643→Marking
+   644→| FR-021 | Daily Sheet  | Daily Ops | P0  | BR-003 |
+   645→| ------ | ------------ | --------- | --- | ------ |
+   646→Creation
+   647→| FR-022 | Meal Tracking    | Daily Ops | P0  | BR-003 |
+   648→| ------ | ---------------- | --------- | --- | ------ |
+   649→| FR-023 | Activity Logging | Daily Ops | P0  | BR-003 |
+   650→| FR-024 | Incident         | Daily Ops | P0  | BR-003 |
+   651→Reporting
+   652→17
+   653→
+   654→PreOne Master PRD v1.0  |  Product Freeze
+   655→| FR ID  | Title  | Domain    | Priority | Related BR |
+   656→| ------ | ------ | --------- | -------- | ---------- |
+   657→| FR-025 | Nap &  | Daily Ops | P0       | BR-003     |
+   658→Bathroom
+   659→Tracking
+   660→| FR-026 | Parent App  | Communication | P0  | BR-002 |
+   661→| ------ | ----------- | ------------- | --- | ------ |
+   662→Timeline
+   663→| FR-027 | Two-way Chat   | Communication | P0  | BR-002 |
+   664→| ------ | -------------- | ------------- | --- | ------ |
+   665→| FR-028 | Announcements  | Communication | P0  | BR-002 |
+   666→& Broadcasts
+   667→| FR-029 | Event Calendar  | Communication | P1  | BR-019 |
+   668→| ------ | --------------- | ------------- | --- | ------ |
+   669→& RSVP
+   670→| FR-030 | Fee Plan  | Finance | P0  | BR-004 |
+   671→| ------ | --------- | ------- | --- | ------ |
+   672→Configuration
+   673→| FR-031 | Invoice  | Finance | P0  | BR-004 |
+   674→| ------ | -------- | ------- | --- | ------ |
+   675→Generation
+   676→| FR-032 | Payment  | Finance | P0  | BR-004 |
+   677→| ------ | -------- | ------- | --- | ------ |
+   678→Processing
+   679→| FR-033 | Receipt  | Finance | P0  | BR-004 |
+   680→| ------ | -------- | ------- | --- | ------ |
+   681→Generation
+   682→| FR-034 | Refund  | Finance | P1  | BR-021 |
+   683→| ------ | ------- | ------- | --- | ------ |
+   684→Processing
+   685→| FR-035 | Expense  | Finance | P1  | BR-004 |
+   686→| ------ | -------- | ------- | --- | ------ |
+   687→Tracking
+   688→| FR-036 | Purchase  | Inventory | P0  | BR-005 |
+   689→| ------ | --------- | --------- | --- | ------ |
+   690→Request
+   691→| FR-037 | Purchase Order | Inventory | P0  | BR-005 |
+   692→| ------ | -------------- | --------- | --- | ------ |
+   693→| FR-038 | Goods Receipt  | Inventory | P0  | BR-005 |
+   694→Note (GRN)
+   695→| FR-039 | Stock Issue &  | Inventory | P0  | BR-005 |
+   696→| ------ | -------------- | --------- | --- | ------ |
+   697→Returns
+   698→| FR-040 | Staff  | HR  | P1  | BR-010 |
+   699→| ------ | ------ | --- | --- | ------ |
+   700→Recruitment
+   701→| FR-041 | Leave  | HR  | P0  | BR-010 |
+   702→| ------ | ------ | --- | --- | ------ |
+   703→Management
+   704→18
+   705→
+   706→PreOne Master PRD v1.0  |  Product Freeze
+   707→| FR ID  | Title    | Domain | Priority | Related BR |
+   708→| ------ | -------- | ------ | -------- | ---------- |
+   709→| FR-042 | Payroll  | HR     | P0       | BR-010     |
+   710→Processing
+   711→| FR-043 | Performance  | HR  | P1  | BR-010 |
+   712→| ------ | ------------ | --- | --- | ------ |
+   713→Review
+   714→| FR-044 | Asset  | Admin | P1  | BR-018 |
+   715→| ------ | ------ | ----- | --- | ------ |
+   716→Management
+   717→| FR-045 | Visitor  | Admin | P1  | BR-017 |
+   718→| ------ | -------- | ----- | --- | ------ |
+   719→Management
+   720→| FR-046 | Maintenance  | Admin | P1  | BR-018 |
+   721→| ------ | ------------ | ----- | --- | ------ |
+   722→Scheduling
+   723→| FR-047 | Compliance  | Admin | P0  | BR-011 |
+   724→| ------ | ----------- | ----- | --- | ------ |
+   725→Dashboard
+   726→| FR-048 | Operational  | Reports | P0  | BR-012 |
+   727→| ------ | ------------ | ------- | --- | ------ |
+   728→Dashboards
+   729→| FR-049 | Custom Report  | Reports | P1  | BR-012 |
+   730→| ------ | -------------- | ------- | --- | ------ |
+   731→Builder
+   732→| FR-050 | Predictive  | Reports | P2  | BR-012 |
+   733→| ------ | ----------- | ------- | --- | ------ |
+   734→Analytics
+   735→| FR-051 | School  | Settings | P0  | BR-006 |
+   736→| ------ | ------- | -------- | --- | ------ |
+   737→Configuration
+   738→| FR-052 | Notification  | Settings | P0  | BR-013 |
+   739→| ------ | ------------- | -------- | --- | ------ |
+   740→Rules
+   741→| FR-053 | Workflow  | Settings | P1  | BR-023 |
+   742→| ------ | --------- | -------- | --- | ------ |
+   743→Builder
+   744→| FR-054 | Tenant  | Platform | P0  | BR-006 |
+   745→| ------ | ------- | -------- | --- | ------ |
+   746→Onboarding
+   747→| FR-055 | Subscription &  | Platform | P0  | BR-006 |
+   748→| ------ | --------------- | -------- | --- | ------ |
+   749→Billing
+   750→| FR-056 | Audit Log &  | Platform | P0  | BR-014 |
+   751→| ------ | ------------ | -------- | --- | ------ |
+   752→Compliance
+   753→| FR-057 | User  | Platform | P0  | BR-015 |
+   754→| ------ | ----- | -------- | --- | ------ |
+   755→Authentication
+   756→19
+   757→
+   758→PreOne Master PRD v1.0 | Product Freeze
+   759→FR ID Title Domain Priority Related BR
+   760→FR-058 Role-Based Platform P0 BR-015
+   761→Access Control
+   762→FR-059 Multi-language Platform P1 BR-016
+   763→UI
+   764→FR-060 Bulk Platform P1 BR-022
+   765→Import/Export
+   766→4.1 Sample FR Detail — FR-001 User Authentication
+   767→खा(cid:2)ल(cid:17)ल FR-001 detailed template दश(cid:20)वत (cid:13)कस(cid:2) प$त्या(cid:13)क FR structured आहे(cid:13). हे(cid:13)चा template सव(cid:20) 60 FRs
+   768→स(cid:2)ठे(cid:17) apply हे(cid:30)त(cid:30), प(cid:23) space constraints मळे (cid:13) या(cid:2) document मध्या (cid:13)फक्त summary table + एक sample
+   769→detail णिदल(cid:13) आहे(cid:13)त. Implementation team ल(cid:2) PRD companion wiki मध्या(cid:13) प$त्याक(cid:13) FR चा(cid:13) full detail
+   770→available असल(cid:13) .
+   771→Requirement ID FR-001
+   772→Title User Authentication
+   773→Description User shall login using Mobile Number + OTP /
+   774→Password. MFA support for admin roles.
+   775→Actors Parent, Teacher, Admin
+   776→Preconditions Active account exists; mobile number verified
+   777→Workflow Open App → Login → OTP Verification →
+   778→(MFA for admin) → Authentication →
+   779→Dashboard
+   780→Inputs Mobile number (mandatory), OTP (6 digits, 5-
+   781→min expiry) OR Password, MFA token (admin
+   782→only)
+   783→Outputs JWT access token, refresh token, user profile,
+   784→role permissions, dashboard
+   785→Validations Mobile mandatory + 10 digits; OTP expiry 5
+   786→min; max 3 retries; MFA required for admin
+   787→roles
+   788→Exceptions Lockout after 5 failed attempts → 30-min
+   789→cooldown + support contact; OTP delivery fail
+   790→→ fallback channel (SMS if push fails)
+   791→20
+   792→
+   793→PreOne Master PRD v1.0  |  Product Freeze
+   794→Business Rules BR-015, BR-011; BRC R-AUTH-001 (lockout
+   795→policy), R-AUTH-002 (MFA mandate), R-
+   796→SEC-001 (token expiry)
+   797→Priority P0
+   798→4.2 Functional Requirement Template
+   799→प$त्याक(cid:13)
+   800→ Functional Requirement खा(cid:2)ल(cid:17)ल template नेस  (cid:2)र structured आहे(cid:13). Engineering team या(cid:2)
+
+[showing lines 1-800 of 3309; use offset=801 with limit to continue reading]

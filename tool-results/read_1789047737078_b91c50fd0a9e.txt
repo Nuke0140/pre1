@@ -1,0 +1,562 @@
+     1→     1→ENTE RPR ISE DO C UM EN TATION SE RIE S - PHAS E 2 O F 10
+     2→     2→PreOne Architecture
+     3→     3→Decision Records
+     4→     4→Phase 2 - Volume 1: Architecture Foundation
+     5→     5→ADR-001 to ADR-020 - 20 decisions - 34-section v3.0 template - Principles,
+     6→     6→Structural Rules, Technology Stack
+     7→     7→Document Version: 3.0 (Volume 1 release)
+     8→     8→Status: Architecture Freeze
+     9→     9→Classification: Internal Engineering Reference
+    10→    10→Effective Date: 26 July 2026
+    11→    11→Volume Owner: Foundation Architect
+    12→    12→Approval Authority: Architecture Review Board
+    13→    13→PreOne Platform - Enterprise Architecture Governance Phase 2 / 10 - July
+    14→    14→2026
+    15→    15→
+    16→    16→PreOne ADR - Volume 1: Architecture Foundation v3.0
+    17→    17→Table of Contents
+    18→    18→Phase 2 deliverable - Volume 1: Architecture Foundation - 20 ADRs
+    19→    19→Table of Contents.......................................................................................1
+    20→    20→Document Control......................................................................................1
+    21→    21→Architecture Foundation............................................................................3
+    22→    22→Enterprise Architecture Principles............................................................3
+    23→    23→Modular Monolith Strategy......................................................................15
+    24→    24→Clean Architecture....................................................................................27
+    25→    25→Domain Driven Design..............................................................................39
+    26→    26→Bounded Context Strategy.......................................................................51
+    27→    27→Layering Rules..........................................................................................63
+    28→    28→Dependency Rule......................................................................................76
+    29→    29→SOLID Enforcement..................................................................................88
+    30→    30→Hexagonal Architecture (Ports and Adapters).......................................100
+    31→    31→Package Structure and Naming Conventions........................................113
+    32→    32→Java Coding Standards...........................................................................126
+    33→    33→Naming Standards..................................................................................138
+    34→    34→Project Structure....................................................................................151
+    35→    35→Configuration Hierarchy.........................................................................164
+    36→    36→Environment Strategy.............................................................................177
+    37→    37→Feature Flag Architecture......................................................................189
+    38→    38→Build Pipeline.........................................................................................202
+    39→    39→Deployment Model..................................................................................215
+    40→    40→Versioning Policy....................................................................................227
+    41→    41→Technology Stack Freeze........................................................................240
+    42→    42→Note: This Table of Contents is generated via field codes. To ensure page-number accuracy
+    43→    43→after editing, right-click the TOC and select "Update Field."
+    44→    44→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - i
+    45→    45→
+    46→    46→PreOne ADR - Volume 1: Architecture Foundation v3.0
+    47→    47→Document Control
+    48→    48→This Phase 2 deliverable of the PreOne Enterprise ADR Series presents Volume
+    49→    49→1 — Architecture Foundation. It contains 20 Architecture Decision Records
+    50→    50→(ADR-001 to ADR-020) that define the foundational principles, structural rules,
+    51→    51→and technology stack on which all subsequent volumes build. Every ADR in this
+    52→    52→volume follows the 34-section v3.0 template defined in Phase 1 (ADR-000).
+    53→    53→Each ADR includes four ASCII diagrams (architecture, sequence, component,
+    54→    54→data flow) and is linked to upstream DDD/PRD documents and downstream
+    55→    55→ERD/API/UI/Test artefacts per the cross-reference framework established in
+    56→    56→Phase 1.
+    57→    57→VERSION HISTORY
+    58→    58→Version Date Author Summary of
+    59→    59→Changes
+    60→    60→1.0 2025-10-15 Office of the Chief Initial release of
+    61→    61→Architect Volume 1 with 20
+    62→    62→ADRs using the
+    63→    63→26-section v2.0
+    64→    64→template.
+    65→    65→3.0 2026-07-26 Foundation Phase 2 release.
+    66→    66→Architect All 20 ADRs
+    67→    67→refreshed to the
+    68→    68→34-section v3.0
+    69→    69→template (added
+    70→    70→Component
+    71→    71→Diagram, Data
+    72→    72→Flow Diagram, UI
+    73→    73→Impact, Decision
+    74→    74→History,
+    75→    75→Implementation
+    76→    76→Checklist). Cross-
+    77→    77→references to
+    78→    78→upstream
+    79→    79→DDD/PRD and
+    80→    80→downstream
+    81→    81→ERD/API/TC
+    82→    82→added per the
+    83→    83→Phase 1
+    84→    84→framework.
+    85→    85→OWNERSHIP & CLASSIFICATION
+    86→    86→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 1
+    87→    87→
+    88→    88→PreOne ADR  -  Volume 1: Architecture Foundation  v3.0
+    89→    89→| Document Owner |     | Foundation Architect (Volume 1  |     |
+    90→    90→| -------------- | --- | ------------------------------- | --- |
+    91→    91→Domain Architect)
+    92→    92→| Approval Authority |     | Architecture Review Board (ARB)    |     |
+    93→    93→| ------------------ | --- | ---------------------------------- | --- |
+    94→    94→| Classification     |     | Internal — Architecture Governance |     |
+    95→    95→| Distribution       |     | Engineering, QA, DevOps, Product,  |     |
+    96→    96→Security, Architecture
+    97→    97→| Review Cadence |     | Annual editorial review; ADR-level  |     |
+    98→    98→| -------------- | --- | ----------------------------------- | --- |
+    99→    99→review on trigger
+   100→   100→| Retention |     | Permanent — superseded ADRs  |     |
+   101→   101→| --------- | --- | ---------------------------- | --- |
+   102→   102→retained for traceability
+   103→   103→| Format |     | DOCX (master) / PDF (distribution) /  |     |
+   104→   104→| ------ | --- | ------------------------------------- | --- |
+   105→   105→Markdown (working copy)
+   106→   106→| Storage Location |     | PreOne Architecture Repository /  |     |
+   107→   107→| ---------------- | --- | --------------------------------- | --- |
+   108→   108→governance/adr/volume-1/
+   109→   109→| Series |     | PreOne Enterprise Documentation  |     |
+   110→   110→| ------ | --- | -------------------------------- | --- |
+   111→   111→Series — Phase 2 of 10
+   112→   112→VOLUME 1 ADR SUMMARY
+   113→   113→| ADR     | Title       | Category   | Sections |
+   114→   114→| ------- | ----------- | ---------- | -------- |
+   115→   115→| ADR-001 | Enterprise  | Principles | 34       |
+   116→   116→Architecture
+   117→   117→Principles
+   118→   118→| ADR-002 | Modular Monolith  | Structural | 34  |
+   119→   119→| ------- | ----------------- | ---------- | --- |
+   120→   120→Strategy
+   121→   121→| ADR-003 | Clean  | Structural | 34  |
+   122→   122→| ------- | ------ | ---------- | --- |
+   123→   123→Architecture
+   124→   124→| ADR-004 | Domain Driven  | Methodology | 34  |
+   125→   125→| ------- | -------------- | ----------- | --- |
+   126→   126→Design
+   127→   127→| ADR-005 | Bounded Context  | Structural | 34  |
+   128→   128→| ------- | ---------------- | ---------- | --- |
+   129→   129→Strategy
+   130→   130→| ADR-006 | Layering Rules  | Structural | 34  |
+   131→   131→| ------- | --------------- | ---------- | --- |
+   132→   132→| ADR-007 | Dependency Rule | Structural | 34  |
+   133→   133→| ADR-008 | SOLID           | Principles | 34  |
+   134→   134→Enforcement
+   135→   135→| ADR-009 | Hexagonal  | Structural | 34  |
+   136→   136→| ------- | ---------- | ---------- | --- |
+   137→   137→Architecture
+   138→   138→PreOne ADR Series  -  Phase 2 / 10  -  Vol 1: Architecture Foundation  -  2
+   139→   139→
+   140→   140→PreOne ADR  -  Volume 1: Architecture Foundation  v3.0
+   141→   141→| ADR     | Title             | Category   | Sections |
+   142→   142→| ------- | ----------------- | ---------- | -------- |
+   143→   143→| ADR-010 | Package Structure | Structural | 34       |
+   144→   144→| ADR-011 | Coding Standards  | Standards  | 34       |
+   145→   145→| ADR-012 | Naming Standards  | Standards  | 34       |
+   146→   146→| ADR-013 | Project Structure | Structural | 34       |
+   147→   147→| ADR-014 | Configuration     | Standards  | 34       |
+   148→   148→Hierarchy
+   149→   149→| ADR-015 | Environment  | Standards | 34  |
+   150→   150→| ------- | ------------ | --------- | --- |
+   151→   151→Strategy
+   152→   152→| ADR-016 | Feature Flag  | Structural | 34  |
+   153→   153→| ------- | ------------- | ---------- | --- |
+   154→   154→Architecture
+   155→   155→| ADR-017 | Build Pipeline | Process | 34  |
+   156→   156→| ------- | -------------- | ------- | --- |
+   157→   157→| ADR-018 | Deployment     | Process | 34  |
+   158→   158→Model
+   159→   159→| ADR-019 | Versioning Policy | Standards | 34  |
+   160→   160→| ------- | ----------------- | --------- | --- |
+   161→   161→| ADR-020 | Technology Stack  | Standards | 34  |
+   162→   162→Freeze
+   163→   163→PreOne ADR Series  -  Phase 2 / 10  -  Vol 1: Architecture Foundation  -  3
+   164→   164→
+   165→   165→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   166→   166→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 4
+   167→   167→
+   168→   168→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   169→   169→V O L U M E 1
+   170→   170→Architecture Foundation
+   171→   171→ADR-001 to ADR-020 - 20 decisions - 34 sections each
+   172→   172→Volume 1 defines the foundational architectural principles, structural
+   173→   173→rules, and technology stack that all subsequent volumes build upon. The
+   174→   174→20 ADRs in this volume are the most-referenced in the entire 160-ADR
+   175→   175→corpus. ADR-001 establishes 10 canonical principles that govern every
+   176→   176→subsequent decision. ADR-002 through ADR-013 define the structural
+   177→   177→patterns: modular monolith, clean architecture, DDD, bounded contexts,
+   178→   178→layering, dependency rules, SOLID, hexagonal architecture, package
+   179→   179→structure, coding standards, naming standards, and project structure.
+   180→   180→ADR-014 through ADR-016 define the operational foundation:
+   181→   181→configuration hierarchy, environment strategy, and feature flags.
+   182→   182→ADR-017 through ADR-020 define the delivery foundation: build pipeline,
+   183→   183→deployment model, versioning policy, and the technology stack freeze.
+   184→   184→Together, these 20 ADRs are the constitution of the PreOne platform.
+   185→   185→AD R -001
+   186→   186→Enterprise Architecture Principles
+   187→   187→Volume 1 — Architecture Foundation - Principles
+   188→   188→ACCEPTED
+   189→   189→DECISION SUMMARY
+   190→   190→DECISION
+   191→   191→Adopt a set of 10 canonical architecture principles that govern every
+   192→   192→subsequent architectural decision on the PreOne platform. These principles
+   193→   193→are the constitution against which all ADRs are evaluated.
+   194→   194→STATUS
+   195→   195→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 5
+   196→   196→
+   197→   197→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   198→   198→Status Accepted
+   199→   199→Date Decided 2025-10-15
+   200→   200→Decision Owner Chief Architect
+   201→   201→Review Cadence Annual review or on trigger from
+   202→   202→any superseding ADR
+   203→   203→Supersedes None (v1.0 original; v3.0 refreshes
+   204→   204→language for series alignment)
+   205→   205→CONTEXT
+   206→   206→PreOne is a multi-tenant SaaS platform serving the preschool education market
+   207→   207→across India. The platform must support hundreds of schools, thousands of
+   208→   208→branches, and millions of students, parents, teachers, and administrators while
+   209→   209→complying with stringent child-data protection regulations. Before v1.0,
+   210→   210→architectural decisions were made ad-hoc by individual feature teams, leading
+   211→   211→to fragmentation: three different caching strategies, two different
+   212→   212→authentication mechanisms, and inconsistent API conventions across modules.
+   213→   213→The Office of the Chief Architect was established in Q2 2025 to unify
+   214→   214→architectural direction. The first deliverable was a set of canonical principles
+   215→   215→that every team would align to. These principles are not technology choices —
+   216→   216→they are value statements that bound the solution space for every downstream
+   217→   217→ADR. Technology choices (Java 21, PostgreSQL 16, etc.) are captured in
+   218→   218→ADR-020 and must comply with these principles. The principles were drafted
+   219→   219→through a series of workshops with engineering, product, security, and
+   220→   220→operations leadership over six weeks. Each principle was stress-tested against
+   221→   221→real PreOne scenarios: a school onboarding 500 students in a single day, a
+   222→   222→parent accessing their child's report card on mobile, a regulator auditing data
+   223→   223→retention. The 10 principles below are the result of that stress-testing.
+   224→   224→BUSINESS DRIVERS
+   225→   225→The primary business driver is platform scalability: PreOne must scale from 50
+   226→   226→schools (current) to 5,000 schools (5-year target) without architectural rework.
+   227→   227→Fragmented architecture cannot scale because each new team reinvents
+   228→   228→foundations, multiplying operational cost. Unified principles compress the
+   229→   229→decision space so that new teams build on the same foundations as existing
+   230→   230→teams. The secondary driver is compliance: preschool data is subject to
+   231→   231→multiple regulations (DPDP Act 2023, COPPA-equivalent norms, state-level
+   232→   232→child protection laws). Principles that bake privacy-by-design and audit-by-
+   233→   233→default into every decision reduce the compliance burden per feature. The
+   234→   234→tertiary driver is onboarding speed: new engineers can be productive in 2-3
+   235→   235→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 6
+   236→   236→
+   237→   237→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   238→   238→weeks when principles are explicit, versus 8-12 weeks when they must reverse-
+   239→   239→engineer conventions from code.
+   240→   240→PROBLEM STATEMENT
+   241→   241→Architectural decisions across PreOne feature teams are inconsistent, leading
+   242→   242→to operational fragmentation, compliance risk, and slow onboarding. We need a
+   243→   243→small set of canonical principles that every team aligns to, enforced through
+   244→   244→code review and ADR governance.
+   245→   245→CONSTRAINTS
+   246→   246→● Principles must be technology-agnostic — they outlive any specific
+   247→   247→stack choice
+   248→   248→● Principles must be testable — each must have a concrete verification
+   249→   249→mechanism
+   250→   250→● Principles must be memorable — engineers should be able to recite
+   251→   251→them without lookup
+   252→   252→● Principles must be ordered — when two principles conflict, the earlier
+   253→   253→one takes precedence
+   254→   254→● Principles must be applicable to both greenfield and brownfield work
+   255→   255→ASSUMPTIONS
+   256→   256→● PreOne will remain a multi-tenant SaaS platform for the foreseeable
+   257→   257→future (no pivot to on-premise)
+   258→   258→● The engineering organisation will grow from ~40 engineers (current)
+   259→   259→to ~150 engineers (3-year target)
+   260→   260→● The regulatory environment will tighten, not loosen, over the next 5
+   261→   261→years
+   262→   262→● Cloud infrastructure (AWS) will remain the deployment substrate
+   263→   263→● The platform will continue to serve the preschool education market (no
+   264→   264→expansion to K-12 in scope)
+   265→   265→OPTIONS CONSIDERED
+   266→   266→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 7
+   267→   267→
+   268→   268→PreOne ADR  -  Volume 1: Architecture Foundation  v3.0
+   269→   269→| Option        | Pros                | Cons                | Verdict |
+   270→   270→| ------------- | ------------------- | ------------------- | ------- |
+   271→   271→| 10 canonical  | Small enough to     | May be too few for  | Chosen  |
+   272→   272→| principles    | memorise; covers    | a 160-ADR corpus;   |         |
+   273→   273→| (chosen)      | all major           | some principles     |         |
+   274→   274→|               | dimensions          | compress multiple   |         |
+   275→   275→|               | (tenant isolation,  | sub-concerns.       |         |
+   276→   276→data integrity,
+   277→   277→security,
+   278→   278→observability,
+   279→   279→simplicity); each is
+   280→   280→independently
+   281→   281→testable.
+   282→   282→| 25 detailed  | More granular;        | Too many to     | Rejected |
+   283→   283→| ------------ | --------------------- | --------------- | -------- |
+   284→   284→| principles   | each sub-concern      | memorise;       |          |
+   285→   285→|              | gets its own          | engineers will  |          |
+   286→   286→|              | principle; easier to  | look them up    |          |
+   287→   287→|              | enforce via linting.  | rather than     |          |
+   288→   288→internalise;
+   289→   289→overlap creates
+   290→   290→ambiguity about
+   291→   291→which applies.
+   292→   292→| 5 high-level    | Extremely           | Too abstract to   | Rejected |
+   293→   293→| --------------- | ------------------- | ----------------- | -------- |
+   294→   294→| principles only | memorable; fast to  | guide concrete    |          |
+   295→   295→|                 | onboard.            | decisions; teams  |          |
+   296→   296→will interpret
+   297→   297→differently;
+   298→   298→governance
+   299→   299→becomes
+   300→   300→subjective.
+   301→   301→| No principles; rely  | Maximum          | Every decision  | Rejected |
+   302→   302→| -------------------- | ---------------- | --------------- | -------- |
+   303→   303→| on ADRs alone        | flexibility; no  | starts from     |          |
+   304→   304→|                      | upfront          | scratch;        |          |
+   305→   305→|                      | commitment.      | inconsistency   |          |
+   306→   306→guaranteed;
+   307→   307→onboarding
+   308→   308→impossible
+   309→   309→without reading
+   310→   310→all 160 ADRs.
+   311→   311→DECISION
+   312→   312→PreOne ADR Series  -  Phase 2 / 10  -  Vol 1: Architecture Foundation  -  8
+   313→   313→
+   314→   314→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   315→   315→ADOPTED
+   316→   316→We adopt the following 10 canonical architecture principles, in precedence
+   317→   317→order. Every ADR in the PreOne corpus must explicitly cite which
+   318→   318→principle(s) it serves, and the ARB must verify alignment during review. (1)
+   319→   319→Tenant isolation is non-negotiable. (2) Data integrity over performance. (3)
+   320→   320→Security by default, not by retrofit. (4) Observability is a feature, not an
+   321→   321→afterthought. (5) Simplicity over cleverness. (6) Build for evolution, not for
+   322→   322→prediction. (7) Contracts before code. (8) Fail loud, fail fast, fail safe. (9)
+   323→   323→Automate everything repeatable. (10) Document every decision that
+   324→   324→survives a week.
+   325→   325→DETAILED RATIONALE
+   326→   326→The 10 principles were chosen because they collectively cover the full surface
+   327→   327→area of architectural concern at PreOne without overlap. Tenant isolation (P1)
+   328→   328→is first because a multi-tenant SaaS that leaks data between tenants is not just a
+   329→   329→bug — it is an existential business risk; everything else is secondary if isolation
+   330→   330→fails. Data integrity (P2) precedes performance (covered implicitly in P5 and
+   331→   331→P6) because a fast platform that corrupts data is worse than a slow platform
+   332→   332→that preserves it; performance can be optimised, but trust lost to corruption
+   333→   333→cannot be regained. Security (P3) and observability (P4) are placed before
+   334→   334→simplicity (P5) because PreOne handles child data — a single breach is a
+   335→   335→regulatory and reputational event that could end the company. Simplicity is
+   336→   336→valued but never at the expense of security or observability. Build for evolution
+   337→   337→(P6) reflects the reality that PreOne's product direction will shift; architectures
+   338→   338→that lock in current assumptions (e.g., hard-coding academic year as a single
+   339→   339→global value) create expensive rework when the assumption breaks. Contracts
+   340→   340→before code (P7) ensures that API and data contracts are designed before
+   341→   341→implementation, preventing the common failure mode where the contract is
+   342→   342→reverse-engineered from the code (and thus inherits all the code's accidents).
+   343→   343→Fail loud (P8) rejects silent failure modes — exceptions that are swallowed,
+   344→   344→defaults that mask misconfiguration — because silent failures in a child-data
+   345→   345→platform are how breaches happen. Automate everything repeatable (P9) is the
+   346→   346→principle that justifies the CI/CD, IaC, and testing investments in Volumes 6 and
+   347→   347→8. Document every decision (P10) is the meta-principle that justifies the ADR
+   348→   348→corpus itself. The most likely counter-argument is that 10 principles are too
+   349→   349→many to enforce rigorously. The counter-counter-argument is that enforcement
+   350→   350→is not via human vigilance but via the ADR workflow: every Proposed ADR must
+   351→   351→list which principles it serves (or explicitly state it does not serve any, which is
+   352→   352→itself a flag for ARB review). This makes enforcement mechanical, not
+   353→   353→discretionary.
+   354→   354→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 9
+   355→   355→
+   356→   356→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   357→   357→ARCHITECTURE DIAGRAM
+   358→   358→+------------------------------------------------------------------+ | PreOne Platform (10
+   359→   359→Principles) | | | | P1 Tenant
+   360→   360→Isolation ----+ | | P2 Data Integrity -------+--+
+   361→   361→| | P3 Security Default -----+--+---> Every ADR in Volumes 1-8 | | P4
+   362→   362→Observability --------+--+ must cite >=1 principle | | P5 Simplicity -----------
+   363→   363→+--+ | | P6 Build for Evolution --+--+ |
+   364→   364→| P7 Contracts First ------+--+ | | P8 Fail Loud/Fast/Safe --
+   365→   365→+--+ | | P9 Automate Repeatable --+--+
+   366→   366→| | P10 Document Decisions ---+ | |
+   367→   367→| | Enforcement: ADR-000 template requires principle citation | | in section 4
+   368→   368→(Context) and section 11 (Detailed Rationale) |
+   369→   369→+------------------------------------------------------------------+
+   370→   370→SEQUENCE DIAGRAM
+   371→   371→Engineer Author Reviewer ARB Corpus | | |
+   372→   372→| | |--draft ADR--->| | | | | |--cite P?----
+   373→   373→>| | | | | (which | | | | |
+   374→   374→principle) | | | | | |--verify--->| | |
+   375→   375→| | P-aligned?| | | | | |--vote------->| |
+   376→   376→| | | (Accept if | | | | | aligned) | |
+   377→   377→| | | | |<--------------|--------------|------------|---Accepted---| |
+   378→   378→| | (principle violation = ADR Rejected or Revise) |
+   379→   379→COMPONENT DIAGRAM
+   380→   380→+-------------------------------------------------------------+ | Architecture Governance Layer
+   381→   381→(this ADR) | | | | +-----------------+
+   382→   382→+------------------+ | | | 10 Principles | | ADR-000 Template | |
+   383→   383→| | (this ADR) |<->| (citation field) | | | +--------+--------+ +--------
+   384→   384→+---------+ | | | | | | v
+   385→   385→v | | +--------+--------+ +--------+---------+ | | | ARB
+   386→   386→Review | | CI Pipeline | | | | (ADR-158) | | (principle
+   387→   387→check)| | | +-----------------+ +------------------+ |
+   388→   388→+-------------------------------------------------------------+
+   389→   389→DATA FLOW DIAGRAM
+   390→   390→Business Need | v +----+-----+ | Engineer |---drafts---> ADR (with
+   391→   391→principle citation) +----+-----+ | | v |
+   392→   392→+------+-------+ | | ARB Review | | | (verify P |
+   393→   393→| | alignment) | | +------+-------+ | |
+   394→   394→| +--------------+--------------+ | | | | | v
+   395→   395→v v | Accept Revise Reject | | |
+   396→   396→| v v v | +----+-----+ | | | | Code |
+   397→   397→<--+ | | | (aligned)| | | +----------+
+   398→   398→v | (back to draft) v (closed)
+   399→   399→DATABASE IMPACT
+   400→   400→No direct database impact. The principles are abstract and do not prescribe
+   401→   401→schema, storage, or indexing choices. However, P1 (Tenant Isolation) and P2
+   402→   402→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 10
+   403→   403→
+   404→   404→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   405→   405→(Data Integrity) directly constrain every database ADR in Volume 3: ADR-043
+   406→   406→(Multi-Tenant), ADR-044 (School Isolation), ADR-047 (Soft Delete), and
+   407→   407→ADR-048 (Audit Trail) are all implementations of these principles at the data
+   408→   408→layer. The principle citation in each Volume 3 ADR's Context section creates a
+   409→   409→traceable link from concrete schema choices back to foundational values.
+   410→   410→API IMPACT
+   411→   411→No direct API impact. However, P7 (Contracts Before Code) is the foundational
+   412→   412→principle for Volume 5 (API & Integration). Every API ADR — ADR-091 (REST),
+   413→   413→ADR-092 (Versioning), ADR-093 (Error Codes), ADR-106 (Idempotency) — cites
+   414→   414→P7 in its rationale. The principle enforces the workflow: OpenAPI specs are
+   415→   415→reviewed and merged before implementation PRs are accepted; a PR that
+   416→   416→introduces an endpoint not in the spec is blocked by CI.
+   417→   417→UI IMPACT
+   418→   418→No direct UI impact. However, P4 (Observability) and P8 (Fail Loud) influence
+   419→   419→UI behaviour: errors are surfaced to users with clear, actionable messages (not
+   420→   420→silent failures); loading states are explicit (not blank screens); offline states are
+   421→   421→communicated (ADR-142). P5 (Simplicity) governs UI design system choices in
+   422→   422→Volume 7 — component count is kept minimal, composition is preferred over
+   423→   423→configuration.
+   424→   424→SECURITY IMPACT
+   425→   425→P3 (Security by Default) is the foundational security principle. Every Volume 4
+   426→   426→ADR must cite P3. The principle means: authentication is required by default
+   427→   427→(opt-out requires ARB approval); encryption is enabled by default; audit logging
+   428→   428→is on by default; rate limiting is on by default. Opting out of any default security
+   429→   429→control requires an ADR that justifies the exception and is approved by both the
+   430→   430→Domain Architect and the Security Officer. This inverts the traditional model
+   431→   431→where security is added later — at PreOne, security is the starting point and
+   432→   432→removal requires justification.
+   433→   433→PERFORMANCE IMPACT
+   434→   434→P2 (Data Integrity over Performance) explicitly accepts performance trade-offs
+   435→   435→in favour of correctness. For example, we choose serialisable transaction
+   436→   436→isolation (not read-committed) for financial data, accepting the latency cost. P5
+   437→   437→(Simplicity) reduces performance overhead by avoiding over-engineering — no
+   438→   438→premature optimisation, no speculative caching. Performance optimisation is
+   439→   439→permitted only when (a) a measured bottleneck is documented, (b) the
+   440→   440→optimisation does not violate P1-P4, and (c) the optimisation is captured in an
+   441→   441→ADR.
+   442→   442→SCALABILITY ANALYSIS
+   443→   443→PreOne ADR Series - Phase 2 / 10 - Vol 1: Architecture Foundation - 11
+   444→   444→
+   445→   445→PreOne ADR  -  Volume 1: Architecture Foundation  v3.0
+   446→   446→The principles scale with the organisation. At 40 engineers, the 10 principles
+   447→   447→are reinforced through code review and team leads. At 150 engineers (3-year
+   448→   448→target), the principles are enforced through CI pipeline checks (linting for
+   449→   449→security defaults, contract tests for API specs, coverage thresholds for
+   450→   450→observability). At 500+ engineers, the principles are embedded in onboarding
+   451→   451→and in the architecture review workflow. The ceiling is not the principles
+   452→   452→themselves but the enforcement mechanism — which is why ADR-158 (ARB)
+   453→   453→and ADR-159 (Decision Governance) exist as the scalability backstop.
+   454→   454→OPERATIONAL CONSIDERATIONS
+   455→   455→P4 (Observability) and P9 (Automate) have direct operational implications.
+   456→   456→Every service must emit structured logs (JSON), metrics (Prometheus format),
+   457→   457→and traces (OpenTelemetry) — this is verified at deploy time. Every repeatable
+   458→   458→operational task (deployment, backup, restore, scaling) must be automated —
+   459→   459→manual runbooks are permitted only for genuinely novel incidents. The on-call
+   460→   460→engineer should never perform a task that could have been automated; if they
+   461→   461→do, a follow-up ticket to automate it is mandatory.
+   462→   462→RISKS
+   463→   463→| Risk                | Likelihood | Impact | Mitigation         |
+   464→   464→| ------------------- | ---------- | ------ | ------------------ |
+   465→   465→| Principles become   | Medium     | Medium | Onboarding         |
+   466→   466→| a checklist rather  |            |        | includes a 2-hour  |
+   467→   467→| than internalised   |            |        | principles         |
+   468→   468→| values              |            |        | workshop; ADR      |
+   469→   469→review requires
+   470→   470→verbal defence of
+   471→   471→principle
+   472→   472→alignment, not just
+   473→   473→citation
+   474→   474→| Principles are  | Low | High | P6 (Build for       |
+   475→   475→| --------------- | --- | ---- | ------------------- |
+   476→   476→| used to block   |     |      | Evolution)          |
+   477→   477→| legitimate      |     |      | explicitly permits  |
+   478→   478→| innovation      |     |      | principled          |
+   479→   479→experimentation;
+   480→   480→ARB has a fast-
+   481→   481→track for
+   482→   482→experimental
+   483→   483→ADRs
+   484→   484→| Principles age and  | Medium | Medium | Annual review      |
+   485→   485→| ------------------- | ------ | ------ | ------------------ |
+   486→   486→| become irrelevant   |        |        | cycle; any         |
+   487→   487→| as platform         |        |        | supersession       |
+   488→   488→| evolves             |        |        | triggers a v-next  |
+   489→   489→of this ADR
+   490→   490→PreOne ADR Series  -  Phase 2 / 10  -  Vol 1: Architecture Foundation  -  12
+   491→   491→
+   492→   492→PreOne ADR  -  Volume 1: Architecture Foundation  v3.0
+   493→   493→| Risk            | Likelihood | Impact | Mitigation           |
+   494→   494→| --------------- | ---------- | ------ | -------------------- |
+   495→   495→| Enforcement is  | Medium     | High   | ARB weekly           |
+   496→   496→| inconsistent    |            |        | review of principle  |
+   497→   497→| across Domain   |            |        | citations; rubric    |
+   498→   498→| Architects      |            |        | for alignment        |
+   499→   499→scoring
+   500→   500→TRADE-OFFS
+   501→   501→| We Gain |     | We Lose |     |
+   502→   502→| ------- | --- | ------- | --- |
+   503→   503→Unified architectural direction across  Reduced flexibility for teams to choose
+   504→   504→| all teams |     | alternative approaches |     |
+   505→   505→| --------- | --- | ---------------------- | --- |
+   506→   506→Faster onboarding (principles are  Upfront investment in principle
+   507→   507→| memorable) |     | workshops and enforcement tooling |     |
+   508→   508→| ---------- | --- | --------------------------------- | --- |
+   509→   509→Compliance baked in by default (P3, P4) Higher per-feature development cost
+   510→   510→(security and observability are non-
+   511→   511→optional)
+   512→   512→Mechanical enforcement via ADR  Some ADRs cite principles superficially
+   513→   513→| citation |     | without genuine alignment |     |
+   514→   514→| -------- | --- | ------------------------- | --- |
+   515→   515→REJECTED ALTERNATIVES
+   516→   516→The 25-principle option was rejected because cognitive load tests showed
+   517→   517→engineers could recite at most 7-10 principles from memory; beyond that, they
+   518→   518→look them up, which means the principles function as documentation rather
+   519→   519→than as internalised values. The 5-principle option was rejected because the 5
+   520→   520→candidates (isolation, integrity, security, observability, simplicity) were too
+   521→   521→abstract to resolve common disputes — for example, 'contracts before code' and
+   522→   522→'fail loud' are both expressions of simplicity but guide different concrete
+   523→   523→decisions. The no-principles option was rejected because the pre-v1.0 state of
+   524→   524→the platform demonstrated that ad-hoc decisions produce fragmentation; the
+   525→   525→cost of unifying later (which we paid in v1.0) exceeds the cost of aligning
+   526→   526→upfront.
+   527→   527→MIGRATION PLAN
+   528→   528→These principles have been in effect since v1.0 (October 2025). The v3.0 refresh
+   529→   529→is language-only: the 10 principles themselves are unchanged, but the
+   530→   530→descriptions are tightened for series alignment and cross-references to
+   531→   531→downstream ADRs are added. No code migration is required. The v1.0 ADR-001
+   532→   532→is retained in the historical archive; this v3.0 version supersedes it for all going-
+   533→   533→PreOne ADR Series  -  Phase 2 / 10  -  Vol 1: Architecture Foundation  -  13
+   534→   534→
+   535→   535→PreOne ADR - Volume 1: Architecture Foundation v3.0
+   536→   536→forward citations. Engineers who have completed v1.0 onboarding do not need
+   537→   537→re-training; the principles are identical.
+   538→   538→TESTING STRATEGY
+   539→   539→Principles are tested through the ADR workflow: every Proposed ADR must cite
+   540→   540→at least one principle in its Context section, and the ARB verifies alignment
+   541→   541→during review. Additionally, CI pipeline checks enforce principles
+   542→   542→mechanically: P3 (security defaults) via SAST rules that fail builds on missing
+   543→   543→auth annotations; P4 (observability) via deploy-time checks for log/metric/trace
+   544→   544→emission; P7 (contracts) via PR checks that block implementation before spec
+   545→   545→merge. P5 (simplicity) is tested through code review with a rubric. Principle
+   546→   546→alignment is reported quarterly in the architecture scorecard.
+   547→   547→MONITORING & OBSERVABILITY
+   548→   548→Principle adherence is monitored via the architecture scorecard, published
+   549→   549→quarterly. Metrics tracked: (a) percentage of ADRs citing each principle
+   550→   550→(target: P1-P4 cited by >80% of relevant ADRs); (b) CI pipeline block rate for
+   551→   551→principle violations (target: trending down as teams internalise); (c) ARB
+   552→   552→review time per ADR (target: stable, indicating enforcement is not a
+   553→   553→bottleneck); (d) onboarding survey scores on principle clarity (target: >4/5).
+   554→   554→Anomalies in any metric trigger a review of the principle or its enforcement
+   555→   555→mechanism.
+   556→   556→FUTURE EVOLUTION
+   557→   557→The 10 principles should be revisited annually. Triggers for supersession: (a) a
+   558→   558→principle consistently fails to resolve real disputes (indicating it is too abstract
+   559→   559→or too narrow); (b) a new architectural concern emerges that no principle
+   560→   560→covers (e.g., if PreOne adopts ML inference, a principle on model governance
+
+[showing lines 1-560 of 1102; use offset=561 with limit to continue reading]

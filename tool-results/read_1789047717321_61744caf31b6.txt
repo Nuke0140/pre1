@@ -1,0 +1,802 @@
+     1→     1→ENTE RPR ISE DO C UM EN TATION SE RIE S - PHAS E 4 O F 10
+     2→     2→PreOne Architecture
+     3→     3→Decision Records
+     4→     4→Phase 4 - Volume 3: Data Architecture
+     5→     5→ADR-041 to ADR-060 - 20 decisions - 34-section v3.0 template - Relational Store,
+     6→     6→Isolation, Concurrency, Partitioning, Retention, Backup, Migration, Search, Reporting
+     7→     7→Document Version: 3.0 (Volume 3 release)
+     8→     8→Status: Architecture Freeze
+     9→     9→Classification: Internal Engineering Reference
+    10→    10→Effective Date: 16 August 2026
+    11→    11→Volume Owner: Data Platform Lead
+    12→    12→Approval Authority: Architecture Review Board
+    13→    13→PreOne Platform - Enterprise Architecture Governance Phase 4 / 10 - August
+    14→    14→2026
+    15→    15→
+    16→    16→PreOne ADR - Volume 3: Data Architecture v3.0
+    17→    17→Table of Contents
+    18→    18→Phase 4 deliverable - Volume 3: Data Architecture - 20 ADRs
+    19→    19→Note: This Table of Contents is generated via field codes. To ensure page-number accuracy
+    20→    20→after editing, right-click the TOC and select "Update Field."
+    21→    21→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - i
+    22→    22→
+    23→    23→PreOne ADR - Volume 3: Data Architecture v3.0
+    24→    24→Document Control
+    25→    25→This Phase 4 deliverable of the PreOne Enterprise ADR Series presents Volume
+    26→    26→3 — Data Architecture. It contains 20 Architecture Decision Records (ADR-041
+    27→    27→to ADR-060) that define the relational data platform, tenant and scope isolation,
+    28→    28→concurrency and consistency controls, partitioning and indexing strategies,
+    29→    29→retention and archival policies, backup and restore topologies, schema
+    30→    30→migration discipline, seed data, and the search and reporting database
+    31→    31→strategies on which all data persistence is built. Every ADR in this volume
+    32→    32→follows the 34-section v3.0 template defined in Phase 1 (ADR-000). Each ADR
+    33→    33→includes four ASCII diagrams (architecture, sequence, component, data flow)
+    34→    34→and is linked to upstream DDD/PRD documents and downstream
+    35→    35→ERD/API/UI/Test artefacts per the cross-reference framework established in
+    36→    36→Phase 1.
+    37→    37→Volume 3 builds directly on Volume 1 (Architecture Foundation, delivered in
+    38→    38→Phase 2) and Volume 2 (Domain Architecture, delivered in Phase 3). ADR-041
+    39→    39→(PostgreSQL Strategy) consolidates the relational data store onto PostgreSQL
+    40→    40→16 with PgBouncer, PostGIS, pgvector, pg_partman, and pg_stat_statements.
+    41→    41→ADR-042 (UUID Strategy) standardises on UUID v7 for monotonic, time-
+    42→    42→sortable primary keys. ADR-043 through ADR-046 establish the four isolation
+    43→    43→axes — tenant, school, branch, and academic year — that scope every multi-
+    44→    44→tenant query. ADR-047 through ADR-049 mandate soft delete, audit columns,
+    45→    45→and optimistic concurrency for every mutable entity. ADR-050 and ADR-051
+    46→    46→define the indexing and partitioning strategies that keep query latency bounded
+    47→    47→as data volume grows. ADR-052 governs JSONB usage for flexible schemas.
+    48→    48→ADR-053 and ADR-054 define retention and archival policies. ADR-055 and
+    49→    49→ADR-056 define the backup and restore topologies that meet the platform's
+    50→    50→RPO and RTO targets. ADR-057 and ADR-058 govern schema migration and
+    51→    51→seed data. ADR-059 and ADR-060 close the volume with the search strategy
+    52→    52→(Postgres FTS plus optional Elasticsearch) and the reporting database strategy
+    53→    53→(read-optimised replica fed by logical replication). Together, these 20 ADRs
+    54→    54→form the data-architecture playbook of the PreOne platform.
+    55→    55→VERSION HISTORY
+    56→    56→Version Date Author Summary of
+    57→    57→Changes
+    58→    58→1.0 2025-10-15 Office of the Chief Initial release of
+    59→    59→Architect Volume 3 with 20
+    60→    60→ADRs using the
+    61→    61→26-section v2.0
+    62→    62→template.
+    63→    63→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 1
+    64→    64→
+    65→    65→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+    66→    66→| Version | Date | Author | Summary of  |
+    67→    67→| ------- | ---- | ------ | ----------- |
+    68→    68→Changes
+    69→    69→| 3.0 | 2026-08-16 | Data Platform  | Phase 4 release.  |
+    70→    70→| --- | ---------- | -------------- | ----------------- |
+    71→    71→|     |            | Lead           | All 20 ADRs       |
+    72→    72→refreshed to the
+    73→    73→34-section v3.0
+    74→    74→template (added
+    75→    75→Component
+    76→    76→Diagram, Data
+    77→    77→Flow Diagram, UI
+    78→    78→Impact, Decision
+    79→    79→History,
+    80→    80→Implementation
+    81→    81→Checklist). Cross-
+    82→    82→references to
+    83→    83→Volume 1 ADRs
+    84→    84→(ADR-001 to
+    85→    85→ADR-020) and
+    86→    86→Volume 2 ADRs
+    87→    87→(ADR-021 to
+    88→    88→ADR-040), plus
+    89→    89→downstream
+    90→    90→ERD/API/TC
+    91→    91→artefacts, added
+    92→    92→per the Phase 1
+    93→    93→framework.
+    94→    94→OWNERSHIP & CLASSIFICATION
+    95→    95→| Document Owner |     | Data Platform Lead (Volume 3 Data  |     |
+    96→    96→| -------------- | --- | ---------------------------------- | --- |
+    97→    97→Architect)
+    98→    98→| Approval Authority |     | Architecture Review Board (ARB)    |     |
+    99→    99→| ------------------ | --- | ---------------------------------- | --- |
+   100→   100→| Classification     |     | Internal — Architecture Governance |     |
+   101→   101→| Distribution       |     | Engineering, QA, DevOps, Product,  |     |
+   102→   102→Security, Architecture
+   103→   103→| Review Cadence |     | Annual editorial review; ADR-level  |     |
+   104→   104→| -------------- | --- | ----------------------------------- | --- |
+   105→   105→review on trigger
+   106→   106→| Retention |     | Permanent — superseded ADRs  |     |
+   107→   107→| --------- | --- | ---------------------------- | --- |
+   108→   108→retained for traceability
+   109→   109→| Format |     | DOCX (master) / PDF (distribution) /  |     |
+   110→   110→| ------ | --- | ------------------------------------- | --- |
+   111→   111→Markdown (working copy)
+   112→   112→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  2
+   113→   113→
+   114→   114→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   115→   115→| Storage Location |     | PreOne Architecture Repository /  |     |
+   116→   116→| ---------------- | --- | --------------------------------- | --- |
+   117→   117→governance/adr/volume-3/
+   118→   118→| Series |     | PreOne Enterprise Documentation  |     |
+   119→   119→| ------ | --- | -------------------------------- | --- |
+   120→   120→Series — Phase 4 of 10
+   121→   121→VOLUME 3 ADR SUMMARY
+   122→   122→| ADR     | Title       | Category          | Sections |
+   123→   123→| ------- | ----------- | ----------------- | -------- |
+   124→   124→| ADR-041 | PostgreSQL  | Data Architecture | 34       |
+   125→   125→Strategy
+   126→   126→| ADR-042 | UUID Strategy    | Data Architecture | 34  |
+   127→   127→| ------- | ---------------- | ----------------- | --- |
+   128→   128→| ADR-043 | Tenant Isolation | Data Architecture | 34  |
+   129→   129→| ADR-044 | School Isolation | Data Architecture | 34  |
+   130→   130→| ADR-045 | Branch Isolation | Data Architecture | 34  |
+   131→   131→| ADR-046 | Academic Year    | Data Architecture | 34  |
+   132→   132→Isolation
+   133→   133→| ADR-047 | Soft Delete   | Data Architecture | 34  |
+   134→   134→| ------- | ------------- | ----------------- | --- |
+   135→   135→| ADR-048 | Audit Columns | Data Architecture | 34  |
+   136→   136→| ADR-049 | Optimistic    | Data Architecture | 34  |
+   137→   137→Concurrency
+   138→   138→| ADR-050 | Indexing Strategy  | Data Architecture | 34  |
+   139→   139→| ------- | ------------------ | ----------------- | --- |
+   140→   140→| ADR-051 | Partition Strategy | Data Architecture | 34  |
+   141→   141→| ADR-052 | JSONB Usage        | Data Architecture | 34  |
+   142→   142→| ADR-053 | Data Retention     | Data Architecture | 34  |
+   143→   143→| ADR-054 | Archive Policy     | Data Architecture | 34  |
+   144→   144→| ADR-055 | Backup Strategy    | Data Architecture | 34  |
+   145→   145→| ADR-056 | Restore Strategy   | Data Architecture | 34  |
+   146→   146→| ADR-057 | Migration          | Data Architecture | 34  |
+   147→   147→Strategy
+   148→   148→| ADR-058 | Seed Data  | Data Architecture | 34  |
+   149→   149→| ------- | ---------- | ----------------- | --- |
+   150→   150→Strategy
+   151→   151→| ADR-059 | Search Strategy | Data Architecture | 34  |
+   152→   152→| ------- | --------------- | ----------------- | --- |
+   153→   153→| ADR-060 | Reporting       | Data Architecture | 34  |
+   154→   154→Database Strategy
+   155→   155→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  3
+   156→   156→
+   157→   157→PreOne ADR - Volume 3: Data Architecture v3.0
+   158→   158→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 4
+   159→   159→
+   160→   160→PreOne ADR - Volume 3: Data Architecture v3.0
+   161→   161→V O L U M E 3
+   162→   162→Data Architecture
+   163→   163→ADR-041 to ADR-060 - 20 decisions - 34 sections each
+   164→   164→Volume 3 defines the data architecture of the PreOne platform. The 20
+   165→   165→ADRs in this volume translate the structural foundation (Volume 1) and
+   166→   166→the domain model (Volume 2) into a concrete data-persistence strategy.
+   167→   167→ADR-041 establishes PostgreSQL 16 as the sole relational store,
+   168→   168→concentrating operational expertise and simplifying DR. ADR-042
+   169→   169→standardises on UUID v7 for monotonic, time-sortable primary keys
+   170→   170→across every table. ADR-043 through ADR-046 establish the four
+   171→   171→isolation axes — tenant, school, branch, and academic year — that scope
+   172→   172→every multi-tenant query, enforced by Postgres row-level security and
+   173→   173→composite keys. ADR-047 through ADR-049 mandate soft delete, audit
+   174→   174→columns, and optimistic concurrency for every mutable entity, ensuring
+   175→   175→data integrity and recoverability. ADR-050 and ADR-051 define the
+   176→   176→indexing and partitioning strategies that keep query latency bounded as
+   177→   177→data volume grows: composite and partial indexes for hot paths, range
+   178→   178→partitioning by academic year for high-volume tables. ADR-052 governs
+   179→   179→JSONB usage for flexible schemas, balancing structure with adaptability.
+   180→   180→ADR-053 and ADR-054 define retention and archival policies that
+   181→   181→balance regulatory compliance with cost. ADR-055 and ADR-056 define
+   182→   182→the backup and restore topologies that meet the platform's 5-minute RPO
+   183→   183→and 1-hour RTO targets. ADR-057 and ADR-058 govern schema
+   184→   184→migration discipline (Flyway, versioned, forward-only) and seed data
+   185→   185→strategy. ADR-059 and ADR-060 close the volume with the search
+   186→   186→strategy (Postgres FTS first, Elasticsearch as optional accelerator) and
+   187→   187→the reporting database strategy (read-optimised replica fed by logical
+   188→   188→replication, isolating analytical load from OLTP). Together, these 20
+   189→   189→ADRs are the data-architecture playbook of the PreOne platform — the
+   190→   190→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 5
+   191→   191→
+   192→   192→PreOne ADR - Volume 3: Data Architecture v3.0
+   193→   193→patterns that every engineer applies when designing or modifying data
+   194→   194→persistence.
+   195→   195→AD R -041
+   196→   196→PostgreSQL Strategy
+   197→   197→Volume 3 — Data Architecture - Data Architecture
+   198→   198→ACCEPTED
+   199→   199→DECISION SUMMARY
+   200→   200→DECISION
+   201→   201→Adopt PostgreSQL 16 as the sole relational data store for the PreOne
+   202→   202→platform across OLTP, audit, configuration, and reporting-adjacent
+   203→   203→workloads. All persistence layers, including the modular monolith's
+   204→   204→bounded contexts, will use Postgres via a shared cluster topology with read
+   205→   205→replicas, connection pooling through PgBouncer, and the PostGIS,
+   206→   206→pgvector, pg_partman, and pg_stat_statements extensions enabled by
+   207→   207→default. MongoDB, MySQL, and DynamoDB are rejected as primary stores.
+   208→   208→STATUS
+   209→   209→Status Accepted
+   210→   210→Date Decided 2025-10-15
+   211→   211→Decision Owner Data Platform Lead
+   212→   212→Review Cadence Annual review, or on trigger event
+   213→   213→(incident, major version upgrade, or
+   214→   214→strategic shift)
+   215→   215→Supersedes None (v1.0 original; v3.0 refreshes
+   216→   216→for series alignment and cross-
+   217→   217→references)
+   218→   218→CONTEXT
+   219→   219→PreOne is a multi-tenant SaaS platform serving the K-12 and higher-education
+   220→   220→sectors across multiple geographies. The data layer must support transactional
+   221→   221→workloads (enrollment, grading, attendance), bulk reporting (academic
+   222→   222→transcripts, attendance rosters), audit trails (every mutation to a regulated
+   223→   223→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 6
+   224→   224→
+   225→   225→PreOne ADR - Volume 3: Data Architecture v3.0
+   226→   226→entity), full-text and semantic search (institution directory, course catalog), and
+   227→   227→time-series-ish telemetry (daily attendance aggregates). The previous platform
+   228→   228→generation used a mix of MongoDB for documents and MySQL for transactions,
+   229→   229→which produced consistency, operational, and hiring problems. PostgreSQL
+   230→   230→16, released in September 2023 and production-hardened by mid-2024, brings
+   231→   231→logical replication improvements, parallel query enhancements, SQL/JSON
+   232→   232→path expressions, and improved vacuum feedback that materially affect our
+   233→   233→workload profile. The PostGIS extension covers the geolocation needs of the
+   234→   234→school-locator service; pgvector covers the semantic-search needs of the AI-
+   235→   235→assistant roadmap (ADR-148); pg_partman automates the range-partition
+   236→   236→maintenance mandated by ADR-051. The engineering organisation is already
+   237→   237→fluent in SQL and in the Postgres operational model. Standardising on a single
+   238→   238→relational engine reduces the cognitive surface area for on-call, simplifies the
+   239→   239→disaster-recovery story (one PITR topology, one backup format), and
+   240→   240→concentrates tooling investment. The principal alternative considered was a
+   241→   241→polyglot persistence strategy (Postgres for OLTP, Elasticsearch for search,
+   242→   242→DynamoDB for session state), but the operational cost of three engines for a 50-
+   243→   243→engineer organisation was judged prohibitive.
+   244→   244→BUSINESS DRIVERS
+   245→   245→PreOne's institutional customers sign annual contracts with strict uptime and
+   246→   246→data-recoverability SLAs; data-layer incidents are the single largest contributor
+   247→   247→to churn. Consolidating on Postgres concentrates operational expertise,
+   248→   248→shortens on-call escalation paths, and reduces the number of backup and DR
+   249→   249→topologies the SRE team must rehearse. The savings are redirected into higher-
+   250→   250→value platform work. A second driver is the international expansion planned for
+   251→   251→2026, which requires data residency in India, the EU, and the US. Postgres runs
+   252→   252→identically in AWS, Azure, and on-premises; a polyglot strategy would multiply
+   253→   253→the residency certification work. A single engine also simplifies the auditors'
+   254→   254→job: one schema-introspection script, one retention enforcement job, one
+   255→   255→access-control model. A tertiary driver is the AI roadmap. Embeddings, vector
+   256→   256→similarity search, and structured retrieval all benefit from co-location with the
+   257→   257→transactional data, avoiding the dual-write consistency problems that arise
+   258→   258→when vectors live in a separate store. pgvector inside Postgres gives us ACID
+   259→   259→guarantees over embedding updates without a separate vector database.
+   260→   260→PROBLEM STATEMENT
+   261→   261→PreOne requires a single, well-understood relational data platform that can
+   262→   262→serve transactional, audit, search, and reporting workloads under a multi-
+   263→   263→tenant model while keeping operational complexity, hiring cost, and DR
+   264→   264→rehearsal burden within the capacity of a 50-engineer organisation.
+   265→   265→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 7
+   266→   266→
+   267→   267→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   268→   268→CONSTRAINTS
+   269→   269→● All regulated data must reside in PostgreSQL; no shadow databases
+   270→   270→holding PII or academic records.
+   271→   271→● The engine must support logical replication for tenant-scoped
+   272→   272→extraction and cross-region replication for DR.
+   273→   273→● The engine must support range and list partitioning for high-volume
+   274→   274→tables (attendance, gradebook, audit log).
+   275→   275→● Extensions required: PostGIS, pgvector, pg_partman,
+   276→   276→pg_stat_statements, pgcrypto, uuid-ossp or pg_idkit.
+   277→   277→● Connection pooling is mandatory; no direct application connection to
+   278→   278→the primary without PgBouncer in transaction mode.
+   279→   279→● Major version upgrades occur on a 24-month cadence with one minor
+   280→   280→version lag from upstream GA.
+   281→   281→ASSUMPTIONS
+   282→   282→● PostgreSQL 16 will receive security support through November 2028,
+   283→   283→sufficient for our upgrade cadence.
+   284→   284→● AWS RDS for PostgreSQL and Aurora PostgreSQL will continue to
+   285→   285→support the extensions we depend on.
+   286→   286→● The engineering organisation's Postgres fluency will scale linearly with
+   287→   287→headcount; no sudden skill cliff.
+   288→   288→● pgvector performance will remain competitive with dedicated vector
+   289→   289→databases for our workload size (≤ 100M vectors per tenant).
+   290→   290→● Logical replication will remain stable enough for tenant-extraction use
+   291→   291→cases without bespoke conflict resolution.
+   292→   292→OPTIONS CONSIDERED
+   293→   293→| Option              | Pros             | Cons                  | Verdict |
+   294→   294→| ------------------- | ---------------- | --------------------- | ------- |
+   295→   295→| Adopt PostgreSQL    | Single engine    | Some workloads        | Adopted |
+   296→   296→| 16 as the sole      | concentrates     | (e.g., log analytics  |         |
+   297→   297→| relational store    | operational      | at petabyte scale)    |         |
+   298→   298→| across OLTP,        | expertise,       | are not a good fit;   |         |
+   299→   299→| audit, search, and  | simplifies DR,   | we will need an       |         |
+   300→   300→| reporting           | enables ACID     | outbound pipeline     |         |
+   301→   301→| workloads.          | guarantees over  | to a columnar         |         |
+   302→   302→|                     | embeddings via   | store for those       |         |
+   303→   303→|                     | pgvector, and    | cases.                |         |
+   304→   304→aligns with
+   305→   305→existing team
+   306→   306→fluency.
+   307→   307→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  8
+   308→   308→
+   309→   309→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   310→   310→| Option             | Pros                | Cons              | Verdict  |
+   311→   311→| ------------------ | ------------------- | ----------------- | -------- |
+   312→   312→| Polyglot           | Each workload       | Three engines to  | Rejected |
+   313→   313→| persistence:       | runs on the engine  | operate, patch,   |          |
+   314→   314→| PostgreSQL for     | best suited to it;  | back up, and      |          |
+   315→   315→| OLTP,              | peak performance    | rehearse DR for.  |          |
+   316→   316→| Elasticsearch for  | per workload is     | Dual-write        |          |
+   317→   317→| search,            | higher.             | consistency       |          |
+   318→   318→| DynamoDB for       |                     | problems between  |          |
+   319→   319→| sessions, S3 for   |                     | Postgres and      |          |
+   320→   320→| blobs.             |                     | Elasticsearch.    |          |
+   321→   321→Hiring surface
+   322→   322→expands to three
+   323→   323→specialisations.
+   324→   324→| Adopt MySQL 8.4   | Operationally    | Weaker JSON        | Rejected |
+   325→   325→| ----------------- | ---------------- | ------------------ | -------- |
+   326→   326→| as the sole       | familiar to a    | support than       |          |
+   327→   327→| relational store. | subset of the    | Postgres JSONB;    |          |
+   328→   328→|                   | team; lower per- | no first-party     |          |
+   329→   329→|                   | replica cost on  | vector extension;  |          |
+   330→   330→|                   | AWS.             | weaker             |          |
+   331→   331→partitioning story
+   332→   332→until 8.0 matured;
+   333→   333→smaller extension
+   334→   334→ecosystem;
+   335→   335→GROUP BY
+   336→   336→semantics differ
+   337→   337→from team
+   338→   338→expectation.
+   339→   339→Defer the decision  No migration cost;  Operational debt  Rejected
+   340→   340→| and continue with  | no risk of         | continues to        |     |
+   341→   341→| ------------------ | ------------------ | ------------------- | --- |
+   342→   342→| the legacy         | regression during  | compound; two       |     |
+   343→   343→| MongoDB +          | cutover.           | engines to staff    |     |
+   344→   344→| MySQL mix for      |                    | on-call for; cross- |     |
+   345→   345→| two more years.    |                    | engine joins        |     |
+   346→   346→require
+   347→   347→application-level
+   348→   348→fan-out.
+   349→   349→DECISION
+   350→   350→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  9
+   351→   351→
+   352→   352→PreOne ADR - Volume 3: Data Architecture v3.0
+   353→   353→ADOPTED
+   354→   354→Adopt PostgreSQL 16 as the sole relational data store for the PreOne
+   355→   355→platform across transactional, audit, configuration, and reporting-adjacent
+   356→   356→workloads. We will run it on AWS RDS for PostgreSQL for the primary
+   357→   357→cluster, with cross-region read replicas for DR and Aurora PostgreSQL as a
+   358→   358→documented future migration target. PgBouncer in transaction-pooling
+   359→   359→mode will front every application connection. The PostGIS, pgvector,
+   360→   360→pg_partman, and pg_stat_statements extensions are enabled by default on
+   361→   361→every database. Major version upgrades occur on a 24-month cadence. No
+   362→   362→new workloads will be written against MongoDB or MySQL; existing
+   363→   363→workloads will be migrated per the plan in ADR-057.
+   364→   364→DETAILED RATIONALE
+   365→   365→PostgreSQL 16 was chosen over the alternatives because it is the only engine
+   366→   366→that satisfies all five of PreOne's hard requirements simultaneously: ACID
+   367→   367→transactions with serializable isolation, native UUID generation, robust range
+   368→   368→and list partitioning, JSONB for flexible schemas, and a first-party vector
+   369→   369→extension (pgvector) that co-locates embeddings with transactional data. The
+   370→   370→polyglot alternative was attractive on theoretical grounds (best engine per
+   371→   371→workload) but fails on operational grounds. PreOne's SRE team has four
+   372→   372→engineers; running three engines well requires six. The polyglot path also
+   373→   373→introduces dual-write consistency problems between Postgres and
+   374→   374→Elasticsearch that are well documented in the industry and that we have
+   375→   375→personally experienced in the legacy platform: out-of-sync search indexes,
+   376→   376→repair jobs that run for hours, and customer-visible staleness during incident
+   377→   377→recovery. Co-locating search in Postgres via FTS (ADR-059) and using
+   378→   378→Elasticsearch only as an optional accelerator where Postgres FTS cannot meet
+   379→   379→latency targets eliminates the dual-write problem. MySQL 8.4 was a serious
+   380→   380→contender. The team has prior MySQL experience and AWS pricing favours
+   381→   381→MySQL slightly. However, MySQL's JSON type lacks the GIN-indexed JSONB
+   382→   382→operations that PreOne's flexible-schema use cases depend on (ADR-052),
+   383→   383→MySQL's partitioning cannot partition by an expression in the way PreOne's
+   384→   384→academic-year partitioning requires (ADR-051), and MySQL has no equivalent
+   385→   385→to pgvector for the AI roadmap (ADR-148). Each gap alone is bridgeable;
+   386→   386→together they represent a three-year strategic disadvantage. The 'defer' option
+   387→   387→was rejected because every quarter of deferral adds to the operational debt.
+   388→   388→The legacy MongoDB cluster requires dedicated on-call, dedicated backup
+   389→   389→rehearsal, and dedicated patching. Each of those activities consumes engineer-
+   390→   390→weeks per quarter that would otherwise fund platform investment. The Aurora
+   391→   391→PostgreSQL variant was considered as the primary rather than RDS. Aurora's
+   392→   392→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 10
+   393→   393→
+   394→   394→PreOne ADR - Volume 3: Data Architecture v3.0
+   395→   395→storage architecture (distributed storage, fast replica promotion) is attractive,
+   396→   396→but Aurora's extension support lags RDS by 3-6 months and Aurora's cost model
+   397→   397→is unfavourable at the relatively modest data volumes PreOne currently holds.
+   398→   398→We will revisit Aurora when total dataset size exceeds 5 TB or when cross-
+   399→   399→region read replica lag becomes a constraint; the trigger is documented in the
+   400→   400→futureEvolution section.
+   401→   401→ARCHITECTURE DIAGRAM
+   402→   402→+---------------------------------------------------------------+ | PREONE DATA
+   403→   403→PLATFORM TOPOLOGY | +---------------------------------------------------------------+
+   404→   404→| | | App Tier (Modular Monolith) ----+
+   405→   405→| | | | | | v v
+   406→   406→| | +-------+ +-------------+ | | |PgBounc| tx-pool | RDS
+   407→   407→PG 16 | (Primary, AZ-a) | | |er x N | ------------> | primary | | |
+   408→   408→+-------+ +-------------+ | | | WAL stream
+   409→   409→| | +---------------+---------------+ | | v v
+   410→   410→| | +-------------+ +-------------+ | | | RDS PG 16 | |
+   411→   411→RDS PG 16 | | | | read rep | | read rep | | | |
+   412→   412→(region-us)| | (region-eu)| | | | reporting | | DR
+   413→   413→standby | | | +-------------+ +-------------+ | | ^
+   414→   414→| | | | | +--------------+----------+ S3
+   415→   415→(Glacier archive) | | | Materialized Views | ^ | | |
+   416→   416→(refresh nightly) | -------+ | | +-------------------------+
+   417→   417→| | | | Extensions: PostGIS, pgvector,
+   418→   418→pg_partman, pg_stat_stmts | +---------------------------------------------------------------+
+   419→   419→SEQUENCE DIAGRAM
+   420→   420→App -> PgBouncer: BEGIN; SELECT ... PgBouncer -> RDS Primary: route (tx-
+   421→   421→pool) RDS Primary -> Storage: WAL write RDS Primary -> PgBouncer: rows
+   422→   422→PgBouncer -> App: result set RDS Primary -> Read Replica (us): WAL stream
+   423→   423→RDS Primary -> Read Replica (eu): WAL stream (async) Reporting Job -> Read
+   424→   424→Replica (us): SELECT ... (read-only) Read Replica (us) -> Reporting Job: rows
+   425→   425→Backup Job -> S3: nightly snapshot + WAL archive S3 -> S3 Glacier: monthly
+   426→   426→archive (lifecycle)
+   427→   427→COMPONENT DIAGRAM
+   428→   428→+-------------------------------------------------------------+ | ADR-041 — PostgreSQL Strategy -
+   429→   429→Component View | +-------------------------------------------------------------+ |
+   430→   430→| | +----------------+ +----------------------+ | | | Application | pool |
+   431→   431→PgBouncer | | | | Service |------->| (transaction mode) | | | |
+   432→   432→(per BC) | +----------+-----------+ | | +----------------+ |
+   433→   433→| | | route | | v
+   434→   434→| | +----------------+ +----------------------+ | | | Read Replica | read | RDS
+   435→   435→Primary | | | | (reporting) |<-------| (writes) | | |
+   436→   436→+----------------+ +----------+-----------+ | | |
+   437→   437→| | | WAL | | v
+   438→   438→| | +--------+----------+ | | | S3 (WAL
+   439→   439→archive) | | | +-------------------+ | |
+   440→   440→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 11
+   441→   441→
+   442→   442→PreOne ADR - Volume 3: Data Architecture v3.0
+   443→   443→| | Extensions: PostGIS, pgvector, pg_partman, pg_stat |
+   444→   444→+-------------------------------------------------------------+
+   445→   445→DATA FLOW DIAGRAM
+   446→   446→Write Path: App -> PgBouncer -> RDS Primary -> WAL -> Storage RDS
+   447→   447→Primary -> Read Replicas (async stream) RDS Primary -> S3 (nightly snapshot
+   448→   448→+ WAL archive) S3 -> Glacier (lifecycle, monthly) Read Path: App ->
+   449→   449→PgBouncer -> Read Replica (us) -> rows Reporting Job -> Read Replica (us) ->
+   450→   450→result set DR Path: RDS Primary (us) -> Read Replica (eu, promoted on
+   451→   451→failover) S3 cross-region replicate -> S3 (eu)
+   452→   452→DATABASE IMPACT
+   453→   453→Every bounded context in the modular monolith will own exactly one schema in
+   454→   454→the primary Postgres cluster. Cross-schema foreign keys are forbidden; cross-
+   455→   455→schema references use UUID columns without FK constraints and are validated
+   456→   456→at the application layer (ADR-043). Tables must use UUID v7 primary keys
+   457→   457→(ADR-042), include the standard audit columns (ADR-048), include a deleted_at
+   458→   458→column for soft delete (ADR-047), and include a version column for optimistic
+   459→   459→concurrency (ADR-049). High-volume tables (attendance, gradebook,
+   460→   460→audit_log) must be range-partitioned by academic_year (ADR-051). The
+   461→   461→pgvector and PostGIS extensions create their own catalog objects; tenant
+   462→   462→migrations must include extension availability checks. The shared cluster
+   463→   463→topology means noisy-neighbour risk between contexts is real; context owners
+   464→   464→must use statement_timeout and cost-based admission control to protect
+   465→   465→shared capacity.
+   466→   466→API IMPACT
+   467→   467→API contracts do not change as a direct consequence of this ADR, but the
+   468→   468→persistence choice shapes several API conventions. Pagination must use keyset
+   469→   469→pagination over UUID v7 (which is monotonically increasing) rather than
+   470→   470→OFFSET, because OFFSET on large tables is unbounded in cost. Bulk endpoints
+   471→   471→must use COPY through the Postgres binary protocol rather than INSERT
+   472→   472→loops; the API gateway exposes a /bulk endpoint family for this purpose. Error
+   473→   473→responses that surface database constraint violations must map Postgres
+   474→   474→SQLSTATE codes to HTTP status codes deterministically (23505 -> 409, 23503
+   475→   475→-> 422, 40001 -> 409 with retry-after). Read-after-write consistency for APIs
+   476→   476→that read from replicas is governed by ADR-060 (Reporting Database Strategy)
+   477→   477→and requires clients to send an X-Read-Consistency header when they need
+   478→   478→primary reads.
+   479→   479→UI IMPACT
+   480→   480→The PostgreSQL strategy has no direct UI surface — it is infrastructure.
+   481→   481→Indirectly, UI consistency benefits because all reads return from a single
+   482→   482→engine with consistent transaction semantics; users never see partial writes or
+   483→   483→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 12
+   484→   484→
+   485→   485→PreOne ADR - Volume 3: Data Architecture v3.0
+   486→   486→stale reads across engines. Reporting dashboards (which query read replicas)
+   487→   487→may lag the primary by up to 5 seconds; UI components that surface time-
+   488→   488→sensitive data (e.g., a parent app showing 'just-marked' attendance) display a
+   489→   489→'syncing' indicator when the lag exceeds 2 seconds, set via the lag-threshold
+   490→   490→endpoint. No UI changes were required for the migration itself; the application
+   491→   491→API is engine-agnostic.
+   492→   492→SECURITY IMPACT
+   493→   493→Consolidating on Postgres concentrates the security surface in one engine,
+   494→   494→which is a net positive: one set of role definitions, one row-level-security policy
+   495→   495→framework, one audit pipeline. Row-level security (RLS) is mandatory for any
+   496→   496→table that contains PII and is shared across tenants; tenant isolation RLS
+   497→   497→policies are defined in ADR-043. Connection strings are issued per service per
+   498→   498→environment and stored in AWS Secrets Manager with 30-day rotation. The
+   499→   499→postgres superuser role is never granted to applications; the highest privilege
+   500→   500→any application holds is the owner of its own schema. The pg_stat_statements
+   501→   501→extension exposes query text, which can leak PII in logs; this is mitigated by
+   502→   502→redacting parameters before they reach pg_stat_statements via the
+   503→   503→log_statement_sample_rate knob and by scrubbing pg_stat_statements dumps
+   504→   504→before they leave the cluster.
+   505→   505→PERFORMANCE IMPACT
+   506→   506→PostgreSQL 16 on RDS with the configuration specified in the operational
+   507→   507→runbook sustains approximately 18,000 TPS on the primary for our
+   508→   508→transactional workload (enrollment, attendance, grading) at p99 latency of
+   509→   509→12ms for indexed point lookups and 85ms for the median reporting query.
+   510→   510→Connection pooling through PgBouncer in transaction mode allows 400
+   511→   511→application connections to share 50 backend connections, reducing memory
+   512→   512→pressure on the primary. Parallel query (max_parallel_workers_per_gather=4)
+   513→   513→reduces the median aggregate reporting query by 35% versus serial execution.
+   514→   514→The pgvector HNSW index delivers p99 vector similarity latency of 18ms for
+   515→   515→1M-vector tenant scope. The principal performance risk is autovacuum falling
+   516→   516→behind on the high-churn audit_log and attendance tables; this is mitigated by
+   517→   517→per-table autovacuum scaling factors documented in ADR-050.
+   518→   518→SCALABILITY ANALYSIS
+   519→   519→Vertical scaling on RDS reaches its ceiling at db.r6g.16xlarge (64 vCPU, 512
+   520→   520→GB RAM); we are currently at db.r6g.8xlarge, leaving one doubling of vertical
+   521→   521→headroom. Beyond that, horizontal scaling proceeds through read replicas (we
+   522→   522→currently run two, can scale to fifteen) and through logical partitioning at the
+   523→   523→application layer (tenant-sharding across multiple Postgres clusters). The
+   524→   524→trigger for tenant-sharding is documented in ADR-043: when total dataset size
+   525→   525→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 13
+   526→   526→
+   527→   527→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   528→   528→exceeds 5 TB or when the primary sustains > 60% CPU at peak, we shard by
+   529→   529→tenant cohort. The pgvector workload scales through HNSW index partitioning
+   530→   530→per tenant; the 100M-vectors-per-tenant ceiling is the documented soft limit
+   531→   531→beyond which we will move that workload to a dedicated vector store. Logical
+   532→   532→replication lag to read replicas is monitored; sustained lag > 5 seconds triggers
+   533→   533→investigation.
+   534→   534→OPERATIONAL CONSIDERATIONS
+   535→   535→The SRE team owns the Postgres platform: cluster provisioning, extension
+   536→   536→management, parameter tuning, version upgrades, backup verification, and DR
+   537→   537→rehearsal. Application teams own their schemas: migrations (via Flyway,
+   538→   538→ADR-057), index choices, query plans, and tenant-isolation RLS policies. On-call
+   539→   539→runbooks cover: replica promotion, failover to the DR region, PITR restoration
+   540→   540→(ADR-056), autovacuum lag remediation, replication slot overflow, and the
+   541→   541→pg_stat_statements-based slow-query triage. Major version upgrades are
+   542→   542→rehearsed on the DR replica first, then promoted during a maintenance
+   543→   543→window. Minor version upgrades are applied via the RDS managed patch
+   544→   544→window. Every change to cluster parameters is reviewed by SRE and recorded
+   545→   545→in the parameter-group change log.
+   546→   546→RISKS
+   547→   547→| Risk                 | Likelihood | Impact | Mitigation         |
+   548→   548→| -------------------- | ---------- | ------ | ------------------ |
+   549→   549→| pgvector             | Medium     | Medium | Monitor p99        |
+   550→   550→| performance          |            |        | vector-query       |
+   551→   551→| regresses at scale   |            |        | latency; trigger   |
+   552→   552→| beyond the 100M-     |            |        | ADR review when    |
+   553→   553→| vectors-per-tenant   |            |        | any tenant         |
+   554→   554→| ceiling, forcing an  |            |        | exceeds 75M        |
+   555→   555→| unplanned            |            |        | vectors. Pre-      |
+   556→   556→| migration to a       |            |        | evaluate Pinecone  |
+   557→   557→| dedicated vector     |            |        | and Weaviate as    |
+   558→   558→| store.               |            |        | documented         |
+   559→   559→fallbacks in
+   560→   560→ADR-148.
+   561→   561→| PostgreSQL major   | Low | High | Rehearse on a       |
+   562→   562→| ------------------ | --- | ---- | ------------------- |
+   563→   563→| version upgrades   |     |      | production-mirror   |
+   564→   564→| (every 24 months)  |     |      | snapshot, run the   |
+   565→   565→| introduce          |     |      | full regression     |
+   566→   566→| regressions that   |     |      | suite, and stage a  |
+   567→   567→| survive rehearsal  |     |      | 24-hour soak        |
+   568→   568→| on the DR replica. |     |      | before promotion.   |
+   569→   569→Maintain the prior
+   570→   570→version for 30
+   571→   571→days for fast
+   572→   572→rollback.
+   573→   573→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  14
+   574→   574→
+   575→   575→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   576→   576→| Risk               | Likelihood | Impact | Mitigation          |
+   577→   577→| ------------------ | ---------- | ------ | ------------------- |
+   578→   578→| Aurora             | Low        | Medium | Track Aurora        |
+   579→   579→| PostgreSQL         |            |        | extension support   |
+   580→   580→| migration, if      |            |        | quarterly; any      |
+   581→   581→| triggered later,   |            |        | extension we        |
+   582→   582→| reveals extension  |            |        | depend on must      |
+   583→   583→| or feature gaps    |            |        | be on Aurora's      |
+   584→   584→| not present in     |            |        | supported list      |
+   585→   585→| RDS.               |            |        | within 6 months of  |
+   586→   586→our adoption.
+   587→   587→| PgBouncer          | Medium | Medium | Lint for session-  |
+   588→   588→| ------------------ | ------ | ------ | ------------------ |
+   589→   589→| transaction        |        |        | state usage in     |
+   590→   590→| pooling breaks     |        |        | code review;       |
+   591→   591→| session-level      |        |        | documented         |
+   592→   592→| features (SET,     |        |        | escape hatch is a  |
+   593→   593→| advisory locks,    |        |        | dedicated session- |
+   594→   594→| prepared           |        |        | mode PgBouncer     |
+   595→   595→| statements) that   |        |        | pool for the few   |
+   596→   596→| some library code  |        |        | services that      |
+   597→   597→| implicitly relies  |        |        | require it.        |
+   598→   598→on.
+   599→   599→TRADE-OFFS
+   600→   600→| We Gain |     | We Lose |     |
+   601→   601→| ------- | --- | ------- | --- |
+   602→   602→Single engine to operate, patch, back  Some workloads (petabyte log
+   603→   603→up, and rehearse DR for. analytics) are a poor fit; we route those
+   604→   604→to a separate columnar store.
+   605→   605→ACID guarantees over embeddings and  Vector workload competes with OLTP
+   606→   606→transactional data in the same cluster. for cache and CPU; we accept this until
+   607→   607→the 100M-vector ceiling is reached.
+   608→   608→Concentrated hiring surface (Postgres  Reduced latitude to use purpose-built
+   609→   609→fluency is broadly available). engines (e.g., time-series DBs) for niche
+   610→   610→workloads.
+   611→   611→Logical replication is built-in and well  Logical replication conflict resolution is
+   612→   612→| understood. |     | rudimentary; we must avoid multi- |     |
+   613→   613→| ----------- | --- | --------------------------------- | --- |
+   614→   614→master topologies.
+   615→   615→REJECTED ALTERNATIVES
+   616→   616→MongoDB was rejected as a primary store because its lack of multi-statement
+   617→   617→ACID transactions across collections (until 4.0, and still with caveats) made the
+   618→   618→audit-trail and enrollment flows brittle in the legacy platform. MySQL was
+   619→   619→rejected on the JSON, partitioning, and vector-extension gaps documented
+   620→   620→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  15
+   621→   621→
+   622→   622→PreOne ADR - Volume 3: Data Architecture v3.0
+   623→   623→above. CockroachDB was considered for its multi-region active-active topology
+   624→   624→but rejected on cost grounds and because our workload does not require multi-
+   625→   625→writer globally distributed writes; single-region primary with cross-region read
+   626→   626→replicas is sufficient. SQLite was considered for edge deployments (school-
+   627→   627→branch local servers) but rejected because the branch-local workload is now
+   628→   628→served by the cloud primary with offline-tolerant sync (ADR-045). The full
+   629→   629→reasoning for each rejection is captured in the Options Considered table.
+   630→   630→MIGRATION PLAN
+   631→   631→Migration from the legacy MongoDB + MySQL mix to Postgres proceeds in four
+   632→   632→phases over four quarters. Phase 1 (Q1): stand up the Postgres 16 primary, read
+   633→   633→replicas, PgBouncer, and the S3-based backup topology; migrate the three
+   634→   634→lowest-risk bounded contexts (configuration, notifications, feature-flags) as the
+   635→   635→pilot. Phase 2 (Q2): migrate the audit-log and reference-data contexts, which
+   636→   636→are high-volume but low-complexity; this exercises the partitioning,
+   637→   637→autovacuum, and backup-verification machinery at scale. Phase 3 (Q3): migrate
+   638→   638→the enrollment and gradebook contexts, which are the highest-complexity
+   639→   639→transactional workloads; dual-write during cut-over with reconciliation jobs.
+   640→   640→Phase 4 (Q4): decommission MongoDB and MySQL; archive the final snapshots
+   641→   641→to S3 Glacier with a 7-year retention per ADR-053. Rollback per phase is to the
+   642→   642→prior engine for 30 days after cut-over, after which the legacy snapshots
+   643→   643→become read-only.
+   644→   644→TESTING STRATEGY
+   645→   645→Each migrated context is tested at three layers before cut-over. (1) Schema
+   646→   646→equivalence: a property-based test compares the set of queryable predicates
+   647→   647→between the legacy and Postgres schemas; any gap is a blocker. (2) Query
+   648→   648→equivalence: 5% of production read traffic is shadowed to the Postgres replica
+   649→   649→and the result sets are compared row-by-row; mismatch rate must be below
+   650→   650→0.01%. (3) Transactional equivalence: a synthetic workload replays 24 hours of
+   651→   651→production write traffic against a Postgres mirror and verifies post-conditions.
+   652→   652→After cut-over, the legacy engine is kept in read-only shadow mode for 30 days
+   653→   653→with nightly reconciliation. The Postgres platform itself is tested via the
+   654→   654→standard RDS build pipeline plus the chaos rehearsal documented in ADR-150
+   655→   655→(Performance Testing).
+   656→   656→MONITORING & OBSERVABILITY
+   657→   657→The Postgres platform is monitored through three dashboards. (1) Cluster
+   658→   658→health: CPU, memory, IOPS, replication lag, autovacuum lag, connection count,
+   659→   659→cache hit ratio; alerts fire on replication lag > 5s, autovacuum lag > 1 hour,
+   660→   660→cache hit ratio < 95%, connection saturation > 80%. (2) Query performance:
+   661→   661→top-100 queries by mean and p99 latency from pg_stat_statements, exported
+   662→   662→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 16
+   663→   663→
+   664→   664→PreOne ADR - Volume 3: Data Architecture v3.0
+   665→   665→every 60 seconds to CloudWatch; slow-query alert fires on any query exceeding
+   666→   666→5 seconds. (3) Capacity: dataset growth, WAL archive growth, replica lag trend,
+   667→   667→index bloat estimate from pgstattuple; alerts fire on projected capacity
+   668→   668→exhaustion within 30 days. All dashboards are linked from the on-call runbook
+   669→   669→and reviewed in the weekly SRE review.
+   670→   670→FUTURE EVOLUTION
+   671→   671→The decision is stable for the foreseeable future. Three triggers would force a
+   672→   672→revisit. (1) Dataset growth beyond 5 TB on the primary: triggers evaluation of
+   673→   673→Aurora PostgreSQL or tenant-sharding across multiple Postgres clusters. (2)
+   674→   674→pgvector workload exceeding the 100M-vectors-per-tenant ceiling: triggers
+   675→   675→evaluation of a dedicated vector store (Pinecone, Weaviate, or OpenSearch with
+   676→   676→the k-NN plugin). (3) A regulatory change requiring data residency in a region
+   677→   677→where AWS RDS is unavailable: triggers evaluation of self-managed Postgres
+   678→   678→on alternative cloud or on-premises. The most likely successor to this ADR is a
+   679→   679→split: Postgres remains the OLTP and audit store, but vector workloads move to
+   680→   680→a dedicated store as the AI roadmap matures.
+   681→   681→RELATED ADRS
+   682→   682→● ADR-042 - UUID Strategy (primary key design)
+   683→   683→● ADR-043 - Tenant Isolation (RLS policy framework)
+   684→   684→● ADR-050 - Indexing Strategy (B-tree, GIN, GiST, BRIN)
+   685→   685→● ADR-051 - Partition Strategy (range partitioning by academic year)
+   686→   686→● ADR-057 - Migration Strategy (Flyway)
+   687→   687→● ADR-059 - Search Strategy (PostgreSQL FTS + Elasticsearch)
+   688→   688→● ADR-060 - Reporting Database Strategy (read replica + materialized
+   689→   689→views)
+   690→   690→● ADR-148 - AI Assistant Architecture (pgvector dependency)
+   691→   691→REFERENCES
+   692→   692→● PostgreSQL 16 Documentation - The PostgreSQL Global Development
+   693→   693→Group. 2024.
+   694→   694→● AWS RDS for PostgreSQL User Guide - Amazon Web Services. 2024.
+   695→   695→● PgBouncer Documentation - pgBouncer project. 2024.
+   696→   696→● pgvector: Open-source vector similarity search for Postgres - Andrew
+   697→   697→Kane. 2024.
+   698→   698→● PreOne Engineering Handbook, Section 7 - Data Platform Operations.
+   699→   699→Internal. 2025.
+   700→   700→DECISION HISTORY
+   701→   701→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 17
+   702→   702→
+   703→   703→PreOne ADR  -  Volume 3: Data Architecture  v3.0
+   704→   704→| Date       | Status | Actor          | Notes           |
+   705→   705→| ---------- | ------ | -------------- | --------------- |
+   706→   706→| 2025-08-16 | Draft  | Data Platform  | Initial draft;  |
+   707→   707→|            |        | Lead           | options         |
+   708→   708→enumerated;
+   709→   709→consultation with
+   710→   710→engineering team
+   711→   711→| 2025-09-24 | Proposed | Data Platform  | Submitted to  |
+   712→   712→| ---------- | -------- | -------------- | ------------- |
+   713→   713→|            |          | Lead           | Architecture  |
+   714→   714→Review Board
+   715→   715→after cross-team
+   716→   716→review
+   717→   717→| 2025-10-15 | Accepted | ARB Chair | ARB approved;  |
+   718→   718→| ---------- | -------- | --------- | -------------- |
+   719→   719→published to
+   720→   720→architecture
+   721→   721→repository
+   722→   722→| 2026-07-15 | Accepted | ARB Chair | v3.0 refresh;  |
+   723→   723→| ---------- | -------- | --------- | -------------- |
+   724→   724→cross-references
+   725→   725→to Vol 1 ADRs
+   726→   726→added; 34-section
+   727→   727→template applied
+   728→   728→APPROVAL & SIGN-OFF
+   729→   729→| Architect   |     | Office of the Chief Architect |     |
+   730→   730→| ----------- | --- | ----------------------------- | --- |
+   731→   731→| Tech Lead   |     | Data Platform Lead            |     |
+   732→   732→| ARB Chair   |     | Architecture Review Board     |     |
+   733→   733→| Approved On |     | 2025-10-15                    |     |
+   734→   734→IMPLEMENTATION CHECKLIST
+   735→   735→● ADR published to architecture repository (Done)
+   736→   736→● Cross-references to upstream/downstream artefacts added (Done)
+   737→   737→● Engineering team briefed in monthly architecture sync (Done)
+   738→   738→● Code review checklist updated to enforce this ADR (Done)
+   739→   739→● On-call runbook updated with operational procedures (Done)
+   740→   740→● PostgreSQL 16 provisioned on AWS RDS (Done)
+   741→   741→● PgBouncer deployed in transaction-pooling mode (Done)
+   742→   742→● PostGIS, pgvector, pg_partman, pg_stat_statements extensions enabled
+   743→   743→(Done)
+   744→   744→● Cross-region read replica (eu) configured for DR (Done)
+   745→   745→● Backup topology (WAL archive + daily snapshot) validated (Done)
+   746→   746→PreOne ADR Series  -  Phase 4 / 10  -  Vol 3: Data Architecture  -  18
+   747→   747→
+   748→   748→PreOne ADR - Volume 3: Data Architecture v3.0
+   749→   749→● Quarterly restore drill scheduled (Next: 2026-Q4)
+   750→   750→AD R -042
+   751→   751→UUID Strategy
+   752→   752→Volume 3 — Data Architecture - Data Architecture
+   753→   753→ACCEPTED
+   754→   754→DECISION SUMMARY
+   755→   755→DECISION
+   756→   756→Adopt UUID v7 as the standard primary key type across every table in the
+   757→   757→PreOne Postgres cluster. UUID v7 combines a 48-bit Unix millisecond
+   758→   758→timestamp prefix with 74 bits of randomness, producing identifiers that are
+   759→   759→globally unique, time-ordered, and indexable without the hot-spot pathology
+   760→   760→of UUID v4. bigint identity columns remain only for legacy tables pending
+   761→   761→migration; new tables must use UUID v7. The pg_idkit extension provides
+   762→   762→the generator function.
+   763→   763→STATUS
+   764→   764→Status Accepted
+   765→   765→Date Decided 2025-10-15
+   766→   766→Decision Owner Data Platform Lead
+   767→   767→Review Cadence Annual review, or on trigger event
+   768→   768→(incident, major version upgrade, or
+   769→   769→strategic shift)
+   770→   770→Supersedes None (v1.0 original; v3.0 refreshes
+   771→   771→for series alignment and cross-
+   772→   772→references)
+   773→   773→CONTEXT
+   774→   774→Primary key choice has consequences that propagate across the data layer:
+   775→   775→index locality, replication topology, key-shardability, client-side generation,
+   776→   776→and URL stability. PreOne's legacy platform used a mix of MySQL auto-
+   777→   777→increment bigint, MongoDB ObjectId, and UUID v4, with predictably messy
+   778→   778→results: foreign-key columns with mismatched types, indexes with poor locality,
+   779→   779→PreOne ADR Series - Phase 4 / 10 - Vol 3: Data Architecture - 19
+   780→   780→
+   781→   781→PreOne ADR - Volume 3: Data Architecture v3.0
+   782→   782→and a class of bugs where client-generated ObjectIds collided with server-
+   783→   783→generated sequences. PostgreSQL 16 does not yet ship a built-in UUID v7
+   784→   784→generator (the uuid_v7() function arrives in PostgreSQL 18), so we require an
+   785→   785→extension. The pg_idkit extension is the de facto community standard, is
+   786→   786→maintained, and exposes a uuid_generate_v7() function whose output is the
+   787→   787→standard 128-bit UUID with the version nibble correctly set. UUID v7's
+   788→   788→structure means the first 48 bits are millisecond timestamp, the next 12 bits are
+   789→   789→random, and the remaining 62 bits are random; the result is monotonically
+   790→   790→increasing within a millisecond window. The principal alternative was bigint
+   791→   791→identity (auto-increment). Bigint is smaller (8 bytes vs 16), produces perfectly
+   792→   792→ordered indexes, and is well understood. Its weaknesses for our use case are: it
+   793→   793→leaks row-count information through sequential IDs (a tenant who sees
+   794→   794→enrollment_id 47 can infer prior volume), it requires a centralised generator
+   795→   795→that becomes a contention point under high write concurrency, and it cannot be
+   796→   796→generated client-side without a round trip. UUID v7 addresses all three: no
+   797→   797→information leakage, no centralised generator, and client-side generation is
+   798→   798→safe.
+   799→   799→BUSINESS DRIVERS
+   800→   800→PreOne's institutional customers care about predictable performance at scale;
+   801→
+   802→[showing lines 1-800 of 10953; use offset=801 with limit to continue reading]

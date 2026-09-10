@@ -1,0 +1,802 @@
+     1→P R E O N E E N T E R P R I S E
+     2→PreOne Enterprise
+     3→Backend Technical Design
+     4→Backend Architecture — Enterprise Preschool Operating System
+     5→Document Version: 1.0
+     6→Status: Backend Architecture Freeze
+     7→Date: 2026-07-14
+     8→Product: PreOne — Enterprise Preschool Operating System
+     9→Predecessor: Vision v1.0, BRC v1.0, Master PRD v1.0, DDD v1.0, ADR Catalog, ERD v3.0, Prisma Schema v3.0, API
+    10→Contract Catalog
+    11→Successor: Backend Implementation, Unit Tests, Integration Tests, Deployment, Production Release
+    12→Classification: Internal Engineering Reference
+    13→Prepared by: PreOne Architecture & Engineering Team
+    14→PreOne Platform Backend TD v1.0
+    15→
+    16→PreOne Backend TD v1.0 | Backend Architecture Freeze
+    17→Table of Contents
+    18→1. Backend Overview..........................................................................................................1
+    19→1.1 Purpose...........................................................................................................................1
+    20→1.2 Scope..............................................................................................................................2
+    21→1.3 Audience.........................................................................................................................3
+    22→1.4 Document Conventions..................................................................................................4
+    23→1.5 Related Documents........................................................................................................5
+    24→2. Technology Stack............................................................................................................5
+    25→2.1 Stack Pipeline.................................................................................................................5
+    26→2.2 Component Catalog........................................................................................................8
+    27→2.3 Version Pinning Strategy................................................................................................8
+    28→3. Solution Architecture......................................................................................................8
+    29→3.1 Layered Architecture......................................................................................................9
+    30→3.2 Request Lifecycle..........................................................................................................11
+    31→3.3 Cross-Cutting Concerns................................................................................................13
+    32→3.4 Real-Time Layer............................................................................................................14
+    33→4. Folder Structure............................................................................................................14
+    34→4.1 Top-Level Layout..........................................................................................................15
+    35→4.2 Top-Level Directory Roles............................................................................................17
+    36→4.3 Module Folders............................................................................................................18
+    37→5. Module Structure..........................................................................................................18
+    38→5.1 Module Template (student/ example).........................................................................18
+    39→5.2 Directory Responsibilities.............................................................................................22
+    40→5.3 Module Wiring (student.module.ts)............................................................................22
+    41→6. Dependency Rules........................................................................................................25
+    42→1
+    43→
+    44→PreOne Backend TD v1.0 | Backend Architecture Freeze
+    45→6.1 Layer-to-Layer Rules.....................................................................................................26
+    46→6.2 Cross-Module Communication.....................................................................................26
+    47→6.3 ESLint Configuration.....................................................................................................27
+    48→7. Controllers....................................................................................................................29
+    49→7.1 Controller Responsibilities...........................................................................................29
+    50→7.2 Controller Anti-Patterns...............................................................................................29
+    51→7.3 Example — POST /v1/students....................................................................................30
+    52→8. DTOs.............................................................................................................................35
+    53→8.1 DTO Types.....................................................................................................................35
+    54→8.2 DTO Rules.....................................................................................................................36
+    55→8.3 Example — CreateStudentDto.....................................................................................37
+    56→9. Application Services......................................................................................................42
+    57→9.1 Responsibilities.............................................................................................................43
+    58→9.2 Transaction Boundary Pattern.....................................................................................43
+    59→10. Domain Services.........................................................................................................47
+    60→10.1 Responsibilities...........................................................................................................47
+    61→10.2 Example — FeeCalculationService.............................................................................48
+    62→11. Repositories................................................................................................................52
+    63→11.1 Repository Interface Contract....................................................................................53
+    64→11.2 Repository Rules.........................................................................................................53
+    65→11.3 Example — PrismaStudentRepository.......................................................................54
+    66→12. CQRS...........................................................................................................................59
+    67→12.1 When to Use CQRS.....................................................................................................59
+    68→12.2 Command Side...........................................................................................................60
+    69→Command Catalog........................................................................................................61
+    70→12.3 Query Side..................................................................................................................62
+    71→Query Catalog...............................................................................................................63
+    72→13. Domain Events............................................................................................................63
+    73→2
+    74→
+    75→PreOne Backend TD v1.0 | Backend Architecture Freeze
+    76→13.1 Event Flow..................................................................................................................63
+    77→13.2 Event Catalog..............................................................................................................65
+    78→13.3 Event Schema Rules...................................................................................................65
+    79→14. Integration Events.......................................................................................................67
+    80→14.1 Integration Event Catalog...........................................................................................67
+    81→14.2 Integration Patterns...................................................................................................67
+    82→14.3 Integration Rules........................................................................................................68
+    83→15. Background Jobs.........................................................................................................69
+    84→15.1 BullMQ Queue Catalog...............................................................................................69
+    85→15.2 Retry Policy.................................................................................................................70
+    86→15.3 Job Lifecycle................................................................................................................70
+    87→16. Cache Strategy............................................................................................................72
+    88→16.1 Cache Layers...............................................................................................................72
+    89→16.2 Cache Patterns............................................................................................................72
+    90→16.3 Cache Invalidation Rules............................................................................................73
+    91→16.4 Permission Cache Deep-Dive.....................................................................................74
+    92→17. Transactions...............................................................................................................76
+    93→17.1 Transaction Patterns..................................................................................................76
+    94→17.2 Transaction Rules.......................................................................................................77
+    95→17.3 Example — Admission Approval Saga........................................................................78
+    96→18. Validation...................................................................................................................81
+    97→18.1 Validation Layers........................................................................................................82
+    98→18.2 Validation Flow...........................................................................................................82
+    99→18.3 Validation Best Practices............................................................................................84
+   100→19. Exception Handling.....................................................................................................85
+   101→19.1 Exception Types..........................................................................................................85
+   102→19.2 Standard Error Response............................................................................................85
+   103→Response Field Reference............................................................................................87
+   104→3
+   105→
+   106→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   107→19.3 Global Exception Filter...............................................................................................87
+   108→20. Security.......................................................................................................................91
+   109→20.1 Security Controls Catalog...........................................................................................91
+   110→20.2 Authentication Flow...................................................................................................91
+   111→20.3 PII Protection..............................................................................................................94
+   112→21. Multi-Tenant Strategy.................................................................................................94
+   113→21.1 Isolation Layers...........................................................................................................94
+   114→21.2 Isolation Scope...........................................................................................................94
+   115→21.3 PostgreSQL RLS Policy................................................................................................95
+   116→22. Logging.......................................................................................................................97
+   117→22.1 Log Fields....................................................................................................................97
+   118→22.2 Log Levels...................................................................................................................97
+   119→22.3 Pino Configuration......................................................................................................98
+   120→23. Observability............................................................................................................101
+   121→23.1 Three Pillars..............................................................................................................101
+   122→23.2 Health Checks...........................................................................................................102
+   123→23.3 Alerting Strategy.......................................................................................................102
+   124→24. Testing......................................................................................................................103
+   125→24.1 Test Pyramid.............................................................................................................103
+   126→24.2 Test Pyramid Diagram..............................................................................................103
+   127→24.3 Testing Rules.............................................................................................................105
+   128→24.4 Example — Aggregate Unit Test..............................................................................106
+   129→25. Performance.............................................................................................................110
+   130→25.1 Performance Tactics.................................................................................................111
+   131→25.2 Service Level Objectives (SLOs)................................................................................111
+   132→25.3 Connection Pooling..................................................................................................111
+   133→26. Coding Standards......................................................................................................113
+   134→26.1 Standards Catalog....................................................................................................114
+   135→4
+   136→
+   137→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   138→26.2 Pre-commit Hooks....................................................................................................116
+   139→26.3 PR Review Checklist..................................................................................................118
+   140→27. Deployment Readiness.............................................................................................119
+   141→27.1 Pre-Deployment Checklist........................................................................................120
+   142→27.2 Deployment Topology..............................................................................................120
+   143→27.3 CI/CD Pipeline...........................................................................................................120
+   144→28. Glossary....................................................................................................................123
+   145→29. Document Control.....................................................................................................124
+   146→29.1 Version History.........................................................................................................124
+   147→29.2 Approval Matrix........................................................................................................124
+   148→29.3 Review Cadence.......................................................................................................124
+   149→29.4 Distribution List........................................................................................................125
+   150→29.5 Companion Documents............................................................................................126
+   151→29.6 Deliverables..............................................................................................................126
+   152→Note: This Table of Contents is generated via field codes. To ensure page number accuracy after editing, please right-
+   153→click the TOC and select "Update Field."
+   154→5
+   155→
+   156→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   157→1. Backend Overview
+   158→1.1 Purpose
+   159→हा(cid:2) Document PreOne च्या(cid:2) Backend System ची(cid:7) complete technical blueprint प्र(cid:9)दा(cid:2)न करतो(cid:15).
+   160→Backend हा(cid:2) PreOne platform ची(cid:2) core engine आहा (cid:17)जो(cid:15) 13 business domains, 530+ REST APIs, 14
+   161→NestJS modules, आणि(cid:20) शे(cid:17)कडो(cid:15) background jobs क(cid:15)(cid:20)त्या(cid:2)हा(cid:7) वे(cid:17)ळी(cid:7) orchestrate करतो(cid:15). या(cid:2) document ची(cid:2)
+   162→primary goal म्हा(cid:20)जो (cid:17)architecture, patterns, आणि(cid:20) standards ची(cid:7) एकची source of truth स्था(cid:2)णिप्रतो कर(cid:20) (cid:17)
+   163→जो(cid:7) implementation, review, आणि(cid:20) onboarding सा(cid:2)ठी(cid:7) reference म्हा(cid:20)जो(cid:17) वे(cid:2)प्ररली(cid:7) जो(cid:2)ऊ शेक(cid:17) ली.
+   164→Backend Technical Design (BTD) हा(cid:2) Vision, BRC, PRD, आणि(cid:20) DDD च्या(cid:2) वेर build हा(cid:15)तो(cid:15) — त्या(cid:2)च्# या(cid:2)
+   165→business requirements ली(cid:2) concrete software architecture मध्या(cid:17) translate करतो(cid:15). DDD मध्या (cid:17)
+   166→define क(cid:17) लीली(cid:17) (cid:17)aggregates, entities, आणि(cid:20) bounded contexts या(cid:2) document मध्या (cid:17)NestJS modules,
+   167→Prisma schemas, आणि(cid:20) application services मध्या(cid:17) implement हा(cid:15)तो(cid:2)तो. प्र(cid:9)त्याक(cid:17) architectural choice
+   168→ली(cid:2) ADR Catalog मध्या (cid:17)documented decision आणि(cid:20) ERD v3.0 मध्या (cid:17)physical schema backing आहा(cid:17).
+   169→या(cid:2) document वेरून प्रढी' (cid:7)ली production artifacts तोया(cid:2)र हा(cid:15)तो(cid:7)ली: Complete NestJS Folder Structure
+   170→(14 domain modules), Controllers (~530 REST APIs), DTO Library, Application & Domain
+   171→Services, CQRS Commands / Queries / Handlers, Domain Event Catalog, BullMQ Job
+   172→Definitions, Redis Cache Design, Transaction Strategy, Exception & Validation Framework,
+   173→Logging & Observability Standards, Testing Strategy, आणि(cid:20) Backend Implementation
+   174→Guidelines.
+   175→1.2 Scope
+   176→हा(cid:2) document फक्तो Backend System च्या(cid:2) architecture आणि(cid:20) implementation guidelines cover
+   177→करतो(cid:15). खा(cid:2)ली(cid:7)ली explicitly out of scope आहा(cid:17)तो:
+   178→• Frontend / Mobile Architecture — separate frontend design document मध्या (cid:17)cover
+   179→हा(cid:15)तो(cid:17).
+   180→• Infrastructure as Code (Terraform / Pulumi) — DevOps runbook मध्या (cid:17)documented
+   181→आहा(cid:17).
+   182→• Third-party SDK integration details — per-provider spec sheets (SMS, WhatsApp,
+   183→Payment gateways) reference क(cid:17) ली (cid:17)आहा(cid:17)तो.
+   184→• Mobile Push (FCM / APNs) cert management — operations runbook मध्या.(cid:17)
+   185→• Data migration scripts from legacy systems — separate migration runbook.
+   186→6
+   187→
+   188→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   189→1.3 Audience
+   190→हा(cid:2) document खा(cid:2)ली(cid:7)ली audiences सा(cid:2)ठी(cid:7) णिलीणिखातो आहा(cid:17):
+   191→• Backend Engineers: Primary reference — module structure, patterns, coding
+   192→standards, testing strategy implementation सा(cid:2)ठी(cid:7).
+   193→• Tech Leads / Architects: Architecture enforcement — dependency rules, CQRS
+   194→applicability, transaction boundaries review सा(cid:2)ठी(cid:7).
+   195→• QA Engineers: Testing pyramid understanding, integration test patterns, आणि(cid:20) SLO
+   196→targets सा(cid:2)ठी(cid:7).
+   197→• DevOps / SRE: Deployment readiness checklist, observability stack, health checks,
+   198→आणि(cid:20) scaling patterns सा(cid:2)ठी(cid:7).
+   199→• AI Code Assistants: Each section structured as a prompt-able block; AI tools च्या(cid:2)
+   200→context मध्या (cid:17)णिदाल्या(cid:2)वेर accurate NestJS code generation हा(cid:15)तो(cid:17).
+   201→• New Hires: Onboarding reference — first 2 weeks मध्या (cid:17)वे(cid:2)चीन- backend mental model
+   202→तोया(cid:2)र हा(cid:15)तो(cid:15).
+   203→1.4 Document Conventions
+   204→• Module names: kebab-case (student, attendance, identity).
+   205→• Class names: PascalCase (StudentAggregate, CreateStudentCommand).
+   206→• File names: kebab-case (student.aggregate.ts, create-student.dto.ts).
+   207→• Database tables: snake_case (students, admission_applications).
+   208→• REST endpoints: kebab-case plural (/v1/students, /v1/attendance-records).
+   209→• Code blocks: monospace font (Consolas); tree diagrams use └ ─ characters.
+   210→• Bilingual content: Marathi business context + English technical terms preserved
+   211→exactly as user provided.
+   212→1.5 Related Documents
+   213→PreOne document series मध्या(cid:17) BTD ची(cid:17) specific position आहा(cid:17). खा(cid:2)ली(cid:7)ली documents BTD ची (cid:17)
+   214→predecessors आहा(cid:17)तो:
+   215→7
+   216→
+   217→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   218→| Document        | Version | Status        | Relationship to BTD |
+   219→| --------------- | ------- | ------------- | ------------------- |
+   220→| Vision Document | v1.0    | Vision Freeze | Strategic intent —  |
+   221→BTD च्या(cid:2) non-
+   222→functional
+   223→requirements (scale,
+   224→compliance) Vision
+   225→शे(cid:7) align
+   226→| BRC | v1.0 | Business Freeze | 176 rules — BTD च्या(cid:2)  |
+   227→| --- | ---- | --------------- | ---------------------------- |
+   228→Domain Events +
+   229→Specifications BRC ची (cid:17)
+   230→implementation
+   231→| Master PRD | v1.0 | Product Freeze | Functional  |
+   232→| ---------- | ---- | -------------- | ----------- |
+   233→requirements — BTD
+   234→ची (cid:17)API endpoints PRD
+   235→च्या(cid:2) FRs ची (cid:17)direct
+   236→mapping
+   237→| DDD | v1.0 | Architecture Freeze | Domain model —  |
+   238→| --- | ---- | ------------------- | --------------- |
+   239→BTD च्या(cid:2) NestJS
+   240→modules DDD च्या(cid:2)
+   241→bounded contexts ची (cid:17)
+   242→implementation
+   243→| ADR Catalog | v1.0 | Architecture Freeze | Decisions — BTD  |
+   244→| ----------- | ---- | ------------------- | ---------------- |
+   245→प्र(cid:9)त्या(cid:17)क architectural
+   246→choice ली(cid:2) ADR
+   247→reference करतो(cid:15)
+   248→| ERD v3.0 | v3.0 | Schema Freeze | Physical schema —  |
+   249→| -------- | ---- | ------------- | ------------------ |
+   250→BTD च्या(cid:2) Prisma
+   251→models ERD ची (cid:17)direct
+   252→translation
+   253→| Prisma Schema v3.0 | v3.0 | Schema Freeze | Code-first schema —  |
+   254→| ------------------ | ---- | ------------- | -------------------- |
+   255→BTD च्या(cid:2) repositories
+   256→ची (cid:17)data access layer
+   257→| API Contract Catalog | v1.0 | API Freeze | Endpoint contracts  |
+   258→| -------------------- | ---- | ---------- | ------------------- |
+   259→— BTD च्या(cid:2)
+   260→controllers ची (cid:17)spec
+   261→8
+   262→
+   263→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   264→2. Technology Stack
+   265→PreOne backend ची(cid:2) technology stack enterprise-grade reliability, developer productivity,
+   266→आणि(cid:20) AI-assisted development optimize करण्या(cid:2)सा(cid:2)ठी(cid:7) choose क(cid:17) ली(cid:2) आहा(cid:17). प्र(cid:9)त्याक(cid:17) choice ली(cid:2) ADR
+   267→(Architecture Decision Record) backing आहा(cid:17) जो(cid:15) trade-offs documented करतो(cid:15). Stack ची(cid:2) core
+   268→philosophy म्हा(cid:20)जो(cid:17) type safety end-to-end (TypeScript + Prisma + Zod), modularity (NestJS
+   269→DI), आणि(cid:20) operational maturity (BullMQ + OpenTelemetry + Pino)।
+   270→2.1 Stack Pipeline
+   271→Request ची(cid:2) flow stack च्या(cid:2) प्र(cid:9)त्याक(cid:17) layer through जो(cid:2)तो(cid:15). हा(cid:7) pipeline request lifecycle सामजोण्या(cid:2)सा(cid:2)ठी(cid:7)
+   272→critical आहा(cid:17):
+   273→Client Request
+   274→↓
+   275→NestJS Controller (route + auth + DTO validation)
+   276→↓
+   277→Application Service / Command Handler
+   278→↓
+   279→Domain Aggregate (business rules + invariants)
+   280→↓
+   281→Repository (port interface)
+   282→↓
+   283→Prisma ORM (type-safe SQL)
+   284→↓
+   285→PostgreSQL (primary) / Read Replica
+   286→↓
+   287→Outbox Table (event publishing)
+   288→↓
+   289→Redis Stream (async integration events)
+   290→↓
+   291→BullMQ Worker (background jobs)
+   292→↓
+   293→External Services (S3 / SMS / WhatsApp / Email)
+   294→2.2 Component Catalog
+   295→खा(cid:2)ली(cid:7)ली table सावे0 stack components ची(cid:7) authoritative list आहा(cid:17). नवे(cid:7)न component introduce
+   296→करतो(cid:2)न(cid:2) या(cid:2) table मध्या (cid:17)entry जो(cid:15)डो(cid:2)वे(cid:7) ली(cid:2)गे(cid:17)ली आणि(cid:20) corresponding ADR draft कर(cid:2)वे(cid:2) ली(cid:2)गेली(cid:17) :
+   297→9
+   298→
+   299→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   300→| Component | Version | Role         | Highlights      | Why Chosen     |
+   301→| --------- | ------- | ------------ | --------------- | -------------- |
+   302→| NestJS    | v11.x   | Application  | Modular DI,     | Production-    |
+   303→|           |         | Framework    | decorators,     | grade Angular- |
+   304→|           |         |              | microservices,  | style DI;      |
+   305→|           |         |              | WebSocket       | ecosystem      |
+   306→|           |         |              | gateway,        | mature; squad  |
+   307→|           |         |              | scheduling,     | familiarity    |
+   308→OpenAPI via
+   309→@nestjs/swagge
+   310→r
+   311→| TypeScript | v5.4+ | Language | Strict mode,   | Type safety at  |
+   312→| ---------- | ----- | -------- | -------------- | --------------- |
+   313→|            |       |          | path aliases,  | compile time;   |
+   314→|            |       |          | decorators,    | DDD-friendly    |
+   315→|            |       |          | const          | with branded    |
+   316→|            |       |          | assertions,    | types & value   |
+   317→|            |       |          | satisfies      | objects         |
+   318→operator
+   319→| Prisma ORM | v6.x | ORM / Data  | Schema-first,      | Type safety      |
+   320→| ---------- | ---- | ----------- | ------------------ | ---------------- |
+   321→|            |      | Access      | type-safe client,  | end-to-end;      |
+   322→|            |      |             | migrations,        | migration        |
+   323→|            |      |             | multi-schema,      | history;         |
+   324→|            |      |             | read-replica       | excellent        |
+   325→|            |      |             | routing (client    | Postgres         |
+   326→|            |      |             | extensions)        | support          |
+   327→| PostgreSQL | v16  | Primary     | RLS, partial       | ACID             |
+   328→|            |      | Database    | indexes, JSONB,    | compliance; RLS  |
+   329→|            |      |             | generated          | for tenant       |
+   330→|            |      |             | columns,           | isolation;       |
+   331→|            |      |             | pgcrypto,          | pgvector for     |
+   332→|            |      |             | pgvector (for      | embeddings       |
+   333→AI), logical
+   334→replication
+   335→| Redis | v7.2 | Cache + Queue  | Permission     | Sub-ms reads;  |
+   336→| ----- | ---- | -------------- | -------------- | -------------- |
+   337→|       |      | Backend        | cache, menu    | supports       |
+   338→|       |      |                | cache, BullMQ  | BullMQ         |
+   339→|       |      |                | backend, rate- | persistence;   |
+   340→|       |      |                | limit store,   | Redis Streams  |
+   341→|       |      |                | pub/sub        | for events     |
+   342→10
+   343→
+   344→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   345→| Component  | Version | Role            | Highlights         | Why Chosen         |
+   346→| ---------- | ------- | --------------- | ------------------ | ------------------ |
+   347→| BullMQ     | v5.x    | Background Job  | Repeatable         | Battle-tested on   |
+   348→|            |         | Queue           | jobs, delayed      | Redis;             |
+   349→|            |         |                 | jobs, priorities,  | observability via  |
+   350→|            |         |                 | rate-limited       | Bull Board;        |
+   351→|            |         |                 | queues, DLQ,       | sandboxed          |
+   352→|            |         |                 | flow producer      | processors         |
+   353→| JWT (jose) | v5.x    | Authentication  | Access tokens      | Stateless          |
+   354→|            |         | Tokens          | (15 min) +         | verification;      |
+   355→|            |         |                 | refresh tokens     | horizontal         |
+   356→|            |         |                 | (30 d, rotated),   | scaling friendly   |
+   357→RS256 signed
+   358→| WebSocket   | v4.x | Real-Time Layer | Adaptive        | Bi-directional    |
+   359→| ----------- | ---- | --------------- | --------------- | ----------------- |
+   360→| (Socket.IO) |      |                 | transport,      | push for chat,    |
+   361→|             |      |                 | rooms per       | attendance live,  |
+   362→|             |      |                 | tenant+branch,  | dashboards        |
+   363→sticky-session
+   364→via Redis
+   365→adapter
+   366→| AWS S3 | —   | Object Storage | Pre-signed       | Durable file   |
+   367→| ------ | --- | -------------- | ---------------- | -------------- |
+   368→|        |     |                | uploads, server- | storage;       |
+   369→|        |     |                | side encryption  | lifecycle to   |
+   370→|        |     |                | (SSE-KMS),       | Glacier for    |
+   371→|        |     |                | lifecycle to     | archives; KMS  |
+   372→|        |     |                | Glacier,         | encryption     |
+   373→versioning
+   374→| Zod / class- | —   | Validation | DTO validation  | Pipe               |
+   375→| ------------ | --- | ---------- | --------------- | ------------------ |
+   376→| validator    |     |            | pipeline;       | integration; fail- |
+   377→|              |     |            | schema          | fast on invalid    |
+   378→|              |     |            | composition;    | input              |
+   379→custom
+   380→decorators
+   381→| Pino | v9.x | Logging | JSON structured  | Low overhead;   |
+   382→| ---- | ---- | ------- | ---------------- | --------------- |
+   383→|      |      |         | logs, child      | structured for  |
+   384→|      |      |         | loggers, redact  | Loki/ELK;       |
+   385→|      |      |         | PII, async       | correlation by  |
+   386→|      |      |         | transport        | traceId         |
+   387→11
+   388→
+   389→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   390→| Component     | Version | Role       | Highlights       | Why Chosen       |
+   391→| ------------- | ------- | ---------- | ---------------- | ---------------- |
+   392→| OpenTelemetry | v1.x    | Tracing /  | Auto-            | Vendor-neutral;  |
+   393→|               |         | Metrics    | instrumentation  | spans            |
+   394→|               |         |            | for              | correlated to    |
+   395→|               |         |            | HTTP/PG/Redis,   | logs             |
+   396→custom spans,
+   397→OTLP exporter
+   398→| Vitest | v1.x | Unit Test  | Native ESM,      | Fast startup;    |
+   399→| ------ | ---- | ---------- | ---------------- | ---------------- |
+   400→|        |      | Runner     | snapshot, in-    | Jest-compatible  |
+   401→|        |      |            | source testing,  | API; TS native   |
+   402→coverage via v8
+   403→| Testcontainers | v10.x | Integration  | Real Postgres +   | Real DB        |
+   404→| -------------- | ----- | ------------ | ----------------- | -------------- |
+   405→|                |       | Tests        | Redis containers  | semantics; no  |
+   406→|                |       |              | per test run      | mocked Prisma  |
+   407→drift
+   408→| ESLint + Prettier | v9.x | Linting &  | Import          | Enforce        |
+   409→| ----------------- | ---- | ---------- | --------------- | -------------- |
+   410→|                   |      | Format     | boundaries      | dependency     |
+   411→|                   |      |            | (eslint-plugin- | rules; format  |
+   412→|                   |      |            | import),        | consistency    |
+   413→functional
+   414→patterns, no-
+   415→magic-numbers
+   416→| Husky + lint- | —   | Pre-commit  | Lint, format,  | Catch issues  |
+   417→| ------------- | --- | ----------- | -------------- | ------------- |
+   418→| staged        |     | Hooks       | type-check on  | before push;  |
+   419→|               |     |             | staged files   | block broken  |
+   420→commits
+   421→| Compodoc | —   | Module        | Auto-generated  | Living        |
+   422→| -------- | --- | ------------- | --------------- | ------------- |
+   423→|          |     | Documentation | module          | architecture  |
+   424→|          |     |               | diagrams from   | docs          |
+   425→NestJS sources
+   426→| Helmet +    | —   | HTTP Hardening | CSP, HSTS, no-     | Standard  |
+   427→| ----------- | --- | -------------- | ------------------ | --------- |
+   428→| compression |     |                | sniff, gzip/brotli | OWASP     |
+   429→headers;
+   430→payload size
+   431→reduction
+   432→2.3 Version Pinning Strategy
+   433→Production stability सा(cid:2)ठी(cid:7) सावे0 dependencies pinned आहा(cid:17)तो — caret ranges (~) फक्तो patch
+   434→updates allow करतो(cid:2)तो, minor/major bumps ली(cid:2) explicit review ली(cid:2)गेतो(cid:15). Lockfile (bun.lock)
+   435→12
+   436→
+   437→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   438→committed आहा(cid:17) आणि(cid:20) Renovate Bot weekly PRs raise करतो(cid:15) for updates. Critical security
+   439→patches emergency channel through release हा(cid:15)तो(cid:2)तो — on-call engineer च्या(cid:2) approval नतो# र 4
+   440→hours मध्या (cid:17)deploy.
+   441→3. Solution Architecture
+   442→PreOne ची(cid:2) backend हा(cid:2) modular monolith architecture follow करतो(cid:15) — single deployable
+   443→NestJS application ज्या(cid:2)तो 14 bounded contexts (modules) clean boundaries साहा co-exist
+   444→करतो(cid:2)तो. हा(cid:2) decision ADR-003 मध्या(cid:17) documented आहा(cid:17): microservices ची(cid:17) operational overhead
+   445→(service discovery, distributed tracing, network failures) टा(cid:2)ळीण्या(cid:2)सा(cid:2)ठी(cid:7) modular monolith प्र(cid:9)थाम
+   446→phase मध्या(cid:17) choose क(cid:17) ली(cid:2) आहा(cid:17). जो(cid:17)व्हा(cid:2) specific module ची(cid:7) scale demand वे(cid:2)ढी(cid:17)ली (e.g., AI inference,
+   447→Report generation), तो(cid:17)व्हा(cid:2) त्या(cid:2)ली(cid:2) separate microservice म्ध्या(cid:17) extract क(cid:17) ली(cid:17) जो(cid:2)ईली — DDD च्या(cid:2)
+   448→bounded context boundaries हा(cid:17) extraction smooth करतो(cid:7)ली.
+   449→3.1 Layered Architecture
+   450→Backend ची(cid:17) ची(cid:2)र layers आहा(cid:17)तो — Presentation, Application, Domain, Infrastructure. हा(cid:17) layers
+   451→DDD च्या(cid:2) standard pattern follow करतो(cid:2)तो आणि(cid:20) dependency rule enforce करतो(cid:2)तो क(cid:7)
+   452→dependencies फक्तो inward point करतो(cid:2)तो:
+   453→+---------------------------------------------------+
+   454→| Presentation Layer (Controllers, DTOs, Guards) |
+   455→+---------------------------------------------------+
+   456→↓
+   457→+---------------------------------------------------+
+   458→| Application Layer (Handlers, App Services, UoW) |
+   459→+---------------------------------------------------+
+   460→↓
+   461→+---------------------------------------------------+
+   462→| Domain Layer (Aggregates, Entities, VOs, Events) | <-- Pure TS, zero deps
+   463→+---------------------------------------------------+
+   464→↓ (implements interfaces)
+   465→+---------------------------------------------------+
+   466→| Infrastructure Layer (Prisma, Redis, S3, BullMQ) |
+   467→+---------------------------------------------------+
+   468→3.2 Request Lifecycle
+   469→प्र(cid:9)त्याक(cid:17) HTTP request खा(cid:2)ली(cid:7)ली stages through जो(cid:2)तो(cid:15). हा(cid:7) traceability observability मध्या(cid:17) critical आहा(cid:17)
+   470→— क(cid:15)(cid:20)तो(cid:2)हा(cid:7) bottleneck trace ID न(cid:17) identify क(cid:17) ली(cid:2) जो(cid:2)ऊ शेकतो(cid:15):
+   471→• Middleware: traceId generation, request logging, tenantId extraction.
+   472→• Guard (JwtAuthGuard): token verification, user context population.
+   473→13
+   474→
+   475→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   476→• Guard (PermissionsGuard): RBAC check via Casbin policies.
+   477→• Pipe (ValidationPipe): DTO class-validator + Zod schema validation.
+   478→• Interceptor (LoggingInterceptor): request/response logging with duration.
+   479→• Interceptor (CacheInterceptor): Redis cache lookup for GET requests.
+   480→• Controller: route handler invocation.
+   481→• Handler / Application Service: business orchestration, UoW, event publishing.
+   482→• Domain Aggregate: invariant enforcement, state mutation.
+   483→• Repository (Prisma): SQL execution, optimistic lock check.
+   484→• Outbox: event persistence in same transaction.
+   485→• Response: ResponseDto envelope, status code, headers.
+   486→• Exception Filter (on error): standardised error response, traceId correlation.
+   487→3.3 Cross-Cutting Concerns
+   488→क(cid:2)हा(cid:7) concerns सावे0 modules ली(cid:2) apply हा(cid:15)तो(cid:2)तो — तो(cid:17) global modules मध्या(cid:17) implemented आहा(cid:17)तो जो(cid:17)
+   489→AppModule मध्या(cid:17) registered आहा(cid:17)तो. या(cid:2)मळी' (cid:17) per-module boilerplate कम(cid:7) हा(cid:15)तो(cid:17) आणि(cid:20) consistency
+   490→साणि'नणि6चीतो हा(cid:15)तो(cid:17):
+   491→• Logging: Pino global logger with traceId, userId, tenantId auto-injected via
+   492→AsyncLocalStorage.
+   493→• Validation: Global ValidationPipe with Zod + class-validator, whitelist +
+   494→forbidNonWhitelisted.
+   495→• Exception Handling: Global ExceptionFilter catching all errors, mapping to standard
+   496→response shape.
+   497→• Auth: Global JwtAuthGuard with @Public() decorator opt-out for login/health.
+   498→• RBAC: Global PermissionsGuard backed by Casbin enforcer (cached in Redis).
+   499→• Rate Limiting: Global ThrottlerGuard — per-IP and per-user limits.
+   500→• CORS / Helmet: Standard OWASP headers + CORS allowlist.
+   501→• OpenTelemetry: Auto-instrumentation for HTTP, PG, Redis, BullMQ — spans auto-
+   502→created.
+   503→• Trace Context: traceId propagated via W3C Trace Context header (traceparent).
+   504→14
+   505→
+   506→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   507→3.4 Real-Time Layer
+   508→WebSocket (Socket.IO) layer real-time features सा(cid:2)ठी(cid:7) आहा(cid:17) — parent chat, live attendance
+   509→dashboard, instant notifications. Multi-instance deployment मध्या(cid:17) Redis adapter वे(cid:2)प्ररून
+   510→cross-instance broadcast क(cid:17) ली(cid:17) जो(cid:2)तो(cid:17). Connection authentication JWT न(cid:17) हा(cid:15)तो(cid:17); room join करतो(cid:2)न(cid:2)
+   511→tenantId + branchId न(cid:17) namespace isolate क(cid:17) ली(cid:17) जो(cid:2)तो(cid:17) ज्या(cid:2)मळी' (cid:17) cross-tenant data leak हा(cid:15)ऊ शेकतो
+   512→न(cid:2)हा(cid:7).
+   513→4. Folder Structure
+   514→Project folder structure हा(cid:17) developer navigation ची(cid:2) foundation आहा(cid:17). PreOne मध्या (cid:17)strict folder
+   515→convention आहा(cid:17) जो(cid:15) ESLint import boundaries न(cid:17) enforce क(cid:17) ली(cid:2) जो(cid:2)तो(cid:15) — क(cid:15)(cid:20)तो(cid:7)हा(cid:7) file wrong
+   516→folder मध्या (cid:17)place क(cid:17) ल्या(cid:2)सा lint error यातो(cid:17) (cid:15) आणि(cid:20) build fail हा(cid:15)तो(cid:15). हा(cid:7) discipline onboarding friction कम(cid:7)
+   517→करतो(cid:17) आणि(cid:20) code discoverability वे(cid:2)ढीवेतो(cid:17).
+   518→4.1 Top-Level Layout
+   519→src/ folder च्या(cid:2) खा(cid:2)ली(cid:7)ली top-level directories आहा(cid:17)तो. प्र(cid:9)त्याक(cid:17) directory ची(cid:7) specific responsibility आहा(cid:17)
+   520→आणि(cid:20) cross-directory imports णिनयाणिमतो आहा(cid:17)तो:
+   521→src/
+   522→├── app/ # Bootstrap, global modules, filters, pipes
+   523→├── common/ # Shared kernel (errors, types, utils)
+   524→├── config/ # Typed config loaders
+   525→├── infrastructure/ # Cross-module infra (Prisma, Redis, S3)
+   526→├── shared/ # DDD kernel (base entity, VO, spec)
+   527→└── modules/ # Business modules (bounded contexts)
+   528→├── identity/
+   529→├── crm/
+   530→├── admissions/
+   531→├── student/
+   532→├── academics/
+   533→├── attendance/
+   534→├── communication/
+   535→├── finance/
+   536→├── inventory/
+   537→├── hr/
+   538→├── administration/
+   539→├── reports/
+   540→├── settings/
+   541→└── platform/
+   542→15
+   543→
+   544→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   545→4.2 Top-Level Directory Roles
+   546→| Directory | Responsibility |     | Notes |
+   547→| --------- | -------------- | --- | ----- |
+   548→app/ Application bootstrap, global  Crown of the process; one-
+   549→|     | modules, filters, pipes,  |     | time wiring |
+   550→| --- | ------------------------- | --- | ----------- |
+   551→interceptors, guards
+   552→| common/ | Shared kernel — base          |     | Cross-cutting, dependency- |
+   553→| ------- | ----------------------------- | --- | -------------------------- |
+   554→|         | classes, error codes, result  |     | free                       |
+   555→types, decorators, utilities,
+   556→types
+   557→| config/ | Typed config loaders (env,  |     | Loaded once at bootstrap |
+   558→| ------- | --------------------------- | --- | ------------------------ |
+   559→secrets, tenant config,
+   560→feature flags)
+   561→infrastructure/ Cross-module infra — Prisma  Concrete adapters; domain
+   562→|     | client, Redis client, S3 client,  |     | sees only interfaces |
+   563→| --- | --------------------------------- | --- | -------------------- |
+   564→EventBus, Mailer, BullMQ
+   565→registrars
+   566→shared/ Shared domain primitives —  DDD kernel reused by all
+   567→|     | UoW base, base entity, base  |     | modules |
+   568→| --- | ---------------------------- | --- | ------- |
+   569→aggregate, value object base,
+   570→specification base
+   571→modules/ Business modules (one folder  Where the actual product
+   572→|     | per bounded context) |     | lives |
+   573→| --- | -------------------- | --- | ----- |
+   574→4.3 Module Folders
+   575→modules/ directory मध्या(cid:17) 14 business domains ची(cid:17) एक folder आहा(cid:17). प्र(cid:9)त्याक(cid:17)  folder स्वेतो7ची(cid:17) sub-
+   576→structure follow करतो(cid:15) (Section 5 मध्या(cid:17) detail). नवे(cid:7)न module add करतो(cid:2)न(cid:2) AppModule मध्या (cid:17)
+   577→registration + ESLint boundary rule update + Compodoc diagram regenerate ली(cid:2)गेतो(cid:17). Module
+   578→list खा(cid:2)ली(cid:7)लीप्र(cid:9)म(cid:2)(cid:20) (cid:17)आहा(cid:17):
+   579→| #   | Module | Primary Domain | Approximate API  |
+   580→| --- | ------ | -------------- | ---------------- |
+   581→Count
+   582→| 1   | identity | Users, Roles,  | ~70 |
+   583→| --- | -------- | -------------- | --- |
+   584→Permissions,
+   585→Tenants, Branches
+   586→| 2   | crm | Leads, Campaigns,  | ~40 |
+   587→| --- | --- | ------------------ | --- |
+   588→Conversions
+   589→16
+   590→
+   591→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   592→| #   | Module | Primary Domain | Approximate API  |
+   593→| --- | ------ | -------------- | ---------------- |
+   594→Count
+   595→| 3   | admissions | Applications,  | ~50 |
+   596→| --- | ---------- | -------------- | --- |
+   597→Counselling,
+   598→Approvals
+   599→| 4   | student | Student Lifecycle,  | ~55 |
+   600→| --- | ------- | ------------------- | --- |
+   601→Profiles, Guardians
+   602→| 5   | academics | Curriculum,  | ~60 |
+   603→| --- | --------- | ------------ | --- |
+   604→Observations, Report
+   605→Cards
+   606→| 6   | attendance | Daily Attendance,  | ~35 |
+   607→| --- | ---------- | ------------------ | --- |
+   608→Arrival, Pickup
+   609→| 7   | communication | Announcements,  | ~50 |
+   610→| --- | ------------- | --------------- | --- |
+   611→Chat, Notifications
+   612→| 8   | finance | Fees, Invoices,  | ~80 |
+   613→| --- | ------- | ---------------- | --- |
+   614→Payments, Ledger,
+   615→GST
+   616→| 9   | inventory | Items, Stock, PR, PO,  | ~45 |
+   617→| --- | --------- | ---------------------- | --- |
+   618→GRN
+   619→| 10  | hr  | Staff, Payroll, Leave,  | ~45 |
+   620→| --- | --- | ----------------------- | --- |
+   621→Attendance
+   622→| 11  | administration | Assets, Maintenance,  | ~25 |
+   623→| --- | -------------- | --------------------- | --- |
+   624→Visitors
+   625→| 12  | reports | Cross-domain  | ~30 |
+   626→| --- | ------- | ------------- | --- |
+   627→Reports, Analytics
+   628→| 13  | settings | Academic Years,  | ~20 |
+   629→| --- | -------- | ---------------- | --- |
+   630→Calendars, Configs
+   631→| 14  | platform | Subscriptions, Billing,  | ~25 |
+   632→| --- | -------- | ------------------------ | --- |
+   633→Feature Flags
+   634→5. Module Structure
+   635→PreOne ची(cid:2) प्र(cid:9)त्याक(cid:17)  business domain identical folder template follow करतो(cid:15). हा(cid:17) consistency
+   636→onboarding friction कम(cid:7) करतो (cid:17)— developer एक module णिशेकल्या(cid:2)वेर दासा' र(cid:2) module navigate कर(cid:20) (cid:17)
+   637→intuitive हा(cid:15)तो(cid:17). Template DDD patterns (aggregates, repositories, domain events) आणि(cid:20) NestJS
+   638→conventions (module, controllers, providers) ची(cid:2) hybrid आहा(cid:17).
+   639→17
+   640→
+   641→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   642→5.1 Module Template (student/ example)
+   643→खा(cid:2)ली(cid:7)ली tree student/ module ची(cid:17) complete structure दा(cid:2)खावेतो(cid:17). हा(cid:17)ची pattern सावे0 14 modules सा(cid:2)ठी(cid:7)
+   644→apply हा(cid:15)तो(cid:17) — फक्तो folder name बदालीतो(cid:17):
+   645→student/
+   646→├── controllers/ # HTTP controllers
+   647→├── application/
+   648→│ ├── commands/ # CQRS command objects
+   649→│ ├── queries/ # CQRS query objects
+   650→│ ├── handlers/ # Command & query handlers
+   651→│ ├── dto/ # Request/Response DTOs
+   652→│ ├── mappers/ # DTO ↔ Domain ↔ Persistence
+   653→│ └── services/ # Application services (orchestration)
+   654→├── domain/
+   655→│ ├── aggregates/ # Aggregate roots + child entities
+   656→│ ├── entities/ # Entities inside aggregates
+   657→│ ├── value-objects/ # Immutable VOs (Address, Money)
+   658→│ ├── repositories/ # Repository interfaces (ports)
+   659→│ ├── services/ # Domain services (pure rules)
+   660→│ ├── events/ # Domain event classes
+   661→│ ├── policies/ # Business policies
+   662→│ └── specifications/ # Spec pattern (predicates)
+   663→├── infrastructure/
+   664→│ ├── prisma/ # Prisma schema slice + client
+   665→│ ├── repositories/ # Prisma-backed implementations
+   666→│ ├── cache/ # Redis cache wrappers
+   667→│ ├── events/ # Event bus adapters
+   668→│ └── jobs/ # BullMQ producers + processors
+   669→├── presentation/ # Presenters (view-models)
+   670→└── student.module.ts # NestJS module wiring
+   671→5.2 Directory Responsibilities
+   672→प्र(cid:9)त्याक(cid:17) sub-directory ची(cid:7) specific responsibility आहा(cid:17). खा(cid:2)ली(cid:7)ली table सावे0 directories ची(cid:17) purpose +
+   673→boundaries document करतो(cid:17):
+   674→Directory Responsibility Critical Rule
+   675→controllers/ HTTP controllers — Controllers MUST NOT
+   676→versioned, route mapped, contain business logic; only
+   677→Swagger tagged DTO validation + dispatch
+   678→application/commands/ CQRS command objects e.g.,
+   679→(immutable, validated) CreateStudentCommand,
+   680→PromoteStudentCommand
+   681→18
+   682→
+   683→PreOne Backend TD v1.0  |  Backend Architecture Freeze
+   684→| Directory | Responsibility | Critical Rule |
+   685→| --------- | -------------- | ------------- |
+   686→application/queries/ CQRS query objects for read  e.g., GetStudentByIdQuery,
+   687→|     | side | SearchStudentsQuery |
+   688→| --- | ---- | ------------------- |
+   689→application/handlers/ Command & query handlers  Single handler per
+   690→|     | — orchestrate aggregate +  | command/query;  |
+   691→| --- | -------------------------- | --------------- |
+   692→|     | UoW + events               | Idempotent via  |
+   693→idempotency-key
+   694→application/dto/ Request/Response DTOs +  Zod schemas + class-validator
+   695→|     | mappers | decorators + Swagger  |
+   696→| --- | ------- | --------------------- |
+   697→metadata
+   698→application/mappers/ DTO ↔ Domain ↔  Three-way mapping; never
+   699→|     | Persistence mappers | leak Prisma types to  |
+   700→| --- | ------------------- | --------------------- |
+   701→controllers
+   702→application/services/ Application services — multi- Coordinate repositories;
+   703→|     | aggregate orchestration,  | publish integration events |
+   704→| --- | ------------------------- | -------------------------- |
+   705→transactional
+   706→domain/aggregates/ Aggregate roots + child  Pure TS; zero infra deps;
+   707→|     | entities | enforce invariants |
+   708→| --- | -------- | ------------------ |
+   709→domain/entities/ Entities inside aggregates  Only mutate via aggregate
+   710→|     | (identity within parent) | root |
+   711→| --- | ------------------------ | ---- |
+   712→domain/value-objects/ Immutable value objects  Equals by value; throw on
+   713→|     | (Address, Money, Age,  | invalid construction |
+   714→| --- | ---------------------- | -------------------- |
+   715→TimeWindow)
+   716→domain/repositories/ Repository interfaces (port) Implemented in
+   717→infrastructure/; mockable in
+   718→tests
+   719→| domain/services/ | Domain services — pure  | No state; no IO |
+   720→| ---------------- | ----------------------- | --------------- |
+   721→business rules involving
+   722→multiple aggregates
+   723→domain/events/ Domain event classes Past-tense; serialisable;
+   724→versioned schema
+   725→domain/policies/ Business policies (e.g.,  Decision tables; pure
+   726→|     | RefundPolicy, LateFeePolicy) | functions |
+   727→| --- | ---------------------------- | --------- |
+   728→domain/specifications/ Specification pattern for  Composable
+   729→|     | complex predicate logic | with .and(), .or(), .not() |
+   730→| --- | ----------------------- | -------------------------- |
+   731→19
+   732→
+   733→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   734→Directory Responsibility Critical Rule
+   735→infrastructure/prisma/ Prisma schema slice + client Per-module Prisma schema
+   736→wiring fragment
+   737→infrastructure/repositories/ Concrete Prisma-backed Map Prisma rows ↔ domain
+   738→repository implementations aggregates
+   739→infrastructure/cache/ Redis cache wrappers (read- TTL + invalidation versioned
+   740→through, write-through) by cache key prefix
+   741→infrastructure/events/ Event bus adapters — in- Outbox pattern for cross-
+   742→memory (sync) + Redis aggregate reliability
+   743→Streams (async)
+   744→infrastructure/jobs/ BullMQ job producers + Worker isolation; sandboxed
+   745→processors for this module processors
+   746→presentation/ Presenters — format domain View-model layer; keeps
+   747→responses for DTOs clean
+   748→HTTP/WebSocket views
+   749→student.module.ts NestJS module wiring — Single source of DI graph
+   750→providers, controllers,
+   751→imports, exports
+   752→5.3 Module Wiring (student.module.ts)
+   753→प्र(cid:9)त्याक(cid:17) module ची(cid:7) .module.ts file NestJS DI container ची(cid:2) configuration point आहा(cid:17). हा(cid:7) file
+   754→imports, providers, controllers, exports declare करतो(cid:17). हा (cid:17)wiring ADR-007 मध्या (cid:17)defined pattern
+   755→follow करतो(cid:17) — providers list मध्या(cid:17) interfaces bind क(cid:17) ल्या(cid:2) जो(cid:2)तो(cid:2)तो concrete implementations साहा,
+   756→ज्या(cid:2)मळी' (cid:17) testing मध्या (cid:17)swap कर(cid:20) (cid:17)सा(cid:15)प्र(cid:17) हा(cid:15)तो(cid:17):
+   757→@Module({
+   758→imports: [
+   759→PrismaModule,
+   760→RedisModule,
+   761→EventBusModule,
+   762→BullmqModule.registerQueue({ name: 'student-jobs' }),
+   763→],
+   764→controllers: [StudentsController, StudentProfileController],
+   765→providers: [
+   766→// Application
+   767→CreateStudentHandler,
+   768→UpdateStudentHandler,
+   769→GetStudentHandler,
+   770→SearchStudentsHandler,
+   771→StudentMapper,
+   772→// Domain
+   773→20
+   774→
+   775→PreOne Backend TD v1.0 | Backend Architecture Freeze
+   776→{ provide: 'StudentRepository', useClass: PrismaStudentRepository },
+   777→StudentFactory,
+   778→AgeEligibilitySpecification,
+   779→// Infrastructure
+   780→StudentCache,
+   781→{ provide: 'StudentEventBus', useClass: RedisStreamEventBus },
+   782→],
+   783→exports: ['StudentRepository', 'StudentEventBus'],
+   784→})
+   785→export class StudentModule {}
+   786→6. Dependency Rules
+   787→Dependency rules हा(cid:17) architecture ची(cid:17) enforcement mechanism आहा(cid:17)तो. हा(cid:17) rules ESLint plugin
+   788→(eslint-plugin-import) न (cid:17)code level प्रर enforce क(cid:17) ली (cid:17)जो(cid:2)तो(cid:2)तो — violation सा(cid:2)ठी(cid:7) lint error यातो(cid:17) (cid:15) आणि(cid:20)
+   789→build fail हा(cid:15)तो(cid:15). या(cid:2)मळी' (cid:17) architecture drift detect हा(cid:15)तो(cid:15) जो(cid:17)व्हा(cid:2) developer accidentally wrong layer
+   790→import करतो(cid:15).
+   791→6.1 Layer-to-Layer Rules
+   792→खा(cid:2)ली(cid:7)ली table सावे0 possible layer-to-layer import combinations ची(cid:7) status document करतो(cid:17).
+   793→'Allowed' णिक#वे(cid:2) 'Forbidden' tags strict enforcement साणि-चीतो करतो(cid:2)तो:
+   794→From → To Status Notes
+   795→Presentation → Application Allowed Controllers call application
+   796→services / command handlers
+   797→Presentation → Domain Forbidden Controllers must never touch
+   798→aggregates/entities directly
+   799→Presentation → Forbidden Controllers must never
+   800→Infrastructure import Prisma/Redis/S3
+
+[showing lines 1-800 of 3126; use offset=801 with limit to continue reading]
