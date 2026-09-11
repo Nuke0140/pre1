@@ -177,3 +177,21 @@ Stage Summary:
 - M01 DoD met: child journeys enquiry→admission→allocation→daily ops→learning→communication→fees→reports→promotion→next AY with ZERO manual DB intervention; 10 problem scenarios detect→act→communicate→follow-up→resolve→audit
 - Known gaps (documented, by design): Transport/Inventory/Leave/Payroll contexts don't exist in MVP (feature flags OFF, Impact Map I-15); AI daily-summary drafting not wired (existing AI gateway untouched); notification channels beyond IN_APP need providers
 - Server: prod build :3000; PG :54329 (1+2 tenants); demo accounts unchanged; total automated checks 121 green (49+41+31)
+
+---
+Task ID: 10
+Agent: main (Super Z)
+Task: M01 PRODUCT-CONFORMANCE AUDIT (freeze; no code changes)
+
+Work Log:
+- Phase 0 freeze: verified baseline (app :3000 OK, PG :54329 restarted, 16 tenants/32 students), suites re-run: 49/49 M01 + 41/41 M00 + 31/31 smoke — claims honest
+- 6 parallel read-only inventories: 19 source docs (PRD/DDD/BRC/ERD/ADR-113/ADR-38/ADR series), M01 brief (65 sections, byte-identical pastes), prisma schema + live DB (33 tables/38 enums verified), 61 API routes + 21 libs + middleware, all UI pages + nav, all 3 test scripts classified
+- Spot-verified critical defects first-hand (auth.ts wildcard OK; 9 id-addressed routes lack tenantId; payments no idempotency; sequence count-based; audit() swallows errors; login never checks tenant.status)
+- Live probes (scripts/audit-probes.sh, audit-probes2.sh, dbq.mjs): 7 CONFIRMED — PR-2 cross-tenant READ student profile; PR-3 cross-tenant WRITE lead; PR-4 cross-tenant PAYMENT ₹1 (invoice PARTIALLY_PAID); PR-5 payment retry = 2 payment rows (no idempotency); PR-6 parent sees 24 tenant invoices vs 2 own-child; PR-7 parent SSR /app/students/{non-child} renders name+INV number; PR-8 capacity TOCTOU 6/6 (cap-1 classroom got 2 ACTIVE allocations)
+- Wrote docs/M01_Product_Conformance_Audit.md: 25 phases + verdicts, conflict blocks, live probe log, 26-section final report, P0-P3 remediation, Appendix A (12 doc-level conflicts REQUIRES PRODUCT DECISION), Appendix B evidence index
+
+Stage Summary:
+- VERDICT: M01 NOT CONFORMANT — 121 green tests pass but 0/16 negative-path categories covered; every severe defect lives in an untested category
+- P0 (no decisions needed): tenant-scope 9 routes; capacity atomic guard; payment idempotency+tx balance; parent invoice/SSR scoping; SSR auth class fix
+- 10 product decisions logged (PC-1..PC-10: role canon, admission entity, refunds, AI scope, attendance lock, parent provisioning, Growth Passport name, channels, hash-chain, capacity level)
+- Server: prod build :3000 + PG :54329 running; demo accounts unchanged; test-tenant artifacts documented in audit §24

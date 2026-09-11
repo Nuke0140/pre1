@@ -1,0 +1,976 @@
+     1→'use client'
+     2→import { useCallback, useEffect, useMemo, useState } from 'react'
+     3→import { useParams, useRouter } from 'next/navigation'
+     4→import {
+     5→  ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, Save,
+     6→  UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
+     7→  Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee,
+     8→} from 'lucide-react'
+     9→import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
+    10→import { Modal } from '@/components/preone/Modal'
+    11→import { useToast } from '@/components/preone/Toast'
+    12→import { CONFIG_FORMS, type FormField, type DomainForm } from '@/lib/setup/step-forms'
+    13→import { STEP_MAP } from '@/lib/setup/steps'
+    14→
+    15→interface StepRow {
+    16→  key: string; label: string; status: 'PENDING' | 'COMPLETE' | 'BLOCKED' | 'SKIPPED'
+    17→  applicability: string; detail: string; blockedReason: string | null
+    18→  missingDeps: { key: string; label: string }[]; locked: boolean
+    19→  completedByName: string | null; completedAt: string | null; changedAfterCompletion: boolean
+    20→}
+    21→interface StatusPayload { status: string; progress: number; steps: StepRow[]; nextStepKey: string | null }
+    22→
+    23→type Dict = Record<string, unknown>
+    24→
+    25→/** stepKey → SchoolConfig domain (names differ by design — steps are UX, domains are storage) */
+    26→const CONFIG_STEP_DOMAIN: Record<string, string> = {
+    27→  operating_config: 'OPERATING',
+    28→  admission_config: 'ADMISSION',
+    29→  student_parent: 'STUDENT_PARENT',
+    30→  daily_operations: 'DAILY_OPERATIONS',
+    31→  health_safety: 'HEALTH_SAFETY',
+    32→  curriculum: 'CURRICULUM',
+    33→  communication: 'COMMUNICATION',
+    34→  documents: 'DOCUMENT_TEMPLATES',
+    35→  branding: 'BRANDING',
+    36→}
+    37→
+    38→/* ────────────────────────── generic field renderer ────────────────────────── */
+    39→function FieldInput({ f, value, onChange }: { f: FormField; value: unknown; onChange: (v: unknown) => void }) {
+    40→  if (f.type === 'checklist') {
+    41→    const selected = Array.isArray(value) ? (value as string[]) : []
+    42→    return (
+    43→      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    44→        {(f.options ?? []).map((opt) => {
+    45→          const on = selected.includes(opt)
+    46→          return (
+    47→            <button
+    48→              type="button" key={opt}
+    49→              className={`badge ${on ? 'b-primary' : 'b-neutral'}`}
+    50→              style={{ cursor: 'pointer', padding: '5px 10px', border: '1px solid transparent' }}
+    51→              onClick={() => onChange(on ? selected.filter((x) => x !== opt) : [...selected, opt])}
+    52→            >{on ? '✓ ' : ''}{opt.replaceAll('_', ' ').toLowerCase()}</button>
+    53→          )
+    54→        })}
+    55→      </div>
+    56→    )
+    57→  }
+    58→  if (f.type === 'list') {
+    59→    return (
+    60→      <textarea
+    61→        className="textarea" rows={3} value={Array.isArray(value) ? (value as string[]).join('\n') : String(value ?? '')}
+    62→        onChange={(e) => onChange(e.target.value.split('\n').map((s) => s.trim()).filter(Boolean))}
+    63→        placeholder="One per line"
+    64→      />
+    65→    )
+    66→  }
+    67→  if (f.type === 'checkbox') {
+    68→    return (
+    69→      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+    70→        <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
+    71→        Enabled
+    72→      </label>
+    73→    )
+    74→  }
+    75→  if (f.type === 'select') {
+    76→    return (
+    77→      <select className="select" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
+    78→        <option value="">Select…</option>
+    79→        {(f.options ?? []).map((o) => <option key={o} value={o}>{o.replaceAll('_', ' ')}</option>)}
+    80→      </select>
+    81→    )
+    82→  }
+    83→  const typeMap: Record<string, string> = { text: 'text', number: 'number', date: 'date', time: 'time', color: 'color' }
+    84→  return (
+    85→    <input
+    86→      className="input" type={typeMap[f.type] ?? 'text'}
+    87→      value={String(value ?? '')} onChange={(e) => onChange(f.type === 'number' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)}
+    88→    />
+    89→  )
+    90→}
+    91→
+    92→function ConfigForm({ form, data, setData }: { form: DomainForm; data: Dict; setData: (d: Dict) => void }) {
+    93→  const set = (k: string, v: unknown) => setData({ ...data, [k]: v })
+    94→  return (
+    95→    <div className="form-grid">
+    96→      {form.fields.map((f) => {
+    97→        const value = data[f.key] !== undefined ? data[f.key] : form.defaults[f.key]
+    98→        return (
+    99→          <div className="field" key={f.key} style={f.full ? { gridColumn: '1 / -1' } : undefined}>
+   100→            <label>{f.label} {f.required && <span className="req">*</span>}</label>
+   101→            <FieldInput f={f} value={value} onChange={(v) => set(f.key, v)} />
+   102→            {f.help && <div className="helper">{f.help}</div>}
+   103→          </div>
+   104→        )
+   105→      })}
+   106→    </div>
+   107→  )
+   108→}
+   109→
+   110→type ApiFn = (url: string, method: string, body?: unknown) => Promise<Dict>
+   111→type ToastFn = { success: (t: string, s?: string) => void; error: (t: string, s?: string) => void; info: (t: string, s?: string) => void; warning: (t: string, s?: string) => void }
+   112→
+   113→function TableToolbar({ title, count, onAdd, addLabel, icon }: { title: string; count: number; onAdd?: () => void; addLabel?: string; icon?: React.ReactNode }) {
+   114→  return (
+   115→    <div className="table-toolbar" style={{ marginBottom: 10 }}>
+   116→      <div className="card-title">{icon}{title} <span className="badge b-neutral">{count}</span></div>
+   117→      {onAdd && addLabel && <button className="btn btn-primary btn-sm" onClick={onAdd}><Plus size={14} /> {addLabel}</button>}
+   118→    </div>
+   119→  )
+   120→}
+   121→
+   122→function FooterActions({ busy, onSaveDraft, onComplete, completeLabel = 'Save & Continue', showDraft = true }: {
+   123→  busy: boolean; onSaveDraft: () => void; onComplete: () => void; completeLabel?: string; showDraft?: boolean
+   124→}) {
+   125→  return (
+   126→    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
+   127→      {showDraft && (
+   128→        <button className="btn btn-outline" onClick={onSaveDraft} disabled={busy}><Save size={15} /> Save as Draft</button>
+   129→      )}
+   130→      <button className="btn btn-primary" onClick={onComplete} disabled={busy}>
+   131→        <CheckCircle2 size={15} /> {busy ? 'Saving…' : completeLabel}
+   132→      </button>
+   133→    </div>
+   134→  )
+   135→}
+   136→
+   137→/* ────────────────────────── main page ────────────────────────── */
+   138→export default function SetupStepPage() {
+   139→  const params = useParams<{ step: string }>()
+   140→  const router = useRouter()
+   141→  const toast = useToast()
+   142→  const stepKey = params.step
+   143→  const def = STEP_MAP[stepKey]
+   144→
+   145→  const [status, setStatus] = useState<StatusPayload | null>(null)
+   146→  const [me, setMe] = useState<StepRow | null>(null)
+   147→  const [payload, setPayload] = useState<Dict | Dict[] | null>(null)
+   148→  const [configData, setConfigData] = useState<Dict | null>(null)
+   149→  const [saving, setSaving] = useState(false)
+   150→  const [modal, setModal] = useState<string | null>(null)
+   151→  const [importPreview, setImportPreview] = useState<Dict | null>(null)
+   152→  const [csv, setCsv] = useState('')
+   153→
+   154→  const kind = useMemo(() => {
+   155→    if (!def) return 'unknown'
+   156→    if (def.key === 'school_profile') return 'profile'
+   157→    if (def.key === 'branding') return 'branding'
+   158→    if (CONFIG_STEP_DOMAIN[def.key]) return 'config'
+   159→    switch (def.key) {
+   160→      case 'branch': return 'branches'
+   161→      case 'programs': return 'programs'
+   162→      case 'infrastructure': return 'infrastructure'
+   163→      case 'roles': return 'roles'
+   164→      case 'staff': return 'staff'
+   165→      case 'academic_year': return 'years'
+   166→      case 'classes_sections': return 'classes'
+   167→      case 'teacher_assignment': return 'teachers'
+   168→      case 'calendar': return 'calendar'
+   169→      case 'fees': return 'fees'
+   170→      case 'data_import': return 'import'
+   171→      default: return 'unknown'
+   172→    }
+   173→  }, [def])
+   174→  const configDomain = def ? (CONFIG_STEP_DOMAIN[def.key] ?? '') : ''
+   175→
+   176→  const api: ApiFn = useCallback(async (url, method, body) => {
+   177→    return fetch(url, {
+   178→      method,
+   179→      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+   180→      body: body ? JSON.stringify(body) : undefined,
+   181→    }).then((r) => r.json())
+   182→  }, [])
+   183→
+   184→  const loadStatus = useCallback(async () => {
+   185→    const j = await fetch('/api/v1/setup/status').then((r) => r.json())
+   186→    if (j.success) {
+   187→      setStatus(j.data)
+   188→      setMe(j.data.steps.find((s: StepRow) => s.key === stepKey) ?? null)
+   189→    }
+   190→  }, [stepKey])
+   191→
+   192→  const loadBody = useCallback(async () => {
+   193→    const urls: Record<string, string> = {
+   194→      profile: '/api/v1/setup/school-profile',
+   195→      branches: '/api/v1/branches',
+   196→      programs: '/api/v1/programs',
+   197→      infrastructure: '/api/v1/classrooms',
+   198→      roles: '/api/v1/users',
+   199→      staff: '/api/v1/staff',
+   200→      years: '/api/v1/academic-years',
+   201→      classes: '/api/v1/classrooms',
+   202→      teachers: '/api/v1/classrooms',
+   203→      calendar: '/api/v1/calendar',
+   204→      fees: '/api/v1/programs',
+   205→    }
+   206→    const url = kind === 'config' || kind === 'branding' ? `/api/v1/setup/config/${configDomain}` : urls[kind]
+   207→    if (!url) return
+   208→    const j = await fetch(url).then((r) => r.json())
+   209→    if (j.success) {
+   210→      if (kind === 'config' || kind === 'branding') {
+   211→        // seed the form with schema defaults so a first-time Save persists sensible values
+   212→        const formKey = kind === 'branding' ? 'BRANDING' : configDomain
+   213→        const defaults = CONFIG_FORMS[formKey]?.defaults ?? {}
+   214→        setConfigData({ ...defaults, ...((j.data.data as Dict) ?? {}) })
+   215→      } else setPayload(j.data as Dict[])
+   216→    }
+   217→  }, [kind, configDomain])
+   218→
+   219→  useEffect(() => { Promise.resolve().then(loadStatus); Promise.resolve().then(loadBody) }, [loadStatus, loadBody])
+   220→
+   221→  const refreshAll = useCallback(() => { loadStatus(); loadBody() }, [loadStatus, loadBody])
+   222→
+   223→  const saveConfig = async (): Promise<boolean> => {
+   224→    if (kind === 'config') {
+   225→      const j = await api(`/api/v1/setup/config/${configDomain}`, 'PUT', configData ?? {})
+   226→      if (!j.success) { toast.error('Save failed', j.error?.message); return false }
+   227→      toast.success('Configuration saved')
+   228→      return true
+   229→    }
+   230→    if (kind === 'branding') {
+   231→      const logo = (configData?.logoUrl as string) ?? null
+   232→      const p1 = await api('/api/v1/setup/school-profile', 'PATCH', { logoUrl: logo })
+   233→      if (!p1.success) { toast.error('Logo save failed', p1.error?.message); return false }
+   234→      const { logoUrl, ...brand } = configData ?? {}
+   235→      const p2 = await api('/api/v1/setup/config/BRANDING', 'PUT', brand)
+   236→      if (!p2.success) { toast.error('Branding save failed', p2.error?.message); return false }
+   237→      toast.success('Branding saved')
+   238→      return true
+   239→    }
+   240→    if (kind === 'profile') {
+   241→      const j = await api('/api/v1/setup/school-profile', 'PATCH', payload ?? {})
+   242→      if (!j.success) { toast.error('Save failed', j.error?.message); return false }
+   243→      toast.success('School profile saved')
+   244→      return true
+   245→    }
+   246→    return true
+   247→  }
+   248→
+   249→  const completeStep = async (thenNav = true) => {
+   250→    setSaving(true)
+   251→    const saved = await saveConfig()
+   252→    if (!saved) { setSaving(false); return }
+   253→    const j = await api(`/api/v1/setup/steps/${stepKey}`, 'POST', { action: 'complete' })
+   254→    setSaving(false)
+   255→    if (j.success) {
+   256→      toast.success('Step complete', j.data?.message)
+   257→      const fresh = await fetch('/api/v1/setup/status').then((r) => r.json())
+   258→      if (fresh.success) {
+   259→        const next = fresh.data.nextStepKey as string | null
+   260→        if (thenNav && next) router.push(`/app/setup/${next}`)
+   261→        else if (thenNav) router.push('/app/setup')
+   262→        else loadStatus()
+   263→      }
+   264→    } else {
+   265→      toast.error('Cannot complete yet', [j.error?.message, j.error?.details].filter(Boolean).join(' — '))
+   266→    }
+   267→  }
+   268→
+   269→  const skipStep = async () => {
+   270→    const j = await api(`/api/v1/setup/steps/${stepKey}`, 'POST', { action: 'skip' })
+   271→    if (j.success) { toast.info('Step skipped', j.data?.message); router.push('/app/setup') }
+   272→    else toast.error('Cannot skip', j.error?.message)
+   273→  }
+   274→
+   275→  const reopenStep = async () => {
+   276→    const j = await api(`/api/v1/setup/steps/${stepKey}`, 'POST', { action: 'reopen' })
+   277→    if (j.success) { toast.info('Reopened', 'Configure again, then mark complete'); loadStatus() }
+   278→    else toast.error('Cannot reopen', j.error?.message)
+   279→  }
+   280→
+   281→  if (!def) {
+   282→    return <EmptyState icon={<AlertTriangle size={40} />} title="Unknown setup step" message={`No setup step "${stepKey}" exists.`} />
+   283→  }
+   284→  if (status === null) {
+   285→    return <><PageHead title={def.label} sub={def.description} /><div className="card"><div style={{ padding: 16 }}><Skeleton h={200} /></div></div></>
+   286→  }
+   287→
+   288→  const isOptional = def.applicability !== 'MANDATORY'
+   289→  const statusBadgeCls: Record<string, string> = { COMPLETE: 'b-success', PENDING: 'b-info', BLOCKED: 'b-danger', SKIPPED: 'b-neutral' }
+   290→  const list = Array.isArray(payload) ? payload : []
+   291→
+   292→  return (
+   293→    <>
+   294→      <PageHead
+   295→        title={def.label}
+   296→        sub={def.description}
+   297→        actions={
+   298→          <>
+   299→            <a className="btn btn-ghost" href="/app/setup"><ArrowLeft size={15} /> Back to Setup</a>
+   300→            {me?.status !== 'COMPLETE' && isOptional && me?.status !== 'SKIPPED' && (
+   301→              <button className="btn btn-outline" onClick={skipStep}>Skip for now</button>
+   302→            )}
+   303→            {me?.status === 'COMPLETE' ? (
+   304→              <button className="btn btn-outline" onClick={reopenStep}><RotateCcw size={15} /> Reopen</button>
+   305→            ) : me?.status !== 'SKIPPED' && !me?.locked && (
+   306→              <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}>
+   307→                <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save & Continue'}
+   308→              </button>
+   309→            )}
+   310→          </>
+   311→        }
+   312→      />
+   313→
+   314→      {/* status strip */}
+   315→      <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+   316→        <span className={`badge ${statusBadgeCls[me?.status ?? 'PENDING']}`}>{me?.status}</span>
+   317→        {me?.applicability !== 'MANDATORY' && <span className="badge b-neutral">{me?.applicability}</span>}
+   318→        {me?.changedAfterCompletion && <span className="badge b-orange">edited after completion</span>}
+   319→        <span className="card-sub" style={{ flex: 1 }}>{me?.detail || def.description}</span>
+   320→        {me?.completedByName && <span className="t-caption">completed by {me.completedByName}</span>}
+   321→      </div>
+   322→
+   323→      {/* blocked banner — why is this blocked? */}
+   324→      {(me?.locked || me?.status === 'BLOCKED') && me?.status !== 'COMPLETE' && (
+   325→        <div className="card" style={{ borderColor: 'var(--danger)', marginBottom: 14 }}>
+   326→          <div style={{ display: 'flex', gap: 10 }}>
+   327→            <Lock size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+   328→            <div style={{ flex: 1 }}>
+   329→              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>Why is this blocked?</div>
+   330→              <div style={{ fontSize: 13 }}>{me?.blockedReason ?? 'Complete the dependency steps first.'}</div>
+   331→              {(me?.missingDeps.length ?? 0) > 0 && (
+   332→                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+   333→                  {me!.missingDeps.map((d) => (
+   334→                    <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
+   335→                      ✗ {d.label} <span style={{ opacity: 0.6 }}>— fix configuration</span>
+   336→                    </a>
+   337→                  ))}
+   338→                </div>
+   339→              )}
+   340→            </div>
+   341→          </div>
+   342→        </div>
+   343→      )}
+   344→
+   345→      {/* ── BODY ── */}
+   346→      {(!me?.locked || me?.status === 'COMPLETE') && (
+   347→        <div className="card">
+   348→          <div style={{ padding: 16 }}>
+   349→            {(kind === 'config' || kind === 'branding') && CONFIG_FORMS[configDomain] && (
+   350→              <>
+   351→                <p className="card-sub" style={{ marginBottom: 14 }}>{CONFIG_FORMS[configDomain].intro}</p>
+   352→                {kind === 'branding' && (
+   353→                  <div className="form-grid" style={{ marginBottom: 6 }}>
+   354→                    <div className="field" style={{ gridColumn: '1 / -1' }}>
+   355→                      <label>School logo URL</label>
+   356→                      <input className="input" value={String(configData?.logoUrl ?? '')} onChange={(e) => setConfigData({ ...configData, logoUrl: e.target.value })} placeholder="https://…/logo.png" />
+   357→                      <div className="helper">Shown on login, portals, receipts, certificates and documents.</div>
+   358→                    </div>
+   359→                  </div>
+   360→                )}
+   361→                <ConfigForm form={CONFIG_FORMS[configDomain]} data={configData ?? {}} setData={setConfigData} />
+   362→                <FooterActions
+   363→                  busy={saving}
+   364→                  onSaveDraft={async () => { if (await saveConfig()) toast.info('Draft saved', 'You can continue later') }}
+   365→                  onComplete={() => completeStep(true)}
+   366→                />
+   367→              </>
+   368→            )}
+   369→
+   370→            {kind === 'profile' && payload && !Array.isArray(payload) && (
+   371→              <>
+   372→                <div className="form-grid">
+   373→                  {[
+   374→                    { k: 'name', label: 'School name', req: true }, { k: 'email', label: 'Email', req: true, t: 'email' },
+   375→                    { k: 'phone', label: 'Contact number', req: true }, { k: 'website', label: 'Website' },
+   376→                    { k: 'city', label: 'City', req: true }, { k: 'state', label: 'State' },
+   377→                    { k: 'pincode', label: 'Postal code' }, { k: 'timezone', label: 'Timezone' },
+   378→                    { k: 'locale', label: 'Default language' },
+   379→                  ].map((f) => (
+   380→                    <div className="field" key={f.k}>
+   381→                      <label>{f.label} {f.req && <span className="req">*</span>}</label>
+   382→                      <input className="input" type={f.t ?? 'text'} value={String(payload[f.k] ?? '')} onChange={(e) => setPayload({ ...payload, [f.k]: e.target.value })} />
+   383→                    </div>
+   384→                  ))}
+   385→                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+   386→                    <label>Address</label>
+   387→                    <textarea className="textarea" rows={2} value={String(payload.address ?? '')} onChange={(e) => setPayload({ ...payload, address: e.target.value })} />
+   388→                  </div>
+   389→                </div>
+   390→                <p className="helper" style={{ marginTop: 8 }}>School identity propagates to branding, login, portals, communication, reports, certificates and documents.</p>
+   391→                <FooterActions
+   392→                  busy={saving}
+   393→                  onSaveDraft={async () => { if (await saveConfig()) toast.info('Draft saved') }}
+   394→                  onComplete={() => completeStep(true)}
+   395→                />
+   396→              </>
+   397→            )}
+   398→
+   399→            {kind === 'branches' && (
+   400→              <>
+   401→                <TableToolbar title="Branches" count={list.length} onAdd={() => setModal('branch')} addLabel="Add Branch" />
+   402→                {list.length === 0 ? <EmptyState icon={<Building2 size={40} />} title="No branches configured yet" message="Add your first campus — classrooms, staff, students and operations all hang from a branch." /> : (
+   403→                  <div className="dtable-scroll"><table className="dtable">
+   404→                    <thead><tr><th>Branch</th><th>Timings</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th></tr></thead>
+   405→                    <tbody>{list.map((b: Dict) => (
+   406→                      <tr key={String(b.id)}>
+   407→                        <td><span className="cell-strong">{b.name}</span><span className="cell-sub">{b.code} · {b.city ?? '—'}</span></td>
+   408→                        <td>{b.timingOpen}–{b.timingClose}</td>
+   409→                        <td>{b.capacity ?? '—'}</td>
+   410→                        <td>{String(b.facilities)}</td>
+   411→                        <td>{String(b.staff)}</td>
+   412→                        <td><StatusBadge status={b.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+   413→                      </tr>
+   414→                    ))}</tbody>
+   415→                  </table></div>
+   416→                )}
+   417→              </>
+   418→            )}
+   419→
+   420→            {kind === 'programs' && (
+   421→              <>
+   422→                <TableToolbar title="Programs" count={list.length} onAdd={() => setModal('program')} addLabel="Add Program" />
+   423→                {list.length === 0 ? <EmptyState icon={<Blocks size={40} />} title="No programs configured" message="Define the programs your preschool runs — Playgroup, Nursery, Jr KG, Sr KG, Daycare or fully custom programs." /> : (
+   424→                  <div className="dtable-scroll"><table className="dtable">
+   425→                    <thead><tr><th>Program</th><th>Age band</th><th>Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th></tr></thead>
+   426→                    <tbody>{list.map((p: Dict) => (
+   427→                      <tr key={String(p.id)}>
+   428→                        <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code} · {String(p.programType).toLowerCase()}</span></td>
+   429→                        <td>{p.ageMinMonths ?? '—'}–{p.ageMaxMonths ?? '—'} mo</td>
+   430→                        <td>{String(p.capacity)}</td>
+   431→                        <td>{String(p.classrooms)}</td>
+   432→                        <td>{p.hasFeePlan ? <span className="badge b-success">linked</span> : <span className="badge b-warning">none</span>}</td>
+   433→                        <td><StatusBadge status={p.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+   434→                      </tr>
+   435→                    ))}</tbody>
+   436→                  </table></div>
+   437→                )}
+   438→              </>
+   439→            )}
+   440→
+   441→            {kind === 'roles' && (
+   442→              <>
+   443→                <p className="card-sub" style={{ marginBottom: 14 }}>PreOne uses one RBAC system. Members below already carry platform-enforced roles — invite more staff in Settings → Staff.</p>
+   444→                <div className="dtable-scroll"><table className="dtable">
+   445→                  <thead><tr><th>Member</th><th>Role</th><th>Status</th></tr></thead>
+   446→                  <tbody>{list.map((u: Dict) => (
+   447→                    <tr key={String(u.id)}>
+   448→                      <td><span className="cell-strong">{u.name}</span><span className="cell-sub">{u.email}</span></td>
+   449→                      <td><span className="badge b-primary">{String(u.role).replaceAll('_', ' ')}</span></td>
+   450→                      <td><StatusBadge status={String(u.status)} /></td>
+   451→                    </tr>
+   452→                  ))}</tbody>
+   453→                </table></div>
+   454→                <p className="helper" style={{ marginTop: 10 }}>This step completes automatically once the owner plus at least one operator account exist.</p>
+   455→              </>
+   456→            )}
+   457→
+   458→            {kind === 'years' && (
+   459→              <>
+   460→                <TableToolbar title="Academic years" count={list.length} onAdd={() => setModal('year')} addLabel="Create Academic Year" />
+   461→                {list.length === 0 ? <EmptyState icon={<CalendarPlus size={40} />} title="No academic year exists" message="Create the operating year — enrolment, attendance, fees and reports all hang from it. Historical years stay queryable forever." /> : (
+   462→                  <div className="dtable-scroll"><table className="dtable">
+   463→                    <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th></th></tr></thead>
+   464→                    <tbody>{list.map((y: Dict) => (
+   465→                      <tr key={String(y.id)}>
+   466→                        <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
+   467→                        <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
+   468→                        <td>{String(y.classrooms)}</td>
+   469→                        <td><StatusBadge status={String(y.status)} /></td>
+   470→                        <td>{!y.isCurrent && <button className="btn btn-sm btn-outline" onClick={async () => { const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true }); if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message) }}>Set current</button>}</td>
+   471→                      </tr>
+   472→                    ))}</tbody>
+   473→                  </table></div>
+   474→                )}
+   475→              </>
+   476→            )}
+   477→
+   478→            {kind === 'calendar' && (
+   479→              <>
+   480→                <TableToolbar title="Calendar events" count={list.length} onAdd={() => setModal('event')} addLabel="Add Event" />
+   481→                {list.length === 0 ? <EmptyState icon={<CalendarDays size={40} />} title="No calendar events" message="Add holidays, vacations, parent meetings, assessment periods and special days — attendance understands them." /> : (
+   482→                  <div className="dtable-scroll"><table className="dtable">
+   483→                    <thead><tr><th>Date</th><th>Type</th><th>Title</th><th></th></tr></thead>
+   484→                    <tbody>{list.map((e: Dict) => (
+   485→                      <tr key={String(e.id)}>
+   486→                        <td>{new Date(String(e.date)).toLocaleDateString()}</td>
+   487→                        <td><span className="badge b-info">{String(e.type).replaceAll('_', ' ')}</span></td>
+   488→                        <td><span className="cell-strong">{e.title}</span><span className="cell-sub">{e.notes ?? ''}</span></td>
+   489→                        <td><button className="btn btn-sm btn-ghost" onClick={async () => { const j = await api(`/api/v1/calendar/${e.id}`, 'DELETE'); if (j.success) { toast.info('Removed'); refreshAll() } else toast.error('Failed', j.error?.message) }}><Trash2 size={13} /></button></td>
+   490→                      </tr>
+   491→                    ))}</tbody>
+   492→                  </table></div>
+   493→                )}
+   494→              </>
+   495→            )}
+   496→
+   497→            {kind === 'infrastructure' && <InfraSection rooms={list} onDone={refreshAll} onAddFacility={() => setModal('facility')} />}
+   498→
+   499→            {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} />}
+   500→
+   501→            {kind === 'teachers' && <TeachersSection rooms={list} onDone={refreshAll} />}
+   502→
+   503→            {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} />}
+   504→
+   505→            {kind === 'fees' && (
+   506→              <>
+   507→                <p className="card-sub" style={{ marginBottom: 14 }}>Every active program needs an active fee plan — invoices can never be generated without valid fee configuration. Fee heads and plan items live in <a href="/app/settings" className="cell-link">Settings → Fees</a> (existing Finance domain).</p>
+   508→                <div className="dtable-scroll"><table className="dtable">
+   509→                  <thead><tr><th>Program</th><th>Fee plan</th><th>Classes</th></tr></thead>
+   510→                  <tbody>{list.map((p: Dict) => (
+   511→                    <tr key={String(p.id)}>
+   512→                      <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code}</span></td>
+   513→                      <td>{p.hasFeePlan ? <span className="badge b-success">active plan linked</span> : <span className="badge b-danger">no fee plan</span>}</td>
+   514→                      <td>{String(p.classrooms)}</td>
+   515→                    </tr>
+   516→                  ))}</tbody>
+   517→                </table></div>
+   518→                <div style={{ marginTop: 14 }}>
+   519→                  <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
+   520→                  <QuickFinanceConfig onDone={refreshAll} api={api} toast={toast} />
+   521→                </div>
+   522→              </>
+   523→            )}
+   524→
+   525→            {kind === 'import' && (
+   526→              <>
+   527→                <p className="card-sub" style={{ marginBottom: 12 }}>
+   528→                  CSV header: <code>firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship</code><br />
+   529→                  Rows are validated first — duplicates are flagged and never silently created. Preview → Import.
+   530→                </p>
+   531→                <textarea className="textarea" rows={6} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={'firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship\nAarav,Sharma,2022-04-12,MALE,IMP-001,Priya Sharma,9876543210,MOTHER'} />
+   532→                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+   533→                  <button className="btn btn-outline" onClick={async () => { const j = await api('/api/v1/setup/import/students', 'POST', { mode: 'preview', csv }); if (j.success) { setImportPreview(j.data); toast.info('Preview ready', j.data.message) } else toast.error('Preview failed', j.error?.message) }} disabled={!csv.trim()}>
+   534→                    <Upload size={15} /> Validate & Preview
+   535→                  </button>
+   536→                  {importPreview && Number(importPreview.valid) > 0 && (
+   537→                    <button className="btn btn-primary" onClick={async () => { const j = await api('/api/v1/setup/import/students', 'POST', { mode: 'commit', csv }); if (j.success) { toast.success('Import complete', j.data.message); setImportPreview(null); setCsv(''); loadStatus() } else toast.error('Import failed', j.error?.message) }}>
+   538→                      <Upload size={15} /> Import {String(importPreview.valid)} students
+   539→                    </button>
+   540→                  )}
+   541→                </div>
+   542→                {importPreview && (
+   543→                  <div style={{ marginTop: 12, maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+   544→                    <table className="dtable"><thead><tr><th>Row</th><th>Child</th><th>Admission No</th><th>Guardian</th><th>Status</th></tr></thead>
+   545→                      <tbody>{(importPreview.rows as Dict[]).map((r) => (
+   546→                        <tr key={String(r.row)}>
+   547→                          <td>{String(r.row)}</td>
+   548→                          <td>{r.firstName} {r.lastName}</td>
+   549→                          <td>{r.admissionNo}</td>
+   550→                          <td>{r.guardian}</td>
+   551→                          <td>{r.status === 'READY' ? <span className="badge b-success">READY</span> : <span className="badge b-danger" title={(r.errors as string[])?.join('; ')}>ERROR</span>}</td>
+   552→                        </tr>
+   553→                      ))}</tbody></table>
+   554→                  </div>
+   555→                )}
+   556→              </>
+   557→            )}
+   558→
+   559→            {kind === 'unknown' && <EmptyState icon={<Settings2 size={40} />} title="Nothing to configure" message="This step completes from your existing data — mark it complete below." />}
+   560→
+   561→            {/* footer complete for non-form kinds */}
+   562→            {kind !== 'config' && kind !== 'branding' && kind !== 'profile' && me?.status !== 'COMPLETE' && me?.status !== 'SKIPPED' && (
+   563→              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
+   564→                <span className="helper" style={{ marginRight: 'auto' }}>Completion is verified against your real data — this records who completed the step and when.</span>
+   565→                <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}><CheckCircle2 size={15} /> Mark Step Complete</button>
+   566→              </div>
+   567→            )}
+   568→          </div>
+   569→        </div>
+   570→      )}
+   571→
+   572→      {/* ── MODALS (rendered from parent with real api/toast) ── */}
+   573→      {modal === 'branch' && <BranchModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   574→      {modal === 'program' && <ProgramModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   575→      {modal === 'year' && <YearModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   576→      {modal === 'event' && <EventModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   577→      {modal === 'facility' && <FacilityModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   578→      {modal === 'staff' && <StaffModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+   579→    </>
+   580→  )
+   581→}
+   582→
+   583→/* ────────────────────────── section components ────────────────────────── */
+   584→function InfraSection({ rooms, onDone, onAddFacility }: { rooms: Dict[]; onDone: () => void; onAddFacility: () => void }) {
+   585→  const [facilities, setFacilities] = useState<Dict[] | null>(null)
+   586→  const loadF = useCallback(async () => { const j = await fetch('/api/v1/facilities').then((r) => r.json()); if (j.success) setFacilities(j.data) }, [])
+   587→  useEffect(() => { Promise.resolve().then(loadF) }, [loadF])
+   588→  return (
+   589→    <>
+   590→      <TableToolbar title="Rooms (classrooms)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} />
+   591→      <p className="helper" style={{ marginBottom: 10 }}>Rooms are managed in <a href="/app/settings" className="cell-link">Settings → Classes</a> — every active room counts toward this step; other areas are registered here.</p>
+   592→      <div className="dtable-scroll"><table className="dtable">
+   593→        <thead><tr><th>Room</th><th>Program</th><th>Capacity</th><th>Teacher</th><th>Students</th></tr></thead>
+   594→        <tbody>{rooms.map((c: Dict) => (
+   595→          <tr key={String(c.id)}>
+   596→            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+   597→            <td>{c.programName ?? String(c.programType).toLowerCase()}</td>
+   598→            <td>{String(c.capacity)}</td>
+   599→            <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
+   600→            <td>{String(c.students)}</td>
+   601→          </tr>
+   602→        ))}</tbody>
+   603→      </table></div>
+   604→      <div className="table-toolbar" style={{ margin: '16px 0 10px' }}>
+   605→        <div className="card-title">Other facilities <span className="badge b-neutral">{facilities?.length ?? '…'}</span></div>
+   606→        <button className="btn btn-primary btn-sm" onClick={onAddFacility}><Plus size={14} /> Register Facility</button>
+   607→      </div>
+   608→      {facilities !== null && facilities.length === 0 ? (
+   609→        <EmptyState icon={<DoorOpen size={36} />} title="No play / nap / meal areas yet" message="Recommended: register activity, play, nap, meal areas, washrooms and a medical room for daily operations and safety." />
+   610→      ) : (
+   611→        <div className="dtable-scroll"><table className="dtable">
+   612→          <thead><tr><th>Facility</th><th>Type</th><th>Branch</th><th>Capacity</th></tr></thead>
+   613→          <tbody>{(facilities ?? []).map((f: Dict) => (
+   614→            <tr key={String(f.id)}>
+   615→              <td><span className="cell-strong">{f.name}</span><span className="cell-sub">{f.code}</span></td>
+   616→              <td><span className="badge b-info">{String(f.type).replaceAll('_', ' ')}</span></td>
+   617→              <td>{f.branchName}</td>
+   618→              <td>{f.capacity ?? '—'}</td>
+   619→            </tr>
+   620→          ))}</tbody>
+   621→        </table></div>
+   622→      )}
+   623→    </>
+   624→  )
+   625→}
+   626→
+   627→function ClassesSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void }) {
+   628→  const toast = useToast()
+   629→  const [programs, setPrograms] = useState<Dict[]>([])
+   630→  useEffect(() => { fetch('/api/v1/programs').then((r) => r.json()).then((j) => { if (j.success) setPrograms(j.data) }) }, [])
+   631→  const link = async (id: string, programId: string) => {
+   632→    const j = await fetch(`/api/v1/classrooms/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ programId: programId || null }) }).then((r) => r.json())
+   633→    if (j.success) { toast.success('Program linked'); onDone() } else toast.error('Failed', j.error?.message)
+   634→  }
+   635→  return (
+   636→    <>
+   637→      <TableToolbar title="Class-sections (current year)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} />
+   638→      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Here you link each class-section to its program — capacity guards prevent over-allocation.</p>
+   639→      <div className="dtable-scroll"><table className="dtable">
+   640→        <thead><tr><th>Class</th><th>Linked program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link program</th></tr></thead>
+   641→        <tbody>{rooms.map((c: Dict) => (
+   642→          <tr key={String(c.id)}>
+   643→            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+   644→            <td>{c.programName ?? <span className="badge b-warning">not linked</span>}</td>
+   645→            <td>{String(c.capacity)}</td>
+   646→            <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
+   647→            <td>{String(c.students)}</td>
+   648→            <td>
+   649→              <select className="select" style={{ maxWidth: 180 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
+   650→                <option value="">— choose —</option>
+   651→                {programs.map((p) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
+   652→              </select>
+   653→            </td>
+   654→          </tr>
+   655→        ))}</tbody>
+   656→      </table></div>
+   657→      {rooms.length === 0 && <EmptyState icon={<LayoutGrid size={36} />} title="No classes for the current year" message="Add class-sections in Settings → Classes — each needs a program link and capacity." />}
+   658→    </>
+   659→  )
+   660→}
+   661→
+   662→function TeachersSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void }) {
+   663→  const toast = useToast()
+   664→  const [members, setMembers] = useState<Dict[]>([])
+   665→  const [sel, setSel] = useState<Dict | null>(null)
+   666→  const [teacherId, setTeacherId] = useState('')
+   667→  useEffect(() => { fetch('/api/v1/users').then((r) => r.json()).then((j) => { if (j.success) setMembers(j.data) }) }, [])
+   668→  const unassigned = rooms.filter((c) => !c.primaryTeacherId).length
+   669→  const assign = async () => {
+   670→    if (!sel || !teacherId) return
+   671→    const j = await fetch(`/api/v1/classrooms/${sel.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ primaryTeacherId: teacherId }) }).then((r) => r.json())
+   672→    if (j.success) { toast.success('Teacher assigned', sel.name as string); setSel(null); onDone() } else toast.error('Failed', j.error?.message)
+   673→  }
+   674→  return (
+   675→    <>
+   676→      <TableToolbar title="Teacher assignment" count={rooms.length} icon={<GraduationCap size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} addLabel={`${unassigned} without teacher`} />
+   677→      <div className="dtable-scroll"><table className="dtable">
+   678→        <thead><tr><th>Class</th><th>Primary teacher</th><th></th></tr></thead>
+   679→        <tbody>{rooms.map((c: Dict) => (
+   680→          <tr key={String(c.id)}>
+   681→            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+   682→            <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
+   683→            <td><button className="btn btn-sm btn-outline" onClick={() => { setSel(c); setTeacherId('') }}><UserPlus size={13} /> Assign</button></td>
+   684→          </tr>
+   685→        ))}</tbody>
+   686→      </table></div>
+   687→      {rooms.length === 0 && <EmptyState icon={<GraduationCap size={36} />} title="No classes to staff yet" message="Classes & Sections must be configured before teachers can be assigned." />}
+   688→      {sel && (
+   689→        <Modal open onClose={() => setSel(null)} title={`Assign teacher — ${sel.name}`} icon={<GraduationCap size={22} />} iconClass="ic-blue">
+   690→          <div className="form-grid">
+   691→            <div className="field" style={{ gridColumn: '1 / -1' }}>
+   692→              <label>Member <span className="req">*</span></label>
+   693→              <select className="select" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+   694→                <option value="">Select member…</option>
+   695→                {members.map((u) => <option key={String(u.userId)} value={String(u.userId)}>{u.name} ({String(u.role).replaceAll('_', ' ')})</option>)}
+   696→              </select>
+   697→            </div>
+   698→          </div>
+   699→          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   700→            <button className="btn btn-ghost" onClick={() => setSel(null)}>Cancel</button>
+   701→            <button className="btn btn-primary" onClick={assign} disabled={!teacherId}>Assign</button>
+   702→          </div>
+   703→        </Modal>
+   704→      )}
+   705→    </>
+   706→  )
+   707→}
+   708→
+   709→function StaffSection({ staff, onDone, onAdd }: { staff: Dict[]; onDone: () => void; onAdd: () => void }) {
+   710→  const toast = useToast()
+   711→  const [branches, setBranches] = useState<Dict[]>([])
+   712→  useEffect(() => { fetch('/api/v1/branches').then((r) => r.json()).then((j) => { if (j.success) setBranches(j.data) }) }, [])
+   713→  const assign = async (id: string, branchId: string) => {
+   714→    const j = await fetch('/api/v1/staff', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, branchId: branchId || null }) }).then((r) => r.json())
+   715→    if (j.success) { toast.success(branchId ? 'Branch assigned' : 'Assignment cleared'); onDone() } else toast.error('Failed', j.error?.message)
+   716→  }
+   717→  return (
+   718→    <>
+   719→      <TableToolbar title="Staff foundation" count={staff.length} icon={<Users size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAdd} addLabel="Add Staff" />
+   720→      {staff.length === 0 ? <EmptyState icon={<Users size={40} />} title="No staff yet" message="Create staff employment profiles — identity comes from their PreOne account, employment data lives here." /> : (
+   721→        <div className="dtable-scroll"><table className="dtable">
+   722→          <thead><tr><th>Staff</th><th>Role</th><th>Branch</th><th>Employment</th><th>Classes</th><th>Assign branch</th></tr></thead>
+   723→          <tbody>{staff.map((s: Dict) => (
+   724→            <tr key={String(s.id)}>
+   725→              <td><span className="cell-strong">{s.name}</span><span className="cell-sub">{s.employeeCode} · {s.email}</span></td>
+   726→              <td><span className="badge b-primary">{String(s.role ?? '—').replaceAll('_', ' ')}</span></td>
+   727→              <td>{s.branchName ?? <span className="badge b-warning">unassigned</span>}</td>
+   728→              <td><span className="cell-sub">{String(s.employmentType).toLowerCase()} · joined {s.joiningDate ? new Date(String(s.joiningDate)).toLocaleDateString() : '—'}</span></td>
+   729→              <td>{String(s.classesAssigned)}</td>
+   730→              <td>
+   731→                <select className="select" style={{ maxWidth: 160 }} value={String(s.branchId ?? '')} onChange={(e) => assign(String(s.id), e.target.value)}>
+   732→                  <option value="">— none —</option>
+   733→                  {branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+   734→                </select>
+   735→              </td>
+   736→            </tr>
+   737→          ))}</tbody>
+   738→        </table></div>
+   739→      )}
+   740→    </>
+   741→  )
+   742→}
+   743→
+   744→function QuickFinanceConfig({ onDone, api, toast }: { onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   745→  const [methods, setMethods] = useState<string[]>([])
+   746→  const [loaded, setLoaded] = useState(false)
+   747→  useEffect(() => {
+   748→    fetch('/api/v1/setup/config/FINANCE').then((r) => r.json()).then((j) => {
+   749→      if (j.success) setMethods((j.data.data?.paymentMethods as string[]) ?? ['CASH', 'UPI', 'BANK_TRANSFER'])
+   750→      setLoaded(true)
+   751→    })
+   752→  }, [])
+   753→  if (!loaded) return <Skeleton h={40} />
+   754→  return (
+   755→    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+   756→      <IndianRupee size={14} style={{ color: 'var(--foreground-secondary)' }} />
+   757→      {['CASH', 'CHEQUE', 'CARD', 'UPI', 'NET_BANKING', 'BANK_TRANSFER'].map((m) => {
+   758→        const on = methods.includes(m)
+   759→        return <button key={m} className={`badge ${on ? 'b-primary' : 'b-neutral'}`} style={{ cursor: 'pointer', padding: '5px 10px' }} onClick={async () => {
+   760→          const next = on ? methods.filter((x) => x !== m) : [...methods, m]
+   761→          setMethods(next)
+   762→          const j = await api('/api/v1/setup/config/FINANCE', 'PUT', { paymentMethods: next })
+   763→          if (j.success) { toast.success('Payment methods updated'); onDone() } else toast.error('Failed', j.error?.message)
+   764→        }}>{on ? '✓ ' : ''}{m.replaceAll('_', ' ').toLowerCase()}</button>
+   765→      })}
+   766→    </div>
+   767→  )
+   768→}
+   769→
+   770→/* ────────────────────────── modals ────────────────────────── */
+   771→function BranchModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   772→  const [busy, setBusy] = useState(false)
+   773→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   774→    e.preventDefault(); setBusy(true)
+   775→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   776→    const j = await api('/api/v1/branches', 'POST', fd)
+   777→    setBusy(false)
+   778→    if (j.success) { toast.success('Branch created', String(j.data.name)); onDone() } else toast.error('Failed', j.error?.message)
+   779→  }
+   780→  return (
+   781→    <Modal open onClose={onClose} title="Add Branch / Campus" icon={<Building2 size={22} />} iconClass="ic-blue">
+   782→      <form onSubmit={submit}>
+   783→        <div className="form-grid">
+   784→          <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required /></div>
+   785→          <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="MAIN2" /></div>
+   786→          <div className="field"><label>City</label><input className="input" name="city" /></div>
+   787→          <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
+   788→          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue="08:30" /></div>
+   789→          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue="16:00" /></div>
+   790→          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
+   791→          <div className="field"><label>Capacity (seats)</label><input className="input" name="capacity" type="number" min="1" /></div>
+   792→        </div>
+   793→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   794→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   795→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Branch</button>
+   796→        </div>
+   797→      </form>
+   798→    </Modal>
+   799→  )
+   800→}
+   801→
+   802→function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   803→  const [busy, setBusy] = useState(false)
+   804→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   805→    e.preventDefault(); setBusy(true)
+   806→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   807→    const j = await api('/api/v1/programs', 'POST', fd)
+   808→    setBusy(false)
+   809→    if (j.success) { toast.success('Program created', String(j.data.name)); onDone() } else toast.error('Failed', j.error?.message)
+   810→  }
+   811→  return (
+   812→    <Modal open onClose={onClose} title="Add Program" icon={<Blocks size={22} />} iconClass="ic-violet">
+   813→      <form onSubmit={submit}>
+   814→        <div className="form-grid">
+   815→          <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Jr KG" /></div>
+   816→          <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="JKG" /></div>
+   817→          <div className="field"><label>System program type <span className="req">*</span></label>
+   818→            <select className="select" name="programType" required>
+   819→              {['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE'].map((t) => <option key={t} value={t}>{t}</option>)}
+   820→            </select>
+   821→            <div className="helper">Links the program to fee plans and existing integrations — name and code stay fully custom.</div>
+   822→          </div>
+   823→          <div className="field"><label>Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
+   824→          <div className="field"><label>Min age (months)</label><input className="input" name="ageMinMonths" type="number" /></div>
+   825→          <div className="field"><label>Max age (months)</label><input className="input" name="ageMaxMonths" type="number" /></div>
+   826→          <div className="field"><label>Duration (months)</label><input className="input" name="durationMonths" type="number" placeholder="12" /></div>
+   827→          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" /></div>
+   828→        </div>
+   829→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   830→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   831→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Program</button>
+   832→        </div>
+   833→      </form>
+   834→    </Modal>
+   835→  )
+   836→}
+   837→
+   838→function YearModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   839→  const [busy, setBusy] = useState(false)
+   840→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   841→    e.preventDefault(); setBusy(true)
+   842→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   843→    const j = await api('/api/v1/academic-years', 'POST', fd)
+   844→    setBusy(false)
+   845→    if (j.success) { toast.success('Academic year created', String(j.data.name)); onDone() } else toast.error('Failed', j.error?.message)
+   846→  }
+   847→  return (
+   848→    <Modal open onClose={onClose} title="Create Academic Year" icon={<CalendarPlus size={22} />} iconClass="ic-green">
+   849→      <form onSubmit={submit}>
+   850→        <div className="form-grid">
+   851→          <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required placeholder="2026-27" /></div>
+   852→          <div className="field"><label>Start date <span className="req">*</span></label><input className="input" name="startDate" type="date" required /></div>
+   853→          <div className="field"><label>End date <span className="req">*</span></label><input className="input" name="endDate" type="date" required /></div>
+   854→        </div>
+   855→        <p className="helper">The first academic year is automatically marked current. Terms can be added in Operating Configuration.</p>
+   856→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   857→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   858→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Year</button>
+   859→        </div>
+   860→      </form>
+   861→    </Modal>
+   862→  )
+   863→}
+   864→
+   865→function EventModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   866→  const [busy, setBusy] = useState(false)
+   867→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   868→    e.preventDefault(); setBusy(true)
+   869→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   870→    const j = await api('/api/v1/calendar', 'POST', fd)
+   871→    setBusy(false)
+   872→    if (j.success) { toast.success('Event added', String(fd.title)); onDone() } else toast.error('Failed', j.error?.message)
+   873→  }
+   874→  return (
+   875→    <Modal open onClose={onClose} title="Add Calendar Event" icon={<CalendarPlus size={22} />} iconClass="ic-cyan">
+   876→      <form onSubmit={submit}>
+   877→        <div className="form-grid">
+   878→          <div className="field"><label>Date <span className="req">*</span></label><input className="input" name="date" type="date" required /></div>
+   879→          <div className="field"><label>Type <span className="req">*</span></label>
+   880→            <select className="select" name="type" required>{['HOLIDAY', 'VACATION', 'EVENT', 'PARENT_MEETING', 'ASSESSMENT', 'SPECIAL_DAY'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}</select>
+   881→          </div>
+   882→          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Title <span className="req">*</span></label><input className="input" name="title" required /></div>
+   883→          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Notes</label><input className="input" name="notes" /></div>
+   884→        </div>
+   885→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   886→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   887→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Add Event</button>
+   888→        </div>
+   889→      </form>
+   890→    </Modal>
+   891→  )
+   892→}
+   893→
+   894→function FacilityModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   895→  const [busy, setBusy] = useState(false)
+   896→  const [branches, setBranches] = useState<Dict[]>([])
+   897→  useEffect(() => { fetch('/api/v1/branches').then((r) => r.json()).then((j) => { if (j.success) setBranches(j.data) }) }, [])
+   898→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   899→    e.preventDefault(); setBusy(true)
+   900→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   901→    const j = await api('/api/v1/facilities', 'POST', fd)
+   902→    setBusy(false)
+   903→    if (j.success) { toast.success('Facility registered', String(j.data.name)); onDone() } else toast.error('Failed', j.error?.message)
+   904→  }
+   905→  return (
+   906→    <Modal open onClose={onClose} title="Register Facility / Area" icon={<DoorOpen size={22} />} iconClass="ic-orange">
+   907→      <form onSubmit={submit}>
+   908→        <div className="form-grid">
+   909→          <div className="field"><label>Branch <span className="req">*</span></label>
+   910→            <select className="select" name="branchId" required>{branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}</select>
+   911→          </div>
+   912→          <div className="field"><label>Type <span className="req">*</span></label>
+   913→            <select className="select" name="type" required>{['CLASSROOM', 'ACTIVITY_AREA', 'PLAY_AREA', 'NAP_AREA', 'MEAL_AREA', 'WASHROOM', 'MEDICAL', 'OTHER'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}</select>
+   914→          </div>
+   915→          <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required /></div>
+   916→          <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="PLAY-1" /></div>
+   917→          <div className="field"><label>Capacity</label><input className="input" name="capacity" type="number" /></div>
+   918→          <div className="field"><label>Floor / area</label><input className="input" name="floorOrArea" placeholder="Ground floor, east wing" /></div>
+   919→          <div className="field"><label>Age suitability</label><input className="input" name="ageSuitability" placeholder="2–4 years" /></div>
+   920→        </div>
+   921→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   922→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   923→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Register Facility</button>
+   924→        </div>
+   925→      </form>
+   926→    </Modal>
+   927→  )
+   928→}
+   929→
+   930→function StaffModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+   931→  const [busy, setBusy] = useState(false)
+   932→  const [branches, setBranches] = useState<Dict[]>([])
+   933→  useEffect(() => { fetch('/api/v1/branches').then((r) => r.json()).then((j) => { if (j.success) setBranches(j.data) }) }, [])
+   934→  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+   935→    e.preventDefault(); setBusy(true)
+   936→    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+   937→    const j = await api('/api/v1/staff', 'POST', { ...fd, mode: 'new' })
+   938→    setBusy(false)
+   939→    if (j.success) { toast.success('Staff created', String(fd.employeeCode)); onDone() } else toast.error('Failed', j.error?.message)
+   940→  }
+   941→  return (
+   942→    <Modal open onClose={onClose} title="Add Staff Member" icon={<UserPlus size={22} />} iconClass="ic-purple" wide>
+   943→      <form onSubmit={submit}>
+   944→        <div className="form-grid">
+   945→          <div className="field"><label>Full name <span className="req">*</span></label><input className="input" name="fullName" required /></div>
+   946→          <div className="field"><label>Email (login) <span className="req">*</span></label><input className="input" name="email" type="email" required /></div>
+   947→          <div className="field"><label>Temporary password <span className="req">*</span></label><input className="input" name="password" required minLength={6} /></div>
+   948→          <div className="field"><label>Role <span className="req">*</span></label>
+   949→            <select className="select" name="role" required>{['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].map((r) => <option key={r} value={r}>{r}</option>)}</select>
+   950→          </div>
+   951→          <div className="field"><label>Employee code <span className="req">*</span></label><input className="input" name="employeeCode" required placeholder="EMP-001" /></div>
+   952→          <div className="field"><label>Branch (operational assignment)</label>
+   953→            <select className="select" name="branchId">
+   954→              <option value="">— assign later —</option>
+   955→              {branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+   956→            </select>
+   957→            <div className="helper">Created ≠ assigned — branch assignment completes the Staff Foundation step.</div>
+   958→          </div>
+   959→          <div className="field"><label>Designation</label><input className="input" name="designation" /></div>
+   960→          <div className="field"><label>Qualification</label><input className="input" name="qualification" /></div>
+   961→          <div className="field"><label>Joining date</label><input className="input" name="joiningDate" type="date" /></div>
+   962→          <div className="field"><label>Employment type</label>
+   963→            <select className="select" name="employmentType">{['REGULAR', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}</select>
+   964→          </div>
+   965→          <div className="field"><label>Emergency contact name</label><input className="input" name="emergencyContactName" /></div>
+   966→          <div className="field"><label>Emergency contact phone</label><input className="input" name="emergencyContactPhone" /></div>
+   967→        </div>
+   968→        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+   969→          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+   970→          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Staff</button>
+   971→        </div>
+   972→      </form>
+   973→    </Modal>
+   974→  )
+   975→}
+   976→

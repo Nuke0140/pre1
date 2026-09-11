@@ -1,0 +1,601 @@
+     1→     1→/**
+     2→     2→ * M00 — Setup Engine
+     3→     3→ *
+     4→     4→ * The engine DERIVES step completion from real operational data
+     5→     5→ * (one source of truth — Impact Map §1/§41) and drives the persistent
+     6→     6→ * state machine stored in SchoolSetup / SchoolSetupStep.
+     7→     7→ *
+     8→     8→ * Step lifecycle:  PENDING → BLOCKED(deps unmet) → COMPLETE(actor, snapshot)
+     9→     9→ *                  COMPLETE → PENDING/BLOCKED (drift → changedAfterCompletion)
+    10→    10→ * Tenant lifecycle: NOT_STARTED → IN_PROGRESS/BLOCKED → READY_FOR_REVIEW
+    11→    11→ *                   → READY_FOR_GO_LIVE (validation) → LIVE (go-live)
+    12→    12→ */
+    13→    13→import { db } from '@/lib/db'
+    14→    14→import { audit } from '@/lib/sequence'
+    15→    15→import { SETUP_STEPS, STEP_MAP, isUnlocked, type StepKey } from './steps'
+    16→    16→
+    17→    17→type StepStatus = 'PENDING' | 'COMPLETE' | 'BLOCKED' | 'SKIPPED'
+    18→    18→
+    19→    19→interface CtxBranch { id: string; name: string; code: string; timingOpen: string; timingClose: string; capacity: number | null; isActive: boolean }
+    20→    20→interface CtxProgram { id: string; code: string; name: string; programType: string; ageMinMonths: number | null; ageMaxMonths: number | null; capacity: number; isActive: boolean }
+    21→    21→interface CtxClassroom { id: string; branchId: string; academicSessionId: string; programType: string; programId: string | null; capacity: number; primaryTeacherId: string | null; isActive: boolean }
+    22→    22→interface CtxConfig { domain: string; data: Record<string, unknown> }
+    23→    23→
+    24→    24→export interface TenantContext {
+    25→    25→  tenant: {
+    26→    26→    id: string; name: string; code: string; email: string | null; phone: string | null
+    27→    27→    city: string | null; state: string | null; address: string | null; website: string | null
+    28→    28→    timezone: string; locale: string; logoUrl: string | null
+    29→    29→  }
+    30→    30→  branches: CtxBranch[]
+    31→    31→  programs: CtxProgram[]
+    32→    32→  classrooms: CtxClassroom[]
+    33→    33→  facilities: { id: string; branchId: string; type: string; isActive: boolean }[]
+    34→    34→  currentSession: { id: string; name: string; startDate: Date; endDate: Date; isCurrent: boolean } | null
+    35→    35→  memberships: { id: string; userId: string; role: string; branchId: string | null; status: string }[]
+    36→    36→  staffProfiles: { id: string; userId: string; branchId: string | null; employeeCode: string }[]
+    37→    37→  calendarEvents: { id: string; type: string; date: Date }[]
+    38→    38→  feePlans: { id: string; programType: string; isActive: boolean; totalAnnualCents: number }[]
+    39→    39→  configs: Record<string, Record<string, unknown>>
+    40→    40→  studentCount: number
+    41→    41→}
+    42→    42→
+    43→    43→/** Load everything the predicates need, scoped to the tenant. */
+    44→    44→export async function loadContext(tenantId: string): Promise<TenantContext | null> {
+    45→    45→  const tenant = await db.tenant.findFirst({ where: { id: tenantId, deletedAt: null } })
+    46→    46→  if (!tenant) return null
+    47→    47→
+    48→    48→  const [branches, programs, classrooms, facilities, sessions, memberships, staffProfiles, calendarEvents, feePlans, configs, studentCount] =
+    49→    49→    await Promise.all([
+    50→    50→      db.branch.findMany({ where: { tenantId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
+    51→    51→      db.program.findMany({ where: { tenantId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
+    52→    52→      db.classroom.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } }),
+    53→    53→      db.facility.findMany({ where: { tenantId, deletedAt: null } }),
+    54→    54→      db.academicSession.findMany({ where: { tenantId }, orderBy: { startDate: 'desc' } }),
+    55→    55→      db.tenantUser.findMany({ where: { tenantId, deletedAt: null } }),
+    56→    56→      db.staffProfile.findMany({ where: { tenantId, deletedAt: null } }),
+    57→    57→      db.calendarEvent.findMany({ where: { tenantId }, orderBy: { date: 'asc' } }),
+    58→    58→      db.feePlan.findMany({ where: { tenantId } }),
+    59→    59→      db.schoolConfig.findMany({ where: { tenantId } }),
+    60→    60→      db.student.count({ where: { tenantId, deletedAt: null } }),
+    61→    61→    ])
+    62→    62→
+    63→    63→  const current = sessions.find((s) => s.isCurrent) ?? null
+    64→    64→  return {
+    65→    65→    tenant: {
+    66→    66→      id: tenant.id, name: tenant.name, code: tenant.code,
+    67→    67→      email: tenant.email, phone: tenant.phone, city: tenant.city, state: tenant.state,
+    68→    68→      address: tenant.address, website: tenant.website,
+    69→    69→      timezone: tenant.timezone, locale: tenant.locale, logoUrl: tenant.logoUrl,
+    70→    70→    },
+    71→    71→    branches: branches.map((b) => ({ id: b.id, name: b.name, code: b.code, timingOpen: b.timingOpen, timingClose: b.timingClose, capacity: b.capacity, isActive: b.isActive })),
+    72→    72→    programs: programs.map((p) => ({ id: p.id, code: p.code, name: p.name, programType: p.programType, ageMinMonths: p.ageMinMonths, ageMaxMonths: p.ageMaxMonths, capacity: p.capacity, isActive: p.isActive })),
+    73→    73→    classrooms: classrooms.map((c) => ({ id: c.id, branchId: c.branchId, academicSessionId: c.academicSessionId, programType: c.programType, programId: c.programId, capacity: c.capacity, primaryTeacherId: c.primaryTeacherId, isActive: c.isActive })),
+    74→    74→    facilities: facilities.map((f) => ({ id: f.id, branchId: f.branchId, type: f.type, isActive: f.isActive })),
+    75→    75→    currentSession: current ? { id: current.id, name: current.name, startDate: current.startDate, endDate: current.endDate, isCurrent: current.isCurrent } : null,
+    76→    76→    memberships: memberships.map((m) => ({ id: m.id, userId: m.userId, role: m.role, branchId: m.branchId, status: m.status })),
+    77→    77→    staffProfiles: staffProfiles.map((s) => ({ id: s.id, userId: s.userId, branchId: s.branchId, employeeCode: s.employeeCode })),
+    78→    78→    calendarEvents: calendarEvents.map((e) => ({ id: e.id, type: e.type, date: e.date })),
+    79→    79→    feePlans: feePlans.map((f) => ({ id: f.id, programType: f.programType, isActive: f.isActive, totalAnnualCents: f.totalAnnualCents })),
+    80→    80→    configs: Object.fromEntries(configs.map((c) => [c.domain, (c.data ?? {}) as Record<string, unknown>])),
+    81→    81→    studentCount,
+    82→    82→  }
+    83→    83→}
+    84→    84→
+    85→    85→// ── helpers ─────────────────────────────────────────────────────────
+    86→    86→const activeBranches = (ctx: TenantContext) => ctx.branches.filter((b) => b.isActive)
+    87→    87→const activePrograms = (ctx: TenantContext) => ctx.programs.filter((p) => p.isActive)
+    88→    88→const activeClassrooms = (ctx: TenantContext) => ctx.classrooms.filter((c) => c.isActive)
+    89→    89→const currentClassrooms = (ctx: TenantContext) =>
+    90→    90→  ctx.currentSession ? activeClassrooms(ctx).filter((c) => c.academicSessionId === ctx.currentSession!.id) : []
+    91→    91→const str = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0
+    92→    92→const arr = (v: unknown): unknown[] => Array.isArray(v) ? v : []
+    93→    93→const activeMemberships = (ctx: TenantContext) => ctx.memberships.filter((m) => m.status === 'ACTIVE')
+    94→    94→
+    95→    95→export interface StepEvaluation {
+    96→    96→  satisfied: boolean
+    97→    97→  blocked: boolean
+    98→    98→  reason?: string
+    99→    99→  detail: string
+   100→   100→  snapshot: Record<string, unknown>
+   101→   101→  missingDeps: string[]
+   102→   102→}
+   103→   103→
+   104→   104→/** Pure predicate per step — derived ONLY from real data. */
+   105→   105→export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
+   106→   106→  const noDeps: string[] = []
+   107→   107→  switch (key) {
+   108→   108→    case 'school_profile': {
+   109→   109→      const missing: string[] = []
+   110→   110→      if (!ctx.tenant.email) missing.push('email')
+   111→   111→      if (!ctx.tenant.phone) missing.push('phone')
+   112→   112→      if (!ctx.tenant.city) missing.push('city')
+   113→   113→      if (!ctx.tenant.address) missing.push('address')
+   114→   114→      return {
+   115→   115→        satisfied: missing.length === 0, blocked: false,
+   116→   116→        detail: missing.length ? `Missing: ${missing.join(', ')}` : 'Identity complete',
+   117→   117→        snapshot: { missing }, missingDeps: noDeps,
+   118→   118→      }
+   119→   119→    }
+   120→   120→    case 'branch': {
+   121→   121→      const n = activeBranches(ctx).length
+   122→   122→      return {
+   123→   123→        satisfied: n >= 1, blocked: false,
+   124→   124→        detail: `${n} active branch${n === 1 ? '' : 'es'}`,
+   125→   125→        snapshot: { branches: n }, missingDeps: noDeps,
+   126→   126→      }
+   127→   127→    }
+   128→   128→    case 'branding': {
+   129→   129→      const bc = ctx.configs.BRANDING ?? {}
+   130→   130→      const okB = !!ctx.tenant.logoUrl || Object.keys(bc).length > 0
+   131→   131→      return { satisfied: okB, blocked: false, detail: okB ? 'Branding configured' : 'No logo or branding yet', snapshot: { logo: !!ctx.tenant.logoUrl, config: Object.keys(bc).length }, missingDeps: noDeps }
+   132→   132→    }
+   133→   133→    case 'programs': {
+   134→   134→      const n = activePrograms(ctx).length
+   135→   135→      const withAge = activePrograms(ctx).filter((p) => p.ageMinMonths != null || p.ageMaxMonths != null).length
+   136→   136→      return {
+   137→   137→        satisfied: n >= 1, blocked: false,
+   138→   138→        detail: n === 0 ? 'No programs configured' : `${n} active program${n === 1 ? '' : 's'}, ${withAge} with age eligibility`,
+   139→   139→        snapshot: { programs: n, withAge }, missingDeps: noDeps,
+   140→   140→      }
+   141→   141→    }
+   142→   142→    case 'infrastructure': {
+   143→   143→      const rooms = activeClassrooms(ctx).length
+   144→   144→      const areas = ctx.facilities.filter((f) => f.isActive).length
+   145→   145→      return {
+   146→   146→        satisfied: rooms >= 1, blocked: false,
+   147→   147→        detail: rooms === 0 ? 'No rooms or areas yet' : `${rooms} room(s), ${areas} other area(s)${areas === 0 ? ' — adding play/nap/meal areas is recommended' : ''}`,
+   148→   148→        snapshot: { rooms, areas }, missingDeps: noDeps,
+   149→   149→      }
+   150→   150→    }
+   151→   151→    case 'operating_config': {
+   152→   152→      const oc = ctx.configs.OPERATING ?? {}
+   153→   153→      const hasTimes = str(oc.schoolStartTime) && str(oc.schoolEndTime)
+   154→   154→      const wd = arr(oc.workingDays)
+   155→   155→      return {
+   156→   156→        satisfied: hasTimes && wd.length >= 1, blocked: false,
+   157→   157→        detail: hasTimes && wd.length >= 1 ? 'Operating rules configured' : 'School hours and working days not set',
+   158→   158→        snapshot: { times: hasTimes, workingDays: wd.length }, missingDeps: noDeps,
+   159→   159→      }
+   160→   160→    }
+   161→   161→    case 'roles': {
+   162→   162→      const n = activeMemberships(ctx).length
+   163→   163→      const owner = ctx.memberships.some((m) => m.role === 'OWNER' && m.status === 'ACTIVE')
+   164→   164→      return {
+   165→   165→        satisfied: n >= 2 && owner, blocked: false,
+   166→   166→        detail: owner ? `${n} user account${n === 1 ? '' : 's'} — need at least 2 (owner + operator)` : 'No active owner account',
+   167→   167→        snapshot: { memberships: n, owner }, missingDeps: noDeps,
+   168→   168→      }
+   169→   169→    }
+   170→   170→    case 'staff': {
+   171→   171→      const assigned = ctx.staffProfiles.filter((s) => s.branchId != null).length
+   172→   172→      return {
+   173→   173→        satisfied: assigned >= 1, blocked: false,
+   174→   174→        detail: assigned === 0 ? 'No staff employment profiles with branch assignment' : `${assigned} staff operationally assigned to a branch`,
+   175→   175→        snapshot: { staffAssigned: assigned, staffTotal: ctx.staffProfiles.length }, missingDeps: noDeps,
+   176→   176→      }
+   177→   177→    }
+   178→   178→    case 'academic_year': {
+   179→   179→      const s = ctx.currentSession
+   180→   180→      const valid = !!s && s.startDate < s.endDate
+   181→   181→      return {
+   182→   182→        satisfied: valid, blocked: false,
+   183→   183→        detail: s ? (valid ? `Current year: ${s.name}` : 'Current academic year has an invalid date range') : 'No academic year marked current',
+   184→   184→        snapshot: { session: s?.name ?? null, valid }, missingDeps: noDeps,
+   185→   185→      }
+   186→   186→    }
+   187→   187→    case 'classes_sections': {
+   188→   188→      const cur = currentClassrooms(ctx)
+   189→   189→      const linked = cur.filter((c) => c.programId != null && c.capacity > 0)
+   190→   190→      return {
+   191→   191→        satisfied: linked.length >= 1, blocked: false,
+   192→   192→        detail: linked.length === 0 ? 'No class-section linked to a program for the current year' : `${linked.length} class-section(s) ready`,
+   193→   193→        snapshot: { classrooms: cur.length, linked: linked.length }, missingDeps: noDeps,
+   194→   194→      }
+   195→   195→    }
+   196→   196→    case 'teacher_assignment': {
+   197→   197→      const cur = currentClassrooms(ctx)
+   198→   198→      const unassigned = cur.filter((c) => c.primaryTeacherId == null).length
+   199→   199→      return {
+   200→   200→        satisfied: cur.length >= 1 && unassigned === 0, blocked: false,
+   201→   201→        detail: cur.length === 0 ? 'No classes to staff yet' : unassigned === 0 ? 'All classes have a primary teacher' : `${unassigned} of ${cur.length} class(es) without a primary teacher`,
+   202→   202→        snapshot: { classrooms: cur.length, unassigned }, missingDeps: noDeps,
+   203→   203→      }
+   204→   204→    }
+   205→   205→    case 'curriculum': {
+   206→   206→      const cu = ctx.configs.CURRICULUM ?? {}
+   207→   207→      const areas = arr(cu.learningAreas)
+   208→   208→      return {
+   209→   209→        satisfied: areas.length >= 1, blocked: false,
+   210→   210→        detail: areas.length >= 1 ? `${areas.length} learning area(s) defined` : 'No learning areas defined',
+   211→   211→        snapshot: { learningAreas: areas.length }, missingDeps: noDeps,
+   212→   212→      }
+   213→   213→    }
+   214→   214→    case 'calendar': {
+   215→   215→      const events = ctx.currentSession
+   216→   216→        ? ctx.calendarEvents.filter((e) => e.date >= ctx.currentSession!.startDate && e.date <= ctx.currentSession!.endDate)
+   217→   217→        : []
+   218→   218→      const holidays = events.filter((e) => e.type === 'HOLIDAY' || e.type === 'VACATION').length
+   219→   219→      return {
+   220→   220→        satisfied: events.length >= 1, blocked: false,
+   221→   221→        detail: events.length === 0 ? 'No calendar events for the current year' : `${events.length} event(s), ${holidays} holiday/vacation day(s)`,
+   222→   222→        snapshot: { events: events.length, holidays }, missingDeps: noDeps,
+   223→   223→      }
+   224→   224→    }
+   225→   225→    case 'fees': {
+   226→   226→      const progs = activePrograms(ctx)
+   227→   227→      const covered = progs.filter((p) => ctx.feePlans.some((f) => f.isActive && f.programType === p.programType))
+   228→   228→      return {
+   229→   229→        satisfied: progs.length >= 1 && covered.length === progs.length, blocked: false,
+   230→   230→        detail: progs.length === 0 ? 'No programs to bill yet' : covered.length === progs.length ? 'Every program has an active fee plan' : `${progs.length - covered.length} program(s) without an active fee plan`,
+   231→   231→        snapshot: { programs: progs.length, covered: covered.length }, missingDeps: noDeps,
+   232→   232→      }
+   233→   233→    }
+   234→   234→    case 'admission_config': {
+   235→   235→      const ac = ctx.configs.ADMISSION ?? {}
+   236→   236→      const docs = arr(ac.requiredDocuments)
+   237→   237→      const stages = arr(ac.approvalStages)
+   238→   238→      return {
+   239→   239→        satisfied: str(ac.admissionOpenDate) && docs.length >= 1 && stages.length >= 1, blocked: false,
+   240→   240→        detail: str(ac.admissionOpenDate) && docs.length >= 1 && stages.length >= 1
+   241→   241→          ? 'Admission window, documents and workflow configured'
+   242→   242→          : 'Admission window, required documents or approval workflow incomplete',
+   243→   243→        snapshot: { window: !!str(ac.admissionOpenDate), docs: docs.length, stages: stages.length }, missingDeps: noDeps,
+   244→   244→      }
+   245→   245→    }
+   246→   246→    case 'student_parent': {
+   247→   247→      const sp = ctx.configs.STUDENT_PARENT ?? {}
+   248→   248→      const consents = arr(sp.consentTypes)
+   249→   249→      const pickup = sp.pickupVerification !== undefined
+   250→   250→      return {
+   251→   251→        satisfied: consents.length >= 1 && pickup, blocked: false,
+   252→   252→        detail: consents.length >= 1 && pickup ? `${consents.length} consent type(s), pickup rules set` : 'Consent types or pickup authorisation rules missing',
+   253→   253→        snapshot: { consents: consents.length, pickup }, missingDeps: noDeps,
+   254→   254→      }
+   255→   255→    }
+   256→   256→    case 'daily_operations': {
+   257→   257→      const dc = ctx.configs.DAILY_OPERATIONS ?? {}
+   258→   258→      const recs = arr(dc.recordTypes)
+   259→   259→      return {
+   260→   260→        satisfied: dc.attendanceEnabled === true && recs.length >= 1, blocked: false,
+   261→   261→        detail: dc.attendanceEnabled === true && recs.length >= 1 ? `Attendance + ${recs.length} daily record type(s)` : 'Attendance or daily record types not configured',
+   262→   262→        snapshot: { attendance: dc.attendanceEnabled === true, recordTypes: recs.length }, missingDeps: noDeps,
+   263→   263→      }
+   264→   264→    }
+   265→   265→    case 'health_safety': {
+   266→   266→      const hc = ctx.configs.HEALTH_SAFETY ?? {}
+   267→   267→      const allergy = arr(hc.allergyCategories), incident = arr(hc.incidentCategories), contacts = arr(hc.emergencyContacts)
+   268→   268→      return {
+   269→   269→        satisfied: allergy.length >= 1 && incident.length >= 1 && contacts.length >= 1, blocked: false,
+   270→   270→        detail: allergy.length >= 1 && incident.length >= 1 && contacts.length >= 1
+   271→   271→          ? 'Allergy, incident and escalation rules configured'
+   272→   272→          : 'Allergy categories, incident categories or emergency contacts missing',
+   273→   273→        snapshot: { allergy: allergy.length, incident: incident.length, contacts: contacts.length }, missingDeps: noDeps,
+   274→   274→      }
+   275→   275→    }
+   276→   276→    case 'communication': {
+   277→   277→      const cc = ctx.configs.COMMUNICATION ?? {}
+   278→   278→      const channels = arr(cc.channels), events = arr(cc.notificationEvents)
+   279→   279→      return {
+   280→   280→        satisfied: channels.length >= 1 && events.length >= 1, blocked: false,
+   281→   281→        detail: channels.length >= 1 && events.length >= 1 ? `${channels.length} channel(s), ${events.length} notification event(s)` : 'Channels or notification events not configured',
+   282→   282→        snapshot: { channels: channels.length, events: events.length }, missingDeps: noDeps,
+   283→   283→      }
+   284→   284→    }
+   285→   285→    case 'documents': {
+   286→   286→      const dc = ctx.configs.DOCUMENT_TEMPLATES ?? {}
+   287→   287→      const templates = arr(dc.templates)
+   288→   288→      return {
+   289→   289→        satisfied: templates.length >= 1, blocked: false,
+   290→   290→        detail: templates.length >= 1 ? `${templates.length} template(s) registered` : 'No document templates registered',
+   291→   291→        snapshot: { templates: templates.length }, missingDeps: noDeps,
+   292→   292→      }
+   293→   293→    }
+   294→   294→    case 'data_import': {
+   295→   295→      return {
+   296→   296→        satisfied: ctx.studentCount >= 1, blocked: false,
+   297→   297→        detail: ctx.studentCount >= 1 ? `${ctx.studentCount} student record(s) present` : 'No historical data imported (optional)',
+   298→   298→        snapshot: { students: ctx.studentCount }, missingDeps: noDeps,
+   299→   299→      }
+   300→   300→    }
+   301→   301→    default:
+   302→   302→      return { satisfied: false, blocked: false, detail: 'Unknown step', snapshot: {}, missingDeps: noDeps }
+   303→   303→  }
+   304→   304→}
+   305→   305→
+   306→   306→// ── persistence ─────────────────────────────────────────────────────
+   307→   307→
+   308→   308→/** Lazy-init: guarantee SchoolSetup + 21 step rows exist (covers pre-M00 tenants). */
+   309→   309→export async function ensureSetupRows(tenantId: string): Promise<void> {
+   310→   310→  await db.schoolSetup.upsert({
+   311→   311→    where: { tenantId },
+   312→   312→    create: { tenantId, status: 'NOT_STARTED' },
+   313→   313→    update: {},
+   314→   314→  })
+   315→   315→  const existing = await db.schoolSetupStep.findMany({ where: { tenantId } })
+   316→   316→  const have = new Set(existing.map((s) => s.stepKey))
+   317→   317→  const toCreate = SETUP_STEPS.filter((s) => !have.has(s.key))
+   318→   318→  if (toCreate.length) {
+   319→   319→    await db.schoolSetupStep.createMany({
+   320→   320→      data: toCreate.map((s) => ({ tenantId, stepKey: s.key, applicability: s.applicability })),
+   321→   321→    })
+   322→   322→  }
+   323→   323→}
+   324→   324→
+   325→   325→export interface SetupStatusPayload {
+   326→   326→  status: string
+   327→   327→  progress: number
+   328→   328→  startedAt: Date | null
+   329→   329→  goLiveAt: Date | null
+   330→   330→  steps: {
+   331→   331→    key: string; label: string; phase: string; applicability: string; icon: string
+   332→   332→    description: string; status: StepStatus; detail: string
+   333→   333→    blockedReason: string | null; missingDeps: { key: string; label: string }[]
+   334→   334→    completedAt: Date | null; completedByName: string | null
+   335→   335→    changedAfterCompletion: boolean; lastCheckedAt: Date
+   336→   336→    locked: boolean
+   337→   337→  }[]
+   338→   338→  nextStepKey: string | null
+   339→   339→  guidance: { level: 'info' | 'warning'; message: string; stepKey: string }[]
+   340→   340→}
+   341→   341→
+   342→   342→/**
+   343→   343→ * Re-evaluate every step against live data, persist transitions,
+   344→   344→ * advance the tenant state machine, and return the dashboard payload.
+   345→   345→ */
+   346→   346→export async function syncSetup(
+   347→   347→  tenantId: string,
+   348→   348→  actor?: { id: string; name: string } | null
+   349→   349→): Promise<SetupStatusPayload | null> {
+   350→   350→  await ensureSetupRows(tenantId)
+   351→   351→  const ctx = await loadContext(tenantId)
+   352→   352→  if (!ctx) return null
+   353→   353→
+   354→   354→  const rows = await db.schoolSetupStep.findMany({ where: { tenantId } })
+   355→   355→  const statusByKey: Record<string, StepStatus> = Object.fromEntries(rows.map((r) => [r.stepKey, r.status as StepStatus]))
+   356→   356→
+   357→   357→  const autoCompletes: string[] = []
+   358→   358→  const autoOpens: string[] = []
+   359→   359→
+   360→   360→  // pass 1 — evaluate deps then predicates (deps first by registry order)
+   361→   361→  for (const def of SETUP_STEPS) {
+   362→   362→    const row = rows.find((r) => r.stepKey === def.key)
+   363→   363→    if (!row) continue
+   364→   364→    if (row.status === 'SKIPPED') { await db.schoolSetupStep.update({ where: { id: row.id }, data: { lastCheckedAt: new Date() } }); continue }
+   365→   365→
+   366→   366→    const missingDeps = def.deps.filter((d) => {
+   367→   367→      const s = statusByKey[d]
+   368→   368→      return s !== 'COMPLETE' && s !== 'SKIPPED'
+   369→   369→    })
+   370→   370→    const ev = evaluateStep(def.key, ctx)
+   371→   371→
+   372→   372→    if (missingDeps.length > 0) {
+   373→   373→      const reason = `Requires ${missingDeps.map((d) => STEP_MAP[d].label).join(' and ')} to be completed first.`
+   374→   374→      if (row.status !== 'BLOCKED' || row.blockedReason !== reason) {
+   375→   375→        await db.schoolSetupStep.update({
+   376→   376→          where: { id: row.id },
+   377→   377→          data: { status: 'BLOCKED', blockedReason: reason, lastCheckedAt: new Date(), changedAfterCompletion: row.status === 'COMPLETE' ? true : row.changedAfterCompletion },
+   378→   378→        })
+   379→   379→        if (row.status === 'COMPLETE') autoOpens.push(def.key)
+   380→   380→      }
+   381→   381→      statusByKey[def.key] = 'BLOCKED'
+   382→   382→      continue
+   383→   383→    }
+   384→   384→
+   385→   385→    if (ev.satisfied) {
+   386→   386→      if (row.status !== 'COMPLETE') {
+   387→   387→        await db.schoolSetupStep.update({
+   388→   388→          where: { id: row.id },
+   389→   389→          data: {
+   390→   390→            status: 'COMPLETE', blockedReason: null, completedAt: row.completedAt ?? new Date(),
+   391→   391→            completedById: row.completedById ?? actor?.id ?? 'system',
+   392→   392→            completedByName: row.completedByName ?? actor?.name ?? 'system (auto-evaluated)',
+   393→   393→            dataSnapshot: ev.snapshot, lastCheckedAt: new Date(),
+   394→   394→          },
+   395→   395→        })
+   396→   396→        statusByKey[def.key] = 'COMPLETE'
+   397→   397→        autoCompletes.push(def.key)
+   398→   398→      } else {
+   399→   399→        const changed = JSON.stringify(row.dataSnapshot ?? {}) !== JSON.stringify(ev.snapshot)
+   400→   400→        if (changed || row.changedAfterCompletion) {
+   401→   401→          await db.schoolSetupStep.update({
+   402→   402→            where: { id: row.id },
+   403→   403→            data: { dataSnapshot: ev.snapshot, changedAfterCompletion: changed ? true : row.changedAfterCompletion, lastCheckedAt: new Date() },
+   404→   404→          })
+   405→   405→        } else {
+   406→   406→          await db.schoolSetupStep.update({ where: { id: row.id }, data: { lastCheckedAt: new Date() } })
+   407→   407→        }
+   408→   408→      }
+   409→   409→    } else {
+   410→   410→      if (row.status === 'COMPLETE') {
+   411→   411→        await db.schoolSetupStep.update({
+   412→   412→          where: { id: row.id },
+   413→   413→          data: { status: 'PENDING', changedAfterCompletion: true, lastCheckedAt: new Date() },
+   414→   414→        })
+   415→   415→        statusByKey[def.key] = 'PENDING'
+   416→   416→        autoOpens.push(def.key)
+   417→   417→      } else if (row.status !== 'PENDING' || row.blockedReason != null) {
+   418→   418→        await db.schoolSetupStep.update({
+   419→   419→          where: { id: row.id },
+   420→   420→          data: { status: 'PENDING', blockedReason: null, lastCheckedAt: new Date() },
+   421→   421→        })
+   422→   422→        statusByKey[def.key] = 'PENDING'
+   423→   423→      }
+   424→   424→    }
+   425→   425→  }
+   426→   426→
+   427→   427→  if (autoCompletes.length || autoOpens.length) {
+   428→   428→    await audit({
+   429→   429→      tenantId, actorId: actor?.id ?? null, actorName: actor?.name ?? 'system',
+   430→   430→      action: 'SETUP_SYNC', entity: 'SchoolSetupStep', entityId: tenantId,
+   431→   431→      summary: `Auto-evaluation: completed [${autoCompletes.join(', ') || '—'}], reopened [${autoOpens.join(', ') || '—'}]`,
+   432→   432→    })
+   433→   433→  }
+   434→   434→
+   435→   435→  // pass 2 — tenant state machine + progress
+   436→   436→  const freshRows = await db.schoolSetupStep.findMany({ where: { tenantId } })
+   437→   437→  const mandatory = freshRows.filter((r) => r.applicability === 'MANDATORY')
+   438→   438→  const mandatoryDone = mandatory.filter((r) => r.status === 'COMPLETE' || r.status === 'SKIPPED').length
+   439→   439→  const anyBlocked = mandatory.some((r) => r.status === 'BLOCKED')
+   440→   440→  const doneCount = freshRows.filter((r) => r.status === 'COMPLETE' || r.status === 'SKIPPED').length
+   441→   441→  const progress = Math.round((doneCount / freshRows.length) * 100)
+   442→   442→
+   443→   443→  const setup = await db.schoolSetup.findUnique({ where: { tenantId } })
+   444→   444→  let status = setup!.status
+   445→   445→  if (status !== 'LIVE') {
+   446→   446→    if (mandatoryDone === mandatory.length) {
+   447→   447→      if (anyBlocked) status = 'BLOCKED'
+   448→   448→      else if (status === 'NOT_STARTED' || status === 'IN_PROGRESS' || status === 'BLOCKED') status = 'READY_FOR_REVIEW'
+   449→   449→      // READY_FOR_REVIEW / READY_FOR_GO_LIVE persist until go-live
+   450→   450→    } else {
+   451→   451→      // steps reopened → drop out of review/go-live states honestly
+   452→   452→      status = anyBlocked ? 'BLOCKED' : doneCount > 0 ? 'IN_PROGRESS' : 'NOT_STARTED'
+   453→   453→    }
+   454→   454→    if (status !== setup!.status) {
+   455→   455→      await db.schoolSetup.update({ where: { tenantId }, data: { status, startedAt: setup!.startedAt ?? new Date() } })
+   456→   456→    }
+   457→   457→  }
+   458→   458→
+   459→   459→  // next action + guidance
+   460→   460→  const unlockedPending = SETUP_STEPS.filter((d) => {
+   461→   461→    const s = statusByKey[d.key]
+   462→   462→    return (s === 'PENDING') && isUnlocked(d, (k) => statusByKey[k] ?? 'PENDING')
+   463→   463→  })
+   464→   464→  const nextStepKey = unlockedPending[0]?.key ?? null
+   465→   465→
+   466→   466→  const guidance: SetupStatusPayload['guidance'] = []
+   467→   467→  for (const d of SETUP_STEPS) {
+   468→   468→    const row = freshRows.find((r) => r.stepKey === d.key)
+   469→   469→    if (!row || row.status !== 'PENDING') continue
+   470→   470→    const ev = evaluateStep(d.key, ctx)
+   471→   471→    if (d.key === 'fees' && /without an active fee plan/.test(ev.detail)) {
+   472→   472→      guidance.push({ level: 'warning', message: `Admissions cannot open until an active fee plan is configured — ${ev.detail}`, stepKey: d.key })
+   473→   473→    } else if (d.key === 'teacher_assignment' && /without a primary teacher/.test(ev.detail)) {
+   474→   474→      guidance.push({ level: 'warning', message: `${ev.detail.charAt(0).toUpperCase()}${ev.detail.slice(1)} — assign before daily operations`, stepKey: d.key })
+   475→   475→    } else if (nextStepKey === d.key) {
+   476→   476→      guidance.push({ level: 'info', message: `Your next step is ${d.label}. ${d.description}`, stepKey: d.key })
+   477→   477→    }
+   478→   478→  }
+   479→   479→  if (status === 'READY_FOR_REVIEW') guidance.push({ level: 'info', message: 'All mandatory configuration is complete — run setup validation, then go live.', stepKey: 'review' })
+   480→   480→
+   481→   481→  return {
+   482→   482→    status, progress, startedAt: setup!.startedAt, goLiveAt: setup!.goLiveAt,
+   483→   483→    steps: SETUP_STEPS.map((d) => {
+   484→   484→      const row = freshRows.find((r) => r.stepKey === d.key)!
+   485→   485→      const missing = d.deps.filter((k) => {
+   486→   486→        const s = statusByKey[k]
+   487→   487→        return s !== 'COMPLETE' && s !== 'SKIPPED'
+   488→   488→      })
+   489→   489→      return {
+   490→   490→        key: d.key, label: d.label, phase: d.phase, applicability: d.applicability, icon: d.icon,
+   491→   491→        description: d.description, status: row.status as StepStatus,
+   492→   492→        detail: row.status === 'BLOCKED' ? row.blockedReason ?? '' : evaluateStep(d.key, ctx).detail,
+   493→   493→        blockedReason: row.blockedReason, completedAt: row.completedAt, completedByName: row.completedByName,
+   494→   494→        changedAfterCompletion: row.changedAfterCompletion, lastCheckedAt: row.lastCheckedAt,
+   495→   495→        missingDeps: missing.map((k) => ({ key: k, label: STEP_MAP[k].label })),
+   496→   496→        locked: !isUnlocked(d, (k) => statusByKey[k] ?? 'PENDING'),
+   497→   497→      }
+   498→   498→    }),
+   499→   499→    nextStepKey, guidance,
+   500→   500→  }
+   501→   501→}
+   502→   502→
+   503→   503→/** Explicit completion — records the human actor (M00 §3 who/when). */
+   504→   504→export async function completeStep(
+   505→   505→  tenantId: string,
+   506→   506→  stepKey: string,
+   507→   507→  actor: { id: string; name: string }
+   508→   508→): Promise<{ ok: boolean; message: string; detail?: string }> {
+   509→   509→  const def = STEP_MAP[stepKey]
+   510→   510→  if (!def) return { ok: false, message: 'Unknown setup step' }
+   511→   511→  const ctx = await loadContext(tenantId)
+   512→   512→  if (!ctx) return { ok: false, message: 'Tenant not found' }
+   513→   513→
+   514→   514→  const rows = await db.schoolSetupStep.findMany({ where: { tenantId } })
+   515→   515→  const row = rows.find((r) => r.stepKey === stepKey)
+   516→   516→  if (!row) return { ok: false, message: 'Setup step not initialised' }
+   517→   517→  if (row.status === 'SKIPPED') return { ok: false, message: 'Step was skipped — reopen it first' }
+   518→   518→
+   519→   519→  const missingDeps = def.deps.filter((d) => {
+   520→   520→    const s = rows.find((r) => r.stepKey === d)?.status
+   521→   521→    return s !== 'COMPLETE' && s !== 'SKIPPED'
+   522→   522→  })
+   523→   523→  if (missingDeps.length) {
+   524→   524→    return {
+   525→   525→      ok: false, message: 'Step is blocked by dependencies',
+   526→   526→      detail: `Requires ${missingDeps.map((d) => STEP_MAP[d].label).join(' and ')} to be completed first.`,
+   527→   527→    }
+   528→   528→  }
+   529→   529→
+   530→   530→  const ev = evaluateStep(def.key, ctx)
+   531→   531→  if (!ev.satisfied) {
+   532→   532→    return { ok: false, message: 'Requirements not met yet', detail: ev.detail }
+   533→   533→  }
+   534→   534→
+   535→   535→  await db.schoolSetupStep.update({
+   536→   536→    where: { id: row.id },
+   537→   537→    data: {
+   538→   538→      status: 'COMPLETE', blockedReason: null, completedAt: row.completedAt ?? new Date(),
+   539→   539→      completedById: actor.id, completedByName: actor.name,
+   540→   540→      dataSnapshot: ev.snapshot, lastCheckedAt: new Date(),
+   541→   541→      lastUpdatedById: actor.id,
+   542→   542→    },
+   543→   543→  })
+   544→   544→  await audit({
+   545→   545→    tenantId, actorId: actor.id, actorName: actor.name, action: 'SETUP_STEP_COMPLETE',
+   546→   546→    entity: 'SchoolSetupStep', entityId: `${tenantId}:${stepKey}`,
+   547→   547→    summary: `Completed setup step "${def.label}" — ${ev.detail}`,
+   548→   548→  })
+   549→   549→  await syncSetup(tenantId, actor)
+   550→   550→  return { ok: true, message: `${def.label} marked complete` }
+   551→   551→}
+   552→   552→
+   553→   553→/** Skip — only allowed for non-mandatory steps. */
+   554→   554→export async function skipStep(
+   555→   555→  tenantId: string,
+   556→   556→  stepKey: string,
+   557→   557→  actor: { id: string; name: string }
+   558→   558→): Promise<{ ok: boolean; message: string }> {
+   559→   559→  const def = STEP_MAP[stepKey]
+   560→   560→  if (!def) return { ok: false, message: 'Unknown setup step' }
+   561→   561→  if (def.applicability === 'MANDATORY') {
+   562→   562→    return { ok: false, message: `"${def.label}" is mandatory and cannot be skipped` }
+   563→   563→  }
+   564→   564→  const row = await db.schoolSetupStep.findUnique({ where: { tenantId_stepKey: { tenantId, stepKey } } })
+   565→   565→  if (!row) return { ok: false, message: 'Setup step not initialised' }
+   566→   566→  await db.schoolSetupStep.update({
+   567→   567→    where: { id: row.id },
+   568→   568→    data: { status: 'SKIPPED', blockedReason: null, lastCheckedAt: new Date(), lastUpdatedById: actor.id },
+   569→   569→  })
+   570→   570→  await audit({
+   571→   571→    tenantId, actorId: actor.id, actorName: actor.name, action: 'SETUP_STEP_SKIP',
+   572→   572→    entity: 'SchoolSetupStep', entityId: `${tenantId}:${stepKey}`,
+   573→   573→    summary: `Skipped optional setup step "${def.label}" (${def.applicability})`,
+   574→   574→  })
+   575→   575→  await syncSetup(tenantId, actor)
+   576→   576→  return { ok: true, message: `${def.label} skipped` }
+   577→   577→}
+   578→   578→
+   579→   579→/** Reopen a completed/skipped step for re-configuration. */
+   580→   580→export async function reopenStep(
+   581→   581→  tenantId: string,
+   582→   582→  stepKey: string,
+   583→   583→  actor: { id: string; name: string }
+   584→   584→): Promise<{ ok: boolean; message: string }> {
+   585→   585→  const def = STEP_MAP[stepKey]
+   586→   586→  if (!def) return { ok: false, message: 'Unknown setup step' }
+   587→   587→  const row = await db.schoolSetupStep.findUnique({ where: { tenantId_stepKey: { tenantId, stepKey } } })
+   588→   588→  if (!row) return { ok: false, message: 'Setup step not initialised' }
+   589→   589→  await db.schoolSetupStep.update({
+   590→   590→    where: { id: row.id },
+   591→   591→    data: { status: 'PENDING', blockedReason: null, lastCheckedAt: new Date(), lastUpdatedById: actor.id },
+   592→   592→  })
+   593→   593→  await audit({
+   594→   594→    tenantId, actorId: actor.id, actorName: actor.name, action: 'SETUP_STEP_REOPEN',
+   595→   595→    entity: 'SchoolSetupStep', entityId: `${tenantId}:${stepKey}`,
+   596→   596→    summary: `Reopened setup step "${def.label}" for re-configuration`,
+   597→   597→  })
+   598→   598→  await syncSetup(tenantId, actor)
+   599→   599→  return { ok: true, message: `${def.label} reopened` }
+   600→   600→}
+   601→   601→
