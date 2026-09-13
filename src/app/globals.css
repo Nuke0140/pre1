@@ -1051,6 +1051,78 @@ kbd{
   .sm-foot{flex-direction:column;align-items:stretch}
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   HOME · APPLICATION LAUNCHER (uniform tile grid)
+   Config-driven module launcher: navForRole(role) × MODULE_META
+   ═══════════════════════════════════════════════════════════════ */
+
+.home-sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 2px 12px}
+.home-sec .t-title{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--foreground-secondary);
+}
+.home-sec .t-title svg{width:15px;height:15px;color:var(--preone-primary)}
+
+/* ── Tile grid: uniform fluid tiles that scale to any screen ── */
+.tile-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(clamp(170px,18vw,260px),1fr));
+  gap:16px;
+}
+
+.tile{
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  aspect-ratio:1;height:auto;min-height:128px;padding:18px;border-radius:18px;text-align:center;
+  background:var(--surface);color:var(--foreground);
+  border:1px solid var(--border-subtle);box-shadow:var(--shadow-card);
+  text-decoration:none;cursor:pointer;
+  transition:transform var(--motion-fast) var(--ease-standard),
+             box-shadow var(--motion-fast) var(--ease-standard),
+             border-color var(--motion-fast) var(--ease-standard);
+}
+.tile:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb,var(--preone-primary) 42%,transparent);
+  box-shadow:var(--shadow-elevated),0 0 0 1px color-mix(in srgb,var(--preone-primary) 18%,transparent);
+}
+.tile:active{transform:translateY(0)}
+.tile:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+.tile-ico{
+  display:flex;align-items:center;justify-content:center;flex:none;
+  width:48px;height:48px;border-radius:13px;
+  background:color-mix(in srgb,var(--preone-primary) 11%,transparent);
+  color:var(--preone-primary);
+  border:1px solid color-mix(in srgb,var(--preone-primary) 14%,transparent);
+}
+.tile-ico svg{width:24px;height:24px}
+.tile-label{font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+
+/* error / empty callouts */
+.home-note{
+  display:flex;align-items:center;gap:9px;padding:11px 15px;border-radius:12px;
+  font-size:13px;color:var(--foreground-secondary);
+  background:var(--surface-muted);border:1px dashed var(--border-strong);
+}
+.home-note .skel{width:110px;height:13px;border-radius:7px}
+
+@media (max-width:700px){
+  .tile-grid{gap:12px}
+  .home-sec{margin:22px 0 10px}
+}
+@media (max-width:520px){
+  .tile-grid{grid-template-columns:repeat(3,1fr);gap:9px}
+  .tile{min-height:0;padding:12px 8px;gap:8px;border-radius:14px}
+  .tile-ico{width:40px;height:40px;border-radius:11px}
+  .tile-ico svg{width:20px;height:20px}
+  .tile-label{font-size:12.5px}
+}
+@media (max-width:340px){
+  .tile-grid{grid-template-columns:1fr;gap:10px}
+  .tile{min-height:96px;padding:16px;flex-direction:row;gap:14px}
+}
+
 /* ── Clean print export (invoices / receipts / certificates) ── */
 @media print{
   @page{margin:16mm}

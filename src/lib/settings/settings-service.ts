@@ -58,7 +58,7 @@ export class SettingsService {
       db.branch.count({ where: { tenantId, deletedAt: null } }),
       db.academicSession.count({ where: { tenantId } }),
       db.program.count({ where: { tenantId, deletedAt: null } }),
-      db.classroom.count({ where: { tenantId, deletedAt: null } }),
+      db.classroom.count({ where: { tenantId } }),
     ])
 
     if (!tenant) throw new Error('Tenant not found')

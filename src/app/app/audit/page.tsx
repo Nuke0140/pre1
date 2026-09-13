@@ -1,8 +1,26 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { ScrollText, ShieldCheck, Download, Filter, Eye, Globe, Terminal } from 'lucide-react'
-import { PageHead, EmptyState, Skeleton, StatusBadge } from '@/components/preone/ui'
+import {
+  ScrollText,
+  ShieldCheck,
+  Download,
+  Filter,
+  Eye,
+  Globe,
+  Terminal,
+  Search,
+  RefreshCw,
+  AlertTriangle,
+  Flame,
+  CheckCircle2,
+  XCircle,
+  FileSpreadsheet,
+  Clock,
+  Layers,
+  FileCode2,
+} from 'lucide-react'
+import { PageHead, EmptyState, Skeleton, KpiTile } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, timeAgo } from '@/lib/format'
@@ -15,13 +33,26 @@ interface Log {
   module: string | null
   summary: string | null
   severity: string
+  actorId: string | null
   actorName: string | null
   actorRole: string | null
+  branchId: string | null
+  academicSessionId: string | null
   ipAddress: string | null
   userAgent: string | null
+  requestId: string | null
   oldValues: string | null
   newValues: string | null
   createdAt: string
+}
+
+interface Kpis {
+  totalEvents: number
+  todayEvents: number
+  securityEvents: number
+  criticalEvents: number
+  failedActions: number
+  exportEvents: number
 }
 
 const ACTION_CLS: Record<string, string> = {
@@ -34,11 +65,17 @@ const ACTION_CLS: Record<string, string> = {
   PUBLISH: 'b-orange',
   SCAN: 'b-pink',
   GATE_PICKUP: 'b-success',
-  EMERGENCY_BLOCK: 'b-danger',
+  PICKUP_VERIFICATION_FAILED: 'b-danger',
+  LOGIN_FAILED: 'b-danger',
+  AUTHORIZATION_FAILED: 'b-danger',
+  ROLE_CHANGED: 'b-danger',
+  PERMISSION_CHANGED: 'b-danger',
+  AUDIT_LOG_EXPORTED: 'b-neutral',
 }
 
 const MODULES = [
   'ALL',
+  'Auth',
   'Users',
   'Setup',
   'Academics',
@@ -48,130 +85,432 @@ const MODULES = [
   'Fees',
   'Announcements',
   'Settings',
+  'Audit',
+]
+
+const SEVERITIES = ['ALL', 'INFO', 'WARNING', 'CRITICAL']
+
+const CATEGORY_TABS = [
+  { key: 'all', label: 'All Activity' },
+  { key: 'security', label: 'Security Events' },
+  { key: 'changes', label: 'Data Changes' },
+  { key: 'finance', label: 'Payment Activity' },
+  { key: 'exports', label: 'Exports' },
 ]
 
 export default function AuditPage() {
   const toast = useToast()
   const [logs, setLogs] = useState<Log[] | null>(null)
-  const [moduleFilter, setModuleFilter] = useState('ALL')
+  const [kpis, setKpis] = useState<Kpis | null>(null)
   const [selectedLog, setSelectedLog] = useState<Log | null>(null)
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  // Filters
+  const [category, setCategory] = useState('all')
+  const [moduleFilter, setModuleFilter] = useState('ALL')
+  const [severityFilter, setSeverityFilter] = useState('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   const load = useCallback(async () => {
-    const url = moduleFilter === 'ALL' ? '/api/v1/audit-logs' : `/api/v1/audit-logs?module=${moduleFilter}`
+    setBusy(true)
+    const params = new URLSearchParams()
+    params.set('page', String(page))
+    params.set('pageSize', '25')
+    if (category !== 'all') params.set('category', category)
+    if (moduleFilter !== 'ALL') params.set('module', moduleFilter)
+    if (severityFilter !== 'ALL') params.set('severity', severityFilter)
+    if (searchQuery.trim()) params.set('search', searchQuery.trim())
+    if (dateFrom) params.set('from', dateFrom)
+    if (dateTo) params.set('to', dateTo)
+
     try {
-      const res = await fetch(url)
+      const res = await fetch(`/api/v1/audit-logs?${params.toString()}`)
       const j = await res.json()
-      if (j.success) setLogs(j.data)
-      else setLogs([])
+      if (j.success) {
+        setLogs(j.data)
+        if (j.meta) {
+          setTotalPages(j.meta.totalPages || 1)
+          setTotalCount(j.meta.total || 0)
+          if (j.meta.kpis) setKpis(j.meta.kpis)
+        }
+      } else {
+        setLogs([])
+        toast.error('Failed to load audit trail', j.error?.message || 'Server error')
+      }
     } catch {
       setLogs([])
+      toast.error('Failed to load audit trail', 'Network or connection error')
+    } finally {
+      setBusy(false)
     }
-  }, [moduleFilter])
+  }, [category, moduleFilter, severityFilter, searchQuery, dateFrom, dateTo, page, toast])
 
   useEffect(() => {
-    Promise.resolve().then(load)
+    load()
   }, [load])
 
-  const exportLogs = async () => {
-    setBusy(true)
-    const res = await fetch('/api/v1/jobs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'DATA_EXPORT',
-        payload: { entity: 'AuditLog', moduleFilter },
-      }),
-    })
-    const json = await res.json()
-    setBusy(false)
-    if (json.success) {
-      toast.success('Audit export queued', `Job #${json.data.id.slice(0, 8)} started in background`)
-    } else {
-      toast.error('Failed to export audit logs', json.error?.message)
+  const handleExport = async () => {
+    setExporting(true)
+    const params = new URLSearchParams()
+    if (moduleFilter !== 'ALL') params.set('module', moduleFilter)
+    if (severityFilter !== 'ALL') params.set('severity', severityFilter)
+    if (searchQuery.trim()) params.set('search', searchQuery.trim())
+    if (dateFrom) params.set('from', dateFrom)
+    if (dateTo) params.set('to', dateTo)
+
+    try {
+      const res = await fetch(`/api/v1/audit-logs/export?${params.toString()}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success('Audit Log Exported', 'CSV downloaded and export action recorded')
+      load() // Refresh to reflect AUDIT_LOG_EXPORTED
+    } catch (e: any) {
+      toast.error('Export failed', e.message || 'Could not export audit log')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Parse JSON values safely
+  const parseJsonSafe = (str: string | null) => {
+    if (!str) return null
+    try {
+      return typeof str === 'string' ? JSON.parse(str) : str
+    } catch {
+      return str
     }
   }
 
   return (
     <>
       <PageHead
-        title="Audit & Compliance Logs"
-        sub="Immutable record of system changes, security events, and gate scans with 7-year retention."
+        title="Audit Logs & Governance"
+        sub="Authoritative, tamper-evident forensic history and security event tracking across PreOne"
         actions={
-          <button className="btn btn-outline" onClick={exportLogs} disabled={busy} title="Export audit trail">
-            <Download size={15} /> Export Audit Trail
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleExport}
+            disabled={exporting}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} />
+            {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
         }
       />
 
-      <div className="dtable-wrap">
-        <div className="table-toolbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="card-title">Event Logs</span>
-            <span className="badge b-success"><ShieldCheck size={12} /> Tamper-evident</span>
+      {/* ── Windows 8 Inspired Live KPI Aggregation Grid ── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <KpiTile
+          label="Total System Events"
+          value={kpis?.totalEvents ?? '...'}
+          icon={<ScrollText />}
+          iconClass="ic-blue"
+        />
+        <KpiTile
+          label="Today's Activity"
+          value={kpis?.todayEvents ?? '...'}
+          icon={<Clock />}
+          iconClass="ic-cyan"
+        />
+        <KpiTile
+          label="Security Events"
+          value={kpis?.securityEvents ?? '...'}
+          icon={<ShieldCheck />}
+          iconClass={kpis && kpis.securityEvents > 0 ? 'ic-orange' : 'ic-slate'}
+        />
+        <KpiTile
+          label="Critical Mutations"
+          value={kpis?.criticalEvents ?? '...'}
+          icon={<Flame />}
+          iconClass={kpis && kpis.criticalEvents > 0 ? 'ic-pink' : 'ic-slate'}
+        />
+        <KpiTile
+          label="Failed Actions"
+          value={kpis?.failedActions ?? '...'}
+          icon={<AlertTriangle />}
+          iconClass={kpis && kpis.failedActions > 0 ? 'ic-red' : 'ic-slate'}
+        />
+        <KpiTile
+          label="Audit Exports"
+          value={kpis?.exportEvents ?? '...'}
+          icon={<FileSpreadsheet />}
+          iconClass="ic-slate"
+        />
+      </div>
+
+      {/* ── Category Views / Views Bar ── */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          background: 'var(--surface-sunken)',
+          padding: 4,
+          borderRadius: 'var(--radius-12)',
+          marginBottom: 14,
+          overflowX: 'auto',
+        }}
+      >
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            className={`btn btn-sm ${category === tab.key ? 'btn-primary' : 'btn-ghost'}`}
+            style={{
+              padding: '6px 14px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              borderRadius: 'var(--radius-8)',
+            }}
+            onClick={() => {
+              setCategory(tab.key)
+              setPage(1)
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Main Activity Table & Advanced Filters ── */}
+      <div className="card" style={{ padding: 0 }}>
+        {/* Filter Bar */}
+        <div
+          style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          {/* Search box */}
+          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: 360 }}>
+            <Search
+              size={15}
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--muted)',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Search action, record, summary, actor..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setPage(1)
+              }}
+              style={{
+                width: '100%',
+                height: 34,
+                paddingLeft: 32,
+                paddingRight: 10,
+                fontSize: 13,
+                borderRadius: 'var(--radius-8)',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--foreground)',
+              }}
+            />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Filter size={14} style={{ color: 'var(--muted)' }} />
-            <select
-              className="select"
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(e.target.value)}
-              style={{ height: 32, fontSize: 13, padding: '0 10px' }}
+          {/* Dropdown Filters */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="t-caption" style={{ fontWeight: 600 }}>Module:</span>
+              <select
+                className="select"
+                value={moduleFilter}
+                onChange={(e) => {
+                  setModuleFilter(e.target.value)
+                  setPage(1)
+                }}
+                style={{ height: 32, fontSize: 12.5, padding: '0 8px' }}
+              >
+                {MODULES.map((m) => (
+                  <option key={m} value={m}>
+                    {m === 'ALL' ? 'All Modules' : m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="t-caption" style={{ fontWeight: 600 }}>Severity:</span>
+              <select
+                className="select"
+                value={severityFilter}
+                onChange={(e) => {
+                  setSeverityFilter(e.target.value)
+                  setPage(1)
+                }}
+                style={{ height: 32, fontSize: 12.5, padding: '0 8px' }}
+              >
+                {SEVERITIES.map((s) => (
+                  <option key={s} value={s}>
+                    {s === 'ALL' ? 'All Severities' : s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="t-caption" style={{ fontWeight: 600 }}>From:</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value)
+                  setPage(1)
+                }}
+                style={{
+                  height: 32,
+                  fontSize: 12,
+                  padding: '0 6px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--foreground)',
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span className="t-caption" style={{ fontWeight: 600 }}>To:</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value)
+                  setPage(1)
+                }}
+                style={{
+                  height: 32,
+                  fontSize: 12,
+                  padding: '0 6px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--foreground)',
+                }}
+              />
+            </div>
+
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => load()}
+              disabled={busy}
+              title="Refresh logs"
+              style={{ padding: '4px 8px' }}
             >
-              {MODULES.map((m) => (
-                <option key={m} value={m}>
-                  {m === 'ALL' ? 'All Modules' : m}
-                </option>
-              ))}
-            </select>
+              <RefreshCw size={14} className={busy ? 'animate-spin' : ''} />
+            </button>
           </div>
         </div>
 
+        {/* Audit Data Table */}
         <div className="dtable-scroll">
           <table className="dtable">
             <thead>
               <tr>
-                <th>Action</th>
+                <th>When</th>
+                <th>Action & Severity</th>
                 <th>Module</th>
-                <th>Entity</th>
+                <th>Entity & ID</th>
                 <th>Summary</th>
                 <th>Actor</th>
-                <th>Severity</th>
-                <th>When</th>
-                <th style={{ width: 40 }}></th>
+                <th>Network</th>
+                <th style={{ width: 44 }}></th>
               </tr>
             </thead>
             <tbody>
               {logs?.map((l) => (
-                <tr key={l.id} onClick={() => setSelectedLog(l)}>
-                  <td>
-                    <span className={`badge ${ACTION_CLS[l.action] || 'b-neutral'}`}>{l.action}</span>
-                  </td>
-                  <td style={{ fontSize: 12.5, fontWeight: 500 }}>{l.module || '�'}</td>
-                  <td style={{ fontSize: 12.5 }}>{l.entity}</td>
-                  <td style={{ maxWidth: 320 }}>
-                    <span style={{ fontSize: 13 }}>{l.summary || '�'}</span>
-                  </td>
-                  <td style={{ fontSize: 12.5 }}>
-                    <div style={{ fontWeight: 600 }}>{l.actorName || 'System'}</div>
-                    {l.actorRole && <div className="t-caption">{l.actorRole}</div>}
+                <tr
+                  key={l.id}
+                  onClick={() => setSelectedLog(l)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
+                    <div style={{ fontWeight: 600 }}>{timeAgo(l.createdAt)}</div>
+                    <div className="t-caption">{fmtDate(l.createdAt)}</div>
                   </td>
                   <td>
-                    <span
-                      className={`badge ${
-                        l.severity === 'CRITICAL'
-                          ? 'b-danger'
-                          : l.severity === 'WARN'
-                          ? 'b-orange'
-                          : 'b-neutral'
-                      }`}
-                      style={{ fontSize: 10 }}
-                    >
-                      {l.severity || 'INFO'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span
+                        className={`badge ${ACTION_CLS[l.action] || 'b-neutral'}`}
+                        style={{ fontSize: 11, fontWeight: 700 }}
+                      >
+                        {l.action}
+                      </span>
+                      <span
+                        className={`badge ${
+                          l.severity === 'CRITICAL'
+                            ? 'b-danger'
+                            : l.severity === 'WARNING'
+                            ? 'b-orange'
+                            : 'b-neutral'
+                        }`}
+                        style={{ fontSize: 9.5, padding: '1px 5px' }}
+                      >
+                        {l.severity}
+                      </span>
+                    </div>
+                  </td>
+                  <td style={{ fontSize: 12.5, fontWeight: 600 }}>{l.module || '-'}</td>
+                  <td style={{ fontSize: 12 }}>
+                    <span style={{ fontWeight: 600 }}>{l.entity}</span>
+                    {l.entityId && (
+                      <span className="t-caption" style={{ display: 'block', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        #{l.entityId.slice(0, 10)}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ maxWidth: 300 }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--foreground)' }}>
+                      {l.summary || '-'}
                     </span>
+                    {(l.oldValues || l.newValues) && (
+                      <span
+                        className="badge b-info"
+                        style={{ marginLeft: 6, fontSize: 9, padding: '1px 4px' }}
+                      >
+                        Diff Available
+                      </span>
+                    )}
                   </td>
-                  <td className="t-caption">{timeAgo(l.createdAt)}</td>
+                  <td style={{ fontSize: 12 }}>
+                    <div style={{ fontWeight: 600 }}>{l.actorName || 'System'}</div>
+                    <div className="t-caption">{l.actorRole || 'SYSTEM'}</div>
+                  </td>
+                  <td style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {l.ipAddress || '-'}
+                  </td>
                   <td>
                     <button
                       className="btn btn-ghost btn-sm"
@@ -189,96 +528,281 @@ export default function AuditPage() {
               ))}
             </tbody>
           </table>
+
           {logs === null && (
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[...Array(6)].map((_, i) => <Skeleton key={i} h={36} />)}
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} h={38} />
+              ))}
             </div>
           )}
+
           {logs?.length === 0 && (
             <EmptyState
-              icon={<ScrollText size={40} />}
-              title="No events found"
-              message={moduleFilter !== 'ALL' ? `No events logged for ${moduleFilter} yet.` : 'As staff use the system, every create, update, approve and scan lands here.'}
+              icon={<ScrollText size={42} />}
+              title="No audit events matched"
+              message={
+                searchQuery || moduleFilter !== 'ALL' || severityFilter !== 'ALL'
+                  ? 'No records match the selected filter criteria. Try adjusting your query.'
+                  : 'As staff interact with PreOne, all authoritative mutations and security events land here.'
+              }
             />
           )}
         </div>
+
+        {/* Pagination Footer */}
+        <div
+          style={{
+            padding: '10px 16px',
+            borderTop: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: 12.5,
+            color: 'var(--muted)',
+          }}
+        >
+          <div>
+            Showing <b>{logs?.length || 0}</b> of <b>{totalCount}</b> total audit records
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </button>
+            <span>
+              Page <b>{page}</b> of <b>{totalPages}</b>
+            </span>
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Log Detail Inspector Modal */}
+      {/* ── Forensic Log Detail Inspector Modal ── */}
       <Modal
         open={!!selectedLog}
         onClose={() => setSelectedLog(null)}
-        title={selectedLog ? `Audit Event #${selectedLog.id.slice(0, 8)}` : ''}
-        subtitle="Forensic payload & metadata snapshot"
+        title={selectedLog ? `Forensic Audit Event #${selectedLog.id.slice(0, 8)}` : ''}
+        subtitle="Authoritative tamper-evident snapshot & field-level diff"
         icon={<Terminal size={22} />}
         wide
       >
         {selectedLog && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--surface-sunken)', padding: 14, borderRadius: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Header Metadata Summary Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 10,
+                background: 'var(--surface-sunken)',
+                padding: 12,
+                borderRadius: 10,
+                fontSize: 12.5,
+              }}
+            >
               <div>
-                <div className="t-caption">ACTION & MODULE</div>
-                <div style={{ fontWeight: 600, marginTop: 2 }}>{selectedLog.action} � {selectedLog.module || 'System'}</div>
+                <div className="t-caption">ACTION & SEVERITY</div>
+                <div style={{ fontWeight: 700, marginTop: 2, display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span>{selectedLog.action}</span>
+                  <span
+                    className={`badge ${
+                      selectedLog.severity === 'CRITICAL'
+                        ? 'b-danger'
+                        : selectedLog.severity === 'WARNING'
+                        ? 'b-orange'
+                        : 'b-neutral'
+                    }`}
+                    style={{ fontSize: 9.5 }}
+                  >
+                    {selectedLog.severity}
+                  </span>
+                </div>
               </div>
               <div>
-                <div className="t-caption">ENTITY</div>
-                <div style={{ fontWeight: 600, marginTop: 2 }}>{selectedLog.entity} ({selectedLog.entityId || 'N/A'})</div>
+                <div className="t-caption">MODULE & ENTITY</div>
+                <div style={{ fontWeight: 600, marginTop: 2 }}>
+                  {selectedLog.module || 'System'} · {selectedLog.entity}
+                </div>
               </div>
               <div>
-                <div className="t-caption">ACTOR</div>
-                <div style={{ fontWeight: 600, marginTop: 2 }}>{selectedLog.actorName || 'System'} ({selectedLog.actorRole || 'SYSTEM'})</div>
+                <div className="t-caption">ACTOR IDENTITY</div>
+                <div style={{ fontWeight: 600, marginTop: 2 }}>
+                  {selectedLog.actorName || 'System'} ({selectedLog.actorRole || 'SYSTEM'})
+                </div>
               </div>
               <div>
                 <div className="t-caption">TIMESTAMP</div>
-                <div style={{ fontWeight: 600, marginTop: 2 }}>{fmtDate(selectedLog.createdAt)}</div>
+                <div style={{ fontWeight: 600, marginTop: 2 }}>
+                  {fmtDate(selectedLog.createdAt)}
+                </div>
               </div>
             </div>
 
+            {/* Event Summary */}
             <div>
-              <div className="t-caption" style={{ fontWeight: 600, marginBottom: 4 }}>EVENT SUMMARY</div>
-              <p style={{ margin: 0, fontSize: 13.5, background: 'var(--surface)', padding: 10, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+              <div className="t-caption" style={{ fontWeight: 600, marginBottom: 4 }}>
+                EVENT SUMMARY
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  background: 'var(--surface)',
+                  padding: 10,
+                  borderRadius: 8,
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
                 {selectedLog.summary || 'No summary text recorded.'}
               </p>
             </div>
 
+            {/* Context IDs */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 8,
+                fontSize: 12,
+                background: 'var(--surface)',
+                padding: 10,
+                borderRadius: 8,
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div>
+                <span className="t-caption">ENTITY ID:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', marginLeft: 6 }}>
+                  {selectedLog.entityId || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="t-caption">BRANCH ID:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', marginLeft: 6 }}>
+                  {selectedLog.branchId || 'All Branches'}
+                </span>
+              </div>
+              <div>
+                <span className="t-caption">ACADEMIC SESSION:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', marginLeft: 6 }}>
+                  {selectedLog.academicSessionId || 'Global / N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="t-caption">REQUEST ID:</span>
+                <span style={{ fontFamily: 'var(--font-mono)', marginLeft: 6 }}>
+                  {selectedLog.requestId || 'Internal'}
+                </span>
+              </div>
+            </div>
+
+            {/* Client / Network Forensics */}
             {(selectedLog.ipAddress || selectedLog.userAgent) && (
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', fontSize: 12, color: 'var(--muted)' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                  alignItems: 'center',
+                  fontSize: 12,
+                  color: 'var(--muted)',
+                  padding: '4px 0',
+                }}
+              >
                 {selectedLog.ipAddress && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Globe size={13} /> IP: {selectedLog.ipAddress}
+                    <Globe size={13} /> IP Address: <b>{selectedLog.ipAddress}</b>
                   </div>
                 )}
                 {selectedLog.userAgent && (
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>
-                    Client: {selectedLog.userAgent}
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 460 }}>
+                    Client Agent: <i>{selectedLog.userAgent}</i>
                   </div>
                 )}
               </div>
             )}
 
+            {/* Before / After Forensic Diff */}
             {(selectedLog.oldValues || selectedLog.newValues) && (
-              <div style={{ display: 'grid', gridTemplateColumns: selectedLog.oldValues ? '1fr 1fr' : '1fr', gap: 12 }}>
-                {selectedLog.oldValues && (
-                  <div>
-                    <div className="t-caption" style={{ fontWeight: 600, color: 'var(--danger)', marginBottom: 4 }}>BEFORE (OLD VALUES)</div>
-                    <pre style={{ margin: 0, padding: 10, background: 'var(--surface-sunken)', borderRadius: 8, fontSize: 11, maxHeight: 180, overflow: 'auto', fontFamily: 'var(--font-mono)' }}>
-                      {JSON.stringify(JSON.parse(selectedLog.oldValues), null, 2)}
-                    </pre>
-                  </div>
-                )}
-                {selectedLog.newValues && (
-                  <div>
-                    <div className="t-caption" style={{ fontWeight: 600, color: 'var(--success)', marginBottom: 4 }}>AFTER (NEW VALUES)</div>
-                    <pre style={{ margin: 0, padding: 10, background: 'var(--surface-sunken)', borderRadius: 8, fontSize: 11, maxHeight: 180, overflow: 'auto', fontFamily: 'var(--font-mono)' }}>
-                      {JSON.stringify(JSON.parse(selectedLog.newValues), null, 2)}
-                    </pre>
-                  </div>
-                )}
+              <div>
+                <div className="t-caption" style={{ fontWeight: 600, marginBottom: 6 }}>
+                  FIELD-LEVEL MUTATION DIFF (BEFORE vs AFTER)
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: selectedLog.oldValues ? '1fr 1fr' : '1fr',
+                    gap: 10,
+                  }}
+                >
+                  {selectedLog.oldValues && (
+                    <div>
+                      <div
+                        className="t-caption"
+                        style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: 4 }}
+                      >
+                        BEFORE (ORIGINAL VALUES)
+                      </div>
+                      <pre
+                        style={{
+                          margin: 0,
+                          padding: 10,
+                          background: 'var(--surface-sunken)',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          maxHeight: 220,
+                          overflow: 'auto',
+                          fontFamily: 'var(--font-mono)',
+                          border: '1px solid color-mix(in srgb, var(--danger) 25%, transparent)',
+                        }}
+                      >
+                        {JSON.stringify(parseJsonSafe(selectedLog.oldValues), null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                  {selectedLog.newValues && (
+                    <div>
+                      <div
+                        className="t-caption"
+                        style={{ fontWeight: 700, color: 'var(--success)', marginBottom: 4 }}
+                      >
+                        AFTER (COMMITTED VALUES)
+                      </div>
+                      <pre
+                        style={{
+                          margin: 0,
+                          padding: 10,
+                          background: 'var(--surface-sunken)',
+                          borderRadius: 8,
+                          fontSize: 11,
+                          maxHeight: 220,
+                          overflow: 'auto',
+                          fontFamily: 'var(--font-mono)',
+                          border: '1px solid color-mix(in srgb, var(--success) 25%, transparent)',
+                        }}
+                      >
+                        {JSON.stringify(parseJsonSafe(selectedLog.newValues), null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setSelectedLog(null)}>Close</button>
+              <button className="btn btn-ghost" onClick={() => setSelectedLog(null)}>
+                Close
+              </button>
             </div>
           </div>
         )}

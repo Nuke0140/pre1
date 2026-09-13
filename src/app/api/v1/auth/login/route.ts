@@ -3,18 +3,21 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE, Role } from '@/lib/auth'
-import { audit } from '@/lib/sequence'
+import { audit, getRequestMeta } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   try {
+    const meta = getRequestMeta(req)
     const body = await req.json().catch(() => null)
     const { email, password } = (body || {}) as { email?: string; password?: string }
     if (!email || !password) {
       return Errors.validation('Email and password are required')
     }
 
+    const trimmedEmail = email.toLowerCase().trim()
+
     const user = await db.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+      where: { email: trimmedEmail },
       include: {
         memberships: {
           include: { tenant: true },
@@ -24,17 +27,47 @@ export async function POST(req: NextRequest) {
     })
 
     if (!user || user.deletedAt || user.status !== 'ACTIVE') {
+      // Record LOGIN_FAILED
+      await audit({
+        tenantId: user?.memberships[0]?.tenantId ?? null,
+        actorId: user?.id ?? null,
+        actorName: user?.fullName ?? trimmedEmail,
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        entityId: user?.id ?? null,
+        module: 'AUTH',
+        summary: `Failed login attempt for ${trimmedEmail} (account inactive or not found)`,
+        severity: 'WARNING',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      })
       return Errors.business('AUTH_003', 'Invalid email or password', 401)
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) {
+      // Record LOGIN_FAILED
+      await audit({
+        tenantId: user.memberships[0]?.tenantId ?? null,
+        actorId: user.id,
+        actorName: user.fullName,
+        action: 'LOGIN_FAILED',
+        entity: 'User',
+        entityId: user.id,
+        module: 'AUTH',
+        summary: `Failed login attempt for ${trimmedEmail} (invalid credentials)`,
+        severity: 'WARNING',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      })
       return Errors.business('AUTH_003', 'Invalid email or password', 401)
     }
 
     const membership = user.memberships[0]
 
-    // No school membership → platform-level staff (client onboarding console).
+    // No school membership -> platform-level staff (client onboarding console).
     if (!membership) {
       const token = await signSession({
         uid: user.id,
@@ -45,6 +78,22 @@ export async function POST(req: NextRequest) {
         role: 'PLATFORM_ADMIN',
       })
       await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+
+      await audit({
+        tenantId: null,
+        actorId: user.id,
+        actorName: user.fullName,
+        actorRole: 'PLATFORM_ADMIN',
+        action: 'LOGIN',
+        entity: 'User',
+        entityId: user.id,
+        module: 'AUTH',
+        summary: `${user.fullName} signed into Platform Console`,
+        severity: 'INFO',
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        requestId: meta.requestId,
+      })
 
       const res = ok({
         user: {
@@ -81,12 +130,19 @@ export async function POST(req: NextRequest) {
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
     await audit({
       tenantId: membership.tenantId,
+      branchId: branch?.id ?? null,
       actorId: user.id,
       actorName: user.fullName,
+      actorRole: membership.role,
       action: 'LOGIN',
       entity: 'User',
       entityId: user.id,
+      module: 'AUTH',
       summary: `${user.fullName} signed in`,
+      severity: 'INFO',
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
     })
 
     const res = ok({

@@ -340,13 +340,15 @@ export default function SettingsControlCenter() {
     <div className="space-y-6" style={{ paddingBottom: 60 }}>
       <PageHead
         title="Settings & Administration"
-        subtitle="Unified configuration control center for preschool operations, policies, integrations, and RBAC"
-        badge={<StatusBadge status="ACTIVE" label="Authoritative Sync Active" />}
+        sub="Unified configuration control center for preschool operations, policies, integrations, and RBAC"
         actions={
-          <button className="btn btn-secondary" onClick={loadData} disabled={loading || busy}>
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <StatusBadge status="ACTIVE" label="Authoritative Sync Active" />
+            <button className="btn btn-secondary" onClick={loadData} disabled={loading || busy}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
         }
       />
 

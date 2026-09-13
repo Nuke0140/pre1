@@ -1,7 +1,7 @@
 import {
-  LayoutDashboard, Users, ClipboardList, IndianRupee,
+  Home, LayoutDashboard, Users, ClipboardList, IndianRupee,
   Sparkles, Megaphone, Settings, ScrollText, Building2, Rocket,
-  HeartPulse, UserCheck,
+  HeartPulse, UserCheck, CalendarCheck,
 } from 'lucide-react'
 import type { Role } from './auth'
 import { can } from './auth'
@@ -17,12 +17,14 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { key: 'home', label: 'Home', href: '/app/home', icon: Home, grad: 'g-blue' },
   { key: 'dashboard', label: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, grad: 'g-blue' },
   { key: 'users', label: 'Users', href: '/app/users', icon: UserCheck, grad: 'g-violet', perm: 'users:read' },
   { key: 'setup', label: 'Setup', href: '/app/setup', icon: Rocket, grad: 'g-violet', perm: 'settings:read' },
   { key: 'admissions', label: 'Admissions', href: '/app/admissions', icon: ClipboardList, grad: 'g-pink', perm: 'admissions:read' },
   { key: 'academics', label: 'Academics', href: '/app/academics', icon: Sparkles, grad: 'g-purple', perm: 'academics:read' },
   { key: 'students', label: 'Students', href: '/app/students', icon: Users, grad: 'g-blue', perm: 'students:read' },
+  { key: 'attendance', label: 'Attendance', href: '/app/attendance', icon: CalendarCheck, grad: 'g-cyan', perm: 'attendance:read' },
   { key: 'operations', label: 'Operations', href: '/app/operations', icon: HeartPulse, grad: 'g-red', perm: 'operations:read' },
   { key: 'finance', label: 'Fees', href: '/app/finance', icon: IndianRupee, grad: 'g-yellow', perm: 'finance:read' },
   { key: 'communication', label: 'Announcements', href: '/app/communication', icon: Megaphone, grad: 'g-orange', perm: 'communication:read' },
@@ -31,7 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'platform', label: 'Platform Console', href: '/onboard', icon: Building2, grad: 'g-blue', roles: ['PLATFORM_ADMIN'] },
 ]
 
-/** Role-filtered navigation (menuBuilder per Frontend Architecture §RBAC). */
+/** Role-filtered navigation (menuBuilder per Frontend Architecture ï¿½RBAC). */
 export function navForRole(role: Role): NavItem[] {
   return NAV_ITEMS.filter((n) => {
     if (n.roles && !n.roles.includes(role)) return false

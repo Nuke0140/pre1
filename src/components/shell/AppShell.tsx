@@ -38,8 +38,8 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
 
   // current module from path
   const current = useMemo(() => {
-    const match = nav.find((n) => pathname.startsWith(n.href))
-    return match?.label || 'Dashboard'
+    const match = nav.find((n) => n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href))
+    return match?.label || (pathname.startsWith('/app/home') ? 'Home' : 'Dashboard')
   }, [nav, pathname])
 
   // theme boot + persistence (reads localStorage once on mount)
@@ -127,7 +127,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     <>
       {/* ── Header ── */}
       <header className="app-header">
-        <Link href="/app/dashboard" className="h-logo" aria-label="PreOne home">
+        <Link href="/app" className="h-logo" aria-label="PreOne home">
           <PLogoWordmark />
         </Link>
         <div className="h-breadcrumb">
@@ -245,7 +245,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <span className="tb-sep" />
         {nav.slice(0, 5).map((n) => {
           const Icon = n.icon
-          const active = pathname.startsWith(n.href)
+          const active = n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href)
           return (
             <Link
               key={n.key}
