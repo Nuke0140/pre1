@@ -32,7 +32,29 @@ export async function POST(
       return Errors.validation('amountCents (>0) and method are required')
     }
 
-    const invoice = await db.invoice.findUnique({ where: { id }, include: { student: true } })
+    const idempotencyKey = req.headers.get('idempotency-key') || transactionRef
+    if (idempotencyKey) {
+      const existing = await db.payment.findFirst({
+        where: {
+          tenantId: session.tenantId!,
+          invoiceId: id,
+          transactionRef: idempotencyKey,
+        },
+        include: { receipt: true },
+      })
+      if (existing) {
+        return ok({
+          payment: existing,
+          receipt: existing.receipt,
+          idempotent: true,
+        })
+      }
+    }
+
+    const invoice = await db.invoice.findFirst({
+      where: { id, tenantId: session.tenantId! },
+      include: { student: true },
+    })
     if (!invoice) return Errors.notFound('Invoice')
     if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
       return Errors.conflict(`Cannot pay a ${invoice.status.toLowerCase()} invoice`)

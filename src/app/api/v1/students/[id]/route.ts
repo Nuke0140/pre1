@@ -14,10 +14,14 @@ export async function GET(
 
   try {
     const student = await db.student.findFirst({
-      where: { id, deletedAt: null },
+      where: { id, tenantId: session.tenantId, deletedAt: null },
       include: {
         currentClassroom: { include: { primaryTeacher: { select: { fullName: true } } } },
         guardians: { include: { guardian: true } },
+        allocations: {
+          include: { classroom: true, academicSession: true },
+          orderBy: { startedAt: 'desc' },
+        },
         attendances: { orderBy: { date: 'desc' }, take: 30 },
         invoices: {
           orderBy: { createdAt: 'desc' },
@@ -45,6 +49,7 @@ export async function GET(
     return ok({
       id: student.id,
       admissionNo: student.admissionNo,
+      seatNumber: student.seatNumber,
       name: `${student.firstName} ${student.lastName || ''}`.trim(),
       firstName: student.firstName,
       lastName: student.lastName,
@@ -59,10 +64,21 @@ export async function GET(
         ? {
             id: student.currentClassroom.id,
             name: student.currentClassroom.name,
+            code: student.currentClassroom.code,
             programType: student.currentClassroom.programType,
             teacher: student.currentClassroom.primaryTeacher?.fullName ?? null,
           }
         : null,
+      allocations: student.allocations.map((a) => ({
+        id: a.id,
+        sessionName: a.academicSession.name,
+        classroomName: a.classroom.name,
+        programType: a.programType,
+        status: a.status,
+        startedAt: a.startedAt,
+        endedAt: a.endedAt,
+        reason: a.reason,
+      })),
       guardians: student.guardians.map((g) => ({
         id: g.guardian.id,
         name: g.guardian.fullName,
@@ -98,6 +114,61 @@ export async function GET(
         id: o.id, narrative: o.narrative, milestoneTags: o.milestoneTags,
         status: o.status, observedAt: o.observedAt,
       })),
+    })
+  } catch (e) {
+    return Errors.system(e)
+  }
+}
+
+/** PATCH /api/v1/students/{id} — update student details & seat number */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requireApi(req, 'students:write')
+  if (isResponse(session)) return session
+  const { id } = await params
+
+  try {
+    const student = await db.student.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
+      include: { currentClassroom: true },
+    })
+    if (!student) return Errors.notFound('Student')
+
+    const body = await req.json()
+    const { firstName, lastName, bloodGroup, address, seatNumber, photoUrl, generateSeatNumber } = body
+
+    let newSeatNumber = seatNumber
+    if (generateSeatNumber) {
+      // Collision-safe database-driven seat number generation
+      const count = await db.student.count({
+        where: {
+          tenantId: session.tenantId,
+          currentClassroomId: student.currentClassroomId,
+          seatNumber: { not: null },
+        },
+      })
+      const prefix = student.currentClassroom?.code || 'PRE'
+      newSeatNumber = `${prefix}-${String(count + 1).padStart(3, '0')}`
+    }
+
+    const updated = await db.student.update({
+      where: { id: student.id },
+      data: {
+        ...(firstName ? { firstName: firstName.trim() } : {}),
+        ...(lastName !== undefined ? { lastName: lastName?.trim() || null } : {}),
+        ...(bloodGroup !== undefined ? { bloodGroup } : {}),
+        ...(address !== undefined ? { address: address?.trim() || null } : {}),
+        ...(newSeatNumber !== undefined ? { seatNumber: newSeatNumber } : {}),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
+      },
+    })
+
+    return ok({
+      id: updated.id,
+      seatNumber: updated.seatNumber,
+      name: `${updated.firstName} ${updated.lastName || ''}`.trim(),
     })
   } catch (e) {
     return Errors.system(e)

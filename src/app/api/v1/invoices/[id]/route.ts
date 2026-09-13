@@ -13,8 +13,8 @@ export async function GET(
   const { id } = await params
 
   try {
-    const invoice = await db.invoice.findUnique({
-      where: { id },
+    const invoice = await db.invoice.findFirst({
+      where: { id, tenantId: session.tenantId },
       include: {
         student: {
           select: {
@@ -56,6 +56,7 @@ export async function GET(
         method: p.method,
         status: p.status,
         paymentDate: p.paymentDate,
+        receiptId: p.receipt?.id ?? null,
         receiptNumber: p.receipt?.receiptNumber ?? null,
       })),
     })

@@ -1,16 +1,18 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { Search, Plus, Users, ChevronRight, Loader2 } from 'lucide-react'
-import { PageHead, EmptyState, StatusBadge, Avatar, Segmented, Skeleton } from '@/components/preone/ui'
-import { Modal, ConfirmModal } from '@/components/preone/Modal'
+import { useRouter } from 'next/navigation'
+import { Plus, ChevronRight, User } from 'lucide-react'
+import { PageHead, StatusBadge, Avatar, Segmented, Field } from '@/components/preone/ui'
+import { DataTable, Column } from '@/components/preone/DataTable'
+import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
 
 interface StudentRow {
   id: string
   admissionNo: string
+  seatNumber?: string | null
   name: string
   dob: string
   gender: string
@@ -27,6 +29,7 @@ interface Classroom {
 }
 
 export default function StudentsPage() {
+  const router = useRouter()
   const toast = useToast()
   const [rows, setRows] = useState<StudentRow[] | null>(null)
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
@@ -67,37 +70,102 @@ export default function StudentsPage() {
     const json = await res.json()
     setSaving(false)
     if (json.success) {
-      toast.success('Student added', `${payload.firstName} joined with ID ${json.data.admissionNo}`)
+      toast.success('Child admitted', `${payload.firstName} joined with ID ${json.data.admissionNo}`)
       setCreateOpen(false)
       load()
     } else {
-      toast.error('Could not add student', json.error?.message)
+      toast.error('Could not add child', json.error?.message)
     }
   }
+
+  const columns: Column<StudentRow>[] = [
+    {
+      key: 'name',
+      header: 'Child',
+      render: (s) => (
+        <span className="cell-user">
+          <Avatar name={s.name} />
+          <span>
+            <span className="cell-strong">{s.name}</span>
+            {s.seatNumber && <span className="cell-sub">Seat: {s.seatNumber}</span>}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: 'admissionNo',
+      header: 'Admission No',
+      render: (s) => (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{s.admissionNo}</span>
+      ),
+    },
+    {
+      key: 'classroom',
+      header: 'Class / Section',
+      render: (s) =>
+        s.classroom ? (
+          <>
+            <span className="cell-strong">{s.classroom}</span>
+            <span className="cell-sub">{enumLabel(s.programType || '')}</span>
+          </>
+        ) : (
+          <span className="badge b-warning">Unassigned</span>
+        ),
+    },
+    {
+      key: 'dob',
+      header: 'Date of Birth',
+      render: (s) => fmtDate(s.dob),
+    },
+    {
+      key: 'primaryGuardian',
+      header: 'Parent / Guardian',
+      render: (s) =>
+        s.primaryGuardian ? (
+          <>
+            <span style={{ fontSize: 13, fontWeight: 500 }}>{s.primaryGuardian.name}</span>
+            <span className="cell-sub">{s.primaryGuardian.phone}</span>
+          </>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (s) => <StatusBadge status={s.status} />,
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: 36,
+      render: () => <ChevronRight size={15} style={{ color: 'var(--foreground-muted)' }} />,
+    },
+  ]
 
   return (
     <>
       <PageHead
-        title="Students"
-        sub="Aapke school ke saare bacche â€” search, filter aur profiles."
+        title="Children & Students"
+        sub="Complete directory of enrolled preschool children, guardians, and class sections."
         actions={
           <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} /> Add Student
+            <Plus size={16} /> Enroll Child
           </button>
         }
       />
 
-      <div className="dtable-wrap">
-        <div className="table-toolbar">
-          <div className="input-search" style={{ maxWidth: 280 }}>
-            <Search />
-            <input
-              className="input"
-              placeholder="Search name or admission noâ€¦"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        loading={rows === null}
+        searchPlaceholder="Search child name or admission no…"
+        searchValue={q}
+        onSearch={setQ}
+        onRowClick={(s) => router.push(`/app/students/${s.id}`)}
+        emptyTitle="No children found"
+        emptyMessage="No students match the current filter or search criteria."
+        filters={
           <Segmented
             options={[
               { key: 'ALL', label: 'All Classes' },
@@ -106,86 +174,15 @@ export default function StudentsPage() {
             value={classFilter}
             onChange={setClassFilter}
           />
-        </div>
-        <div className="dtable-scroll">
-          <table className="dtable">
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Admission No</th>
-                <th>Classroom</th>
-                <th>DOB</th>
-                <th>Parent</th>
-                <th>Status</th>
-                <th style={{ width: 36 }} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows?.map((s) => (
-                <tr key={s.id} onClick={() => (window.location.href = `/app/students/${s.id}`)}>
-                  <td>
-                    <span className="cell-user">
-                      <Avatar name={s.name} />
-                      <span className="cell-strong">{s.name}</span>
-                    </span>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{s.admissionNo}</td>
-                  <td>
-                    {s.classroom ? (
-                      <>
-                        <span className="cell-strong">{s.classroom}</span>
-                        <span className="cell-sub">{enumLabel(s.programType || '')}</span>
-                      </>
-                    ) : (
-                      <span className="badge b-warning">Unassigned</span>
-                    )}
-                  </td>
-                  <td>{fmtDate(s.dob)}</td>
-                  <td>
-                    {s.primaryGuardian ? (
-                      <>
-                        <span style={{ fontSize: 13 }}>{s.primaryGuardian.name}</span>
-                        <span className="cell-sub">{s.primaryGuardian.phone}</span>
-                      </>
-                    ) : 'â€”'}
-                  </td>
-                  <td><StatusBadge status={s.status} /></td>
-                  <td><ChevronRight size={15} style={{ color: 'var(--foreground-muted)' }} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {rows === null && (
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[...Array(5)].map((_, i) => <Skeleton key={i} h={36} />)}
-            </div>
-          )}
-          {rows?.length === 0 && (
-            <EmptyState
-              icon={<Users size={40} />}
-              title="No students found"
-              message="Try a different search, or add your first student to get started."
-              action={
-                <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-                  <Plus size={15} /> Add Student
-                </button>
-              }
-            />
-          )}
-        </div>
-        {rows && rows.length > 0 && (
-          <div className="table-foot">
-            <span>{rows.length} students</span>
-          </div>
-        )}
-      </div>
+        }
+      />
 
-      {/* Create modal */}
+      {/* Enroll Child Modal */}
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Add Student"
-        subtitle="Direct admission â€” student record + guardian created together"
+        title="Enroll Child"
+        subtitle="Add a new child directly to the student register"
         icon={<Plus size={22} />}
         wide
       >
@@ -212,30 +209,30 @@ export default function StudentsPage() {
               </select>
             </div>
             <div className="field">
-              <label>Classroom</label>
+              <label>Class / Section</label>
               <select className="select" name="classroomId" defaultValue="">
-                <option value="">â€” Unassigned â€”</option>
+                <option value="">— Unassigned —</option>
                 {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>{c.name} ({enumLabel(c.programType)})</option>
                 ))}
               </select>
             </div>
             <div className="field">
               <label>Blood Group</label>
               <select className="select" name="bloodGroup" defaultValue="">
-                <option value="">â€”</option>
+                <option value="">—</option>
                 {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map((b) => (
                   <option key={b} value={b}>{b.replace('_POSITIVE','+').replace('_NEGATIVE','-')}</option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Parent/Guardian Name <span className="req">*</span></label>
+              <label>Parent / Guardian Name <span className="req">*</span></label>
               <input className="input" name="guardianName" required placeholder="Priya Sharma" />
             </div>
             <div className="field">
               <label>Guardian Phone <span className="req">*</span></label>
-              <input className="input" name="guardianPhone" required placeholder="+9198XXXXXXXX" />
+              <input className="input" name="guardianPhone" required placeholder="+91 98765 43210" />
             </div>
             <div className="field">
               <label>Relationship</label>
@@ -250,7 +247,7 @@ export default function StudentsPage() {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)}>Cancel</button>
             <button type="submit" className={`btn btn-primary ${saving ? 'is-loading' : ''}`} disabled={saving}>
-              {saving ? 'Savingâ€¦' : 'Add Student'}
+              {saving ? 'Saving…' : 'Enroll Child'}
             </button>
           </div>
         </form>

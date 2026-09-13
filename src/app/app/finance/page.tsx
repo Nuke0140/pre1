@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, Wallet, IndianRupee, Receipt, BadgeCheck } from 'lucide-react'
+import { Plus, Wallet, IndianRupee, Receipt, BadgeCheck, Download, Layers, Printer, FileText } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
@@ -31,9 +31,27 @@ interface Detail {
   paidCents: number
   balanceCents: number
   status: string
-  payments: { id: string; paymentNumber: string; amountCents: number; method: string; paymentDate: string; receiptNumber: string | null }[]
+  payments: {
+    id: string
+    paymentNumber: string
+    amountCents: number
+    method: string
+    paymentDate: string
+    receiptId: string | null
+    receiptNumber: string | null
+  }[]
 }
 interface StudentOpt { id: string; name: string; admissionNo: string }
+
+interface ReceiptDetail {
+  receiptNumber: string
+  issuedAt: string
+  amountRupees: string
+  school: { name: string; code: string; address?: string; city?: string; phone?: string; email?: string; gstNumber?: string }
+  student: { name: string; admissionNo: string; classroom?: string }
+  payment: { paymentNumber: string; method: string; transactionRef?: string; paidAt: string }
+  invoice: { invoiceNumber: string; title: string; totalRupees: string; balanceRupees: string }
+}
 
 export default function FinancePage() {
   const toast = useToast()
@@ -45,6 +63,9 @@ export default function FinancePage() {
   const [payOpen, setPayOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  const [receiptDetail, setReceiptDetail] = useState<ReceiptDetail | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const load = useCallback(async () => {
     const url = statusFilter === 'ALL' ? '/api/v1/invoices' : `/api/v1/invoices?status=${statusFilter}`
@@ -64,6 +85,66 @@ export default function FinancePage() {
     const j = await fetch(`/api/v1/invoices/${id}`).then((r) => r.json())
     if (j.success) setDetail(j.data)
   }, [])
+
+  const viewReceipt = async (receiptId: string) => {
+    setBusy(true)
+    const j = await fetch(`/api/v1/receipts/${receiptId}`).then((r) => r.json())
+    setBusy(false)
+    if (j.success) {
+      setReceiptDetail(j.data)
+    } else {
+      toast.error('Could not load receipt', j.error?.message)
+    }
+  }
+
+  const triggerExport = async () => {
+    setBusy(true)
+    const res = await fetch('/api/v1/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'PAYMENT_EXPORT',
+        payload: { format: 'CSV', statusFilter },
+      }),
+    })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) {
+      toast.success('Export job queued', `Job #${json.data.id.slice(0, 8)} started in background`)
+    } else {
+      toast.error('Failed to start export', json.error?.message)
+    }
+  }
+
+  const triggerBulkInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    const fd = new FormData(e.currentTarget)
+    const rupees = parseFloat(String(fd.get('amount') || '0'))
+    const res = await fetch('/api/v1/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'BULK_INVOICE',
+        payload: {
+          title: fd.get('title') || 'Term Fee',
+          description: fd.get('desc') || 'Tuition & Activities',
+          amountCents: Math.round(rupees * 100),
+          feeHead: fd.get('feeHead') || 'TUITION',
+          dueDate: fd.get('dueDate'),
+        },
+      }),
+    })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) {
+      toast.success('Bulk invoicing queued', `Job #${json.data.id.slice(0, 8)} processing for active students`)
+      setBulkOpen(false)
+      setTimeout(load, 2000)
+    } else {
+      toast.error('Failed to trigger bulk invoicing', json.error?.message)
+    }
+  }
 
   useEffect(() => {
     const inv = sp.get('invoice')
@@ -149,9 +230,17 @@ export default function FinancePage() {
         title="Fees & Payments"
         sub="Invoices, receipts aur collection — sab kuch auto-reconciled."
         actions={
-          <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-            <Plus size={15} /> Raise Invoice
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-outline" onClick={triggerExport} disabled={busy} title="Export payment records to CSV">
+              <Download size={15} /> Export CSV
+            </button>
+            <button className="btn btn-outline" onClick={() => setBulkOpen(true)}>
+              <Layers size={15} /> Bulk Invoicing
+            </button>
+            <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
+              <Plus size={15} /> Raise Invoice
+            </button>
+          </div>
         }
       />
 
@@ -257,7 +346,19 @@ export default function FinancePage() {
                     <span style={{ fontSize: 12.5 }}>
                       <strong>{p.paymentNumber}</strong> · {inr(p.amountCents)} · {enumLabel(p.method)}
                     </span>
-                    <span className="badge b-success"><BadgeCheck size={12} /> {p.receiptNumber}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="badge b-success"><BadgeCheck size={12} /> {p.receiptNumber}</span>
+                      {p.receiptId && (
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: '2px 8px', fontSize: 12, height: 26 }}
+                          onClick={() => viewReceipt(p.receiptId!)}
+                          title="View & Print Official Receipt"
+                        >
+                          <Printer size={13} /> View
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </>
@@ -278,6 +379,122 @@ export default function FinancePage() {
             </div>
           </>
         )}
+      </Modal>
+
+      {/* Printable Receipt Modal */}
+      <Modal
+        open={!!receiptDetail}
+        onClose={() => setReceiptDetail(null)}
+        title={receiptDetail ? `Official Receipt — ${receiptDetail.receiptNumber}` : ''}
+        subtitle="Server-verified payment acknowledgment"
+        icon={<FileText size={22} />}
+        wide
+      >
+        {receiptDetail && (
+          <div>
+            <div style={{ padding: 20, border: '1px solid var(--border-subtle)', borderRadius: 12, background: 'var(--surface)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 16, marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{receiptDetail.school.name}</h3>
+                  <div className="t-caption" style={{ marginTop: 4 }}>
+                    {receiptDetail.school.address} · {receiptDetail.school.city}
+                  </div>
+                  {receiptDetail.school.gstNumber && (
+                    <div className="t-caption">GSTIN: {receiptDetail.school.gstNumber}</div>
+                  )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--primary)' }}>
+                    {receiptDetail.receiptNumber}
+                  </div>
+                  <div className="t-caption" style={{ marginTop: 4 }}>Date: {fmtDate(receiptDetail.issuedAt)}</div>
+                  <span className="badge b-success" style={{ marginTop: 6 }}>PAYMENT VERIFIED</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                  <div className="t-caption" style={{ fontWeight: 600 }}>RECEIVED FROM / STUDENT</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginTop: 4 }}>{receiptDetail.student.name}</div>
+                  <div className="t-caption">Admission No: {receiptDetail.student.admissionNo}</div>
+                  {receiptDetail.student.classroom && (
+                    <div className="t-caption">Classroom: {receiptDetail.student.classroom}</div>
+                  )}
+                </div>
+                <div>
+                  <div className="t-caption" style={{ fontWeight: 600 }}>PAYMENT DETAILS</div>
+                  <div className="t-caption" style={{ marginTop: 4 }}>Payment #: {receiptDetail.payment.paymentNumber}</div>
+                  <div className="t-caption">Method: {enumLabel(receiptDetail.payment.method)}</div>
+                  {receiptDetail.payment.transactionRef && (
+                    <div className="t-caption">Ref/UTR: {receiptDetail.payment.transactionRef}</div>
+                  )}
+                  <div className="t-caption">Invoice: {receiptDetail.invoice.invoiceNumber}</div>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--primary-soft, #f0f4ff)', borderRadius: 8, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>Amount Paid</span>
+                <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--primary)' }}>₹{receiptDetail.amountRupees}</span>
+              </div>
+
+              <div className="t-caption" style={{ marginTop: 14, textAlign: 'center', color: 'var(--muted)' }}>
+                Computer-generated receipt issued per PreOne Enterprise Preschool OS. IT §269ST compliant.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <button className="btn btn-ghost" onClick={() => setReceiptDetail(null)}>Close</button>
+              <button className="btn btn-primary" onClick={() => window.print()}>
+                <Printer size={15} /> Print Receipt
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Bulk Invoicing Modal */}
+      <Modal
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        title="Generate Bulk Invoices"
+        subtitle="Queues an asynchronous background job for all active enrolled students"
+        icon={<Layers size={22} />}
+      >
+        <form onSubmit={triggerBulkInvoice}>
+          <div className="form-grid">
+            <div className="field" style={{ gridColumn: '1/-1' }}>
+              <label>Invoice Title <span className="req">*</span></label>
+              <input className="input" name="title" placeholder="Term 1 Tuition & Activity Fee" required />
+            </div>
+            <div className="field" style={{ gridColumn: '1/-1' }}>
+              <label>Line Item Description <span className="req">*</span></label>
+              <input className="input" name="desc" placeholder="Preschool Tuition, Learning Kit & Refreshments" required />
+            </div>
+            <div className="field">
+              <label>Fee Head <span className="req">*</span></label>
+              <select className="select" name="feeHead" defaultValue="TUITION">
+                {['TUITION', 'REGISTRATION', 'ANNUAL', 'MATERIAL', 'ACTIVITY', 'TRANSPORT', 'MEALS', 'DAYCARE', 'OTHER'].map((fh) => (
+                  <option key={fh} value={fh}>{enumLabel(fh)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Amount per Student (₹) <span className="req">*</span></label>
+              <input className="input" name="amount" type="number" min="1" step="0.01" placeholder="15000" required />
+            </div>
+            <div className="field" style={{ gridColumn: '1/-1' }}>
+              <label>Due Date <span className="req">*</span></label>
+              <input className="input" name="dueDate" type="date" required />
+            </div>
+          </div>
+          <p className="helper" style={{ margin: '12px 0 0' }}>
+            A background worker will process each student sequentially with unique invoice numbering and audit tracking.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setBulkOpen(false)}>Cancel</button>
+            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Start Bulk Job</button>
+          </div>
+        </form>
       </Modal>
 
       {/* Payment modal */}

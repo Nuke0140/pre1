@@ -1,261 +1,498 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { Building2, School, Users, Plus, GraduationCap, Rocket } from 'lucide-react'
-import { PageHead, Avatar, Segmented, Skeleton, Field } from '@/components/preone/ui'
+import {
+  Building2,
+  GitBranch,
+  Sliders,
+  Bell,
+  FileText,
+  ShieldCheck,
+  Plus,
+  Rocket,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Save,
+} from 'lucide-react'
+import { PageHead, Segmented, Skeleton, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { enumLabel, timeAgo, inr } from '@/lib/format'
+import { enumLabel } from '@/lib/format'
 
-interface ClassInfo { id: string; name: string; programType: string; capacity: number; teacher: string | null; students: number }
-interface Staff { id: string; name: string; email: string; role: string; status: string; lastLoginAt: string | null }
-interface FeePlan { id: string; name: string; programType: string; totalAnnualCents: number; installmentCount: number; items: { label: string; amountCents: number }[] }
+interface SchoolProfile {
+  id: string
+  name: string
+  code: string
+  tagline: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  pincode: string | null
+  phone: string | null
+  email: string | null
+  website: string | null
+  gstNumber: string | null
+  currency: string
+  timezone: string
+  themeColor: string
+  status: string
+  subscriptionPlan: string
+  counts: {
+    students: number
+    branches: number
+    staff: number
+    classrooms: number
+  }
+}
+
+interface Branch {
+  id: string
+  name: string
+  code: string
+  address: string | null
+  city: string | null
+  phone: string | null
+  email: string | null
+  timingOpen: string | null
+  timingClose: string | null
+  capacity: number | null
+  isMain: boolean
+  isActive: boolean
+}
 
 export default function SettingsPage() {
   const toast = useToast()
-  const [tab, setTab] = useState('school')
-  const [classrooms, setClassrooms] = useState<ClassInfo[] | null>(null)
-  const [staff, setStaff] = useState<Staff[] | null>(null)
-  const [plans, setPlans] = useState<FeePlan[] | null>(null)
-  const [classOpen, setClassOpen] = useState(false)
-  const [staffOpen, setStaffOpen] = useState(false)
+  const [tab, setTab] = useState('profile')
+  const [profile, setProfile] = useState<SchoolProfile | null>(null)
+  const [branches, setBranches] = useState<Branch[] | null>(null)
+  const [branchOpen, setBranchOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  // Configuration Domains from Setup Engine
+  const [commConfig, setCommConfig] = useState<any>(null)
+  const [docConfig, setDocConfig] = useState<any>(null)
+  const [brandConfig, setBrandConfig] = useState<any>(null)
+
   const load = useCallback(async () => {
-    const [c, u, f] = await Promise.all([
-      fetch('/api/v1/classrooms').then((r) => r.json()),
-      fetch('/api/v1/users').then((r) => r.json()),
-      fetch('/api/v1/fee-plans').then((r) => r.json()),
+    const [p, b, c, d, br] = await Promise.all([
+      fetch('/api/v1/tenant/profile').then((r) => r.json()),
+      fetch('/api/v1/branches').then((r) => r.json()),
+      fetch('/api/v1/setup/config/COMMUNICATION').then((r) => r.json()),
+      fetch('/api/v1/setup/config/DOCUMENT_TEMPLATES').then((r) => r.json()),
+      fetch('/api/v1/setup/config/BRANDING').then((r) => r.json()),
     ])
-    if (c.success) setClassrooms(c.data)
-    if (u.success) setStaff(u.data)
-    if (f.success) setPlans(f.data)
+
+    if (p.success) setProfile(p.data)
+    if (b.success) setBranches(b.data)
+    if (c.success) setCommConfig(c.data.data || {})
+    if (d.success) setDocConfig(d.data.data || {})
+    if (br.success) setBrandConfig(br.data.data || {})
   }, [])
 
   useEffect(() => {
     Promise.resolve().then(load)
   }, [load])
 
-  const createClass = async (e: React.FormEvent<HTMLFormElement>) => {
+  const updateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
-    const res = await fetch('/api/v1/classrooms', {
-      method: 'POST',
+    const payload = {
+      name: fd.get('name'),
+      tagline: fd.get('tagline'),
+      address: fd.get('address'),
+      city: fd.get('city'),
+      state: fd.get('state'),
+      pincode: fd.get('pincode'),
+      phone: fd.get('phone'),
+      email: fd.get('email'),
+      website: fd.get('website'),
+      gstNumber: fd.get('gstNumber'),
+      timezone: fd.get('timezone'),
+      themeColor: fd.get('themeColor'),
+    }
+
+    const res = await fetch('/api/v1/tenant/profile', {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: fd.get('name'), programType: fd.get('programType'), capacity: parseInt(String(fd.get('capacity')) || '20') }),
+      body: JSON.stringify(payload),
     })
     const json = await res.json()
     setBusy(false)
     if (json.success) {
-      toast.success('Classroom created')
-      setClassOpen(false)
+      toast.success('School profile updated')
       load()
-    } else toast.error('Failed', json.error?.message)
+    } else {
+      toast.error('Failed to update profile', json.error?.message)
+    }
   }
 
-  const createStaff = async (e: React.FormEvent<HTMLFormElement>) => {
+  const createBranch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
-    const res = await fetch('/api/v1/users', {
+    const res = await fetch('/api/v1/branches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        fullName: fd.get('fullName'), email: fd.get('email'),
-        password: fd.get('password'), role: fd.get('role'), phone: fd.get('phone'),
+        name: fd.get('name'),
+        code: fd.get('code'),
+        address: fd.get('address'),
+        city: fd.get('city'),
+        phone: fd.get('phone'),
+        email: fd.get('email'),
+        timingOpen: fd.get('timingOpen') || '08:30',
+        timingClose: fd.get('timingClose') || '16:00',
+        capacity: fd.get('capacity') ? parseInt(String(fd.get('capacity'))) : null,
       }),
     })
     const json = await res.json()
     setBusy(false)
     if (json.success) {
-      toast.success('Staff member added', 'They can sign in immediately')
-      setStaffOpen(false)
+      toast.success('Branch added', `${json.data.name} (${json.data.code})`)
+      setBranchOpen(false)
       load()
-    } else toast.error('Failed', json.error?.message)
+    } else {
+      toast.error('Failed to add branch', json.error?.message)
+    }
+  }
+
+  const saveConfig = async (domain: string, data: any) => {
+    setBusy(true)
+    const res = await fetch(`/api/v1/setup/config/${domain}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    const json = await res.json()
+    setBusy(false)
+    if (json.success) {
+      toast.success('Configuration saved', `${domain} preferences updated`)
+      load()
+    } else {
+      toast.error('Failed to save config', json.error?.message)
+    }
   }
 
   return (
     <>
-      <PageHead title="Settings" sub="School setup — classes, staff aur fee plans." />
+      <PageHead
+        title="Settings & School Administration"
+        sub="Manage school identity, branches, templates, notifications, and compliance settings."
+      />
 
-      {/* M00 — Preschool Setup entry */}
-      <a href="/app/setup" className="card card-hover" style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', color: 'inherit', textDecoration: 'none', borderColor: 'var(--preone-primary)' }}>
+      {/* Guided Setup Link */}
+      <a
+        href="/app/setup"
+        className="card card-hover"
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '12px 16px',
+          color: 'inherit',
+          textDecoration: 'none',
+          borderColor: 'var(--preone-primary)',
+        }}
+      >
         <div className="kpi-ic ic-violet"><Rocket size={18} /></div>
         <div style={{ flex: 1 }}>
-          <div className="card-title" style={{ fontSize: 14 }}>Preschool Setup (M00)</div>
-          <div className="card-sub">Guided setup status, dependency engine, validation and go-live checklist</div>
+          <div className="card-title" style={{ fontSize: 13.5 }}>Preschool Setup Engine (10 Configuration Domains)</div>
+          <div className="card-sub">Guided dependency engine, validation rules and go-live launch checklist</div>
         </div>
-        <span className="badge b-primary">Open</span>
+        <span className="badge b-primary">Open Setup</span>
       </a>
 
       <Segmented
         value={tab}
         onChange={setTab}
         options={[
-          { key: 'school', label: 'School' },
-          { key: 'classes', label: `Classrooms (${classrooms?.length ?? 0})` },
-          { key: 'staff', label: `Staff (${staff?.length ?? 0})` },
-          { key: 'fees', label: `Fee Plans (${plans?.length ?? 0})` },
+          { key: 'profile', label: 'School Profile' },
+          { key: 'branches', label: `Branches (${branches?.length ?? 0})` },
+          { key: 'notifications', label: 'Notifications' },
+          { key: 'templates', label: 'Document Templates' },
+          { key: 'security', label: 'Security & DPDP' },
         ]}
       />
 
-      {tab === 'school' && (
-        <div className="card" style={{ maxWidth: 640 }}>
-          <div className="card-head">
-            <div>
-              <div className="card-title">School Profile</div>
-              <div className="card-sub">Onboarding wizard se set hua — Platform admin isse manage karta hai</div>
-            </div>
-            <Building2 size={18} style={{ color: 'var(--foreground-muted)' }} />
-          </div>
-          <div className="form-grid">
-            <div className="stat-mini"><b style={{ fontSize: 14 }}>Multi-tenant</b><span>Isolated by tenantId on every table</span></div>
-            <div className="stat-mini"><b style={{ fontSize: 14 }}>PostgreSQL</b><span>Shared DB + row scoping (ADR-002)</span></div>
-            <div className="stat-mini"><b style={{ fontSize: 14 }}>RBAC</b><span>8 roles · least privilege</span></div>
-            <div className="stat-mini"><b style={{ fontSize: 14 }}>DPDP Ready</b><span>Soft delete + audit trail</span></div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'classes' && (
-        <div className="dtable-wrap">
-          <div className="table-toolbar">
-            <div className="card-title">Classrooms</div>
-            <button className="btn btn-primary btn-sm" onClick={() => setClassOpen(true)}><Plus size={14} /> Add Classroom</button>
-          </div>
-          <div className="dtable-scroll">
-            <table className="dtable">
-              <thead><tr><th>Classroom</th><th>Program</th><th>Teacher</th><th>Strength</th><th>Capacity</th></tr></thead>
-              <tbody>
-                {classrooms?.map((c) => (
-                  <tr key={c.id} style={{ cursor: 'default' }}>
-                    <td className="cell-strong">{c.name}</td>
-                    <td><span className="badge b-pink">{enumLabel(c.programType)}</span></td>
-                    <td>{c.teacher || <span className="t-caption">Unassigned</span>}</td>
-                    <td>{c.students}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div className="progressbar" style={{ width: 80, height: 5 }}>
-                          <i style={{ width: `${Math.min(100, Math.round((c.students / Math.max(1, c.capacity)) * 100))}%` }} />
-                        </div>
-                        <span className="t-caption">{c.capacity}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {classrooms === null && <div style={{ padding: 16 }}>{[...Array(3)].map((_, i) => <Skeleton key={i} h={36} />)}</div>}
-          </div>
-        </div>
-      )}
-
-      {tab === 'staff' && (
-        <div className="dtable-wrap">
-          <div className="table-toolbar">
-            <div className="card-title">Staff & Roles</div>
-            <button className="btn btn-primary btn-sm" onClick={() => setStaffOpen(true)}><Plus size={14} /> Add Staff</button>
-          </div>
-          <div className="dtable-scroll">
-            <table className="dtable">
-              <thead><tr><th>Member</th><th>Role</th><th>Status</th><th>Last Login</th></tr></thead>
-              <tbody>
-                {staff?.map((s) => (
-                  <tr key={s.id} style={{ cursor: 'default' }}>
-                    <td>
-                      <span className="cell-user">
-                        <Avatar name={s.name} />
-                        <span>
-                          <span className="cell-strong">{s.name}</span>
-                          <span className="cell-sub">{s.email}</span>
-                        </span>
-                      </span>
-                    </td>
-                    <td><span className="badge b-primary">{enumLabel(s.role)}</span></td>
-                    <td><span className={`badge ${s.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>{enumLabel(s.status)}</span></td>
-                    <td>{s.lastLoginAt ? timeAgo(s.lastLoginAt) : 'Never'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {staff === null && <div style={{ padding: 16 }}>{[...Array(3)].map((_, i) => <Skeleton key={i} h={36} />)}</div>}
-          </div>
-        </div>
-      )}
-
-      {tab === 'fees' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-          {plans?.map((p) => (
-            <div className="card card-hover" key={p.id}>
+      {/* TAB 1: School Profile */}
+      {tab === 'profile' && (
+        <div style={{ maxWidth: 840 }}>
+          {profile ? (
+            <form onSubmit={updateProfile} className="card">
               <div className="card-head">
                 <div>
-                  <div className="card-title">{p.name}</div>
-                  <div className="card-sub">{enumLabel(p.programType)} · {p.installmentCount} installments</div>
+                  <div className="card-title">School Identity & Profile</div>
+                  <div className="card-sub">School name, registration codes, contact and address shown on receipts and reports</div>
                 </div>
-                <GraduationCap size={18} style={{ color: 'var(--preone-primary)' }} />
+                <Building2 size={20} style={{ color: 'var(--primary)' }} />
               </div>
-              <div className="t-kpi" style={{ fontSize: 24 }}>{inr(p.totalAnnualCents, { compact: true })}<span className="unit">/year</span></div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-                {p.items.map((it, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}>
-                    <span style={{ color: 'var(--foreground-secondary)' }}>{it.label}</span>
-                    <b>{inr(it.amountCents)}</b>
-                  </div>
-                ))}
+
+              <div className="form-grid" style={{ marginTop: 16 }}>
+                <div className="field">
+                  <label>Preschool Name <span className="req">*</span></label>
+                  <input className="input" name="name" defaultValue={profile.name} required />
+                </div>
+                <div className="field">
+                  <label>School Code</label>
+                  <input className="input" value={profile.code} disabled title="Assigned by Platform Admin" />
+                </div>
+                <div className="field" style={{ gridColumn: '1/-1' }}>
+                  <label>Tagline / Motto</label>
+                  <input className="input" name="tagline" defaultValue={profile.tagline || ''} placeholder="e.g. Joyful Early Learning & Discovery" />
+                </div>
+                <div className="field">
+                  <label>Official Email</label>
+                  <input className="input" name="email" type="email" defaultValue={profile.email || ''} />
+                </div>
+                <div className="field">
+                  <label>Primary Phone</label>
+                  <input className="input" name="phone" defaultValue={profile.phone || ''} />
+                </div>
+                <div className="field" style={{ gridColumn: '1/-1' }}>
+                  <label>Campus Address</label>
+                  <input className="input" name="address" defaultValue={profile.address || ''} />
+                </div>
+                <div className="field">
+                  <label>City</label>
+                  <input className="input" name="city" defaultValue={profile.city || ''} />
+                </div>
+                <div className="field">
+                  <label>State</label>
+                  <input className="input" name="state" defaultValue={profile.state || ''} />
+                </div>
+                <div className="field">
+                  <label>Pincode</label>
+                  <input className="input" name="pincode" defaultValue={profile.pincode || ''} />
+                </div>
+                <div className="field">
+                  <label>GSTIN / Tax ID</label>
+                  <input className="input" name="gstNumber" defaultValue={profile.gstNumber || ''} placeholder="27ABCDE1234F1Z5" />
+                </div>
+                <div className="field">
+                  <label>Timezone</label>
+                  <select className="select" name="timezone" defaultValue={profile.timezone || 'Asia/Kolkata'}>
+                    <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
+                    <option value="UTC">UTC</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Brand Theme Color</label>
+                  <input className="input" name="themeColor" type="color" defaultValue={profile.themeColor || '#4F46E5'} style={{ height: 40 }} />
+                </div>
               </div>
-            </div>
-          ))}
-          {plans === null && [...Array(3)].map((_, i) => <div className="card" key={i}><Skeleton h={140} /></div>)}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>
+                  <Save size={15} /> Save Changes
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="card"><Skeleton h={220} /></div>
+          )}
         </div>
       )}
 
-      {/* Classroom modal */}
-      <Modal open={classOpen} onClose={() => setClassOpen(false)} title="Add Classroom" subtitle="Program-wise classroom with capacity" icon={<School size={22} />}>
-        <form onSubmit={createClass}>
-          <div className="field" style={{ marginBottom: 12 }}>
-            <label>Name <span className="req">*</span></label>
-            <input className="input" name="name" required placeholder="Nursery A" />
+      {/* TAB 2: Branches */}
+      {tab === 'branches' && (
+        <div className="dtable-wrap">
+          <div className="table-toolbar">
+            <div className="card-title">School Branches & Campuses</div>
+            <button className="btn btn-primary btn-sm" onClick={() => setBranchOpen(true)}>
+              <Plus size={14} /> Add Branch
+            </button>
           </div>
+          <div className="dtable-scroll">
+            <table className="dtable">
+              <thead>
+                <tr>
+                  <th>Branch</th>
+                  <th>Code</th>
+                  <th>Location</th>
+                  <th>Operating Timings</th>
+                  <th>Capacity</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {branches?.map((b) => (
+                  <tr key={b.id} style={{ cursor: 'default' }}>
+                    <td>
+                      <span className="cell-strong">{b.name}</span>
+                      {b.isMain && <span className="badge b-primary" style={{ marginLeft: 6, fontSize: 10 }}>HEAD OFFICE</span>}
+                    </td>
+                    <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{b.code}</span></td>
+                    <td>{b.city || b.address || '�'}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                        <Clock size={12} style={{ color: 'var(--muted)' }} />
+                        {b.timingOpen || '08:30'} � {b.timingClose || '16:00'}
+                      </div>
+                    </td>
+                    <td>{b.capacity ? `${b.capacity} children` : 'Flexible'}</td>
+                    <td><StatusBadge status={b.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {branches === null && <div style={{ padding: 16 }}>{[...Array(3)].map((_, i) => <Skeleton key={i} h={36} />)}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: Notifications */}
+      {tab === 'notifications' && (
+        <div className="card" style={{ maxWidth: 720 }}>
+          <div className="card-head">
+            <div>
+              <div className="card-title">Notification & Dispatch Channels</div>
+              <div className="card-sub">Channels used for daily timelines, fee reminders, and urgent broadcasts</div>
+            </div>
+            <Bell size={20} style={{ color: 'var(--primary)' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+            <div style={{ padding: 12, border: '1px solid var(--border-subtle)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <b>In-App Push & Child Timelines</b>
+                <div className="t-caption">Direct dispatch to parent app and web portal</div>
+              </div>
+              <span className="badge b-success"><CheckCircle size={12} /> ACTIVE</span>
+            </div>
+
+            <div style={{ padding: 12, border: '1px solid var(--border-subtle)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <b>WhatsApp Business API</b>
+                <div className="t-caption">Official template messaging for emergency notices and payment links</div>
+              </div>
+              <span className="badge b-neutral">CONFIGURED VIA GATEWAY</span>
+            </div>
+
+            <div style={{ padding: 12, border: '1px solid var(--border-subtle)', borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <b>Transactional SMS (DLT Approved)</b>
+                <div className="t-caption">High-priority OTPs and gate pickup verification alerts</div>
+              </div>
+              <span className="badge b-neutral">TELCO DLT READY</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: Document Templates */}
+      {tab === 'templates' && (
+        <div className="card" style={{ maxWidth: 720 }}>
+          <div className="card-head">
+            <div>
+              <div className="card-title">Official Document Templates</div>
+              <div className="card-sub">Standard preschool templates automatically formatted with school branding and signatures</div>
+            </div>
+            <FileText size={20} style={{ color: 'var(--primary)' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>
+            {[
+              { title: 'Payment Receipt', type: 'RECEIPT', status: 'DEFAULT APPLIED' },
+              { title: 'Student ID Card', type: 'ID_CARD', status: 'BARCODE VERIFIED' },
+              { title: 'Admission Form', type: 'ADMISSION_FORM', status: 'STANDARD 4-STEP' },
+              { title: 'Bonafide Certificate', type: 'CERTIFICATE', status: 'READY' },
+              { title: 'Development Report', type: 'REPORT_CARD', status: 'EYFS ALIGNED' },
+              { title: 'Medical Consent', type: 'CONSENT_FORM', status: 'READY' },
+            ].map((tmpl, idx) => (
+              <div key={idx} style={{ padding: 14, border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{tmpl.title}</div>
+                <div className="t-caption" style={{ marginTop: 2 }}>{tmpl.type}</div>
+                <div style={{ marginTop: 10 }}>
+                  <span className="badge b-success" style={{ fontSize: 10 }}>{tmpl.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: Security & Compliance */}
+      {tab === 'security' && (
+        <div className="card" style={{ maxWidth: 720 }}>
+          <div className="card-head">
+            <div>
+              <div className="card-title">Security, RBAC & DPDP Compliance</div>
+              <div className="card-sub">Digital Personal Data Protection (DPDP) Act 2023 posture & audit controls</div>
+            </div>
+            <ShieldCheck size={20} style={{ color: 'var(--primary)' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+            <div className="stat-mini">
+              <b style={{ fontSize: 14 }}>Multi-Tenant Row Scoping</b>
+              <span>Every entity isolated by tenantId</span>
+            </div>
+            <div className="stat-mini">
+              <b style={{ fontSize: 14 }}>Role-Based Access Control</b>
+              <span>8 granular roles with principle of least privilege</span>
+            </div>
+            <div className="stat-mini">
+              <b style={{ fontSize: 14 }}>DPDP Minor Consent</b>
+              <span>Digital parental consent logged on every admission</span>
+            </div>
+            <div className="stat-mini">
+              <b style={{ fontSize: 14 }}>Tamper-Evident Audit</b>
+              <span>Immutable audit logs recording IP, user agent, before/after values</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Branch Modal */}
+      <Modal
+        open={branchOpen}
+        onClose={() => setBranchOpen(false)}
+        title="Add Campus Branch"
+        subtitle="Create a new physical preschool branch"
+        icon={<GitBranch size={22} />}
+        wide
+      >
+        <form onSubmit={createBranch}>
           <div className="form-grid">
             <div className="field">
-              <label>Program</label>
-              <select className="select" name="programType" defaultValue="NURSERY">
-                {['PLAYGROUP','NURSERY','LKG','UKG','DAYCARE'].map((p) => <option key={p} value={p}>{enumLabel(p)}</option>)}
-              </select>
+              <label>Branch Name <span className="req">*</span></label>
+              <input className="input" name="name" required placeholder="e.g. PreOne Koramangala" />
+            </div>
+            <div className="field">
+              <label>Branch Code <span className="req">*</span></label>
+              <input className="input" name="code" required placeholder="KRM" style={{ textTransform: 'uppercase' }} />
+            </div>
+            <div className="field" style={{ gridColumn: '1/-1' }}>
+              <label>Street Address</label>
+              <input className="input" name="address" placeholder="8th Block, 80 Feet Road" />
+            </div>
+            <div className="field">
+              <label>City</label>
+              <input className="input" name="city" placeholder="Bengaluru" />
+            </div>
+            <div className="field">
+              <label>Phone</label>
+              <input className="input" name="phone" placeholder="+91 98765 43210" />
+            </div>
+            <div className="field">
+              <label>Opening Time</label>
+              <input className="input" name="timingOpen" type="time" defaultValue="08:30" />
+            </div>
+            <div className="field">
+              <label>Closing Time</label>
+              <input className="input" name="timingClose" type="time" defaultValue="16:00" />
             </div>
             <div className="field">
               <label>Capacity</label>
-              <input className="input" name="capacity" type="number" min="1" defaultValue="20" />
+              <input className="input" name="capacity" type="number" placeholder="60" />
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setClassOpen(false)}>Cancel</button>
-            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create</button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Staff modal */}
-      <Modal open={staffOpen} onClose={() => setStaffOpen(false)} title="Add Staff" subtitle="Account + role assignment (immediate access)" icon={<Users size={22} />} wide>
-        <form onSubmit={createStaff}>
-          <div className="form-grid">
-            <div className="field"><label>Full Name <span className="req">*</span></label><input className="input" name="fullName" required /></div>
-            <div className="field"><label>Email <span className="req">*</span></label><input className="input" name="email" type="email" required /></div>
-            <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-            <div className="field"><label>Temp Password <span className="req">*</span></label><input className="input" name="password" required minLength={6} defaultValue="Welcome@123" /></div>
-            <div className="field">
-              <label>Role <span className="req">*</span></label>
-              <select className="select" name="role" defaultValue="TEACHER">
-                {['PRINCIPAL','COORDINATOR','TEACHER','ACCOUNTS','RECEPTION'].map((r) => (
-                  <option key={r} value={r}>{enumLabel(r)}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setStaffOpen(false)}>Cancel</button>
-            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Add Staff</button>
+            <button type="button" className="btn btn-ghost" onClick={() => setBranchOpen(false)}>Cancel</button>
+            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Branch</button>
           </div>
         </form>
       </Modal>

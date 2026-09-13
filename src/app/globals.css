@@ -15,6 +15,7 @@
    One beautiful operating system for every preschool.
    ════════════════════════════════════════════════════════════════════ */
 :root{
+  color-scheme:light;
   /* ── Brand (LOCKED to official PreOne logo — cyan→blue→purple) ── */
   --preone-primary:#7C3AED;
   --preone-primary-hover:#6D28D9;
@@ -112,6 +113,7 @@
 
 /* ── DARK THEME — "Deep Space" ultra-premium dark ── */
 [data-theme="dark"]{
+  color-scheme:dark;
   --preone-primary:#8B5CF6;
   --preone-primary-hover:#9333EA;
   --preone-primary-active:#7E22CE;
@@ -162,13 +164,21 @@
 /* ── Base ─────────────────────────────────────────────────────────── */
 *{box-sizing:border-box}
 html,body{padding:0;margin:0}
+html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--preone-primary) transparent}
 body{
   font-family:var(--font-sans);
   font-size:15px;line-height:1.6;
   color:var(--foreground);
-  background:var(--background);
+  background:
+    radial-gradient(44% 38% at 8% -6%,rgba(124,58,237,.06),transparent 62%),
+    radial-gradient(40% 32% at 96% 4%,rgba(0,204,255,.07),transparent 64%),
+    radial-gradient(52% 42% at 50% 108%,rgba(59,130,246,.05),transparent 68%),
+    var(--background);
+  background-attachment:fixed;
   -webkit-font-smoothing:antialiased;
 }
+::selection{background:var(--preone-primary);color:var(--preone-primary-foreground)}
+::-moz-selection{background:var(--preone-primary);color:var(--preone-primary-foreground)}
 h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.02em;line-height:1.25}
 p{margin:0}
 a{color:var(--preone-primary);text-decoration:none}
@@ -256,6 +266,16 @@ a{color:var(--preone-primary);text-decoration:none}
   appearance:none;cursor:pointer;padding-right:36px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237B80A2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 12px center;
+}
+/* Kill the browser yellow autofill while keeping theme colors */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus,
+.textarea:-webkit-autofill{
+  -webkit-text-fill-color:var(--foreground);
+  -webkit-box-shadow:0 0 0 1000px var(--surface) inset;
+  caret-color:var(--foreground);
+  transition:background-color 999999s ease-in-out 0s;
 }
 .helper{font-size:12px;color:var(--foreground-muted)}
 .msg{font-size:12px;color:var(--danger)}
@@ -496,7 +516,7 @@ a{color:var(--preone-primary);text-decoration:none}
 
 .taskbar{
   position:fixed;left:0;right:0;bottom:0;height:var(--taskbar-h);z-index:200;
-  display:flex;align-items:center;gap:4px;padding:0 14px;
+  display:flex;align-items:center;justify-content:center;gap:4px;padding:0 14px;
   background:color-mix(in srgb,var(--surface) 78%,transparent);
   backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
   border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent);
@@ -521,7 +541,7 @@ a{color:var(--preone-primary);text-decoration:none}
 .tb-pin:hover{transform:translateY(-2px);background:var(--surface-hover);color:var(--preone-primary)}
 .tb-pin.active{color:var(--preone-primary);background:var(--preone-primary-soft)}
 .tb-pin.active::after{content:"";position:absolute;bottom:3px;left:14px;width:16px;height:3.5px;border-radius:3px;background:var(--preone-primary)}
-.tb-right{margin-left:auto;display:flex;align-items:center;gap:4px}
+.tb-right{position:absolute;right:14px;display:flex;align-items:center;gap:4px}
 .tb-clock{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;padding:0 10px 0 6px;font-variant-numeric:tabular-nums}
 .tb-clock b{font-size:12.5px;font-weight:700;color:var(--foreground)}
 .tb-clock span{font-size:10px;color:var(--foreground-muted)}
@@ -588,7 +608,7 @@ a{color:var(--preone-primary);text-decoration:none}
 
 /* ── Page canvas ──────────────────────────────────────────────────── */
 .app-main{padding:calc(var(--header-h) + var(--space-24)) var(--space-24) calc(var(--taskbar-h) + 84px);min-height:100vh}
-.app-content{max-width:var(--content-max);margin:0 auto;display:flex;flex-direction:column;gap:var(--space-24)}
+.app-content{max-width:none;margin:0 auto;display:flex;flex-direction:column;gap:var(--space-24)}
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .page-head .sub{font-size:13.5px;color:var(--foreground-secondary);margin-top:3px}
 .page-actions{display:flex;gap:10px;flex-wrap:wrap}
@@ -717,4 +737,194 @@ a{color:var(--preone-primary);text-decoration:none}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+  html{scroll-behavior:auto}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   ENHANCEMENTS v2 — focus rings / tooltips / chips / switches / print / safe-area
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Focus rings for interactive elements (restore ring lost to class box-shadows) ── */
+.btn:focus-visible,
+.h-icbtn:focus-visible,
+.x-btn:focus-visible,
+.tb-pin:focus-visible,
+.tb-start:focus-visible,
+.h-avatar:focus-visible,
+.pager button:focus-visible,
+.demo-cred button:focus-visible{
+  outline:none;
+  box-shadow:var(--focus-ring);
+}
+.btn-primary:focus-visible{
+  box-shadow:var(--focus-ring),
+    0 3px 12px color-mix(in srgb,var(--preone-primary) 36%,transparent);
+}
+.btn-hero:focus-visible{
+  box-shadow:var(--focus-ring),
+    0 10px 30px color-mix(in srgb,var(--preone-primary) 45%,transparent);
+}
+.tb-start.on:focus-visible{
+  box-shadow:var(--focus-ring),0 0 24px color-mix(in srgb,var(--preone-primary) 28%,transparent);
+}
+
+/* ── Buttons: hero shine sweep on hover ── */
+.btn-hero{position:relative;overflow:hidden}
+.btn-hero::before{
+  content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.5),transparent);
+  transform:skewX(-18deg);transition:left .55s var(--ease-standard);pointer-events:none;
+}
+.btn-hero:hover::before{left:140%}
+
+/* ── Card / KPI hover ring (brand ring + elevated shadow instead of flat lift) ── */
+.card-hover:hover{
+  box-shadow:var(--shadow-elevated),
+    0 0 0 1px color-mix(in srgb,var(--preone-primary) 40%,transparent);
+}
+.kpi:hover{
+  box-shadow:var(--shadow-elevated),
+    0 0 0 1px color-mix(in srgb,var(--preone-primary) 35%,transparent);
+}
+.kcard:hover{
+  box-shadow:var(--shadow-elevated),
+    0 0 0 1px color-mix(in srgb,var(--preone-primary) 35%,transparent);
+}
+
+/* ── Generic <kbd> chip ── */
+kbd{
+  display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;
+  border-radius:6px;font-family:var(--font-sans);font-size:11px;font-weight:600;line-height:1;
+  background:var(--surface-muted);border:1px solid var(--border-subtle);
+  box-shadow:0 1px 0 var(--border-strong) inset,0 1px 0 var(--border-strong);
+  color:var(--foreground-secondary);
+}
+
+/* ── Pure-CSS tooltip: any element with [data-tip="…"] ── */
+[data-tip]{position:relative}
+[data-tip]:hover::before,
+[data-tip]:focus-visible::before{
+  content:attr(data-tip);
+  position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);
+  padding:6px 10px;border-radius:10px;background:var(--foreground);color:var(--background);
+  font-size:12px;font-weight:600;white-space:nowrap;z-index:650;pointer-events:none;
+  box-shadow:var(--shadow-elevated);animation:fade-in var(--motion-fast) var(--ease-standard);
+}
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after{
+  content:"";position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--foreground);pointer-events:none;
+}
+[data-tip="bottom"]:hover::before,
+[data-tip="bottom"]:focus-visible::before{
+  bottom:auto;top:calc(100% + 9px);
+}
+[data-tip="bottom"]:hover::after,
+[data-tip="bottom"]:focus-visible::after{
+  bottom:auto;top:calc(100% + 4px);
+  border-top-color:transparent;border-bottom-color:var(--foreground);
+}
+
+/* ── Reusable chip (smaller sibling of .badge) ── */
+.chip{
+  display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 9px;border-radius:999px;
+  font-size:11px;font-weight:600;color:var(--foreground-secondary);
+  background:var(--surface-hover);border:1px solid var(--border-subtle);white-space:nowrap;
+}
+.chip svg{width:11px;height:11px}
+.chip button{
+  display:inline-flex;align-items:center;justify-content:center;border:none;background:none;
+  padding:0;margin:0 -3px 0 0;color:inherit;cursor:pointer;border-radius:50%;
+}
+.chip button:hover{color:var(--danger)}
+
+/* ── Toggle switch (matches the Radix Switch shipped in deps) ── */
+.switch{position:relative;display:inline-flex;width:44px;height:26px;flex:none;cursor:pointer}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch .track{position:absolute;inset:0;border-radius:999px;background:var(--input-border);transition:background var(--motion-fast) var(--ease-standard)}
+.switch .track::after{
+  content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+  background:#fff;box-shadow:var(--shadow-soft);transition:transform var(--motion-fast) var(--ease-standard);
+}
+.switch input:checked + .track{background:var(--preone-primary)}
+.switch input:checked + .track::after{transform:translateX(18px)}
+.switch input:focus-visible + .track{box-shadow:var(--focus-ring)}
+.switch input:disabled + .track{opacity:.5;cursor:not-allowed}
+
+/* ── Login panel ambience orbs (add <span class="orb o1"/> etc. in markup) ── */
+.orb.o1{width:220px;height:220px;background:linear-gradient(135deg,rgba(255,255,255,.55),transparent);top:6%;right:8%;animation:float 9s ease-in-out infinite}
+.orb.o2{width:150px;height:150px;background:rgba(0,204,255,.45);bottom:12%;left:6%;animation:float 12s ease-in-out .5s infinite reverse}
+.orb.o3{width:96px;height:96px;background:rgba(255,255,255,.4);top:30%;left:22%;animation:float 11s ease-in-out 1.2s infinite}
+
+/* ── Taskbar safe-area (notched phones) ── */
+.taskbar{
+  height:calc(var(--taskbar-h) + env(safe-area-inset-bottom,0px));
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+
+/* ── Responsive collapse before the 980px cutoff ── */
+@media (max-width:1160px){
+  .kpi-row{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .form-grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+}
+@media (max-width:900px){
+  .dash-grid{grid-template-columns:1fr!important}
+}
+@media (max-width:720px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+  .page-head{flex-direction:column}
+  /* flatten every module grid that is hard-coded inline to two columns */
+  [style*="grid-template-columns"]{grid-template-columns:1fr!important}
+}
+@media (max-width:480px){
+  .kpi-row{grid-template-columns:1fr}
+}
+
+/* ── Mobile shell refinements ── */
+@media (max-width:760px){
+  .app-header{padding:0 14px;gap:10px}
+}
+@media (max-width:560px){
+  .ovl{align-items:flex-end;padding:0}
+  .modal,.modal-wide{
+    width:100%;max-width:100vw;
+    border-radius:24px 24px 0 0;
+    max-height:94vh;
+  }
+  .modal-head{padding:18px 18px 0}
+  .modal-body{padding:14px 18px}
+  .modal-foot{padding:12px 18px 20px}
+  .taskbar{gap:2px}
+  .tb-sep{display:none}
+  .tb-pin:nth-of-type(n+5){display:none}
+  .sm-foot{flex-direction:column;align-items:stretch}
+}
+
+/* ── Clean print export (invoices / receipts / certificates) ── */
+@media print{
+  @page{margin:16mm}
+  body{background:#fff!important;font-size:12px}
+  .app-header,
+  .taskbar,
+  .startmenu,
+  .toast-stack,
+  .h-icbtn,
+  .page-actions,
+  .table-toolbar,
+  .pager{display:none!important}
+  .app-main{padding:0}
+  .app-content{max-width:none;gap:12px}
+  .card,.kpi,.dtable-wrap{
+    box-shadow:none!important;border:1px solid #d9d9d9;
+    break-inside:avoid;
+  }
+  .dtable thead th{background:#f4f4f4!important}
+  a{color:inherit}
+  *,
+  *::before,
+  *::after{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
 }

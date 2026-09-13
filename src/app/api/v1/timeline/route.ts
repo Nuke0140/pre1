@@ -3,10 +3,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 
-/**
- * GET /api/v1/timeline?studentId= — parent timeline (reverse-chronological).
- * Parents auto-scope to their own children (RBAC: Own).
- */
+/** GET /api/v1/timeline — parent timeline or classroom feed (API Catalog §18) */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'timeline:read')
   if (isResponse(session)) return session
@@ -23,7 +20,7 @@ export async function GET(req: NextRequest) {
         include: { studentLinks: { select: { studentId: true } } },
       })
       childrenIds = guardians.flatMap((g) => g.studentLinks.map((l) => l.studentId))
-      if (studentId && !childrenIds.includes(studentId)) {
+      if (studentId && childrenIds && !childrenIds.includes(studentId)) {
         return Errors.forbidden('You can only view your own child')
       }
       studentId = null // show all children
@@ -33,7 +30,7 @@ export async function GET(req: NextRequest) {
       where: {
         tenantId: session.tenantId,
         ...(studentId ? { studentId } : {}),
-        ...(childrenIds ? { studentId: { in: childrenIds } } : {}),
+        ...(childrenIds !== null ? { studentId: { in: childrenIds } } : {}),
       },
       include: {
         student: { select: { firstName: true, lastName: true } },
@@ -48,11 +45,14 @@ export async function GET(req: NextRequest) {
         type: e.type,
         title: e.title,
         body: e.body,
+        mediaUrl: e.mediaUrl,
         mood: e.mood,
-        photoUrl: e.photoUrl,
-        at: e.createdAt,
-        studentId: e.studentId,
-        studentName: `${e.student.firstName} ${e.student.lastName || ''}`.trim(),
+        activityType: e.activityType,
+        mealType: e.mealType,
+        napDurationMin: e.napDurationMin,
+        incidentSeverity: e.incidentSeverity,
+        createdAt: e.createdAt,
+        childName: `${e.student.firstName} ${e.student.lastName || ''}`.trim(),
       }))
     )
   } catch (e) {

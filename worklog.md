@@ -195,3 +195,21 @@ Stage Summary:
 - P0 (no decisions needed): tenant-scope 9 routes; capacity atomic guard; payment idempotency+tx balance; parent invoice/SSR scoping; SSR auth class fix
 - 10 product decisions logged (PC-1..PC-10: role canon, admission entity, refunds, AI scope, attendance lock, parent provisioning, Growth Passport name, channels, hash-chain, capacity level)
 - Server: prod build :3000 + PG :54329 running; demo accounts unchanged; test-tenant artifacts documented in audit §24
+
+---
+Task ID: 11
+Agent: main (Antigravity)
+Task: Replace PreOne brand logos with newly uploaded high-definition artwork
+
+Work Log:
+- Ingested new transparent RGBA logo upload (media_1789134821925.png) featuring improved typography, cleanly separated lettering ("P", "r", "e", "O", "n", "e"), and refined planet emblem with orbit ring
+- Built reproducible asset generation script (`scripts/update-brand-assets.py`) using PIL and NumPy:
+  - Master source: saved to `upload/preone_logo.png`
+  - Full Wordmark (`public/preone-logo.png` & `download/assets/preone-logo.png`): content-cropped to bounding box and scaled to 1000x470 (LANCZOS, optimized)
+  - Planet Emblem Mark (`public/preone-mark.png` & `download/assets/preone-mark.png`): masked planet 'O' + tilted orbit ring with antialiased edge feathering, centered in 512x512 square canvas with balanced padding
+  - Next.js Favicon & App Icons (`src/app/icon.png` 128x128, `src/app/apple-icon.png` 180x180)
+- Verified all endpoints via live HTTP requests on :3000 (`/preone-logo.png`, `/preone-mark.png`, `/icon.png`, `/apple-icon.png` all returning 200 OK)
+
+Stage Summary:
+- New brand logo deployed across the entire application (header, taskbar start menu, login cards, platform onboarding console, favicons, and documentation assets)
+

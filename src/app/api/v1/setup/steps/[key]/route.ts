@@ -28,7 +28,7 @@ export async function POST(
     else return Errors.validation('action must be complete | skip | reopen')
 
     if (!result.ok) {
-      return Errors.business('SETUP_002', result.message, 422, result.detail)
+      return Errors.business('SETUP_002', result.message, 422)
     }
     return ok(result)
   } catch (e) {

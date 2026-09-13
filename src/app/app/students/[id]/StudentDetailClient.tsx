@@ -16,6 +16,7 @@ interface Props {
   student: {
     id: string
     admissionNo: string
+    seatNumber?: string | null
     name: string
     firstName: string
     dob: string
@@ -118,6 +119,11 @@ export function StudentDetailClient({ student }: Props) {
           </div>
           <div className="t-body" style={{ marginTop: 4 }}>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{student.admissionNo}</span>
+            {student.seatNumber && (
+              <span className="badge b-info" style={{ marginLeft: 6, fontSize: 11 }}>
+                Seat: {student.seatNumber}
+              </span>
+            )}
             {' · '}
             {student.classroom ? `${student.classroom.name} (${enumLabel(student.classroom.programType)})` : 'No classroom'}
             {' · '}

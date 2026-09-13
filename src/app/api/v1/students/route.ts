@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 
-/** GET /api/v1/students — paginated list w/ search + filters (API Catalog §16) */
+/** GET /api/v1/students - paginated list w/ search + filters (API Catalog §16) */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'students:read')
   if (isResponse(session)) return session
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/v1/students — create student + guardian (student:write) */
+/** POST /api/v1/students - create student + guardian (student:write) */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'students:write')
   if (isResponse(session)) return session
@@ -101,6 +101,26 @@ export async function POST(req: NextRequest) {
     const count = await db.student.count({ where: { tenantId: session.tenantId } })
     const admissionNo = `STU-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`
 
+    let classroom: { id: string; academicSessionId: string; programType: any; capacity: number } | null = null
+    if (classroomId) {
+      classroom = await db.classroom.findFirst({
+        where: { id: classroomId, tenantId: session.tenantId, isActive: true },
+        select: { id: true, academicSessionId: true, programType: true, capacity: true },
+      })
+      if (!classroom) return Errors.notFound('Classroom')
+
+      const activeInClass = await db.student.count({
+        where: { currentClassroomId: classroom.id, tenantId: session.tenantId, status: 'ACTIVE', deletedAt: null },
+      })
+      if (activeInClass >= classroom.capacity) {
+        return Errors.business(
+          'BUSINESS_CLASS_FULL',
+          `Classroom is at full capacity (${activeInClass}/${classroom.capacity})`,
+          422
+        )
+      }
+    }
+
     const student = await db.$transaction(async (tx) => {
       const s = await tx.student.create({
         data: {
@@ -113,7 +133,7 @@ export async function POST(req: NextRequest) {
           gender,
           bloodGroup: bloodGroup || null,
           address: address || null,
-          currentClassroomId: classroomId || null,
+          currentClassroomId: classroom?.id || null,
         },
       })
 
@@ -129,6 +149,25 @@ export async function POST(req: NextRequest) {
       await tx.studentGuardian.create({
         data: { studentId: s.id, guardianId: guardian.id, isPrimary: true, canPickup: true, isFeePayer: true },
       })
+
+      // Create StudentAllocation record for historical tracking if classroom assigned
+      if (classroom) {
+        await tx.studentAllocation.create({
+          data: {
+            tenantId: session.tenantId!,
+            studentId: s.id,
+            academicSessionId: classroom.academicSessionId,
+            classroomId: classroom.id,
+            programType: classroom.programType,
+            status: 'ACTIVE',
+            startedAt: new Date(),
+            reason: 'Direct enrollment',
+            createdById: session.uid,
+            createdByName: session.name,
+          },
+        })
+      }
+
       return s
     })
 

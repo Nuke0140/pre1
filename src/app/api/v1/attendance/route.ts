@@ -30,7 +30,9 @@ export async function GET(req: NextRequest) {
       where: { tenantId: session.tenantId, classroomId, date: new Date(date) },
     })
 
-    const byStudent = new Map(records.map((r) => [r.studentId, r]))
+    const byStudent = new Map<string, (typeof records)[number]>(
+      records.map((r) => [r.studentId, r])
+    )
     return ok({
       date,
       students: students.map((s) => {

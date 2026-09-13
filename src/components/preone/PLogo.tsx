@@ -4,11 +4,13 @@
  * PreOne brand assets — the real uploaded logo:
  *   /preone-mark.png  = planet emblem (disc + orbit ring), square, transparent
  *   /preone-logo.png  = full glossy wordmark "PreOne", transparent
+ * Bump ASSET_VERSION when the logo files are regenerated to bust stale browser caches.
  */
+const ASSET_VERSION = 'v2'
 export function PLogoMark({ size = 36, className = '' }: { size?: number; className?: string }) {
   return (
     <img
-      src="/preone-mark.png"
+      src={`/preone-mark.png?${ASSET_VERSION}`}
       width={size}
       height={size}
       className={`mark ${className}`}
@@ -22,7 +24,7 @@ export function PLogoMark({ size = 36, className = '' }: { size?: number; classN
 export function PLogoWordmark({ subtitle = 'Preschool OS' }: { subtitle?: string }) {
   return (
     <span className="wordmark">
-      <img src="/preone-logo.png" alt="PreOne" className="wm-img" draggable={false} />
+      <img src={`/preone-logo.png?${ASSET_VERSION}`} alt="PreOne" className="wm-img" draggable={false} />
       {subtitle ? <span>{subtitle}</span> : null}
     </span>
   )

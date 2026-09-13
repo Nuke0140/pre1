@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-/** PreOne API v1 envelope â€” { success, data, meta?, traceId } (API Contract Catalog Â§8) */
+/** PreOne API v1 envelope — { success, data, meta?, traceId } (API Contract Catalog §8) */
 export function traceId(): string {
   return (
     Date.now().toString(16) + Math.random().toString(16).slice(2, 10)
@@ -46,3 +46,9 @@ export const Errors = {
     return fail('SYSTEM_001', 'Something went wrong on our side', 500)
   },
 }
+
+export const bad = (message: string, code = 'BAD_REQUEST', field?: string) => fail(code, message, 400, field)
+export const forbidden = (message = 'Forbidden') => Errors.forbidden(message)
+export const notFound = (message = 'Resource not found') => fail('NOT_FOUND', message, 404)
+export const conflict = (message: string) => Errors.conflict(message)
+export const serverError = (e?: unknown) => Errors.system(e)

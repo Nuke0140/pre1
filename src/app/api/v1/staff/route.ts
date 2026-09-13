@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     })
     const memberships = await db.tenantUser.findMany({ where: { tenantId: session.tenantId, deletedAt: null } })
-    const mByUser = new Map(memberships.map((m) => [m.userId, m]))
+    const mByUser = new Map<string, any>(memberships.map((m) => [m.userId, m]))
     const taughtCounts = await db.classroom.groupBy({
       by: ['primaryTeacherId'],
       where: { tenantId: session.tenantId, isActive: true, primaryTeacherId: { not: null } },
@@ -75,14 +75,28 @@ export async function POST(req: NextRequest) {
       if (!branch) return Errors.notFound('Branch')
     }
 
-    let uid: string
+    let profile: { id: string }
     if (mode === 'link') {
       if (!userId) return Errors.validation('userId required for link mode')
       const m = await db.tenantUser.findFirst({ where: { tenantId: session.tenantId, userId, deletedAt: null } })
       if (!m) return Errors.notFound('Tenant member — create the account first')
-      uid = userId
       const existingProfile = await db.staffProfile.findFirst({ where: { userId, deletedAt: null } })
       if (existingProfile) return Errors.conflict('This user already has a staff profile')
+
+      profile = await db.staffProfile.create({
+        data: {
+          tenantId: session.tenantId,
+          userId,
+          branchId: branchId || null,
+          employeeCode,
+          designation: designation || null,
+          qualification: qualification || null,
+          joiningDate: joiningDate ? new Date(joiningDate) : null,
+          employmentType: employmentType || 'REGULAR',
+          emergencyContactName: emergencyContactName || null,
+          emergencyContactPhone: emergencyContactPhone || null,
+        },
+      })
     } else {
       if (!fullName || !email || !password || !role) {
         return Errors.validation('fullName, email, password and role are required for new staff')
@@ -94,32 +108,36 @@ export async function POST(req: NextRequest) {
       const existingUser = await db.user.findUnique({ where: { email: String(email).toLowerCase() } })
       if (existingUser) return Errors.conflict('A user with this email already exists')
 
-      const created = await db.$transaction(async (tx) => {
+      profile = await db.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
-            email: String(email).toLowerCase(), fullName, phone: body.phone || null,
-            passwordHash: await bcrypt.hash(password, 10), status: 'ACTIVE',
+            email: String(email).toLowerCase(),
+            fullName,
+            phone: body.phone || null,
+            passwordHash: await bcrypt.hash(password, 10),
+            status: 'ACTIVE',
           },
         })
         await tx.tenantUser.create({
           data: { tenantId: session.tenantId!, userId: user.id, role, branchId: branchId || null },
         })
-        return user
+        const p = await tx.staffProfile.create({
+          data: {
+            tenantId: session.tenantId!,
+            userId: user.id,
+            branchId: branchId || null,
+            employeeCode,
+            designation: designation || null,
+            qualification: qualification || null,
+            joiningDate: joiningDate ? new Date(joiningDate) : null,
+            employmentType: employmentType || 'REGULAR',
+            emergencyContactName: emergencyContactName || null,
+            emergencyContactPhone: emergencyContactPhone || null,
+          },
+        })
+        return p
       })
-      uid = created.id
     }
-
-    const profile = await db.staffProfile.create({
-      data: {
-        tenantId: session.tenantId, userId: uid,
-        branchId: branchId || null, employeeCode,
-        designation: designation || null, qualification: qualification || null,
-        joiningDate: joiningDate ? new Date(joiningDate) : null,
-        employmentType: employmentType || 'REGULAR',
-        emergencyContactName: emergencyContactName || null,
-        emergencyContactPhone: emergencyContactPhone || null,
-      },
-    })
     await audit({
       tenantId: session.tenantId, actorId: session.uid, actorName: session.name,
       action: 'CREATE', entity: 'StaffProfile', entityId: profile.id,

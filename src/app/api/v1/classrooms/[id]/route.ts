@@ -3,9 +3,10 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
+import { ConfigurationService } from '@/lib/setup/config-service'
 
 /**
- * PATCH /api/v1/classrooms/{id} — assign teacher / link program & facility /
+ * PATCH /api/v1/classrooms/{id} - assign teacher / link program & facility /
  * adjust capacity (M00 Steps: Classes & Sections, Teacher Assignment)
  */
 export async function PATCH(
@@ -58,8 +59,9 @@ export async function PATCH(
     if ('capacity' in body && body.capacity != null) {
       const cap = Number(body.capacity)
       if (!Number.isFinite(cap) || cap < 1) return Errors.validation('capacity must be a positive number')
-      if (cap < classroom.capacity && cap < (await db.student.count({ where: { currentClassroomId: id } }))) {
-        return Errors.business('SETUP_004', `Capacity cannot be lower than ${await db.student.count({ where: { currentClassroomId: id } })} already-enrolled students (over-allocation guard)`, 422)
+      const check = await ConfigurationService.validateClassroomCapacity(session.tenantId, id, cap)
+      if (!check.valid) {
+        return Errors.business('SETUP_004', check.message || 'Capacity over-allocation guard violation', 422)
       }
       data.capacity = cap
     }

@@ -1,78 +1,54 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit, nextNumber } from '@/lib/sequence'
+import { db } from '@/lib/db'
+import { AdmissionService } from '@/lib/admissions/admission-service'
 
-/** POST /api/v1/leads/{id}/convert — Lead → Admission Application */
+/**
+ * POST /api/v1/leads/{id}/convert — Start Admission Form from Enquiry
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireApi(req, 'admissions:write')
   if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
   const { id } = await params
 
   try {
-    const lead = await db.lead.findUnique({ where: { id } })
-    if (!lead || lead.deletedAt) return Errors.notFound('Lead')
+    const lead = await db.lead.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
+    })
+    if (!lead) return Errors.notFound('Enquiry')
     if (lead.status === 'CONVERTED') {
-      return Errors.conflict('Lead is already converted')
+      return Errors.conflict('Enquiry is already converted')
     }
 
-    const applicationNumber = await nextNumber('application', session.tenantId)
-    const branch = await db.branch.findFirst({
-      where: { tenantId: session.tenantId, isMain: true },
-    })
-    if (!branch) return Errors.notFound('Branch')
+    const app = await AdmissionService.submitApplication(
+      {
+        tenantId: session.tenantId,
+        branchId: lead.branchId || session.branchId || '',
+        academicYearId: '',
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      {
+        leadId: lead.id,
+        programType: lead.interestedProgram || 'NURSERY',
+        childFirstName: lead.childName || lead.parentName.split(' ')[0] || 'Child',
+        childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
+        parentName: lead.parentName,
+        parentPhone: lead.phone,
+        parentEmail: lead.email,
+        notes: `Converted from Enquiry ${lead.leadNumber}`,
+      }
+    )
 
-    const application = await db.$transaction(async (tx) => {
-      const app = await tx.admissionApplication.create({
-        data: {
-          tenantId: session.tenantId!,
-          branchId: branch.id,
-          applicationNumber,
-          leadId: lead.id,
-          programType: lead.interestedProgram || 'NURSERY',
-          childFirstName: lead.childName || lead.parentName.split(' ')[0] || 'Child',
-          childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
-          childGender: 'UNSPECIFIED',
-          parentName: lead.parentName,
-          parentPhone: lead.phone,
-          parentEmail: lead.email,
-          status: 'SUBMITTED',
-          submittedAt: new Date(),
-        },
-      })
-      await tx.lead.update({
-        where: { id: lead.id },
-        data: { status: 'APPLICATION_STARTED', convertedApplicationId: app.id },
-      })
-      // mandatory doc checklist — SAME as direct applications POST (BRC §Eligibility):
-      // a converted application must collect + verify documents before approval
-      await tx.applicationDocument.createMany({
-        data: [
-          { applicationId: app.id, docType: 'BIRTH_CERTIFICATE', fileName: 'birth-certificate.pdf' },
-          { applicationId: app.id, docType: 'PHOTO', fileName: 'child-photo.jpg' },
-          { applicationId: app.id, docType: 'PARENT_ID', fileName: 'parent-id.pdf' },
-          { applicationId: app.id, docType: 'MEDICAL_CERTIFICATE', fileName: 'medical-fitness.pdf' },
-        ],
-      })
-      return app
-    })
-
-    await audit({
-      tenantId: session.tenantId,
-      actorId: session.uid,
-      actorName: session.name,
-      action: 'CONVERT',
-      entity: 'Lead',
-      entityId: lead.id,
-      summary: `Lead ${lead.leadNumber} converted to application ${applicationNumber}`,
-    })
-
-    return ok({ applicationId: application.id, applicationNumber }, undefined, 201)
-  } catch (e) {
-    return Errors.system(e)
+    return ok({ applicationId: app.id, applicationNumber: app.applicationNumber }, undefined, 201)
+  } catch (e: any) {
+    return Errors.business('CONVERT_FAILED', e.message || 'Failed to convert enquiry to application', 422)
   }
 }

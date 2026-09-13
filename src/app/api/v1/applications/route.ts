@@ -2,9 +2,13 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit, nextNumber } from '@/lib/sequence'
+import { AdmissionService } from '@/lib/admissions/admission-service'
 
-/** GET /api/v1/applications — admission pipeline */
+/**
+ * GET /api/v1/applications — Admission Forms list
+ * Required Scopes: tenantId (from session), branchId, academicYearId
+ * Filters: status, programType, search (child/parent/phone/applicationNumber)
+ */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'admissions:read')
   if (isResponse(session)) return session
@@ -12,16 +16,41 @@ export async function GET(req: NextRequest) {
 
   try {
     const sp = req.nextUrl.searchParams
+    const branchId = sp.get('branchId') || session.branchId
+    const academicYearId = sp.get('academicYearId') || sp.get('academicSessionId')
     const status = sp.get('status')
+    const programType = sp.get('programType')
+    const search = sp.get('q')?.trim()
+
+    const scope = await AdmissionService.verifyScope(session.tenantId, branchId, academicYearId)
+
+    const where: any = {
+      tenantId: scope.tenantId,
+      deletedAt: null,
+      branchId: scope.branchId,
+      ...(status ? { status } : {}),
+      ...(programType ? { programType } : {}),
+    }
+
+    if (search) {
+      where.OR = [
+        { applicationNumber: { contains: search, mode: 'insensitive' } },
+        { childFirstName: { contains: search, mode: 'insensitive' } },
+        { childLastName: { contains: search, mode: 'insensitive' } },
+        { parentName: { contains: search, mode: 'insensitive' } },
+        { parentPhone: { contains: search } },
+      ]
+    }
+
     const apps = await db.admissionApplication.findMany({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        ...(status ? { status: status as 'SUBMITTED' } : {}),
+      where,
+      include: {
+        documents: true,
+        lead: { select: { leadNumber: true, source: true } },
       },
-      include: { documents: true },
       orderBy: { createdAt: 'desc' },
     })
+
     return ok(
       apps.map((a) => ({
         id: a.id,
@@ -35,17 +64,36 @@ export async function GET(req: NextRequest) {
         parentEmail: a.parentEmail,
         status: a.status,
         submittedAt: a.submittedAt || a.createdAt,
+        verifiedAt: a.verifiedAt,
+        approvedAt: a.approvedAt,
+        studentId: a.studentId,
+        classroomId: a.classroomId,
+        leadNumber: a.lead?.leadNumber ?? null,
         documents: a.documents.map((d) => ({
-          id: d.id, docType: d.docType, fileName: d.fileName, verified: d.verified,
+          id: d.id,
+          docType: d.docType,
+          fileName: d.fileName,
+          verified: d.verified,
+          remarks: d.remarks,
         })),
-      }))
+      })),
+      {
+        total: apps.length,
+        scope: {
+          tenantId: scope.tenantId,
+          branchId: scope.branchId,
+          academicYearId: scope.academicYearId,
+        },
+      }
     )
   } catch (e) {
     return Errors.system(e)
   }
 }
 
-/** POST /api/v1/applications — parent-facing application or reception entry */
+/**
+ * POST /api/v1/applications — Submit or start an Admission Form
+ */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'admissions:write')
   if (isResponse(session)) return session
@@ -54,62 +102,51 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const {
-      childFirstName, childLastName, childDob, childGender,
-      programType, parentName, parentPhone, parentEmail, previousSchool, leadId,
+      branchId,
+      academicYearId,
+      childFirstName,
+      childLastName,
+      childDob,
+      childGender,
+      programType,
+      parentName,
+      parentPhone,
+      parentEmail,
+      alternatePhone,
+      address,
+      previousSchool,
+      leadId,
+      notes,
     } = body
 
-    if (!childFirstName || !childDob || !parentName || !parentPhone) {
-      return Errors.validation('childFirstName, childDob, parentName and parentPhone are required')
-    }
-
-    const branch = await db.branch.findFirst({
-      where: { tenantId: session.tenantId, isMain: true },
-    })
-    if (!branch) return Errors.notFound('Branch')
-
-    const applicationNumber = await nextNumber('application', session.tenantId)
-    const app = await db.admissionApplication.create({
-      data: {
+    const app = await AdmissionService.submitApplication(
+      {
         tenantId: session.tenantId,
-        branchId: branch.id,
-        applicationNumber,
-        leadId: leadId || null,
+        branchId: branchId || session.branchId,
+        academicYearId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      {
+        leadId,
         programType: programType || 'NURSERY',
         childFirstName,
-        childLastName: childLastName || null,
-        childDob: new Date(childDob),
-        childGender: childGender || 'UNSPECIFIED',
+        childLastName,
+        childDob,
+        childGender,
         parentName,
         parentPhone,
-        parentEmail: parentEmail || null,
-        previousSchool: previousSchool || null,
-        status: 'SUBMITTED',
-        submittedAt: new Date(),
-      },
-    })
+        parentEmail,
+        alternatePhone,
+        address,
+        previousSchool,
+        notes,
+      }
+    )
 
-    // mandatory doc checklist (BRC §Eligibility)
-    await db.applicationDocument.createMany({
-      data: [
-        { applicationId: app.id, docType: 'BIRTH_CERTIFICATE', fileName: 'birth-certificate.pdf' },
-        { applicationId: app.id, docType: 'PHOTO', fileName: 'child-photo.jpg' },
-        { applicationId: app.id, docType: 'PARENT_ID', fileName: 'parent-id.pdf' },
-        { applicationId: app.id, docType: 'MEDICAL_CERTIFICATE', fileName: 'medical-fitness.pdf' },
-      ],
-    })
-
-    await audit({
-      tenantId: session.tenantId,
-      actorId: session.uid,
-      actorName: session.name,
-      action: 'CREATE',
-      entity: 'AdmissionApplication',
-      entityId: app.id,
-      summary: `Application ${applicationNumber} for ${childFirstName}`,
-    })
-
-    return ok({ applicationId: app.id, applicationNumber }, undefined, 201)
-  } catch (e) {
-    return Errors.system(e)
+    return ok({ id: app.id, applicationNumber: app.applicationNumber }, undefined, 201)
+  } catch (e: any) {
+    return Errors.business('ADMISSION_SUBMIT_FAILED', e.message || 'Failed to submit admission form', 422)
   }
 }

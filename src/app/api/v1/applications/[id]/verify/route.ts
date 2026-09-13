@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit } from '@/lib/sequence'
+import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
- * POST /api/v1/applications/{id}/verify — document verification
- * Blocks until ALL mandatory docs are verified (BRC: verification gate).
+ * POST /api/v1/applications/{id}/verify — Document Verification & Correction
+ * Body: { documentId?: string, action?: 'VERIFY' | 'NEEDS_CORRECTION', remarks?: string }
+ * If documentId is omitted, verifies all pending documents for the application.
  */
 export async function POST(
   req: NextRequest,
@@ -14,17 +14,40 @@ export async function POST(
 ) {
   const session = await requireApi(req, 'admissions:write')
   if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
   const { id } = await params
 
   try {
-    const app = await db.admissionApplication.findUnique({
-      where: { id },
+    const body = await req.json().catch(() => ({}))
+    const { documentId, action, remarks } = body
+
+    if (documentId) {
+      const res = await AdmissionService.updateDocumentStatus(
+        {
+          tenantId: session.tenantId,
+          branchId: session.branchId || '',
+          academicYearId: '',
+          actorId: session.uid,
+          actorName: session.name,
+          actorRole: session.role,
+        },
+        documentId,
+        action || 'VERIFY',
+        remarks
+      )
+      return ok(res)
+    }
+
+    // Verify all docs for this application
+    const { db } = await import('@/lib/db')
+    const { audit } = await import('@/lib/sequence')
+
+    const app = await db.admissionApplication.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
       include: { documents: true },
     })
     if (!app) return Errors.notFound('Application')
-    if (!['SUBMITTED', 'DOCUMENT_PENDING', 'UNDER_REVIEW'].includes(app.status)) {
-      return Errors.conflict(`Cannot verify application in status ${app.status}`)
-    }
 
     await db.$transaction([
       db.applicationDocument.updateMany({
@@ -39,16 +62,18 @@ export async function POST(
 
     await audit({
       tenantId: session.tenantId,
+      branchId: app.branchId,
       actorId: session.uid,
       actorName: session.name,
-      action: 'UPDATE',
+      actorRole: session.role,
+      action: 'DOC_VERIFY_ALL',
       entity: 'AdmissionApplication',
       entityId: id,
-      summary: `Documents verified for application ${app.applicationNumber}`,
+      summary: `All documents verified for application ${app.applicationNumber}`,
     })
 
-    return ok({ status: 'VERIFIED' })
-  } catch (e) {
-    return Errors.system(e)
+    return ok({ status: 'VERIFIED', allVerified: true })
+  } catch (e: any) {
+    return Errors.business('VERIFICATION_FAILED', e.message || 'Failed to verify documents', 422)
   }
 }

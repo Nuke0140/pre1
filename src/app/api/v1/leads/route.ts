@@ -2,26 +2,68 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit, nextNumber } from '@/lib/sequence'
+import { AdmissionService } from '@/lib/admissions/admission-service'
 
-/** GET /api/v1/leads — CRM pipeline (crm:read → admissions staff) */
+/**
+ * GET /api/v1/leads — Enquiries list
+ * Required Scopes: tenantId (from session), branchId, academicYearId
+ * Filters: status, interestedProgram, source, search
+ */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'admissions:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
+    const sp = req.nextUrl.searchParams
+    const branchId = sp.get('branchId') || session.branchId
+    const academicYearId = sp.get('academicYearId') || sp.get('academicSessionId')
+    const status = sp.get('status')
+    const program = sp.get('program') || sp.get('interestedProgram')
+    const source = sp.get('source')
+    const search = sp.get('q')?.trim()
+
+    const scope = await AdmissionService.verifyScope(session.tenantId, branchId, academicYearId)
+
+    const where: any = {
+      tenantId: scope.tenantId,
+      deletedAt: null,
+      branchId: scope.branchId,
+      ...(status ? { status } : {}),
+      ...(program ? { interestedProgram: program } : {}),
+      ...(source ? { source } : {}),
+    }
+
+    if (search) {
+      where.OR = [
+        { leadNumber: { contains: search, mode: 'insensitive' } },
+        { childName: { contains: search, mode: 'insensitive' } },
+        { parentName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } },
+      ]
+    }
+
     const leads = await db.lead.findMany({
-      where: { tenantId: session.tenantId, deletedAt: null },
+      where,
       orderBy: { createdAt: 'desc' },
     })
-    return ok(leads)
+
+    return ok(leads, {
+      total: leads.length,
+      scope: {
+        tenantId: scope.tenantId,
+        branchId: scope.branchId,
+        academicYearId: scope.academicYearId,
+      },
+    })
   } catch (e) {
     return Errors.system(e)
   }
 }
 
-/** POST /api/v1/leads — capture a lead (walk-in / call / website) */
+/**
+ * POST /api/v1/leads — Capture a new Enquiry with duplicate detection
+ */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'admissions:write')
   if (isResponse(session)) return session
@@ -29,39 +71,48 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { parentName, phone, source, childName, childDob, interestedProgram, notes, email } = body
-    if (!parentName || !phone) {
-      return Errors.validation('parentName and phone are required')
-    }
+    const {
+      parentName,
+      phone,
+      source,
+      childName,
+      childDob,
+      interestedProgram,
+      notes,
+      email,
+      branchId,
+      academicYearId,
+      assignedToId,
+    } = body
 
-    const leadNumber = await nextNumber('lead', session.tenantId)
-    const lead = await db.lead.create({
-      data: {
+    const result = await AdmissionService.createEnquiry(
+      {
         tenantId: session.tenantId,
-        leadNumber,
+        branchId: branchId || session.branchId,
+        academicYearId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      {
         parentName,
         phone,
-        email: email || null,
-        source: source || 'WALK_IN',
-        childName: childName || null,
-        childDob: childDob ? new Date(childDob) : null,
-        interestedProgram: interestedProgram || null,
-        notes: notes || null,
-      },
-    })
+        email,
+        childName,
+        childDob,
+        interestedProgram,
+        source,
+        notes,
+        assignedToId,
+      }
+    )
 
-    await audit({
-      tenantId: session.tenantId,
-      actorId: session.uid,
-      actorName: session.name,
-      action: 'CREATE',
-      entity: 'Lead',
-      entityId: lead.id,
-      summary: `New lead ${leadNumber}: ${parentName}`,
-    })
+    if (result.isDuplicate) {
+      return ok(result.enquiry, { warning: result.message, isDuplicate: true }, 200)
+    }
 
-    return ok(lead, undefined, 201)
-  } catch (e) {
-    return Errors.system(e)
+    return ok(result.enquiry, undefined, 201)
+  } catch (e: any) {
+    return Errors.business('ENQUIRY_CREATE_FAILED', e.message || 'Failed to capture enquiry', 422)
   }
 }

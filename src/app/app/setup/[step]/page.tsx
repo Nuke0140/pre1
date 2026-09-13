@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
-  Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee,
+  Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -107,7 +107,7 @@ function ConfigForm({ form, data, setData }: { form: DomainForm; data: Dict; set
   )
 }
 
-type ApiFn = (url: string, method: string, body?: unknown) => Promise<Dict>
+type ApiFn = (url: string, method: string, body?: unknown) => Promise<any>
 type ToastFn = { success: (t: string, s?: string) => void; error: (t: string, s?: string) => void; info: (t: string, s?: string) => void; warning: (t: string, s?: string) => void }
 
 function TableToolbar({ title, count, onAdd, addLabel, icon }: { title: string; count: number; onAdd?: () => void; addLabel?: string; icon?: React.ReactNode }) {
@@ -148,6 +148,8 @@ export default function SetupStepPage() {
   const [configData, setConfigData] = useState<Dict | null>(null)
   const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState<string | null>(null)
+  const [editItem, setEditItem] = useState<Dict | null>(null)
+  const [editType, setEditType] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<Dict | null>(null)
   const [csv, setCsv] = useState('')
 
@@ -401,15 +403,20 @@ export default function SetupStepPage() {
                 <TableToolbar title="Branches" count={list.length} onAdd={() => setModal('branch')} addLabel="Add Branch" />
                 {list.length === 0 ? <EmptyState icon={<Building2 size={40} />} title="No branches configured yet" message="Add your first campus — classrooms, staff, students and operations all hang from a branch." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Branch</th><th>Timings</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th></tr></thead>
-                    <tbody>{list.map((b: Dict) => (
+                    <thead><tr><th>Branch</th><th>Timings</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{list.map((b: any) => (
                       <tr key={String(b.id)}>
                         <td><span className="cell-strong">{b.name}</span><span className="cell-sub">{b.code} · {b.city ?? '—'}</span></td>
-                        <td>{b.timingOpen}–{b.timingClose}</td>
-                        <td>{b.capacity ?? '—'}</td>
-                        <td>{String(b.facilities)}</td>
-                        <td>{String(b.staff)}</td>
+                        <td>{b.timingOpen || '08:30'}–{b.timingClose || '16:00'}</td>
+                        <td>{b.capacity ? (b.capacity + ' seats') : 'Flexible'}</td>
+                        <td>{String(b.facilities ?? 0)}</td>
+                        <td>{String(b.staff ?? 0)}</td>
                         <td><StatusBadge status={b.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+                        <td>
+                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(b); setEditType('branch'); }} title="Edit branch details">
+                            <Edit3 size={13} /> Edit
+                          </button>
+                        </td>
                       </tr>
                     ))}</tbody>
                   </table></div>
@@ -422,15 +429,20 @@ export default function SetupStepPage() {
                 <TableToolbar title="Programs" count={list.length} onAdd={() => setModal('program')} addLabel="Add Program" />
                 {list.length === 0 ? <EmptyState icon={<Blocks size={40} />} title="No programs configured" message="Define the programs your preschool runs — Playgroup, Nursery, Jr KG, Sr KG, Daycare or fully custom programs." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Program</th><th>Age band</th><th>Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th></tr></thead>
-                    <tbody>{list.map((p: Dict) => (
+                    <thead><tr><th>Program</th><th>Age band</th><th>Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{list.map((p: any) => (
                       <tr key={String(p.id)}>
                         <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code} · {String(p.programType).toLowerCase()}</span></td>
-                        <td>{p.ageMinMonths ?? '—'}–{p.ageMaxMonths ?? '—'} mo</td>
-                        <td>{String(p.capacity)}</td>
-                        <td>{String(p.classrooms)}</td>
+                        <td>{p.ageMinMonths != null && p.ageMaxMonths != null ? (p.ageMinMonths + '–' + p.ageMaxMonths + ' mo') : 'Flexible'}</td>
+                        <td>{p.capacity ? (p.capacity + ' seats') : '—'}</td>
+                        <td>{String(p.classrooms ?? 0)}</td>
                         <td>{p.hasFeePlan ? <span className="badge b-success">linked</span> : <span className="badge b-warning">none</span>}</td>
                         <td><StatusBadge status={p.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+                        <td>
+                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(p); setEditType('program'); }} title="Edit program age and capacity">
+                            <Edit3 size={13} /> Edit
+                          </button>
+                        </td>
                       </tr>
                     ))}</tbody>
                   </table></div>
@@ -443,7 +455,7 @@ export default function SetupStepPage() {
                 <p className="card-sub" style={{ marginBottom: 14 }}>PreOne uses one RBAC system. Members below already carry platform-enforced roles — invite more staff in Settings → Staff.</p>
                 <div className="dtable-scroll"><table className="dtable">
                   <thead><tr><th>Member</th><th>Role</th><th>Status</th></tr></thead>
-                  <tbody>{list.map((u: Dict) => (
+                  <tbody>{list.map((u: any) => (
                     <tr key={String(u.id)}>
                       <td><span className="cell-strong">{u.name}</span><span className="cell-sub">{u.email}</span></td>
                       <td><span className="badge b-primary">{String(u.role).replaceAll('_', ' ')}</span></td>
@@ -460,14 +472,28 @@ export default function SetupStepPage() {
                 <TableToolbar title="Academic years" count={list.length} onAdd={() => setModal('year')} addLabel="Create Academic Year" />
                 {list.length === 0 ? <EmptyState icon={<CalendarPlus size={40} />} title="No academic year exists" message="Create the operating year — enrolment, attendance, fees and reports all hang from it. Historical years stay queryable forever." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th></th></tr></thead>
-                    <tbody>{list.map((y: Dict) => (
+                    <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{list.map((y: any) => (
                       <tr key={String(y.id)}>
                         <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
                         <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
-                        <td>{String(y.classrooms)}</td>
+                        <td>{String(y.classrooms ?? 0)}</td>
                         <td><StatusBadge status={String(y.status)} /></td>
-                        <td>{!y.isCurrent && <button className="btn btn-sm btn-outline" onClick={async () => { const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true }); if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message) }}>Set current</button>}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(y); setEditType('year'); }} title="Edit academic year dates">
+                              <Edit3 size={13} /> Edit
+                            </button>
+                            {!y.isCurrent && (
+                              <button className="btn btn-sm btn-outline" onClick={async () => {
+                                const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true });
+                                if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message)
+                              }}>
+                                Set current
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}</tbody>
                   </table></div>
@@ -481,7 +507,7 @@ export default function SetupStepPage() {
                 {list.length === 0 ? <EmptyState icon={<CalendarDays size={40} />} title="No calendar events" message="Add holidays, vacations, parent meetings, assessment periods and special days — attendance understands them." /> : (
                   <div className="dtable-scroll"><table className="dtable">
                     <thead><tr><th>Date</th><th>Type</th><th>Title</th><th></th></tr></thead>
-                    <tbody>{list.map((e: Dict) => (
+                    <tbody>{list.map((e: any) => (
                       <tr key={String(e.id)}>
                         <td>{new Date(String(e.date)).toLocaleDateString()}</td>
                         <td><span className="badge b-info">{String(e.type).replaceAll('_', ' ')}</span></td>
@@ -494,20 +520,20 @@ export default function SetupStepPage() {
               </>
             )}
 
-            {kind === 'infrastructure' && <InfraSection rooms={list} onDone={refreshAll} onAddFacility={() => setModal('facility')} />}
+            {kind === 'infrastructure' && <InfraSection rooms={list} onDone={refreshAll} onAddFacility={() => setModal('facility')} onEditFacility={(f) => { setEditItem(f); setEditType('facility'); }} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} />}
 
-            {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} />}
+            {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} onAddClass={() => setModal('classroom')} />}
 
             {kind === 'teachers' && <TeachersSection rooms={list} onDone={refreshAll} />}
 
-            {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} />}
+            {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} onEditStaff={(s) => { setEditItem(s); setEditType('staff'); }} />}
 
             {kind === 'fees' && (
               <>
                 <p className="card-sub" style={{ marginBottom: 14 }}>Every active program needs an active fee plan — invoices can never be generated without valid fee configuration. Fee heads and plan items live in <a href="/app/settings" className="cell-link">Settings → Fees</a> (existing Finance domain).</p>
                 <div className="dtable-scroll"><table className="dtable">
                   <thead><tr><th>Program</th><th>Fee plan</th><th>Classes</th></tr></thead>
-                  <tbody>{list.map((p: Dict) => (
+                  <tbody>{list.map((p: any) => (
                     <tr key={String(p.id)}>
                       <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code}</span></td>
                       <td>{p.hasFeePlan ? <span className="badge b-success">active plan linked</span> : <span className="badge b-danger">no fee plan</span>}</td>
@@ -542,7 +568,7 @@ export default function SetupStepPage() {
                 {importPreview && (
                   <div style={{ marginTop: 12, maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
                     <table className="dtable"><thead><tr><th>Row</th><th>Child</th><th>Admission No</th><th>Guardian</th><th>Status</th></tr></thead>
-                      <tbody>{(importPreview.rows as Dict[]).map((r) => (
+                      <tbody>{(importPreview.rows as any[]).map((r: any) => (
                         <tr key={String(r.row)}>
                           <td>{String(r.row)}</td>
                           <td>{r.firstName} {r.lastName}</td>
@@ -574,14 +600,35 @@ export default function SetupStepPage() {
       {modal === 'program' && <ProgramModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'year' && <YearModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'event' && <EventModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+      {modal === 'classroom' && <ClassroomModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'facility' && <FacilityModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'staff' && <StaffModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+
+      {/* ── EDIT MODALS (In-Place Row-Level Editing) ── */}
+      {editType === 'branch' && editItem && (
+        <EditBranchModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'program' && editItem && (
+        <EditProgramModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'year' && editItem && (
+        <EditYearModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'class' && editItem && (
+        <EditClassModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'facility' && editItem && (
+        <EditFacilityModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'staff' && editItem && (
+        <EditStaffModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
     </>
   )
 }
 
 /* ────────────────────────── section components ────────────────────────── */
-function InfraSection({ rooms, onDone, onAddFacility }: { rooms: Dict[]; onDone: () => void; onAddFacility: () => void }) {
+function InfraSection({ rooms, onDone, onAddFacility, onEditFacility, onEditClass }: { rooms: Dict[]; onDone: () => void; onAddFacility: () => void; onEditFacility: (f: Dict) => void; onEditClass: (c: Dict) => void }) {
   const [facilities, setFacilities] = useState<Dict[] | null>(null)
   const loadF = useCallback(async () => { const j = await fetch('/api/v1/facilities').then((r) => r.json()); if (j.success) setFacilities(j.data) }, [])
   useEffect(() => { Promise.resolve().then(loadF) }, [loadF])
@@ -590,14 +637,19 @@ function InfraSection({ rooms, onDone, onAddFacility }: { rooms: Dict[]; onDone:
       <TableToolbar title="Rooms (classrooms)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} />
       <p className="helper" style={{ marginBottom: 10 }}>Rooms are managed in <a href="/app/settings" className="cell-link">Settings → Classes</a> — every active room counts toward this step; other areas are registered here.</p>
       <div className="dtable-scroll"><table className="dtable">
-        <thead><tr><th>Room</th><th>Program</th><th>Capacity</th><th>Teacher</th><th>Students</th></tr></thead>
-        <tbody>{rooms.map((c: Dict) => (
+        <thead><tr><th>Room</th><th>Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Actions</th></tr></thead>
+        <tbody>{rooms.map((c: any) => (
           <tr key={String(c.id)}>
             <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
             <td>{c.programName ?? String(c.programType).toLowerCase()}</td>
             <td>{String(c.capacity)}</td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
             <td>{String(c.students)}</td>
+            <td>
+              <button className="btn btn-sm btn-outline" onClick={() => onEditClass(c)} title="Edit room capacity and teacher">
+                <Edit3 size={13} /> Edit
+              </button>
+            </td>
           </tr>
         ))}</tbody>
       </table></div>
@@ -609,13 +661,18 @@ function InfraSection({ rooms, onDone, onAddFacility }: { rooms: Dict[]; onDone:
         <EmptyState icon={<DoorOpen size={36} />} title="No play / nap / meal areas yet" message="Recommended: register activity, play, nap, meal areas, washrooms and a medical room for daily operations and safety." />
       ) : (
         <div className="dtable-scroll"><table className="dtable">
-          <thead><tr><th>Facility</th><th>Type</th><th>Branch</th><th>Capacity</th></tr></thead>
-          <tbody>{(facilities ?? []).map((f: Dict) => (
+          <thead><tr><th>Facility</th><th>Type</th><th>Branch</th><th>Capacity</th><th>Actions</th></tr></thead>
+          <tbody>{(facilities ?? []).map((f: any) => (
             <tr key={String(f.id)}>
               <td><span className="cell-strong">{f.name}</span><span className="cell-sub">{f.code}</span></td>
               <td><span className="badge b-info">{String(f.type).replaceAll('_', ' ')}</span></td>
               <td>{f.branchName}</td>
               <td>{f.capacity ?? '—'}</td>
+              <td>
+                <button className="btn btn-sm btn-outline" onClick={() => onEditFacility(f)} title="Edit facility details">
+                  <Edit3 size={13} /> Edit
+                </button>
+              </td>
             </tr>
           ))}</tbody>
         </table></div>
@@ -624,7 +681,7 @@ function InfraSection({ rooms, onDone, onAddFacility }: { rooms: Dict[]; onDone:
   )
 }
 
-function ClassesSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void }) {
+function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dict[]; onDone: () => void; onEditClass: (c: Dict) => void; onAddClass: () => void }) {
   const toast = useToast()
   const [programs, setPrograms] = useState<Dict[]>([])
   useEffect(() => { fetch('/api/v1/programs').then((r) => r.json()).then((j) => { if (j.success) setPrograms(j.data) }) }, [])
@@ -634,11 +691,11 @@ function ClassesSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void }
   }
   return (
     <>
-      <TableToolbar title="Class-sections (current year)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} />
+      <TableToolbar title="Class-sections (current year)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
       <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Here you link each class-section to its program — capacity guards prevent over-allocation.</p>
       <div className="dtable-scroll"><table className="dtable">
-        <thead><tr><th>Class</th><th>Linked program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link program</th></tr></thead>
-        <tbody>{rooms.map((c: Dict) => (
+        <thead><tr><th>Class</th><th>Linked program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link program</th><th>Actions</th></tr></thead>
+        <tbody>{rooms.map((c: any) => (
           <tr key={String(c.id)}>
             <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
             <td>{c.programName ?? <span className="badge b-warning">not linked</span>}</td>
@@ -648,8 +705,13 @@ function ClassesSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void }
             <td>
               <select className="select" style={{ maxWidth: 180 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
                 <option value="">— choose —</option>
-                {programs.map((p) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
+                {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
               </select>
+            </td>
+            <td>
+              <button className="btn btn-sm btn-outline" onClick={() => onEditClass(c)} title="Edit class settings">
+                <Edit3 size={13} /> Edit
+              </button>
             </td>
           </tr>
         ))}</tbody>
@@ -676,7 +738,7 @@ function TeachersSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void 
       <TableToolbar title="Teacher assignment" count={rooms.length} icon={<GraduationCap size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} addLabel={`${unassigned} without teacher`} />
       <div className="dtable-scroll"><table className="dtable">
         <thead><tr><th>Class</th><th>Primary teacher</th><th></th></tr></thead>
-        <tbody>{rooms.map((c: Dict) => (
+        <tbody>{rooms.map((c: any) => (
           <tr key={String(c.id)}>
             <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
@@ -692,7 +754,7 @@ function TeachersSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void 
               <label>Member <span className="req">*</span></label>
               <select className="select" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
                 <option value="">Select member…</option>
-                {members.map((u) => <option key={String(u.userId)} value={String(u.userId)}>{u.name} ({String(u.role).replaceAll('_', ' ')})</option>)}
+                {members.map((u: any) => <option key={String(u.userId)} value={String(u.userId)}>{u.name} ({String(u.role).replaceAll('_', ' ')})</option>)}
               </select>
             </div>
           </div>
@@ -706,7 +768,7 @@ function TeachersSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void 
   )
 }
 
-function StaffSection({ staff, onDone, onAdd }: { staff: Dict[]; onDone: () => void; onAdd: () => void }) {
+function StaffSection({ staff, onDone, onAdd, onEditStaff }: { staff: Dict[]; onDone: () => void; onAdd: () => void; onEditStaff: (s: Dict) => void }) {
   const toast = useToast()
   const [branches, setBranches] = useState<Dict[]>([])
   useEffect(() => { fetch('/api/v1/branches').then((r) => r.json()).then((j) => { if (j.success) setBranches(j.data) }) }, [])
@@ -719,8 +781,8 @@ function StaffSection({ staff, onDone, onAdd }: { staff: Dict[]; onDone: () => v
       <TableToolbar title="Staff foundation" count={staff.length} icon={<Users size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAdd} addLabel="Add Staff" />
       {staff.length === 0 ? <EmptyState icon={<Users size={40} />} title="No staff yet" message="Create staff employment profiles — identity comes from their PreOne account, employment data lives here." /> : (
         <div className="dtable-scroll"><table className="dtable">
-          <thead><tr><th>Staff</th><th>Role</th><th>Branch</th><th>Employment</th><th>Classes</th><th>Assign branch</th></tr></thead>
-          <tbody>{staff.map((s: Dict) => (
+          <thead><tr><th>Staff</th><th>Role</th><th>Branch</th><th>Employment</th><th>Classes</th><th>Assign branch</th><th>Actions</th></tr></thead>
+          <tbody>{staff.map((s: any) => (
             <tr key={String(s.id)}>
               <td><span className="cell-strong">{s.name}</span><span className="cell-sub">{s.employeeCode} · {s.email}</span></td>
               <td><span className="badge b-primary">{String(s.role ?? '—').replaceAll('_', ' ')}</span></td>
@@ -730,8 +792,13 @@ function StaffSection({ staff, onDone, onAdd }: { staff: Dict[]; onDone: () => v
               <td>
                 <select className="select" style={{ maxWidth: 160 }} value={String(s.branchId ?? '')} onChange={(e) => assign(String(s.id), e.target.value)}>
                   <option value="">— none —</option>
-                  {branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+                  {branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
                 </select>
+              </td>
+              <td>
+                <button className="btn btn-sm btn-outline" onClick={() => onEditStaff(s)} title="Edit staff profile">
+                  <Edit3 size={13} /> Edit
+                </button>
               </td>
             </tr>
           ))}</tbody>
@@ -907,7 +974,7 @@ function FacilityModal({ onClose, onDone, api, toast }: { onClose: () => void; o
       <form onSubmit={submit}>
         <div className="form-grid">
           <div className="field"><label>Branch <span className="req">*</span></label>
-            <select className="select" name="branchId" required>{branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}</select>
+            <select className="select" name="branchId" required>{branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}</select>
           </div>
           <div className="field"><label>Type <span className="req">*</span></label>
             <select className="select" name="type" required>{['CLASSROOM', 'ACTIVITY_AREA', 'PLAY_AREA', 'NAP_AREA', 'MEAL_AREA', 'WASHROOM', 'MEDICAL', 'OTHER'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}</select>
@@ -952,7 +1019,7 @@ function StaffModal({ onClose, onDone, api, toast }: { onClose: () => void; onDo
           <div className="field"><label>Branch (operational assignment)</label>
             <select className="select" name="branchId">
               <option value="">— assign later —</option>
-              {branches.map((b) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+              {branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
             </select>
             <div className="helper">Created ≠ assigned — branch assignment completes the Staff Foundation step.</div>
           </div>
@@ -968,6 +1035,443 @@ function StaffModal({ onClose, onDone, api, toast }: { onClose: () => void; onDo
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Staff</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/* ────────────────────────── IN-PLACE EDIT MODALS ────────────────────────── */
+
+function EditBranchModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      address: fd.address || null,
+      city: fd.city || null,
+      phone: fd.phone || null,
+      timingOpen: fd.timingOpen || '08:30',
+      timingClose: fd.timingClose || '16:00',
+      capacity: fd.capacity ? Number(fd.capacity) : null,
+      isActive: fd.isActive === 'on',
+    }
+    const j = await api('/api/v1/branches/' + item.id, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Branch updated', String(j.data.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Branch — ' + item.name} icon={<Building2 size={22} />} iconClass="ic-blue">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Branch Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Branch code is permanent" /></div>
+          <div className="field"><label>City</label><input className="input" name="city" defaultValue={String(item.city || '')} /></div>
+          <div className="field"><label>Contact Phone</label><input className="input" name="phone" defaultValue={String(item.phone || '')} /></div>
+          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue={String(item.timingOpen || '08:30')} /></div>
+          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue={String(item.timingClose || '16:00')} /></div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Campus Address</label><input className="input" name="address" defaultValue={String(item.address || '')} /></div>
+          <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" defaultValue={item.capacity ? Number(item.capacity) : ''} min="1" /></div>
+          <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
+            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" name="isActive" defaultChecked={item.isActive !== false} />
+              <span>Active Branch</span>
+            </label>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditProgramModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [impactWarning, setImpactWarning] = useState<string | null>(null)
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true); setImpactWarning(null)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      description: fd.description || null,
+      ageMinMonths: fd.ageMinMonths ? Number(fd.ageMinMonths) : null,
+      ageMaxMonths: fd.ageMaxMonths ? Number(fd.ageMaxMonths) : null,
+      capacity: Number(fd.capacity || 20),
+      isActive: fd.isActive === 'on',
+    }
+
+    const j = await api('/api/v1/programs/' + item.id, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Program updated', String(j.data.name))
+      onClose(); onDone()
+    } else {
+      if (j.error?.code === 'SETUP_004') {
+        setImpactWarning(j.error.message)
+      }
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Program — ' + item.name} icon={<Blocks size={22} />} iconClass="ic-violet">
+      <form onSubmit={submit}>
+        {impactWarning && (
+          <div style={{ padding: '8px 12px', background: 'var(--danger-subtle)', border: '1px solid var(--danger)', borderRadius: 8, marginBottom: 12, fontSize: 13, color: 'var(--danger)' }}>
+            <AlertTriangle size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />
+            {impactWarning}
+          </div>
+        )}
+        <div className="form-grid">
+          <div className="field"><label>Program Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Program code is permanent" /></div>
+          <div className="field"><label>Seat Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={Number(item.capacity || 20)} min="1" required /></div>
+          <div className="field"><label>Min Age (months)</label><input className="input" name="ageMinMonths" type="number" defaultValue={item.ageMinMonths != null ? Number(item.ageMinMonths) : ''} placeholder="e.g. 24" /></div>
+          <div className="field"><label>Max Age (months)</label><input className="input" name="ageMaxMonths" type="number" defaultValue={item.ageMaxMonths != null ? Number(item.ageMaxMonths) : ''} placeholder="e.g. 36" /></div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" defaultValue={String(item.description || '')} placeholder="e.g. Sensory discovery & play-based early foundation" /></div>
+          <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" name="isActive" defaultChecked={item.isActive !== false} />
+              <span>Accepting New Admissions (Active)</span>
+            </label>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditYearModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload: Record<string, unknown> = {
+      name: fd.name,
+      startDate: fd.startDate,
+      endDate: fd.endDate,
+    }
+    if (fd.setStatusCurrent === 'on') payload.setStatusCurrent = true
+
+    const j = await api('/api/v1/academic-years/' + item.id, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Academic year updated', String(item.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  const sDate = item.startDate ? new Date(String(item.startDate)).toISOString().split('T')[0] : ''
+  const eDate = item.endDate ? new Date(String(item.endDate)).toISOString().split('T')[0] : ''
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Academic Year — ' + item.name} icon={<CalendarPlus size={22} />} iconClass="ic-green">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Year Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Start Date <span className="req">*</span></label><input className="input" name="startDate" type="date" defaultValue={sDate} required /></div>
+          <div className="field"><label>End Date <span className="req">*</span></label><input className="input" name="endDate" type="date" defaultValue={eDate} required /></div>
+          <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
+            <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" name="setStatusCurrent" defaultChecked={item.isCurrent === true} />
+              <span>Current Operating Year</span>
+            </label>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditClassModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [members, setMembers] = useState<Dict[]>([])
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const [facilities, setFacilities] = useState<Dict[]>([])
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/users').then((r) => r.json()),
+      fetch('/api/v1/programs').then((r) => r.json()),
+      fetch('/api/v1/facilities').then((r) => r.json()),
+    ]).then(([u, p, f]) => {
+      if (u.success) setMembers(u.data)
+      if (p.success) setPrograms(p.data)
+      if (f.success) setFacilities(f.data)
+    })
+  }, [])
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true); setErr(null)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      capacity: Number(fd.capacity || 20),
+      programId: fd.programId || null,
+      primaryTeacherId: fd.primaryTeacherId || null,
+      facilityId: fd.facilityId || null,
+    }
+
+    const j = await api('/api/v1/classrooms/' + item.id, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Classroom updated', String(item.name))
+      onClose(); onDone()
+    } else {
+      setErr(j.error?.message || 'Update failed')
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Classroom / Section — ' + item.name} icon={<LayoutGrid size={22} />} iconClass="ic-blue">
+      <form onSubmit={submit}>
+        {err && (
+          <div style={{ padding: '8px 12px', background: 'var(--danger-subtle)', border: '1px solid var(--danger)', borderRadius: 8, marginBottom: 12, fontSize: 13, color: 'var(--danger)' }}>
+            <AlertTriangle size={14} style={{ display: 'inline', marginRight: 6, verticalAlign: -2 }} />
+            {err}
+          </div>
+        )}
+        <div className="form-grid">
+          <div className="field"><label>Class / Section Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Classroom code is permanent" /></div>
+          <div className="field"><label>Program Offering <span className="req">*</span></label>
+            <select className="select" name="programId" defaultValue={String(item.programId || '')}>
+              <option value="">Select program…</option>
+              {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name} ({String(p.programType)})</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Seat Capacity (max students) <span className="req">*</span></label>
+            <input className="input" name="capacity" type="number" defaultValue={Number(item.capacity || 20)} min="1" required />
+            <div className="helper">Currently enrolled: {String(item.students ?? 0)} children</div>
+          </div>
+          <div className="field"><label>Primary Lead Teacher</label>
+            <select className="select" name="primaryTeacherId" defaultValue={String(item.primaryTeacherId || '')}>
+              <option value="">— unassigned —</option>
+              {members.map((u: any) => <option key={String(u.userId)} value={String(u.userId)}>{u.name} ({String(u.role).replaceAll('_', ' ')})</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Physical Room / Facility</label>
+            <select className="select" name="facilityId" defaultValue={String(item.facilityId || '')}>
+              <option value="">— default room —</option>
+              {facilities.map((f: any) => <option key={String(f.id)} value={String(f.id)}>{f.name} ({f.code})</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function ClassroomModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const [members, setMembers] = useState<Dict[]>([])
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/branches').then((r) => r.json()),
+      fetch('/api/v1/programs').then((r) => r.json()),
+      fetch('/api/v1/users').then((r) => r.json()),
+    ]).then(([b, p, u]) => {
+      if (b.success) setBranches(b.data)
+      if (p.success) setPrograms(p.data)
+      if (u.success) setMembers(u.data)
+    })
+  }, [])
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const selectedProgram = programs.find((p: any) => p.id === fd.programId)
+    const payload = {
+      name: fd.name,
+      programType: selectedProgram ? selectedProgram.programType : 'PLAYGROUP',
+      programId: fd.programId || null,
+      capacity: Number(fd.capacity || 20),
+      branchId: fd.branchId || null,
+      primaryTeacherId: fd.primaryTeacherId || null,
+    }
+
+    const j = await api('/api/v1/classrooms', 'POST', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Classroom created', String(fd.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Failed to create classroom', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Add Classroom / Section" icon={<LayoutGrid size={22} />} iconClass="ic-blue">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Class Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Nursery - Sunflower" /></div>
+          <div className="field"><label>Program <span className="req">*</span></label>
+            <select className="select" name="programId" required>
+              <option value="">Select program…</option>
+              {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name} ({String(p.programType)})</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Campus Branch <span className="req">*</span></label>
+            <select className="select" name="branchId" required>
+              {branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Seat Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Primary Teacher</label>
+            <select className="select" name="primaryTeacherId">
+              <option value="">— assign later —</option>
+              {members.map((u: any) => <option key={String(u.userId)} value={String(u.userId)}>{u.name} ({String(u.role).replaceAll('_', ' ')})</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Create Classroom</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditFacilityModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      type: fd.type,
+      capacity: fd.capacity ? Number(fd.capacity) : null,
+      floorOrArea: fd.floorOrArea || null,
+      ageSuitability: fd.ageSuitability || null,
+    }
+    const j = await api('/api/v1/facilities/' + item.id, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Facility updated', String(item.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Facility — ' + item.name} icon={<DoorOpen size={22} />} iconClass="ic-orange">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Type <span className="req">*</span></label>
+            <select className="select" name="type" defaultValue={String(item.type || 'CLASSROOM')} required>
+              {['CLASSROOM', 'ACTIVITY_AREA', 'PLAY_AREA', 'NAP_AREA', 'MEAL_AREA', 'WASHROOM', 'MEDICAL', 'OTHER'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Code cannot be modified" /></div>
+          <div className="field"><label>Capacity</label><input className="input" name="capacity" type="number" defaultValue={item.capacity != null ? Number(item.capacity) : ''} /></div>
+          <div className="field"><label>Floor / Area</label><input className="input" name="floorOrArea" defaultValue={String(item.floorOrArea || '')} /></div>
+          <div className="field"><label>Age Suitability</label><input className="input" name="ageSuitability" defaultValue={String(item.ageSuitability || '')} /></div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditStaffModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [branches, setBranches] = useState<Dict[]>([])
+
+  useEffect(() => {
+    fetch('/api/v1/branches').then((r) => r.json()).then((j) => { if (j.success) setBranches(j.data) })
+  }, [])
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      id: item.id,
+      branchId: fd.branchId || null,
+      membershipRole: fd.role,
+      designation: fd.designation || null,
+      qualification: fd.qualification || null,
+      employmentType: fd.employmentType || 'REGULAR',
+      emergencyContactName: fd.emergencyContactName || null,
+      emergencyContactPhone: fd.emergencyContactPhone || null,
+    }
+    const j = await api('/api/v1/staff', 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Staff profile updated', String(item.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Update failed', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={'Edit Staff — ' + item.name} icon={<Users size={22} />} iconClass="ic-purple" wide>
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Staff Member</label><input className="input" value={String(item.name || '')} disabled /></div>
+          <div className="field"><label>Email</label><input className="input" value={String(item.email || '')} disabled /></div>
+          <div className="field"><label>Employee Code</label><input className="input" value={String(item.employeeCode || '')} disabled /></div>
+          <div className="field"><label>Operating Role <span className="req">*</span></label>
+            <select className="select" name="role" defaultValue={String(item.role || 'TEACHER')}>
+              {['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Branch Assignment</label>
+            <select className="select" name="branchId" defaultValue={String(item.branchId || '')}>
+              <option value="">— unassigned —</option>
+              {branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Designation</label><input className="input" name="designation" defaultValue={String(item.designation || '')} /></div>
+          <div className="field"><label>Qualification</label><input className="input" name="qualification" defaultValue={String(item.qualification || '')} /></div>
+          <div className="field"><label>Employment Type</label>
+            <select className="select" name="employmentType" defaultValue={String(item.employmentType || 'REGULAR')}>
+              {['REGULAR', 'PART_TIME', 'CONTRACT', 'INTERN'].map((t) => <option key={t} value={t}>{t.replaceAll('_', ' ')}</option>)}
+            </select>
+          </div>
+          <div className="field"><label>Emergency Contact Person</label><input className="input" name="emergencyContactName" defaultValue={String(item.emergencyContactName || '')} /></div>
+          <div className="field"><label>Emergency Phone</label><input className="input" name="emergencyContactPhone" defaultValue={String(item.emergencyContactPhone || '')} /></div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={'btn btn-primary ' + (busy ? 'is-loading' : '')} disabled={busy}>Save Changes</button>
         </div>
       </form>
     </Modal>

@@ -12,7 +12,7 @@ import { registerIntegrations } from '@/lib/integrations'
  * Called on read so the ledger is always truthful; transitions audited via
  * InvoiceOverdue follow-up events (deduped per invoice).
  */
-export async function syncOverdue(tenantId: string) {
+async function syncOverdue(tenantId: string) {
   const now = new Date()
   const stale = await db.invoice.findMany({
     where: { tenantId, status: 'ISSUED', dueDate: { lt: now }, deletedAt: null },

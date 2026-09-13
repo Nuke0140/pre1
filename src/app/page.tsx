@@ -27,11 +27,14 @@ const STARS = Array.from({ length: 26 }).map((_, i) => ({
 
 export default function LoginPage() {
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
   const [email, setEmail] = useState('owner@sunshine.demo')
   const [password, setPassword] = useState('Preone@123')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => setMounted(true), [])
 
   useEffect(() => {
     fetch('/api/v1/me')
@@ -72,6 +75,10 @@ export default function LoginPage() {
     setError(null)
   }
 
+  if (!mounted) {
+    return <div className="login-wrap" style={{ opacity: 0 }} aria-hidden="true" />
+  }
+
   return (
     <div className="login-wrap">
       {/* ── Brand panel ── */}
@@ -87,6 +94,11 @@ export default function LoginPage() {
               }}
             />
           ))}
+        </div>
+        <div className="login-orbs" aria-hidden="true">
+          <span className="orb o1" />
+          <span className="orb o2" />
+          <span className="orb o3" />
         </div>
         <div className="login-brand">
           <PLogoWordmark subtitle="Preschool Operating System" />

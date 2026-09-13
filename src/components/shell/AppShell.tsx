@@ -29,6 +29,10 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [clock, setClock] = useState({ time: '', date: '' })
   const searchRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const startBtnRef = useRef<HTMLButtonElement>(null)
+  const headerSearchRef = useRef<HTMLInputElement>(null)
+  const avatarRef = useRef<HTMLButtonElement>(null)
 
   const nav = useMemo(() => navForRole(user.role), [user.role])
 
@@ -91,6 +95,22 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMenuOpen(false), [pathname])
 
+  // close the start menu when clicking anywhere outside it (except its openers)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (!target || !target.isConnected) return
+      if (menuRef.current?.contains(target)) return
+      if (startBtnRef.current?.contains(target)) return
+      if (headerSearchRef.current?.contains(target)) return
+      if (avatarRef.current?.contains(target)) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [menuOpen])
+
   const logout = useCallback(async () => {
     await fetch('/api/v1/auth/logout', { method: 'POST' })
     router.push('/')
@@ -119,6 +139,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <div className="h-search">
           <Search />
           <input
+            ref={headerSearchRef}
             placeholder="Search modules, students…"
             onFocus={() => { setMenuOpen(true); setTimeout(() => searchRef.current?.focus(), 30) }}
             readOnly
@@ -130,7 +151,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           <Bell />
           <span className="cnt">3</span>
         </button>
-        <button className="h-avatar" onClick={() => setMenuOpen(true)} aria-label="Open start menu">
+        <button className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
           <span className="avatar sm a-p">{initials}</span>
           <span className="who">
             <b>{user.name}</b>
@@ -145,7 +166,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </main>
 
       {/* ── Start menu ── */}
-      <div className={`startmenu${menuOpen ? '' : ' hidden'}`} role="menu" aria-hidden={!menuOpen}>
+      <div className={`startmenu${menuOpen ? '' : ' hidden'}`} ref={menuRef} role="menu" aria-hidden={!menuOpen}>
         <div className="sm-head">
           <div className="sm-search">
             <Search />
@@ -210,6 +231,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       {/* ── Taskbar ── */}
       <nav className="taskbar" aria-label="Taskbar">
         <button
+          ref={startBtnRef}
           className={`tb-start${menuOpen ? ' on' : ''}`}
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Start"
@@ -236,10 +258,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <div className="tb-right">
           <button className="h-icbtn" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'light' ? <Moon /> : <Sun />}
-          </button>
-          <button className="h-icbtn" aria-label="Notifications">
-            <Bell />
-            <span className="cnt">3</span>
           </button>
           <div className="tb-clock" aria-label="Clock">
             <b>{clock.time}</b>

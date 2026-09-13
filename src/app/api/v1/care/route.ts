@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
         include: { studentLinks: { select: { studentId: true } } },
       })
       studentIds = guardians.flatMap((g) => g.studentLinks.map((l) => l.studentId))
-      if (studentId && !studentIds.includes(studentId)) return Errors.forbidden('Not your child')
-      if (studentIds.length === 0) return ok({ date, entries: [] })
+      if (studentId && (!studentIds || !studentIds.includes(studentId))) return Errors.forbidden('Not your child')
+      if (!studentIds || studentIds.length === 0) return ok({ date, entries: [] })
     } else if (studentId) {
       studentIds = [studentId]
     }

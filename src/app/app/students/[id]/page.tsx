@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { getSession } from '@/lib/auth-server'
 import { StudentDetailClient } from './StudentDetailClient'
 
 export default async function StudentDetailPage({
@@ -7,19 +8,33 @@ export default async function StudentDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const session = await getSession()
+  if (!session) redirect('/')
+  if (!session.tenantId) notFound()
+
   const { id } = await params
-  const student = await db.student.findUnique({
-    where: { id },
+  const student = await db.student.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
     include: {
       currentClassroom: { include: { primaryTeacher: true } },
       guardians: { include: { guardian: true } },
+      allocations: {
+        include: { classroom: true, academicSession: true },
+        orderBy: { startedAt: 'desc' },
+      },
       attendances: { orderBy: { date: 'desc' }, take: 14 },
       invoices: { orderBy: { createdAt: 'desc' } },
       observations: { orderBy: { createdAt: 'desc' }, take: 10 },
       timelineEntries: { orderBy: { createdAt: 'desc' }, take: 20 },
     },
   })
-  if (!student || student.deletedAt) notFound()
+  if (!student) notFound()
+
+  // Parent can only view their own linked children
+  if (session.role === 'PARENT') {
+    const isLinked = student.guardians.some((g) => g.guardian.userId === session.uid)
+    if (!isLinked) notFound()
+  }
 
   const present = student.attendances.filter((a) =>
     ['PRESENT', 'LATE', 'HALF_DAY'].includes(a.status)
@@ -30,6 +45,7 @@ export default async function StudentDetailPage({
       student={{
         id: student.id,
         admissionNo: student.admissionNo,
+        seatNumber: student.seatNumber,
         name: `${student.firstName} ${student.lastName || ''}`.trim(),
         firstName: student.firstName,
         dob: student.dob.toISOString(),

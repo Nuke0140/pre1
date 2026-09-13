@@ -52,29 +52,6 @@ export async function nextNumber(
   return `${prefix}-${String(seq).padStart(4, '0')}`
 }
 
-/** Audit trail helper — every state change gets logged (PRD cross-cutting engine). */
-export async function audit(entry: {
-  tenantId?: string | null
-  actorId?: string | null
-  actorName?: string | null
-  action: string
-  entity: string
-  entityId?: string | null
-  summary?: string
-}) {
-  try {
-    await db.auditLog.create({
-      data: {
-        tenantId: entry.tenantId ?? undefined,
-        actorId: entry.actorId ?? undefined,
-        actorName: entry.actorName ?? undefined,
-        action: entry.action,
-        entity: entry.entity,
-        entityId: entry.entityId ?? undefined,
-        summary: entry.summary,
-      },
-    })
-  } catch (e) {
-    console.error('[audit] failed:', e)
-  }
-}
+export { audit, recordAudit } from './audit'
+export type { AuditEntry } from './audit'
+
