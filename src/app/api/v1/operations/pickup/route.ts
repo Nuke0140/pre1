@@ -1,120 +1,106 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { ok, Errors } from '@/lib/api'
+import type { TimelineEntry } from '@prisma/client'
+import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { raiseFollowUp } from '@/lib/followups'
-import { recordChildEvent } from '@/lib/notify'
-import { getDomainConfig, getStudentParentConfig } from '@/lib/config'
-import { isoDate } from '@/lib/format'
+import { db } from '@/lib/db'
 
 /**
- * POST /api/v1/operations/pickup — authorised release (Spec §16, Scenario 3).
- * Body: { studentId, guardianId, pin? }
- *  · authorised guardian + (PIN match when mode is PIN_MATCH) → TimelineEntry PICKUP + audit
- *  · unauthorised / mismatch → 403 BUSINESS_PICKUP_BLOCKED + EMERGENCY SAFETY follow-up
+ * GET /api/v1/operations/pickup/queue?classroomId=&branchId=&date=
+ * Real-time pickup release queue
  */
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
-    const body = await req.json()
-    const { studentId, guardianId, pin } = body as { studentId: string; guardianId?: string; pin?: string }
-    if (!studentId) return Errors.validation('studentId is required')
+    const sp = req.nextUrl.searchParams
+    const classroomId = sp.get('classroomId')
+    const branchId = sp.get('branchId') || session.branchId || undefined
+    const dateStr = sp.get('date') || new Date().toISOString().split('T')[0]
+    const todayDate = new Date(dateStr)
 
-    const student = await db.student.findFirst({
-      where: { id: studentId, tenantId: session.tenantId, deletedAt: null },
-      include: { currentClassroom: { select: { id: true, name: true } } },
+    // Load active students for the branch/classroom
+    const students = await db.student.findMany({
+      where: {
+        tenantId: session.tenantId,
+        status: 'ACTIVE',
+        deletedAt: null,
+        ...(classroomId ? { currentClassroomId: classroomId } : {}),
+        ...(branchId ? { branchId } : {}),
+      },
+      include: {
+        currentClassroom: true,
+        guardians: {
+          include: { guardian: true },
+        },
+      },
+      orderBy: { firstName: 'asc' },
     })
-    if (!student) return Errors.notFound('Student')
 
-    const spCfg = getStudentParentConfig(await getDomainConfig(session.tenantId, 'STUDENT_PARENT'))
-    const links = await db.studentGuardian.findMany({
-      where: { studentId, canPickup: true },
-      include: { guardian: true },
-    })
+    const studentIds = students.map((s) => s.id)
 
-    const blocked = async (detail: string) => {
-      await raiseFollowUp({
-        tenantId: session.tenantId!,
-        domain: 'SAFETY',
-        severity: 'EMERGENCY',
-        title: `Unauthorised pickup attempt — ${student.firstName}`,
-        detail,
-        sourceType: 'PickupAttempt',
-        dedupeKey: `pickup:${studentId}:${isoDate()}:${Date.now()}`,
-        studentId,
-        classroomId: student.currentClassroomId,
-        actorId: session.uid,
-        actorName: session.name,
-      })
-      return Errors.business('BUSINESS_PICKUP_BLOCKED', 'Release blocked — person is not an authorised pickup contact', 403)
-    }
+    const [attendances, pickupEvents] = await Promise.all([
+      db.attendance.findMany({
+        where: {
+          tenantId: session.tenantId,
+          date: todayDate,
+          studentId: { in: studentIds },
+        },
+      }),
+      db.timelineEntry.findMany({
+        where: {
+          tenantId: session.tenantId,
+          studentId: { in: studentIds },
+          type: 'PICKUP',
+          createdAt: {
+            gte: new Date(`${dateStr}T00:00:00.000Z`),
+            lte: new Date(`${dateStr}T23:59:59.999Z`),
+          },
+        },
+      }),
+    ])
 
-    if (!guardianId) return blocked('No guardian identified at release')
+    const attMap = new Map<string, string>(attendances.map((a) => [a.studentId, a.status] as [string, string]))
+    const pickupMap = new Map<string, TimelineEntry>(pickupEvents.map((p) => [p.studentId, p] as [string, TimelineEntry]))
 
-    const link = links.find((l) => l.guardianId === guardianId)
-    if (!link) {
-      const known = await db.guardian.findFirst({ where: { id: guardianId, tenantId: session.tenantId } })
-      return blocked(known ? 'Guardian exists but is NOT authorised for pickup on this child' : 'Unknown guardian presented for pickup')
-    }
+    const queue = students.map((s) => {
+      const att = attMap.get(s.id) || 'UNMARKED'
+      const pickup = pickupMap.get(s.id)
+      const isPresent = ['PRESENT', 'LATE', 'HALF_DAY'].includes(att)
 
-    // PIN verification when configured
-    if (spCfg.pickupVerification === 'PIN_MATCH' && link.guardian.pickupPin) {
-      if (!pin || pin !== link.guardian.pickupPin) {
-        return blocked('PIN mismatch for authorised guardian')
+      return {
+        id: s.id,
+        name: `${s.firstName} ${s.lastName || ''}`.trim(),
+        admissionNo: s.admissionNo,
+        photoUrl: s.photoUrl,
+        classroom: s.currentClassroom?.name || 'Unassigned',
+        classroomId: s.currentClassroomId,
+        attendance: att,
+        isPresent,
+        isPickedUp: Boolean(pickup),
+        pickedUpAt: pickup?.createdAt || null,
+        status: pickup ? 'RELEASED' : isPresent ? 'WAITING_PICKUP' : 'NOT_PRESENT',
+        guardians: s.guardians.map((g) => ({
+          id: g.guardian.id,
+          name: g.guardian.fullName,
+          relationship: g.guardian.relationship,
+          phone: g.guardian.phone,
+          canPickup: g.canPickup,
+          hasPin: Boolean(g.guardian.pickupPin),
+        })),
       }
-    }
-
-    const entry = await recordChildEvent({
-      tenantId: session.tenantId,
-      studentId,
-      type: 'PICKUP',
-      title: 'Released to authorised guardian',
-      body: `${link.guardian.fullName} (${link.guardian.relationship}) — verified by ${session.name}`,
-      classroomId: student.currentClassroomId,
-      actorId: session.uid,
     })
 
     return ok({
-      released: true,
-      guardian: link.guardian.fullName,
-      timelineEntryId: entry.id,
-      releasedAt: entry.createdAt,
+      date: dateStr,
+      total: queue.length,
+      waiting: queue.filter((q) => q.status === 'WAITING_PICKUP').length,
+      released: queue.filter((q) => q.status === 'RELEASED').length,
+      notPresent: queue.filter((q) => q.status === 'NOT_PRESENT').length,
+      items: queue,
     })
-  } catch (e) {
-    return Errors.system(e)
+  } catch (err: any) {
+    return Errors.system(err)
   }
-}
-
-/** GET /api/v1/operations/pickup?studentId= — authorised pickup contacts */
-export async function GET(req: NextRequest) {
-  const session = await requireApi(req, 'students:read')
-  if (isResponse(session)) return session
-  if (!session.tenantId) return Errors.forbidden('No tenant context')
-
-  const studentId = req.nextUrl.searchParams.get('studentId')
-  if (!studentId) return Errors.validation('studentId is required')
-
-  const student = await db.student.findFirst({ where: { id: studentId, tenantId: session.tenantId } })
-  if (!student) return Errors.notFound('Student')
-
-  const links = await db.studentGuardian.findMany({
-    where: { studentId },
-    include: { guardian: true },
-  })
-
-  return ok({
-    student: { id: student.id, name: `${student.firstName} ${student.lastName || ''}`.trim() },
-    contacts: links.map((l) => ({
-      guardianId: l.guardianId,
-      name: l.guardian.fullName,
-      relationship: l.guardian.relationship,
-      phone: l.guardian.phone,
-      canPickup: l.canPickup,
-      isPrimary: l.isPrimary,
-      pinSet: Boolean(l.guardian.pickupPin),
-    })),
-  })
 }

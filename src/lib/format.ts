@@ -52,7 +52,8 @@ export function enumLabel(v: string | null | undefined): string {
     .join(' ')
 }
 
-export function initials(name: string): string {
+export function initials(name?: string | null): string {
+  if (!name || typeof name !== 'string') return '?'
   return name
     .split(/\s+/)
     .filter(Boolean)
@@ -62,7 +63,8 @@ export function initials(name: string): string {
 }
 
 const AVATAR_CLASSES = ['a-p', 'a-b', 'a-k', 'a-o', 'a-g', 'a-c', 'a-y', 'a-n']
-export function avatarClass(seed: string): string {
+export function avatarClass(seed?: string | null): string {
+  if (!seed || typeof seed !== 'string') return AVATAR_CLASSES[0]!
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   return AVATAR_CLASSES[h % AVATAR_CLASSES.length]!

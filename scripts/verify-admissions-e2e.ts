@@ -259,23 +259,77 @@ async function runAdmissionsTests() {
     assert(leadConvertedCheck?.status === 'APPLICATION_STARTED', 'Enquiry updated to APPLICATION_STARTED')
 
     // -------------------------------------------------------------------------
-    // STEP 5: DOCUMENT VERIFICATION GATE & REVIEW CHECK
+    // STEP 5: DOCUMENT VERIFICATION GATE & REJECTION HANDLING
     // -------------------------------------------------------------------------
-    console.log('\n[5] Document Verification Gate & Review Assessment')
+    console.log('\n[5] Document Verification Gate & Rejection Handling')
     // Pre-verification review check: documents should be incomplete
     const reviewPre = await AdmissionService.reviewApplication(ctx, form1.id)
     assert(reviewPre.requirements.documentsCheck.isComplete === false, 'Review detects incomplete documents before verification')
     assert(reviewPre.requirements.isReadyForApproval === false, 'Approval gate closed while documents are pending')
 
-    // Verify all docs
-    for (const d of docs) {
-      await AdmissionService.updateDocumentStatus(ctx, d.id, 'VERIFY', 'Verified against original copy')
+    // Test rejection with mandatory reason
+    const firstDoc = docs[0]
+    const rejectedDoc = await AdmissionService.updateDocumentStatus(ctx, firstDoc.id, 'REJECT', 'Birth certificate is blurry and unreadable')
+    assert(rejectedDoc.document.status === 'REJECTED', 'Document status updated to REJECTED')
+    assert(rejectedDoc.document.rejectionReason === 'Birth certificate is blurry and unreadable', 'Document rejection reason preserved')
+
+    // Re-verify the rejected document (simulating parent re-upload)
+    await AdmissionService.updateDocumentStatus(ctx, firstDoc.id, 'VERIFY', 'Re-uploaded clear copy verified')
+
+    // Verify all remaining docs
+    for (let i = 1; i < docs.length; i++) {
+      await AdmissionService.updateDocumentStatus(ctx, docs[i].id, 'VERIFY', 'Verified against original copy')
     }
 
     const reviewPost = await AdmissionService.reviewApplication(ctx, form1.id)
     assert(reviewPost.requirements.documentsCheck.isComplete === true, 'All documents verified successfully')
     assert(reviewPost.requirements.capacityCheck.hasAvailableCapacity === true, 'Classroom capacity available for Section A (0/2)')
     assert(reviewPost.requirements.isReadyForApproval === true, 'Approval gate opened after all requirements satisfied')
+
+    // -------------------------------------------------------------------------
+    // STEP 5.1: COUNSELLING SESSION RECORDING & FOLLOW-UP LOGGING
+    // -------------------------------------------------------------------------
+    console.log('\n[5.1] Counselling Session Recording & Follow-up Logging')
+    const counsellingRes = await AdmissionService.recordCounselling(ctx, form1.id, {
+      counselorName: 'Counsellor Mehta',
+      notes: 'Child observed to be very active and social. Parents satisfied with preschool curriculum.',
+      outcome: 'POSITIVE',
+      scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+    })
+    assert(counsellingRes.application.status === 'COUNSELLING', 'Application status moved to COUNSELLING')
+    assert(counsellingRes.followUp !== null, 'Automated follow-up task created from counselling outcome')
+
+    // -------------------------------------------------------------------------
+    // STEP 5.2: FORMAL APPROVAL GATE (PRINCIPAL REVIEW)
+    // -------------------------------------------------------------------------
+    console.log('\n[5.2] Formal Approval Gate (Principal Sign-off)')
+    const approvedApp = await AdmissionService.approveApplication(ctx, form1.id, 'Meets all age and document criteria')
+    assert(approvedApp.status === 'APPROVED', 'Application formally transitioned to APPROVED')
+
+    // -------------------------------------------------------------------------
+    // STEP 5.3: PERSISTENT ADMISSION OFFER GENERATION
+    // -------------------------------------------------------------------------
+    console.log('\n[5.3] Persistent Admission Offer Generation')
+    const offerRes = await AdmissionService.generateOffer(ctx, form1.id, {
+      classroomId: classroomA.id,
+      feePlanId: feePlan.id,
+      validDays: 7,
+      remarks: 'Offer issued for Nursery-A Academic Year 2026-27',
+    })
+    assert(offerRes.offer.offerNumber.startsWith('OFR-'), `Admission Offer created with number ${offerRes.offer.offerNumber}`)
+    assert(offerRes.offer.status === 'ISSUED', 'Offer status is ISSUED')
+    assert(offerRes.offer.feeTotalCents === feePlan.totalAnnualCents, 'Offer captures exact fee plan amount')
+    assert(offerRes.application.status === 'OFFER_SENT', 'Application status progressed to OFFER_SENT')
+
+    // -------------------------------------------------------------------------
+    // STEP 5.4: PARENT OFFER ACCEPTANCE
+    // -------------------------------------------------------------------------
+    console.log('\n[5.4] Parent Offer Acceptance')
+    const acceptRes = await AdmissionService.acceptOffer(ctx, form1.id, offerRes.offer.id, {
+      remarks: 'Parent accepted offer via admission portal',
+    })
+    assert(acceptRes.offer.status === 'ACCEPTED', 'Offer status transitioned to ACCEPTED')
+    assert(acceptRes.application.status === 'OFFER_ACCEPTED', 'Application status progressed to OFFER_ACCEPTED')
 
     // -------------------------------------------------------------------------
     // STEP 6: ADMISSION APPROVAL & ATOMIC ENROLLMENT (STUDENT 1)
@@ -311,6 +365,7 @@ async function runAdmissionsTests() {
     for (const d of docs2) {
       await AdmissionService.updateDocumentStatus(ctx, d.id, 'VERIFY')
     }
+    await AdmissionService.approveApplication(ctx, form2.id, 'Approved for enrollment')
 
     const enroll2 = await AdmissionService.completeEnrollment(ctx, form2.id, classroomA.id)
     assert(enroll2.student.firstName === 'Siya', 'Second student Siya enrolled successfully')
@@ -337,6 +392,7 @@ async function runAdmissionsTests() {
     for (const d of docs3) {
       await AdmissionService.updateDocumentStatus(ctx, d.id, 'VERIFY')
     }
+    await AdmissionService.approveApplication(ctx, form3.id, 'Approved for enrollment')
 
     // Enrollment must fail due to full capacity
     let capacityBlocked = false
@@ -352,6 +408,38 @@ async function runAdmissionsTests() {
     const waitlistRes = await AdmissionService.waitlistApplication(ctx, form3.id, 'Section capacity reached')
     assert(waitlistRes.application.status === 'WAITLISTED', 'Child placed on Waiting List')
     assert(waitlistRes.position === 1, 'Waiting list position assigned (#1 on waitlist)')
+
+    // -------------------------------------------------------------------------
+    // STEP 8.1: OFFER DECLINE & APPLICATION REJECTION WORKFLOW
+    // -------------------------------------------------------------------------
+    console.log('\n[8.1] Offer Decline & Formal Application Rejection')
+    const form4 = await AdmissionService.submitApplication(ctx, {
+      programType: 'NURSERY',
+      childFirstName: 'Tanvi',
+      childLastName: 'Rao',
+      childDob: childDob40m,
+      parentName: 'Girish Rao',
+      parentPhone: '9844556677',
+    })
+    const docs4 = await db.applicationDocument.findMany({ where: { applicationId: form4.id } })
+    for (const d of docs4) {
+      await AdmissionService.updateDocumentStatus(ctx, d.id, 'VERIFY')
+    }
+    const offer4 = await AdmissionService.generateOffer(ctx, form4.id, {
+      feePlanId: feePlan.id,
+      validDays: 5,
+    })
+    const declineRes = await AdmissionService.declineOffer(ctx, form4.id, offer4.offer.id, {
+      reason: 'Parent opted for school closer to residence',
+    })
+    assert(declineRes.offer.status === 'DECLINED', 'Offer successfully declined')
+    assert(declineRes.application.status === 'WITHDRAWN', 'Application status moved to WITHDRAWN')
+
+    const rejectRes = await AdmissionService.rejectApplication(ctx, form4.id, {
+      reason: 'Offer declined by parent - closed file',
+    })
+    assert(rejectRes.status === 'REJECTED', 'Application formally marked REJECTED')
+    assert(rejectRes.rejectionReason?.includes('Offer declined'), 'Rejection reason recorded in application')
 
     // -------------------------------------------------------------------------
     // STEP 9: SAME-ID CONNECTIVITY VERIFICATION ACROSS MODULES
@@ -426,6 +514,7 @@ async function runAdmissionsTests() {
       await db.studentGuardian.deleteMany({ where: { student: { tenantId: tenant.id } } }).catch(() => {})
       await db.guardian.deleteMany({ where: { tenantId: tenant.id } }).catch(() => {})
       await db.student.deleteMany({ where: { tenantId: tenant.id } }).catch(() => {})
+      await db.admissionOffer.deleteMany({ where: { application: { tenantId: tenant.id } } }).catch(() => {})
       await db.applicationDocument.deleteMany({ where: { application: { tenantId: tenant.id } } }).catch(() => {})
       await db.admissionApplication.deleteMany({ where: { tenantId: tenant.id } }).catch(() => {})
       await db.followUp.deleteMany({ where: { tenantId: tenant.id } }).catch(() => {})

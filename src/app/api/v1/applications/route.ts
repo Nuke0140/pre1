@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
       include: {
         documents: true,
         lead: { select: { leadNumber: true, source: true } },
+        offers: { select: { id: true, offerNumber: true, status: true } },
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
         id: a.id,
         applicationNumber: a.applicationNumber,
         childName: `${a.childFirstName} ${a.childLastName || ''}`.trim(),
+        childFirstName: a.childFirstName,
+        childLastName: a.childLastName,
         childDob: a.childDob,
         childGender: a.childGender,
         programType: a.programType,
@@ -69,12 +72,16 @@ export async function GET(req: NextRequest) {
         studentId: a.studentId,
         classroomId: a.classroomId,
         leadNumber: a.lead?.leadNumber ?? null,
+        leadId: a.leadId,
+        offers: a.offers,
         documents: a.documents.map((d) => ({
           id: d.id,
           docType: d.docType,
           fileName: d.fileName,
+          status: d.status,
           verified: d.verified,
           remarks: d.remarks,
+          rejectionReason: d.rejectionReason,
         })),
       })),
       {
@@ -117,6 +124,7 @@ export async function POST(req: NextRequest) {
       previousSchool,
       leadId,
       notes,
+      isDuplicateConfirmed,
     } = body
 
     const app = await AdmissionService.submitApplication(
@@ -142,11 +150,15 @@ export async function POST(req: NextRequest) {
         address,
         previousSchool,
         notes,
+        isDuplicateConfirmed: !!isDuplicateConfirmed,
       }
     )
 
     return ok({ id: app.id, applicationNumber: app.applicationNumber }, undefined, 201)
   } catch (e: any) {
+    if (e.code === 'DUPLICATE_APPLICATION_FOUND') {
+      return Errors.conflict(e.message)
+    }
     return Errors.business('ADMISSION_SUBMIT_FAILED', e.message || 'Failed to submit admission form', 422)
   }
 }

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import PreHydration from "@/components/PreHydration";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,14 +24,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("preone-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}`,
-          }}
-        />
-      </head>
-      <body>{children}</body>
+      <body>
+        <PreHydration />
+        {children}
+      </body>
     </html>
   );
 }

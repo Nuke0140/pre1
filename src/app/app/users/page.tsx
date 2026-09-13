@@ -94,6 +94,7 @@ export default function UsersPage() {
   const [confirmRevoke, setConfirmRevoke] = useState<UserRecord | null>(null)
 
   const [busy, setBusy] = useState(false)
+  const [selected, setSelected] = useState<(string | number)[]>([])
   const [guardians, setGuardians] = useState<Array<{ id: string; fullName: string; relationship: string; phone: string; hasAccount?: boolean; children?: GuardianChild[] }>>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
   const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
@@ -303,6 +304,35 @@ export default function UsersPage() {
     }
   }
 
+  // Bulk lifecycle status transition for selected rows
+  const applyBulkStatus = async (nextStatus: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE') => {
+    if (selected.length === 0) return
+    setBusy(true)
+    try {
+      const results = await Promise.all(
+        selected.map((id) =>
+          fetch(`/api/v1/users/${id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: nextStatus, reason: 'Bulk status change' }),
+          }).then((r) => r.json()),
+        ),
+      )
+      const okCount = results.filter((r) => r.success).length
+      if (okCount === selected.length) {
+        toast.success(`Users marked as ${nextStatus.toLowerCase()}`, `${okCount} account${okCount === 1 ? '' : 's'} updated`)
+      } else {
+        toast.error('Partial update', `${okCount} of ${selected.length} accounts updated`)
+      }
+      setSelected([])
+      fetchUsers()
+    } catch (err: any) {
+      toast.error('Bulk update failed', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Handle Session Revocation across all devices
   const handleRevokeSessions = async (user: UserRecord) => {
     try {
@@ -329,6 +359,9 @@ export default function UsersPage() {
     {
       key: 'name',
       header: 'User / Identity',
+      sortable: true,
+      sortValue: (u) => u.name.toLowerCase(),
+      export: (u) => u.name,
       render: (u) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar name={u.name} size="sm" />
@@ -344,6 +377,9 @@ export default function UsersPage() {
     {
       key: 'role',
       header: 'Role & Staff ID',
+      sortable: true,
+      sortValue: (u) => (ROLE_META[u.role]?.label || u.role).toLowerCase(),
+      export: (u) => ROLE_META[u.role]?.label || u.role,
       render: (u) => {
         const meta = ROLE_META[u.role] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.role }
         return (
@@ -425,6 +461,18 @@ export default function UsersPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
+      export: (u) => u.status,
+      filter: {
+        placeholder: 'Filter by status',
+        get: (u) => u.status,
+        options: [
+          { value: 'ACTIVE', label: 'Active' },
+          { value: 'SUSPENDED', label: 'Suspended' },
+          { value: 'INACTIVE', label: 'Inactive' },
+          { value: 'PENDING', label: 'Pending' },
+        ],
+      },
       render: (u) => {
         const s = STATUS_BADGES[u.status] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.status }
         return (
@@ -448,6 +496,9 @@ export default function UsersPage() {
     {
       key: 'lastLogin',
       header: 'Last Active',
+      sortable: true,
+      sortValue: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).getTime() : 0),
+      export: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : ''),
       render: (u) => (
         <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>
           {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never logged in'}
@@ -458,6 +509,7 @@ export default function UsersPage() {
       key: 'actions',
       header: 'Actions',
       align: 'right',
+      hideable: false,
       render: (u) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
           <button
@@ -565,6 +617,43 @@ export default function UsersPage() {
             <button className="btn btn-primary btn-sm" onClick={() => setAddModalOpen(true)}>
               <UserPlus size={14} /> Add User
             </button>
+          }
+          paginate
+          defaultPageSize={10}
+          exportFileName="users.csv"
+          rowSelection
+          selectedKeys={selected}
+          onSelectionChange={setSelected}
+          bulkActions={
+            <>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={selected.length === 0}
+                style={{ color: '#DC2626' }}
+                onClick={() => applyBulkStatus('SUSPENDED')}
+              >
+                <Ban size={14} /> Suspend
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={selected.length === 0}
+                style={{ color: '#059669' }}
+                onClick={() => applyBulkStatus('ACTIVE')}
+              >
+                <Check size={14} /> Activate
+              </button>
+            </>
+          }
+          footer={
+            users ? (
+              <span>
+                Active <b>{users.filter((u) => u.status === 'ACTIVE').length}</b>
+                <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
+                Suspended <b>{users.filter((u) => u.status === 'SUSPENDED').length}</b>
+                <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
+                Inactive <b>{users.filter((u) => u.status === 'INACTIVE').length}</b>
+              </span>
+            ) : null
           }
           onRowClick={(row) => {
             setViewUser(row)

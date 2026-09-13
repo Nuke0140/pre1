@@ -102,6 +102,8 @@ export async function POST(req: NextRequest) {
         milestoneTags: milestoneTags || null,
         category: category || null,
         concern: concern || 'NORMAL',
+        learningGoalId: body.learningGoalId || null,
+        activityId: body.activityId || null,
         status: 'DRAFT',
         academicSessionId: sessionRow?.id,
       },

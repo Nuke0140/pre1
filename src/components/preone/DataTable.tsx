@@ -1,19 +1,45 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Search, Filter, ChevronLeft, ChevronRight, Download, AlertCircle } from 'lucide-react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Search, Filter, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download,
+  AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown,
+} from 'lucide-react'
 import { Skeleton, EmptyState } from './ui'
+
+export interface ColumnFilterOption {
+  value: string
+  label: string
+}
+
+export interface ColumnFilterDef<T> {
+  options: ColumnFilterOption[]
+  get: (row: T) => string | string[]
+  placeholder?: string
+}
+
+export interface RowAction {
+  label: string
+  icon?: React.ReactNode
+  onClick: () => void
+  danger?: boolean
+  disabled?: boolean
+}
 
 export interface Column<T> {
   key: string
   header: string
   render?: (row: T, index: number) => React.ReactNode
   sortable?: boolean
+  sortValue?: (row: T) => string | number
   align?: 'left' | 'center' | 'right'
   width?: string | number
+  hideable?: boolean
+  filter?: ColumnFilterDef<T>
+  export?: (row: T) => string | number | null | undefined
 }
 
-export interface DataTableProps<T> {
+export interface DataTableProps<T extends { id?: string | number }> {
   columns: Column<T>[]
   data: T[] | null
   loading?: boolean
@@ -27,12 +53,49 @@ export interface DataTableProps<T> {
   toolbarActions?: React.ReactNode
   filters?: React.ReactNode
   onRowClick?: (row: T) => void
+  /** Local sort by default; pass onSort to drive server-side sorting. */
+  defaultSortKey?: string
+  defaultSortDir?: 'asc' | 'desc'
+  onSort?: (key: string, dir: 'asc' | 'desc') => void
+  /** Client-side row pagination (pages that fetch the full list). */
+  paginate?: boolean
+  defaultPageSize?: number
+  pageSizeOptions?: number[]
+  /** Server-side pagination contract (existing pages). */
   pagination?: {
     page: number
     pageSize: number
     total: number
     onPageChange: (p: number) => void
+    onPageSizeChange?: (n: number) => void
   }
+  /** Sticky summary/totals row rendered above the pagination bar. */
+  footer?: React.ReactNode
+  rowSelection?: boolean
+  selectedKeys?: (string | number)[]
+  onSelectionChange?: (keys: (string | number)[]) => void
+  bulkActions?: React.ReactNode
+  showExport?: boolean
+  exportFileName?: string
+  rowActions?: (row: T) => RowAction[]
+}
+
+type MenuState = { kind: 'cols' } | { kind: 'kebab'; rowId: string } | { kind: 'filter'; colKey: string } | null
+
+function cellText<T>(col: Column<T>, row: T): string {
+  if (col.export) return String(col.export(row) ?? '')
+  const raw = (row as Record<string, unknown>)[col.key]
+  if (raw === null || raw === undefined) return ''
+  if (typeof raw === 'object') return ''
+  return String(raw)
+}
+
+function toCsv(rows: { label: string; cell: string }[][]): string {
+  const esc = (v: string) => {
+    const s = String(v ?? '')
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return rows.map((r) => r.map((c) => esc(c.cell)).join(',')).join('\r\n')
 }
 
 export function DataTable<T extends { id?: string | number }>({
@@ -49,20 +112,190 @@ export function DataTable<T extends { id?: string | number }>({
   toolbarActions,
   filters,
   onRowClick,
+  defaultSortKey,
+  defaultSortDir = 'asc',
+  onSort,
+  paginate,
+  defaultPageSize = 10,
+  pageSizeOptions = [10, 25, 50, 100],
   pagination,
+  footer,
+  rowSelection,
+  selectedKeys,
+  onSelectionChange,
+  bulkActions,
+  showExport = true,
+  exportFileName = 'export.csv',
+  rowActions,
 }: DataTableProps<T>) {
   const [localSearch, setLocalSearch] = useState(searchValue || '')
+  const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultSortDir)
+  const [colFilters, setColFilters] = useState<Record<string, Set<string>>>({})
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set())
+  const [density, setDensity] = useState<'cozy' | 'compact'>('cozy')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(defaultPageSize)
+  const [selection, setSelection] = useState<Set<string | number>>(
+    new Set((selectedKeys || []) as (string | number)[]),
+  )
+  const [menu, setMenu] = useState<MenuState>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  const handleSearchChange = (val: string) => {
+  const allRows = data || []
+
+  useEffect(() => {
+    if (selectedKeys) setSelection(new Set(selectedKeys))
+  }, [selectedKeys])
+
+  useEffect(() => {
+    if (!menu) return
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement
+      if (wrapRef.current && !wrapRef.current.contains(t)) setMenu(null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
+
+  const toggleMenu = (next: MenuState) => setMenu((cur) => (cur?.kind === next?.kind && (cur as any)?.rowId === (next as any)?.rowId ? null : next))
+
+  const setSearch = useCallback((val: string) => {
     setLocalSearch(val)
     if (onSearch) onSearch(val)
+    setPage(1)
+  }, [onSearch])
+
+  // column filters
+  const toggleColFilter = useCallback((key: string, value: string) => {
+    setColFilters((prev) => {
+      const next = new Map(Object.entries(prev))
+      const set = new Set(next.get(key) || [])
+      if (set.has(value)) set.delete(value)
+      else set.add(value)
+      if (set.size === 0) next.delete(key)
+      else next.set(key, set)
+      return Object.fromEntries(next)
+    })
+    setPage(1)
+  }, [])
+
+  const filtered = useMemo(() => {
+    let rows = allRows
+    const filterDefs = new Map(columns.filter((c) => c.filter).map((c) => [c.key, c.filter!]))
+    const active = Object.entries(colFilters)
+    if (active.length > 0) {
+      rows = rows.filter((row) =>
+        active.every(([key, values]) => {
+          const def = filterDefs.get(key)
+          if (!def) return true
+          const got = def.get(row)
+          const list = Array.isArray(got) ? got : [got]
+          return list.some((v) => values.has(v))
+        }),
+      )
+    }
+    if (sortKey && sortDir) {
+      const col = columns.find((c) => c.key === sortKey)
+      if (col) {
+        const sv = col.sortValue || ((r: T) => (r as Record<string, unknown>)[sortKey] as string | number)
+        rows = [...rows].sort((a, b) => {
+          const av = sv(a)
+          const bv = sv(b)
+          let cmp = 0
+          if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv
+          else cmp = String(av ?? '').localeCompare(String(bv ?? ''), undefined, { numeric: true })
+          return sortDir === 'asc' ? cmp : -cmp
+        })
+      }
+    }
+    return rows
+  }, [allRows, columns, colFilters, sortKey, sortDir])
+
+  const visibleCols = useMemo(
+    () => columns.filter((c) => !(c.key !== 'actions' && hiddenCols.has(c.key))),
+    [columns, hiddenCols],
+  )
+
+  const totalPagesDecided = pagination ? Math.ceil(pagination.total / pagination.pageSize) : paginate ? Math.max(1, Math.ceil(filtered.length / pageSize)) : 1
+  const currentPage = pagination ? pagination.page : page
+  const paged = useMemo(() => {
+    if (pagination || !paginate) return filtered
+    const start = (page - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, paginate, pagination, page, pageSize])
+
+  const allSelected = rowSelection && allRows.length > 0 && allRows.every((r) => r.id !== undefined && selection.has(r.id))
+  const someSelected = rowSelection && allRows.some((r) => r.id !== undefined && selection.has(r.id))
+
+  const toggleAll = () => {
+    if (!rowSelection) return
+    const next = new Set(selection)
+    if (allSelected) {
+      allRows.forEach((r) => { if (r.id !== undefined) next.delete(r.id) })
+    } else {
+      allRows.forEach((r) => { if (r.id !== undefined) next.add(r.id) })
+    }
+    setSelection(next)
+    if (onSelectionChange) onSelectionChange([...next])
   }
 
-  const totalPages = pagination ? Math.ceil(pagination.total / pagination.pageSize) : 1
+  const toggleRow = (id: string | number | undefined) => {
+    if (!rowSelection || id === undefined) return
+    const next = new Set(selection)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelection(next)
+    if (onSelectionChange) onSelectionChange([...next])
+  }
+
+  const clearSelection = () => {
+    setSelection(new Set())
+    if (onSelectionChange) onSelectionChange([])
+  }
+
+  const exportSelected = () => {
+    const targets = selection.size > 0 ? filtered.filter((r) => r.id !== undefined && selection.has(r.id)) : filtered
+    const header = visibleCols.filter((c) => c.key !== 'actions').map((c) => ({ label: c.header, cell: c.header }))
+    const body = targets.map((row) =>
+      visibleCols.filter((c) => c.key !== 'actions').map((c) => ({ label: c.header, cell: cellText(c, row) })),
+    )
+    const csv = toCsv([header, ...body])
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = exportFileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const selectionOrder = visibleCols.filter((c) => c.key !== 'actions')
+
+  const handleSort = (key: string) => {
+    setPage(1)
+    const nextDir = sortKey === key && sortDir === 'asc' ? 'desc' : 'asc'
+    setSortKey(key)
+    setSortDir(nextDir)
+    if (onSort) onSort(key, nextDir)
+  }
+
+  const rangeLabel = pagination || paginate
+    ? `Showing ${currentPage === 0 ? 0 : ((currentPage - 1) * (pagination ? pagination.pageSize : pageSize)) + 1}-${Math.min(currentPage * (pagination ? pagination.pageSize : pageSize), pagination ? pagination.total : filtered.length)} of ${pagination ? pagination.total : filtered.length}`
+    : `${filtered.length} row${filtered.length === 1 ? '' : 's'}`
 
   return (
-    <div className="dtable-wrap">
-      {(searchPlaceholder || filters || toolbarActions) && (
+    <div className="dtable-wrap" ref={wrapRef}>
+      {(searchPlaceholder || filters || toolbarActions || rowSelection || showExport) && (
         <div className="table-toolbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, flexWrap: 'wrap' }}>
             {searchPlaceholder && (
@@ -72,57 +305,242 @@ export function DataTable<T extends { id?: string | number }>({
                   className="input"
                   placeholder={searchPlaceholder}
                   value={localSearch}
-                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label={searchPlaceholder}
                 />
               </div>
             )}
             {filters}
           </div>
-          {toolbarActions && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {toolbarActions}
+          <div className="table-tool-actions" role="toolbar" aria-label="Table tools">
+            {rowSelection && selection.size > 0 && (
+              <button className="btn btn-ghost btn-sm" onClick={clearSelection}>
+                <X size={14} /> Clear ({selection.size})
+              </button>
+            )}
+            {bulkActions}
+            {footer !== undefined && (
+              <span className="t-caption" style={{ whiteSpace: 'nowrap' }}>{rangeLabel}</span>
+            )}
+            {showExport && (
+              <button className="btn btn-ghost btn-sm" onClick={exportSelected} title="Export CSV">
+                <Download size={14} /> CSV
+              </button>
+            )}
+            <div className="menu-anchor">
+              <button
+                className="btn btn-ghost btn-sm dt-icon-btn"
+                onClick={() => setMenu((m) => (m?.kind === 'cols' ? null : { kind: 'cols' }))}
+                aria-label="Columns and density"
+                aria-haspopup="menu"
+                aria-expanded={menu?.kind === 'cols'}
+              >
+                <Columns3 size={14} />
+              </button>
+              {menu?.kind === 'cols' && (
+                <div className="menu" role="menu" style={{ right: 0 }}>
+                  <div className="menu-group">
+                    <div className="menu-item menu-row-action" onClick={() => setDensity((d) => (d === 'cozy' ? 'compact' : 'cozy'))} role="menuitem">
+                      <Rows3 size={14} />
+                      {density === 'cozy' ? 'Compact rows' : 'Cozy rows'}
+                    </div>
+                  </div>
+                  <div className="menu-label">Visible columns</div>
+                  {columns.filter((c) => c.hideable !== false && c.key !== 'actions').map((c) => (
+                    <label key={c.key} className="menu-item menu-check" role="menuitemcheckbox" aria-checked={!hiddenCols.has(c.key)}>
+                      <input
+                        type="checkbox"
+                        checked={!hiddenCols.has(c.key)}
+                        onChange={() =>
+                          setHiddenCols((prev) => {
+                            const next = new Set(prev)
+                            if (next.has(c.key)) next.delete(c.key)
+                            else next.add(c.key)
+                            return next
+                          })
+                        }
+                      />
+                      <span>{c.header}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {rowSelection && selection.size > 0 && (
+        <div className="bulk-bar" role="status">
+          <span className="bulk-count">{selection.size} selected</span>
+          {showExport && (
+            <button className="btn btn-sm btn-ghost" onClick={exportSelected}>
+              <Download size={14} /> Export selected CSV
+            </button>
           )}
+          {bulkActions}
+          <button className="btn btn-sm btn-ghost" onClick={clearSelection}>Clear</button>
         </div>
       )}
 
       <div className="dtable-scroll">
-        <table className="dtable">
+        <table className={`dtable density-${density}`}>
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  style={{
-                    textAlign: col.align || 'left',
-                    width: col.width,
-                  }}
-                >
-                  {col.header}
+              {rowSelection && (
+                <th style={{ width: 38 }} className="dt-col-check">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all rows"
+                    checked={!!allSelected}
+                    ref={someSelected ? (el) => { if (el) el.indeterminate = true } : undefined}
+                    onChange={toggleAll}
+                  />
                 </th>
-              ))}
+              )}
+              {visibleCols.map((col) => {
+                const activeFilter = colFilters[col.key]?.size
+                const sorting = col.sortable && sortKey === col.key
+                const filterOpen = menu?.kind === 'filter' && menu.colKey === col.key
+                return (
+                  <th
+                    key={col.key}
+                    style={{ textAlign: col.align || 'left', width: col.width }}
+                    aria-sort={
+                      col.sortable && sortKey === col.key
+                        ? (sortDir === 'asc' ? 'ascending' : 'descending')
+                        : undefined
+                    }
+                  >
+                    <span className="th-inline">
+                      {col.header}
+                      {col.sortable && (
+                        <button
+                          className="th-sort"
+                          onClick={() => handleSort(col.key)}
+                          aria-label={`Sort by ${col.header}`}
+                        >
+                          {sorting ? (sortDir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />) : <ArrowUpDown size={12} />}
+                        </button>
+                      )}
+                      {col.filter && (
+                        <span className="menu-anchor">
+                          <button
+                            className={`th-filter${activeFilter ? ' active' : ''}`}
+                            onClick={() => setMenu((m) => (m?.kind === 'filter' && m.colKey === col.key ? null : { kind: 'filter', colKey: col.key }))}
+                            aria-label={`Filter ${col.header}`}
+                            aria-haspopup="menu"
+                            aria-expanded={filterOpen}
+                          >
+                            <Filter size={12} />
+                          </button>
+                          {filterOpen && col.filter && (
+                            <div className="menu menu-filter" role="menu">
+                              <div className="menu-label">{col.filter.placeholder || `Filter by ${col.header}`}</div>
+                              {col.filter.options.map((o) => {
+                                const on = !!colFilters[col.key]?.has(o.value)
+                                return (
+                                  <label key={o.value} className="menu-item menu-check" role="menuitemcheckbox" aria-checked={on}>
+                                    <input
+                                      type="checkbox"
+                                      checked={on}
+                                      onChange={() => toggleColFilter(col.key, o.value)}
+                                    />
+                                    <span>{o.label}</span>
+                                  </label>
+                                )
+                              })}
+                              {activeFilter && (
+                                <div className="menu-footer">
+                                  <button className="btn btn-ghost btn-sm" onClick={() => {
+                                    setColFilters((prev) => {
+                                      const next = { ...prev }
+                                      delete next[col.key]
+                                      return next
+                                    })
+                                  }}>
+                                    Clear filter
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                )
+              })}
+              {rowActions && <th style={{ width: 42 }} aria-label="Row actions" />}
             </tr>
           </thead>
           <tbody>
-            {data && data.length > 0 &&
-              data.map((row, idx) => (
+            {paged.length > 0 && paged.map((row, idx) => {
+              const rid = row.id
+              const isSel = rid !== undefined && selection.has(rid)
+              return (
                 <tr
-                  key={row.id ? String(row.id) : idx}
-                  onClick={() => onRowClick && onRowClick(row)}
+                  key={rid !== undefined ? String(rid) : idx}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement
+                    if (target.closest('button, input, a, label')) return
+                    if (onRowClick) onRowClick(row)
+                  }}
                   style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                  className={isSel ? 'dt-selected' : ''}
                 >
-                  {columns.map((col) => (
-                    <td
-                      key={col.key}
-                      style={{
-                        textAlign: col.align || 'left',
-                      }}
-                    >
-                      {col.render ? col.render(row, idx) : String((row as Record<string, unknown>)[col.key] ?? '—')}
+                  {rowSelection && (
+                    <td className="dt-col-check">
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        checked={isSel}
+                        onChange={() => toggleRow(rid)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                  )}
+                  {visibleCols.map((col) => (
+                    <td key={col.key} style={{ textAlign: col.align || 'left' }}>
+                      {col.render
+                        ? col.render(row, idx)
+                        : highlightText(cellText(col, row), localSearch)}
                     </td>
                   ))}
+                  {rowActions && (
+                    <td className="dt-row-actions" onClick={(e) => e.stopPropagation()}>
+                      <span className="menu-anchor">
+                        <button
+                          className="btn btn-ghost btn-sm dt-icon-btn kebab"
+                          onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: String(rid) })}
+                          aria-label="Row actions"
+                          aria-haspopup="menu"
+                          aria-expanded={menu?.kind === 'kebab' && menu.rowId === String(rid)}
+                        >
+                          <MoreVertical size={15} />
+                        </button>
+                        {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === String(rid) && (
+                          <div className="menu" role="menu" style={{ right: 0 }}>
+                            {(rowActions(row) || []).map((act, i) => (
+                              <button
+                                key={i}
+                                className={`menu-item${act.danger ? ' menu-danger' : ''}${act.disabled ? ' menu-disabled' : ''}`}
+                                role="menuitem"
+                                disabled={act.disabled}
+                                onClick={() => { setMenu(null); act.onClick() }}
+                              >
+                                {act.icon}
+                                {act.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </span>
+                    </td>
+                  )}
                 </tr>
-              ))}
+              )
+            })}
           </tbody>
         </table>
 
@@ -152,32 +570,86 @@ export function DataTable<T extends { id?: string | number }>({
         )}
       </div>
 
-      {pagination && totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-sunken)' }}>
+      {(pagination || paginate) && (
+        <div className="dtable-foot">
           <span className="t-caption">
-            Showing {((pagination.page - 1) * pagination.pageSize) + 1}–{Math.min(pagination.page * pagination.pageSize, pagination.total)} of {pagination.total}
+            {rangeLabel}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={pagination.page <= 1}
-              onClick={() => pagination.onPageChange(pagination.page - 1)}
-            >
-              <ChevronLeft size={14} /> Previous
+          <div className="dtable-foot-right">
+            {(pagination?.onPageSizeChange || paginate) && (
+              <label className="dtable-page-size">
+                <span className="t-caption">Rows</span>
+                <select
+                  className="select"
+                  value={pagination ? pagination.pageSize : pageSize}
+                  onChange={(e) => {
+                    const n = Number(e.target.value)
+                    if (pagination?.onPageSizeChange) pagination.onPageSizeChange(n)
+                    else setPageSize(n)
+                    setPage(1)
+                  }}
+                >
+                  {pageSizeOptions.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button className="btn btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => (pagination ? pagination.onPageChange(1) : setPage(1))} aria-label="First page">
+              <ChevronLeft size={14} />
+              <ChevronLeft size={14} style={{ marginLeft: -8 }} />
             </button>
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '0 4px' }}>
-              {pagination.page} / {totalPages}
+            <button className="btn btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => (pagination ? pagination.onPageChange(currentPage - 1) : setPage(currentPage - 1))}>
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <span className="dtable-page-jump">
+              <input
+                type="number"
+                min={1}
+                max={totalPagesDecided}
+                value={currentPage}
+                aria-label="Jump to page"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (!v || v < 1) return
+                  const clamped = Math.min(v, totalPagesDecided)
+                  if (pagination) pagination.onPageChange(clamped)
+                  else setPage(clamped)
+                }}
+              />
+              <span className="t-caption">/ {totalPagesDecided}</span>
             </span>
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={pagination.page >= totalPages}
-              onClick={() => pagination.onPageChange(pagination.page + 1)}
-            >
+            <button className="btn btn-ghost btn-sm" disabled={currentPage >= totalPagesDecided} onClick={() => (pagination ? pagination.onPageChange(currentPage + 1) : setPage(currentPage + 1))}>
               Next <ChevronRight size={14} />
+            </button>
+            <button className="btn btn-ghost btn-sm" disabled={currentPage >= totalPagesDecided} onClick={() => (pagination ? pagination.onPageChange(totalPagesDecided) : setPage(totalPagesDecided))} aria-label="Last page">
+              <ChevronRight size={14} />
+              <ChevronRight size={14} style={{ marginLeft: -8 }} />
             </button>
           </div>
         </div>
       )}
+
+      {footer && (
+        <div className="dtable-totals" role="row">
+          {footer}
+        </div>
+      )}
     </div>
+  )
+}
+
+function highlightText(text: string, search: string): React.ReactNode {
+  const q = search.trim()
+  if (!q || !text) return text
+  const lower = text.toLowerCase()
+  const idx = lower.indexOf(q.toLowerCase())
+  if (idx === -1) return text
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark>{text.slice(idx, idx + q.length)}</mark>
+      {text.slice(idx + q.length)}
+    </>
   )
 }

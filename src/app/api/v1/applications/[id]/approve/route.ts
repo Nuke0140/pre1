@@ -4,8 +4,9 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
- * POST /api/v1/applications/{id}/approve — Final Admission Approval & Enrolment
- * Executes atomic student creation, parent linking, classroom allocation, and finance invoice.
+ * POST /api/v1/applications/{id}/approve — Admission Approval
+ * If classroomId is provided, performs direct final enrollment for backward compatibility.
+ * Otherwise, performs formal approval gate transition.
  */
 export async function POST(
   req: NextRequest,
@@ -22,21 +23,24 @@ export async function POST(
     const classroomId: string | undefined = body.classroomId
     const academicYearId: string | undefined = body.academicYearId
 
-    const result = await AdmissionService.completeEnrollment(
-      {
-        tenantId: session.tenantId,
-        branchId: session.branchId || '',
-        academicYearId: academicYearId || '',
-        actorId: session.uid,
-        actorName: session.name,
-        actorRole: session.role,
-      },
-      id,
-      classroomId
-    )
+    const ctx = {
+      tenantId: session.tenantId,
+      branchId: session.branchId || '',
+      academicYearId: academicYearId || '',
+      actorId: session.uid,
+      actorName: session.name,
+      actorRole: session.role,
+    }
 
-    return ok(result)
+    if (classroomId) {
+      // Legacy or direct enrollment path
+      const result = await AdmissionService.completeEnrollment(ctx, id, classroomId)
+      return ok(result)
+    }
+
+    const approvedApp = await AdmissionService.approveApplication(ctx, id, body.notes)
+    return ok(approvedApp)
   } catch (e: any) {
-    return Errors.business('ADMISSION_ENROLL_FAILED', e.message || 'Could not complete enrollment', 422)
+    return Errors.business('ADMISSION_APPROVE_FAILED', e.message || 'Could not approve application', 422)
   }
 }

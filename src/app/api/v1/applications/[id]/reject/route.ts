@@ -1,45 +1,42 @@
 import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit } from '@/lib/sequence'
+import { AdmissionService } from '@/lib/admissions/admission-service'
 
-/** POST /api/v1/applications/{id}/reject */
+/**
+ * POST /api/v1/applications/{id}/reject — Reject application with structured reason
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await requireApi(req, 'admissions:approve')
   if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
   const { id } = await params
 
   try {
     const body = await req.json().catch(() => ({}))
     const reason: string = body.reason || 'Did not meet admission criteria'
+    const notes: string | undefined = body.notes
 
-    const app = await db.admissionApplication.findUnique({ where: { id } })
-    if (!app) return Errors.notFound('Application')
-    if (app.status === 'ENROLLED') {
-      return Errors.conflict('Cannot reject an enrolled application')
-    }
+    const updated = await AdmissionService.rejectApplication(
+      {
+        tenantId: session.tenantId,
+        branchId: session.branchId || '',
+        academicYearId: '',
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      id,
+      reason,
+      notes
+    )
 
-    await db.admissionApplication.update({
-      where: { id },
-      data: { status: 'REJECTED', rejectedAt: new Date(), rejectionReason: reason },
-    })
-
-    await audit({
-      tenantId: session.tenantId,
-      actorId: session.uid,
-      actorName: session.name,
-      action: 'REJECT',
-      entity: 'AdmissionApplication',
-      entityId: id,
-      summary: `Rejected ${app.applicationNumber}: ${reason}`,
-    })
-
-    return ok({ status: 'REJECTED' })
-  } catch (e) {
-    return Errors.system(e)
+    return ok(updated)
+  } catch (e: any) {
+    return Errors.business('REJECT_FAILED', e.message || 'Failed to reject application', 422)
   }
 }

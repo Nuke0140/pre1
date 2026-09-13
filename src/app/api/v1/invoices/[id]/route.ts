@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
+import { recordAudit } from '@/lib/audit'
 
-/** GET /api/v1/invoices/{id} — invoice detail with items + payments */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -60,6 +60,66 @@ export async function GET(
         receiptNumber: p.receipt?.receiptNumber ?? null,
       })),
     })
+  } catch (e) {
+    return Errors.system(e)
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requireApi(req, 'finance:write')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+  const { id } = await params
+
+  try {
+    const body = await req.json()
+    const { action, reason, notes } = body
+
+    const existing = await db.invoice.findFirst({
+      where: { id, tenantId: session.tenantId },
+    })
+    if (!existing) return Errors.notFound('Invoice')
+
+    if (action === 'VOID' || action === 'CANCEL') {
+      if (existing.paidCents > 0) {
+        return Errors.conflict('Cannot void an invoice with recorded payments')
+      }
+
+      const updated = await db.invoice.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED',
+          notes: [existing.notes, `Voided by ${session.name}: ${reason || 'Administrative void'}`].filter(Boolean).join('. '),
+        },
+      })
+
+      await recordAudit({
+        tenantId: session.tenantId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'VOID_INVOICE',
+        entity: 'Invoice',
+        entityId: id,
+        module: 'Fees',
+        summary: `Voided invoice ${existing.invoiceNumber}: ${reason || 'N/A'}`,
+      })
+
+      return ok(updated)
+    }
+
+    if (notes) {
+      const updated = await db.invoice.update({
+        where: { id },
+        data: { notes },
+      })
+      return ok(updated)
+    }
+
+    return Errors.validation('Invalid patch action')
   } catch (e) {
     return Errors.system(e)
   }

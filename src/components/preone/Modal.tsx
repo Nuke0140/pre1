@@ -18,14 +18,51 @@ interface ModalProps {
 export function Modal({
   open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, children, footer,
 }: ModalProps) {
+  const panelRef = React.useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const opener = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+        return
+      }
+      if (e.key === 'Tab') {
+        const panel = panelRef.current
+        if (!panel) return
+        const focusables = Array.from(
+          panel.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null)
+        if (focusables.length === 0) {
+          e.preventDefault()
+          panel.focus()
+          return
+        }
+        const first = focusables[0]
+        const last = focusables[focusables.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    const focusTimer = window.setTimeout(() => {
+      panelRef.current?.focus()
+    }, 30)
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     return () => {
+      window.clearTimeout(focusTimer)
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      opener?.focus()
     }
   }, [open, onClose])
 
@@ -34,7 +71,7 @@ export function Modal({
   return (
     <div className="ovl" role="dialog" aria-modal="true" aria-label={title}>
       <div className="ovl-backdrop" onClick={onClose} />
-      <div className={`modal${wide ? ' modal-wide' : ''}`}>
+      <div className={`modal${wide ? ' modal-wide' : ''}`} ref={panelRef} tabIndex={-1}>
         <div className="modal-head">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             {icon && <div className={`modal-icon ${iconClass}`}>{icon}</div>}

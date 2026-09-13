@@ -13,36 +13,7 @@ import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 
 interface Props {
-  student: {
-    id: string
-    admissionNo: string
-    seatNumber?: string | null
-    name: string
-    firstName: string
-    dob: string
-    gender: string
-    status: string
-    bloodGroup: string | null
-    address: string | null
-    admissionDate: string
-    classroom: { name: string; programType: string; teacher: string | null } | null
-    guardians: {
-      guardianId: string
-      name: string; relationship: string; phone: string; email: string | null
-      isPrimary: boolean; canPickup: boolean
-    }[]
-    attendance: {
-      pct: number; present: number; total: number
-      recent: { date: string; status: string }[]
-    }
-    invoices: {
-      id: string; invoiceNumber: string; title: string
-      totalCents: number; paidCents: number; balanceCents: number
-      status: string; dueDate: string
-    }[]
-    observations: { id: string; narrative: string; milestoneTags: string | null; status: string; observedAt: string }[]
-    timeline: { id: string; type: string; title: string; body: string | null; at: string }[]
-  }
+  profile: any
 }
 
 const TL_DOT: Record<string, string> = {
@@ -50,14 +21,16 @@ const TL_DOT: Record<string, string> = {
   ACTIVITY: 'g-pink', NOTE: '', INCIDENT: 'g-orange',
 }
 
-export function StudentDetailClient({ student }: Props) {
+export function StudentDetailClient({ profile }: Props) {
+  const { student, admission, academic, guardians, attendance, finance, academics, timeline, audit } = profile
   const router = useRouter()
   const toast = useToast()
   const [tab, setTab] = useState('overview')
   const [allocOpen, setAllocOpen] = useState(false)
   const [classrooms, setClassrooms] = useState<{ id: string; name: string; capacity: number; programType: string }[]>([])
-  const [history, setHistory] = useState<{ classroom: string; session: string; status: string; startedAt: string; endedAt: string | null; reason: string | null }[] | null>(null)
+  const [history, setHistory] = useState<any[]>(academic?.allocations || [])
   const [busy, setBusy] = useState(false)
+
 
   const loadHistory = useCallback(async () => {
     const r = await fetch(`/api/v1/students/${student.id}/allocate`).then((r) => r.json())
@@ -111,23 +84,23 @@ export function StudentDetailClient({ student }: Props) {
 
       {/* Header card */}
       <div className="card" style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <Avatar name={student.name} size="lg" />
+        <Avatar name={student?.name || student?.fullName || student?.firstName} size="lg" />
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h1 className="t-h2">{student.name}</h1>
-            <StatusBadge status={student.status} />
+            <h1 className="t-h2">{student?.name || student?.fullName || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student'}</h1>
+            <StatusBadge status={student?.status || 'ACTIVE'} />
           </div>
           <div className="t-body" style={{ marginTop: 4 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{student.admissionNo}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{student?.admissionNo}</span>
             {student.seatNumber && (
               <span className="badge b-info" style={{ marginLeft: 6, fontSize: 11 }}>
                 Seat: {student.seatNumber}
               </span>
             )}
             {' · '}
-            {student.classroom ? `${student.classroom.name} (${enumLabel(student.classroom.programType)})` : 'No classroom'}
+            {academic?.classroom ? `${academic.classroom.name} (${enumLabel(academic.classroom.programType)})` : 'No classroom'}
             {' · '}
-            {student.classroom?.teacher ? `Teacher: ${student.classroom.teacher}` : 'No teacher assigned'}
+            {academic?.classroom?.primaryTeacher ? `Teacher: ${academic.classroom.primaryTeacher.fullName}` : 'No teacher assigned'}
           </div>
           <div className="t-caption" style={{ marginTop: 6 }}>
             Born {fmtDate(student.dob)} · {enumLabel(student.gender)} · Admitted {fmtDate(student.admissionDate)}
@@ -139,11 +112,11 @@ export function StudentDetailClient({ student }: Props) {
             <Shuffle size={13} /> Change section
           </button>
           <div className="stat-mini" style={{ minWidth: 100 }}>
-            <b>{student.attendance.pct}%</b>
+            <b>{attendance?.percentage || 0}%</b>
             <span>Attendance</span>
           </div>
           <div className="stat-mini" style={{ minWidth: 100 }}>
-            <b>{inr(student.invoices.reduce((s, i) => s + i.balanceCents, 0), { compact: true })}</b>
+            <b>{inr(finance?.balanceCents || 0, { compact: true })}</b>
             <span>Fee balance</span>
           </div>
         </div>
@@ -154,50 +127,52 @@ export function StudentDetailClient({ student }: Props) {
         onChange={setTab}
         options={[
           { key: 'overview', label: 'Overview' },
-          { key: 'guardians', label: `Guardians (${student.guardians.length})` },
+          { key: 'guardians', label: `Guardians (${guardians?.length || 0})` },
+          { key: 'academic', label: 'Academic & Class' },
           { key: 'attendance', label: 'Attendance' },
-          { key: 'fees', label: `Fees (${student.invoices.length})` },
+          { key: 'fees', label: `Fees (${finance?.invoices?.length || 0})` },
+          { key: 'observations', label: `Observations (${academics?.observations?.length || 0})` },
           { key: 'timeline', label: 'Timeline' },
+          { key: 'audit', label: `Audit (${audit?.length || 0})` },
         ]}
       />
+
 
       {tab === 'overview' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="dash-grid">
           <div className="card">
             <div className="card-head">
-              <div className="card-title">Recent Observations</div>
+              <div className="card-title">Admission & Origin</div>
               <Sparkles size={17} style={{ color: 'var(--preone-primary)' }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {student.observations.map((o) => (
-                <div key={o.id} style={{ background: 'var(--surface-muted)', borderRadius: 12, padding: '12px 14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <StatusBadge status={o.status} />
-                    <span className="t-caption">{timeAgo(o.observedAt)}</span>
-                  </div>
-                  <p style={{ fontSize: 13, marginTop: 6 }}>{o.narrative}</p>
-                  {o.milestoneTags && (
-                    <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {o.milestoneTags.split(',').map((m) => (
-                        <span key={m} className="badge b-primary" style={{ height: 20, fontSize: 10.5 }}>{m.trim()}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {student.observations.length === 0 && (
-                <EmptyState icon={<Sparkles size={32} />} title="No observations yet" message="Teachers record learning observations from the Academics module." />
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                <span className="t-caption">Application No</span>
+                <b>{admission?.applicationNumber || 'Direct Enrollment'}</b>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                <span className="t-caption">Admission Status</span>
+                <StatusBadge status={admission?.status || student.status} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                <span className="t-caption">Home Address</span>
+                <span style={{ maxWidth: 200, textAlign: 'right', fontSize: 13 }}>{student.address || 'Not recorded'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span className="t-caption">Admission Date</span>
+                <span>{fmtDate(student.admissionDate)}</span>
+              </div>
             </div>
           </div>
+
           <div className="card">
             <div className="card-head">
               <div className="card-title">Pickup Authorization</div>
               <Users size={17} style={{ color: 'var(--foreground-muted)' }} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {student.guardians.map((g) => (
-                <div key={g.name + g.phone} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface-muted)', borderRadius: 12, padding: '10px 14px' }}>
+              {guardians.map((g: any) => (
+                <div key={g.id || g.name} style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--surface-muted)', borderRadius: 12, padding: '10px 14px' }}>
                   <Avatar name={g.name} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 650 }}>
@@ -209,7 +184,7 @@ export function StudentDetailClient({ student }: Props) {
                     {g.canPickup ? 'Can pickup' : 'No pickup'}
                   </span>
                   {g.canPickup && (
-                    <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => release(g.guardianId, g.name)}>
+                    <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => release(g.id, g.name)}>
                       <ShieldCheck size={13} /> Release
                     </button>
                   )}
@@ -222,10 +197,10 @@ export function StudentDetailClient({ student }: Props) {
 
       {tab === 'guardians' && (
         <div className="card">
-          <div className="card-head"><div className="card-title">Guardians</div></div>
+          <div className="card-head"><div className="card-title">Family & Guardians</div></div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
-            {student.guardians.map((g) => (
-              <div key={g.name + g.phone} className="card card-hover" style={{ boxShadow: 'none' }}>
+            {guardians.map((g: any) => (
+              <div key={g.id || g.name} className="card card-hover" style={{ boxShadow: 'none' }}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <Avatar name={g.name} />
                   <div>
@@ -236,10 +211,66 @@ export function StudentDetailClient({ student }: Props) {
                 <div className="t-body-sm" style={{ marginTop: 10 }}>
                   📞 {g.phone}
                   <br />
-                  {g.email || 'No email on file'}
+                  ✉️ {g.email || 'No email on file'}
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                  {g.isPrimary && <span className="badge b-primary">Primary</span>}
+                  {g.isFeePayer && <span className="badge b-info">Fee Payer</span>}
+                  {g.portalAccount && <span className="badge b-success">Portal Active</span>}
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {tab === 'academic' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <div className="card-title">Current Enrollment</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+              <div>
+                <span className="t-caption">Academic Session</span>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{academic?.session?.name || 'Current Session'}</div>
+              </div>
+              <div>
+                <span className="t-caption">Classroom / Section</span>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{academic?.classroom?.name || 'Unassigned'}</div>
+              </div>
+              <div>
+                <span className="t-caption">Program</span>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{enumLabel(academic?.classroom?.programType || '')}</div>
+              </div>
+              <div>
+                <span className="t-caption">Primary Teacher</span>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{academic?.classroom?.primaryTeacher?.fullName || 'Not assigned'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Allocation History</div>
+                <div className="card-sub">Session-by-session allocation trail (immutable)</div>
+              </div>
+              <Shuffle size={16} style={{ color: 'var(--foreground-muted)' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {academic?.allocations?.map((h: any) => (
+                <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <b style={{ fontSize: 13, flex: 1 }}>{h.classroomName} ({enumLabel(h.programType)})</b>
+                  <span className="t-caption">{h.sessionName}</span>
+                  <StatusBadge status={h.status} />
+                  <span className="t-caption">{fmtDate(h.startedAt)}{h.endedAt ? ` → ${fmtDate(h.endedAt)}` : ' → now'}</span>
+                </div>
+              ))}
+              {(!academic?.allocations || academic.allocations.length === 0) && (
+                <EmptyState icon={<Shuffle size={32} />} title="No allocation history" message="Classroom allocations will appear here." />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -249,19 +280,19 @@ export function StudentDetailClient({ student }: Props) {
           <div className="card-head">
             <div>
               <div className="card-title">Attendance Record</div>
-              <div className="card-sub">{student.attendance.present}/{student.attendance.total} days present ({student.attendance.pct}%)</div>
+              <div className="card-sub">{attendance.present}/{attendance.totalTracked} days present ({attendance.percentage}%)</div>
             </div>
             <CalendarDays size={17} style={{ color: 'var(--foreground-muted)' }} />
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {student.attendance.recent.map((a) => (
-              <div key={a.date} className="stat-mini" style={{ minWidth: 92, alignItems: 'center' }}>
+            {attendance?.recent?.map((a: any) => (
+              <div key={a.id} className="stat-mini" style={{ minWidth: 92, alignItems: 'center' }}>
                 <span className="t-caption">{fmtDate(a.date).slice(0, 6)}</span>
                 <StatusBadge status={a.status} />
               </div>
             ))}
-            {student.attendance.recent.length === 0 && (
-              <EmptyState icon={<CalendarDays size={32} />} title="No attendance yet" message="Attendance appears here once teachers start marking the register." />
+            {(!attendance?.recent || attendance.recent.length === 0) && (
+              <EmptyState icon={<CalendarDays size={32} />} title="No attendance yet" message="Attendance appears here once teachers mark the register." />
             )}
           </div>
         </div>
@@ -270,7 +301,7 @@ export function StudentDetailClient({ student }: Props) {
       {tab === 'fees' && (
         <div className="dtable-wrap">
           <div className="table-toolbar">
-            <div className="card-title">Fee Invoices</div>
+            <div className="card-title">Fee Invoices & Balance</div>
             <Link href="/app/finance" className="btn btn-secondary btn-sm">Open Fee Manager</Link>
           </div>
           <div className="dtable-scroll">
@@ -281,7 +312,7 @@ export function StudentDetailClient({ student }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {student.invoices.map((i) => (
+                {finance?.invoices?.map((i: any) => (
                   <tr key={i.id} onClick={() => router.push(`/app/finance?invoice=${i.id}`)}>
                     <td>
                       <span className="cell-strong" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{i.invoiceNumber}</span>
@@ -296,8 +327,38 @@ export function StudentDetailClient({ student }: Props) {
                 ))}
               </tbody>
             </table>
-            {student.invoices.length === 0 && (
+            {(!finance?.invoices || finance.invoices.length === 0) && (
               <EmptyState icon={<Wallet size={32} />} title="No invoices" message="Invoices raised for this student will appear here." />
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'observations' && (
+        <div className="card">
+          <div className="card-head">
+            <div className="card-title">Learning Observations & Milestone Progress</div>
+            <Sparkles size={17} style={{ color: 'var(--preone-primary)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {academics?.observations?.map((o: any) => (
+              <div key={o.id} style={{ background: 'var(--surface-muted)', borderRadius: 12, padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <StatusBadge status={o.status} />
+                  <span className="t-caption">{timeAgo(o.observedAt)}</span>
+                </div>
+                <p style={{ fontSize: 13, marginTop: 6 }}>{o.narrative}</p>
+                {o.milestoneTags && (
+                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {o.milestoneTags.split(',').map((m: string) => (
+                      <span key={m} className="badge b-primary" style={{ height: 20, fontSize: 10.5 }}>{m.trim()}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {(!academics?.observations || academics.observations.length === 0) && (
+              <EmptyState icon={<Sparkles size={32} />} title="No observations yet" message="Teachers record learning observations from the Academics module." />
             )}
           </div>
         </div>
@@ -308,53 +369,57 @@ export function StudentDetailClient({ student }: Props) {
           <div className="card-head">
             <div>
               <div className="card-title">Child Timeline</div>
-              <div className="card-sub">What parents see — auto-aggregated from daily ops & academics</div>
+              <div className="card-sub">What parents see — auto-aggregated from daily operations, academics, and attendance</div>
             </div>
             <Smartphone size={17} style={{ color: 'var(--foreground-muted)' }} />
           </div>
           <div className="timeline">
-            {student.timeline.map((t) => (
+            {timeline?.map((t: any) => (
               <div className="tl-item" key={t.id}>
                 <span className={`tl-dot ${TL_DOT[t.type] || ''}`} />
                 <div className="tl-body">
                   <div className="tl-head">
                     <b>{t.title}</b>
                     <span className="badge b-neutral" style={{ height: 20, fontSize: 10.5 }}>{enumLabel(t.type)}</span>
-                    <time>{timeAgo(t.at)}</time>
+                    <time>{timeAgo(t.createdAt || t.at)}</time>
                   </div>
                   {t.body && <p>{t.body}</p>}
                 </div>
               </div>
             ))}
-            {student.timeline.length === 0 && (
-              <EmptyState icon={<Clock3 size={32} />} title="Timeline is empty" message="Daily activities and observations will appear here in real time." />
+            {(!timeline || timeline.length === 0) && (
+              <EmptyState icon={<Clock3 size={32} />} title="Timeline is empty" message="Daily activities and events will appear here in real time." />
             )}
           </div>
         </div>
       )}
 
-      {/* Allocation history (never overwritten — M01 Spec §10) */}
-      {history && history.length > 0 && (
+      {tab === 'audit' && (
         <div className="card">
           <div className="card-head">
             <div>
-              <div className="card-title">Allocation history</div>
-              <div className="card-sub">Per academic year — promotions and transfers preserve the full trail</div>
+              <div className="card-title">Audit Trail</div>
+              <div className="card-sub">Immutable ledger of student lifecycle changes</div>
             </div>
-            <Shuffle size={16} style={{ color: 'var(--foreground-muted)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {history.map((h) => (
-              <div key={h.classroom + h.startedAt} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <b style={{ fontSize: 13, flex: 1 }}>{h.classroom}</b>
-                <span className="t-caption">{h.session}</span>
-                <StatusBadge status={h.status} />
-                <span className="t-caption">{fmtDate(h.startedAt)}{h.endedAt ? ` → ${fmtDate(h.endedAt)}` : ' → now'}</span>
+            {audit?.map((a: any) => (
+              <div key={a.id} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                <span className="badge b-neutral">{a.action}</span>
+                <div style={{ flex: 1 }}>
+                  <b>{a.actorName || 'System'}</b> ({a.actorRole || 'SYSTEM'})
+                  <div className="t-caption">{a.details ? JSON.stringify(a.details) : 'No extra metadata'}</div>
+                </div>
+                <time className="t-caption">{fmtDate(a.createdAt)}</time>
               </div>
             ))}
+            {(!audit || audit.length === 0) && (
+              <EmptyState icon={<Clock3 size={32} />} title="No audit entries" message="Audit logs will appear as changes occur." />
+            )}
           </div>
         </div>
       )}
+
 
       {/* Allocate / transfer modal */}
       <Modal open={allocOpen} onClose={() => setAllocOpen(false)} title="Allocate / Transfer" subtitle="Capacity-guarded · audited · history preserved" icon={<Shuffle size={20} />}>
@@ -363,9 +428,10 @@ export function StudentDetailClient({ student }: Props) {
             <label>New section <span className="req">*</span></label>
             <select className="select" name="classroomId" required defaultValue="">
               <option value="" disabled>Select section</option>
-              {classrooms.filter((c) => c.name !== student.classroom?.name).map((c) => (
+              {classrooms.filter((c) => c.name !== academic?.classroom?.name).map((c) => (
                 <option key={c.id} value={c.id}>{c.name} — {enumLabel(c.programType)} (cap {c.capacity})</option>
               ))}
+
             </select>
             <span className="helper">Full sections are blocked with a visible exception (no silent overbooking).</span>
           </div>

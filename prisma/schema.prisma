@@ -44,6 +44,7 @@ model Tenant {
   classrooms             Classroom[]
   leads                  Lead[]
   facilities             Facility[]
+  feeHeads               FeeHead[]
   feePlans               FeePlan[]
   followUps              FollowUp[]
   guardians              Guardian[]
@@ -64,6 +65,11 @@ model Tenant {
   backgroundJobs         BackgroundJob[]
   documentTemplates      DocumentTemplate[]
   offers                 AdmissionOffer[]
+  curriculums            Curriculum[]
+  curriculumLearningAreas CurriculumLearningArea[]
+  learningGoals          LearningGoal[]
+  classroomActivities    ClassroomActivity[]
+  studentProgresses      StudentProgress[]
 
   @@map("tenants")
 }
@@ -114,6 +120,8 @@ model User {
   guardianProfile Guardian?     @relation("GuardianPortalUser")
   staffProfile    StaffProfile?
   memberships     TenantUser[]
+  conductedActivities ClassroomActivity[]
+  assessedProgresses  StudentProgress[]
 
   @@map("users")
 }
@@ -156,6 +164,9 @@ model AcademicSession {
   allocations     StudentAllocation[]
   timelineEntries TimelineEntry[]
   applications    AdmissionApplication[]
+  curriculums     Curriculum[]
+  classroomActivities ClassroomActivity[]
+  studentProgresses StudentProgress[]
 
   @@unique([tenantId, name])
   @@map("academic_sessions")
@@ -188,6 +199,7 @@ model Classroom {
   observations      Observation[]
   allocations       StudentAllocation[]
   students          Student[]           @relation("StudentCurrentClassroom")
+  activities        ClassroomActivity[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -223,6 +235,7 @@ model Student {
   currentClassroom   Classroom?          @relation("StudentCurrentClassroom", fields: [currentClassroomId], references: [id])
   tenant             Tenant              @relation(fields: [tenantId], references: [id])
   timelineEntries    TimelineEntry[]
+  progressRecords    StudentProgress[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -382,6 +395,7 @@ model ApplicationDocument {
   docType          DocumentType
   fileName         String
   status           DocumentStatus       @default(UPLOADED)
+  verified         Boolean              @default(false)
   uploadedAt       DateTime             @default(now())
   verifiedAt       DateTime?
   remarks          String?
@@ -418,6 +432,25 @@ model Attendance {
   @@map("attendance")
 }
 
+model FeeHead {
+  id          String           @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String
+  category    FeeHeadCategory  @default(OTHER)
+  description String?
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  planItems   FeePlanItem[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("fee_heads")
+}
+
 model FeePlan {
   id               String        @id @default(uuid())
   tenantId         String
@@ -439,11 +472,13 @@ model FeePlan {
 model FeePlanItem {
   id          String          @id @default(uuid())
   feePlanId   String
+  feeHeadId   String?
   feeHead     FeeHeadCategory
   label       String
   amountCents Int
   frequency   FeeFrequency
   feePlan     FeePlan         @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+  feeHeadRef  FeeHead?        @relation(fields: [feeHeadId], references: [id], onDelete: SetNull)
 
   @@map("fee_plan_items")
 }
@@ -598,6 +633,10 @@ model Observation {
   student           Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
   tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   timeline          TimelineEntry[]
+  learningGoalId    String?
+  activityId        String?
+  learningGoal      LearningGoal?      @relation(fields: [learningGoalId], references: [id], onDelete: SetNull)
+  activity          ClassroomActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, studentId])
   @@map("observations")
@@ -810,6 +849,8 @@ model Program {
   updatedAt      DateTime    @updatedAt
   deletedAt      DateTime?
   classrooms     Classroom[]
+  applications   AdmissionApplication[]
+  curriculums    Curriculum[]
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])
@@ -1019,15 +1060,42 @@ enum LeadStatus {
 }
 
 enum ApplicationStatus {
+  DRAFT
   SUBMITTED
   DOCUMENT_PENDING
+  DOCUMENT_REVIEW
   VERIFIED
+  COUNSELLING
+  COUNSELLING_SCHEDULED
+  COUNSELLING_COMPLETED
   UNDER_REVIEW
+  PENDING_APPROVAL
   APPROVED
-  REJECTED
-  WAITLISTED
+  OFFER_SENT
+  OFFER_ACCEPTED
   ENROLLED
+  ADMITTED
+  WAITLISTED
+  REJECTED
   WITHDRAWN
+  EXPIRED
+}
+
+enum OfferStatus {
+  DRAFT
+  ISSUED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
+enum DocumentStatus {
+  NOT_UPLOADED
+  UPLOADED
+  UNDER_REVIEW
+  VERIFIED
+  REJECTED
 }
 
 enum DocumentType {
@@ -1255,4 +1323,158 @@ enum ConfigDomain {
   DOCUMENT_TEMPLATES
   CURRICULUM
   BRANDING
+}
+
+enum ProgressStage {
+  NOT_STARTED
+  INTRODUCED
+  DEVELOPING
+  ACHIEVED
+}
+
+enum ActivityStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CurriculumStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model Curriculum {
+  id                String                   @id @default(uuid())
+  tenantId          String
+  academicSessionId String?
+  programId         String?
+  programType       ProgramType?
+  name              String
+  description       String?
+  framework         String                   @default("EYFS")
+  version           Int                      @default(1)
+  status            CurriculumStatus         @default(ACTIVE)
+  effectiveFrom     DateTime?
+  effectiveTo       DateTime?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  deletedAt         DateTime?
+  academicSession   AcademicSession?         @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  program           Program?                 @relation(fields: [programId], references: [id], onDelete: SetNull)
+  tenant            Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  learningAreas     CurriculumLearningArea[]
+  activities        ClassroomActivity[]
+
+  @@index([tenantId, academicSessionId])
+  @@index([tenantId, programId])
+  @@map("curriculums")
+}
+
+model CurriculumLearningArea {
+  id            String         @id @default(uuid())
+  tenantId      String
+  curriculumId  String
+  name          String
+  code          String?
+  description   String?
+  displayOrder  Int            @default(0)
+  status        String         @default("ACTIVE")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  curriculum    Curriculum     @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  goals         LearningGoal[]
+
+  @@index([tenantId, curriculumId])
+  @@map("curriculum_learning_areas")
+}
+
+model LearningGoal {
+  id                       String                 @id @default(uuid())
+  tenantId                 String
+  curriculumLearningAreaId String
+  name                     String
+  description              String?
+  ageMinMonths             Int?
+  ageMaxMonths             Int?
+  displayOrder             Int                    @default(0)
+  status                   String                 @default("ACTIVE")
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  deletedAt                DateTime?
+  learningArea             CurriculumLearningArea @relation(fields: [curriculumLearningAreaId], references: [id], onDelete: Cascade)
+  tenant                   Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities               ClassroomActivity[]
+  observations             Observation[]
+  progressRecords          StudentProgress[]
+
+  @@index([tenantId, curriculumLearningAreaId])
+  @@map("learning_goals")
+}
+
+model ClassroomActivity {
+  id                String          @id @default(uuid())
+  tenantId          String
+  academicSessionId String
+  classroomId       String
+  curriculumId      String?
+  learningGoalId    String?
+  teacherId         String?
+  title             String
+  description       String?
+  activityDate      DateTime
+  startTime         String?
+  endTime           String?
+  durationMinutes   Int             @default(30)
+  materials         String?
+  instructions      String?
+  expectedOutcome   String?
+  actualOutcome     String?
+  status            ActivityStatus  @default(PLANNED)
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  classroom         Classroom       @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  curriculum        Curriculum?     @relation(fields: [curriculumId], references: [id], onDelete: SetNull)
+  learningGoal      LearningGoal?   @relation(fields: [learningGoalId], references: [id], onDelete: SetNull)
+  teacher           User?           @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  observations      Observation[]
+
+  @@index([tenantId, academicSessionId, classroomId])
+  @@index([activityDate])
+  @@map("classroom_activities")
+}
+
+model StudentProgress {
+  id                String          @id @default(uuid())
+  tenantId          String
+  academicSessionId String
+  studentId         String
+  learningGoalId    String
+  stage             ProgressStage   @default(NOT_STARTED)
+  notes             String?
+  evidence          String?
+  assessedBy        String?
+  assessedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  assessedByUser    User?           @relation(fields: [assessedBy], references: [id], onDelete: SetNull)
+  learningGoal      LearningGoal    @relation(fields: [learningGoalId], references: [id], onDelete: Cascade)
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, academicSessionId, studentId, learningGoalId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, academicSessionId])
+  @@map("student_progress")
 }

@@ -3,10 +3,11 @@
 import React from 'react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
 
-export function Avatar({ name, size, className }: { name: string; size?: 'sm' | 'lg'; className?: string }) {
+export function Avatar({ name, size, className }: { name?: string | null; size?: 'sm' | 'lg'; className?: string }) {
+  const safeName = name || ''
   return (
-    <span className={`avatar ${size || ''} ${avatarClass(name)} ${className || ''}`} aria-hidden="true">
-      {initials(name)}
+    <span className={`avatar ${size || ''} ${avatarClass(safeName)} ${className || ''}`} aria-hidden="true">
+      {initials(safeName)}
     </span>
   )
 }
@@ -149,6 +150,7 @@ export function Segmented({
     <div className="seg" role="tablist">
       {options.map((o) => (
         <button
+          suppressHydrationWarning
           key={o.key}
           role="tab"
           aria-selected={value === o.key}

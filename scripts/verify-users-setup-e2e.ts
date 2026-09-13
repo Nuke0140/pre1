@@ -422,7 +422,8 @@ async function runTests() {
     // Admissions: Application created referencing authoritative Program and Session
     const application = await db.admissionApplication.create({
       data: {
-        tenantId: tenantA.id,
+        tenant: { connect: { id: tenantA.id } },
+        academicSession: { connect: { id: sessionA.id } },
         branchId: branchA.id,
         applicationNumber: `ADM-${testSuffix}`,
         childFirstName: 'Kavya',

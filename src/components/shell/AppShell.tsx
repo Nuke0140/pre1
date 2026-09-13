@@ -139,6 +139,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <div className="h-search">
           <Search />
           <input
+            suppressHydrationWarning
             ref={headerSearchRef}
             placeholder="Search modules, students…"
             onFocus={() => { setMenuOpen(true); setTimeout(() => searchRef.current?.focus(), 30) }}
@@ -147,11 +148,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           />
           <kbd>⌘K</kbd>
         </div>
-        <button className="h-icbtn" aria-label="Notifications">
+        <button suppressHydrationWarning className="h-icbtn" aria-label="Notifications">
           <Bell />
           <span className="cnt">3</span>
         </button>
-        <button className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
+        <button suppressHydrationWarning className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
           <span className="avatar sm a-p">{initials}</span>
           <span className="who">
             <b>{user.name}</b>
@@ -171,6 +172,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           <div className="sm-search">
             <Search />
             <input
+              suppressHydrationWarning
               ref={searchRef}
               placeholder="Search modules…"
               value={query}
@@ -231,6 +233,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       {/* ── Taskbar ── */}
       <nav className="taskbar" aria-label="Taskbar">
         <button
+          suppressHydrationWarning
           ref={startBtnRef}
           className={`tb-start${menuOpen ? ' on' : ''}`}
           onClick={() => setMenuOpen((v) => !v)}
@@ -256,7 +259,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           )
         })}
         <div className="tb-right">
-          <button className="h-icbtn" onClick={toggleTheme} aria-label="Toggle theme">
+          <button suppressHydrationWarning className="h-icbtn" onClick={toggleTheme} aria-label="Toggle theme">
             {theme === 'light' ? <Moon /> : <Sun />}
           </button>
           <div className="tb-clock" aria-label="Clock">
