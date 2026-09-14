@@ -40,6 +40,7 @@ interface UserRecord {
   email: string
   phone: string | null
   role: Role
+  roles?: Role[]
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING'
   branchId: string | null
   lastLoginAt: string | null
@@ -101,6 +102,18 @@ export default function UsersPage() {
 
   // Form states for Add Modal
   const [selectedRole, setSelectedRole] = useState<Role>('TEACHER')
+  const [addRoles, setAddRoles] = useState<Role[]>(['TEACHER'])
+
+  // Form states for Edit Modal
+  const [editRoles, setEditRoles] = useState<Role[]>([])
+  const [editPrimaryRole, setEditPrimaryRole] = useState<Role>('TEACHER')
+
+  const openEditModal = useCallback((u: UserRecord) => {
+    const userRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role]
+    setEditRoles(userRoles)
+    setEditPrimaryRole(u.role)
+    setEditUser(u)
+  }, [])
 
   // Fetch users directory
   const fetchUsers = useCallback(async () => {
@@ -158,10 +171,11 @@ export default function UsersPage() {
   const filteredUsers = useMemo(() => {
     if (!users) return []
     return users.filter((u) => {
+      const uRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role]
       const matchesRole =
         roleFilter === 'ALL' ||
-        (roleFilter === 'STAFF' && ['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].includes(u.role)) ||
-        u.role === roleFilter
+        (roleFilter === 'STAFF' && ['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].some((r) => uRoles.includes(r))) ||
+        uRoles.includes(roleFilter as any)
 
       const q = search.toLowerCase().trim()
       const matchesSearch =
@@ -189,21 +203,28 @@ export default function UsersPage() {
       phone: (fd.get('phone') as string)?.trim() || undefined,
       password: fd.get('password') as string,
       role: selectedRole,
+      roles: addRoles.length > 0 ? addRoles : [selectedRole],
+      primaryRole: selectedRole,
     }
 
     const bId = fd.get('branchId') as string
     if (bId) payload.branchId = bId
 
-    if (selectedRole === 'PARENT') {
+    if (addRoles.includes('PARENT')) {
       const gId = fd.get('guardianId') as string
       if (gId) payload.guardianId = gId
-    } else {
+    }
+
+    const isStaff = addRoles.some((r) =>
+      ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
+    )
+    if (isStaff || !addRoles.includes('PARENT')) {
       const empCode = fd.get('employeeCode') as string
       const desig = fd.get('designation') as string
       if (empCode) payload.employeeCode = empCode.trim()
       if (desig) payload.designation = desig.trim()
 
-      if (selectedRole === 'TEACHER') {
+      if (addRoles.includes('TEACHER')) {
         const cId = fd.get('classroomId') as string
         if (cId) payload.classroomId = cId
       }
@@ -238,19 +259,25 @@ export default function UsersPage() {
     setBusy(true)
     const fd = new FormData(e.currentTarget)
 
+    const finalRoles = editRoles.length > 0 ? editRoles : [editPrimaryRole]
     const payload: any = {
       fullName: (fd.get('fullName') as string)?.trim(),
       phone: (fd.get('phone') as string)?.trim() || null,
-      role: fd.get('role') as string,
+      role: editPrimaryRole,
+      roles: finalRoles,
+      primaryRole: editPrimaryRole,
     }
 
     const bId = fd.get('branchId') as string
     payload.branchId = bId || null
 
-    if (payload.role === 'TEACHER') {
+    if (finalRoles.includes('TEACHER')) {
       const cId = fd.get('classroomId') as string
       if (cId) payload.classroomId = cId
     }
+
+    const desig = fd.get('designation') as string
+    if (desig !== undefined) payload.designation = desig?.trim() || null
 
     const newPwd = fd.get('password') as string
     if (newPwd && newPwd.trim()) {
@@ -376,31 +403,58 @@ export default function UsersPage() {
     },
     {
       key: 'role',
-      header: 'Role & Staff ID',
+      header: 'Roles & Staff ID',
       sortable: true,
       sortValue: (u) => (ROLE_META[u.role]?.label || u.role).toLowerCase(),
-      export: (u) => ROLE_META[u.role]?.label || u.role,
+      export: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : u.role),
       render: (u) => {
-        const meta = ROLE_META[u.role] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.role }
+        const primaryMeta = ROLE_META[u.role] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.role }
+        const allRoles: Role[] = u.roles && u.roles.length > 0 ? u.roles : [u.role]
+        const additionalRoles = allRoles.filter((r) => r !== u.role)
+
         return (
           <div>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '3px 8px',
-                borderRadius: 9999,
-                fontSize: 12,
-                fontWeight: 600,
-                backgroundColor: meta.bg,
-                color: meta.text,
-              }}
-            >
-              {meta.label}
-            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '3px 8px',
+                  borderRadius: 9999,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  backgroundColor: primaryMeta.bg,
+                  color: primaryMeta.text,
+                  border: `1px solid ${primaryMeta.text}33`,
+                }}
+                title="Primary System Role"
+              >
+                ★ {primaryMeta.label}
+              </span>
+              {additionalRoles.map((r) => {
+                const rMeta = ROLE_META[r] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: r }
+                return (
+                  <span
+                    key={r}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '2px 6px',
+                      borderRadius: 9999,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      backgroundColor: rMeta.bg,
+                      color: rMeta.text,
+                    }}
+                  >
+                    {rMeta.label.split(' / ')[0]}
+                  </span>
+                )
+              })}
+            </div>
             {u.staffProfile?.employeeCode && (
               <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 3, fontFamily: 'monospace' }}>
-                EMP: {u.staffProfile.employeeCode}
+                EMP: {u.staffProfile.employeeCode} {u.staffProfile.designation ? `• ${u.staffProfile.designation}` : ''}
               </div>
             )}
           </div>
@@ -528,7 +582,7 @@ export default function UsersPage() {
             title="Edit User"
             onClick={(e) => {
               e.stopPropagation()
-              setEditUser(u)
+              openEditModal(u)
             }}
           >
             <Edit3 size={14} /> Edit
@@ -709,8 +763,9 @@ export default function UsersPage() {
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   if (viewUser) {
-                    setEditUser(viewUser)
+                    const target = viewUser
                     setViewUser(null)
+                    openEditModal(target)
                   }
                 }}
               >
@@ -862,50 +917,60 @@ export default function UsersPage() {
             )}
 
             {/* TAB: ROLES & EFFECTIVE PERMISSIONS */}
-            {viewTab === 'permissions' && (
-              <div>
-                <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--c-muted)' }}>
-                  Showing effective RBAC capability tokens assigned to the role <strong>{ROLE_META[viewUser.role]?.label || viewUser.role}</strong>.
+            {viewTab === 'permissions' && (() => {
+              const activeRoles: Role[] =
+                viewUser.roles && viewUser.roles.length > 0 ? viewUser.roles : [viewUser.role]
+              const isOwner = activeRoles.includes('OWNER')
+              const allPerms = isOwner
+                ? ['*']
+                : Array.from(new Set(activeRoles.flatMap((r) => ROLE_PERMISSIONS[r] || [])))
+
+              return (
+                <div>
+                  <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--c-muted)' }}>
+                    Showing effective permissions union across {activeRoles.length} assigned roles:{' '}
+                    <span style={{ fontWeight: 600, color: 'var(--c-ink)' }}>{activeRoles.join(', ')}</span>.
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                      gap: 8,
+                      maxHeight: 320,
+                      overflowY: 'auto',
+                      padding: 8,
+                      background: 'var(--c-subtle)',
+                      borderRadius: 8,
+                    }}
+                  >
+                    {allPerms.map((perm) => (
+                      <div
+                        key={perm}
+                        style={{
+                          padding: '6px 10px',
+                          background: '#fff',
+                          borderRadius: 6,
+                          border: '1px solid var(--c-border)',
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                        }}
+                      >
+                        <Shield size={12} style={{ color: 'var(--c-primary)' }} />
+                        <span>{perm === '*' ? 'ALL_PERMISSIONS (*)' : perm}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: 8,
-                    maxHeight: 320,
-                    overflowY: 'auto',
-                    padding: 8,
-                    background: 'var(--c-subtle)',
-                    borderRadius: 8,
-                  }}
-                >
-                  {(ROLE_PERMISSIONS[viewUser.role] || []).map((perm) => (
-                    <div
-                      key={perm}
-                      style={{
-                        padding: '6px 10px',
-                        background: '#fff',
-                        borderRadius: 6,
-                        border: '1px solid var(--c-border)',
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                      }}
-                    >
-                      <Shield size={12} style={{ color: 'var(--c-primary)' }} />
-                      <span>{perm === '*' ? 'ALL_PERMISSIONS (*)' : perm}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* TAB: LINKED PERSON / CHILDREN / CLASSES */}
             {viewTab === 'person' && (
               <div>
-                {viewUser.role === 'PARENT' ? (
+                {(viewUser.roles?.includes('PARENT') || viewUser.role === 'PARENT') ? (
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
                       Linked Wards & Children ({viewUser.guardianProfile?.students?.length || 0})
@@ -936,8 +1001,11 @@ export default function UsersPage() {
                     )}
                   </div>
                 ) : (
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Staff Employment Profile</div>
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>Staff Employment & Workforce Profile</div>
+                      <span className="badge badge-teal" style={{ fontSize: 11 }}>Connected to HR</span>
+                    </div>
                     {viewUser.staffProfile ? (
                       <div className="card" style={{ padding: 14, marginBottom: 16 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
@@ -987,7 +1055,7 @@ export default function UsersPage() {
                         )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -1005,8 +1073,11 @@ export default function UsersPage() {
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
-                      setEditUser(viewUser)
-                      setViewUser(null)
+                      if (viewUser) {
+                        const target = viewUser
+                        setViewUser(null)
+                        openEditModal(target)
+                      }
                     }}
                   >
                     Reset Password
@@ -1063,11 +1134,17 @@ export default function UsersPage() {
               <input type="password" name="password" className="input" required minLength={6} placeholder="******" />
             </Field>
 
-            <Field label="System Role" required>
+            <Field label="Primary System Role" required helper="Defines default dashboard theme and primary role badge">
               <select
                 className="input"
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as Role)}
+                onChange={(e) => {
+                  const newPrimary = e.target.value as Role
+                  setSelectedRole(newPrimary)
+                  if (!addRoles.includes(newPrimary)) {
+                    setAddRoles([...addRoles, newPrimary])
+                  }
+                }}
               >
                 <option value="TEACHER">Teacher / Educator</option>
                 <option value="PRINCIPAL">Principal / Center Head</option>
@@ -1089,6 +1166,56 @@ export default function UsersPage() {
                 ))}
               </select>
             </Field>
+          </div>
+
+          {/* MULTI-ROLE ASSIGNMENT CHECKBOXES */}
+          <div className="card" style={{ padding: 12, marginBottom: 16, backgroundColor: 'var(--c-bg-subtle, rgba(0,0,0,0.02))' }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Shield size={15} style={{ color: 'var(--c-primary, #7C3AED)' }} /> Assigned Roles & Permission Bundles (Multi-Role)
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 8 }}>
+              Check all roles to grant the union of their permissions. Primary role determines default profile UX:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+              {(['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'PARENT', 'OWNER'] as Role[]).map((r) => {
+                const isChecked = addRoles.includes(r)
+                const isPrimary = selectedRole === r
+                return (
+                  <label
+                    key={r}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 12,
+                      fontWeight: isPrimary ? 700 : 500,
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      backgroundColor: isChecked ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setAddRoles([...addRoles, r])
+                        } else {
+                          if (addRoles.length > 1) {
+                            const next = addRoles.filter((item) => item !== r)
+                            setAddRoles(next)
+                            if (selectedRole === r) setSelectedRole(next[0])
+                          }
+                        }
+                      }}
+                    />
+                    <span>{ROLE_META[r]?.label.split(' / ')[0] || r}</span>
+                    {isPrimary && <span style={{ fontSize: 10, color: '#7C3AED', marginLeft: 'auto' }}>★ Primary</span>}
+                  </label>
+                )
+              })}
+            </div>
           </div>
 
           {/* DYNAMIC ROLE FIELDS */}
@@ -1177,8 +1304,19 @@ export default function UsersPage() {
                 <input type="tel" name="phone" defaultValue={editUser.phone || ''} className="input" />
               </Field>
 
-              <Field label="Role" required>
-                <select name="role" defaultValue={editUser.role} className="input">
+              <Field label="Primary Role" required helper="Primary role displayed on profile and badges">
+                <select
+                  name="role"
+                  value={editPrimaryRole}
+                  onChange={(e) => {
+                    const newPrimary = e.target.value as Role
+                    setEditPrimaryRole(newPrimary)
+                    if (!editRoles.includes(newPrimary)) {
+                      setEditRoles([...editRoles, newPrimary])
+                    }
+                  }}
+                  className="input"
+                >
                   <option value="TEACHER">Teacher / Educator</option>
                   <option value="PRINCIPAL">Principal / Center Head</option>
                   <option value="COORDINATOR">Academic Coordinator</option>
@@ -1188,6 +1326,65 @@ export default function UsersPage() {
                   <option value="OWNER">School Owner</option>
                 </select>
               </Field>
+
+              {/* MULTI-ROLE ASSIGNMENT CHECKBOXES FOR EDIT */}
+              <div className="card" style={{ padding: 12, backgroundColor: 'var(--c-bg-subtle, rgba(0,0,0,0.02))' }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Shield size={15} style={{ color: 'var(--c-primary, #7C3AED)' }} /> Assigned Roles (Multi-Role Permissions Union)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 6 }}>
+                  {(['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'PARENT', 'OWNER'] as Role[]).map((r) => {
+                    const isChecked = editRoles.includes(r)
+                    const isPrimary = editPrimaryRole === r
+                    return (
+                      <label
+                        key={r}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: isPrimary ? 700 : 500,
+                          cursor: 'pointer',
+                          padding: '4px 6px',
+                          borderRadius: 6,
+                          backgroundColor: isChecked ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setEditRoles([...editRoles, r])
+                            } else {
+                              if (editRoles.length > 1) {
+                                const next = editRoles.filter((item) => item !== r)
+                                setEditRoles(next)
+                                if (editPrimaryRole === r) setEditPrimaryRole(next[0])
+                              }
+                            }
+                          }}
+                        />
+                        <span>{ROLE_META[r]?.label.split(' / ')[0] || r}</span>
+                        {isPrimary && <span style={{ fontSize: 9, color: '#7C3AED', marginLeft: 'auto' }}>★ Primary</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {(!editRoles.includes('PARENT') || editUser.staffProfile) && (
+                <Field label="Workforce Designation" helper="Stored on StaffProfile — e.g. Storekeeper, Senior Teacher, Driver, Helper">
+                  <input
+                    type="text"
+                    name="designation"
+                    defaultValue={editUser.staffProfile?.designation || ''}
+                    className="input"
+                    placeholder="e.g. Storekeeper / Senior Educator"
+                  />
+                </Field>
+              )}
 
               <Field label="Branch Scope">
                 <select name="branchId" defaultValue={editUser.branchId || ''} className="input">
@@ -1200,7 +1397,7 @@ export default function UsersPage() {
                 </select>
               </Field>
 
-              {editUser.role === 'TEACHER' && (
+              {editRoles.includes('TEACHER') && (
                 <Field label="Primary Classroom Assignment">
                   <select
                     name="classroomId"

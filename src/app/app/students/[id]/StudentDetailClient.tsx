@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, CalendarDays, Users, Wallet, Sparkles, Smartphone, Clock3,
-  Shuffle, ShieldCheck, ShieldAlert,
+  Shuffle, ShieldCheck, ShieldAlert, Bus,
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -130,6 +130,7 @@ export function StudentDetailClient({ profile }: Props) {
           { key: 'guardians', label: `Guardians (${guardians?.length || 0})` },
           { key: 'academic', label: 'Academic & Class' },
           { key: 'attendance', label: 'Attendance' },
+          { key: 'transport', label: `Transport (${profile.transport?.activeAssignment ? 'Active' : 'None'})` },
           { key: 'fees', label: `Fees (${finance?.invoices?.length || 0})` },
           { key: 'observations', label: `Observations (${academics?.observations?.length || 0})` },
           { key: 'timeline', label: 'Timeline' },
@@ -389,6 +390,82 @@ export function StudentDetailClient({ profile }: Props) {
             ))}
             {(!timeline || timeline.length === 0) && (
               <EmptyState icon={<Clock3 size={32} />} title="Timeline is empty" message="Daily activities and events will appear here in real time." />
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'transport' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="dash-grid">
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Active Transport Assignment</div>
+                <div className="card-sub">Current bus route and designated pickup/drop stops</div>
+              </div>
+            </div>
+            {profile.transport?.activeAssignment ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--c-accent-subtle, rgba(245,158,11,0.08))', borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 15 }}>{profile.transport.activeAssignment.route.name}</div>
+                    <div className="t-caption" style={{ fontFamily: 'var(--font-mono)' }}>Code: {profile.transport.activeAssignment.route.code}</div>
+                  </div>
+                  <span className="badge b-success">ACTIVE</span>
+                </div>
+                <div className="detail-row">
+                  <span>Vehicle / Bus:</span>
+                  <b>{profile.transport.activeAssignment.route.vehicle ? `${profile.transport.activeAssignment.route.vehicle.registrationNumber} (${profile.transport.activeAssignment.route.vehicle.makeModel || 'School Bus'})` : 'Not assigned'}</b>
+                </div>
+                <div className="detail-row">
+                  <span>Driver:</span>
+                  <b>{profile.transport.activeAssignment.route.driverProfile?.user?.fullName || 'Not assigned'} {profile.transport.activeAssignment.route.driverProfile?.user?.phone ? `(${profile.transport.activeAssignment.route.driverProfile.user.phone})` : ''}</b>
+                </div>
+                <div className="detail-row">
+                  <span>Bus Attendant:</span>
+                  <b>{profile.transport.activeAssignment.route.attendantProfile?.user?.fullName || 'Not assigned'}</b>
+                </div>
+                <div className="detail-row">
+                  <span>Morning Pickup Stop:</span>
+                  <b>{profile.transport.activeAssignment.pickupStop.name} (Scheduled: {profile.transport.activeAssignment.pickupStop.morningPickupTime})</b>
+                </div>
+                <div className="detail-row">
+                  <span>Evening Drop Stop:</span>
+                  <b>{profile.transport.activeAssignment.dropStop.name} (Scheduled: {profile.transport.activeAssignment.dropStop.eveningDropTime})</b>
+                </div>
+                <div className="detail-row">
+                  <span>Monthly Transport Fee:</span>
+                  <b>{profile.transport.activeAssignment.monthlyFeeCents > 0 ? inr(profile.transport.activeAssignment.monthlyFeeCents) : 'Complimentary / Included'}</b>
+                </div>
+              </div>
+            ) : (
+              <EmptyState icon={<Bus size={32} />} title="No Active Transport" message="This student is currently not enrolled in school bus transportation." />
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Recent Trips & Drop Verification</div>
+                <div className="card-sub">Daily boarding and guardian handover log</div>
+              </div>
+            </div>
+            {profile.transport?.recentTrips && profile.transport.recentTrips.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {profile.transport.recentTrips.map((item: any) => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <div>
+                      <b>{item.trip.route.name} ({item.trip.tripType})</b>
+                      <div className="t-caption">Stop: {item.stop.name} · {fmtDate(item.trip.tripDate)}</div>
+                    </div>
+                    <span className={`badge ${item.status === 'DROPPED' || item.status === 'BOARDED' ? 'b-success' : item.status === 'ABSENT' ? 'b-danger' : 'b-info'}`}>
+                      {item.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={<Clock3 size={32} />} title="No Trip Records" message="Recent boarding and drop history will appear here." />
             )}
           </div>
         </div>

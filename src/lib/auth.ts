@@ -21,7 +21,8 @@ export interface SessionPayload {
   name: string
   tenantId: string | null
   branchId: string | null
-  role: Role
+  role: Role // Canonical primary role
+  roles?: Role[] // All assigned roles
 }
 
 // ── RBAC — permission bundles per role (PRD §7 + API Catalog §5.3) ──
@@ -40,6 +41,10 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'users:read', 'users:write',
     'audit:read',
     'operations:read', 'operations:write', // M01 command centre + follow-up actions
+    'inventory:read', 'inventory:write', 'inventory:request', 'inventory:approve', 'inventory:order', 'inventory:receive', 'inventory:issue', 'inventory:adjust',
+    'hr:read', 'hr:write', 'hr:approve', 'payroll:process', 'hr:self',
+    'transport:read', 'transport:write', 'transport:assign', 'transport:trip', 'transport:board', 'transport:drop', 'transport:incident',
+    'reports:read', 'reports:write', 'reports:export', 'reports:custom',
   ],
   COORDINATOR: [
     'students:read', 'students:write',
@@ -51,6 +56,10 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'timeline:read',
     'settings:read', 'users:read',
     'operations:read', 'operations:write', // M01
+    'inventory:read', 'inventory:write', 'inventory:request', 'inventory:approve', 'inventory:issue',
+    'hr:read', 'hr:write', 'hr:self',
+    'transport:read', 'transport:write', 'transport:assign', 'transport:trip', 'transport:board', 'transport:drop',
+    'reports:read', 'reports:export', 'reports:custom',
   ],
   TEACHER: [
     'students:read',
@@ -59,6 +68,10 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'communication:read',
     'timeline:read',
     'operations:read', 'operations:write', // M01 own follow-ups + daily ops
+    'inventory:read', 'inventory:request',
+    'hr:self',
+    'transport:read',
+    'reports:read', 'reports:export',
   ],
   ACCOUNTS: [
     'students:read',
@@ -66,23 +79,42 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'attendance:read',
     'audit:read',
     'operations:read', // M01 fee follow-ups visibility
+    'inventory:read', 'inventory:order', 'inventory:receive',
+    'hr:read', 'payroll:process', 'hr:self',
+    'transport:read',
+    'reports:read', 'reports:export',
   ],
   RECEPTION: [
     'students:read', 'students:write',
     'admissions:read', 'admissions:write',
     'communication:read',
     'timeline:read',
+    'inventory:read', 'inventory:request',
+    'hr:self',
+    'transport:read', 'transport:trip',
+    'reports:read',
   ],
-  PARENT: ['timeline:read', 'communication:read', 'finance:read'],
+  PARENT: ['timeline:read', 'communication:read', 'finance:read', 'transport:read', 'reports:read'],
 }
 
-export function can(role: Role, permission: string): boolean {
-  const perms = ROLE_PERMISSIONS[role] || []
-  if (perms.includes(permission)) return true
-  // '*' grants every SCHOOL-scope permission, but never platform-scope ones —
-  // platform:* is reserved for PLATFORM_ADMIN (tenant plane ≠ school plane).
-  if (perms.includes('*')) return !permission.startsWith('platform:')
-  return false
+/**
+ * Evaluates whether a role or set of roles has a specific permission.
+ * When an array of roles is provided, effective permissions are calculated
+ * as the UNION of all permissions granted across the roles.
+ */
+export function can(roleOrRoles: Role | Role[] | undefined | null, permission: string): boolean {
+  if (!roleOrRoles) return false
+  const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles]
+  if (roles.length === 0) return false
+
+  return roles.some((role) => {
+    const perms = ROLE_PERMISSIONS[role] || []
+    if (perms.includes(permission)) return true
+    // '*' grants every SCHOOL-scope permission, but never platform-scope ones —
+    // platform:* is reserved for PLATFORM_ADMIN (tenant plane ≠ school plane).
+    if (perms.includes('*')) return !permission.startsWith('platform:')
+    return false
+  })
 }
 
 // ── JWT ──

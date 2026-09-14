@@ -10,7 +10,7 @@ import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
 import { Avatar } from '@/components/preone/ui'
 import { navForRole, NavItem } from '@/lib/nav'
 import { Role } from '@/lib/auth'
-import { enumLabel } from '@/lib/format'
+import { enumLabel, timeAgo } from '@/lib/format'
 
 export interface ShellUser {
   name: string
@@ -33,6 +33,62 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const startBtnRef = useRef<HTMLButtonElement>(null)
   const headerSearchRef = useRef<HTMLInputElement>(null)
   const avatarRef = useRef<HTMLButtonElement>(null)
+
+  // Notification center state
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [notifOpen, setNotifOpen] = useState<boolean>(false)
+  const bellBtnRef = useRef<HTMLButtonElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/notifications?limit=10').then((r) => r.json())
+      if (res.success && res.data) {
+        setNotifications(res.data.items || [])
+        setUnreadCount(res.data.unreadCount || 0)
+      }
+    } catch {
+      // quiet failure in shell
+    }
+  }, [])
+
+  const markRead = async (id: string) => {
+    try {
+      await fetch(`/api/v1/notifications/${id}/read`, { method: 'PATCH' })
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
+      setUnreadCount((c) => Math.max(0, c - 1))
+    } catch {
+      // quiet
+    }
+  }
+
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/v1/notifications/mark-all-read', { method: 'POST' })
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+      setUnreadCount(0)
+    } catch {
+      // quiet
+    }
+  }
+
+  // Poll unread notification count on mount & every 30s
+  useEffect(() => {
+    const checkCount = async () => {
+      try {
+        const res = await fetch('/api/v1/notifications/unread-count').then((r) => r.json())
+        if (res.success && typeof res.data?.count === 'number') {
+          setUnreadCount(res.data.count)
+        }
+      } catch {
+        // quiet
+      }
+    }
+    checkCount()
+    const timer = setInterval(checkCount, 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   const nav = useMemo(() => navForRole(user.role), [user.role])
 
@@ -91,25 +147,38 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // close menu on navigation
+  // close menu & notifications on navigation
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setMenuOpen(false), [pathname])
-
-  // close the start menu when clicking anywhere outside it (except its openers)
   useEffect(() => {
-    if (!menuOpen) return
+    setMenuOpen(false)
+    setNotifOpen(false)
+  }, [pathname])
+
+  // close the start menu and notification popover when clicking outside
+  useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (!target || !target.isConnected) return
-      if (menuRef.current?.contains(target)) return
-      if (startBtnRef.current?.contains(target)) return
-      if (headerSearchRef.current?.contains(target)) return
-      if (avatarRef.current?.contains(target)) return
-      setMenuOpen(false)
+
+      if (menuOpen) {
+        if (!menuRef.current?.contains(target) &&
+            !startBtnRef.current?.contains(target) &&
+            !headerSearchRef.current?.contains(target) &&
+            !avatarRef.current?.contains(target)) {
+          setMenuOpen(false)
+        }
+      }
+
+      if (notifOpen) {
+        if (!notifRef.current?.contains(target) &&
+            !bellBtnRef.current?.contains(target)) {
+          setNotifOpen(false)
+        }
+      }
     }
     document.addEventListener('click', onDocClick)
     return () => document.removeEventListener('click', onDocClick)
-  }, [menuOpen])
+  }, [menuOpen, notifOpen])
 
   const logout = useCallback(async () => {
     await fetch('/api/v1/auth/logout', { method: 'POST' })
@@ -148,10 +217,115 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           />
           <kbd>⌘K</kbd>
         </div>
-        <button suppressHydrationWarning className="h-icbtn" aria-label="Notifications">
-          <Bell />
-          <span className="cnt">3</span>
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            suppressHydrationWarning
+            ref={bellBtnRef}
+            className="h-icbtn"
+            aria-label="Notifications"
+            onClick={() => {
+              setNotifOpen((v) => !v)
+              if (!notifOpen) loadNotifications()
+            }}
+          >
+            <Bell />
+            {unreadCount > 0 && <span className="cnt">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </button>
+
+          {notifOpen && (
+            <div
+              ref={notifRef}
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                right: 0,
+                width: 340,
+                maxHeight: 440,
+                backgroundColor: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--border, #e2e8f0)',
+                borderRadius: 10,
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                zIndex: 100,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderBottom: '1px solid var(--border, #e2e8f0)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Bell size={15} />
+                  <b style={{ fontSize: 13.5 }}>Notifications</b>
+                  {unreadCount > 0 && <span className="badge b-blue" style={{ fontSize: 11 }}>{unreadCount} new</span>}
+                </div>
+                {unreadCount > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 11.5, padding: '2px 6px' }}
+                    onClick={markAllRead}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </div>
+
+              <div style={{ overflowY: 'auto', flex: 1, maxHeight: 340 }}>
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '30px 16px', textAlign: 'center' }} className="txt-muted">
+                    <p style={{ fontSize: 13 }}>No notifications yet</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => !n.isRead && markRead(n.id)}
+                      style={{
+                        padding: '10px 14px',
+                        borderBottom: '1px solid var(--border, #f1f5f9)',
+                        backgroundColor: n.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.04)',
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
+                        <span style={{ fontSize: 12.5, fontWeight: n.isRead ? 500 : 600 }}>{n.title}</span>
+                        <span className="badge" style={{ fontSize: 10, flexShrink: 0 }}>{n.category}</span>
+                      </div>
+                      <p className="txt-muted" style={{ fontSize: 12, marginTop: 3, lineHeight: 1.35 }}>{n.body}</p>
+                      <span className="txt-muted" style={{ fontSize: 10.5, marginTop: 4, display: 'block' }}>
+                        {timeAgo(n.createdAt)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div
+                style={{
+                  padding: '8px 14px',
+                  borderTop: '1px solid var(--border, #e2e8f0)',
+                  backgroundColor: 'var(--bg-subtle, #f8fafc)',
+                  textAlign: 'center',
+                }}
+              >
+                <Link
+                  href="/app/settings"
+                  onClick={() => setNotifOpen(false)}
+                  style={{ fontSize: 12, color: 'var(--primary, #6366f1)', textDecoration: 'none', fontWeight: 500 }}
+                >
+                  Manage notification settings →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
         <button suppressHydrationWarning className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
           <span className="avatar sm a-p">{initials}</span>
           <span className="who">

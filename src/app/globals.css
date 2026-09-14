@@ -1056,7 +1056,7 @@ kbd{
    Config-driven module launcher: navForRole(role) × MODULE_META
    ═══════════════════════════════════════════════════════════════ */
 
-.home-sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 2px 12px}
+.home-sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 2px 10px}
 .home-sec .t-title{
   display:inline-flex;align-items:center;gap:9px;
   font-size:12.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;
@@ -1064,16 +1064,32 @@ kbd{
 }
 .home-sec .t-title svg{width:15px;height:15px;color:var(--preone-primary)}
 
-/* ── Tile grid: uniform fluid tiles that scale to any screen ── */
+/* ── Confetti burst for success moments ── */
+@keyframes confetti-pop{
+  0%{transform:scale(0);opacity:1}
+  50%{transform:scale(1.2);opacity:1}
+  100%{transform:scale(1);opacity:0}
+}
+.confetti-success{
+  position:relative;overflow:visible;
+}
+.confetti-success::after{
+  content:"🎉";position:absolute;top:-8px;right:-8px;font-size:18px;
+  animation:confetti-pop 0.8s ease-out forwards;
+  pointer-events:none;
+}
+
+/* ── Tile grid: uniform equal-size boxes that fit any screen ── */
 .tile-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(clamp(170px,18vw,260px),1fr));
+  grid-template-columns:repeat(auto-fit,minmax(clamp(160px,15vw,230px),1fr));
+  grid-auto-rows:1fr;
   gap:16px;
 }
 
 .tile{
-  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-  aspect-ratio:1;height:auto;min-height:128px;padding:18px;border-radius:18px;text-align:center;
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  height:100%;min-height:148px;padding:18px 14px;border-radius:18px;text-align:center;overflow:hidden;
   background:var(--surface);color:var(--foreground);
   border:1px solid var(--border-subtle);box-shadow:var(--shadow-card);
   text-decoration:none;cursor:pointer;
@@ -1081,23 +1097,49 @@ kbd{
              box-shadow var(--motion-fast) var(--ease-standard),
              border-color var(--motion-fast) var(--ease-standard);
 }
-.tile:hover{
-  transform:translateY(-2px);
-  border-color:color-mix(in srgb,var(--preone-primary) 42%,transparent);
-  box-shadow:var(--shadow-elevated),0 0 0 1px color-mix(in srgb,var(--preone-primary) 18%,transparent);
+/* soft top light that follows the hover — keeps the card clean white */
+.tile::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:
+    radial-gradient(110px 60px at 50% -8%,color-mix(in srgb,var(--preone-primary) 14%,transparent),transparent 70%);
+  transition:opacity var(--motion-fast) var(--ease-standard);
 }
-.tile:active{transform:translateY(0)}
+.tile:hover{
+  transform:translateY(-3px);
+  border-color:color-mix(in srgb,var(--preone-primary) 42%,transparent);
+  box-shadow:var(--shadow-elevated),0 0 0 1px color-mix(in srgb,var(--preone-primary) 16%,transparent);
+}
+.tile:hover::before{opacity:1}
+.tile:active{transform:translateY(0) scale(0.98)}
 .tile:focus-visible{outline:none;box-shadow:var(--focus-ring)}
 
 .tile-ico{
   display:flex;align-items:center;justify-content:center;flex:none;
-  width:48px;height:48px;border-radius:13px;
-  background:color-mix(in srgb,var(--preone-primary) 11%,transparent);
+  width:58px;height:58px;border-radius:17px;
+  background:
+    linear-gradient(135deg,color-mix(in srgb,var(--preone-primary) 16%,transparent),color-mix(in srgb,var(--preone-secondary) 8%,transparent));
   color:var(--preone-primary);
-  border:1px solid color-mix(in srgb,var(--preone-primary) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--preone-primary) 18%,transparent);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--preone-primary) 6%,transparent);
 }
-.tile-ico svg{width:24px;height:24px}
-.tile-label{font-size:14px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.tile-ico svg{width:28px;height:28px;stroke-width:2}
+.tile-label{font-size:15.5px;font-weight:750;letter-spacing:-.01em;line-height:1.25}
+
+/* big screens step up for readable, chunky launcher boxes */
+@media (min-width:1500px){
+  .tile-grid{grid-template-columns:repeat(auto-fit,minmax(clamp(200px,12vw,280px),1fr));gap:18px}
+  .tile{min-height:170px;border-radius:20px}
+  .tile-ico{width:64px;height:64px;border-radius:18px}
+  .tile-ico svg{width:30px;height:30px}
+  .tile-label{font-size:16.5px}
+}
+@media (min-width:2000px){
+  .tile-grid{grid-template-columns:repeat(auto-fit,minmax(clamp(240px,10vw,320px),1fr));gap:20px}
+  .tile{min-height:186px}
+  .tile-ico{width:70px;height:70px;border-radius:20px}
+  .tile-ico svg{width:33px;height:33px}
+  .tile-label{font-size:17.5px}
+}
 
 /* error / empty callouts */
 .home-note{
@@ -1108,19 +1150,19 @@ kbd{
 .home-note .skel{width:110px;height:13px;border-radius:7px}
 
 @media (max-width:700px){
-  .tile-grid{gap:12px}
-  .home-sec{margin:22px 0 10px}
+  .tile-grid{gap:11px}
+  .home-sec{margin:16px 0 8px}
 }
 @media (max-width:520px){
   .tile-grid{grid-template-columns:repeat(3,1fr);gap:9px}
-  .tile{min-height:0;padding:12px 8px;gap:8px;border-radius:14px}
-  .tile-ico{width:40px;height:40px;border-radius:11px}
-  .tile-ico svg{width:20px;height:20px}
+  .tile{min-height:0;padding:12px 6px;gap:8px;border-radius:14px}
+  .tile-ico{width:42px;height:42px;border-radius:12px}
+  .tile-ico svg{width:21px;height:21px}
   .tile-label{font-size:12.5px}
 }
 @media (max-width:340px){
   .tile-grid{grid-template-columns:1fr;gap:10px}
-  .tile{min-height:96px;padding:16px;flex-direction:row;gap:14px}
+  .tile{min-height:80px;padding:14px;flex-direction:row;gap:14px;justify-content:flex-start}
 }
 
 /* ── Clean print export (invoices / receipts / certificates) ── */

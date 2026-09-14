@@ -3,6 +3,8 @@ import type { TimelineEntry } from '@prisma/client'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { db } from '@/lib/db'
+import { OperationsService } from '@/lib/operations/operations-service'
+import { getRequestMeta } from '@/lib/audit'
 
 /**
  * GET /api/v1/operations/pickup/queue?classroomId=&branchId=&date=
@@ -104,3 +106,41 @@ export async function GET(req: NextRequest) {
     return Errors.system(err)
   }
 }
+
+/**
+ * POST /api/v1/operations/pickup — verify and release child to authorized guardian
+ */
+export async function POST(req: NextRequest) {
+  const session = await requireApi(req, 'attendance:mark')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  try {
+    const body = await req.json()
+    const { studentId, guardianId, phone, pin, notes } = body
+    const meta = getRequestMeta(req)
+
+    const ctx = {
+      tenantId: session.tenantId,
+      branchId: session.branchId,
+      actorId: session.uid,
+      actorName: session.name,
+      actorRole: session.role,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+    }
+
+    const res = await OperationsService.recordPickup(ctx, {
+      studentId,
+      guardianId,
+      phone,
+      pin,
+      notes,
+    })
+
+    return ok(res)
+  } catch (err: any) {
+    return bad(err.message, 'PICKUP_RELEASE_FAILED')
+  }
+}
+

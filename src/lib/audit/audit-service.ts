@@ -17,6 +17,12 @@ export type AuditModule =
   | 'SETTINGS'
   | 'AUDIT'
   | 'SYSTEM'
+  | 'INVENTORY'
+  | 'PROCUREMENT'
+  | 'HR'
+  | 'PAYROLL'
+  | 'TRANSPORT'
+  | 'REPORTS'
 
 export interface AuditEntry {
   tenantId?: string | null

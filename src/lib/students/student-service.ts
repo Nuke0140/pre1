@@ -464,6 +464,33 @@ export class StudentService {
       take: 20,
     })
 
+    // 6. Transport data for student
+    const transportAssignments = await db.studentTransportAssignment.findMany({
+      where: { tenantId: scope.tenantId, studentId: student.id, deletedAt: null },
+      include: {
+        route: {
+          include: {
+            vehicle: true,
+            driverProfile: { include: { user: { select: { fullName: true, phone: true } } } },
+            attendantProfile: { include: { user: { select: { fullName: true, phone: true } } } },
+          },
+        },
+        pickupStop: true,
+        dropStop: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const recentTripManifests = await db.tripManifestItem.findMany({
+      where: { studentId: student.id },
+      include: {
+        trip: { include: { route: true, vehicle: true } },
+        stop: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    })
+
     return {
       student: {
         id: student.id,
@@ -543,6 +570,11 @@ export class StudentService {
       },
       timeline: student.timelineEntries,
       audit: auditLogs,
+      transport: {
+        activeAssignment: transportAssignments.find((a) => a.status === 'ACTIVE') || null,
+        assignments: transportAssignments,
+        recentTrips: recentTripManifests,
+      },
     }
   }
 
@@ -1440,6 +1472,7 @@ export class StudentService {
       relationship?: string
       isPrimary?: boolean
       canPickup?: boolean
+      pickupPin?: string
       isFeePayer?: boolean
       receivesComm?: boolean
       action: 'LINK' | 'UPDATE' | 'UNLINK'
@@ -1462,7 +1495,7 @@ export class StudentService {
         actorId: ctx.actorId,
         actorName: ctx.actorName,
         actorRole: ctx.actorRole,
-        action: 'UNLINK_GUARDIAN',
+        action: 'GUARDIAN_UNLINKED',
         entity: 'StudentGuardian',
         entityId: student.id,
         summary: `Unlinked guardian from student ${student.firstName}`,
@@ -1478,18 +1511,30 @@ export class StudentService {
       })
       if (!guardian) throw new Error('Guardian not found')
     } else if (input.phone) {
-      guardian = await db.guardian.findFirst({
-        where: { tenantId: scope.tenantId, phone: input.phone.trim() },
+      // Candidate check by phone AND fullName (to prevent merging shared household phones)
+      const phoneNorm = input.phone.trim()
+      const candidateGuardians = await db.guardian.findMany({
+        where: { tenantId: scope.tenantId, phone: phoneNorm, deletedAt: null },
       })
+
+      if (input.fullName) {
+        guardian = candidateGuardians.find(
+          (g) => g.fullName.toLowerCase().trim() === input.fullName!.toLowerCase().trim()
+        )
+      } else if (candidateGuardians.length === 1) {
+        guardian = candidateGuardians[0]
+      }
+
       if (!guardian) {
         if (!input.fullName) throw new Error('Guardian full name is required')
         guardian = await db.guardian.create({
           data: {
             tenantId: scope.tenantId,
             fullName: input.fullName.trim(),
-            phone: input.phone.trim(),
+            phone: phoneNorm,
             email: input.email?.trim() || null,
             relationship: (input.relationship as any) || 'MOTHER',
+            pickupPin: input.pickupPin?.trim() || null,
           },
         })
       }
@@ -1505,26 +1550,32 @@ export class StudentService {
       })
     }
 
+    const existingLink = await db.studentGuardian.findFirst({
+      where: { studentId: student.id, guardianId: guardian.id },
+    })
+
+    const isAuthChange = existingLink && input.canPickup !== undefined && existingLink.canPickup !== input.canPickup
+    const actionType = isAuthChange ? 'GUARDIAN_AUTHORIZATION_CHANGED' : existingLink ? 'GUARDIAN_UPDATED' : 'GUARDIAN_LINKED'
+
     const link = await db.studentGuardian.upsert({
       where: {
-        id: (
-          await db.studentGuardian.findFirst({
-            where: { studentId: student.id, guardianId: guardian.id },
-            select: { id: true },
-          })
-        )?.id || 'new-uuid',
+        id: existingLink?.id || 'new-uuid',
       },
       create: {
         studentId: student.id,
         guardianId: guardian.id,
+        relationship: (input.relationship as any) || guardian.relationship,
         isPrimary: input.isPrimary ?? false,
         canPickup: input.canPickup ?? true,
+        pickupPin: input.pickupPin?.trim() || null,
         isFeePayer: input.isFeePayer ?? false,
         receivesComm: input.receivesComm ?? true,
       },
       update: {
+        ...(input.relationship !== undefined ? { relationship: input.relationship as any } : {}),
         ...(input.isPrimary !== undefined ? { isPrimary: input.isPrimary } : {}),
         ...(input.canPickup !== undefined ? { canPickup: input.canPickup } : {}),
+        ...(input.pickupPin !== undefined ? { pickupPin: input.pickupPin?.trim() || null } : {}),
         ...(input.isFeePayer !== undefined ? { isFeePayer: input.isFeePayer } : {}),
         ...(input.receivesComm !== undefined ? { receivesComm: input.receivesComm } : {}),
       },
@@ -1535,10 +1586,10 @@ export class StudentService {
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
-      action: 'MANAGE_GUARDIAN',
+      action: actionType,
       entity: 'StudentGuardian',
       entityId: link.id,
-      summary: `Updated guardian link (${guardian.fullName}) for student ${student.firstName}`,
+      summary: `${actionType === 'GUARDIAN_AUTHORIZATION_CHANGED' ? 'Changed pickup authorization' : 'Updated guardian link'} (${guardian.fullName}) for student ${student.firstName}`,
     })
 
     return link

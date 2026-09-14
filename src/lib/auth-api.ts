@@ -15,7 +15,8 @@ export async function requireApi(
   const session = await getSession()
   if (!session) return Errors.unauthorized()
 
-  if (permission && !can(session.role, permission)) {
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  if (permission && !can(effectiveRoles, permission)) {
     // Record security event for unauthorized attempt
     await AuditService.recordSecurityEvent({
       action: 'AUTHORIZATION_FAILED',
@@ -26,13 +27,14 @@ export async function requireApi(
       actorName: session.name,
       actorRole: session.role,
       tenantId: session.tenantId,
-      summary: `Authorization denied for role ${session.role}: requires ${permission}`,
+      summary: `Authorization denied for roles [${effectiveRoles.join(', ')}]: requires ${permission}`,
       severity: 'WARNING',
       req,
       details: {
         path: req.nextUrl.pathname,
         method: req.method,
         requiredPermission: permission,
+        roles: effectiveRoles,
       },
     })
 

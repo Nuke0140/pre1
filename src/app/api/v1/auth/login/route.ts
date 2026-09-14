@@ -118,6 +118,11 @@ export async function POST(req: NextRequest) {
       ? await db.branch.findUnique({ where: { id: membership.branchId } })
       : await db.branch.findFirst({ where: { tenantId: membership.tenantId, isMain: true } })
 
+    const effectiveRoles: Role[] =
+      membership.roles && membership.roles.length > 0
+        ? (membership.roles as Role[])
+        : [membership.role as Role]
+
     const token = await signSession({
       uid: user.id,
       email: user.email,
@@ -125,6 +130,7 @@ export async function POST(req: NextRequest) {
       tenantId: membership.tenantId,
       branchId: branch?.id ?? null,
       role: membership.role as Role,
+      roles: effectiveRoles,
     })
 
     await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
@@ -138,7 +144,7 @@ export async function POST(req: NextRequest) {
       entity: 'User',
       entityId: user.id,
       module: 'AUTH',
-      summary: `${user.fullName} signed in`,
+      summary: `${user.fullName} signed in (${effectiveRoles.join(', ')})`,
       severity: 'INFO',
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
@@ -151,6 +157,7 @@ export async function POST(req: NextRequest) {
         name: user.fullName,
         email: user.email,
         role: membership.role,
+        roles: effectiveRoles,
         tenant: { id: membership.tenantId, name: membership.tenant.name },
         branch: branch ? { id: branch.id, name: branch.name } : null,
       },

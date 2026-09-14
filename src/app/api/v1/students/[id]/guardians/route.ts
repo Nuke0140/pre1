@@ -24,6 +24,7 @@ export async function POST(
       relationship,
       isPrimary,
       canPickup,
+      pickupPin,
       isFeePayer,
       receivesCommunication,
     } = body
@@ -51,6 +52,7 @@ export async function POST(
         relationship,
         isPrimary,
         canPickup,
+        pickupPin,
         isFeePayer,
         receivesComm: receivesCommunication ?? body.receivesComm,
       }

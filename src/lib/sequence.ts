@@ -5,7 +5,19 @@ import { db } from './db'
  * e.g. INV-2026-0001, PAY-2026-0003, RCT-2026-0002
  */
 export async function nextNumber(
-  model: 'invoice' | 'payment' | 'receipt' | 'lead' | 'application',
+  model:
+    | 'invoice'
+    | 'payment'
+    | 'receipt'
+    | 'lead'
+    | 'application'
+    | 'material_request'
+    | 'purchase_request'
+    | 'purchase_order'
+    | 'goods_receipt'
+    | 'stock_issue'
+    | 'stock_return'
+    | 'stock_adjustment',
   tenantId: string
 ): Promise<string> {
   const fy = new Date().getFullYear()
@@ -15,6 +27,13 @@ export async function nextNumber(
     receipt: 'RCT',
     lead: 'LEAD',
     application: 'ADM',
+    material_request: 'MR',
+    purchase_request: 'PR',
+    purchase_order: 'PO',
+    goods_receipt: 'GRN',
+    stock_issue: 'ISS',
+    stock_return: 'RET',
+    stock_adjustment: 'ADJ',
   } as const
   const prefix = `${prefixMap[model]}-${fy}`
 
@@ -45,6 +64,41 @@ export async function nextNumber(
       const c = await db.admissionApplication.count({
         where: { tenantId, applicationNumber: { startsWith: prefix } },
       })
+      seq = c + 1
+      break
+    }
+    case 'material_request': {
+      const c = await db.materialRequest.count({ where: { tenantId, requestNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'purchase_request': {
+      const c = await db.purchaseRequest.count({ where: { tenantId, requestNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'purchase_order': {
+      const c = await db.purchaseOrder.count({ where: { tenantId, poNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'goods_receipt': {
+      const c = await db.goodsReceipt.count({ where: { tenantId, grnNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'stock_issue': {
+      const c = await db.stockIssue.count({ where: { tenantId, issueNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'stock_return': {
+      const c = await db.stockReturn.count({ where: { tenantId, returnNumber: { startsWith: prefix } } })
+      seq = c + 1
+      break
+    }
+    case 'stock_adjustment': {
+      const c = await db.stockAdjustment.count({ where: { tenantId, adjustmentNumber: { startsWith: prefix } } })
       seq = c + 1
       break
     }

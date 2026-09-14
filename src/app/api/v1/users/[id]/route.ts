@@ -4,8 +4,9 @@ import { ok, notFound, bad, serverError, forbidden } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
+import { UserRole } from '@prisma/client'
 
-/** GET /api/v1/users/[id] — get user details including linked profile and taught classes */
+/** GET /api/v1/users/[id] ï¿½ get user details including linked profile, roles, and taught classes */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:read')
@@ -44,6 +45,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (!member) return notFound('User not found in this school')
 
+    const assignedRoles: UserRole[] =
+      member.roles && member.roles.length > 0 ? member.roles : [member.role]
+
     return ok({
       id: member.id,
       userId: member.user.id,
@@ -51,6 +55,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       email: member.user.email,
       phone: member.user.phone,
       role: member.role,
+      roles: assignedRoles,
       status: member.status,
       branchId: member.branchId,
       lastLoginAt: member.user.lastLoginAt,
@@ -75,7 +80,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-/** PATCH /api/v1/users/[id] — update user profile, role, scope, or password */
+/** PATCH /api/v1/users/[id] ï¿½ update user profile, roles, scope, designation, or password */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
@@ -89,7 +94,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         tenantId: session.tenantId,
         deletedAt: null,
       },
-      include: { user: true },
+      include: {
+        user: {
+          include: { staffProfile: true },
+        },
+      },
     })
 
     if (!member) return notFound('User not found in this school')
@@ -100,14 +109,65 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const body = await req.json()
-    const { fullName, phone, role, status, branchId, classroomId, password } = body
+    const {
+      fullName,
+      phone,
+      role,
+      roles: inputRoles,
+      primaryRole,
+      status,
+      branchId,
+      classroomId,
+      password,
+      designation,
+      employeeCode,
+    } = body as {
+      fullName?: string
+      phone?: string
+      role?: UserRole
+      roles?: UserRole[]
+      primaryRole?: UserRole
+      status?: any
+      branchId?: string | null
+      classroomId?: string
+      password?: string
+      designation?: string
+      employeeCode?: string
+    }
+
+    // Determine target roles
+    let targetRoles: UserRole[] | undefined
+    if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
+      targetRoles = [...new Set(inputRoles)]
+    } else if (role) {
+      targetRoles = [role]
+    }
+
+    if (targetRoles) {
+      // Validate role escalation for any updated roles
+      for (const r of targetRoles) {
+        if (r === 'PLATFORM_ADMIN') {
+          return forbidden('Cannot assign PLATFORM_ADMIN role')
+        }
+        if (r === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
+          return forbidden('Only owners can assign OWNER role')
+        }
+      }
+    }
+
+    const finalPrimaryRole: UserRole | undefined =
+      targetRoles
+        ? (primaryRole && targetRoles.includes(primaryRole) ? primaryRole : (role && targetRoles.includes(role) ? role : targetRoles[0]))
+        : (role || primaryRole)
 
     const oldValues = {
       fullName: member.user.fullName,
       phone: member.user.phone,
       role: member.role,
+      roles: member.roles,
       status: member.status,
       branchId: member.branchId,
+      designation: member.user.staffProfile?.designation,
     }
 
     // Run updates in transaction
@@ -126,15 +186,59 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const updated = await tx.tenantUser.update({
         where: { id: member.id },
         data: {
-          ...(role ? { role } : {}),
+          ...(finalPrimaryRole ? { role: finalPrimaryRole } : {}),
+          ...(targetRoles ? { roles: targetRoles } : {}),
           ...(status ? { status } : {}),
           ...(branchId !== undefined ? { branchId: branchId || null } : {}),
         },
-        include: { user: true },
+        include: {
+          user: {
+            include: { staffProfile: true },
+          },
+        },
       })
 
-      // If classroomId provided for TEACHER, reassign
-      if (classroomId && updated.role === 'TEACHER') {
+      // If workforce designation or employeeCode provided, update or create StaffProfile
+      const effectiveRoles = updated.roles && updated.roles.length > 0 ? updated.roles : [updated.role]
+      const isStaff = effectiveRoles.some((r) =>
+        ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
+      )
+
+      if (isStaff || designation !== undefined || employeeCode !== undefined) {
+        const existingProfile = await tx.staffProfile.findUnique({
+          where: { userId: member.userId },
+        })
+
+        const empCode =
+          employeeCode?.trim() ||
+          existingProfile?.employeeCode ||
+          member.user.staffProfile?.employeeCode ||
+          `EMP-${Date.now().toString().slice(-4)}`
+
+        if (existingProfile) {
+          await tx.staffProfile.update({
+            where: { id: existingProfile.id },
+            data: {
+              ...(employeeCode ? { employeeCode: empCode } : {}),
+              ...(designation !== undefined ? { designation: designation?.trim() || null } : {}),
+              ...(branchId !== undefined ? { branchId: branchId || null } : {}),
+            },
+          })
+        } else {
+          await tx.staffProfile.create({
+            data: {
+              tenantId: session.tenantId!,
+              userId: member.userId,
+              employeeCode: empCode,
+              designation: designation?.trim() || null,
+              branchId: branchId || null,
+            },
+          })
+        }
+      }
+
+      // If classroomId provided and user has TEACHER role, assign as primaryTeacherId
+      if (classroomId && effectiveRoles.includes('TEACHER')) {
         await tx.classroom.update({
           where: { id: classroomId, tenantId: session.tenantId! },
           data: { primaryTeacherId: member.userId },
@@ -144,12 +248,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return updated
     })
 
+    const newRoles: UserRole[] =
+      updatedMember.roles && updatedMember.roles.length > 0
+        ? updatedMember.roles
+        : [updatedMember.role]
+
     const newValues = {
       fullName: updatedMember.user.fullName,
       phone: updatedMember.user.phone,
       role: updatedMember.role,
+      roles: newRoles,
       status: updatedMember.status,
       branchId: updatedMember.branchId,
+      designation: designation !== undefined ? designation : member.user.staffProfile?.designation,
     }
 
     const meta = getRequestMeta(req)
@@ -163,7 +274,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       entity: 'User',
       entityId: member.userId,
       module: 'Users',
-      summary: `Updated user ${updatedMember.user.fullName} (${updatedMember.role}, ${updatedMember.status})`,
+      summary: `Updated user ${updatedMember.user.fullName} (roles: [${newRoles.join(', ')}], primary: ${updatedMember.role}, status: ${updatedMember.status})`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       oldValues,
@@ -177,6 +288,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       email: updatedMember.user.email,
       phone: updatedMember.user.phone,
       role: updatedMember.role,
+      roles: newRoles,
       status: updatedMember.status,
       branchId: updatedMember.branchId,
     })
@@ -185,7 +297,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-/** DELETE /api/v1/users/[id] — deactivate user from school */
+/** DELETE /api/v1/users/[id] ï¿½ deactivate user from school */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')

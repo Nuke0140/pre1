@@ -24,6 +24,25 @@ export type DomainEvent =
   | { type: 'FollowUpCreated'; tenantId: string; followUpId: string; domain: string; severity: string; title: string; studentId?: string | null }
   | { type: 'AcademicYearClosed'; tenantId: string; sessionId: string; name: string }
   | { type: 'StudentPromoted'; tenantId: string; studentId: string; fromSessionId: string; toSessionId: string; toClassroomId: string }
+  | { type: 'MaterialRequestCreated'; tenantId: string; requestId: string; requestNumber: string; branchId: string; classroomId?: string | null }
+  | { type: 'MaterialRequestApproved'; tenantId: string; requestId: string; requestNumber: string }
+  | { type: 'PurchaseRequestSubmitted'; tenantId: string; requestId: string; requestNumber: string; branchId: string }
+  | { type: 'PurchaseRequestApproved'; tenantId: string; requestId: string; requestNumber: string }
+  | { type: 'PurchaseOrderApproved'; tenantId: string; orderId: string; poNumber: string; vendorId: string }
+  | { type: 'GoodsReceived'; tenantId: string; grnId: string; grnNumber: string; poId: string }
+  | { type: 'StockIssued'; tenantId: string; issueId: string; issueNumber: string; destinationType: string; destinationId?: string | null }
+  | { type: 'StockReturned'; tenantId: string; returnId: string; returnNumber: string }
+  | { type: 'StockAdjusted'; tenantId: string; adjustmentId: string; adjustmentNumber: string }
+  | { type: 'StockBelowReorderLevel'; tenantId: string; itemId: string; itemName: string; availableQuantity: number; reorderLevel: number }
+  | { type: 'StockExpiringSoon'; tenantId: string; itemId: string; itemName: string; batchNumber?: string | null; expiryDate: Date }
+  | { type: 'StaffOnboarded'; tenantId: string; staffProfileId: string; employeeCode: string; name: string }
+  | { type: 'LeaveSubmitted'; tenantId: string; requestId: string; staffProfileId: string; totalDays: number }
+  | { type: 'LeaveApproved'; tenantId: string; requestId: string; staffProfileId: string; totalDays: number }
+  | { type: 'TeacherCoverageRequired'; tenantId: string; requestId: string; classroomId: string; date: string }
+  | { type: 'ParentDelayAlert'; tenantId: string; classroomId: string; date: string; delayMinutes: number }
+  | { type: 'PayrollProcessed'; tenantId: string; cycleId: string; month: number; year: number }
+  | { type: 'ResignationSubmitted'; tenantId: string; staffProfileId: string; lwd: string }
+  | { type: 'ExitCompleted'; tenantId: string; staffProfileId: string }
 
 type Handler = (e: DomainEvent) => Promise<void>
 

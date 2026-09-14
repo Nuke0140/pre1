@@ -18,6 +18,7 @@ import { audit } from './sequence'
 export type NotificationEvent =
   | 'ATTENDANCE_UPDATE' | 'HEALTH_ALERT' | 'FEE_DUE' | 'FEE_RECEIVED'
   | 'ANNOUNCEMENT' | 'DAILY_SUMMARY' | 'INCIDENT_ALERT'
+  | 'TRANSPORT_DELAY' | 'STAFF_ALERT' | 'INVENTORY_ALERT'
 
 export interface ChildEventInput {
   tenantId: string

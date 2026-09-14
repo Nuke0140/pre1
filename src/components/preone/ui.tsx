@@ -63,6 +63,26 @@ const STATUS_BADGE: Record<string, { cls: string; dot?: boolean }> = {
   ACADEMIC: { cls: 'b-primary' },
   // observations
   PUBLISHED: { cls: 'b-success' },
+  // inventory
+  PENDING: { cls: 'b-warning', dot: true },
+  PARTIALLY_FULFILLED: { cls: 'b-orange' },
+  FULFILLED: { cls: 'b-success' },
+  ORDERED: { cls: 'b-info' },
+  PARTIALLY_RECEIVED: { cls: 'b-orange' },
+  RECEIVED: { cls: 'b-success' },
+  FINALIZED: { cls: 'b-success' },
+  COMPLETED: { cls: 'b-success' },
+  RETURNED: { cls: 'b-info' },
+  CONSUMABLE: { cls: 'b-primary' },
+  ASSET: { cls: 'b-info' },
+  STATIONERY: { cls: 'b-pink' },
+  LEARNING_KIT: { cls: 'b-warning' },
+  UNIFORM: { cls: 'b-orange' },
+  FIRST_AID: { cls: 'b-danger' },
+  CLEANING: { cls: 'b-neutral' },
+  KITCHEN_PANTRY: { cls: 'b-warning' },
+  EVENT_PROP: { cls: 'b-pink' },
+  OTHER: { cls: 'b-neutral' },
 }
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {

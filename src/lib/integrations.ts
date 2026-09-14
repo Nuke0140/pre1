@@ -12,12 +12,15 @@ import { onDomainEvent } from './events'
 import { raiseFollowUp, resolveByDedupeKey, RESPONSIBLE_ROLE } from './followups'
 import { recordChildEvent, broadcast } from './notify'
 import { sessionForClassroom } from './academic'
+import { registerNotificationListeners } from './notifications/event-listeners'
 
 let registered = false
 
 export function registerIntegrations() {
   if (registered) return
   registered = true
+
+  registerNotificationListeners()
 
   onDomainEvent(async (e) => {
     switch (e.type) {

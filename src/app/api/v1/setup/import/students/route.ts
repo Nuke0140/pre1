@@ -124,17 +124,33 @@ export async function POST(req: NextRequest) {
             currentClassroomId: classroom?.id ?? null,
           },
         })
-        const guardian = await tx.guardian.create({
-          data: {
+        let guardian = await tx.guardian.findFirst({
+          where: {
             tenantId: session.tenantId,
-            fullName: c.data.guardianName,
-            phone: c.data.guardianPhone,
-            relationship: c.data.relationship as 'FATHER' | 'MOTHER' | 'GRANDPARENT' | 'LEGAL_GUARDIAN' | 'OTHER',
-            isPrimaryContact: true,
+            phone: c.data.guardianPhone.trim(),
+            fullName: c.data.guardianName.trim(),
+            deletedAt: null,
           },
         })
+        if (!guardian) {
+          guardian = await tx.guardian.create({
+            data: {
+              tenantId: session.tenantId,
+              fullName: c.data.guardianName.trim(),
+              phone: c.data.guardianPhone.trim(),
+              relationship: c.data.relationship as 'FATHER' | 'MOTHER' | 'GRANDPARENT' | 'LEGAL_GUARDIAN' | 'OTHER',
+              isPrimaryContact: true,
+            },
+          })
+        }
         await tx.studentGuardian.create({
-          data: { studentId: student.id, guardianId: guardian.id, isPrimary: true, canPickup: true },
+          data: {
+            studentId: student.id,
+            guardianId: guardian.id,
+            relationship: c.data.relationship as 'FATHER' | 'MOTHER' | 'GRANDPARENT' | 'LEGAL_GUARDIAN' | 'OTHER',
+            isPrimary: true,
+            canPickup: true,
+          },
         })
         imported++
       }

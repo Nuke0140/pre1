@@ -53,7 +53,9 @@ export interface ArrivalInput {
 
 export interface PickupInput {
   studentId: string
-  guardianId: string
+  guardianId?: string
+  phone?: string
+  userId?: string
   pin?: string | null
   notes?: string
   pickupTime?: Date
@@ -546,10 +548,10 @@ export class OperationsService {
    */
   static async recordPickup(ctx: ScopeContext, input: PickupInput) {
     const { session } = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicSessionId)
-    const { studentId, guardianId, pin, notes } = input
+    const { studentId, guardianId, phone, userId, pin, notes } = input
 
-    if (!studentId || !guardianId) {
-      throw new Error("studentId and guardianId are required for pickup")
+    if (!studentId || (!guardianId && !phone && !userId && !pin)) {
+      throw new Error("studentId and guardian identifier (guardianId, phone, userId, or pin) are required for pickup")
     }
 
     const student = await db.student.findFirst({
@@ -559,10 +561,16 @@ export class OperationsService {
 
     if (!student) throw new Error("Student not found")
 
-    // Policy verification: Is person authorized? Does PIN match?
-    const authCheck = await OperationPolicies.verifyPickupPerson(ctx.tenantId, studentId, guardianId, pin)
+    // Policy verification: Is person authorized? Does PIN match? Evaluates entire guardian set
+    const authCheck = await OperationPolicies.verifyPickupPerson(
+      ctx.tenantId,
+      studentId,
+      { guardianId, phone, userId, pin: pin || undefined },
+      pin
+    )
 
     if (!authCheck.authorized) {
+      const attemptedTarget = guardianId || phone || userId || 'Provided-PIN'
       // SECURITY VIOLATION: Raise emergency safety follow-up and audit immediately
       await raiseFollowUp({
         tenantId: ctx.tenantId,
@@ -570,9 +578,9 @@ export class OperationsService {
         domain: 'SAFETY',
         severity: 'EMERGENCY',
         title: `Unauthorized pickup blocked: ${student.firstName}`,
-        detail: `Attempted pickup by guardian ID ${guardianId}. Reason: ${authCheck.reason}. Blocked at gate by ${ctx.actorName || "Staff"}.`,
+        detail: `Attempted pickup by ${attemptedTarget}. Reason: ${authCheck.reason}. Blocked at gate by ${ctx.actorName || "Staff"}.`,
         sourceType: 'PickupAttempt',
-        sourceId: guardianId,
+        sourceId: attemptedTarget,
         dedupeKey: `pickup-block:${studentId}:${isoDate()}:${Date.now()}`,
         studentId: student.id,
         classroomId: student.currentClassroomId,
@@ -590,7 +598,7 @@ export class OperationsService {
         entityId: student.id,
         module: 'Operations',
         severity: 'CRITICAL',
-        summary: `BLOCKED unauthorized pickup for ${student.firstName}. Reason: ${authCheck.reason}`,
+        summary: `BLOCKED unauthorized pickup for ${student.firstName}. Status: NOT_MATCH. Reason: ${authCheck.reason}`,
         ipAddress: ctx.ipAddress,
         userAgent: ctx.userAgent,
       })
@@ -687,9 +695,12 @@ export class OperationsService {
     return {
       success: true,
       released: true,
+      status: 'MATCH' as const,
       studentId: student.id,
       studentName: `${student.firstName} ${student.lastName || ""}`.trim(),
+      guardianId: authCheck.guardianId,
       guardianName: authCheck.guardianName,
+      relationship: authCheck.relationship,
       releasedAt: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       latePickup: lateCalc,
       invoiceId: invoiceCreatedId,

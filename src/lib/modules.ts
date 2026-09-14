@@ -71,10 +71,34 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Today at school — pick-ups, health alerts and incidents',
     tileSize: 'md',
   },
+  transport: {
+    description: 'Preschool child safety, bus routes, fleet, pickups & live trips',
+    tileSize: 'lg',
+    quickActions: [
+      { label: "Today's trips", href: '/app/transport?tab=trips', perm: 'transport:trip' },
+      { label: 'Assign student', href: '/app/transport?tab=students', perm: 'transport:assign' },
+    ],
+  },
+  inventory: {
+    description: 'Materials, classroom requests, stock, procurement & vendors',
+    tileSize: 'lg',
+    quickActions: [
+      { label: 'Request materials', href: '/app/inventory?tab=requests', perm: 'inventory:request' },
+      { label: 'Receive stock', href: '/app/inventory?tab=grn', perm: 'inventory:receive' },
+    ],
+  },
   finance: {
     description: 'Fees, invoices, payments and collections',
     tileSize: 'lg',
     quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
+  },
+  reports: {
+    description: 'Cross-module analytics, operational dashboards, custom report builder & exports',
+    tileSize: 'lg',
+    quickActions: [
+      { label: 'Executive MIS', href: '/app/reports?tab=executive', perm: 'reports:read' },
+      { label: 'Custom Builder', href: '/app/reports?tab=custom', perm: 'reports:custom' },
+    ],
   },
   communication: {
     description: 'Announcements to parents and staff',
@@ -95,10 +119,16 @@ const MODULE_META: Record<string, ModuleMeta> = {
   },
 }
 
-export function homeModules(role: Role): HomeModule[] {
-  return navForRole(role).map((n) => {
+export function homeModules(roleOrRoles: Role | Role[]): HomeModule[] {
+  const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles]
+  return navForRole(roles).map((n) => {
     const meta = MODULE_META[n.key] ?? DEFAULT_META
-    const qas = (meta.quickActions ?? []).filter((qa) => !qa.perm || can(role, qa.perm))
-    return { ...n, description: meta.description, tileSize: meta.tileSize, quickActions: qas }
+    const qas = (meta.quickActions ?? []).filter((qa) => !qa.perm || can(roles, qa.perm))
+    return {
+      ...n,
+      description: meta.description,
+      tileSize: meta.tileSize,
+      quickActions: qas,
+    }
   })
 }

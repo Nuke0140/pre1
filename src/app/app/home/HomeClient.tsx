@@ -9,7 +9,6 @@ import { ModuleTile } from '@/components/preone/ModuleTile'
 export function HomeClient({ role }: {
   role: Role
 }) {
-  // RBAC-filtered modules are computed client-side (same source as the shell)
   const modules = useMemo<HomeModule[]>(() => homeModules(role), [role])
 
   return (
@@ -24,7 +23,7 @@ export function HomeClient({ role }: {
           ))}
         </div>
         {modules.length === 0 && (
-          <div className="home-note">No modules are available for this role yet.</div>
+          <div className="home-note">No modules available yet — your little stars are waiting to be added!</div>
         )}
       </section>
     </div>

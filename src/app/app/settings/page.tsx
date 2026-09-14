@@ -108,16 +108,20 @@ export default function SettingsControlCenter() {
   const [themePref, setThemePref] = useState<string>('SYSTEM')
   const [densityPref, setDensityPref] = useState<string>('COMFORTABLE')
 
+  // Notification Logs
+  const [deliveryLogs, setDeliveryLogs] = useState<any[]>([])
+
   // Load All Effective Settings
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [settingsRes, healthRes, permRes, tmplRes, prefRes] = await Promise.all([
+      const [settingsRes, healthRes, permRes, tmplRes, prefRes, logsRes] = await Promise.all([
         fetch('/api/v1/settings').then((r) => r.json()),
         fetch('/api/v1/integrations/health').then((r) => r.json()),
         fetch('/api/v1/settings/permissions').then((r) => r.json()),
         fetch('/api/v1/finance/templates').then((r) => r.json()),
         fetch('/api/v1/settings/preferences').then((r) => r.json()),
+        fetch('/api/v1/settings/notifications/logs?limit=30').then((r) => r.json()),
       ])
 
       if (settingsRes.success && settingsRes.data) {
@@ -137,6 +141,9 @@ export default function SettingsControlCenter() {
       if (prefRes.success) {
         setThemePref(prefRes.data.theme || 'SYSTEM')
         setDensityPref(prefRes.data.density || 'COMFORTABLE')
+      }
+      if (logsRes.success && logsRes.data) {
+        setDeliveryLogs(logsRes.data.logs || [])
       }
       setDirty(false)
     } catch (e: any) {
@@ -956,6 +963,56 @@ export default function SettingsControlCenter() {
             </div>
           </div>
 
+          {/* Event Dispatch Rules Matrix */}
+          <div className="panel" style={{ marginTop: 20 }}>
+            <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Automated Event Notification Rules</h4>
+            <p className="txt-muted" style={{ fontSize: 12, marginBottom: 16 }}>
+              Select which preschool domain state events trigger automated notifications to authorized guardians and staff.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+              {[
+                { key: 'ATTENDANCE_UPDATE', label: 'Attendance (Absent / Late)', desc: 'Alerts guardians when child is marked absent or arrives late' },
+                { key: 'HEALTH_ALERT', label: 'Health & Safety Incidents', desc: 'Instant alerts on wellness check anomalies or injuries' },
+                { key: 'FEE_DUE', label: 'Fee Due & Overdue Invoices', desc: 'Dispatches invoice and overdue payment reminders' },
+                { key: 'FEE_RECEIVED', label: 'Payment Receipts', desc: 'Confirms successful fee payments with receipt details' },
+                { key: 'TRANSPORT_DELAY', label: 'School Bus Delays', desc: 'Notifies affected parents when transport trips run late' },
+                { key: 'ANNOUNCEMENT', label: 'Broadcast Announcements', desc: 'School-wide and classroom broadcasts from management' },
+                { key: 'INVENTORY_ALERT', label: 'Low Stock & Expiry Alerts', desc: 'Alerts Accounts and Principal when supplies fall below threshold' },
+                { key: 'STAFF_ALERT', label: 'Workforce & Leave Alerts', desc: 'Notifies leadership on onboarding, leave, and coverage requests' },
+              ].map((ev) => {
+                const currentEvents = commConfig.notificationEvents || []
+                const isEnabled = currentEvents.includes(ev.key)
+                return (
+                  <div
+                    key={ev.key}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 8,
+                      border: `1px solid ${isEnabled ? 'var(--primary)' : 'var(--border)'}`,
+                      backgroundColor: isEnabled ? 'rgba(99, 102, 241, 0.04)' : 'transparent',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      const next = isEnabled
+                        ? currentEvents.filter((k: string) => k !== ev.key)
+                        : [...currentEvents, ev.key]
+                      setCommConfig({ ...commConfig, notificationEvents: next })
+                      setDirty(true)
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{ev.label}</span>
+                      <span className={`badge ${isEnabled ? 'b-green' : 'b-neutral'}`}>
+                        {isEnabled ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                    </div>
+                    <p className="txt-muted" style={{ fontSize: 12, marginTop: 4 }}>{ev.desc}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Truthful Notification Tester */}
           <div className="panel" style={{ backgroundColor: 'var(--bg-subtle)', marginTop: 24 }}>
             <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1018,6 +1075,70 @@ export default function SettingsControlCenter() {
                   <span>Result: {testResult.testStatus}</span>
                 </div>
                 <p style={{ fontSize: 13, marginTop: 4 }}>{testResult.message}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Live Delivery Audit Log */}
+          <div className="panel" style={{ marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div>
+                <h4 style={{ fontSize: 15, fontWeight: 600 }}>Recent Delivery Audit Logs</h4>
+                <p className="txt-muted" style={{ fontSize: 12 }}>Audit trail of dispatches across In-App, Email, SMS, and WhatsApp</p>
+              </div>
+              <span className="badge b-neutral">{deliveryLogs.length} Records</span>
+            </div>
+
+            {deliveryLogs.length === 0 ? (
+              <p className="txt-muted" style={{ fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
+                No notifications logged yet. Triggering automated actions or tests will record here.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: 12.5 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Time</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Event</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Channel</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Recipient</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Status</th>
+                      <th style={{ textAlign: 'left', padding: '8px 10px' }}>Title</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveryLogs.map((log: any) => (
+                      <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }} className="txt-muted">
+                          {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <b>{log.eventType}</b>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span className="badge b-neutral">{log.channel}</span>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span>{log.recipientAddress || log.recipientId}</span>
+                        </td>
+                        <td style={{ padding: '8px 10px' }}>
+                          <span className={`badge ${
+                            log.status === 'DELIVERED' || log.status === 'SENT'
+                              ? 'b-green'
+                              : log.status === 'CONFIGURATION_ONLY'
+                              ? 'b-orange'
+                              : 'b-red'
+                          }`}>
+                            {log.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 10px', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {log.title}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

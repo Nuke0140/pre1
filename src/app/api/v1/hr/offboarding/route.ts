@@ -1,0 +1,72 @@
+import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
+import { ok, Errors } from '@/lib/api'
+import { requireApi, isResponse } from '@/lib/auth-api'
+import { OffboardingService } from '@/lib/hr/offboarding-service'
+
+export async function GET(req: NextRequest) {
+  const session = await requireApi(req, 'hr:read')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  try {
+    const resignations = await db.resignationRequest.findMany({
+      where: { tenantId: session.tenantId },
+      include: {
+        staffProfile: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } },
+            branch: { select: { id: true, name: true } },
+            offboardingTasks: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return ok(resignations)
+  } catch (e) {
+    return Errors.system(e)
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const session = await requireApi(req, 'hr:write')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  try {
+    const body = await req.json()
+    const { action = 'SUBMIT_RESIGNATION' } = body
+
+    if (action === 'COMPLETE_TASK') {
+      const task = await OffboardingService.completeClearanceTask(
+        session.tenantId,
+        body.taskId,
+        {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        },
+        body.remarks
+      )
+      return ok(task)
+    }
+
+    // Default: SUBMIT_RESIGNATION
+    const resignation = await OffboardingService.submitResignation(
+      session.tenantId,
+      body.staffProfileId,
+      body,
+      {
+        id: session.uid,
+        name: session.name,
+        role: session.role,
+      }
+    )
+
+    return ok(resignation)
+  } catch (e: any) {
+    return Errors.validation(e.message || 'Failed to process offboarding action')
+  }
+}

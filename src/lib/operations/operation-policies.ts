@@ -107,14 +107,26 @@ export class OperationPolicies {
 
   /**
    * Authorize a pickup person against StudentGuardian relationships and PIN policy
+  /**
+   * Evaluates if a pickup person is authorized and validates PIN if required.
+   * Traverses the entire StudentGuardian relationship set to eliminate false NOT_MATCH.
    */
   static async verifyPickupPerson(
     tenantId: string,
     studentId: string,
-    guardianId: string,
+    personIdentifier:
+      | string
+      | {
+          guardianId?: string
+          phone?: string
+          userId?: string
+          pin?: string
+        },
     providedPin?: string | null
   ): Promise<{
     authorized: boolean
+    status: 'MATCH' | 'NOT_MATCH'
+    guardianId?: string
     guardianName?: string
     relationship?: string
     requiresPin: boolean
@@ -124,40 +136,95 @@ export class OperationPolicies {
     const spRaw = await getDomainConfig(tenantId, 'STUDENT_PARENT')
     const spCfg = getStudentParentConfig(spRaw)
 
-    const link = await db.studentGuardian.findUnique({
-      where: { studentId_guardianId: { studentId, guardianId } },
-      include: { guardian: true },
+    const guardianId = typeof personIdentifier === 'string' ? personIdentifier : personIdentifier?.guardianId
+    const phone = typeof personIdentifier === 'object' ? personIdentifier.phone?.trim() : undefined
+    const userId = typeof personIdentifier === 'object' ? personIdentifier.userId : undefined
+    const pin = providedPin || (typeof personIdentifier === 'object' ? personIdentifier.pin : undefined)
+
+    const student = await db.student.findFirst({
+      where: { id: studentId, tenantId, deletedAt: null },
+      select: { id: true, firstName: true },
     })
 
-    if (!link) {
+    if (!student) {
       return {
         authorized: false,
+        status: 'NOT_MATCH',
+        requiresPin: false,
+        pinMatched: false,
+        reason: 'Student record not found in this school.',
+      }
+    }
+
+    // Traverse all linked guardians for this student (no single-parent assumption)
+    const allLinks = await db.studentGuardian.findMany({
+      where: { studentId },
+      include: { guardian: { include: { user: true } } },
+    })
+
+    if (allLinks.length === 0) {
+      return {
+        authorized: false,
+        status: 'NOT_MATCH',
+        requiresPin: false,
+        pinMatched: false,
+        reason: 'No registered guardians found for this student.',
+      }
+    }
+
+    // Match across the complete guardian relationship set
+    let matchedLink = allLinks.find((l) => {
+      if (guardianId && l.guardianId === guardianId) return true
+      if (userId && l.guardian.userId === userId) return true
+      if (phone && l.guardian.phone === phone) return true
+      return false
+    })
+
+    // Fallback: If only PIN was provided without explicit guardian identifier
+    if (!matchedLink && pin && !guardianId && !phone && !userId) {
+      matchedLink = allLinks.find((l) => {
+        const expectedPin = (l.pickupPin || l.guardian.pickupPin)?.trim()
+        return expectedPin && expectedPin === pin.trim()
+      })
+    }
+
+    if (!matchedLink) {
+      return {
+        authorized: false,
+        status: 'NOT_MATCH',
         requiresPin: false,
         pinMatched: false,
         reason: 'Person is not registered as a guardian for this student.',
       }
     }
 
-    if (!link.canPickup) {
+    const effectiveRelationship = (matchedLink.relationship || matchedLink.guardian.relationship) as string
+    const effectiveExpectedPin = matchedLink.pickupPin || matchedLink.guardian.pickupPin
+
+    if (!matchedLink.canPickup) {
       return {
         authorized: false,
-        guardianName: link.guardian.fullName,
-        relationship: link.guardian.relationship,
+        status: 'NOT_MATCH',
+        guardianId: matchedLink.guardian.id,
+        guardianName: matchedLink.guardian.fullName,
+        relationship: effectiveRelationship,
         requiresPin: false,
         pinMatched: false,
         reason: 'Guardian record exists, but pickup authorization (canPickup) is revoked.',
       }
     }
 
-    const requiresPin = spCfg.pickupVerification === 'PIN_MATCH' && Boolean(link.guardian.pickupPin)
+    const requiresPin = spCfg.pickupVerification === 'PIN_MATCH' && Boolean(effectiveExpectedPin)
     let pinMatched = true
 
     if (requiresPin) {
-      if (!providedPin || providedPin.trim() !== link.guardian.pickupPin?.trim()) {
+      if (!pin || pin.trim() !== effectiveExpectedPin?.trim()) {
         return {
           authorized: false,
-          guardianName: link.guardian.fullName,
-          relationship: link.guardian.relationship,
+          status: 'NOT_MATCH',
+          guardianId: matchedLink.guardian.id,
+          guardianName: matchedLink.guardian.fullName,
+          relationship: effectiveRelationship,
           requiresPin: true,
           pinMatched: false,
           reason: 'Pickup PIN verification failed. Incorrect or missing security PIN.',
@@ -167,8 +234,10 @@ export class OperationPolicies {
 
     return {
       authorized: true,
-      guardianName: link.guardian.fullName,
-      relationship: link.guardian.relationship,
+      status: 'MATCH',
+      guardianId: matchedLink.guardian.id,
+      guardianName: matchedLink.guardian.fullName,
+      relationship: effectiveRelationship,
       requiresPin,
       pinMatched: true,
     }

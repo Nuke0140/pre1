@@ -61,6 +61,8 @@ export type CommunicationConfig = {
   notificationEvents: string[]
   language: string
   escalation?: string
+  templates?: Record<string, string>
+  rules?: Record<string, { enabled: boolean; channels?: string[] }>
 }
 
 export type DailyOperationsConfig = {
@@ -79,6 +81,15 @@ export type CurriculumConfig = {
   reportCardStructure?: string
 }
 
+export type InventoryConfig = {
+  allowNegativeStock: boolean
+  allowOverReceiving: boolean
+  expiryWarningDays: number
+  lowStockThresholdPercent: number
+  requirePRApproval: boolean
+  requireIssueApproval: boolean
+}
+
 export type ConfigDomainKey =
   | 'OPERATING'
   | 'ADMISSION'
@@ -90,6 +101,7 @@ export type ConfigDomainKey =
   | 'DOCUMENT_TEMPLATES'
   | 'CURRICULUM'
   | 'BRANDING'
+  | 'INVENTORY'
 
 const DEFAULTS: Record<string, Record<string, unknown>> = {
   OPERATING: {
@@ -127,8 +139,28 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
   },
   COMMUNICATION: {
     channels: ['IN_APP'],
-    notificationEvents: ['ATTENDANCE_UPDATE', 'HEALTH_ALERT', 'FEE_DUE', 'ANNOUNCEMENT', 'INCIDENT_ALERT'],
+    notificationEvents: [
+      'ATTENDANCE_UPDATE',
+      'HEALTH_ALERT',
+      'FEE_DUE',
+      'FEE_RECEIVED',
+      'ANNOUNCEMENT',
+      'INCIDENT_ALERT',
+      'DAILY_SUMMARY',
+      'TRANSPORT_DELAY',
+      'STAFF_ALERT',
+      'INVENTORY_ALERT',
+    ],
     language: 'en-IN',
+    templates: {
+      ATTENDANCE_UPDATE: 'Child attendance update: {{studentName}} was marked {{status}} on {{date}}.',
+      HEALTH_ALERT: 'Health & Wellness alert: {{title}} for {{studentName}}.',
+      FEE_DUE: 'Fee reminder for {{studentName}}: Invoice {{invoiceNumber}} of {{amount}} is due on {{dueDate}}.',
+      FEE_RECEIVED: 'Fee receipt confirmed for {{studentName}}: Payment {{paymentNumber}} of {{amount}} received with thanks.',
+      TRANSPORT_DELAY: 'School transport delay alert for {{studentName}}: Bus route {{routeName}} delayed by {{delayMinutes}} mins.',
+      INVENTORY_ALERT: 'Low stock notification: Item {{itemName}} has reached reorder level ({{availableQuantity}} remaining).',
+      STAFF_ALERT: 'Staff notification: {{title}} - {{detail}}',
+    },
   },
   DAILY_OPERATIONS: {
     attendanceEnabled: true,
@@ -137,6 +169,14 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
   },
   DOCUMENT_TEMPLATES: { templates: ['ADMISSION_FORM', 'CONSENT_FORM', 'RECEIPT', 'REPORT_CARD'] },
   BRANDING: { primaryColor: '#7C3AED', accentColor: '#3B82F6', layout: 'WINDOWS_SHELL' },
+  INVENTORY: {
+    allowNegativeStock: false,
+    allowOverReceiving: false,
+    expiryWarningDays: 30,
+    lowStockThresholdPercent: 10,
+    requirePRApproval: true,
+    requireIssueApproval: false,
+  },
 }
 
 /** Read a domain config merged over typed defaults. Never throws. */
@@ -177,6 +217,9 @@ export function getDailyOps(t: Record<string, unknown>): DailyOperationsConfig {
 }
 export function getCurriculum(t: Record<string, unknown>): CurriculumConfig {
   return t as unknown as CurriculumConfig
+}
+export function getInventoryConfig(t: Record<string, unknown>): InventoryConfig {
+  return t as unknown as InventoryConfig
 }
 
 /** Is `notificationEvents` enabled for this event? (single notification rule source) */

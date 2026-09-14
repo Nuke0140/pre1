@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { ok, bad, conflict, serverError, forbidden } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
-import { UserRole } from '@prisma/client'
+import { UserRole, Relationship } from '@prisma/client'
 
 /** GET /api/v1/users � directory with role/search filtering & pagination (users:read) */
 export async function GET(req: NextRequest) {
@@ -22,7 +22,14 @@ export async function GET(req: NextRequest) {
     const where: any = {
       tenantId: session.tenantId,
       deletedAt: null,
-      ...(roleFilter ? { role: roleFilter } : {}),
+      ...(roleFilter
+        ? {
+            OR: [
+              { role: roleFilter },
+              { roles: { has: roleFilter } },
+            ],
+          }
+        : {}),
       ...(query
         ? {
             user: {
@@ -68,39 +75,43 @@ export async function GET(req: NextRequest) {
     ])
 
     return ok(
-      members.map((m) => ({
-        id: m.id,
-        userId: m.user.id,
-        name: m.user.fullName,
-        email: m.user.email,
-        phone: m.user.phone,
-        role: m.role,
-        status: m.status,
-        branchId: m.branchId,
-        lastLoginAt: m.user.lastLoginAt,
-        createdAt: m.createdAt,
-        staffProfile: m.user.staffProfile
-          ? {
-              employeeCode: m.user.staffProfile.employeeCode,
-              designation: m.user.staffProfile.designation,
-              qualification: m.user.staffProfile.qualification,
-              employmentType: m.user.staffProfile.employmentType,
-            }
-          : null,
-        taughtClasses: m.user.taughtClasses,
-        guardianProfile: m.user.guardianProfile
-          ? {
-              id: m.user.guardianProfile.id,
-              relationship: m.user.guardianProfile.relationship,
-              students: m.user.guardianProfile.studentLinks.map((sl) => ({
-                id: sl.student.id,
-                name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
-                admissionNo: sl.student.admissionNo,
-                canPickup: sl.canPickup,
-              })),
-            }
-          : null,
-      })),
+      members.map((m) => {
+        const assignedRoles: UserRole[] = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+        return {
+          id: m.id,
+          userId: m.user.id,
+          name: m.user.fullName,
+          email: m.user.email,
+          phone: m.user.phone,
+          role: m.role,
+          roles: assignedRoles,
+          status: m.status,
+          branchId: m.branchId,
+          lastLoginAt: m.user.lastLoginAt,
+          createdAt: m.createdAt,
+          staffProfile: m.user.staffProfile
+            ? {
+                employeeCode: m.user.staffProfile.employeeCode,
+                designation: m.user.staffProfile.designation,
+                qualification: m.user.staffProfile.qualification,
+                employmentType: m.user.staffProfile.employmentType,
+              }
+            : null,
+          taughtClasses: m.user.taughtClasses,
+          guardianProfile: m.user.guardianProfile
+            ? {
+                id: m.user.guardianProfile.id,
+                relationship: m.user.guardianProfile.relationship,
+                students: m.user.guardianProfile.studentLinks.map((sl) => ({
+                  id: sl.student.id,
+                  name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
+                  admissionNo: sl.student.admissionNo,
+                  canPickup: sl.canPickup,
+                })),
+              }
+            : null,
+        }
+      }),
       { page, pageSize, total, totalPages: Math.ceil(total / pageSize) }
     )
   } catch (err: any) {
@@ -121,31 +132,67 @@ export async function POST(req: NextRequest) {
       email,
       password,
       role,
+      roles: inputRoles,
+      primaryRole,
       phone,
       branchId,
       classroomId,
       guardianId,
+      studentId,
+      studentIds: inputStudentIds,
+      relationship,
+      pickupPin,
+      canPickup,
+      isPrimary,
       designation,
       employeeCode,
     } = body as {
       fullName: string
       email: string
       password: string
-      role: UserRole
+      role?: UserRole
+      roles?: UserRole[]
+      primaryRole?: UserRole
       phone?: string
       branchId?: string
       classroomId?: string
       guardianId?: string
+      studentId?: string
+      studentIds?: string[]
+      relationship?: Relationship
+      pickupPin?: string
+      canPickup?: boolean
+      isPrimary?: boolean
       designation?: string
       employeeCode?: string
     }
 
-    if (!fullName || !email || !password || !role) {
-      return bad('fullName, email, password and role are required', 'MISSING_FIELDS')
+    // Determine roles array and primary role
+    let assignedRoles: UserRole[] = []
+    if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
+      assignedRoles = [...new Set(inputRoles)]
+    } else if (role) {
+      assignedRoles = [role]
     }
 
-    if (role === 'PLATFORM_ADMIN' || (role === 'OWNER' && session.role !== 'OWNER')) {
-      return forbidden('Cannot assign this role')
+    if (!fullName || !email || !password || assignedRoles.length === 0) {
+      return bad('fullName, email, password and at least one role are required', 'MISSING_FIELDS')
+    }
+
+    // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
+    const finalPrimaryRole: UserRole =
+      primaryRole && assignedRoles.includes(primaryRole)
+        ? primaryRole
+        : assignedRoles[0]
+
+    // Validate role escalation for all requested roles
+    for (const r of assignedRoles) {
+      if (r === 'PLATFORM_ADMIN') {
+        return forbidden('Cannot assign PLATFORM_ADMIN role')
+      }
+      if (r === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
+        return forbidden('Only school owners can assign the OWNER role')
+      }
     }
 
     if (password.length < 6) {
@@ -206,61 +253,187 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Create TenantUser membership
+      // Create TenantUser membership with primary role and roles array
       const membership = await tx.tenantUser.create({
         data: {
           tenantId: session.tenantId!,
           userId: user.id,
-          role,
+          role: finalPrimaryRole,
+          roles: assignedRoles,
           branchId: branchId || null,
           status: 'ACTIVE',
         },
       })
 
-      // If role is PARENT and guardianId is provided, link them
-      if (role === 'PARENT') {
+      // If any assigned role is PARENT, resolve or link guardian profile
+      if (assignedRoles.includes('PARENT')) {
+        let guardian: any = null
+
+        // 1. Explicit guardianId provided (strongest)
         if (guardianId) {
-          const guardian = await tx.guardian.findFirst({
+          guardian = await tx.guardian.findFirst({
             where: { id: guardianId, tenantId: session.tenantId! },
+            include: { user: true },
           })
           if (!guardian) {
             throw new Error(`Guardian ${guardianId} not found in this school`)
           }
-          await tx.guardian.update({
-            where: { id: guardianId },
-            data: { userId: user.id },
+
+          // Rule: Check for collision if already linked to another active user
+          if (guardian.userId && guardian.userId !== user.id) {
+            if (guardian.user && guardian.user.status !== 'INACTIVE') {
+              throw new Error(`Guardian "${guardian.fullName}" is already linked to parent account (${guardian.user.email}). Cannot reassign without manual unlinking.`)
+            }
+          }
+
+          if (guardian.userId !== user.id) {
+            guardian = await tx.guardian.update({
+              where: { id: guardianId },
+              data: { userId: user.id },
+            })
+          }
+        } else {
+          // 2. Check if this user is already linked to a guardian in this tenant
+          guardian = await tx.guardian.findFirst({
+            where: { userId: user.id, tenantId: session.tenantId! },
+          })
+
+          // 3. Match existing guardian by email (supporting match)
+          if (!guardian && emailNorm) {
+            const byEmail = await tx.guardian.findFirst({
+              where: { tenantId: session.tenantId!, email: emailNorm, deletedAt: null },
+              include: { user: true },
+            })
+            if (byEmail) {
+              if (byEmail.userId && byEmail.userId !== user.id) {
+                // Different active account linked to this email — do not merge blindly
+              } else {
+                guardian = await tx.guardian.update({
+                  where: { id: byEmail.id },
+                  data: { userId: user.id },
+                })
+              }
+            }
+          }
+
+          // 4. Match existing guardian by phone (candidate match — only if name also matches)
+          if (!guardian && phoneNorm) {
+            const byPhone = await tx.guardian.findFirst({
+              where: { tenantId: session.tenantId!, phone: phoneNorm, deletedAt: null },
+              include: { user: true },
+            })
+            if (byPhone) {
+              const nameMatches = byPhone.fullName.toLowerCase().trim() === fullName.trim().toLowerCase()
+              if (nameMatches) {
+                if (!byPhone.userId || byPhone.userId === user.id) {
+                  guardian = await tx.guardian.update({
+                    where: { id: byPhone.id },
+                    data: { userId: user.id },
+                  })
+                }
+              }
+              // If name doesn't match, it could be a shared household phone (Mother vs Father).
+              // Do NOT merge; fall through to create a distinct Guardian record.
+            }
+          }
+
+          // 5. If no safe existing guardian found, create a new Guardian record
+          if (!guardian) {
+            guardian = await tx.guardian.create({
+              data: {
+                tenantId: session.tenantId!,
+                fullName: fullName.trim(),
+                phone: phoneNorm || '',
+                email: emailNorm,
+                relationship: (relationship as Relationship) || 'OTHER',
+                pickupPin: pickupPin?.trim() || null,
+                userId: user.id,
+                isPrimaryContact: Boolean(isPrimary),
+              },
+            })
+          }
+        }
+
+        // 6. Link to student(s) if provided
+        const targetStudentIds: string[] = []
+        if (studentId) targetStudentIds.push(studentId)
+        if (Array.isArray(inputStudentIds)) {
+          for (const s of inputStudentIds) {
+            if (typeof s === 'string' && s && !targetStudentIds.includes(s)) targetStudentIds.push(s)
+          }
+        }
+
+        for (const sid of targetStudentIds) {
+          const student = await tx.student.findFirst({
+            where: { id: sid, tenantId: session.tenantId!, deletedAt: null },
+          })
+          if (student) {
+            const existingLink = await tx.studentGuardian.findUnique({
+              where: { studentId_guardianId: { studentId: sid, guardianId: guardian.id } },
+            })
+            if (!existingLink) {
+              await tx.studentGuardian.create({
+                data: {
+                  studentId: sid,
+                  guardianId: guardian.id,
+                  relationship: relationship ? (relationship as Relationship) : guardian.relationship,
+                  canPickup: canPickup !== false,
+                  pickupPin: pickupPin?.trim() || null,
+                  isPrimary: Boolean(isPrimary),
+                  isFeePayer: true,
+                  receivesComm: true,
+                },
+              })
+            }
+          }
+        }
+      }
+
+      // If any assigned role is staff or designation provided, ensure StaffProfile exists
+      const isStaff = assignedRoles.some((r) =>
+        ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
+      )
+
+      if (isStaff || designation) {
+        const existingProfile = await tx.staffProfile.findUnique({
+          where: { userId: user.id },
+        })
+
+        let finalEmpCode = employeeCode?.trim()
+        if (!finalEmpCode) {
+          if (existingProfile?.employeeCode) {
+            finalEmpCode = existingProfile.employeeCode
+          } else {
+            const prefix = assignedRoles.includes('TEACHER') ? 'TCH' : 'EMP'
+            const count = await tx.staffProfile.count({ where: { tenantId: session.tenantId! } })
+            finalEmpCode = `${prefix}-${String(count + 1).padStart(4, '0')}`
+          }
+        }
+
+        if (existingProfile) {
+          await tx.staffProfile.update({
+            where: { id: existingProfile.id },
+            data: {
+              employeeCode: finalEmpCode,
+              designation: designation?.trim() || existingProfile.designation,
+              branchId: branchId || existingProfile.branchId,
+            },
+          })
+        } else {
+          await tx.staffProfile.create({
+            data: {
+              tenantId: session.tenantId!,
+              userId: user.id,
+              employeeCode: finalEmpCode,
+              designation: designation?.trim() || null,
+              branchId: branchId || null,
+            },
           })
         }
       }
 
-      // If role is staff, ensure StaffProfile exists with unique employeeCode
-      if (['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION'].includes(role)) {
-        let finalEmpCode = employeeCode?.trim()
-        if (!finalEmpCode) {
-          const prefix = role === 'TEACHER' ? 'TCH' : 'EMP'
-          const count = await tx.staffProfile.count({ where: { tenantId: session.tenantId! } })
-          finalEmpCode = `${prefix}-${String(count + 1).padStart(4, '0')}`
-        }
-
-        await tx.staffProfile.upsert({
-          where: { tenantId_employeeCode: { tenantId: session.tenantId!, employeeCode: finalEmpCode } },
-          update: {
-            userId: user.id,
-            designation: designation?.trim() || null,
-            branchId: branchId || null,
-          },
-          create: {
-            tenantId: session.tenantId!,
-            userId: user.id,
-            employeeCode: finalEmpCode,
-            designation: designation?.trim() || null,
-            branchId: branchId || null,
-          },
-        })
-      }
-
-      // If role is TEACHER and classroomId is assigned, set primaryTeacherId
-      if (role === 'TEACHER' && classroomId) {
+      // If TEACHER is among the assigned roles and classroomId is assigned, set primaryTeacherId
+      if (assignedRoles.includes('TEACHER') && classroomId) {
         const classroom = await tx.classroom.findFirst({
           where: { id: classroomId, tenantId: session.tenantId! },
         })
@@ -273,7 +446,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      return { user, membership }
+      return { user, membership, assignedRoles, finalPrimaryRole }
     })
 
     const meta = getRequestMeta(req)
@@ -287,12 +460,36 @@ export async function POST(req: NextRequest) {
       entity: 'User',
       entityId: result.user.id,
       module: 'Users',
-      summary: `Created user ${fullName} with role ${role}${guardianId ? ' (linked to guardian)' : ''}${classroomId ? ' (assigned to classroom)' : ''}`,
+      summary: `Created user ${fullName} with roles [${result.assignedRoles.join(', ')}] (primary: ${result.finalPrimaryRole})`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
+      newValues: {
+        id: result.membership.id,
+        userId: result.user.id,
+        email: emailNorm,
+        fullName: fullName.trim(),
+        role: result.finalPrimaryRole,
+        roles: result.assignedRoles,
+        branchId: branchId || null,
+        designation: designation?.trim() || null,
+      },
     })
 
-    return ok({ userId: result.user.id, membershipId: result.membership.id }, undefined, 201)
+    return ok(
+      {
+        id: result.membership.id,
+        userId: result.user.id,
+        fullName: result.user.fullName,
+        email: result.user.email,
+        phone: result.user.phone,
+        role: result.finalPrimaryRole,
+        roles: result.assignedRoles,
+        status: result.membership.status,
+        branchId: result.membership.branchId,
+      },
+      undefined,
+      201
+    )
   } catch (e: any) {
     return serverError(e.message)
   }
