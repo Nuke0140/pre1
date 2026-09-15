@@ -189,7 +189,7 @@ export default function SearchPageClient() {
     <div className="search-page-container" style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 60 }}>
       <PageHead
         title="Global Search"
-        subtitle="Search unified canonical records across all modules with strict role-based access control."
+        sub="Search unified canonical records across all modules with strict role-based access control."
       />
 
       {/* Main Search Input Form */}

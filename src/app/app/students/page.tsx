@@ -283,7 +283,7 @@ export default function StudentsPage() {
       sortable: true,
       export: (s) => s.admissionNo,
       render: (s) => (
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{s.admissionNo}</span>
+        <span className="dt-id-chip">{s.admissionNo}</span>
       ),
     },
     {
@@ -356,6 +356,8 @@ export default function StudentsPage() {
   return (
     <>
       <PageHead
+        eyebrow="Preschool Enrollment & Academics"
+        badge={<span className="badge b-primary b-dot">Active Roster</span>}
         title="Students & Children"
         sub="Canonical enrolled-child directory connecting Admissions, Academics, Operations, Attendance, and Finance."
         actions={
@@ -365,124 +367,121 @@ export default function StudentsPage() {
         }
       />
 
-      {/* KPI Stats Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 20 }}>
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>Total Enrolled</span>
-            <Users size={18} style={{ color: 'var(--brand-primary, #6366F1)' }} />
+      {/* Unified Metric Strip */}
+      <div className="metric-strip" style={{ marginBottom: 20 }}>
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Users size={14} style={{ color: 'var(--primary, #6A35FF)' }} /> Total Enrolled
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats ? stats.totalStudents : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Registered identities</span>
+          <div className="m-val">{stats ? stats.totalStudents : '-'}</div>
+          <div className="m-meta">Registered identities</div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>Active</span>
-            <GraduationCap size={18} style={{ color: '#10B981' }} />
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <GraduationCap size={14} style={{ color: 'var(--success, #10B981)' }} /> Active Children
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#10B981' }}>{stats ? stats.activeStudents : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Currently attending</span>
+          <div className="m-val" style={{ color: 'var(--success, #10B981)' }}>{stats ? stats.activeStudents : '-'}</div>
+          <div className="m-meta">Currently attending</div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>New Admissions</span>
-            <Activity size={18} style={{ color: '#3B82F6' }} />
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Activity size={14} style={{ color: '#3B82F6' }} /> New Admissions
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats ? stats.recentAdmissions30d : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Last 30 days</span>
+          <div className="m-val">{stats ? stats.recentAdmissions30d : '-'}</div>
+          <div className="m-meta">Last 30 days</div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>Transferred</span>
-            <ArrowRightLeft size={18} style={{ color: '#F59E0B' }} />
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Calendar size={14} style={{ color: '#8B5CF6' }} /> Avg Attendance
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats ? stats.transferredStudents : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Branch transfers</span>
+          <div className="m-val" style={{ color: '#8B5CF6' }}>{stats ? stats.averageAttendanceRate + '%' : '-'}</div>
+          <div className="m-meta">Live calculation</div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>Withdrawn</span>
-            <UserX size={18} style={{ color: '#EF4444' }} />
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ArrowRightLeft size={14} style={{ color: '#F59E0B' }} /> Transferred
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{stats ? stats.withdrawnStudents : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Non-destructive exit</span>
+          <div className="m-val">{stats ? stats.transferredStudents : '-'}</div>
+          <div className="m-meta">Branch transfers</div>
         </div>
 
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span className="t-caption" style={{ fontWeight: 600 }}>Avg Attendance</span>
-            <Calendar size={18} style={{ color: '#8B5CF6' }} />
+        <div className="metric-cell">
+          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <UserX size={14} style={{ color: '#EF4444' }} /> Withdrawn
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#8B5CF6' }}>{stats ? stats.averageAttendanceRate + '%' : '-'}</div>
-          <span className="t-caption" style={{ color: 'var(--foreground-muted)' }}>Live calculation</span>
+          <div className="m-val">{stats ? stats.withdrawnStudents : '-'}</div>
+          <div className="m-meta">Non-destructive exit</div>
         </div>
       </div>
 
-      {/* Dynamic Context Selector Bar */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+      {/* Student Register Table Workspace */}
+      <div className="table-workspace">
+        <div className="school-context-bar" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
         {branches.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Building size={14} style={{ color: 'var(--foreground-muted)' }} />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Branch:</span>
-            <select
-              className="select"
-              style={{ height: 32, fontSize: 12, padding: '2px 8px' }}
-              value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-            >
-              <option value="ALL">All Branches</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="context-item">
+              <label><Building size={14} style={{ color: 'var(--text-muted)' }} /> Branch:</label>
+              <select
+                className="select"
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+              >
+                <option value="ALL">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <span className="context-divider" />
+          </>
         )}
 
         {sessions.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Calendar size={14} style={{ color: 'var(--foreground-muted)' }} />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Session:</span>
-            <select
-              className="select"
-              style={{ height: 32, fontSize: 12, padding: '2px 8px' }}
-              value={sessionFilter}
-              onChange={(e) => setSessionFilter(e.target.value)}
-            >
-              <option value="ALL">All Academic Sessions</option>
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="context-item">
+              <label><Calendar size={14} style={{ color: 'var(--text-muted)' }} /> Session:</label>
+              <select
+                className="select"
+                value={sessionFilter}
+                onChange={(e) => setSessionFilter(e.target.value)}
+              >
+                <option value="ALL">All Academic Sessions</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <span className="context-divider" />
+          </>
         )}
 
         {programs.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <BookOpen size={14} style={{ color: 'var(--foreground-muted)' }} />
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Program:</span>
-            <select
-              className="select"
-              style={{ height: 32, fontSize: 12, padding: '2px 8px' }}
-              value={programFilter}
-              onChange={(e) => setProgramFilter(e.target.value)}
-            >
-              <option value="ALL">All Programs</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div className="context-item">
+              <label><BookOpen size={14} style={{ color: 'var(--text-muted)' }} /> Program:</label>
+              <select
+                className="select"
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+              >
+                <option value="ALL">All Programs</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <span className="context-divider" />
+          </>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>Status:</span>
+        <div className="context-item">
+          <label>Status:</label>
           <select
             className="select"
-            style={{ height: 32, fontSize: 12, padding: '2px 8px' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -557,6 +556,7 @@ export default function StudentsPage() {
           ) : null
         }
       />
+      </div>
 
 
       {/* Enroll Child Modal */}

@@ -348,45 +348,63 @@ export function TransportClient({ session }: { session: SessionProps }) {
         }
       />
 
-      {/* Primary KPI Grid */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 20 }}>
-        <KpiTile
-          label="Active Routes"
-          value={metrics?.activeRoutes ?? 0}
-          icon={<Bus size={18} />}
-          iconClass="ic-purple"
-        />
-        <KpiTile
-          label="Active Vehicles"
-          value={metrics?.activeVehicles ?? 0}
-          icon={<CheckCircle2 size={18} />}
-          iconClass="ic-green"
-          meta={metrics?.vehiclesInMaintenance ? `${metrics.vehiclesInMaintenance} in maintenance` : undefined}
-        />
-        <KpiTile
-          label="Enrolled Children"
-          value={metrics?.studentsUsingTransport ?? 0}
-          icon={<Users size={18} />}
-          iconClass="ic-blue"
-        />
-        <KpiTile
-          label="Boarded Today"
-          value={metrics?.childrenBoarded ?? 0}
-          icon={<UserCheck size={18} />}
-          iconClass="ic-cyan"
-        />
-        <KpiTile
-          label="Safely Dropped"
-          value={metrics?.childrenDropped ?? 0}
-          icon={<ShieldCheck size={18} />}
-          iconClass="ic-green"
-        />
-        <KpiTile
-          label="Delayed Trips"
-          value={metrics?.delayedTrips ?? 0}
-          icon={<AlertTriangle size={18} />}
-          iconClass="ic-orange"
-        />
+      {/* Canonical Metric Strip */}
+      <div className="metric-strip" style={{ marginBottom: 20 }}>
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Active Routes</span>
+            <Bus size={15} style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="m-val">{metrics?.activeRoutes ?? 0}</div>
+          <div className="m-meta">Daily bus routes</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Active Vehicles</span>
+            <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{metrics?.activeVehicles ?? 0}</div>
+          <div className="m-meta">{metrics?.vehiclesInMaintenance ? `${metrics.vehiclesInMaintenance} in service` : 'All certified'}</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Enrolled Children</span>
+            <Users size={15} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="m-val">{metrics?.studentsUsingTransport ?? 0}</div>
+          <div className="m-meta">Bus riders</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Boarded Today</span>
+            <UserCheck size={15} style={{ color: '#06b6d4' }} />
+          </div>
+          <div className="m-val">{metrics?.childrenBoarded ?? 0}</div>
+          <div className="m-meta">Morning pickup</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Safely Dropped</span>
+            <ShieldCheck size={15} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{metrics?.childrenDropped ?? 0}</div>
+          <div className="m-meta">Drop confirmed</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Delayed Trips</span>
+            <AlertTriangle size={15} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div className="m-val" style={{ color: metrics?.delayedTrips > 0 ? 'var(--danger)' : 'var(--foreground)' }}>
+            {metrics?.delayedTrips ?? 0}
+          </div>
+          <div className="m-meta">{metrics?.delayedTrips > 0 ? 'Review status' : 'On schedule'}</div>
+        </div>
       </div>
 
       {/* Tabs Navigation */}

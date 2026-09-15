@@ -262,26 +262,38 @@ export default function HRPage() {
       {/* OVERVIEW TAB */}
       {tab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="card p-4">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Headcount</div>
-              <div className="text-2xl font-bold mt-1 text-slate-900">{metrics?.totalStaff ?? 0}</div>
-              <div className="text-xs text-emerald-600 mt-1 font-medium">{metrics?.activeStaff ?? 0} active employees</div>
+          <div className="metric-strip">
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Total Headcount</span>
+                <Users size={16} style={{ color: 'var(--primary)' }} />
+              </div>
+              <div className="m-val">{metrics?.totalStaff ?? 0}</div>
+              <div className="m-meta" style={{ color: 'var(--success)' }}>{metrics?.activeStaff ?? 0} active employees</div>
             </div>
-            <div className="card p-4">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Present Today</div>
-              <div className="text-2xl font-bold mt-1 text-emerald-600">{metrics?.presentToday ?? 0}</div>
-              <div className="text-xs text-slate-500 mt-1">{metrics?.onLeaveToday ?? 0} on approved leave</div>
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Present Today</span>
+                <UserCheck size={16} style={{ color: 'var(--success)' }} />
+              </div>
+              <div className="m-val m-success">{metrics?.presentToday ?? 0}</div>
+              <div className="m-meta">{metrics?.onLeaveToday ?? 0} on approved leave</div>
             </div>
-            <div className="card p-4">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Leaves</div>
-              <div className="text-2xl font-bold mt-1 text-amber-600">{metrics?.pendingLeaves ?? 0}</div>
-              <div className="text-xs text-slate-500 mt-1">Requires substitute coverage check</div>
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Pending Leaves</span>
+                <CalendarCheck size={16} style={{ color: '#B45309' }} />
+              </div>
+              <div className="m-val" style={{ color: '#B45309' }}>{metrics?.pendingLeaves ?? 0}</div>
+              <div className="m-meta">Requires substitute coverage</div>
             </div>
-            <div className="card p-4">
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">POSH Training Due</div>
-              <div className="text-2xl font-bold mt-1 text-rose-600">{metrics?.poshDue ?? 0}</div>
-              <div className="text-xs text-rose-500 mt-1 font-medium">Overdue blocks monthly payroll</div>
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">POSH Training Due</span>
+                <ShieldCheck size={16} style={{ color: 'var(--danger)' }} />
+              </div>
+              <div className="m-val" style={{ color: 'var(--danger)' }}>{metrics?.poshDue ?? 0}</div>
+              <div className="m-meta">Overdue blocks payroll</div>
             </div>
           </div>
 

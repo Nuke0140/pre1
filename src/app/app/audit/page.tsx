@@ -213,51 +213,61 @@ export default function AuditPage() {
         }
       />
 
-      {/* ── Windows 8 Inspired Live KPI Aggregation Grid ── */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <KpiTile
-          label="Total System Events"
-          value={kpis?.totalEvents ?? '...'}
-          icon={<ScrollText />}
-          iconClass="ic-blue"
-        />
-        <KpiTile
-          label="Today's Activity"
-          value={kpis?.todayEvents ?? '...'}
-          icon={<Clock />}
-          iconClass="ic-cyan"
-        />
-        <KpiTile
-          label="Security Events"
-          value={kpis?.securityEvents ?? '...'}
-          icon={<ShieldCheck />}
-          iconClass={kpis && kpis.securityEvents > 0 ? 'ic-orange' : 'ic-slate'}
-        />
-        <KpiTile
-          label="Critical Mutations"
-          value={kpis?.criticalEvents ?? '...'}
-          icon={<Flame />}
-          iconClass={kpis && kpis.criticalEvents > 0 ? 'ic-pink' : 'ic-slate'}
-        />
-        <KpiTile
-          label="Failed Actions"
-          value={kpis?.failedActions ?? '...'}
-          icon={<AlertTriangle />}
-          iconClass={kpis && kpis.failedActions > 0 ? 'ic-red' : 'ic-slate'}
-        />
-        <KpiTile
-          label="Audit Exports"
-          value={kpis?.exportEvents ?? '...'}
-          icon={<FileSpreadsheet />}
-          iconClass="ic-slate"
-        />
+      {/* ── Canonical Metric Strip ── */}
+      <div className="metric-strip" style={{ marginBottom: 16 }}>
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Total Events</span>
+            <ScrollText size={15} style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="m-val">{kpis?.totalEvents ?? '...'}</div>
+          <div className="m-meta">System audit log</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Today's Activity</span>
+            <Clock size={15} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="m-val">{kpis?.todayEvents ?? '...'}</div>
+          <div className="m-meta">Logged today</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Security Events</span>
+            <ShieldCheck size={15} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--warning-text, #d97706)' }}>{kpis?.securityEvents ?? '...'}</div>
+          <div className="m-meta">Auth & access</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Critical Mutations</span>
+            <Flame size={15} style={{ color: 'var(--danger)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--danger)' }}>{kpis?.criticalEvents ?? '...'}</div>
+          <div className="m-meta">Data modifications</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Failed Actions</span>
+            <AlertTriangle size={15} style={{ color: 'var(--danger)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--danger)' }}>{kpis?.failedActions ?? '...'}</div>
+          <div className="m-meta">System rejections</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Audit Exports</span>
+            <FileSpreadsheet size={15} style={{ color: 'var(--foreground-muted)' }} />
+          </div>
+          <div className="m-val">{kpis?.exportEvents ?? '...'}</div>
+          <div className="m-meta">CSV generations</div>
+        </div>
       </div>
 
       {/* ── Category Views / Views Bar ── */}

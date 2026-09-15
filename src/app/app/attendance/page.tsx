@@ -131,7 +131,7 @@ export default function AttendancePage() {
       key: 'admissionNo',
       header: 'Admission #',
       sortValue: (r) => r.admissionNo,
-      render: (r) => <span className="txt-muted">{r.admissionNo}</span>,
+      render: (r) => <span className="dt-id-chip">{r.admissionNo}</span>,
     },
     {
       key: 'status',
@@ -161,74 +161,85 @@ export default function AttendancePage() {
   const clsMeta = (id: string) => classrooms.find((c) => c.id === id)
 
   return (
-    <div className="page">
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <PageHead
+        eyebrow="Daily Attendance Register"
+        badge={<span className="badge b-success b-dot">Live Sync</span>}
         title={`Attendance — ${clsMeta(clsId)?.name || 'Register'}`}
         sub="Daily class register. Mark all present in one tap; ABSENT / LATE auto-raise parent communication."
       />
 
-      <div className="panel" style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 300 }}>
-          <label className="lbl">Classroom</label>
-          <Segmented
-            options={classrooms.map((c) => ({ key: c.id, label: c.name }))}
-            value={clsId}
-            onChange={setClsId}
-          />
-        </div>
-        <div>
-          <label className="lbl">Date</label>
-          <div style={{ width: 210 }}>
-            <DatePicker value={date} onChange={(iso) => iso && setDate(iso)} placeholder="Choose day" />
+      <div className="register-studio">
+        {/* Studio Command Header */}
+        <div className="register-header">
+          <div style={{ minWidth: 280 }}>
+            <label className="lbl" style={{ marginBottom: 6 }}>Classroom</label>
+            <Segmented
+              options={classrooms.map((c) => ({ key: c.id, label: c.name }))}
+              value={clsId}
+              onChange={setClsId}
+            />
+          </div>
+          <div>
+            <label className="lbl" style={{ marginBottom: 6 }}>Date</label>
+            <div style={{ width: 210 }}>
+              <DatePicker value={date} onChange={(iso) => iso && setDate(iso)} placeholder="Choose day" />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="btn btn-ghost" onClick={load} disabled={loading || !clsId} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+            <button className="btn btn-ghost" onClick={() => markAll('PRESENT')} disabled={!rows.length} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckSquare2 size={14} /> Mark all present
+            </button>
+            <button className="btn btn-ghost" onClick={clearAll} disabled={!rows.length} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <SquareX size={14} /> Clear
+            </button>
+            <button className="btn btn-primary" onClick={save} disabled={saving || !markCount} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Save size={14} /> Save register ({markCount})
+            </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-          <button className="btn btn-ghost" onClick={load} disabled={loading || !clsId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <RefreshCw size={15} /> Refresh
-          </button>
-          <button className="btn btn-ghost" onClick={() => markAll('PRESENT')} disabled={!rows.length} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CheckSquare2 size={15} /> Mark all present
-          </button>
-          <button className="btn btn-ghost" onClick={clearAll} disabled={!rows.length} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <SquareX size={15} /> Clear
-          </button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !markCount} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Save size={15} /> Save register ({markCount})
-          </button>
+
+        {/* Live Counter Pulse Strip */}
+        {summary.total > 0 && (
+          <div className="register-counters">
+            <span className="counter-chip">Total: <b>{summary.total}</b></span>
+            <span className="counter-chip c-present">Present: <b>{summary.present || 0}</b></span>
+            <span className="counter-chip c-absent">Absent: <b>{summary.absent || 0}</b></span>
+            <span className="counter-chip c-late">Late: <b>{summary.late || 0}</b></span>
+            <span className="counter-chip c-half">Half Day: <b>{summary.halfDay || 0}</b></span>
+            <span className="counter-chip">Unmarked: <b>{summary.unmarked || 0}</b></span>
+          </div>
+        )}
+
+        {/* Register Table */}
+        <div style={{ padding: 0 }}>
+          <DataTable<RegisterRow>
+            columns={columns}
+            data={loading ? [] : rows}
+            footer={<span>Marked: <b>{markCount}</b> of {rows.length || 0} children</span>}
+            exportFileName="attendance.csv"
+            showExport={!!rows.length}
+          />
+          {!loading && !rows.length && (
+            <div className="empty-state" style={{ padding: 40, textAlign: 'center', color: 'var(--foreground-muted)' }}>
+              No active students in this classroom. Pick another class or check the date.
+            </div>
+          )}
+        </div>
+
+        {/* Legend Footer */}
+        <div style={{ padding: '12px 20px', background: 'var(--surface-muted)', borderTop: '1px solid var(--border-subtle)', fontSize: 12, color: 'var(--foreground-muted)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <span>
+            <b>Legend:</b> <b className="st-present" style={{ margin: '0 4px' }}>P</b> Present · <b className="st-absent" style={{ margin: '0 4px' }}>A</b> Absent · <b className="st-late" style={{ margin: '0 4px' }}>L</b> Late · <b className="st-half" style={{ margin: '0 4px' }}>H</b> Half day · <b className="st-leave" style={{ margin: '0 4px' }}>V</b> Leave.
+          </span>
+          <span>
+            Saving ABSENT/LATE automatically notifies parents via communication pipeline.
+          </span>
         </div>
       </div>
-
-      {summary.total > 0 && (
-        <div className="panel" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '12px 18px' }}>
-          <Chip label="Total" value={summary.total} cls="chip-muted" />
-          <Chip label="Present" value={summary.present || 0} cls="chip-success" />
-          <Chip label="Absent" value={summary.absent || 0} cls="chip-danger" />
-          <Chip label="Late" value={summary.late || 0} cls="chip-warning" />
-          <Chip label="Half day" value={summary.halfDay || 0} cls="chip-info" />
-          <Chip label="Unmarked" value={summary.unmarked || 0} cls="chip-muted" />
-        </div>
-      )}
-
-      <div className="panel">
-        <DataTable<RegisterRow> columns={columns} data={loading ? [] : rows} footer={<span>Marked: {markCount} of {rows.length || 0}</span>} exportFileName="attendance.csv" showExport={!!rows.length} />
-        {!loading && !rows.length && <div className="empty-state" style={{ padding: 40, textAlign: 'center', color: 'var(--foreground-muted)' }}>No active students in this classroom. Pick another class or check the date.</div>}
-      </div>
-
-      <div className="panel" style={{ padding: '14px 18px' }}>
-        <span className="txt-muted" style={{ fontSize: 13 }}>
-          Legend — <b className="st-present">P</b> Present · <b className="st-absent">A</b> Absent · <b className="st-late">L</b> Late · <b className="st-half">H</b> Half day · <b className="st-leave">V</b> Leave.
-          Saving ABSENT/LATE entries triggers an exception event (parent communication pipeline) automatically.
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function Chip({ label, value, cls }: { label: string; value: number; cls: string }) {
-  return (
-    <div className={`chip-sum ${cls}`}>
-      <b>{value}</b>
-      <span>{label}</span>
     </div>
   )
 }

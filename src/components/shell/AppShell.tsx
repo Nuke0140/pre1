@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3,
+  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3, School,
 } from 'lucide-react'
 import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
 import { Avatar } from '@/components/preone/ui'
@@ -204,10 +204,12 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         <Link href="/app" className="h-logo" aria-label="PreOne home">
           <PLogoWordmark />
         </Link>
-        <div className="h-breadcrumb">
+        <div className="h-school-badge">
+          <div className="badge-icon">
+            <School size={11} />
+          </div>
           <span>{user.tenantName}</span>
-          <ChevronRight size={13} />
-          <b>{current}</b>
+          <span className="badge-branch">· {current}</span>
         </div>
         <div className="h-spacer" />
         <div className="h-search" onClick={() => setSearchModalOpen(true)} style={{ cursor: 'pointer' }}>

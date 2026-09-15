@@ -3,7 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import {
-  Users, CalendarCheck, Wallet, ClipboardList, ArrowRight, Activity, School,
+  Users, CalendarCheck, Wallet, ClipboardList, ArrowRight, Activity, School, Plus, CheckCircle2,
 } from 'lucide-react'
 import { PageHead, KpiTile } from '@/components/preone/ui'
 import { inr, timeAgo, enumLabel } from '@/lib/format'
@@ -31,79 +31,121 @@ export function DashboardClient({ role, perms, data }: Props) {
   const maxTrend = Math.max(...data.trend.map((t) => t.pct), 100)
 
   return (
-    <>
-      <PageHead
-        title={`Namaste, ${role === 'TEACHER' ? 'Teacher' : role === 'PARENT' ? 'Parent' : 'Admin'}!`}
-        sub="Aapke school ka aaj ka snapshot — sab kuch ek nazar mein."
-      />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── 1. Operational Command Center Hero ── */}
+      <div className="operational-hero">
+        <div className="operational-hero-head">
+          <div>
+            <div className="page-eyebrow">Preschool Operations Command</div>
+            <h1 className="operational-hero-title">
+              Namaste, {role === 'TEACHER' ? 'Teacher' : role === 'PARENT' ? 'Parent' : 'Administrator'}!
+            </h1>
+            <p className="operational-hero-sub">
+              Aapke school ka live operational pulse — today&apos;s attendance, enrolled students, collection rate, and critical workflows.
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="badge b-primary b-dot">Active Academic Session</span>
+          </div>
+        </div>
 
-      {/* KPI row — 4 tiles max (design law) */}
-      <div className="kpi-row">
-        {perms.students && (
-          <KpiTile
-            label="Active Students"
-            value={data.activeStudents}
-            icon={<Users />}
-            iconClass="ic-purple"
-            meta={`${data.classrooms.length} classrooms`}
-            trend={{ dir: 'flat', text: 'All branches' }}
-          />
-        )}
+        {/* ── Unified Operational Pulse Strip (No Floating Cards) ── */}
+        <div className="metric-strip" style={{ marginTop: 16 }}>
+          {perms.students && (
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Active Students</span>
+                <Users size={16} style={{ color: 'var(--primary)' }} />
+              </div>
+              <div className="m-val m-highlight">{data.activeStudents}</div>
+              <div className="m-meta">{data.classrooms.length} active classrooms</div>
+            </div>
+          )}
+
+          {perms.attendance && (
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Present Today</span>
+                <CalendarCheck size={16} style={{ color: 'var(--success)' }} />
+              </div>
+              <div className="m-val m-success">{data.presentToday}</div>
+              <div className="m-meta">{data.attendancePct}% daily attendance</div>
+            </div>
+          )}
+
+          {perms.finance && (
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Fees Collected</span>
+                <Wallet size={16} style={{ color: '#B37B00' }} />
+              </div>
+              <div className="m-val">{inr(data.collected, { compact: true })}</div>
+              <div className="m-meta">{data.collectRate}% of {inr(data.billed, { compact: true })} billed</div>
+            </div>
+          )}
+
+          {perms.admissions && (
+            <div className="metric-cell">
+              <div className="m-top">
+                <span className="m-lbl">Admissions Pipeline</span>
+                <ClipboardList size={16} style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="m-val">{data.pendingApps}</div>
+              <div className="m-meta">{data.newLeads} new leads to call</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 2. Quick Action Launchpad ── */}
+      <div className="quick-action-strip">
+        <span className="strip-label">Quick Actions:</span>
         {perms.attendance && (
-          <KpiTile
-            label="Present Today"
-            value={data.presentToday}
-            icon={<CalendarCheck />}
-            iconClass="ic-green"
-            meta={`${data.attendancePct}% attendance`}
-            trend={{ dir: data.attendancePct >= 85 ? 'up' : 'down', text: `${data.attendancePct}%` }}
-          />
+          <Link href="/app/attendance" className="btn-action">
+            <CalendarCheck size={14} /> Mark Attendance
+          </Link>
+        )}
+        {perms.students && (
+          <Link href="/app/students" className="btn-action">
+            <Plus size={14} /> Enroll Child
+          </Link>
         )}
         {perms.finance && (
-          <KpiTile
-            label="Fees Collected"
-            value={inr(data.collected, { compact: true })}
-            icon={<Wallet />}
-            iconClass="ic-yellow"
-            meta={`${data.collectRate}% of ${inr(data.billed, { compact: true })} billed`}
-            trend={{ dir: data.collectRate >= 90 ? 'up' : 'flat', text: `${data.collectRate}%` }}
-          />
+          <Link href="/app/finance" className="btn-action">
+            <Wallet size={14} /> Fee Manager
+          </Link>
         )}
         {perms.admissions && (
-          <KpiTile
-            label="Pending Admissions"
-            value={data.pendingApps}
-            icon={<ClipboardList />}
-            iconClass="ic-pink"
-            meta={`${data.newLeads} new leads to call`}
-            trend={{ dir: 'flat', text: 'Pipeline' }}
-          />
+          <Link href="/app/admissions" className="btn-action">
+            <ClipboardList size={14} /> Review Pipeline
+          </Link>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24 }} className="dash-grid">
+      {/* ── 3. Operational Analytics Workspace ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }} className="dash-grid">
         {/* Attendance trend chart */}
         {perms.attendance && (
-          <div className="card">
+          <div className="card card-hover">
             <div className="card-head">
               <div>
-                <div className="card-title">Attendance This Week</div>
+                <div className="card-title">Weekly Attendance Dynamics</div>
                 <div className="card-sub">Daily present % across all classrooms</div>
               </div>
-              <span className="badge b-success b-dot">Live</span>
+              <span className="badge b-success b-dot">Live Feed</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '8px 4px 0' }}>
               {data.trend.map((t, i) => (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <span className="t-caption" style={{ fontWeight: 700 }}>{t.pct}%</span>
+                  <span className="t-caption" style={{ fontWeight: 750 }}>{t.pct}%</span>
                   <div
                     style={{
-                      width: '100%', maxWidth: 46, borderRadius: '10px 10px 6px 6px',
+                      width: '100%', maxWidth: 46, borderRadius: '8px 8px 4px 4px',
                       height: `${Math.max(6, (t.pct / maxTrend) * 120)}px`,
                       background: t.pct >= 85
-                        ? 'linear-gradient(180deg,#10B981,#34d399)'
-                        : 'linear-gradient(180deg,var(--preone-primary),#9F67FF)',
-                      transition: 'height var(--motion-slow) var(--ease-standard)',
+                        ? 'linear-gradient(180deg, #10B981, #34d399)'
+                        : 'linear-gradient(180deg, var(--primary), #9F67FF)',
+                      transition: 'height 240ms var(--ease-standard)',
                     }}
                   />
                   <span className="t-caption">{t.label}</span>
@@ -111,62 +153,68 @@ export function DashboardClient({ role, perms, data }: Props) {
               ))}
             </div>
             <div className="card-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span className="t-caption">Green bars = healthy days (≥85%)</span>
+              <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle2 size={13} style={{ color: 'var(--success)' }} />
+                Target benchmark: ≥85% healthy attendance
+              </span>
               <Link href="/app/attendance" className="btn btn-ghost btn-sm">
-                Mark attendance <ArrowRight size={14} />
+                Open Daily Register <ArrowRight size={14} />
               </Link>
             </div>
           </div>
         )}
 
-        {/* Overdue + quick actions */}
+        {/* Overdue + Fee Health */}
         {perms.finance && (
-          <div className="card">
+          <div className="card card-hover">
             <div className="card-head">
               <div>
-                <div className="card-title">Fee Health</div>
-                <div className="card-sub">Collections & outstanding</div>
+                <div className="card-title">Fee Health & Collection</div>
+                <div className="card-sub">Collections rate & outstanding balance</div>
               </div>
-              <span className={`badge ${data.overdue > 0 ? 'b-danger' : 'b-success'}`}>
-                {data.overdue > 0 ? 'Action needed' : 'On track'}
+              <span className={`badge ${data.overdue > 0 ? 'b-warning' : 'b-success'}`}>
+                {data.overdue > 0 ? 'Follow-up Needed' : 'On Track'}
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="stat-mini">
-                <b>{inr(data.collected, { compact: true })}</b>
-                <span>Collected till date</span>
+                <b style={{ fontSize: 22 }}>{inr(data.collected, { compact: true })}</b>
+                <span>Total Collected to Date</span>
               </div>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span className="t-caption">Collection rate</span>
-                  <span className="t-caption" style={{ fontWeight: 700 }}>{data.collectRate}%</span>
+                  <span className="t-caption" style={{ fontWeight: 600 }}>Collection Efficiency</span>
+                  <span className="t-caption" style={{ fontWeight: 750, color: 'var(--primary)' }}>{data.collectRate}%</span>
                 </div>
                 <div className="progressbar"><i style={{ width: `${data.collectRate}%` }} /></div>
-                <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 6 }}>
-                  Target: 92% (North Star metric)
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>
+                  North Star target: 92% recovery
                 </div>
               </div>
-              <div className="stat-mini" style={{ background: data.overdue > 0 ? 'var(--danger-soft)' : 'var(--surface-muted)' }}>
-                <b style={{ color: data.overdue > 0 ? '#DC2626' : undefined }}>{inr(data.overdue, { compact: true })}</b>
-                <span>Overdue outstanding</span>
+              <div className="stat-mini" style={{ background: data.overdue > 0 ? 'var(--danger-soft)' : 'var(--bg-muted)' }}>
+                <b style={{ color: data.overdue > 0 ? 'var(--danger)' : undefined, fontSize: 20 }}>
+                  {inr(data.overdue, { compact: true })}
+                </b>
+                <span>Overdue Outstanding</span>
               </div>
               <Link href="/app/finance" className="btn btn-secondary btn-sm" style={{ justifyContent: 'center' }}>
-                Open Fee Manager <ArrowRight size={14} />
+                Open Finance Control Center <ArrowRight size={14} />
               </Link>
             </div>
           </div>
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }} className="dash-grid">
+      {/* ── 4. Operations & Audit Workspace ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }} className="dash-grid">
         {/* Classrooms */}
-        <div className="card">
+        <div className="card card-hover">
           <div className="card-head">
             <div>
-              <div className="card-title">Classrooms</div>
-              <div className="card-sub">Enrollment vs capacity</div>
+              <div className="card-title">Classrooms & Enrollment</div>
+              <div className="card-sub">Student count vs licensed capacity</div>
             </div>
-            <School size={18} style={{ color: 'var(--foreground-muted)' }} />
+            <School size={18} style={{ color: 'var(--text-muted)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {data.classrooms.map((c) => {
@@ -174,31 +222,33 @@ export function DashboardClient({ role, perms, data }: Props) {
               return (
                 <div key={c.name}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    <span style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-primary)' }}>
                       {c.name} <span className="t-caption">· {enumLabel(c.programType)}</span>
                     </span>
-                    <span className="t-caption">{c.students}/{c.capacity}</span>
+                    <span className="t-caption" style={{ fontWeight: 700 }}>
+                      {c.students} / {c.capacity}
+                    </span>
                   </div>
-                  <div className="progressbar" style={{ height: 5 }}>
+                  <div className="progressbar" style={{ height: 6 }}>
                     <i style={{ width: `${Math.min(100, pct)}%` }} />
                   </div>
                 </div>
               )
             })}
             {data.classrooms.length === 0 && (
-              <p className="t-body">No classrooms yet — create them in Settings.</p>
+              <p className="t-body" style={{ color: 'var(--text-muted)' }}>No classrooms configured yet.</p>
             )}
           </div>
         </div>
 
-        {/* Recent activity */}
-        <div className="card">
+        {/* Recent Activity */}
+        <div className="card card-hover">
           <div className="card-head">
             <div>
-              <div className="card-title">Recent Activity</div>
-              <div className="card-sub">Audit trail — last 8 events</div>
+              <div className="card-title">Recent Operational Activity</div>
+              <div className="card-sub">Real-time immutable audit trail</div>
             </div>
-            <Activity size={18} style={{ color: 'var(--foreground-muted)' }} />
+            <Activity size={18} style={{ color: 'var(--text-muted)' }} />
           </div>
           <div className="timeline">
             {data.recentActivity.map((a, i) => (
@@ -215,12 +265,11 @@ export function DashboardClient({ role, perms, data }: Props) {
               </div>
             ))}
             {data.recentActivity.length === 0 && (
-              <p className="t-body">No activity yet — things are about to get busy!</p>
+              <p className="t-body" style={{ color: 'var(--text-muted)' }}>No recent activity recorded.</p>
             )}
           </div>
         </div>
       </div>
-
-    </>
+    </div>
   )
 }

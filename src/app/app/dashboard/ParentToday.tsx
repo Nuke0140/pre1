@@ -41,7 +41,12 @@ export function ParentToday() {
 
   return (
     <>
-      <PageHead title="Mera bachcha" sub={`${data.today} — aaj ka din, care se learning tak.`} />
+      <PageHead
+        eyebrow="Parent Connect"
+        badge={<span className="badge b-primary b-dot">Child Profile</span>}
+        title="Mera bachcha"
+        sub={`${data.today} — aaj ka din, care se learning tak.`}
+      />
 
       {data.children.length === 0 && (
         <div className="card">

@@ -480,37 +480,46 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         }
       />
 
-      {/* KPI TILES (HIDDEN FOR PURE TEACHERS TO KEEP FOCUSED UX) */}
+      {/* CANONICAL METRIC STRIP */}
       {!isTeacher && (
-        <div className="kpi-row">
-          <KpiTile
-            label="Total Inventory Value"
-            value={inr(metrics?.totalInventoryValueCents || 0, { compact: true })}
-            icon={<DollarSign />}
-            iconClass="ic-blue"
-            meta={`${metrics?.totalItems || 0} unique items across stores`}
-          />
-          <KpiTile
-            label="Low Stock Alerts"
-            value={metrics?.lowStockItemsCount || 0}
-            icon={<AlertTriangle />}
-            iconClass="ic-orange"
-            trend={metrics?.lowStockItemsCount > 0 ? { dir: 'down', text: 'Action required' } : { dir: 'flat', text: 'All healthy' }}
-          />
-          <KpiTile
-            label="Pending Requisitions"
-            value={metrics?.pendingMaterialRequestsCount || 0}
-            icon={<Clock />}
-            iconClass="ic-purple"
-            meta={`${metrics?.pendingPurchaseRequestsCount || 0} purchase requests`}
-          />
-          <KpiTile
-            label="Open Purchase Orders"
-            value={metrics?.openPurchaseOrdersCount || 0}
-            icon={<Truck />}
-            iconClass="ic-green"
-            meta="Pending delivery & GRN"
-          />
+        <div className="metric-strip" style={{ marginBottom: 16 }}>
+          <div className="metric-cell">
+            <div className="m-top">
+              <span className="m-lbl">Total Inventory Value</span>
+              <DollarSign size={15} style={{ color: 'var(--primary)' }} />
+            </div>
+            <div className="m-val">{inr(metrics?.totalInventoryValueCents || 0, { compact: true })}</div>
+            <div className="m-meta">{metrics?.totalItems || 0} unique items across stores</div>
+          </div>
+
+          <div className="metric-cell">
+            <div className="m-top">
+              <span className="m-lbl">Low Stock Alerts</span>
+              <AlertTriangle size={15} style={{ color: 'var(--warning)' }} />
+            </div>
+            <div className="m-val" style={{ color: metrics?.lowStockItemsCount > 0 ? 'var(--danger)' : 'var(--foreground)' }}>
+              {metrics?.lowStockItemsCount || 0}
+            </div>
+            <div className="m-meta">{metrics?.lowStockItemsCount > 0 ? 'Action required' : 'All healthy'}</div>
+          </div>
+
+          <div className="metric-cell">
+            <div className="m-top">
+              <span className="m-lbl">Pending Requisitions</span>
+              <Clock size={15} style={{ color: '#8b5cf6' }} />
+            </div>
+            <div className="m-val">{metrics?.pendingMaterialRequestsCount || 0}</div>
+            <div className="m-meta">{metrics?.pendingPurchaseRequestsCount || 0} purchase requests</div>
+          </div>
+
+          <div className="metric-cell">
+            <div className="m-top">
+              <span className="m-lbl">Open Purchase Orders</span>
+              <Truck size={15} style={{ color: 'var(--success)' }} />
+            </div>
+            <div className="m-val m-success">{metrics?.openPurchaseOrdersCount || 0}</div>
+            <div className="m-meta">Pending delivery & GRN</div>
+          </div>
         </div>
       )}
 

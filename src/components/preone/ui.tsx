@@ -95,25 +95,52 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
 }
 
 export function EmptyState({
-  icon, title, message, action,
+  icon, title, message, action, why,
 }: {
   icon: React.ReactNode
   title: string
   message: string
   action?: React.ReactNode
+  why?: string
 }) {
   return (
     <div className="empty">
       <div className="empty-art">{icon}</div>
-      <h4>{title}</h4>
-      <p>{message}</p>
-      {action && <div style={{ marginTop: 12 }}>{action}</div>}
+      <div className="empty-what">{title}</div>
+      <p className="empty-why">{why || message}</p>
+      {action && <div className="empty-next">{action}</div>}
+    </div>
+  )
+}
+
+export function Card({
+  children,
+  variant = 'default',
+  className = '',
+  onClick,
+  style,
+}: {
+  children: React.ReactNode
+  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info'
+  className?: string
+  onClick?: () => void
+  style?: React.CSSProperties
+}) {
+  const varClass = variant !== 'default' ? `card-${variant}` : ''
+  return (
+    <div
+      className={`card ${varClass} ${className}`}
+      style={style}
+      onClick={onClick}
+      {...(onClick ? { role: 'button', tabIndex: 0 } : {})}
+    >
+      {children}
     </div>
   )
 }
 
 export function KpiTile({
-  label, value, unit, icon, iconClass, meta, trend,
+  label, value, unit, icon, iconClass, meta, trend, onClick, active, variant, hero, className = '',
 }: {
   label: string
   value: string | number
@@ -122,9 +149,32 @@ export function KpiTile({
   iconClass: string
   meta?: string
   trend?: { dir: 'up' | 'down' | 'flat'; text: string }
+  onClick?: () => void
+  active?: boolean
+  variant?: 'hero' | 'primary' | 'secondary' | 'compact'
+  hero?: boolean
+  className?: string
 }) {
+  const isHero = hero || variant === 'hero' || variant === 'primary'
+  const vClass = isHero ? 'kpi-hero' : variant ? `kpi-${variant}` : ''
   return (
-    <div className="kpi">
+    <div
+      className={`kpi ${vClass}${onClick ? ' clickable' : ''}${active ? ' active' : ''} ${className}`}
+      aria-pressed={onClick && active != null ? active : undefined}
+      {...(onClick
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            },
+          }
+        : {})}
+    >
       <div className="kpi-top">
         <div className={`kpi-ic ${iconClass}`}>{icon}</div>
         {trend && <span className={`trend ${trend.dir}`}>{trend.text}</span>}
@@ -142,16 +192,22 @@ export function KpiTile({
 }
 
 export function PageHead({
-  title, sub, actions,
+  title, sub, actions, eyebrow, badge,
 }: {
   title: string
   sub?: string
   actions?: React.ReactNode
+  eyebrow?: string
+  badge?: React.ReactNode
 }) {
   return (
     <div className="page-head">
       <div>
-        <h1 className="t-h1">{title}</h1>
+        {eyebrow && <div className="page-eyebrow">{eyebrow}</div>}
+        <h1 className="t-h1">
+          {title}
+          {badge && <span className="page-head-badge">{badge}</span>}
+        </h1>
         {sub && <div className="sub">{sub}</div>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}
@@ -184,8 +240,17 @@ export function Segmented({
   )
 }
 
-export function Skeleton({ h = 16, w }: { h?: number; w?: number | string }) {
-  return <div className="skel" style={{ height: h, width: w ?? '100%' }} />
+export function Skeleton({
+  h, w, variant, className = '',
+}: {
+  h?: number | string
+  w?: number | string
+  variant?: 'text' | 'kpi' | 'row' | 'card'
+  className?: string
+}) {
+  const vClass = variant ? `skel-${variant}` : ''
+  const defaultHeight = variant === 'kpi' ? 124 : variant === 'card' ? 190 : variant === 'row' ? 42 : (h ?? 16)
+  return <div className={`skel ${vClass} ${className}`} style={{ height: defaultHeight, width: w ?? '100%' }} />
 }
 
 export function Field({

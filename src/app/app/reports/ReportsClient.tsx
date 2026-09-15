@@ -261,7 +261,7 @@ export default function ReportsClient() {
   }, [reportData])
 
   return (
-    <div className="page-container" style={{ padding: 24 }}>
+    <div className="page-container">
       <PageHead
         title="Reports & Analytics"
         sub="Cross-module intelligence, operational reporting, and custom report builder"
@@ -307,35 +307,38 @@ export default function ReportsClient() {
       {/* TAB 1: EXECUTIVE MIS */}
       {tab === 'executive' && (
         <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 24 }}>
-            {loadingKpis ? (
-              <div className="card" style={{ padding: 20 }}>Loading executive KPIs...</div>
-            ) : kpis.length > 0 ? (
-              kpis.map((kpi) => (
-                <KpiTile
-                  key={kpi.key}
-                  label={kpi.label}
-                  value={kpi.value}
-                  unit={kpi.unit}
-                  icon={<BarChart3 size={18} />}
-                  iconClass="g-purple"
-                  meta={`Domain: ${kpi.domain}`}
-                />
-              ))
-            ) : (
+          {loadingKpis ? (
+            <div className="metric-strip mb-6">
+              <div className="metric-cell" style={{ padding: 20 }}>Loading executive KPIs...</div>
+            </div>
+          ) : kpis.length > 0 ? (
+            <div className="metric-strip mb-6">
+              {kpis.map((kpi) => (
+                <div key={kpi.key} className="metric-cell">
+                  <div className="metric-cell-label">{kpi.label}</div>
+                  <div className="metric-cell-value">
+                    {kpi.value}
+                    {kpi.unit && <span className="metric-cell-sub"> {kpi.unit}</span>}
+                  </div>
+                  <div className="metric-cell-meta">Domain: {kpi.domain}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card mb-6">
               <EmptyState
                 icon={<BarChart3 size={32} />}
                 title="No KPIs Available"
                 message="No activity records found for current tenant scope."
               />
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: '#1e1b4b' }}>
+          <div className="card">
+            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: 'var(--text)' }}>
               Core School Summary & Lineage Tracking
             </h3>
-            <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
               All metrics above are calculated in real-time by querying authoritative domain models (
               <code>Student</code>, <code>Attendance</code>, <code>Invoice</code>, <code>StaffProfile</code>,{' '}
               <code>TransportRoute</code>, <code>InventoryStock</code>) directly without duplicating transactional records.
@@ -346,15 +349,15 @@ export default function ReportsClient() {
 
       {/* TABS 2-7: DOMAIN REPORT DATA TABLES */}
       {tab !== 'executive' && tab !== 'custom' && (
-        <div className="card" style={{ padding: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div className="table-workspace">
+          <div className="table-workspace-header">
             <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#1e1b4b' }}>
+              <div className="table-workspace-title">
                 {reportData?.title || 'Report Records'}
-              </h2>
-              <span style={{ fontSize: 12, color: '#64748b' }}>
-                Freshness: {reportData?.freshness || 'REAL_TIME'} | Total records: {reportData?.total ?? 0}
-              </span>
+              </div>
+              <div className="table-workspace-meta">
+                Freshness: {reportData?.freshness || 'REAL_TIME'} · Total records: {reportData?.total ?? 0}
+              </div>
             </div>
             <button
               className="btn btn-outline btn-sm"
@@ -385,8 +388,8 @@ export default function ReportsClient() {
       {tab === 'custom' && (
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
           {/* Builder Controls */}
-          <div className="card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: '#1e1b4b' }}>
+          <div className="card">
+            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>
               Build Custom Report (FR-049)
             </h3>
 
@@ -409,7 +412,7 @@ export default function ReportsClient() {
             </Field>
 
             <div style={{ marginTop: 16 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8, color: 'var(--text)' }}>
                 2. Select Projected Fields
               </label>
               {customSources
@@ -428,7 +431,7 @@ export default function ReportsClient() {
                         }
                       }}
                     />
-                    <label htmlFor={`f-${f}`} style={{ fontSize: 12, cursor: 'pointer' }}>
+                    <label htmlFor={`f-${f}`} style={{ fontSize: 12, cursor: 'pointer', color: 'var(--text)' }}>
                       {f}
                     </label>
                   </div>
@@ -468,12 +471,12 @@ export default function ReportsClient() {
           {/* Preview & Saved Reports */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {/* Live Preview Panel */}
-            <div className="card" style={{ padding: 20 }}>
+            <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
                   Live Preview (Max 10 Rows)
                 </h4>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   Source: <strong>{customSource}</strong>
                 </span>
               </div>
@@ -484,7 +487,7 @@ export default function ReportsClient() {
                     <thead>
                       <tr>
                         {previewColumns.map((col) => (
-                          <th key={col.key} style={{ padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                          <th key={col.key} style={{ padding: '8px 12px', background: 'var(--surface-subtle)', borderBottom: '1px solid var(--border)' }}>
                             {col.label}
                           </th>
                         ))}
@@ -494,7 +497,7 @@ export default function ReportsClient() {
                       {previewRows.map((row, idx) => (
                         <tr key={idx}>
                           {previewColumns.map((col) => (
-                            <td key={col.key} style={{ padding: '8px 12px', borderBottom: '1px solid #f1f5f9' }}>
+                            <td key={col.key} style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
                               {String(row[col.key] ?? '—')}
                             </td>
                           ))}
@@ -504,15 +507,15 @@ export default function ReportsClient() {
                   </table>
                 </div>
               ) : (
-                <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                   Click "Preview 10 Rows" to execute a live projection query.
                 </div>
               )}
             </div>
 
             {/* Saved Custom Reports */}
-            <div className="card" style={{ padding: 20 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+            <div className="card">
+              <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: 'var(--text)' }}>
                 Saved Custom Reports ({savedReports.length})
               </h4>
               {savedReports.length > 0 ? (
@@ -525,19 +528,19 @@ export default function ReportsClient() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         padding: '10px 14px',
-                        background: '#f8fafc',
+                        background: 'var(--surface-subtle)',
                         borderRadius: 6,
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{sr.name}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>{sr.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           Source: {sr.source} | Created by: {sr.createdByName}
                         </div>
                       </div>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ color: '#ef4444' }}
+                        style={{ color: 'var(--danger)' }}
                         onClick={async () => {
                           await fetch(`/api/v1/reports/custom/${sr.id}`, { method: 'DELETE' })
                           toast.success('Report deleted')
@@ -550,7 +553,7 @@ export default function ReportsClient() {
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   No saved custom report templates created yet.
                 </div>
               )}

@@ -2,13 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Users, UserPlus, Search, Mail, Phone,
-  CheckCircle2, XCircle, Edit3, Baby, Shield, Eye,
-  KeyRound, LogOut, Ban, Check, Building, BookOpen, UserCheck
+  Users, UserPlus, Search, Phone, CheckCircle2,
+  Edit3, Baby, Shield, Eye, LogOut, Ban, Check, Building,
+  Clock, Download, SlidersHorizontal, ChevronRight
 } from 'lucide-react'
-import { PageHead, Avatar, Segmented, Skeleton, Field } from '@/components/preone/ui'
-import { Modal, ConfirmModal } from '@/components/preone/Modal'
+import { Avatar, Segmented, Skeleton, Field, PageHead, StatusBadge, EmptyState } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
+import { Modal, ConfirmModal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { ROLE_PERMISSIONS, Role } from '@/lib/auth'
 
@@ -48,8 +48,12 @@ interface UserRecord {
   staffProfile?: {
     employeeCode: string
     designation: string | null
+    department: string | null
     qualification: string | null
     employmentType: string
+    dateOfBirth?: string | null
+    gender?: string | null
+    currentAddress?: string | null
   } | null
   taughtClasses?: Array<{ id: string; name: string; programType: string; capacity?: number }>
   guardianProfile?: {
@@ -59,1420 +63,1293 @@ interface UserRecord {
   } | null
 }
 
-const ROLE_META: Record<string, { bg: string; text: string; label: string; desc: string }> = {
-  OWNER: { bg: 'rgba(124, 58, 237, 0.12)', text: '#7C3AED', label: 'Owner / Trust Head', desc: 'Full institutional control across all branches, finance, and system settings' },
-  PRINCIPAL: { bg: 'rgba(2, 132, 199, 0.12)', text: '#0284C7', label: 'Principal / Center Head', desc: 'Complete academic, admissions, operational, and staff management' },
-  COORDINATOR: { bg: 'rgba(14, 165, 233, 0.12)', text: '#0EA5E9', label: 'Academic Coordinator', desc: 'Curriculum oversight, teacher management, class schedules, and attendance' },
-  TEACHER: { bg: 'rgba(16, 185, 129, 0.12)', text: '#10B981', label: 'Teacher / Educator', desc: 'Assigned classroom management, daily student attendance, activities, and logs' },
-  ACCOUNTS: { bg: 'rgba(245, 158, 11, 0.12)', text: '#D97706', label: 'Finance / Accounts', desc: 'Fee invoicing, collections, discounts, receipts, and financial audits' },
-  RECEPTION: { bg: 'rgba(236, 72, 153, 0.12)', text: '#DB2777', label: 'Front Desk / Reception', desc: 'Parent enquiries, admissions desk, visitor tracking, and general notifications' },
-  PARENT: { bg: 'rgba(99, 102, 241, 0.12)', text: '#4F46E5', label: 'Parent / Guardian', desc: 'Student daily timeline, notices, fee payments, and school communication' },
+const ROLE_BADGE: Record<string, { cls: string; label: string }> = {
+  OWNER: { cls: 'b-purple', label: 'Owner / Trust Head' },
+  PRINCIPAL: { cls: 'b-blue', label: 'Principal / Center Head' },
+  COORDINATOR: { cls: 'b-info', label: 'Academic Coordinator' },
+  TEACHER: { cls: 'b-success', label: 'Teacher / Educator' },
+  ACCOUNTS: { cls: 'b-warning', label: 'Finance / Accounts' },
+  RECEPTION: { cls: 'b-pink', label: 'Front Desk / Reception' },
+  PARENT: { cls: 'b-primary', label: 'Parent / Guardian' },
+  PLATFORM_ADMIN: { cls: 'b-neutral', label: 'Platform Admin' },
 }
 
-const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
-  ACTIVE: { bg: 'rgba(16, 185, 129, 0.15)', text: '#059669', label: 'Active' },
-  SUSPENDED: { bg: 'rgba(239, 68, 68, 0.15)', text: '#DC2626', label: 'Suspended' },
-  INACTIVE: { bg: 'rgba(100, 116, 139, 0.15)', text: '#64748B', label: 'Inactive' },
-  PENDING: { bg: 'rgba(245, 158, 11, 0.15)', text: '#D97706', label: 'Pending' },
-}
+const DEFAULT_ROLES_MATRIX = [
+  { role: 'PLATFORM_ADMIN', label: 'Platform Administrator', description: 'Global infrastructure and multi-tenant management plane', userCount: 0, permissions: ['platform:manage', 'audit:read'] },
+  { role: 'OWNER', label: 'Owner / Trust Head', description: 'Full institutional control across all branches, finance, and system settings', userCount: 1, permissions: ['*'] },
+  { role: 'PRINCIPAL', label: 'Principal / Center Head', description: 'Complete academic, admissions, operational, and staff management', userCount: 1, permissions: ['students:read', 'students:write', 'admissions:approve', 'attendance:approve', 'finance:read', 'academics:approve', 'users:manage'] },
+  { role: 'COORDINATOR', label: 'Academic Coordinator', description: 'Curriculum oversight, teacher management, class schedules, and attendance', userCount: 0, permissions: ['students:read', 'attendance:mark', 'academics:write', 'timeline:read', 'reports:read'] },
+  { role: 'TEACHER', label: 'Teacher / Educator', description: 'Assigned classroom management, daily student attendance, activities, and logs', userCount: 5, permissions: ['students:read', 'attendance:mark', 'academics:read', 'timeline:read', 'reports:read'] },
+  { role: 'ACCOUNTS', label: 'Finance / Accounts', description: 'Fee invoicing, collections, discounts, receipts, and financial audits', userCount: 1, permissions: ['finance:read', 'finance:write', 'payroll:process', 'reports:export'] },
+  { role: 'RECEPTION', label: 'Front Desk / Reception', description: 'Parent enquiries, admissions desk, visitor tracking, and general notifications', userCount: 1, permissions: ['students:read', 'admissions:read', 'communication:read', 'transport:read'] },
+  { role: 'PARENT', label: 'Parent / Guardian', description: 'Student daily timeline, notices, fee payments, and school communication', userCount: 2, permissions: ['timeline:read', 'communication:read', 'finance:read'] },
+]
 
 export default function UsersPage() {
   const toast = useToast()
   const [users, setUsers] = useState<UserRecord[] | null>(null)
-  const [roleFilter, setRoleFilter] = useState('ALL')
-  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Filters
+  const [categoryTab, setCategoryTab] = useState<'ALL' | 'STAFF' | 'TEACHER' | 'PARENT' | 'PRINCIPAL' | 'ACCOUNTS' | 'GUARDIAN' | 'PENDING'>('ALL')
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [branchFilter, setBranchFilter] = useState('ALL')
+  const [userTypeFilter, setUserTypeFilter] = useState('ALL')
+
+  // KPIs
+  const [kpis, setKpis] = useState({ total: 0, active: 0, pending: 0, suspended: 0, inactive: 0 })
+
+  // Selection
+  const [selected, setSelected] = useState<string[]>([])
+
+  // Inspector & Edit states
+  const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false)
-  const [editUser, setEditUser] = useState<UserRecord | null>(null)
-  const [viewUser, setViewUser] = useState<UserRecord | null>(null)
-  const [viewTab, setViewTab] = useState<'overview' | 'permissions' | 'person' | 'security'>('overview')
+  const [rolesModalOpen, setRolesModalOpen] = useState(false)
+  const [rolesMatrix, setRolesMatrix] = useState<any[]>(DEFAULT_ROLES_MATRIX)
+  const [groupsModalOpen, setGroupsModalOpen] = useState(false)
 
-  // Confirmation dialogs
+  // Bulk Modals
+  const [bulkModalAction, setBulkModalAction] = useState<string | null>(null)
+  const [bulkRole, setBulkRole] = useState<Role>('TEACHER')
+  const [bulkBranchId, setBulkBranchId] = useState('')
+  const [bulkDesignation, setBulkDesignation] = useState('')
+
+  // Confirmation Modals
   const [confirmSuspend, setConfirmSuspend] = useState<UserRecord | null>(null)
   const [confirmReactivate, setConfirmReactivate] = useState<UserRecord | null>(null)
   const [confirmRevoke, setConfirmRevoke] = useState<UserRecord | null>(null)
 
   const [busy, setBusy] = useState(false)
-  const [selected, setSelected] = useState<(string | number)[]>([])
-  const [guardians, setGuardians] = useState<Array<{ id: string; fullName: string; relationship: string; phone: string; hasAccount?: boolean; children?: GuardianChild[] }>>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
   const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
 
-  // Form states for Add Modal
-  const [selectedRole, setSelectedRole] = useState<Role>('TEACHER')
-  const [addRoles, setAddRoles] = useState<Role[]>(['TEACHER'])
-
-  // Form states for Edit Modal
-  const [editRoles, setEditRoles] = useState<Role[]>([])
-  const [editPrimaryRole, setEditPrimaryRole] = useState<Role>('TEACHER')
-
-  const openEditModal = useCallback((u: UserRecord) => {
-    const userRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role]
-    setEditRoles(userRoles)
-    setEditPrimaryRole(u.role)
-    setEditUser(u)
-  }, [])
-
-  // Fetch users directory
+  // Fetch Users
   const fetchUsers = useCallback(async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const res = await fetch('/api/v1/users')
+      const params = new URLSearchParams()
+      if (roleFilter !== 'ALL') params.set('role', roleFilter)
+      if (statusFilter !== 'ALL') params.set('status', statusFilter)
+      if (branchFilter !== 'ALL') params.set('branchId', branchFilter)
+      if (userTypeFilter !== 'ALL') params.set('userType', userTypeFilter)
+      if (search.trim()) params.set('q', search.trim())
+      params.set('pageSize', '150')
+
+      const res = await fetch(`/api/v1/users?${params.toString()}`)
       const json = await res.json()
-      if (json.success) {
+      if (json.success && json.data) {
         setUsers(json.data)
+        if (json.meta?.kpis) {
+          setKpis(json.meta.kpis)
+        }
+        if (viewingUser) {
+          const fresh = json.data.find((u: UserRecord) => u.userId === viewingUser.userId)
+          if (fresh) setViewingUser(fresh)
+        }
+        if (editingUser) {
+          const fresh = json.data.find((u: UserRecord) => u.userId === editingUser.userId)
+          if (fresh) setEditingUser(fresh)
+        }
       } else {
-        toast.error('Failed to load users', json.error)
+        setUsers([])
       }
-    } catch (e: any) {
-      toast.error('Error loading users', e.message)
+    } catch {
+      toast.error('Failed to load users')
+      setUsers([])
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [roleFilter, statusFilter, branchFilter, userTypeFilter, search, viewingUser, editingUser, toast])
 
-  // Fetch guardians for parent account linking
-  const fetchGuardians = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/users/guardians')
-      const json = await res.json()
-      if (json.success && json.data) {
-        setGuardians(json.data)
-      }
-    } catch {
-      // Optional fallback
-    }
-  }, [])
-
-  // Fetch branches and classrooms for staff/teacher linking
+  // Fetch Metadata
   const fetchMetadata = useCallback(async () => {
     try {
-      const [bRes, cRes] = await Promise.all([
-        fetch('/api/v1/branches'),
-        fetch('/api/v1/classrooms'),
-      ])
+      const [bRes, cRes] = await Promise.all([fetch('/api/v1/branches'), fetch('/api/v1/classrooms')])
       const [bJson, cJson] = await Promise.all([bRes.json(), cRes.json()])
       if (bJson.success && bJson.data) setBranches(bJson.data)
       if (cJson.success && cJson.data) setClassrooms(cJson.data)
     } catch {
-      // Silent error handling for optional metadata
+      // silent
+    }
+  }, [])
+
+  // Fetch Roles Directory
+  const fetchRolesDirectory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/users/roles')
+      const json = await res.json()
+      if (json.success && json.data?.roles) setRolesMatrix(json.data.roles)
+    } catch {
+      // silent
     }
   }, [])
 
   useEffect(() => {
     fetchUsers()
-    fetchGuardians()
     fetchMetadata()
-  }, [fetchUsers, fetchGuardians, fetchMetadata])
+    fetchRolesDirectory()
+  }, [fetchUsers, fetchMetadata, fetchRolesDirectory])
 
-  // Filter users by role and search term
+  // Filtered Users based on category tabs
   const filteredUsers = useMemo(() => {
     if (!users) return []
     return users.filter((u) => {
-      const uRoles = u.roles && u.roles.length > 0 ? u.roles : [u.role]
-      const matchesRole =
-        roleFilter === 'ALL' ||
-        (roleFilter === 'STAFF' && ['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].some((r) => uRoles.includes(r))) ||
-        uRoles.includes(roleFilter as any)
-
-      const q = search.toLowerCase().trim()
-      const matchesSearch =
-        !q ||
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.phone && u.phone.includes(q)) ||
-        (u.staffProfile?.employeeCode && u.staffProfile.employeeCode.toLowerCase().includes(q)) ||
-        (u.taughtClasses && u.taughtClasses.some((c) => c.name.toLowerCase().includes(q))) ||
-        (u.guardianProfile?.students?.some((s) => s.name.toLowerCase().includes(q)))
-
-      return matchesRole && matchesSearch
+      const assigned = u.roles && u.roles.length > 0 ? u.roles : [u.role]
+      if (categoryTab === 'ALL') return true
+      if (categoryTab === 'PENDING') return u.status === 'PENDING'
+      if (categoryTab === 'TEACHER') return assigned.includes('TEACHER')
+      if (categoryTab === 'PARENT') return assigned.includes('PARENT')
+      if (categoryTab === 'PRINCIPAL') return assigned.includes('PRINCIPAL')
+      if (categoryTab === 'ACCOUNTS') return assigned.includes('ACCOUNTS')
+      if (categoryTab === 'GUARDIAN') return !!u.guardianProfile || assigned.includes('PARENT')
+      if (categoryTab === 'STAFF') {
+        return assigned.some((r) => ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r))
+      }
+      return true
     })
-  }, [users, roleFilter, search])
+  }, [users, categoryTab])
 
-  // Handle Add User
-  const handleAddUser = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Counts for Category Tabs
+  const categoryCounts = useMemo(() => {
+    if (!users) return { ALL: 0, STAFF: 0, TEACHER: 0, PARENT: 0, PRINCIPAL: 0, ACCOUNTS: 0, GUARDIAN: 0, PENDING: 0 }
+    let staff = 0, teachers = 0, parents = 0, principals = 0, accounts = 0, guardians = 0, pending = 0
+    for (const u of users) {
+      const assigned = u.roles && u.roles.length > 0 ? u.roles : [u.role]
+      if (u.status === 'PENDING') pending++
+      if (assigned.includes('TEACHER')) teachers++
+      if (assigned.includes('PARENT')) parents++
+      if (assigned.includes('PRINCIPAL')) principals++
+      if (assigned.includes('ACCOUNTS')) accounts++
+      if (u.guardianProfile || assigned.includes('PARENT')) guardians++
+      if (assigned.some((r) => ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r))) staff++
+    }
+    return {
+      ALL: users.length,
+      STAFF: staff,
+      TEACHER: teachers,
+      PARENT: parents,
+      PRINCIPAL: principals,
+      ACCOUNTS: accounts,
+      GUARDIAN: guardians,
+      PENDING: pending,
+    }
+  }, [users])
+
+  // Map rows for DataTable with id set to userId
+  const tableData = useMemo(() => {
+    return filteredUsers.map((u) => ({
+      ...u,
+      id: u.userId,
+    }))
+  }, [filteredUsers])
+
+  // Handle Create User
+  const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
-
-    const payload: any = {
-      fullName: (fd.get('fullName') as string)?.trim(),
-      email: (fd.get('email') as string)?.trim(),
-      phone: (fd.get('phone') as string)?.trim() || undefined,
-      password: fd.get('password') as string,
-      role: selectedRole,
-      roles: addRoles.length > 0 ? addRoles : [selectedRole],
-      primaryRole: selectedRole,
-    }
-
-    const bId = fd.get('branchId') as string
-    if (bId) payload.branchId = bId
-
-    if (addRoles.includes('PARENT')) {
-      const gId = fd.get('guardianId') as string
-      if (gId) payload.guardianId = gId
-    }
-
-    const isStaff = addRoles.some((r) =>
-      ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
-    )
-    if (isStaff || !addRoles.includes('PARENT')) {
-      const empCode = fd.get('employeeCode') as string
-      const desig = fd.get('designation') as string
-      if (empCode) payload.employeeCode = empCode.trim()
-      if (desig) payload.designation = desig.trim()
-
-      if (addRoles.includes('TEACHER')) {
-        const cId = fd.get('classroomId') as string
-        if (cId) payload.classroomId = cId
-      }
-    }
+    const fullName = fd.get('fullName') as string
+    const email = fd.get('email') as string
+    const phone = fd.get('phone') as string
+    const password = fd.get('password') as string
+    const role = fd.get('role') as Role
+    const branchId = fd.get('branchId') as string
+    const designation = fd.get('designation') as string
 
     try {
       const res = await fetch('/api/v1/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          fullName,
+          email,
+          phone: phone || null,
+          password,
+          role,
+          roles: [role],
+          branchId: branchId || null,
+          designation: designation || null,
+        }),
       })
       const json = await res.json()
       if (json.success) {
-        toast.success('User created successfully')
+        toast.success('User created successfully', `${fullName} has been provisioned`)
         setAddModalOpen(false)
         fetchUsers()
-        fetchGuardians()
       } else {
-        toast.error('Failed to create user', json.error)
+        toast.error(json.error?.message || 'Failed to create user')
       }
-    } catch (err: any) {
-      toast.error('Error creating user', err.message)
+    } catch {
+      toast.error('Network error')
     } finally {
       setBusy(false)
     }
   }
 
   // Handle Edit User
-  const handleEditUser = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveEditUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!editUser) return
+    if (!editingUser) return
     setBusy(true)
+
     const fd = new FormData(e.currentTarget)
-
-    const finalRoles = editRoles.length > 0 ? editRoles : [editPrimaryRole]
-    const payload: any = {
-      fullName: (fd.get('fullName') as string)?.trim(),
-      phone: (fd.get('phone') as string)?.trim() || null,
-      role: editPrimaryRole,
-      roles: finalRoles,
-      primaryRole: editPrimaryRole,
-    }
-
-    const bId = fd.get('branchId') as string
-    payload.branchId = bId || null
-
-    if (finalRoles.includes('TEACHER')) {
-      const cId = fd.get('classroomId') as string
-      if (cId) payload.classroomId = cId
-    }
-
-    const desig = fd.get('designation') as string
-    if (desig !== undefined) payload.designation = desig?.trim() || null
-
-    const newPwd = fd.get('password') as string
-    if (newPwd && newPwd.trim()) {
-      payload.password = newPwd.trim()
-    }
+    const fullName = (fd.get('fullName') as string)?.trim() || editingUser.name
+    const phone = (fd.get('phone') as string)?.trim() || null
+    const branchId = (fd.get('branchId') as string) || null
+    const designation = (fd.get('designation') as string)?.trim() || null
+    const department = (fd.get('department') as string)?.trim() || null
+    const primaryRole = (fd.get('primaryRole') as Role) || editingUser.role
 
     try {
-      const res = await fetch(`/api/v1/users/${editUser.userId}`, {
+      const res = await fetch(`/api/v1/users/${editingUser.userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          fullName,
+          phone,
+          branchId,
+          designation,
+          department,
+          primaryRole,
+        }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('User updated successfully')
-        setEditUser(null)
+        setEditModalOpen(false)
+        setEditingUser(null)
         fetchUsers()
       } else {
-        toast.error('Failed to update user', json.error)
+        toast.error(json.error?.message || 'Failed to update user')
       }
-    } catch (err: any) {
-      toast.error('Error updating user', err.message)
+    } catch {
+      toast.error('Network error')
     } finally {
       setBusy(false)
     }
   }
 
-  // Handle Lifecycle Status Transitions (Suspend, Reactivate, Deactivate)
-  const handleSetStatus = async (user: UserRecord, nextStatus: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE', reason?: string) => {
-    try {
-      setBusy(true)
-      const res = await fetch(`/api/v1/users/${user.userId}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus, reason }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        toast.success(`User marked as ${nextStatus.toLowerCase()}`)
-        fetchUsers()
-        if (viewUser && viewUser.userId === user.userId) {
-          setViewUser({ ...viewUser, status: nextStatus })
-        }
-      } else {
-        toast.error('Failed to update status', json.error)
-      }
-    } catch (err: any) {
-      toast.error('Error updating status', err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // Bulk lifecycle status transition for selected rows
-  const applyBulkStatus = async (nextStatus: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE') => {
-    if (selected.length === 0) return
+  // Bulk Actions
+  const handleExecuteBulkAction = async () => {
+    if (!bulkModalAction || selected.length === 0) return
     setBusy(true)
     try {
-      const results = await Promise.all(
-        selected.map((id) =>
-          fetch(`/api/v1/users/${id}/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: nextStatus, reason: 'Bulk status change' }),
-          }).then((r) => r.json()),
-        ),
-      )
-      const okCount = results.filter((r) => r.success).length
-      if (okCount === selected.length) {
-        toast.success(`Users marked as ${nextStatus.toLowerCase()}`, `${okCount} account${okCount === 1 ? '' : 's'} updated`)
-      } else {
-        toast.error('Partial update', `${okCount} of ${selected.length} accounts updated`)
-      }
-      setSelected([])
-      fetchUsers()
-    } catch (err: any) {
-      toast.error('Bulk update failed', err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  // Handle Session Revocation across all devices
-  const handleRevokeSessions = async (user: UserRecord) => {
-    try {
-      setBusy(true)
-      const res = await fetch(`/api/v1/users/${user.userId}/revoke-sessions`, {
+      const res = await fetch('/api/v1/users/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: bulkModalAction,
+          userIds: selected,
+          role: bulkRole,
+          branchId: bulkBranchId || null,
+          designation: bulkDesignation,
+        }),
       })
       const json = await res.json()
       if (json.success) {
-        toast.success('All active sessions revoked. User has been signed out on all devices.')
+        toast.success(`Bulk ${bulkModalAction} completed`, `Updated ${json.data.updatedCount} accounts`)
+        setSelected([])
+        setBulkModalAction(null)
+        fetchUsers()
       } else {
-        toast.error('Failed to revoke sessions', json.error)
+        toast.error(json.error?.message || 'Bulk operation failed')
       }
-    } catch (err: any) {
-      toast.error('Error revoking sessions', err.message)
+    } catch {
+      toast.error('Network error')
     } finally {
       setBusy(false)
     }
   }
 
-  // Define DataTable Columns
-  const columns: Column<UserRecord>[] = [
+  // Export CSV
+  const handleExportCsv = async () => {
+    try {
+      const payload: any = {}
+      if (selected.length > 0) payload.userIds = selected
+      if (roleFilter !== 'ALL') payload.role = roleFilter
+      if (statusFilter !== 'ALL') payload.status = statusFilter
+      if (branchFilter !== 'ALL') payload.branchId = branchFilter
+      if (search.trim()) payload.search = search.trim()
+
+      const res = await fetch('/api/v1/users/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error('Export failed')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `preone_users_${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+      toast.success('CSV Export downloaded')
+    } catch {
+      toast.error('Export failed')
+    }
+  }
+
+  // Canonical Columns
+  const columns: Column<any>[] = [
     {
-      key: 'name',
-      header: 'User / Identity',
+      key: 'user',
+      header: 'User Identity',
       sortable: true,
-      sortValue: (u) => u.name.toLowerCase(),
-      export: (u) => u.name,
+      sortValue: (u) => u.name,
+      export: (u) => `${u.name} <${u.email}>`,
       render: (u) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Avatar name={u.name} size="sm" />
-          <div>
-            <div style={{ fontWeight: 600, color: 'var(--c-ink)' }}>{u.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--c-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Mail size={11} /> {u.email}
+          <Avatar name={u.name} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>
+              {u.name}
             </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {u.email}
+            </div>
+            {u.phone && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                <Phone size={10} /> {u.phone}
+              </div>
+            )}
           </div>
         </div>
       ),
     },
     {
       key: 'role',
-      header: 'Roles & Staff ID',
+      header: 'Assigned Roles',
       sortable: true,
-      sortValue: (u) => (ROLE_META[u.role]?.label || u.role).toLowerCase(),
+      sortValue: (u) => u.role,
       export: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : u.role),
       render: (u) => {
-        const primaryMeta = ROLE_META[u.role] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.role }
-        const allRoles: Role[] = u.roles && u.roles.length > 0 ? u.roles : [u.role]
-        const additionalRoles = allRoles.filter((r) => r !== u.role)
-
+        const assigned = u.roles && u.roles.length > 0 ? u.roles : [u.role]
+        const primaryBadge = ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
         return (
-          <div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  padding: '3px 8px',
-                  borderRadius: 9999,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  backgroundColor: primaryMeta.bg,
-                  color: primaryMeta.text,
-                  border: `1px solid ${primaryMeta.text}33`,
-                }}
-                title="Primary System Role"
-              >
-                ★ {primaryMeta.label}
-              </span>
-              {additionalRoles.map((r) => {
-                const rMeta = ROLE_META[r] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: r }
-                return (
-                  <span
-                    key={r}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '2px 6px',
-                      borderRadius: 9999,
-                      fontSize: 10,
-                      fontWeight: 600,
-                      backgroundColor: rMeta.bg,
-                      color: rMeta.text,
-                    }}
-                  >
-                    {rMeta.label.split(' / ')[0]}
-                  </span>
-                )
-              })}
-            </div>
-            {u.staffProfile?.employeeCode && (
-              <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 3, fontFamily: 'monospace' }}>
-                EMP: {u.staffProfile.employeeCode} {u.staffProfile.designation ? `• ${u.staffProfile.designation}` : ''}
-              </div>
-            )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+            <span className={`badge ${primaryBadge.cls}`}>
+              {primaryBadge.label}
+            </span>
+            {assigned.filter((r: string) => r !== u.role).map((r: string, i: number) => {
+              const b = ROLE_BADGE[r] || { cls: 'b-neutral', label: r }
+              return (
+                <span key={i} className="badge b-neutral" style={{ fontSize: 10 }}>
+                  {b.label}
+                </span>
+              )
+            })}
           </div>
         )
       },
     },
     {
-      key: 'phone',
-      header: 'Contact',
-      render: (u) => (
-        <div style={{ fontSize: 13, color: u.phone ? 'var(--c-ink)' : 'var(--c-muted)' }}>
-          {u.phone ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Phone size={12} style={{ color: 'var(--c-muted)' }} /> {u.phone}
-            </span>
-          ) : (
-            '—'
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'affiliation',
-      header: 'Scope / Assignment',
+      key: 'profile',
+      header: 'Workforce / Profile',
       render: (u) => {
-        if (u.role === 'TEACHER') {
-          return u.taughtClasses && u.taughtClasses.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {u.taughtClasses.map((c) => (
-                <span key={c.id} className="badge badge-purple" style={{ fontSize: 11 }}>
-                  <BookOpen size={11} style={{ marginRight: 4 }} /> {c.name}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span style={{ fontSize: 12, color: 'var(--c-muted)', fontStyle: 'italic' }}>Unassigned class</span>
-          )
-        }
-        if (u.role === 'PARENT' && u.guardianProfile) {
-          const count = u.guardianProfile.students?.length || 0
+        if (u.staffProfile) {
           return (
-            <div style={{ fontSize: 12 }}>
-              <span className="badge badge-teal" style={{ fontSize: 11 }}>
-                <Baby size={11} style={{ marginRight: 4 }} /> {count} {count === 1 ? 'Child' : 'Children'}
-              </span>
-              <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 2 }}>
-                {u.guardianProfile.students?.map((s) => s.name).join(', ') || 'No wards linked'}
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>
+                {u.staffProfile.designation || 'Staff Member'}
+              </div>
+              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 2 }}>
+                {u.staffProfile.employeeCode} {u.staffProfile.department ? `· ${u.staffProfile.department}` : ''}
               </div>
             </div>
           )
         }
-        if (u.staffProfile?.designation) {
-          return <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>{u.staffProfile.designation}</span>
+        if (u.guardianProfile) {
+          return (
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
+                {u.guardianProfile.relationship}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                {u.guardianProfile.students?.length || 0} child{u.guardianProfile.students?.length !== 1 ? 'ren' : ''} linked
+              </div>
+            </div>
+          )
         }
-        return <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>—</span>
+        return <span style={{ color: 'var(--text-muted)' }}>—</span>
+      },
+    },
+    {
+      key: 'branch',
+      header: 'Branch Scope',
+      sortable: true,
+      sortValue: (u) => branches.find((b) => b.id === u.branchId)?.name || 'All',
+      render: (u) => {
+        const b = branches.find((br) => br.id === u.branchId)
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text)' }}>
+            <Building size={13} style={{ color: 'var(--text-muted)' }} />
+            <span>{b ? b.name : 'All Campuses'}</span>
+          </div>
+        )
       },
     },
     {
       key: 'status',
       header: 'Status',
       sortable: true,
-      export: (u) => u.status,
-      filter: {
-        placeholder: 'Filter by status',
-        get: (u) => u.status,
-        options: [
-          { value: 'ACTIVE', label: 'Active' },
-          { value: 'SUSPENDED', label: 'Suspended' },
-          { value: 'INACTIVE', label: 'Inactive' },
-          { value: 'PENDING', label: 'Pending' },
-        ],
-      },
-      render: (u) => {
-        const s = STATUS_BADGES[u.status] || { bg: 'rgba(100,116,139,0.12)', text: '#64748B', label: u.status }
-        return (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '2px 8px',
-              borderRadius: 6,
-              fontSize: 11,
-              fontWeight: 600,
-              backgroundColor: s.bg,
-              color: s.text,
-            }}
-          >
-            {s.label}
-          </span>
-        )
-      },
+      render: (u) => <StatusBadge status={u.status} />,
     },
     {
-      key: 'lastLogin',
+      key: 'lastLoginAt',
       header: 'Last Active',
       sortable: true,
       sortValue: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).getTime() : 0),
-      export: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).toISOString() : ''),
       render: (u) => (
-        <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>
-          {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never logged in'}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      align: 'right',
-      hideable: false,
-      render: (u) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            title="Inspect Details & Permissions"
-            onClick={(e) => {
-              e.stopPropagation()
-              setViewUser(u)
-              setViewTab('overview')
-            }}
-          >
-            <Eye size={14} /> View
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            title="Edit User"
-            onClick={(e) => {
-              e.stopPropagation()
-              openEditModal(u)
-            }}
-          >
-            <Edit3 size={14} /> Edit
-          </button>
-          {u.status === 'ACTIVE' ? (
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ color: '#DC2626' }}
-              title="Suspend Access"
-              onClick={(e) => {
-                e.stopPropagation()
-                setConfirmSuspend(u)
-              }}
-            >
-              <Ban size={14} /> Suspend
-            </button>
-          ) : (
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{ color: '#059669' }}
-              title="Reactivate Access"
-              onClick={(e) => {
-                e.stopPropagation()
-                setConfirmReactivate(u)
-              }}
-            >
-              <Check size={14} /> Activate
-            </button>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+          <Clock size={12} />
+          <span>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}</span>
         </div>
       ),
     },
   ]
 
   return (
-    <div className="page-shell">
+    <div className="page-container">
+      {/* 1. CANONICAL PAGEHEAD */}
       <PageHead
+        eyebrow="Identity & Access Management"
+        badge={<span className="badge b-primary b-dot">Active Directory</span>}
         title="Users & Access"
-        sub="Central identity and RBAC management for educators, parents, and administrative staff"
+        sub="Manage staff, guardians and user access across your preschool network."
         actions={
-          <button className="btn btn-primary" onClick={() => setAddModalOpen(true)}>
-            <UserPlus size={16} /> Add User
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                fetchRolesDirectory()
+                setRolesModalOpen(true)
+              }}
+              className="btn btn-secondary"
+            >
+              <Shield size={14} /> Roles Directory
+            </button>
+            <button
+              onClick={() => setGroupsModalOpen(true)}
+              className="btn btn-secondary"
+            >
+              <Users size={14} /> Groups
+            </button>
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="btn btn-primary"
+            >
+              <UserPlus size={14} /> Add User
+            </button>
+          </div>
         }
       />
 
-      {/* Filter Toolbar */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <Segmented
-            value={roleFilter}
-            onChange={setRoleFilter}
-            options={[
-              { key: 'ALL', label: `All (${users?.length ?? 0})` },
-              { key: 'STAFF', label: 'All Staff' },
-              { key: 'TEACHER', label: 'Teachers' },
-              { key: 'PARENT', label: 'Parents' },
-              { key: 'PRINCIPAL', label: 'Principals' },
-              { key: 'ACCOUNTS', label: 'Accounts' },
-            ]}
-          />
-
-          <div style={{ position: 'relative', width: 280 }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--c-muted)' }} />
-            <input
-              type="text"
-              className="input"
-              style={{ paddingLeft: 32 }}
-              placeholder="Search by name, email, ward, or ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      {/* 2. CANONICAL METRIC STRIP */}
+      <div className="metric-strip" style={{ marginBottom: 20 }}>
+        <div
+          className="metric-cell"
+          onClick={() => { setCategoryTab('ALL'); setStatusFilter('ALL'); }}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="m-top">
+            <span className="m-lbl">Total Users</span>
+            <Users size={16} style={{ color: 'var(--primary)' }} />
           </div>
+          <div className="m-val">{kpis.total}</div>
+          <div className="m-meta">Directory records</div>
+        </div>
+
+        <div
+          className="metric-cell"
+          onClick={() => setStatusFilter('ACTIVE')}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="m-top">
+            <span className="m-lbl">Active Users</span>
+            <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{kpis.active}</div>
+          <div className="m-meta">Full portal access</div>
+        </div>
+
+        <div
+          className="metric-cell"
+          onClick={() => setCategoryTab('STAFF')}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="m-top">
+            <span className="m-lbl">Staff Accounts</span>
+            <Building size={16} style={{ color: 'var(--info)' }} />
+          </div>
+          <div className="m-val">{categoryCounts.STAFF}</div>
+          <div className="m-meta">Faculty & workforce</div>
+        </div>
+
+        <div
+          className="metric-cell"
+          onClick={() => setCategoryTab('PARENT')}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="m-top">
+            <span className="m-lbl">Parent Accounts</span>
+            <Baby size={16} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="m-val">{categoryCounts.PARENT}</div>
+          <div className="m-meta">Guardian portal</div>
+        </div>
+
+        <div
+          className="metric-cell"
+          onClick={() => setStatusFilter('SUSPENDED')}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="m-top">
+            <span className="m-lbl">Inactive / Suspended</span>
+            <Ban size={16} style={{ color: 'var(--danger)' }} />
+          </div>
+          <div className="m-val" style={{ color: (kpis.suspended + kpis.inactive) > 0 ? 'var(--danger)' : undefined }}>
+            {kpis.suspended + kpis.inactive}
+          </div>
+          <div className="m-meta">{kpis.suspended} suspended · {kpis.inactive} inactive</div>
         </div>
       </div>
 
-      {/* Users DataTable */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* 3. TABLE WORKSPACE */}
+      <div className="table-workspace">
+        {/* Category Navigation Pills */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+          {[
+            { id: 'ALL', label: 'All Users', count: categoryCounts.ALL },
+            { id: 'STAFF', label: 'Staff', count: categoryCounts.STAFF },
+            { id: 'TEACHER', label: 'Teachers', count: categoryCounts.TEACHER },
+            { id: 'PARENT', label: 'Parents', count: categoryCounts.PARENT },
+            { id: 'PRINCIPAL', label: 'Principals', count: categoryCounts.PRINCIPAL },
+            { id: 'ACCOUNTS', label: 'Accounts', count: categoryCounts.ACCOUNTS },
+            { id: 'GUARDIAN', label: 'Guardians', count: categoryCounts.GUARDIAN },
+            { id: 'PENDING', label: 'Invitations', count: categoryCounts.PENDING },
+          ].map((tab) => {
+            const isActive = categoryTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setCategoryTab(tab.id as any)}
+                className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ borderRadius: 999 }}
+              >
+                <span>{tab.label}</span>
+                <span style={{ marginLeft: 6, opacity: 0.8, fontSize: 11, fontWeight: 700 }}>
+                  ({tab.count})
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Integrated Context & Filter Bar */}
+        <div className="school-context-bar" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="context-item" style={{ flex: 1, minWidth: 220 }}>
+            <div className="input-search" style={{ width: '100%' }}>
+              <Search size={14} />
+              <input
+                className="input"
+                placeholder="Search name, email, phone, employee code..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="context-item">
+            <label>Role:</label>
+            <select
+              className="select"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="ALL">All Roles</option>
+              {Object.keys(ROLE_BADGE).map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_BADGE[r].label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="context-item">
+            <label>Status:</label>
+            <select
+              className="select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING">Pending</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+
+          <div className="context-item">
+            <label>Branch:</label>
+            <select
+              className="select"
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+            >
+              <option value="ALL">All Branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="context-item">
+            <label>Type:</label>
+            <select
+              className="select"
+              value={userTypeFilter}
+              onChange={(e) => setUserTypeFilter(e.target.value)}
+            >
+              <option value="ALL">All User Types</option>
+              <option value="STAFF">Staff & Workforce</option>
+              <option value="PARENT">Parents & Guardians</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setSearch('')
+                setRoleFilter('ALL')
+                setStatusFilter('ALL')
+                setBranchFilter('ALL')
+                setUserTypeFilter('ALL')
+                setCategoryTab('ALL')
+              }}
+              className="btn btn-ghost btn-sm"
+              title="Reset all filters"
+            >
+              <SlidersHorizontal size={13} /> Reset
+            </button>
+            <button
+              onClick={handleExportCsv}
+              className="btn btn-outline btn-sm"
+              title="Export CSV"
+            >
+              <Download size={13} /> Export CSV
+            </button>
+          </div>
+        </div>
+
+        {/* Canonical DataTable */}
         <DataTable
           columns={columns}
-          data={filteredUsers}
+          data={tableData}
           loading={loading}
-          emptyTitle="No users found"
-          emptyMessage={search ? 'Try adjusting your search query or role filter.' : 'Add your first educator or school administrator.'}
-          emptyAction={
-            <button className="btn btn-primary btn-sm" onClick={() => setAddModalOpen(true)}>
-              <UserPlus size={14} /> Add User
-            </button>
-          }
           paginate
           defaultPageSize={10}
-          exportFileName="users.csv"
+          onRowClick={(u) => {
+            setViewingUser(u)
+            setViewModalOpen(true)
+          }}
           rowSelection
           selectedKeys={selected}
-          onSelectionChange={setSelected}
+          onSelectionChange={(keys) => setSelected(keys.map(String))}
           bulkActions={
-            <>
-              <button
-                className="btn btn-ghost btn-sm"
-                disabled={selected.length === 0}
-                style={{ color: '#DC2626' }}
-                onClick={() => applyBulkStatus('SUSPENDED')}
-              >
-                <Ban size={14} /> Suspend
-              </button>
-              <button
-                className="btn btn-ghost btn-sm"
-                disabled={selected.length === 0}
-                style={{ color: '#059669' }}
-                onClick={() => applyBulkStatus('ACTIVE')}
-              >
-                <Check size={14} /> Activate
-              </button>
-            </>
-          }
-          footer={
-            users ? (
-              <span>
-                Active <b>{users.filter((u) => u.status === 'ACTIVE').length}</b>
-                <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
-                Suspended <b>{users.filter((u) => u.status === 'SUSPENDED').length}</b>
-                <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
-                Inactive <b>{users.filter((u) => u.status === 'INACTIVE').length}</b>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>
+                {selected.length} selected
               </span>
-            ) : null
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setBulkModalAction('ASSIGN_ROLE')}
+              >
+                <Shield size={13} /> Assign Role
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setBulkModalAction('CHANGE_BRANCH')}
+              >
+                <Building size={13} /> Change Branch
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setBulkModalAction('ACTIVATE')}
+              >
+                <Check size={13} /> Activate
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setBulkModalAction('SUSPEND')}
+              >
+                <Ban size={13} /> Suspend
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setBulkModalAction('CHANGE_DESIGNATION')}
+              >
+                <Edit3 size={13} /> Designation
+              </button>
+            </div>
           }
-          onRowClick={(row) => {
-            setViewUser(row)
-            setViewTab('overview')
-          }}
+          rowActions={(u) => [
+            {
+              label: 'View 360',
+              icon: <Eye size={14} />,
+              onClick: () => {
+                setViewingUser(u)
+                setViewModalOpen(true)
+              },
+            },
+            {
+              label: 'Edit User',
+              icon: <Edit3 size={14} />,
+              onClick: () => {
+                setEditingUser(u)
+                setEditModalOpen(true)
+              },
+            },
+            {
+              label: u.status === 'ACTIVE' ? 'Suspend Access' : 'Reactivate Access',
+              icon: <Ban size={14} />,
+              danger: u.status === 'ACTIVE',
+              onClick: () => {
+                if (u.status === 'ACTIVE') setConfirmSuspend(u)
+                else setConfirmReactivate(u)
+              },
+            },
+            {
+              label: 'Revoke Sessions',
+              icon: <LogOut size={14} />,
+              danger: true,
+              onClick: () => setConfirmRevoke(u),
+            },
+          ]}
+          emptyTitle="No users found"
+          emptyMessage="No directory records matched the selected filters."
         />
       </div>
 
-      {/* ========================================================================= */}
-      {/* USER DETAIL INSPECTOR MODAL */}
-      {/* ========================================================================= */}
-      <Modal
-        open={!!viewUser}
-        onClose={() => setViewUser(null)}
-        title={viewUser?.name || 'User Profile'}
-        subtitle={viewUser ? `Account ID: ${viewUser.userId}` : undefined}
-        icon={<UserCheck size={20} />}
-        iconClass="ic-purple"
-        wide
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {viewUser?.status === 'ACTIVE' ? (
-                <button
-                  className="btn btn-destructive btn-sm"
-                  onClick={() => {
-                    if (viewUser) setConfirmSuspend(viewUser)
-                  }}
-                >
-                  <Ban size={14} /> Suspend Account
-                </button>
-              ) : (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    if (viewUser) setConfirmReactivate(viewUser)
-                  }}
-                >
-                  <Check size={14} /> Reactivate Account
-                </button>
-              )}
-              <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  if (viewUser) setConfirmRevoke(viewUser)
-                }}
-              >
-                <LogOut size={14} /> Sign Out All Devices
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  if (viewUser) {
-                    const target = viewUser
-                    setViewUser(null)
-                    openEditModal(target)
-                  }
-                }}
-              >
-                <Edit3 size={14} /> Edit User
-              </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setViewUser(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        }
-      >
-        {viewUser && (
-          <div>
-            {/* Modal Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--c-border)', marginBottom: 16 }}>
-              <button
-                type="button"
-                className={`tab-btn ${viewTab === 'overview' ? 'tab-active' : ''}`}
-                onClick={() => setViewTab('overview')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: viewTab === 'overview' ? '2px solid var(--c-primary)' : '2px solid transparent',
-                  fontWeight: viewTab === 'overview' ? 600 : 400,
-                  cursor: 'pointer',
-                  color: viewTab === 'overview' ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                Overview
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${viewTab === 'permissions' ? 'tab-active' : ''}`}
-                onClick={() => setViewTab('permissions')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: viewTab === 'permissions' ? '2px solid var(--c-primary)' : '2px solid transparent',
-                  fontWeight: viewTab === 'permissions' ? 600 : 400,
-                  cursor: 'pointer',
-                  color: viewTab === 'permissions' ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                Roles & Effective Permissions
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${viewTab === 'person' ? 'tab-active' : ''}`}
-                onClick={() => setViewTab('person')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: viewTab === 'person' ? '2px solid var(--c-primary)' : '2px solid transparent',
-                  fontWeight: viewTab === 'person' ? 600 : 400,
-                  cursor: 'pointer',
-                  color: viewTab === 'person' ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                {viewUser.role === 'PARENT' ? 'Linked Children / Wards' : 'Linked Staff & Classes'}
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${viewTab === 'security' ? 'tab-active' : ''}`}
-                onClick={() => setViewTab('security')}
-                style={{
-                  padding: '8px 16px',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: viewTab === 'security' ? '2px solid var(--c-primary)' : '2px solid transparent',
-                  fontWeight: viewTab === 'security' ? 600 : 400,
-                  cursor: 'pointer',
-                  color: viewTab === 'security' ? 'var(--c-primary)' : 'var(--c-muted)',
-                }}
-              >
-                Security & Session
-              </button>
-            </div>
-
-            {/* TAB: OVERVIEW */}
-            {viewTab === 'overview' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div className="card" style={{ padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 8, textTransform: 'uppercase' }}>
-                    Identity Profile
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <Avatar name={viewUser.name} size="lg" />
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{viewUser.name}</div>
-                      <div style={{ fontSize: 13, color: 'var(--c-muted)' }}>{viewUser.email}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--c-muted)' }}>Phone Number:</span>
-                      <span style={{ fontWeight: 500 }}>{viewUser.phone || 'Not provided'}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--c-muted)' }}>Account Status:</span>
-                      <span
-                        style={{
-                          fontWeight: 600,
-                          color: STATUS_BADGES[viewUser.status]?.text,
-                        }}
-                      >
-                        {STATUS_BADGES[viewUser.status]?.label}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--c-muted)' }}>Created Date:</span>
-                      <span>{new Date(viewUser.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card" style={{ padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-muted)', marginBottom: 8, textTransform: 'uppercase' }}>
-                    Institutional Role
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 9999,
-                        fontSize: 13,
-                        fontWeight: 600,
-                        backgroundColor: ROLE_META[viewUser.role]?.bg,
-                        color: ROLE_META[viewUser.role]?.text,
-                      }}
-                    >
-                      {ROLE_META[viewUser.role]?.label || viewUser.role}
-                    </span>
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)', lineHeight: 1.5 }}>
-                    {ROLE_META[viewUser.role]?.desc}
-                  </p>
-                  {viewUser.branchId && (
-                    <div style={{ marginTop: 12, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Building size={14} style={{ color: 'var(--c-muted)' }} />
-                      <span>Assigned Branch: <strong>{branches.find((b) => b.id === viewUser.branchId)?.name || viewUser.branchId}</strong></span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* TAB: ROLES & EFFECTIVE PERMISSIONS */}
-            {viewTab === 'permissions' && (() => {
-              const activeRoles: Role[] =
-                viewUser.roles && viewUser.roles.length > 0 ? viewUser.roles : [viewUser.role]
-              const isOwner = activeRoles.includes('OWNER')
-              const allPerms = isOwner
-                ? ['*']
-                : Array.from(new Set(activeRoles.flatMap((r) => ROLE_PERMISSIONS[r] || [])))
-
-              return (
-                <div>
-                  <div style={{ marginBottom: 12, fontSize: 13, color: 'var(--c-muted)' }}>
-                    Showing effective permissions union across {activeRoles.length} assigned roles:{' '}
-                    <span style={{ fontWeight: 600, color: 'var(--c-ink)' }}>{activeRoles.join(', ')}</span>.
-                  </div>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                      gap: 8,
-                      maxHeight: 320,
-                      overflowY: 'auto',
-                      padding: 8,
-                      background: 'var(--c-subtle)',
-                      borderRadius: 8,
-                    }}
-                  >
-                    {allPerms.map((perm) => (
-                      <div
-                        key={perm}
-                        style={{
-                          padding: '6px 10px',
-                          background: '#fff',
-                          borderRadius: 6,
-                          border: '1px solid var(--c-border)',
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <Shield size={12} style={{ color: 'var(--c-primary)' }} />
-                        <span>{perm === '*' ? 'ALL_PERMISSIONS (*)' : perm}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-
-            {/* TAB: LINKED PERSON / CHILDREN / CLASSES */}
-            {viewTab === 'person' && (
-              <div>
-                {(viewUser.roles?.includes('PARENT') || viewUser.role === 'PARENT') ? (
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>
-                      Linked Wards & Children ({viewUser.guardianProfile?.students?.length || 0})
-                    </div>
-                    {viewUser.guardianProfile?.students && viewUser.guardianProfile.students.length > 0 ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-                        {viewUser.guardianProfile.students.map((child) => (
-                          <div key={child.id} className="card" style={{ padding: 12 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <Baby size={18} style={{ color: 'var(--c-primary)' }} />
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: 14 }}>{child.name}</div>
-                                <div style={{ fontSize: 12, color: 'var(--c-muted)', fontFamily: 'monospace' }}>
-                                  ADM: {child.admissionNo}
-                                </div>
-                              </div>
-                            </div>
-                            {child.canPickup && (
-                              <div style={{ marginTop: 8, fontSize: 11, color: '#059669', fontWeight: 600 }}>
-                                Authorized for pickup
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ color: 'var(--c-muted)', fontSize: 13 }}>No student records linked to this parent profile.</div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>Staff Employment & Workforce Profile</div>
-                      <span className="badge badge-teal" style={{ fontSize: 11 }}>Connected to HR</span>
-                    </div>
-                    {viewUser.staffProfile ? (
-                      <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
-                          <div>
-                            <span style={{ color: 'var(--c-muted)' }}>Employee Code:</span>{' '}
-                            <strong>{viewUser.staffProfile.employeeCode}</strong>
-                          </div>
-                          <div>
-                            <span style={{ color: 'var(--c-muted)' }}>Designation:</span>{' '}
-                            <strong>{viewUser.staffProfile.designation || 'Staff'}</strong>
-                          </div>
-                          <div>
-                            <span style={{ color: 'var(--c-muted)' }}>Qualification:</span>{' '}
-                            <span>{viewUser.staffProfile.qualification || 'Not specified'}</span>
-                          </div>
-                          <div>
-                            <span style={{ color: 'var(--c-muted)' }}>Employment Type:</span>{' '}
-                            <span>{viewUser.staffProfile.employmentType || 'FULL_TIME'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ color: 'var(--c-muted)', fontSize: 13, marginBottom: 16 }}>
-                        No staff profile record attached to this user.
-                      </div>
-                    )}
-
-                    {viewUser.role === 'TEACHER' && (
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Assigned Classrooms (Primary Educator)</div>
-                        {viewUser.taughtClasses && viewUser.taughtClasses.length > 0 ? (
-                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            {viewUser.taughtClasses.map((cls) => (
-                              <div key={cls.id} className="card" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <BookOpen size={16} style={{ color: '#7C3AED' }} />
-                                <div>
-                                  <div style={{ fontWeight: 600, fontSize: 13 }}>{cls.name}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Program: {cls.programType}</div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ color: 'var(--c-muted)', fontSize: 13 }}>
-                            This teacher currently has no primary classroom assigned. Edit user to assign a class.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* TAB: SECURITY & SESSION */}
-            {viewTab === 'security' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div className="card" style={{ padding: 14 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <KeyRound size={16} /> Temporary Password & Credentials
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 10 }}>
-                    Passwords cannot be viewed in plaintext once hashed. You can issue a new password or temporary password for this user anytime through Edit User.
-                  </p>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                      if (viewUser) {
-                        const target = viewUser
-                        setViewUser(null)
-                        openEditModal(target)
-                      }
-                    }}
-                  >
-                    Reset Password
-                  </button>
-                </div>
-
-                <div className="card" style={{ padding: 14 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <LogOut size={16} /> Active Session Invalidation
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 10 }}>
-                    If this user lost their mobile device or is suspected of unauthorized access, force an immediate sign-out across all mobile apps and web browsers.
-                  </p>
-                  <button
-                    className="btn btn-destructive btn-sm"
-                    onClick={() => setConfirmRevoke(viewUser)}
-                  >
-                    <LogOut size={14} /> Revoke All Active Sessions
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* ADD USER MODAL */}
-      {/* ========================================================================= */}
+      {/* 4. ADD USER MODAL */}
       <Modal
         open={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         title="Add New User"
-        subtitle="Create an identity with role-based preschool access"
-        icon={<UserPlus size={20} />}
-        iconClass="ic-purple"
+        subtitle="Create portal credentials and configure role assignments"
+        icon={<UserPlus size={22} />}
         wide
       >
-        <form onSubmit={handleAddUser}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <Field label="Full Name" required>
-              <input type="text" name="fullName" className="input" placeholder="e.g. Priya Sharma" required />
-            </Field>
-
-            <Field label="Email Address" required>
-              <input type="email" name="email" className="input" placeholder="e.g. priya@preschool.edu" required />
-            </Field>
-
-            <Field label="Phone Number">
-              <input type="tel" name="phone" className="input" placeholder="e.g. +91 98765 43210" />
-            </Field>
-
-            <Field label="Temporary Password" required helper="Minimum 6 characters">
-              <input type="password" name="password" className="input" required minLength={6} placeholder="******" />
-            </Field>
-
-            <Field label="Primary System Role" required helper="Defines default dashboard theme and primary role badge">
-              <select
-                className="input"
-                value={selectedRole}
-                onChange={(e) => {
-                  const newPrimary = e.target.value as Role
-                  setSelectedRole(newPrimary)
-                  if (!addRoles.includes(newPrimary)) {
-                    setAddRoles([...addRoles, newPrimary])
-                  }
-                }}
-              >
-                <option value="TEACHER">Teacher / Educator</option>
-                <option value="PRINCIPAL">Principal / Center Head</option>
-                <option value="COORDINATOR">Academic Coordinator</option>
-                <option value="ACCOUNTS">Finance / Accounts</option>
-                <option value="RECEPTION">Front Desk / Reception</option>
-                <option value="PARENT">Parent / Guardian</option>
-                <option value="OWNER">School Owner</option>
-              </select>
-            </Field>
-
-            <Field label="Branch Scope">
-              <select name="branchId" className="input">
-                <option value="">All Branches / Main Campus</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
+        <form onSubmit={handleCreateUser}>
+          <div className="form-grid">
+            <div className="field">
+              <label>Full Name <span className="req">*</span></label>
+              <input className="input" name="fullName" required placeholder="e.g. Ananya Sharma" />
+            </div>
+            <div className="field">
+              <label>Email Address <span className="req">*</span></label>
+              <input className="input" type="email" name="email" required placeholder="ananya@school.com" />
+            </div>
+            <div className="field">
+              <label>Phone Number</label>
+              <input className="input" name="phone" placeholder="+91 98765 43210" />
+            </div>
+            <div className="field">
+              <label>Initial Password <span className="req">*</span></label>
+              <input className="input" type="password" name="password" defaultValue="Preone@123" required />
+            </div>
+            <div className="field">
+              <label>Primary Role <span className="req">*</span></label>
+              <select className="select" name="role" defaultValue="TEACHER">
+                {Object.keys(ROLE_BADGE).map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_BADGE[r].label}
                   </option>
                 ))}
               </select>
-            </Field>
-          </div>
-
-          {/* MULTI-ROLE ASSIGNMENT CHECKBOXES */}
-          <div className="card" style={{ padding: 12, marginBottom: 16, backgroundColor: 'var(--c-bg-subtle, rgba(0,0,0,0.02))' }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Shield size={15} style={{ color: 'var(--c-primary, #7C3AED)' }} /> Assigned Roles & Permission Bundles (Multi-Role)
             </div>
-            <p style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 8 }}>
-              Check all roles to grant the union of their permissions. Primary role determines default profile UX:
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-              {(['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'PARENT', 'OWNER'] as Role[]).map((r) => {
-                const isChecked = addRoles.includes(r)
-                const isPrimary = selectedRole === r
-                return (
-                  <label
-                    key={r}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      fontSize: 12,
-                      fontWeight: isPrimary ? 700 : 500,
-                      cursor: 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: 6,
-                      backgroundColor: isChecked ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setAddRoles([...addRoles, r])
-                        } else {
-                          if (addRoles.length > 1) {
-                            const next = addRoles.filter((item) => item !== r)
-                            setAddRoles(next)
-                            if (selectedRole === r) setSelectedRole(next[0])
-                          }
-                        }
-                      }}
-                    />
-                    <span>{ROLE_META[r]?.label.split(' / ')[0] || r}</span>
-                    {isPrimary && <span style={{ fontSize: 10, color: '#7C3AED', marginLeft: 'auto' }}>★ Primary</span>}
-                  </label>
-                )
-              })}
+            <div className="field">
+              <label>Campus Branch</label>
+              <select className="select" name="branchId" defaultValue="">
+                <option value="">All Campuses / Main</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field" style={{ gridColumn: 'span 2' }}>
+              <label>Workforce Designation</label>
+              <input className="input" name="designation" placeholder="e.g. Senior Montessori Educator" />
             </div>
           </div>
 
-          {/* DYNAMIC ROLE FIELDS */}
-          {selectedRole === 'PARENT' ? (
-            <div className="card" style={{ padding: 14, backgroundColor: 'rgba(99, 102, 241, 0.05)', marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#4F46E5', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Baby size={16} /> Link Registered Guardian
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--c-muted)', marginBottom: 10 }}>
-                Select an existing guardian recorded during admissions to link their student wards to this login account:
-              </p>
-              <Field label="Select Guardian">
-                <select name="guardianId" className="input">
-                  <option value="">-- Standalone Parent Account (Link later) --</option>
-                  {guardians
-                    .filter((g) => !g.hasAccount)
-                    .map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.fullName} ({g.relationship}) - {g.children?.map((c) => c.name).join(', ') || 'No wards'}
-                      </option>
-                    ))}
-                </select>
-              </Field>
-            </div>
-          ) : (
-            <div className="card" style={{ padding: 14, backgroundColor: 'rgba(124, 58, 237, 0.05)', marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Building size={16} /> Staff Employment Details
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <Field label="Employee Code">
-                  <input type="text" name="employeeCode" className="input" placeholder="e.g. EMP-101" />
-                </Field>
-                <Field label="Designation">
-                  <input type="text" name="designation" className="input" placeholder="e.g. Senior Nursery Educator" />
-                </Field>
-              </div>
-
-              {selectedRole === 'TEACHER' && (
-                <div style={{ marginTop: 10 }}>
-                  <Field label="Primary Classroom Assignment">
-                    <select name="classroomId" className="input">
-                      <option value="">-- Assign Classroom Later --</option>
-                      {classrooms.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} {c.programType ? `(${c.programType})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setAddModalOpen(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Creating...' : 'Create User'}
+            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>
+              Create User
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* EDIT USER MODAL */}
-      {/* ========================================================================= */}
+      {/* 5. EDIT USER MODAL */}
       <Modal
-        open={!!editUser}
-        onClose={() => setEditUser(null)}
-        title="Edit User"
-        subtitle={editUser?.email}
-        icon={<Edit3 size={20} />}
-        iconClass="ic-blue"
+        open={editModalOpen}
+        onClose={() => { setEditModalOpen(false); setEditingUser(null); }}
+        title="Edit User Profile"
+        subtitle={editingUser ? `Update configuration for ${editingUser.name}` : ''}
+        icon={<Edit3 size={22} />}
+        wide
       >
-        {editUser && (
-          <form onSubmit={handleEditUser}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Field label="Full Name" required>
-                <input type="text" name="fullName" defaultValue={editUser.name} className="input" required />
-              </Field>
-
-              <Field label="Phone Number">
-                <input type="tel" name="phone" defaultValue={editUser.phone || ''} className="input" />
-              </Field>
-
-              <Field label="Primary Role" required helper="Primary role displayed on profile and badges">
-                <select
-                  name="role"
-                  value={editPrimaryRole}
-                  onChange={(e) => {
-                    const newPrimary = e.target.value as Role
-                    setEditPrimaryRole(newPrimary)
-                    if (!editRoles.includes(newPrimary)) {
-                      setEditRoles([...editRoles, newPrimary])
-                    }
-                  }}
-                  className="input"
-                >
-                  <option value="TEACHER">Teacher / Educator</option>
-                  <option value="PRINCIPAL">Principal / Center Head</option>
-                  <option value="COORDINATOR">Academic Coordinator</option>
-                  <option value="ACCOUNTS">Finance / Accounts</option>
-                  <option value="RECEPTION">Front Desk / Reception</option>
-                  <option value="PARENT">Parent / Guardian</option>
-                  <option value="OWNER">School Owner</option>
-                </select>
-              </Field>
-
-              {/* MULTI-ROLE ASSIGNMENT CHECKBOXES FOR EDIT */}
-              <div className="card" style={{ padding: 12, backgroundColor: 'var(--c-bg-subtle, rgba(0,0,0,0.02))' }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Shield size={15} style={{ color: 'var(--c-primary, #7C3AED)' }} /> Assigned Roles (Multi-Role Permissions Union)
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 6 }}>
-                  {(['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'PARENT', 'OWNER'] as Role[]).map((r) => {
-                    const isChecked = editRoles.includes(r)
-                    const isPrimary = editPrimaryRole === r
-                    return (
-                      <label
-                        key={r}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: 12,
-                          fontWeight: isPrimary ? 700 : 500,
-                          cursor: 'pointer',
-                          padding: '4px 6px',
-                          borderRadius: 6,
-                          backgroundColor: isChecked ? 'rgba(124, 58, 237, 0.08)' : 'transparent',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEditRoles([...editRoles, r])
-                            } else {
-                              if (editRoles.length > 1) {
-                                const next = editRoles.filter((item) => item !== r)
-                                setEditRoles(next)
-                                if (editPrimaryRole === r) setEditPrimaryRole(next[0])
-                              }
-                            }
-                          }}
-                        />
-                        <span>{ROLE_META[r]?.label.split(' / ')[0] || r}</span>
-                        {isPrimary && <span style={{ fontSize: 9, color: '#7C3AED', marginLeft: 'auto' }}>★ Primary</span>}
-                      </label>
-                    )
-                  })}
-                </div>
+        {editingUser && (
+          <form onSubmit={handleSaveEditUser}>
+            <div className="form-grid">
+              <div className="field">
+                <label>Full Name <span className="req">*</span></label>
+                <input className="input" name="fullName" defaultValue={editingUser.name} required />
               </div>
-
-              {(!editRoles.includes('PARENT') || editUser.staffProfile) && (
-                <Field label="Workforce Designation" helper="Stored on StaffProfile — e.g. Storekeeper, Senior Teacher, Driver, Helper">
-                  <input
-                    type="text"
-                    name="designation"
-                    defaultValue={editUser.staffProfile?.designation || ''}
-                    className="input"
-                    placeholder="e.g. Storekeeper / Senior Educator"
-                  />
-                </Field>
-              )}
-
-              <Field label="Branch Scope">
-                <select name="branchId" defaultValue={editUser.branchId || ''} className="input">
-                  <option value="">All Branches / Main Campus</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
+              <div className="field">
+                <label>Email Address</label>
+                <input className="input" defaultValue={editingUser.email} disabled style={{ opacity: 0.7 }} />
+              </div>
+              <div className="field">
+                <label>Phone Number</label>
+                <input className="input" name="phone" defaultValue={editingUser.phone || ''} placeholder="+91 98765 43210" />
+              </div>
+              <div className="field">
+                <label>Primary Role</label>
+                <select className="select" name="primaryRole" defaultValue={editingUser.role}>
+                  {Object.keys(ROLE_BADGE).map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_BADGE[r].label}
                     </option>
                   ))}
                 </select>
-              </Field>
-
-              {editRoles.includes('TEACHER') && (
-                <Field label="Primary Classroom Assignment">
-                  <select
-                    name="classroomId"
-                    defaultValue={editUser.taughtClasses?.[0]?.id || ''}
-                    className="input"
-                  >
-                    <option value="">-- No Class / Keep Existing --</option>
-                    {classrooms.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.programType ? `(${c.programType})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-
-              <Field label="Change Password" helper="Leave blank to keep existing password">
-                <input
-                  type="password"
-                  name="password"
-                  minLength={6}
-                  className="input"
-                  placeholder="Enter new password (optional)"
-                />
-              </Field>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setEditUser(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={busy}>
-                  {busy ? 'Saving...' : 'Save Changes'}
-                </button>
               </div>
+              <div className="field">
+                <label>Branch Scope</label>
+                <select className="select" name="branchId" defaultValue={editingUser.branchId || ''}>
+                  <option value="">All Campuses / Main</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Designation</label>
+                <input className="input" name="designation" defaultValue={editingUser.staffProfile?.designation || ''} placeholder="e.g. Lead Teacher" />
+              </div>
+              <div className="field" style={{ gridColumn: 'span 2' }}>
+                <label>Department</label>
+                <input className="input" name="department" defaultValue={editingUser.staffProfile?.department || ''} placeholder="e.g. Early Years Pedagogy" />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => { setEditModalOpen(false); setEditingUser(null); }}>
+                Cancel
+              </button>
+              <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>
+                Save Changes
+              </button>
             </div>
           </form>
         )}
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* CONFIRM MODALS FOR ACTIONS */}
-      {/* ========================================================================= */}
+      {/* 6. USER 360 OVERVIEW MODAL */}
+      <Modal
+        open={viewModalOpen}
+        onClose={() => { setViewModalOpen(false); setViewingUser(null); }}
+        title="User Profile 360"
+        subtitle={viewingUser?.email || ''}
+        icon={<Eye size={22} />}
+        wide
+      >
+        {viewingUser && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            {/* Top Identity Block */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, background: 'var(--surface-muted)', borderRadius: 12 }}>
+              <Avatar name={viewingUser.name} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                  {viewingUser.name}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                  {viewingUser.email} {viewingUser.phone ? `· ${viewingUser.phone}` : ''}
+                </div>
+              </div>
+              <StatusBadge status={viewingUser.status} />
+            </div>
+
+            {/* Scope and Assignment Matrix */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+              <div className="card" style={{ padding: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Primary Role</span>
+                <strong style={{ fontSize: 13, color: 'var(--text)' }}>{ROLE_BADGE[viewingUser.role]?.label || viewingUser.role}</strong>
+              </div>
+              <div className="card" style={{ padding: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Branch Scope</span>
+                <strong style={{ fontSize: 13, color: 'var(--text)' }}>
+                  {branches.find((b) => b.id === viewingUser.branchId)?.name || 'All Campuses'}
+                </strong>
+              </div>
+              <div className="card" style={{ padding: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Last Login</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                  {viewingUser.lastLoginAt ? new Date(viewingUser.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}
+                </span>
+              </div>
+              <div className="card" style={{ padding: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Account Created</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                  {new Date(viewingUser.createdAt).toLocaleDateString('en-IN')}
+                </span>
+              </div>
+            </div>
+
+            {/* Roles Scope */}
+            <div className="card" style={{ padding: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                Effective Assigned Roles
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {(viewingUser.roles || [viewingUser.role]).map((r, i) => (
+                  <span key={i} className={`badge ${ROLE_BADGE[r]?.cls || 'b-neutral'}`}>
+                    {ROLE_BADGE[r]?.label || r}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Staff / Guardian Details */}
+            {viewingUser.staffProfile && (
+              <div className="card" style={{ padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                  Workforce & HR Information
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, fontSize: 12 }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Employee Code:</span>{' '}
+                    <strong>{viewingUser.staffProfile.employeeCode}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Designation:</span>{' '}
+                    <strong>{viewingUser.staffProfile.designation || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Department:</span>{' '}
+                    <strong>{viewingUser.staffProfile.department || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Type:</span>{' '}
+                    <strong>{viewingUser.staffProfile.employmentType}</strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {viewingUser.guardianProfile && (
+              <div className="card" style={{ padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                  Parent & Guardian Relationship
+                </div>
+                <div style={{ fontSize: 12, marginBottom: 8 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Relationship:</span>{' '}
+                  <span className="badge b-primary">{viewingUser.guardianProfile.relationship}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {viewingUser.guardianProfile.students?.map((ch) => (
+                    <div
+                      key={ch.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '6px 10px',
+                        background: 'var(--surface-muted)',
+                        borderRadius: 6,
+                        fontSize: 12,
+                      }}
+                    >
+                      <span style={{ fontWeight: 600 }}>{ch.name} ({ch.admissionNo})</span>
+                      <span className={`badge ${ch.canPickup ? 'b-success' : 'b-neutral'}`}>
+                        {ch.canPickup ? 'Authorized Pickup' : 'No Pickup'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quick Actions Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setViewModalOpen(false)
+                  setEditingUser(viewingUser)
+                  setEditModalOpen(true)
+                }}
+              >
+                <Edit3 size={13} /> Edit Profile
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ color: 'var(--danger)' }}
+                onClick={() => {
+                  setViewModalOpen(false)
+                  setConfirmRevoke(viewingUser)
+                }}
+              >
+                <LogOut size={13} /> Revoke Sessions
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ color: viewingUser.status === 'ACTIVE' ? 'var(--danger)' : 'var(--success)' }}
+                onClick={() => {
+                  setViewModalOpen(false)
+                  if (viewingUser.status === 'ACTIVE') setConfirmSuspend(viewingUser)
+                  else setConfirmReactivate(viewingUser)
+                }}
+              >
+                <Ban size={13} /> {viewingUser.status === 'ACTIVE' ? 'Suspend Access' : 'Reactivate'}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setViewModalOpen(false); setViewingUser(null); }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 7. BULK ACTIONS MODAL */}
+      <Modal
+        open={!!bulkModalAction}
+        onClose={() => setBulkModalAction(null)}
+        title={`Bulk Action: ${bulkModalAction}`}
+        subtitle={`Applying to ${selected.length} selected user account(s)`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {bulkModalAction === 'ASSIGN_ROLE' && (
+            <div className="field">
+              <label>Select Role to Append</label>
+              <select
+                value={bulkRole}
+                onChange={(e) => setBulkRole(e.target.value as Role)}
+                className="select"
+              >
+                {Object.keys(ROLE_BADGE).map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_BADGE[r].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {bulkModalAction === 'CHANGE_BRANCH' && (
+            <div className="field">
+              <label>Select Campus Branch</label>
+              <select
+                value={bulkBranchId}
+                onChange={(e) => setBulkBranchId(e.target.value)}
+                className="select"
+              >
+                <option value="">All Campuses / Main</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {bulkModalAction === 'CHANGE_DESIGNATION' && (
+            <div className="field">
+              <label>New Workforce Designation</label>
+              <input
+                type="text"
+                placeholder="e.g. Lead Teacher"
+                value={bulkDesignation}
+                onChange={(e) => setBulkDesignation(e.target.value)}
+                className="input"
+              />
+            </div>
+          )}
+
+          {(bulkModalAction === 'ACTIVATE' || bulkModalAction === 'SUSPEND') && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              Are you sure you want to transition {selected.length} user account(s) to <strong>{bulkModalAction}</strong>?
+            </p>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+            <button className="btn btn-ghost" onClick={() => setBulkModalAction(null)}>
+              Cancel
+            </button>
+            <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} onClick={handleExecuteBulkAction} disabled={busy}>
+              Apply Bulk Action
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 8. ROLES DIRECTORY & PERMISSIONS MATRIX MODAL */}
+      <Modal
+        open={rolesModalOpen}
+        onClose={() => setRolesModalOpen(false)}
+        title="Roles Directory & Permissions Matrix"
+        subtitle="Canonical 8 RBAC roles defined in PreOne OS"
+        icon={<Shield size={22} />}
+        wide
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '65vh', overflowY: 'auto' }}>
+          {rolesMatrix.map((rm) => (
+            <div
+              key={rm.role}
+              className="card"
+              style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 6 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className={`badge ${ROLE_BADGE[rm.role]?.cls || 'b-neutral'}`}>
+                    {rm.label}
+                  </span>
+                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    ({rm.role})
+                  </span>
+                </div>
+                <span className="badge b-purple" style={{ fontWeight: 700 }}>
+                  {rm.userCount} users
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{rm.description}</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                {rm.permissions.slice(0, 10).map((p: string, idx: number) => (
+                  <span
+                    key={idx}
+                    className="badge b-neutral"
+                    style={{ fontSize: 10, fontFamily: 'var(--font-mono)' }}
+                  >
+                    {p}
+                  </span>
+                ))}
+                {rm.permissions.length > 10 && (
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', alignSelf: 'center' }}>
+                    +{rm.permissions.length - 10} more
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      {/* 9. GROUPS & TEAMS MODAL */}
+      <Modal
+        open={groupsModalOpen}
+        onClose={() => setGroupsModalOpen(false)}
+        title="User Groups & Teams"
+        subtitle="Functional organization units across departments"
+        icon={<Users size={22} />}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>Teaching & Pedagogy</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>All early years educators, assistants, and coordinators</div>
+          </div>
+          <div className="card" style={{ padding: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>Administration & Front Office</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Admissions, reception, finance, and operations personnel</div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button className="btn btn-secondary" onClick={() => setGroupsModalOpen(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 10. CONFIRMATION MODALS */}
       <ConfirmModal
         open={!!confirmSuspend}
         onClose={() => setConfirmSuspend(null)}
-        onConfirm={() => {
-          if (confirmSuspend) handleSetStatus(confirmSuspend, 'SUSPENDED')
-        }}
-        title="Suspend User Account"
-        message={`Are you sure you want to suspend ${confirmSuspend?.name}? Suspended accounts immediately lose access to mobile and web dashboards.`}
-        confirmLabel="Suspend User"
+        title="Suspend User Access"
+        message={`Suspend portal login access for ${confirmSuspend?.name}? This prevents authentication until reactivated.`}
+        confirmLabel="Suspend Access"
         danger
+        onConfirm={async () => {
+          if (!confirmSuspend) return
+          await fetch(`/api/v1/users/${confirmSuspend.userId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'SUSPENDED', reason: 'Administrative suspension' }),
+          })
+          toast.success('User suspended')
+          setConfirmSuspend(null)
+          fetchUsers()
+        }}
       />
 
       <ConfirmModal
         open={!!confirmReactivate}
         onClose={() => setConfirmReactivate(null)}
-        onConfirm={() => {
-          if (confirmReactivate) handleSetStatus(confirmReactivate, 'ACTIVE')
+        title="Reactivate User Access"
+        message={`Restore active login access for ${confirmReactivate?.name}?`}
+        confirmLabel="Reactivate"
+        onConfirm={async () => {
+          if (!confirmReactivate) return
+          await fetch(`/api/v1/users/${confirmReactivate.userId}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'ACTIVE' }),
+          })
+          toast.success('User reactivated')
+          setConfirmReactivate(null)
+          fetchUsers()
         }}
-        title="Reactivate User Account"
-        message={`Reactivate ${confirmReactivate?.name}'s account? The user will immediately be able to sign in again.`}
-        confirmLabel="Activate User"
       />
 
       <ConfirmModal
         open={!!confirmRevoke}
         onClose={() => setConfirmRevoke(null)}
-        onConfirm={() => {
-          if (confirmRevoke) handleRevokeSessions(confirmRevoke)
-        }}
-        title="Sign Out All Devices"
-        message={`Force sign out ${confirmRevoke?.name} from all web browsers, tablets, and mobile applications? Active auth sessions will be invalidated immediately.`}
-        confirmLabel="Sign Out Devices"
+        title="Revoke All Sessions"
+        message={`Sign out all devices for ${confirmRevoke?.name}? Active JWT sessions will be invalidated immediately.`}
+        confirmLabel="Revoke Sessions"
         danger
+        onConfirm={async () => {
+          if (!confirmRevoke) return
+          await fetch(`/api/v1/users/${confirmRevoke.userId}/revoke-sessions`, { method: 'POST' })
+          toast.success('All sessions revoked')
+          setConfirmRevoke(null)
+        }}
       />
     </div>
   )

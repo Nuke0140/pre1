@@ -126,6 +126,91 @@ export function ConfirmModal({
   )
 }
 
+interface DrawerProps {
+  open: boolean
+  onClose: () => void
+  title: string
+  subtitle?: string
+  icon?: React.ReactNode
+  iconClass?: string
+  children: React.ReactNode
+  footer?: React.ReactNode
+}
+
+export function Drawer({
+  open, onClose, title, subtitle, icon, iconClass = 'ic-purple', children, footer,
+}: DrawerProps) {
+  const panelRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+        return
+      }
+      if (e.key === 'Tab') {
+        const panel = panelRef.current
+        if (!panel) return
+        const focusables = Array.from(
+          panel.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null)
+        if (focusables.length === 0) {
+          e.preventDefault()
+          panel.focus()
+          return
+        }
+        const first = focusables[0]
+        const last = focusables[focusables.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    const focusTimer = window.setTimeout(() => {
+      panelRef.current?.focus()
+    }, 30)
+    document.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.clearTimeout(focusTimer)
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+      opener?.focus()
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="ovl ovl-drawer" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="ovl-backdrop" onClick={onClose} />
+      <div className="drawer" ref={panelRef} tabIndex={-1}>
+        <div className="drawer-head">
+          {icon && <div className={`modal-icon ${iconClass}`}>{icon}</div>}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h3>{title}</h3>
+            {subtitle && <div className="drawer-sub">{subtitle}</div>}
+          </div>
+          <button className="x-btn" onClick={onClose} aria-label="Close">
+            <X />
+          </button>
+        </div>
+        <div className="drawer-body">{children}</div>
+        {footer && <div className="drawer-foot">{footer}</div>}
+      </div>
+    </div>
+  )
+}
+
 function Alert() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

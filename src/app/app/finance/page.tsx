@@ -692,8 +692,10 @@ export default function FinancePage() {
   return (
     <>
       <PageHead
+        eyebrow="Financial Operations & Fee Engine"
+        badge={<span className="badge b-primary b-dot">Reconciled Live</span>}
         title="Fees & Finance Control Center"
-        sub="Authoritative enterprise preschool billing, payments, receipts, fee heads, templates & gateway engine."
+        sub="Enterprise preschool billing, fee structures, receipts, reconciliations, and payment gateway engine."
         actions={
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" onClick={() => exportCsv('invoices')} disabled={busy}>
@@ -721,36 +723,43 @@ export default function FinancePage() {
         }
       />
 
-      {/* PRIMARY KPI ROW */}
-      <div className="kpi-row">
-        <KpiTile
-          label="Total Billed"
-          value={inr(metrics?.totalBilledCents || 0, { compact: true })}
-          icon={<IndianRupee />}
-          iconClass="ic-blue"
-          meta={`${metrics?.counts?.totalInvoices || 0} active invoices`}
-        />
-        <KpiTile
-          label="Total Collected"
-          value={inr(metrics?.totalCollectedCents || 0, { compact: true })}
-          icon={<Wallet />}
-          iconClass="ic-green"
-          trend={{ dir: 'up', text: `${metrics?.collectionRate || 0}% collection rate` }}
-        />
-        <KpiTile
-          label="Outstanding Balance"
-          value={inr(metrics?.totalBalanceCents || 0, { compact: true })}
-          icon={<Receipt />}
-          iconClass="ic-orange"
-          meta={`${metrics?.counts?.partiallyPaid || 0} part · ${metrics?.counts?.issued || 0} pending`}
-        />
-        <KpiTile
-          label="Overdue Balance"
-          value={inr(metrics?.totalOverdueCents || 0, { compact: true })}
-          icon={<AlertCircle />}
-          iconClass="ic-red"
-          meta={`${metrics?.counts?.overdue || 0} overdue invoices`}
-        />
+      {/* CANONICAL METRIC STRIP */}
+      <div className="metric-strip" style={{ marginBottom: 16 }}>
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Total Billed</span>
+            <IndianRupee size={15} style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="m-val">{inr(metrics?.totalBilledCents || 0, { compact: true })}</div>
+          <div className="m-meta">{metrics?.counts?.totalInvoices || 0} active invoices</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Total Collected</span>
+            <Wallet size={15} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{inr(metrics?.totalCollectedCents || 0, { compact: true })}</div>
+          <div className="m-meta" style={{ color: 'var(--success)' }}>{metrics?.collectionRate || 0}% collection rate</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Outstanding Balance</span>
+            <Receipt size={15} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--warning-text, #d97706)' }}>{inr(metrics?.totalBalanceCents || 0, { compact: true })}</div>
+          <div className="m-meta">{metrics?.counts?.partiallyPaid || 0} part · {metrics?.counts?.issued || 0} pending</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Overdue Balance</span>
+            <AlertCircle size={15} style={{ color: 'var(--danger)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--danger)' }}>{inr(metrics?.totalOverdueCents || 0, { compact: true })}</div>
+          <div className="m-meta">{metrics?.counts?.overdue || 0} overdue invoices</div>
+        </div>
       </div>
 
       {/* COMMAND CENTER TAB NAVIGATION */}

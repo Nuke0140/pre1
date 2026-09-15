@@ -344,7 +344,7 @@ export default function SettingsControlCenter() {
   }
 
   return (
-    <div className="space-y-6" style={{ paddingBottom: 60 }}>
+    <div className="page-container space-y-6" style={{ paddingBottom: 60 }}>
       <PageHead
         title="Settings & Administration"
         sub="Unified configuration control center for preschool operations, policies, integrations, and RBAC"
@@ -395,7 +395,7 @@ export default function SettingsControlCenter() {
       </div>
 
       {dirty && (
-        <div className="panel" style={{ backgroundColor: '#fffbeb', borderColor: '#fde68a', color: '#92400e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        <div className="panel" style={{ backgroundColor: 'var(--warning-bg, #fffbeb)', borderColor: 'var(--warning-border, #fde68a)', color: 'var(--warning-text, #92400e)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>
             ⚠️ You have unsaved changes. Remember to save your configuration before navigating away.
           </span>
@@ -1065,9 +1065,9 @@ export default function SettingsControlCenter() {
                 className="panel"
                 style={{
                   marginTop: 14,
-                  backgroundColor: testResult.testStatus === 'REAL_TEST' ? '#f0fdf4' : '#fffbeb',
-                  borderColor: testResult.testStatus === 'REAL_TEST' ? '#bbf7d0' : '#fde68a',
-                  color: testResult.testStatus === 'REAL_TEST' ? '#166534' : '#92400e',
+                  backgroundColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success-bg, #f0fdf4)' : 'var(--warning-bg, #fffbeb)',
+                  borderColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success-border, #bbf7d0)' : 'var(--warning-border, #fde68a)',
+                  color: testResult.testStatus === 'REAL_TEST' ? 'var(--success-text, #166534)' : 'var(--warning-text, #92400e)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
@@ -1346,43 +1346,43 @@ export default function SettingsControlCenter() {
       <Modal open={previewModalOpen} onClose={() => setPreviewModalOpen(false)} title="Template Live Preview">
         {previewData && (
           <div className="space-y-4">
-            <div className="panel" style={{ border: '1px solid var(--border)', padding: 24, backgroundColor: '#fff', color: '#1e293b' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #e2e8f0', paddingBottom: 16, marginBottom: 16 }}>
+            <div className="panel" style={{ border: '1px solid var(--border)', padding: 24, backgroundColor: 'var(--surface)', color: 'var(--text)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid var(--border)', paddingBottom: 16, marginBottom: 16 }}>
                 <div>
                   <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{previewData.school?.name}</h2>
-                  <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>{previewData.school?.address}, {previewData.school?.city}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>{previewData.school?.address}, {previewData.school?.city}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: '#2563eb' }}>{previewData.template?.name}</span>
-                  <p style={{ fontSize: 12, color: '#64748b', margin: '4px 0 0' }}>Sample Render</p>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--primary)' }}>{previewData.template?.name}</span>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>Sample Render</p>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16, fontSize: 13 }}>
                 <div>
-                  <p style={{ color: '#64748b', margin: 0 }}>Student</p>
+                  <p style={{ color: 'var(--text-muted)', margin: 0 }}>Student</p>
                   <p style={{ fontWeight: 600, margin: 0 }}>{previewData.student?.name} ({previewData.student?.admissionNo})</p>
                   <p style={{ margin: '2px 0 0' }}>Class: {previewData.student?.classroom}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ color: '#64748b', margin: 0 }}>Guardian</p>
+                  <p style={{ color: 'var(--text-muted)', margin: 0 }}>Guardian</p>
                   <p style={{ fontWeight: 600, margin: 0 }}>{previewData.guardian?.name}</p>
                   <p style={{ margin: '2px 0 0' }}>Phone: {previewData.guardian?.phone}</p>
                 </div>
               </div>
 
               {previewData.template?.type === 'INVOICE' && previewData.invoice && (
-                <div style={{ marginTop: 16, borderTop: '1px solid #e2e8f0', paddingTop: 12 }}>
+                <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
                   <table style={{ width: '100%', fontSize: 13 }}>
                     <thead>
-                      <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                      <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                         <th style={{ padding: '6px 0' }}>Fee Head</th>
                         <th style={{ padding: '6px 0', textAlign: 'right' }}>Amount (INR)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {previewData.invoice.items?.map((item: any, i: number) => (
-                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                           <td style={{ padding: '8px 0' }}>{item.description}</td>
                           <td style={{ padding: '8px 0', textAlign: 'right' }}>₹{item.amountRupees}</td>
                         </tr>

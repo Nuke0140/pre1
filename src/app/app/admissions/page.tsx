@@ -753,84 +753,96 @@ setEnquiryModal(false)
         }
       />
 
-      {/* Scope Bar: Mandatory Setup Context (Academic Year, Branch, Program & Search) */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: 'var(--surface-card, #ffffff)',
-          border: '1px solid var(--border-color, #e2e8f0)',
-          borderRadius: 12,
-          padding: '12px 18px',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Calendar size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Academic Year:</span>
-            <select
-              className="select"
-              style={{ minWidth: 140, height: 34, fontSize: 13 }}
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
-            >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.isCurrent ? '★ (Current)' : ''}
-                </option>
-              ))}
-            </select>
+      {/* Canonical Metric Strip */}
+      <div className="metric-strip" style={{ marginBottom: 16 }}>
+        {[
+          { label: 'Leads', count: metrics.totalLeads, color: 'var(--primary)', stage: '' },
+          { label: 'Applications', count: metrics.totalApps, color: 'var(--accent)', stage: 'SUBMITTED' },
+          { label: 'Docs Pending', count: metrics.docsPending, color: 'var(--warning)', stage: 'DOCUMENT_PENDING' },
+          { label: 'Counselling', count: metrics.counsellingDue, color: '#06b6d4', stage: 'COUNSELLING' },
+          { label: 'Approval', count: metrics.pendingApproval, color: '#ec4899', stage: 'PENDING_APPROVAL' },
+          { label: 'Offers Sent', count: metrics.offersIssued, color: '#6366f1', stage: 'OFFER_SENT' },
+          { label: 'Accepted', count: metrics.offersAccepted, color: 'var(--success)', stage: 'OFFER_ACCEPTED' },
+          { label: 'Admitted', count: metrics.enrolledCount, color: 'var(--success)', stage: 'ENROLLED' },
+        ].map((st) => (
+          <div
+            key={st.label}
+            className="metric-cell"
+            onClick={() => {
+              setFilterStage(filterStage === st.stage ? '' : st.stage)
+              setTab(st.stage === '' ? 'enquiries' : 'applications')
+            }}
+            style={{
+              cursor: 'pointer',
+              background: filterStage === st.stage ? 'var(--surface)' : undefined,
+              boxShadow: filterStage === st.stage ? 'inset 0 0 0 2px var(--primary)' : undefined,
+            }}
+          >
+            <div className="m-lbl" style={{ color: st.color }}>{st.label}</div>
+            <div className="m-val" style={{ color: st.color }}>{st.count}</div>
+            <div className="m-meta">Click to filter</div>
           </div>
+        ))}
+      </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Building size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Branch:</span>
-            <select
-              className="select"
-              style={{ minWidth: 180, height: 34, fontSize: 13 }}
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.isMain ? '(Main Campus)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Program:</span>
-            <select
-              className="select"
-              style={{ minWidth: 130, height: 34, fontSize: 13 }}
-              value={filterProgram}
-              onChange={(e) => setFilterProgram(e.target.value)}
-            >
-              <option value="">All Programs</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.programType || p.code}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Scope Context Bar */}
+      <div className="school-context-bar" style={{ marginBottom: 16 }}>
+        <div className="context-item">
+          <label><Calendar size={14} style={{ color: 'var(--foreground-muted)' }} /> Academic Year:</label>
+          <select
+            className="select"
+            value={selectedSessionId}
+            onChange={(e) => setSelectedSessionId(e.target.value)}
+          >
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} {s.isCurrent ? '★ (Current)' : ''}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ position: 'relative' }}>
-            <Search
-              size={14}
-              style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-muted)' }}
-            />
+        <span className="context-divider" />
+
+        <div className="context-item">
+          <label><Building size={14} style={{ color: 'var(--foreground-muted)' }} /> Branch:</label>
+          <select
+            className="select"
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} {b.isMain ? '(Main Campus)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <span className="context-divider" />
+
+        <div className="context-item">
+          <label>Program:</label>
+          <select
+            className="select"
+            value={filterProgram}
+            onChange={(e) => setFilterProgram(e.target.value)}
+          >
+            <option value="">All Programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.programType || p.code}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="input-search" style={{ maxWidth: 220 }}>
+            <Search size={14} />
             <input
               className="input"
-              style={{ paddingLeft: 30, height: 34, width: 220, fontSize: 13 }}
-              placeholder="Search child, parent, phone..."
+              placeholder="Search leads, apps..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -838,60 +850,6 @@ setEnquiryModal(false)
           <button className="btn btn-ghost btn-sm" onClick={loadData} title="Refresh data">
             <RefreshCw size={14} className={busy ? 'spin' : ''} />
           </button>
-        </div>
-      </div>
-
-      {/* CRM Interactive Pipeline Bar */}
-      <div
-        style={{
-          background: 'var(--surface-card, #ffffff)',
-          border: '1px solid var(--border-color, #e2e8f0)',
-          borderRadius: 12,
-          padding: '16px 20px',
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600 }}>
-            Preschool Admission Pipeline — {selectedSessionName} ({selectedBranchName})
-          </h3>
-          <span className="kc-meta">Click stage to filter view</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          {[
-            { label: 'Leads', count: metrics.totalLeads, color: '#3b82f6', stage: '' },
-            { label: 'Applications', count: metrics.totalApps, color: '#8b5cf6', stage: 'SUBMITTED' },
-            { label: 'Docs Pending', count: metrics.docsPending, color: '#f59e0b', stage: 'DOCUMENT_PENDING' },
-            { label: 'Counselling', count: metrics.counsellingDue, color: '#06b6d4', stage: 'COUNSELLING' },
-            { label: 'Approval', count: metrics.pendingApproval, color: '#ec4899', stage: 'PENDING_APPROVAL' },
-            { label: 'Offers Sent', count: metrics.offersIssued, color: '#6366f1', stage: 'OFFER_SENT' },
-            { label: 'Accepted', count: metrics.offersAccepted, color: '#14b8a6', stage: 'OFFER_ACCEPTED' },
-            { label: 'Admitted', count: metrics.enrolledCount, color: '#10b981', stage: 'ENROLLED' },
-          ].map((st, idx, arr) => (
-            <React.Fragment key={st.label}>
-              <div
-                onClick={() => {
-                  setFilterStage(filterStage === st.stage ? '' : st.stage)
-                  setTab(st.stage === '' ? 'enquiries' : 'applications')
-                }}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 10,
-                  background: filterStage === st.stage ? `${st.color}15` : 'var(--surface-muted, #f8fafc)',
-                  border: filterStage === st.stage ? `2px solid ${st.color}` : '1px solid var(--border-color, #e2e8f0)',
-                  cursor: 'pointer',
-                  minWidth: 105,
-                  textAlign: 'center',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: st.color }}>{st.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, marginTop: 2 }}>{st.count}</div>
-              </div>
-              {idx < arr.length - 1 && <ArrowRight size={14} style={{ color: '#cbd5e1', flexShrink: 0 }} />}
-            </React.Fragment>
-          ))}
         </div>
       </div>
 
@@ -907,21 +865,21 @@ setEnquiryModal(false)
         <div style={{ marginTop: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
             {/* Column 1: New Enquiries */}
-            <div className="card" style={{ padding: 14, background: '#f8fafc' }}>
+            <div className="card" style={{ padding: 14, background: 'var(--surface-subtle)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: '#2563eb' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: 'var(--primary)' }}>
                   Leads / Enquiries ({enquiries?.filter((e) => ['NEW', 'CONTACTED'].includes(e.status)).length || 0})
                 </span>
                 <button className="btn btn-ghost btn-sm" onClick={() => setEnquiryModal(true)}><Plus size={13} /></button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflowY: 'auto' }}>
                 {enquiries?.filter((e) => ['NEW', 'CONTACTED'].includes(e.status)).map((e) => (
-                  <div key={e.id} className="card" style={{ padding: 12, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <div key={e.id} className="card" style={{ padding: 12, background: 'var(--surface)', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#64748b' }}>{e.leadNumber}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{e.leadNumber}</span>
                       <StatusBadge status={e.status} />
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>{e.childName || 'Child'}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{e.childName || 'Child'}</div>
                     <div className="kc-meta">{e.parentName} · {e.phone}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                       <span className="badge b-pink" style={{ fontSize: 11 }}>{enumLabel(e.interestedProgram || 'NURSERY')}</span>
@@ -935,20 +893,20 @@ setEnquiryModal(false)
             </div>
 
             {/* Column 2: Applications Under Review */}
-            <div className="card" style={{ padding: 14, background: '#f8fafc' }}>
+            <div className="card" style={{ padding: 14, background: 'var(--surface-subtle)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: '#7c3aed' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: 'var(--primary)' }}>
                   Forms & Docs ({applications?.filter((a) => ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW'].includes(a.status)).length || 0})
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflowY: 'auto' }}>
                 {applications?.filter((a) => ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW'].includes(a.status)).map((a) => (
-                  <div key={a.id} className="card" style={{ padding: 12, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <div key={a.id} className="card" style={{ padding: 12, background: 'var(--surface)', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#64748b' }}>{a.applicationNumber}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{a.applicationNumber}</span>
                       <StatusBadge status={a.status} />
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>{a.childName}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{a.childName}</div>
                     <div className="kc-meta">{a.parentName} · {enumLabel(a.programType)}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                       <span className={`badge ${a.documents.every((d) => d.verified) ? 'b-success' : 'b-warning'}`} style={{ fontSize: 11 }}>
@@ -964,20 +922,20 @@ setEnquiryModal(false)
             </div>
 
             {/* Column 3: Approved & Offers Sent */}
-            <div className="card" style={{ padding: 14, background: '#f8fafc' }}>
+            <div className="card" style={{ padding: 14, background: 'var(--surface-subtle)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: '#0284c7' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: 'var(--info, #0284c7)' }}>
                   Approved / Offers ({applications?.filter((a) => ['APPROVED', 'OFFER_SENT', 'OFFER_ACCEPTED'].includes(a.status)).length || 0})
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflowY: 'auto' }}>
                 {applications?.filter((a) => ['APPROVED', 'OFFER_SENT', 'OFFER_ACCEPTED'].includes(a.status)).map((a) => (
-                  <div key={a.id} className="card" style={{ padding: 12, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <div key={a.id} className="card" style={{ padding: 12, background: 'var(--surface)', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#64748b' }}>{a.applicationNumber}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{a.applicationNumber}</span>
                       <StatusBadge status={a.status} />
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>{a.childName}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{a.childName}</div>
                     <div className="kc-meta">{a.parentName} · {enumLabel(a.programType)}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                       <span className="badge b-purple" style={{ fontSize: 11 }}>{enumLabel(a.status)}</span>
@@ -991,20 +949,20 @@ setEnquiryModal(false)
             </div>
 
             {/* Column 4: Final Admissions */}
-            <div className="card" style={{ padding: 14, background: '#f8fafc' }}>
+            <div className="card" style={{ padding: 14, background: 'var(--surface-subtle)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: '#059669' }}>
+                <span style={{ fontWeight: 600, fontSize: 13, textTransform: 'uppercase', color: 'var(--success)' }}>
                   Admitted ({applications?.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).length || 0})
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 520, overflowY: 'auto' }}>
                 {applications?.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).map((a) => (
-                  <div key={a.id} className="card" style={{ padding: 12, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <div key={a.id} className="card" style={{ padding: 12, background: 'var(--surface)', border: '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#64748b' }}>{a.applicationNumber}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{a.applicationNumber}</span>
                       <span className="badge b-success" style={{ fontSize: 11 }}>✓ Enrolled</span>
                     </div>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4 }}>{a.childName}</div>
+                    <div style={{ fontWeight: 600, fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{a.childName}</div>
                     <div className="kc-meta">{a.parentName} · {enumLabel(a.programType)}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                       <span className="badge b-blue" style={{ fontSize: 11 }}>Student Created</span>

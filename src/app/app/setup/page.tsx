@@ -177,7 +177,7 @@ export default function SetupPage() {
   const badge = SETUP_BADGE[status.status] ?? SETUP_BADGE.NOT_STARTED
 
   return (
-    <>
+    <div className="page-container">
       <PageHead
         title="Preschool Setup & Master Configuration"
         sub="Easily view, edit, and configure your preschool foundation, programs, campuses, and business rules in one place."
@@ -1070,6 +1070,6 @@ export default function SetupPage() {
           </button>
         </div>
       </Modal>
-    </>
+    </div>
   )
 }

@@ -61,7 +61,7 @@ export default function CommunicationPage() {
   }
 
   return (
-    <>
+    <div className="page-container">
       <PageHead
         title="Announcements"
         sub="School-wide aur class-level broadcasts — instant delivery."
@@ -158,6 +158,6 @@ export default function CommunicationPage() {
           </div>
         </form>
       </Modal>
-    </>
+    </div>
   )
 }

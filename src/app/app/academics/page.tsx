@@ -664,104 +664,156 @@ export default function AcademicsPage() {
         }
       />
 
-      {/* -- Setup Context Selector Bar (Mandatory Authoritative Scoping) -- */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: 'var(--surface-card, #ffffff)',
-          border: '1px solid var(--border-color, #e2e8f0)',
-          borderRadius: 12,
-          padding: '12px 18px',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Academic Session */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Calendar size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Academic Year:</span>
-            <select
-              className="select"
-              style={{ minWidth: 140, height: 34, fontSize: 13 }}
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
-            >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.isCurrent ? '(Current)' : ''}
-                </option>
-              ))}
-            </select>
+      {/* -- Canonical Metric Strip -- */}
+      <div className="metric-strip" style={{ marginBottom: 16 }}>
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Enrolled</span>
+            <Users size={14} style={{ color: 'var(--primary)' }} />
           </div>
-
-          {/* Branch */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Building size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Branch:</span>
-            <select
-              className="select"
-              style={{ minWidth: 140, height: 34, fontSize: 13 }}
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.isMain ? '(Main)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Program Type Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Filter size={18} style={{ color: 'var(--c-muted, #64748b)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Program:</span>
-            <select
-              className="select"
-              style={{ minWidth: 120, height: 34, fontSize: 13 }}
-              value={filterProgramType}
-              onChange={(e) => setFilterProgramType(e.target.value)}
-            >
-              <option value="">All Programs</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.programType}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Classroom Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <School size={18} style={{ color: 'var(--c-muted, #64748b)' }} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Section:</span>
-            <select
-              className="select"
-              style={{ minWidth: 140, height: 34, fontSize: 13 }}
-              value={filterClassroomId}
-              onChange={(e) => setFilterClassroomId(e.target.value)}
-            >
-              <option value="">All Classrooms</option>
-              {classrooms.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="m-val">{dashboardStats?.enrolledStudentsCount ?? 0}</div>
+          <div className="m-meta">In session</div>
         </div>
 
-        {/* Search & Refresh */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--c-muted)' }} />
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Sections</span>
+            <School size={14} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="m-val">{dashboardStats?.classroomsCount ?? classrooms.length}</div>
+          <div className="m-meta">Active Classrooms</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Teachers</span>
+            <UserCheck size={14} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{dashboardStats?.teachersCount ?? teachers.length}</div>
+          <div className="m-meta">Assigned Staff</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Curriculum</span>
+            <BookOpen size={14} style={{ color: '#8b5cf6' }} />
+          </div>
+          <div className="m-val">{dashboardStats?.curriculumCount ?? curricula.length}</div>
+          <div className="m-meta">Active Frameworks</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Today's Activities</span>
+            <Flame size={14} style={{ color: 'var(--warning)' }} />
+          </div>
+          <div className="m-val" style={{ color: '#B45309' }}>{dashboardStats?.activitiesTodayCount ?? 0}</div>
+          <div className="m-meta">Scheduled Today</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Observations</span>
+            <Sparkles size={14} style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="m-val">{dashboardStats?.observationsCount ?? observations.length}</div>
+          <div className="m-meta">Logged Moments</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Attention</span>
+            <AlertTriangle size={14} style={{ color: 'var(--danger)' }} />
+          </div>
+          <div className="m-val" style={{ color: 'var(--danger)' }}>{dashboardStats?.observationsNeedsAttentionCount ?? 0}</div>
+          <div className="m-meta">Flagged Concerns</div>
+        </div>
+
+        <div className="metric-cell">
+          <div className="m-top">
+            <span className="m-lbl">Mastery</span>
+            <Target size={14} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="m-val m-success">{dashboardStats?.masteryPercentage ?? 0}%</div>
+          <div className="m-meta">Achieved Goals</div>
+        </div>
+      </div>
+
+      {/* -- Canonical School Context Bar -- */}
+      <div className="school-context-bar" style={{ marginBottom: 16 }}>
+        <div className="context-item">
+          <label><Calendar size={14} style={{ color: 'var(--foreground-muted)' }} /> Session:</label>
+          <select
+            className="select"
+            value={selectedSessionId}
+            onChange={(e) => setSelectedSessionId(e.target.value)}
+          >
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} {s.isCurrent ? '(Current)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <span className="context-divider" />
+
+        <div className="context-item">
+          <label><Building size={14} style={{ color: 'var(--foreground-muted)' }} /> Branch:</label>
+          <select
+            className="select"
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} {b.isMain ? '(Main)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <span className="context-divider" />
+
+        <div className="context-item">
+          <label>Program:</label>
+          <select
+            className="select"
+            value={filterProgramType}
+            onChange={(e) => setFilterProgramType(e.target.value)}
+          >
+            <option value="">All Programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.programType}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <span className="context-divider" />
+
+        <div className="context-item">
+          <label><School size={14} style={{ color: 'var(--foreground-muted)' }} /> Section:</label>
+          <select
+            className="select"
+            value={filterClassroomId}
+            onChange={(e) => setFilterClassroomId(e.target.value)}
+          >
+            <option value="">All Classrooms</option>
+            {classrooms.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="input-search" style={{ maxWidth: 220 }}>
+            <Search size={14} />
             <input
               className="input"
-              style={{ paddingLeft: 30, height: 34, fontSize: 13, width: 200 }}
               placeholder="Search curriculum, class..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -775,96 +827,6 @@ export default function AcademicsPage() {
           >
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
-        </div>
-      </div>
-
-      {/* -- 8 Real-Time Operational KPI Metrics -- */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #7c3aed' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Enrolled</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.enrolledStudentsCount ?? 0}
-          </div>
-          <div style={{ fontSize: 11, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <Users size={12} /> In Session
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #0284c7' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Sections</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.classroomsCount ?? classrooms.length}
-          </div>
-          <div style={{ fontSize: 11, color: '#0284c7', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <School size={12} /> Active Classrooms
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #10b981' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Teachers</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.teachersCount ?? teachers.length}
-          </div>
-          <div style={{ fontSize: 11, color: '#10b981', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <UserCheck size={12} /> Assigned Staff
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #8b5cf6' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Curriculum</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.curriculumCount ?? curricula.length}
-          </div>
-          <div style={{ fontSize: 11, color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <BookOpen size={12} /> Active Frameworks
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #f59e0b' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Activities Today</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.activitiesTodayCount ?? 0}
-          </div>
-          <div style={{ fontSize: 11, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <Flame size={12} /> Scheduled Today
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #6366f1' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Observations</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.observationsCount ?? observations.length}
-          </div>
-          <div style={{ fontSize: 11, color: '#6366f1', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <Sparkles size={12} /> Logged Moments
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #ef4444' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Needs Attention</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.observationsNeedsAttentionCount ?? 0}
-          </div>
-          <div style={{ fontSize: 11, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <AlertTriangle size={12} /> Flagged Concerns
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '12px 14px', borderLeft: '4px solid #059669' }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Milestone Mastery</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--c-ink)', marginTop: 4 }}>
-            {dashboardStats?.masteryPercentage ?? 0}%
-          </div>
-          <div style={{ fontSize: 11, color: '#059669', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-            <Target size={12} /> Achieved Goals
-          </div>
         </div>
       </div>
 

@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const roleFilter = url.searchParams.get('role') as UserRole | null
+  const statusFilter = url.searchParams.get('status') as string | null
+  const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
+  const departmentFilter = url.searchParams.get('department')?.toLowerCase()?.trim()
+  const designationFilter = url.searchParams.get('designation')?.toLowerCase()?.trim()
+  const userTypeFilter = url.searchParams.get('userType')?.toUpperCase() // 'STAFF' | 'PARENT'
   const query = url.searchParams.get('q')?.toLowerCase()?.trim()
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50')))
@@ -30,6 +35,35 @@ export async function GET(req: NextRequest) {
             ],
           }
         : {}),
+      ...(statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)
+        ? { status: statusFilter }
+        : {}),
+      ...(branchFilter ? { branchId: branchFilter } : {}),
+      ...(userTypeFilter === 'PARENT'
+        ? {
+            OR: [
+              { role: 'PARENT' },
+              { roles: { has: 'PARENT' } },
+            ],
+          }
+        : userTypeFilter === 'STAFF'
+        ? {
+            AND: [
+              { role: { not: 'PARENT' } },
+              { NOT: { roles: { equals: ['PARENT'] } } },
+            ],
+          }
+        : {}),
+      ...(departmentFilter || designationFilter
+        ? {
+            user: {
+              staffProfile: {
+                ...(departmentFilter ? { department: { contains: departmentFilter, mode: 'insensitive' } } : {}),
+                ...(designationFilter ? { designation: { contains: designationFilter, mode: 'insensitive' } } : {}),
+              },
+            },
+          }
+        : {}),
       ...(query
         ? {
             user: {
@@ -37,13 +71,15 @@ export async function GET(req: NextRequest) {
                 { fullName: { contains: query, mode: 'insensitive' } },
                 { email: { contains: query, mode: 'insensitive' } },
                 { phone: { contains: query } },
+                { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
+                { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
               ],
             },
           }
         : {}),
     }
 
-    const [total, members] = await Promise.all([
+    const [total, members, activeCount, pendingCount, suspendedCount, inactiveCount] = await Promise.all([
       db.tenantUser.count({ where }),
       db.tenantUser.findMany({
         where,
@@ -72,6 +108,10 @@ export async function GET(req: NextRequest) {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'ACTIVE' } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'PENDING' } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'SUSPENDED' } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'INACTIVE' } }),
     ])
 
     return ok(
@@ -93,6 +133,7 @@ export async function GET(req: NextRequest) {
             ? {
                 employeeCode: m.user.staffProfile.employeeCode,
                 designation: m.user.staffProfile.designation,
+                department: m.user.staffProfile.department,
                 qualification: m.user.staffProfile.qualification,
                 employmentType: m.user.staffProfile.employmentType,
               }
@@ -112,7 +153,19 @@ export async function GET(req: NextRequest) {
             : null,
         }
       }),
-      { page, pageSize, total, totalPages: Math.ceil(total / pageSize) }
+      {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        kpis: {
+          total: activeCount + pendingCount + suspendedCount + inactiveCount,
+          active: activeCount,
+          pending: pendingCount,
+          suspended: suspendedCount,
+          inactive: inactiveCount,
+        },
+      }
     )
   } catch (err: any) {
     return serverError(err.message)

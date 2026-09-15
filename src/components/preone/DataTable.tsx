@@ -501,7 +501,11 @@ export function DataTable<T extends { id?: string | number }>({
                     </td>
                   )}
                   {visibleCols.map((col) => (
-                    <td key={col.key} style={{ textAlign: col.align || 'left' }}>
+                    <td
+                      key={col.key}
+                      style={{ textAlign: col.align || 'left' }}
+                      className={col.align === 'right' ? 'cell-num' : undefined}
+                    >
                       {col.render
                         ? col.render(row, idx)
                         : highlightText(cellText(col, row), localSearch)}

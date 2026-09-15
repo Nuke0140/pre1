@@ -462,39 +462,27 @@ export function OperationsClient() {
       />
 
       {/* Top Real-Time KPI Row */}
-      <div className="kpi-row mb-6">
-        <KpiTile
-          label="Present Today"
-          value={`${k.present}/${k.totalStudents}`}
-          icon={<UserCheck />}
-          iconClass="ic-green"
-          meta={`${k.attendancePct}% attendance rate`}
-          trend={{ dir: k.attendancePct >= 80 ? 'up' : 'down', text: `${k.absent} absent · ${k.late} late` }}
-        />
-        <KpiTile
-          label="Checked In (Arrived)"
-          value={k.checkedIn}
-          icon={<Sun />}
-          iconClass="ic-blue"
-          meta={`${k.totalStudents - k.checkedIn} pending gate arrival`}
-          trend={{ dir: 'flat', text: 'Arrival window' }}
-        />
-        <KpiTile
-          label="Pending Pickup"
-          value={k.pickupPending}
-          icon={<Clock />}
-          iconClass="ic-yellow"
-          meta={`${k.checkedOut} released so far`}
-          trend={{ dir: k.pickupPending > 0 ? 'down' : 'up', text: k.pickupPending > 0 ? 'Active release' : 'All released' }}
-        />
-        <KpiTile
-          label="Critical Safety Alerts"
-          value={ex.criticalCount}
-          icon={<Siren />}
-          iconClass={ex.criticalCount > 0 ? 'ic-red' : 'ic-green'}
-          meta={`${ex.attentionCount} items needing attention`}
-          trend={{ dir: ex.criticalCount > 0 ? 'down' : 'up', text: ex.criticalCount > 0 ? 'ACT NOW' : 'ALL CLEAR' }}
-        />
+      <div className="metric-strip mb-6">
+        <div className="metric-cell">
+          <div className="metric-cell-label">Present Today</div>
+          <div className="metric-cell-value">{k.present}<span className="metric-cell-sub">/{k.totalStudents}</span></div>
+          <div className="metric-cell-meta">{k.attendancePct}% attendance · {k.absent} absent</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-cell-label">Checked In (Arrived)</div>
+          <div className="metric-cell-value">{k.checkedIn}</div>
+          <div className="metric-cell-meta">{k.totalStudents - k.checkedIn} pending gate arrival</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-cell-label">Pending Pickup</div>
+          <div className="metric-cell-value" style={{ color: k.pickupPending > 0 ? 'var(--warning-text, #d97706)' : undefined }}>{k.pickupPending}</div>
+          <div className="metric-cell-meta">{k.checkedOut} released so far</div>
+        </div>
+        <div className="metric-cell">
+          <div className="metric-cell-label">Critical Safety Alerts</div>
+          <div className="metric-cell-value" style={{ color: ex.criticalCount > 0 ? 'var(--danger)' : 'var(--success)' }}>{ex.criticalCount}</div>
+          <div className="metric-cell-meta">{ex.attentionCount} items needing attention</div>
+        </div>
       </div>
 
       {/* Module Navigation Tabs */}

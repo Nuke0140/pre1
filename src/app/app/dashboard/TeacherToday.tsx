@@ -92,6 +92,8 @@ export function TeacherToday() {
   return (
     <>
       <PageHead
+        eyebrow="Teacher Daily Workspace"
+        badge={<span className="badge b-primary b-dot">Classroom Care</span>}
         title="Aaj ke actions"
         sub={`${data.today} · ${data.sections.length} section(s) · ${data.actions.followUpsOpen} follow-ups open${dayClosed ? ' · SCHOOL CLOSED TODAY' : ''}`}
         actions={
