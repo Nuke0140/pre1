@@ -3,7 +3,7 @@ import { db } from '@/lib/db'
 import { ok, bad } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 
-/** GET /api/v1/users/guardians — fetch guardians available for account linking */
+/** GET /api/v1/users/guardians Â— fetch guardians available for account linking */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session

@@ -1,5 +1,5 @@
 /**
- * PreOne — Users & RBAC Module Complete Upgrade E2E Verification Suite
+ * PreOne Â— Users & RBAC Module Complete Upgrade E2E Verification Suite
  *
  * Validates:
  * Test A: Multi-Role Permission Union (TEACHER + ACCOUNTS)

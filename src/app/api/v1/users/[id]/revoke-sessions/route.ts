@@ -4,7 +4,7 @@ import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 
-/** POST /api/v1/users/[id]/revoke-sessions — sign out all devices & revoke active sessions */
+/** POST /api/v1/users/[id]/revoke-sessions Â— sign out all devices & revoke active sessions */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')

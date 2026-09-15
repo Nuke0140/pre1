@@ -11,6 +11,7 @@ import { Avatar } from '@/components/preone/ui'
 import { navForRole, NavItem } from '@/lib/nav'
 import { Role } from '@/lib/auth'
 import { enumLabel, timeAgo } from '@/lib/format'
+import { GlobalSearchModal } from '@/components/shell/GlobalSearchModal'
 
 export interface ShellUser {
   name: string
@@ -25,6 +26,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const pathname = usePathname()
 
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [clock, setClock] = useState({ time: '', date: '' })
@@ -128,16 +130,18 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     return () => clearInterval(iv)
   }, [])
 
-  // keyboard: Ctrl/⌘+K or / opens start menu; Esc closes
+  // keyboard: Ctrl/⌘+K opens global search modal; Esc closes; / opens start menu
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const inInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
-        setMenuOpen((v) => !v)
+        setMenuOpen(false)
+        setSearchModalOpen((v) => !v)
       } else if (e.key === 'Escape') {
         setMenuOpen(false)
-      } else if (e.key === '/' && !inInput) {
+        setSearchModalOpen(false)
+      } else if (e.key === '/' && !inInput && !searchModalOpen) {
         e.preventDefault()
         setMenuOpen(true)
         setTimeout(() => searchRef.current?.focus(), 50)
@@ -145,12 +149,13 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [searchModalOpen])
 
-  // close menu & notifications on navigation
+  // close menu, search modal & notifications on navigation
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setMenuOpen(false)
+    setSearchModalOpen(false)
     setNotifOpen(false)
   }, [pathname])
 
@@ -205,15 +210,19 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           <b>{current}</b>
         </div>
         <div className="h-spacer" />
-        <div className="h-search">
+        <div className="h-search" onClick={() => setSearchModalOpen(true)} style={{ cursor: 'pointer' }}>
           <Search />
           <input
             suppressHydrationWarning
             ref={headerSearchRef}
-            placeholder="Search modules, students…"
-            onFocus={() => { setMenuOpen(true); setTimeout(() => searchRef.current?.focus(), 30) }}
+            placeholder="Search students, staff, invoices, classes…"
+            onFocus={(e) => {
+              e.preventDefault()
+              setSearchModalOpen(true)
+            }}
             readOnly
             aria-label="Global search"
+            style={{ cursor: 'pointer' }}
           />
           <kbd>⌘K</kbd>
         </div>
@@ -239,7 +248,8 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
                 position: 'absolute',
                 top: 'calc(100% + 8px)',
                 right: 0,
-                width: 340,
+                width: 'min(340px, calc(100vw - 20px))',
+                maxWidth: 'calc(100vw - 20px)',
                 maxHeight: 440,
                 backgroundColor: 'var(--bg-card, #ffffff)',
                 border: '1px solid var(--border, #e2e8f0)',
@@ -442,6 +452,12 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           </div>
         </div>
       </nav>
+
+      {/* ── Global Search Command Palette Modal ── */}
+      <GlobalSearchModal
+        isOpen={searchModalOpen}
+        onClose={() => setSearchModalOpen(false)}
+      />
     </>
   )
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-/** PreOne API v1 envelope — { success, data, meta?, traceId } (API Contract Catalog §8) */
+/** PreOne API v1 envelope Â— { success, data, meta?, traceId } (API Contract Catalog Â§8) */
 export function traceId(): string {
   return (
     Date.now().toString(16) + Math.random().toString(16).slice(2, 10)
