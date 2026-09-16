@@ -48,9 +48,13 @@ export async function GET(req: NextRequest) {
                 admissionNo: true,
                 photoUrl: true,
                 guardians: {
-                  include: {
+                  select: {
+                    id: true,
+                    relationship: true,
+                    isPrimary: true,
+                    canPickup: true,
                     guardian: {
-                      select: { id: true, fullName: true, phone: true, relationship: true, pickupPin: true, userId: true },
+                      select: { id: true, fullName: true, phone: true, relationship: true, userId: true },
                     },
                   },
                 },

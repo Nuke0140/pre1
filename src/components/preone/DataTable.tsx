@@ -631,6 +631,100 @@ export function DataTable<T extends { id?: string | number }>({
           </tbody>
         </table>
 
+        {/* Mobile Card List Transformation (DS v4.1 Section 20 & 63: <760px) */}
+        <div className="dt-mobile-cards" role="region" aria-label="Mobile records view">
+          {paged.length > 0 && paged.map((row, idx) => {
+            const rid = row.id
+            const isSel = rid !== undefined && selection.has(rid)
+            const primaryCol = visibleCols[0]
+            const remainingCols = visibleCols.slice(1)
+
+            return (
+              <div
+                key={rid !== undefined ? String(rid) : idx}
+                className={`dt-card${isSel ? ' dt-selected' : ''}`}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement
+                  if (target.closest('button, input, a, label')) return
+                  if (onRowClick) onRowClick(row)
+                }}
+                style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+              >
+                {/* Card Header: Checkbox + First Column + Actions */}
+                <div className="dt-card-head">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                    {rowSelection && (
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        checked={isSel}
+                        onChange={() => toggleRow(rid)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ width: 16, height: 16, accentColor: 'var(--primary)', flexShrink: 0 }}
+                      />
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      {primaryCol && (
+                        primaryCol.render
+                          ? primaryCol.render(row, idx)
+                          : highlightText(cellText(primaryCol, row), localSearch)
+                      )}
+                    </div>
+                  </div>
+
+                  {rowActions && (
+                    <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                      <span className="menu-anchor">
+                        <button
+                          className="btn btn-ghost btn-sm dt-icon-btn kebab"
+                          onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: `m-${String(rid)}` })}
+                          aria-label="Row actions"
+                          aria-haspopup="menu"
+                          aria-expanded={menu?.kind === 'kebab' && menu.rowId === `m-${String(rid)}`}
+                        >
+                          <MoreVertical size={15} />
+                        </button>
+                        {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === `m-${String(rid)}` && (
+                          <div className="menu" role="menu" style={{ right: 0 }}>
+                            {(rowActions(row) || []).map((act, i) => (
+                              <button
+                                key={i}
+                                className={`menu-item${act.danger ? ' menu-danger' : ''}${act.disabled ? ' menu-disabled' : ''}`}
+                                role="menuitem"
+                                disabled={act.disabled}
+                                onClick={() => { setMenu(null); act.onClick() }}
+                              >
+                                {act.icon}
+                                {act.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Body: Remaining columns as labeled key-value fields */}
+                {remainingCols.length > 0 && (
+                  <div className="dt-card-body">
+                    {remainingCols.map((col) => (
+                      <div key={col.key} className="dt-card-field">
+                        <span className="dt-card-lbl">{col.header}</span>
+                        <div className="dt-card-val">
+                          {col.render
+                            ? col.render(row, idx)
+                            : highlightText(cellText(col, row), localSearch)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
         {loading && (
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[...Array(5)].map((_, i) => (

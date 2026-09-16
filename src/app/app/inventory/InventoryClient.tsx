@@ -506,7 +506,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           <div className="metric-cell">
             <div className="m-top">
               <span className="m-lbl">Pending Requisitions</span>
-              <Clock size={15} style={{ color: '#8b5cf6' }} />
+              <Clock size={15} style={{ color: 'var(--primary)' }} />
             </div>
             <div className="m-val">{metrics?.pendingMaterialRequestsCount || 0}</div>
             <div className="m-meta">{metrics?.pendingPurchaseRequestsCount || 0} purchase requests</div>

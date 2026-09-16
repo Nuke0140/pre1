@@ -287,6 +287,24 @@ export default function AdmissionsPage() {
     data: null,
     tab: 'overview',
   })
+  const drawerPanelRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!inspector.open) return
+    const opener = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setInspector({ open: false, formId: null, data: null, tab: 'overview' })
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    const timer = setTimeout(() => drawerPanelRef.current?.focus(), 50)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('keydown', onKey)
+      opener?.focus()
+    }
+  }, [inspector.open])
 
   // Inspector Action States
   const [selectedClassId, setSelectedClassId] = useState<string>('')
@@ -970,14 +988,14 @@ setEnquiryModal(false)
 
   // Operational Journey Stages configuration
   const journeyStages = [
-    { label: 'Leads', count: metrics.totalLeads, subtext: 'New enquiries', stage: '', icon: <Users size={15} />, iconBg: '#EAF2FE', iconColor: '#3B82F6' },
-    { label: 'Applications', count: metrics.totalApps, subtext: 'In progress', stage: 'SUBMITTED', icon: <FileText size={15} />, iconBg: '#F0ECFF', iconColor: '#5B3DF5' },
-    { label: 'Docs Pending', count: metrics.docsPending, subtext: 'Need verification', stage: 'DOCUMENT_PENDING', icon: <ClipboardList size={15} />, iconBg: '#FEF3DD', iconColor: '#F59E0B' },
-    { label: 'Counselling', count: metrics.counsellingDue, subtext: 'Due today', stage: 'COUNSELLING', icon: <MessageCircle size={15} />, iconBg: '#E0F2FE', iconColor: '#0284C7' },
-    { label: 'Approval', count: metrics.pendingApproval, subtext: 'Awaiting review', stage: 'PENDING_APPROVAL', icon: <ShieldAlert size={15} />, iconBg: '#FCE7F3', iconColor: '#DB2777' },
-    { label: 'Offers Sent', count: metrics.offersIssued, subtext: 'Issued', stage: 'OFFER_SENT', icon: <FileSignature size={15} />, iconBg: '#EDE9FE', iconColor: '#7C3AED' },
-    { label: 'Accepted', count: metrics.offersAccepted, subtext: 'Confirmed', stage: 'OFFER_ACCEPTED', icon: <CheckCircle2 size={15} />, iconBg: '#E8F8F2', iconColor: '#10B981' },
-    { label: 'Admitted', count: metrics.enrolledCount, subtext: 'Enrolled', stage: 'ENROLLED', icon: <GraduationCap size={15} />, iconBg: '#E8F8F2', iconColor: '#059669' },
+    { label: 'Leads', count: metrics.totalLeads, subtext: 'New enquiries', stage: '', icon: <Users size={15} />, iconBg: 'var(--info-soft)', iconColor: 'var(--info)' },
+    { label: 'Applications', count: metrics.totalApps, subtext: 'In progress', stage: 'SUBMITTED', icon: <FileText size={15} />, iconBg: 'var(--primary-light)', iconColor: 'var(--primary)' },
+    { label: 'Docs Pending', count: metrics.docsPending, subtext: 'Need verification', stage: 'DOCUMENT_PENDING', icon: <ClipboardList size={15} />, iconBg: 'var(--warning-soft)', iconColor: 'var(--warning)' },
+    { label: 'Counselling', count: metrics.counsellingDue, subtext: 'Due today', stage: 'COUNSELLING', icon: <MessageCircle size={15} />, iconBg: 'var(--info-soft)', iconColor: 'var(--info)' },
+    { label: 'Approval', count: metrics.pendingApproval, subtext: 'Awaiting review', stage: 'PENDING_APPROVAL', icon: <ShieldAlert size={15} />, iconBg: 'var(--accent-light)', iconColor: 'var(--accent)' },
+    { label: 'Offers Sent', count: metrics.offersIssued, subtext: 'Issued', stage: 'OFFER_SENT', icon: <FileSignature size={15} />, iconBg: 'var(--primary-light)', iconColor: 'var(--primary)' },
+    { label: 'Accepted', count: metrics.offersAccepted, subtext: 'Confirmed', stage: 'OFFER_ACCEPTED', icon: <CheckCircle2 size={15} />, iconBg: 'var(--success-soft)', iconColor: 'var(--success)' },
+    { label: 'Admitted', count: metrics.enrolledCount, subtext: 'Enrolled', stage: 'ENROLLED', icon: <GraduationCap size={15} />, iconBg: 'var(--success-soft)', iconColor: 'var(--success)' },
   ]
 
   // Enquiries source badge color mapper
@@ -1001,17 +1019,17 @@ setEnquiryModal(false)
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 750, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5B3DF5', background: '#F0ECFF', padding: '3px 9px', borderRadius: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 750, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--primary)', background: 'var(--primary-light)', padding: '3px 9px', borderRadius: 6 }}>
               PREONE OPS
             </span>
-            <span style={{ fontSize: 12, color: '#8A94A8', fontWeight: 500 }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>
               {selectedSessionName} · {selectedBranchName}
             </span>
           </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, color: '#15254A', letterSpacing: '-0.025em', margin: 0 }}>
+          <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em', margin: 0 }}>
             Admissions & CRM
           </h1>
-          <p style={{ fontSize: 14.5, color: '#66738F', margin: '4px 0 0', maxWidth: 640, lineHeight: 1.45 }}>
+          <p style={{ fontSize: 14.5, color: 'var(--text-secondary)', margin: '4px 0 0', maxWidth: 640, lineHeight: 1.45 }}>
             Manage enquiries, applications, follow-ups and student enrollment.
           </p>
         </div>
@@ -1026,9 +1044,9 @@ setEnquiryModal(false)
               height: 42,
               padding: '0 16px',
               borderRadius: 12,
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
-              color: '#15254A',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-primary)',
               fontWeight: 650,
               fontSize: 13,
               display: 'inline-flex',
@@ -1038,7 +1056,7 @@ setEnquiryModal(false)
               cursor: 'pointer',
             }}
           >
-            <UserPlus size={15} style={{ color: '#5B3DF5' }} />
+            <UserPlus size={15} style={{ color: 'var(--primary)' }} />
             <span>+ New Lead</span>
           </button>
 
@@ -1050,9 +1068,9 @@ setEnquiryModal(false)
               height: 42,
               padding: '0 16px',
               borderRadius: 12,
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
-              color: '#15254A',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
+              color: 'var(--text-primary)',
               fontWeight: 650,
               fontSize: 13,
               display: 'inline-flex',
@@ -1062,7 +1080,7 @@ setEnquiryModal(false)
               cursor: 'pointer',
             }}
           >
-            <Download size={15} style={{ color: '#2563EB' }} />
+            <Download size={15} style={{ color: 'var(--info)' }} />
             <span>Import CSV</span>
           </button>
 
@@ -1074,9 +1092,9 @@ setEnquiryModal(false)
               height: 42,
               padding: '0 18px',
               borderRadius: 12,
-              background: 'linear-gradient(135deg, #5B3DF5 0%, #4528C7 100%)',
+              background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary) 100%)',
               border: 'none',
-              color: '#FFFFFF',
+              color: 'var(--surface)',
               fontWeight: 650,
               fontSize: 13,
               display: 'inline-flex',
@@ -1098,9 +1116,9 @@ setEnquiryModal(false)
               height: 42,
               padding: '0 14px',
               borderRadius: 12,
-              background: tab === 'waiting' ? '#FEF3C7' : '#FFFFFF',
-              border: '1px solid #E7EAF2',
-              color: tab === 'waiting' ? '#92400E' : '#66738F',
+              background: tab === 'waiting' ? 'var(--warning-soft)' : 'var(--surface)',
+              border: '1px solid var(--border-default)',
+              color: tab === 'waiting' ? 'var(--warning)' : 'var(--text-secondary)',
               fontWeight: 650,
               fontSize: 13,
               display: 'inline-flex',
@@ -1156,7 +1174,7 @@ setEnquiryModal(false)
 
         {/* Academic Session */}
         <div className="adm-context-field">
-          <label><Calendar size={14} style={{ color: '#5B3DF5' }} /> Academic Year:</label>
+          <label><Calendar size={14} style={{ color: 'var(--primary)' }} /> Academic Year:</label>
           <select
             value={selectedSessionId}
             onChange={(e) => setSelectedSessionId(e.target.value)}
@@ -1170,11 +1188,11 @@ setEnquiryModal(false)
           </select>
         </div>
 
-        <span style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <span style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
         {/* Branch / Campus */}
         <div className="adm-context-field">
-          <label><Building size={14} style={{ color: '#5B3DF5' }} /> Branch:</label>
+          <label><Building size={14} style={{ color: 'var(--primary)' }} /> Branch:</label>
           <select
             value={selectedBranchId}
             onChange={(e) => setSelectedBranchId(e.target.value)}
@@ -1188,11 +1206,11 @@ setEnquiryModal(false)
           </select>
         </div>
 
-        <span style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <span style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
         {/* Program Filter */}
         <div className="adm-context-field">
-          <label><Filter size={14} style={{ color: '#66738F' }} /> Program:</label>
+          <label><Filter size={14} style={{ color: 'var(--text-secondary)' }} /> Program:</label>
           <select
             value={filterProgram}
             onChange={(e) => setFilterProgram(e.target.value)}
@@ -1237,7 +1255,7 @@ setEnquiryModal(false)
             title="Refresh admissions data"
             style={{ height: 38, width: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <RefreshCw size={15} className={busy ? 'spin' : ''} style={{ color: '#66738F' }} />
+            <RefreshCw size={15} className={busy ? 'spin' : ''} style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
       </div>
@@ -1278,11 +1296,11 @@ setEnquiryModal(false)
           <div className="adm-kanban-col">
             <div className="adm-kanban-col-head">
               <div className="adm-kanban-stage-title">
-                <span className="adm-kanban-dot" style={{ background: '#3B82F6' }} />
+                <span className="adm-kanban-dot" style={{ background: 'var(--info)' }} />
                 <span>Leads / Enquiries</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#66738F', background: '#FFFFFF', padding: '2px 8px', borderRadius: 999, border: '1px solid #E7EAF2' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border-default)' }}>
                   {enquiries?.filter((e) => ['NEW', 'CONTACTED'].includes(e.status)).length || 0}
                 </span>
                 <button
@@ -1292,7 +1310,7 @@ setEnquiryModal(false)
                   title="Add enquiry"
                   style={{ padding: 4, height: 26, width: 26, borderRadius: 6 }}
                 >
-                  <Plus size={14} style={{ color: '#5B3DF5' }} />
+                  <Plus size={14} style={{ color: 'var(--primary)' }} />
                 </button>
               </div>
             </div>
@@ -1314,7 +1332,7 @@ setEnquiryModal(false)
                     <div className="adm-kanban-child">{e.childName || 'Child Unspecified'}</div>
 
                     <div className="adm-kanban-parent">
-                      <User size={13} style={{ color: '#8A94A8' }} />
+                      <User size={13} style={{ color: 'var(--text-muted)' }} />
                       <span>{e.parentName} · {e.phone}</span>
                     </div>
 
@@ -1323,11 +1341,11 @@ setEnquiryModal(false)
                         {enumLabel(e.interestedProgram || 'NURSERY')}
                       </span>
                       {childAge !== null && (
-                        <span style={{ fontSize: 11.5, color: '#66738F', background: '#F1F4FA', padding: '2px 6px', borderRadius: 4 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--border-subtle)', padding: '2px 6px', borderRadius: 4 }}>
                           {childAge} months
                         </span>
                       )}
-                      <span style={{ fontSize: 11, color: '#8A94A8' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {selectedBranchName}
                       </span>
                     </div>
@@ -1340,7 +1358,7 @@ setEnquiryModal(false)
                     )}
 
                     <div className="adm-kanban-foot" onClick={(evt) => evt.stopPropagation()}>
-                      <span style={{ fontSize: 11, color: '#8A94A8' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {fmtDate(e.createdAt)}
                       </span>
                       <button
@@ -1357,7 +1375,7 @@ setEnquiryModal(false)
               })}
 
               {enquiries?.filter((e) => ['NEW', 'CONTACTED'].includes(e.status)).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '28px 12px', color: '#8A94A8', fontSize: 13 }}>
+                <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                   No active enquiries in this view
                 </div>
               )}
@@ -1368,10 +1386,10 @@ setEnquiryModal(false)
           <div className="adm-kanban-col">
             <div className="adm-kanban-col-head">
               <div className="adm-kanban-stage-title">
-                <span className="adm-kanban-dot" style={{ background: '#F59E0B' }} />
+                <span className="adm-kanban-dot" style={{ background: 'var(--warning)' }} />
                 <span>Forms & Docs</span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#66738F', background: '#FFFFFF', padding: '2px 8px', borderRadius: 999, border: '1px solid #E7EAF2' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border-default)' }}>
                 {applications?.filter((a) => ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW', 'COUNSELLING'].includes(a.status)).length || 0}
               </span>
             </div>
@@ -1397,7 +1415,7 @@ setEnquiryModal(false)
                     <div className="adm-kanban-child">{a.childName}</div>
 
                     <div className="adm-kanban-parent">
-                      <User size={13} style={{ color: '#8A94A8' }} />
+                      <User size={13} style={{ color: 'var(--text-muted)' }} />
                       <span>{a.parentName} · {a.parentPhone}</span>
                     </div>
 
@@ -1406,13 +1424,13 @@ setEnquiryModal(false)
                         {enumLabel(a.programType)}
                       </span>
                       {childAge !== null && (
-                        <span style={{ fontSize: 11.5, color: '#66738F', background: '#F1F4FA', padding: '2px 6px', borderRadius: 4 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--border-subtle)', padding: '2px 6px', borderRadius: 4 }}>
                           {childAge} months
                         </span>
                       )}
                     </div>
 
-                    <div className="adm-kanban-next-action" style={{ color: isFullyVerified ? '#059669' : '#D97706', borderColor: isFullyVerified ? '#A7F3D0' : '#FDE68A' }}>
+                    <div className="adm-kanban-next-action" style={{ color: isFullyVerified ? 'var(--success)' : 'var(--warning)', borderColor: isFullyVerified ? 'var(--border-success)' : 'var(--border-warning)' }}>
                       <ClipboardList size={12} />
                       <span>Next: {isFullyVerified ? 'Ready for Counselling / Approval' : 'Verify pending documents'}</span>
                     </div>
@@ -1435,7 +1453,7 @@ setEnquiryModal(false)
               })}
 
               {applications?.filter((a) => ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW', 'COUNSELLING'].includes(a.status)).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '28px 12px', color: '#8A94A8', fontSize: 13 }}>
+                <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                   No applications pending review
                 </div>
               )}
@@ -1446,10 +1464,10 @@ setEnquiryModal(false)
           <div className="adm-kanban-col">
             <div className="adm-kanban-col-head">
               <div className="adm-kanban-stage-title">
-                <span className="adm-kanban-dot" style={{ background: '#7C3AED' }} />
+                <span className="adm-kanban-dot" style={{ background: 'var(--primary)' }} />
                 <span>Approved / Offers</span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#66738F', background: '#FFFFFF', padding: '2px 8px', borderRadius: 999, border: '1px solid #E7EAF2' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border-default)' }}>
                 {applications?.filter((a) => ['APPROVED', 'OFFER_SENT', 'OFFER_ACCEPTED'].includes(a.status)).length || 0}
               </span>
             </div>
@@ -1471,7 +1489,7 @@ setEnquiryModal(false)
                     <div className="adm-kanban-child">{a.childName}</div>
 
                     <div className="adm-kanban-parent">
-                      <User size={13} style={{ color: '#8A94A8' }} />
+                      <User size={13} style={{ color: 'var(--text-muted)' }} />
                       <span>{a.parentName} · {a.parentPhone}</span>
                     </div>
 
@@ -1480,13 +1498,13 @@ setEnquiryModal(false)
                         {enumLabel(a.programType)}
                       </span>
                       {childAge !== null && (
-                        <span style={{ fontSize: 11.5, color: '#66738F', background: '#F1F4FA', padding: '2px 6px', borderRadius: 4 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--border-subtle)', padding: '2px 6px', borderRadius: 4 }}>
                           {childAge} months
                         </span>
                       )}
                     </div>
 
-                    <div className="adm-kanban-next-action" style={{ color: '#7C3AED', borderColor: '#DDD6FE' }}>
+                    <div className="adm-kanban-next-action" style={{ color: 'var(--primary)', borderColor: 'var(--primary-light)' }}>
                       <FileSignature size={12} />
                       <span>
                         Next: {a.status === 'APPROVED' ? 'Generate Offer Letter' : a.status === 'OFFER_SENT' ? 'Awaiting Parent Acceptance' : 'Classroom Section Allocation'}
@@ -1494,7 +1512,7 @@ setEnquiryModal(false)
                     </div>
 
                     <div className="adm-kanban-foot" onClick={(evt) => evt.stopPropagation()}>
-                      <span style={{ fontSize: 11, color: '#8A94A8' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {fmtDate(a.submittedAt)}
                       </span>
                       <button
@@ -1511,7 +1529,7 @@ setEnquiryModal(false)
               })}
 
               {applications?.filter((a) => ['APPROVED', 'OFFER_SENT', 'OFFER_ACCEPTED'].includes(a.status)).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '28px 12px', color: '#8A94A8', fontSize: 13 }}>
+                <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                   No approved files pending offer/enrolment
                 </div>
               )}
@@ -1522,10 +1540,10 @@ setEnquiryModal(false)
           <div className="adm-kanban-col">
             <div className="adm-kanban-col-head">
               <div className="adm-kanban-stage-title">
-                <span className="adm-kanban-dot" style={{ background: '#10B981' }} />
+                <span className="adm-kanban-dot" style={{ background: 'var(--success)' }} />
                 <span>Enrolled Students</span>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#66738F', background: '#FFFFFF', padding: '2px 8px', borderRadius: 999, border: '1px solid #E7EAF2' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border-default)' }}>
                 {applications?.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).length || 0}
               </span>
             </div>
@@ -1549,7 +1567,7 @@ setEnquiryModal(false)
                     <div className="adm-kanban-child">{a.childName}</div>
 
                     <div className="adm-kanban-parent">
-                      <User size={13} style={{ color: '#8A94A8' }} />
+                      <User size={13} style={{ color: 'var(--text-muted)' }} />
                       <span>{a.parentName} · {a.parentPhone}</span>
                     </div>
 
@@ -1558,19 +1576,19 @@ setEnquiryModal(false)
                         {enumLabel(a.programType)}
                       </span>
                       {childAge !== null && (
-                        <span style={{ fontSize: 11.5, color: '#66738F', background: '#F1F4FA', padding: '2px 6px', borderRadius: 4 }}>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', background: 'var(--border-subtle)', padding: '2px 6px', borderRadius: 4 }}>
                           {childAge} months
                         </span>
                       )}
                     </div>
 
-                    <div className="adm-kanban-next-action" style={{ color: '#059669', borderColor: '#A7F3D0', background: '#F0FDF4' }}>
+                    <div className="adm-kanban-next-action" style={{ color: 'var(--success)', borderColor: 'var(--border-success)', background: 'var(--success-soft)' }}>
                       <GraduationCap size={12} />
                       <span>Student master created · Section allocated</span>
                     </div>
 
                     <div className="adm-kanban-foot" onClick={(evt) => evt.stopPropagation()}>
-                      <span style={{ fontSize: 11, color: '#8A94A8' }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         {a.approvedAt ? fmtDate(a.approvedAt) : fmtDate(a.submittedAt)}
                       </span>
                       <button
@@ -1587,7 +1605,7 @@ setEnquiryModal(false)
               })}
 
               {applications?.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).length === 0 && (
-                <div style={{ textAlign: 'center', padding: '28px 12px', color: '#8A94A8', fontSize: 13 }}>
+                <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
                   No completed admissions yet
                 </div>
               )}
@@ -1605,7 +1623,7 @@ setEnquiryModal(false)
                 key: 'leadNumber',
                 header: 'Enquiry #',
                 sortValue: (e) => e.leadNumber,
-                render: (e) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 650, color: '#5B3DF5' }}>{e.leadNumber}</span>
+                render: (e) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 650, color: 'var(--primary)' }}>{e.leadNumber}</span>
               },
               {
                 key: 'childName',
@@ -1627,7 +1645,7 @@ setEnquiryModal(false)
                 sortValue: (e) => e.parentName,
                 render: (e) => (
                   <div>
-                    <span style={{ fontWeight: 600, color: '#15254A' }}>{e.parentName}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{e.parentName}</span>
                     <span className="cell-sub">{e.phone}</span>
                   </div>
                 )
@@ -1658,7 +1676,7 @@ setEnquiryModal(false)
                 header: 'Next Action Due',
                 sortValue: (e) => e.nextFollowUpAt || '',
                 render: (e) => (
-                  <span style={{ fontSize: 12.5, color: e.nextFollowUpAt ? '#15254A' : '#8A94A8' }}>
+                  <span style={{ fontSize: 12.5, color: e.nextFollowUpAt ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                     {e.nextFollowUpAt ? fmtDate(e.nextFollowUpAt) : 'None set'}
                   </span>
                 )
@@ -1686,10 +1704,10 @@ setEnquiryModal(false)
       {/* ── 3. FOLLOW-UPS WORKSPACE ── */}
       {tab === 'followups' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 750, color: '#15254A', margin: 0 }}>Parent Follow-up CRM Centre</h3>
-              <p style={{ fontSize: 13, color: '#66738F', margin: '4px 0 0' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>Parent Follow-up CRM Centre</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                 Operational callback queue, WhatsApp follow-ups, and scheduled school visits.
               </p>
             </div>
@@ -1717,10 +1735,10 @@ setEnquiryModal(false)
 
                   return (
                     <tr key={enq.id}>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: '#5B3DF5' }}>{enq.leadNumber}</td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: 'var(--primary)' }}>{enq.leadNumber}</td>
                       <td>
-                        <div style={{ fontWeight: 650, color: '#15254A' }}>{enq.childName || 'Child Unspecified'}</div>
-                        <div style={{ fontSize: 12, color: '#66738F' }}>Parent: {enq.parentName}</div>
+                        <div style={{ fontWeight: 650, color: 'var(--text-primary)' }}>{enq.childName || 'Child Unspecified'}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Parent: {enq.parentName}</div>
                       </td>
                       <td style={{ fontSize: 13 }}>{enq.phone}</td>
                       <td><StatusBadge status={enq.status} /></td>
@@ -1746,7 +1764,7 @@ setEnquiryModal(false)
                           onClick={() => setFollowUpModal({ open: true, enquiry: enq })}
                           style={{ height: 32, gap: 6 }}
                         >
-                          <Phone size={13} style={{ color: '#5B3DF5' }} /> Log Follow-up
+                          <Phone size={13} style={{ color: 'var(--primary)' }} /> Log Follow-up
                         </button>
                       </td>
                     </tr>
@@ -1767,7 +1785,7 @@ setEnquiryModal(false)
                 key: 'applicationNumber',
                 header: 'Form #',
                 sortValue: (f) => f.applicationNumber,
-                render: (f) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 650, color: '#5B3DF5' }}>{f.applicationNumber}</span>
+                render: (f) => <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 650, color: 'var(--primary)' }}>{f.applicationNumber}</span>
               },
               {
                 key: 'childName',
@@ -1795,7 +1813,7 @@ setEnquiryModal(false)
                 sortValue: (f) => f.parentName,
                 render: (f) => (
                   <div>
-                    <span style={{ fontWeight: 600, color: '#15254A' }}>{f.parentName}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.parentName}</span>
                     <span className="cell-sub">{f.parentPhone}</span>
                   </div>
                 )
@@ -1837,10 +1855,10 @@ setEnquiryModal(false)
       {/* ── 5. WAITING LIST WORKSPACE ── */}
       {tab === 'waitlist' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 750, color: '#15254A', margin: 0 }}>Waiting List Queue Management</h3>
-              <p style={{ fontSize: 13, color: '#66738F', margin: '4px 0 0' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>Waiting List Queue Management</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                 Applications held due to full classroom sections. Re-evaluate as seats become available.
               </p>
             </div>
@@ -1870,15 +1888,15 @@ setEnquiryModal(false)
                         #{String(idx + 1).padStart(2, '0')}
                       </span>
                     </td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: '#5B3DF5' }}>{f.applicationNumber}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: 'var(--primary)' }}>{f.applicationNumber}</td>
                     <td>
-                      <div style={{ fontWeight: 650, color: '#15254A' }}>{f.childName}</div>
-                      <div style={{ fontSize: 12, color: '#66738F' }}>{f.childDob ? `${calculateAgeMonths(f.childDob)} months` : '—'}</div>
+                      <div style={{ fontWeight: 650, color: 'var(--text-primary)' }}>{f.childName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.childDob ? `${calculateAgeMonths(f.childDob)} months` : '—'}</div>
                     </td>
                     <td><span className="badge b-pink">{enumLabel(f.programType)}</span></td>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#15254A' }}>{f.parentName}</div>
-                      <div style={{ fontSize: 12, color: '#66738F' }}>{f.parentPhone}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.parentName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.parentPhone}</div>
                     </td>
                     <td><StatusBadge status={f.status} /></td>
                     <td>
@@ -1910,10 +1928,10 @@ setEnquiryModal(false)
       {/* ── 6. ADMISSIONS WORKSPACE ── */}
       {tab === 'admissions' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 14, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h3 style={{ fontSize: 16, fontWeight: 750, color: '#15254A', margin: 0 }}>Enrolled Student Master List ({selectedSessionName})</h3>
-              <p style={{ fontSize: 13, color: '#66738F', margin: '4px 0 0' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>Enrolled Student Master List ({selectedSessionName})</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                 Active student master records, parent linkages, classroom allocations, and finance records.
               </p>
             </div>
@@ -1938,19 +1956,19 @@ setEnquiryModal(false)
               <tbody>
                 {applications?.filter((f) => ['ENROLLED', 'ADMITTED'].includes(f.status)).map((f) => (
                   <tr key={f.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: '#5B3DF5' }}>{f.applicationNumber}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 650, color: 'var(--primary)' }}>{f.applicationNumber}</td>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#15254A' }}>{f.childName}</div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{f.childName}</div>
                       {f.studentId && (
-                        <div style={{ fontSize: 11.5, color: '#5B3DF5', fontFamily: 'var(--font-mono)' }}>
+                        <div style={{ fontSize: 11.5, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>
                           STU: {f.studentId.slice(0, 10)}...
                         </div>
                       )}
                     </td>
                     <td><span className="badge b-pink">{enumLabel(f.programType)}</span></td>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#15254A' }}>{f.parentName}</div>
-                      <div style={{ fontSize: 12, color: '#66738F' }}>{f.parentPhone}</div>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.parentName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{f.parentPhone}</div>
                     </td>
                     <td><span className="badge b-success">✓ Active Student</span></td>
                     <td style={{ fontSize: 12.5 }}>{f.approvedAt ? fmtDate(f.approvedAt) : fmtDate(f.submittedAt)}</td>
@@ -1985,80 +2003,80 @@ setEnquiryModal(false)
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Conversion Metrics Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-            <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderTop: '4px solid #3B82F6', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#66738F', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderTop: '4px solid var(--info)', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Lead → Application Rate
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#15254A', marginTop: 6, letterSpacing: '-0.03em' }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginTop: 6, letterSpacing: '-0.03em' }}>
                 {metrics.leadToAppPct}%
               </div>
-              <div style={{ fontSize: 13, color: '#8A94A8', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 {metrics.totalApps} applications from {metrics.totalLeads} leads
               </div>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderTop: '4px solid #7C3AED', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#66738F', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderTop: '4px solid var(--primary)', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Application → Offer Rate
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#15254A', marginTop: 6, letterSpacing: '-0.03em' }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginTop: 6, letterSpacing: '-0.03em' }}>
                 {metrics.appToOfferPct}%
               </div>
-              <div style={{ fontSize: 13, color: '#8A94A8', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 {metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount} offers generated
               </div>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderTop: '4px solid #10B981', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#66738F', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderTop: '4px solid var(--success)', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Offer → Admission Rate
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#15254A', marginTop: 6, letterSpacing: '-0.03em' }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginTop: 6, letterSpacing: '-0.03em' }}>
                 {metrics.offerToAdmPct}%
               </div>
-              <div style={{ fontSize: 13, color: '#8A94A8', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 {metrics.enrolledCount} enrolled from offers
               </div>
             </div>
 
-            <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderTop: '4px solid #06B6D4', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#66738F', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderTop: '4px solid var(--info)', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Overall Conversion (Lead → Enrolled)
               </div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: '#15254A', marginTop: 6, letterSpacing: '-0.03em' }}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-primary)', marginTop: 6, letterSpacing: '-0.03em' }}>
                 {metrics.leadToAdmPct}%
               </div>
-              <div style={{ fontSize: 13, color: '#8A94A8', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 {metrics.enrolledCount} final enrolments
               </div>
             </div>
           </div>
 
           {/* Admission Journey Funnel Representation */}
-          <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 16, padding: '22px 24px', boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-            <h4 style={{ fontSize: 16, fontWeight: 750, color: '#15254A', margin: '0 0 16px' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 16, padding: '22px 24px', boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+            <h4 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: '0 0 16px' }}>
               Authoritative Admission Lifecycle Funnel
             </h4>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
-                { stage: '1. Total Leads Captured', count: metrics.totalLeads, max: metrics.totalLeads || 1, color: '#3B82F6' },
-                { stage: '2. Applications Submitted', count: metrics.totalApps, max: metrics.totalLeads || 1, color: '#5B3DF5' },
-                { stage: '3. Approved for Admission', count: metrics.pendingApproval + metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: '#DB2777' },
-                { stage: '4. Official Offers Issued', count: metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: '#7C3AED' },
-                { stage: '5. Offers Accepted', count: metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: '#10B981' },
-                { stage: '6. Final Enrolled Students', count: metrics.enrolledCount, max: metrics.totalLeads || 1, color: '#059669' },
+                { stage: '1. Total Leads Captured', count: metrics.totalLeads, max: metrics.totalLeads || 1, color: 'var(--info)' },
+                { stage: '2. Applications Submitted', count: metrics.totalApps, max: metrics.totalLeads || 1, color: 'var(--primary)' },
+                { stage: '3. Approved for Admission', count: metrics.pendingApproval + metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: 'var(--accent)' },
+                { stage: '4. Official Offers Issued', count: metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: 'var(--primary)' },
+                { stage: '5. Offers Accepted', count: metrics.offersAccepted + metrics.enrolledCount, max: metrics.totalLeads || 1, color: 'var(--success)' },
+                { stage: '6. Final Enrolled Students', count: metrics.enrolledCount, max: metrics.totalLeads || 1, color: 'var(--success)' },
               ].map((fn, idx) => {
                 const pct = Math.min(100, Math.round((fn.count / (fn.max || 1)) * 100))
                 return (
                   <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                      <span style={{ fontWeight: 650, color: '#15254A' }}>{fn.stage}</span>
+                      <span style={{ fontWeight: 650, color: 'var(--text-primary)' }}>{fn.stage}</span>
                       <span style={{ fontWeight: 700, color: fn.color }}>
                         {fn.count} ({metrics.totalLeads > 0 ? `${pct}%` : '—'})
                       </span>
                     </div>
-                    <div style={{ height: 10, background: '#F1F4FA', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ height: 10, background: 'var(--border-subtle)', borderRadius: 999, overflow: 'hidden' }}>
                       <div
                         style={{
                           height: '100%',
@@ -2079,21 +2097,32 @@ setEnquiryModal(false)
 
       {/* ── APPLICATION 360 INSPECTOR (SLIDE-OUT RIGHT DRAWER) ── */}
       {inspector.open && (
-        <div className="adm-drawer-overlay" onClick={() => setInspector({ open: false, formId: null, data: null, tab: 'overview' })}>
-          <div className="adm-drawer-panel" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="adm-drawer-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="adm-inspector-title"
+          onClick={() => setInspector({ open: false, formId: null, data: null, tab: 'overview' })}
+        >
+          <div
+            className="adm-drawer-panel"
+            ref={drawerPanelRef}
+            tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Drawer Header */}
             <div className="adm-drawer-header">
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: '#5B3DF5' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>
                     {inspector.data?.application.applicationNumber || 'APP-FILE'}
                   </span>
                   {inspector.data && <StatusBadge status={inspector.data.application.status} />}
                 </div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#15254A', margin: '4px 0 0' }}>
+                <h3 id="adm-inspector-title" style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', margin: '4px 0 0' }}>
                   {inspector.data ? `${inspector.data.application.childFirstName} ${inspector.data.application.childLastName || ''}`.trim() : 'Application File'}
                 </h3>
-                <div style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                   {inspector.data && enumLabel(inspector.data.application.programType)} · {selectedBranchName} ({selectedSessionName})
                 </div>
               </div>
@@ -2143,39 +2172,39 @@ setEnquiryModal(false)
                   {inspector.tab === 'overview' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                        <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#66738F' }}>Current Stage</div>
+                        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Current Stage</div>
                           <div style={{ marginTop: 4 }}><StatusBadge status={inspector.data.application.status} /></div>
                         </div>
 
-                        <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#66738F' }}>Originating Lead</div>
-                          <div style={{ fontWeight: 650, fontSize: 13.5, color: '#15254A', marginTop: 4 }}>
+                        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Originating Lead</div>
+                          <div style={{ fontWeight: 650, fontSize: 13.5, color: 'var(--text-primary)', marginTop: 4 }}>
                             {inspector.data.application.lead?.leadNumber || 'Direct Application'}
                           </div>
                         </div>
 
-                        <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#66738F' }}>Submitted On</div>
-                          <div style={{ fontSize: 13, color: '#15254A', marginTop: 4 }}>
+                        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Submitted On</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
                             {fmtDate(inspector.data.application.submittedAt || new Date().toISOString())}
                           </div>
                         </div>
 
-                        <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 12 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#66738F' }}>Classroom</div>
-                          <div style={{ fontSize: 13, color: '#15254A', marginTop: 4 }}>
+                        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 12 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Classroom</div>
+                          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
                             {inspector.data.application.classroomId ? 'Allocated' : 'Pending Allocation'}
                           </div>
                         </div>
                       </div>
 
                       {inspector.data.application.notes && (
-                        <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 14 }}>
-                          <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: '#66738F', marginBottom: 4 }}>
+                        <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 14 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 4 }}>
                             Application Notes
                           </div>
-                          <p style={{ fontSize: 13, color: '#15254A', margin: 0, whiteSpace: 'pre-line' }}>
+                          <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-line' }}>
                             {inspector.data.application.notes}
                           </p>
                         </div>
@@ -2232,29 +2261,29 @@ setEnquiryModal(false)
                       </div>
 
                       {/* Sibling Logic Card */}
-                      <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderLeft: '4px solid #5B3DF5', borderRadius: 12, padding: 14, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#15254A' }}>
+                      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderLeft: '4px solid var(--primary)', borderRadius: 12, padding: 14, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>
                           Sibling & Existing Child Connectivity
                         </div>
                         {inspector.data.requirements.siblingConcession.hasSibling ? (
                           <div style={{ marginTop: 8 }}>
-                            <p style={{ fontSize: 12.5, color: '#66738F', margin: 0 }}>
+                            <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: 0 }}>
                               Matching guardian contact found for the following enrolled student(s):
                             </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                               {inspector.data.requirements.siblingConcession.existingChildren.map((sib) => (
-                                <div key={sib.studentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: '#F8F9FE', borderRadius: 8, fontSize: 12.5 }}>
+                                <div key={sib.studentId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 12.5 }}>
                                   <span><b>{sib.name}</b> ({sib.admissionNo})</span>
                                   <span className="badge b-purple">{sib.classroom}</span>
                                 </div>
                               ))}
                             </div>
-                            <div style={{ marginTop: 10, fontSize: 12.5, color: '#10B981', fontWeight: 650 }}>
+                            <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--success)', fontWeight: 650 }}>
                               ✓ Sibling Concession Eligible: {inspector.data.requirements.siblingConcession.applicableDiscountPercent}% discount applicable on Tuition Fee.
                             </div>
                           </div>
                         ) : (
-                          <p style={{ fontSize: 12.5, color: '#66738F', margin: '6px 0 0' }}>
+                          <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
                             No other children currently enrolled under this guardian contact.
                           </p>
                         )}
@@ -2266,7 +2295,7 @@ setEnquiryModal(false)
                   {inspector.tab === 'documents' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', margin: 0 }}>
+                        <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                           Authoritative Verification Checklist
                         </h4>
                         <button
@@ -2288,8 +2317,8 @@ setEnquiryModal(false)
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              background: '#FFFFFF',
-                              border: '1px solid #E7EAF2',
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border-default)',
                               borderRadius: 10,
                               padding: '10px 14px',
                             }}
@@ -2299,15 +2328,15 @@ setEnquiryModal(false)
                                 <span className={`badge ${d.status === 'VERIFIED' || d.verified ? 'b-success' : d.status === 'REJECTED' ? 'b-danger' : 'b-warning'}`}>
                                   {d.status === 'VERIFIED' || d.verified ? '✓ Verified' : d.status === 'REJECTED' ? '✗ Rejected' : '⏳ Pending'}
                                 </span>
-                                <span style={{ fontSize: 13, fontWeight: 650, color: '#15254A' }}>{enumLabel(d.docType)}</span>
+                                <span style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-primary)' }}>{enumLabel(d.docType)}</span>
                               </div>
                               {d.rejectionReason && (
-                                <div style={{ color: '#EF4444', fontSize: 12, marginTop: 4, fontWeight: 500 }}>
+                                <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4, fontWeight: 500 }}>
                                   Reason: {d.rejectionReason}
                                 </div>
                               )}
                               {d.remarks && !d.rejectionReason && (
-                                <div style={{ color: '#8A94A8', fontSize: 12, marginTop: 2 }}>{d.remarks}</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>{d.remarks}</div>
                               )}
                             </div>
 
@@ -2349,7 +2378,7 @@ setEnquiryModal(false)
                   {/* TAB: COUNSELLING */}
                   {inspector.tab === 'counselling' && (
                     <form onSubmit={handleSaveCounselling} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', margin: 0 }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                         Record Counselling & Child Interaction
                       </h4>
                       <div className="form-grid">
@@ -2418,40 +2447,40 @@ setEnquiryModal(false)
                   {/* TAB: APPROVAL GATE */}
                   {inspector.tab === 'approval' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 12, padding: 14 }}>
-                        <h4 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: '#15254A', margin: '0 0 10px' }}>
+                      <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 14 }}>
+                        <h4 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-primary)', margin: '0 0 10px' }}>
                           Authoritative Approval Gate Assessment
                         </h4>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {inspector.data.requirements.ageRequirement.eligible ? (
-                              <CheckCircle2 size={18} style={{ color: '#10B981' }} />
+                              <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
                             ) : (
-                              <XCircle size={18} style={{ color: '#EF4444' }} />
+                              <XCircle size={18} style={{ color: 'var(--danger)' }} />
                             )}
-                            <span style={{ fontSize: 13, color: '#15254A' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                               Age Requirement ({inspector.data.requirements.ageRequirement.ageMonths}m)
                             </span>
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {inspector.data.requirements.documentsCheck.isComplete ? (
-                              <CheckCircle2 size={18} style={{ color: '#10B981' }} />
+                              <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
                             ) : (
-                              <AlertTriangle size={18} style={{ color: '#F59E0B' }} />
+                              <AlertTriangle size={18} style={{ color: 'var(--warning)' }} />
                             )}
-                            <span style={{ fontSize: 13, color: '#15254A' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                               Documents ({inspector.data.requirements.documentsCheck.verified}/{inspector.data.requirements.documentsCheck.total})
                             </span>
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {inspector.data.requirements.capacityCheck.hasAvailableCapacity ? (
-                              <CheckCircle2 size={18} style={{ color: '#10B981' }} />
+                              <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
                             ) : (
-                              <XCircle size={18} style={{ color: '#EF4444' }} />
+                              <XCircle size={18} style={{ color: 'var(--danger)' }} />
                             )}
-                            <span style={{ fontSize: 13, color: '#15254A' }}>
+                            <span style={{ fontSize: 13, color: 'var(--text-primary)' }}>
                               Classroom Capacity Available
                             </span>
                           </div>
@@ -2494,19 +2523,19 @@ setEnquiryModal(false)
                   {inspector.tab === 'offer' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                       {inspector.data.requirements.feePlanQuote && (
-                        <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
+                        <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, boxShadow: '0 1px 3px rgba(21,37,74,0.03)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', margin: 0 }}>
+                            <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                               Applicable Fee Plan: {inspector.data.requirements.feePlanQuote.name}
                             </h4>
-                            <span style={{ fontSize: 16, fontWeight: 800, color: '#10B981' }}>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--success)' }}>
                               ₹{inspector.data.requirements.feePlanQuote.totalAnnualRupees.toLocaleString('en-IN')}/yr
                             </span>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginTop: 12 }}>
                             {inspector.data.requirements.feePlanQuote.items.map((it, idx) => (
-                              <div key={idx} style={{ padding: '8px 12px', background: '#F8F9FE', borderRadius: 8, fontSize: 12.5 }}>
-                                <b style={{ color: '#15254A' }}>{it.label}:</b> ₹{it.amountRupees.toLocaleString('en-IN')}
+                              <div key={idx} style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 12.5 }}>
+                                <b style={{ color: 'var(--text-primary)' }}>{it.label}:</b> ₹{it.amountRupees.toLocaleString('en-IN')}
                               </div>
                             ))}
                           </div>
@@ -2515,13 +2544,13 @@ setEnquiryModal(false)
 
                       {/* Branded Offer Letter View or Generator */}
                       {inspector.data.application.offers.length > 0 ? (
-                        <div style={{ background: '#FCFAFF', border: '2px solid #7C3AED', borderRadius: 14, padding: 18 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E9D5FF', paddingBottom: 10 }}>
+                        <div style={{ background: 'var(--bg-subtle)', border: '2px solid var(--primary)', borderRadius: 14, padding: 18 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--primary-light)', paddingBottom: 10 }}>
                             <div>
-                              <div style={{ fontSize: 11, fontWeight: 750, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                              <div style={{ fontSize: 11, fontWeight: 750, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                 Official Admission Offer
                               </div>
-                              <div style={{ fontSize: 17, fontWeight: 800, color: '#15254A', marginTop: 2 }}>
+                              <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-primary)', marginTop: 2 }}>
                                 {inspector.data.application.offers[0].offerNumber}
                               </div>
                             </div>
@@ -2550,7 +2579,7 @@ setEnquiryModal(false)
                         </div>
                       ) : (
                         <div style={{ textAlign: 'center', padding: '28px 0' }}>
-                          <p style={{ color: '#8A94A8', fontSize: 13 }}>No offer letter has been generated yet for this application.</p>
+                          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No offer letter has been generated yet for this application.</p>
                           <button
                             type="button"
                             className="btn btn-primary"
@@ -2568,16 +2597,16 @@ setEnquiryModal(false)
                   {/* TAB: ENROLMENT */}
                   {inspector.tab === 'enrollment' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 12, padding: 16 }}>
+                      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                          <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', margin: 0 }}>
+                          <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                             Classroom / Section Allocation
                           </h4>
                           <button
                             type="button"
                             className="btn btn-sm"
                             onClick={() => openAllocationModal(inspector.data!.application.id)}
-                            style={{ fontSize: 12, height: 28, background: '#EEF2FF', color: '#5B3DF5', border: '1px solid #C7D2FE' }}
+                            style={{ fontSize: 12, height: 28, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--border-subtle)' }}
                           >
                             <Sparkles size={13} /> Evaluate Allocation Engine
                           </button>
@@ -2614,17 +2643,17 @@ setEnquiryModal(false)
                   {/* TAB: TIMELINE */}
                   {inspector.tab === 'timeline' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', margin: 0 }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                         Immutable Admission Audit History
                       </h4>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 420, overflowY: 'auto' }}>
                         {inspector.data.timeline.map((item) => (
-                          <div key={item.id} style={{ display: 'flex', gap: 12, padding: '10px 14px', background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 10, fontSize: 12.5 }}>
-                            <div style={{ minWidth: 110, color: '#8A94A8', fontSize: 12 }}>{fmtDate(item.createdAt)}</div>
+                          <div key={item.id} style={{ display: 'flex', gap: 12, padding: '10px 14px', background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 10, fontSize: 12.5 }}>
+                            <div style={{ minWidth: 110, color: 'var(--text-muted)', fontSize: 12 }}>{fmtDate(item.createdAt)}</div>
                             <div style={{ flex: 1 }}>
                               <span className="badge b-blue" style={{ fontSize: 11, marginRight: 8 }}>{item.action}</span>
-                              <span style={{ color: '#15254A', fontWeight: 500 }}>{item.summary}</span>
-                              {item.actorName && <span style={{ color: '#8A94A8', fontSize: 11.5 }}> (by {item.actorName})</span>}
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.summary}</span>
+                              {item.actorName && <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}> (by {item.actorName})</span>}
                             </div>
                           </div>
                         ))}
@@ -2709,8 +2738,8 @@ setEnquiryModal(false)
         wide
       >
         {duplicateWarning ? (
-          <div style={{ padding: 14, background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b45309', fontWeight: 600 }}>
+          <div style={{ padding: 14, background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--warning)', fontWeight: 600 }}>
               <AlertTriangle size={20} /> Possible Duplicate Application Detected
             </div>
             <p style={{ marginTop: 8, fontSize: 13 }}>{duplicateWarning}</p>
@@ -2798,10 +2827,10 @@ setEnquiryModal(false)
                   </div>
                 </div>
 
-                <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Sparkles size={16} style={{ color: '#5B3DF5', flexShrink: 0 }} />
-                  <div style={{ fontSize: 12.5, color: '#66738F' }}>
-                    <strong style={{ color: '#15254A' }}>Sibling Concession Auto-Detection:</strong> If another enrolled child shares this parent phone/email, the 10% Sibling Concession is automatically recommended during Fee Offer generation.
+                <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Sparkles size={16} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>Sibling Concession Auto-Detection:</strong> If another enrolled child shares this parent phone/email, the 10% Sibling Concession is automatically recommended during Fee Offer generation.
                   </div>
                 </div>
               </div>
@@ -2813,16 +2842,16 @@ setEnquiryModal(false)
                   <input className="input" name="address" placeholder="Flat 402, Sunshine Residency..." />
                 </div>
 
-                <div style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(21,37,74,0.03)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid #E7EAF2' }}>
-                    <FileCheck2 size={16} style={{ color: '#5B3DF5' }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 700, color: '#15254A' }}>Review Application Dossier</span>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 16, boxShadow: '0 2px 8px rgba(21,37,74,0.03)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--border-default)' }}>
+                    <FileCheck2 size={16} style={{ color: 'var(--primary)' }} />
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>Review Application Dossier</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                     {appSummary.map((r) => (
-                      <div key={r.k} style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 8, padding: '8px 12px' }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#66738F', textTransform: 'uppercase' }}>{r.k}</div>
-                        <div style={{ fontSize: 13, fontWeight: 650, color: '#15254A', marginTop: 2 }}>{r.v || '—'}</div>
+                      <div key={r.k} style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '8px 12px' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{r.k}</div>
+                        <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-primary)', marginTop: 2 }}>{r.v || '—'}</div>
                       </div>
                     ))}
                   </div>
@@ -2918,8 +2947,8 @@ setEnquiryModal(false)
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Top Type Selector & Progress */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, paddingBottom: 12, borderBottom: '1px solid #E7EAF2' }}>
-            <div style={{ display: 'flex', gap: 6, background: '#F1F4FA', padding: 4, borderRadius: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, paddingBottom: 12, borderBottom: '1px solid var(--border-default)' }}>
+            <div style={{ display: 'flex', gap: 6, background: 'var(--border-subtle)', padding: 4, borderRadius: 10 }}>
               <button
                 type="button"
                 className={`btn btn-sm ${csvType === 'leads' ? 'btn-primary' : 'btn-ghost'}`}
@@ -2942,7 +2971,7 @@ setEnquiryModal(false)
               href={`/api/v1/admissions/import/template?type=${csvType}`}
               download
               className="btn btn-sm btn-ghost"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#5B3DF5', border: '1px solid #E0E7FF' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--primary)', border: '1px solid var(--primary-light)' }}
             >
               <Download size={14} /> Download Sample CSV Template
             </a>
@@ -2951,10 +2980,10 @@ setEnquiryModal(false)
           {/* STEP 0: Upload / Paste CSV */}
           {csvStep === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ border: '2px dashed #CBD5E1', borderRadius: 12, padding: 24, textAlign: 'center', background: '#F8FAFC' }}>
-                <FileText size={32} style={{ color: '#64748B', margin: '0 auto 8px' }} />
-                <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#15254A' }}>Upload or Paste CSV Data</h4>
-                <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
+              <div style={{ border: '2px dashed var(--border-default)', borderRadius: 12, padding: 24, textAlign: 'center', background: 'var(--bg-subtle)' }}>
+                <FileText size={32} style={{ color: 'var(--text-secondary)', margin: '0 auto 8px' }} />
+                <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>Upload or Paste CSV Data</h4>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
                   Paste raw CSV text below or drop your CSV file contents. First row must contain column headers.
                 </p>
               </div>
@@ -2988,14 +3017,14 @@ setEnquiryModal(false)
           {/* STEP 1: Map Columns */}
           {csvStep === 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ background: '#EEF2FF', padding: '10px 14px', borderRadius: 8, fontSize: 13, color: '#3730A3' }}>
+              <div style={{ background: 'var(--primary-light)', padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--primary)' }}>
                 Parsed <strong>{csvRawRows.length} data rows</strong>. Map your CSV headers to canonical PreOne fields below:
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, maxHeight: 380, overflowY: 'auto', paddingRight: 4 }}>
                 {Object.keys(csvMapping).map((cf) => (
-                  <div key={cf} style={{ background: '#FFFFFF', border: '1px solid #E7EAF2', borderRadius: 8, padding: 10 }}>
-                    <label style={{ fontSize: 12, fontWeight: 700, color: '#15254A', textTransform: 'capitalize' }}>
+                  <div key={cf} style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 10 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
                       {cf.replace(/([A-Z])/g, ' $1')}
                     </label>
                     <select
@@ -3032,28 +3061,28 @@ setEnquiryModal(false)
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Validation Summary Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 10, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>TOTAL ROWS</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#15254A' }}>{csvValidationResult.totalRows}</div>
+                <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', padding: 10, borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>TOTAL ROWS</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>{csvValidationResult.totalRows}</div>
                 </div>
-                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: 10, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#16A34A' }}>READY / VALID</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#15803D' }}>{csvValidationResult.validCount}</div>
+                <div style={{ background: 'var(--success-soft)', border: '1px solid var(--border-success)', padding: 10, borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>READY / VALID</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)' }}>{csvValidationResult.validCount}</div>
                 </div>
-                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', padding: 10, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#D97706' }}>DUPLICATES</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#B45309' }}>{csvValidationResult.duplicateCount}</div>
+                <div style={{ background: 'var(--warning-soft)', border: '1px solid var(--border-warning)', padding: 10, borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning)' }}>DUPLICATES</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--warning)' }}>{csvValidationResult.duplicateCount}</div>
                 </div>
-                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: 10, borderRadius: 8, textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>INVALID</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#B91C1C' }}>{csvValidationResult.invalidCount}</div>
+                <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--border-danger)', padding: 10, borderRadius: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>INVALID</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)' }}>{csvValidationResult.invalidCount}</div>
                 </div>
               </div>
 
               {/* Duplicate Action Selector */}
               {csvValidationResult.duplicateCount > 0 && (
-                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: 12 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#92400E', marginBottom: 6 }}>
+                <div style={{ background: 'var(--warning-soft)', border: '1px solid var(--border-warning)', borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--warning)', marginBottom: 6 }}>
                     ⚠ Potential Duplicates Detected ({csvValidationResult.duplicateCount} records):
                   </div>
                   <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12.5 }}>
@@ -3080,7 +3109,7 @@ setEnquiryModal(false)
               )}
 
               {/* Row Preview List */}
-              <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid #E7EAF2', borderRadius: 8 }}>
+              <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid var(--border-default)', borderRadius: 8 }}>
                 <table className="dtable" style={{ fontSize: 12 }}>
                   <thead>
                     <tr>
@@ -3130,28 +3159,28 @@ setEnquiryModal(false)
           {/* STEP 4: Import Complete Summary */}
           {csvStep === 4 && csvImportResult && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 999, background: '#DCFCE7', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+              <div style={{ width: 48, height: 48, borderRadius: 999, background: 'var(--success-soft)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
                 <CheckCircle size={24} />
               </div>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#15254A' }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--text-primary)' }}>
                 CSV Import Batch {csvImportResult.batchId} Executed
               </h3>
-              <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
                 All records were processed through the canonical admission engine with immutable audit trails.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, maxWidth: 440, margin: '10px auto 0' }}>
-                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', padding: 12, borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#16A34A' }}>IMPORTED</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#15803D' }}>{csvImportResult.success}</div>
+                <div style={{ background: 'var(--success-soft)', border: '1px solid var(--border-success)', padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>IMPORTED</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--success)' }}>{csvImportResult.success}</div>
                 </div>
-                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 12, borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>SKIPPED</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#334155' }}>{csvImportResult.skipped}</div>
+                <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>SKIPPED</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-secondary)' }}>{csvImportResult.skipped}</div>
                 </div>
-                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: 12, borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#DC2626' }}>FAILED</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: '#B91C1C' }}>{csvImportResult.failed}</div>
+                <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--border-danger)', padding: 12, borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>FAILED</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--danger)' }}>{csvImportResult.failed}</div>
                 </div>
               </div>
 
@@ -3178,16 +3207,16 @@ setEnquiryModal(false)
         icon={<Building size={22} />}
       >
         {allocModal.loading ? (
-          <div style={{ padding: 24, textAlign: 'center', color: '#64748B' }}>
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
             <RefreshCw size={24} className="spin" style={{ margin: '0 auto 8px' }} />
             <p>Evaluating classroom divisions and capacity policies...</p>
           </div>
         ) : allocModal.data ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ background: '#F8F9FE', border: '1px solid #E7EAF2', borderRadius: 10, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Configured Allocation Policy</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#15254A' }}>{allocModal.data.allocationPolicy.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Configured Allocation Policy</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{allocModal.data.allocationPolicy.replace(/_/g, ' ')}</div>
               </div>
               <span className="badge b-purple">
                 Total Available Seats: {allocModal.data.totalAvailableSeats}
@@ -3195,7 +3224,7 @@ setEnquiryModal(false)
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 12.5, fontWeight: 700, color: '#15254A' }}>Select Classroom Division:</label>
+              <label style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>Select Classroom Division:</label>
               {allocModal.data.divisions.map((div: any) => {
                 const isSelected = allocModal.selectedClassId === div.id
                 const isRecommended = allocModal.data.recommendedClassroomId === div.id
@@ -3204,8 +3233,8 @@ setEnquiryModal(false)
                     key={div.id}
                     onClick={() => { if (!div.isFull) setAllocModal((prev) => ({ ...prev, selectedClassId: div.id })) }}
                     style={{
-                      border: `1.5px solid ${isSelected ? '#5B3DF5' : div.isFull ? '#E2E8F0' : '#E7EAF2'}`,
-                      background: isSelected ? '#F5F3FF' : div.isFull ? '#F8FAFC' : '#FFFFFF',
+                      border: `1.5px solid ${isSelected ? 'var(--primary)' : div.isFull ? 'var(--border-default)' : 'var(--border-default)'}`,
+                      background: isSelected ? 'var(--primary-light)' : div.isFull ? 'var(--bg-subtle)' : 'var(--surface)',
                       opacity: div.isFull ? 0.65 : 1,
                       borderRadius: 10,
                       padding: '12px 16px',
@@ -3218,7 +3247,7 @@ setEnquiryModal(false)
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <strong style={{ fontSize: 14, color: '#15254A' }}>{div.name}</strong>
+                        <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{div.name}</strong>
                         {isRecommended && !div.isFull && (
                           <span className="badge b-success" style={{ fontSize: 11 }}>
                             ★ Recommended
@@ -3230,7 +3259,7 @@ setEnquiryModal(false)
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
                         Capacity: {div.capacity} · Enrolled: {div.allocated} · Available: {div.availableSeats} seats
                       </div>
                     </div>
@@ -3250,7 +3279,7 @@ setEnquiryModal(false)
               <button
                 type="button"
                 className="btn btn-outline"
-                style={{ color: '#D97706', borderColor: '#FDE68A' }}
+                style={{ color: 'var(--warning)', borderColor: 'var(--border-warning)' }}
                 onClick={() => handleConfirmAllocation('waitlist')}
                 disabled={busy}
               >

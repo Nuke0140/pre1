@@ -748,7 +748,7 @@ export default function FinancePage() {
             <span className="m-lbl">Outstanding Balance</span>
             <Receipt size={15} style={{ color: 'var(--warning)' }} />
           </div>
-          <div className="m-val" style={{ color: 'var(--warning-text, #d97706)' }}>{inr(metrics?.totalBalanceCents || 0, { compact: true })}</div>
+          <div className="m-val" style={{ color: 'var(--warning)' }}>{inr(metrics?.totalBalanceCents || 0, { compact: true })}</div>
           <div className="m-meta">{metrics?.counts?.partiallyPaid || 0} part · {metrics?.counts?.issued || 0} pending</div>
         </div>
 
@@ -811,7 +811,7 @@ export default function FinancePage() {
                     style={{
                       width: `${Math.min(100, metrics?.collectionRate || 0)}%`,
                       height: '100%',
-                      background: 'var(--success, #16a34a)',
+                      background: 'var(--success)',
                     }}
                   />
                 </div>
@@ -836,7 +836,7 @@ export default function FinancePage() {
                 </div>
                 <div style={{ background: 'var(--surface-sunken)', padding: 12, borderRadius: 8 }}>
                   <div className="t-caption">Overdue</div>
-                  <div style={{ fontWeight: 700, fontSize: 16, color: '#dc2626' }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--danger)' }}>
                     {inr(metrics?.totalOverdueCents || 0)}
                   </div>
                 </div>
@@ -958,7 +958,7 @@ export default function FinancePage() {
                       style={{
                         textAlign: 'right',
                         fontWeight: 700,
-                        color: i.balanceCents > 0 ? '#DC2626' : 'var(--success)',
+                        color: i.balanceCents > 0 ? 'var(--danger)' : 'var(--success)',
                       }}
                       onClick={() => openDetail(i.id)}
                     >
@@ -979,7 +979,7 @@ export default function FinancePage() {
                         {i.status === 'ISSUED' && i.paidCents === 0 && (
                           <button
                             className="btn btn-ghost"
-                            style={{ padding: '2px 8px', fontSize: 12, height: 26, color: '#dc2626' }}
+                            style={{ padding: '2px 8px', fontSize: 12, height: 26, color: 'var(--danger)' }}
                             onClick={() => voidInvoice(i.id)}
                             title="Void Invoice"
                           >
@@ -1485,7 +1485,7 @@ export default function FinancePage() {
                     style={{
                       textAlign: 'right',
                       fontWeight: 800,
-                      color: detail.balanceCents > 0 ? '#DC2626' : 'var(--success)',
+                      color: detail.balanceCents > 0 ? 'var(--danger)' : 'var(--success)',
                     }}
                   >
                     {inr(detail.balanceCents)}
@@ -1636,7 +1636,7 @@ export default function FinancePage() {
 
               <div
                 style={{
-                  background: 'var(--primary-soft, #f0f4ff)',
+                  background: 'var(--primary-soft)',
                   borderRadius: 8,
                   padding: 14,
                   display: 'flex',

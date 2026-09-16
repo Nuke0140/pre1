@@ -395,7 +395,7 @@ export default function SettingsControlCenter() {
       </div>
 
       {dirty && (
-        <div className="panel" style={{ backgroundColor: 'var(--warning-bg, #fffbeb)', borderColor: 'var(--warning-border, #fde68a)', color: 'var(--warning-text, #92400e)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        <div className="panel" style={{ backgroundColor: 'var(--warning-bg, var(--warning-soft))', borderColor: 'var(--warning-border, var(--warning-soft))', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>
             ⚠️ You have unsaved changes. Remember to save your configuration before navigating away.
           </span>
@@ -1065,9 +1065,9 @@ export default function SettingsControlCenter() {
                 className="panel"
                 style={{
                   marginTop: 14,
-                  backgroundColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success-bg, #f0fdf4)' : 'var(--warning-bg, #fffbeb)',
-                  borderColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success-border, #bbf7d0)' : 'var(--warning-border, #fde68a)',
-                  color: testResult.testStatus === 'REAL_TEST' ? 'var(--success-text, #166534)' : 'var(--warning-text, #92400e)',
+                  backgroundColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success-bg, var(--success-soft))' : 'var(--warning-bg, var(--warning-soft))',
+                  borderColor: testResult.testStatus === 'REAL_TEST' ? 'var(--success)' : 'var(--warning-border, var(--warning-soft))',
+                  color: testResult.testStatus === 'REAL_TEST' ? 'var(--success)' : 'var(--warning)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
@@ -1254,7 +1254,7 @@ export default function SettingsControlCenter() {
                 </div>
                 <h4 style={{ fontSize: 14, fontWeight: 600 }}>{svc.name}</h4>
                 {svc.latencyMs !== undefined && (
-                  <p style={{ fontSize: 12, color: '#16a34a', margin: '4px 0' }}>Latency: {svc.latencyMs} ms</p>
+                  <p style={{ fontSize: 12, color: 'var(--success)', margin: '4px 0' }}>Latency: {svc.latencyMs} ms</p>
                 )}
                 {svc.provider && (
                   <p style={{ fontSize: 12, color: 'var(--foreground-muted)', margin: '4px 0' }}>Provider: {svc.provider}</p>

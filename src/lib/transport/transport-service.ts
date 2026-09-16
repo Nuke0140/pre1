@@ -514,20 +514,53 @@ export class TransportService {
           throw new Error('Stop sequence numbers within a route must be unique')
         }
 
-        // Delete existing stops that have no active assignments/manifests or overwrite
-        await tx.routeStop.deleteMany({ where: { routeId: id } })
-        await tx.routeStop.createMany({
-          data: data.stops.map((s) => ({
-            tenantId: ctx.tenantId,
-            routeId: id,
-            name: s.name.trim(),
-            landmark: s.landmark?.trim() || null,
-            sequence: s.sequence,
-            morningPickupTime: s.morningPickupTime?.trim() || '08:00',
-            eveningDropTime: s.eveningDropTime?.trim() || '15:00',
-            status: 'ACTIVE',
-          })),
-        })
+        // Safely update or add stops without violating foreign key constraints on existing assignments
+        const existingStops = await tx.routeStop.findMany({ where: { routeId: id } })
+        const existingMap = new Map(existingStops.map((s) => [s.sequence, s]))
+        const touchedStopIds: string[] = []
+
+        for (const stopInput of data.stops) {
+          const matched = existingMap.get(stopInput.sequence) || existingStops.find((s) => s.name.toLowerCase() === stopInput.name.trim().toLowerCase())
+          if (matched) {
+            const updatedStop = await tx.routeStop.update({
+              where: { id: matched.id },
+              data: {
+                name: stopInput.name.trim(),
+                landmark: stopInput.landmark?.trim() || null,
+                sequence: stopInput.sequence,
+                morningPickupTime: stopInput.morningPickupTime?.trim() || '08:00',
+                eveningDropTime: stopInput.eveningDropTime?.trim() || '15:00',
+                status: 'ACTIVE',
+              },
+            })
+            touchedStopIds.push(updatedStop.id)
+          } else {
+            const newStop = await tx.routeStop.create({
+              data: {
+                tenantId: ctx.tenantId,
+                routeId: id,
+                name: stopInput.name.trim(),
+                landmark: stopInput.landmark?.trim() || null,
+                sequence: stopInput.sequence,
+                morningPickupTime: stopInput.morningPickupTime?.trim() || '08:00',
+                eveningDropTime: stopInput.eveningDropTime?.trim() || '15:00',
+                status: 'ACTIVE',
+              },
+            })
+            touchedStopIds.push(newStop.id)
+          }
+        }
+
+        // Safely remove any unreferenced old stops
+        const stopsToRemove = existingStops.filter((s) => !touchedStopIds.includes(s.id))
+        for (const oldStop of stopsToRemove) {
+          const hasAssignments = await tx.studentTransportAssignment.findFirst({
+            where: { OR: [{ pickupStopId: oldStop.id }, { dropStopId: oldStop.id }] },
+          })
+          if (!hasAssignments) {
+            await tx.routeStop.delete({ where: { id: oldStop.id } }).catch(() => {})
+          }
+        }
       }
 
       return tx.transportRoute.update({
@@ -1164,6 +1197,11 @@ export class TransportService {
     })
     if (!trip) throw new Error('Trip not found')
 
+    // Delay Idempotency: If the delay minutes and reason are identical, do not duplicate timeline alerts
+    if (trip.delayMinutes === delayMinutes && trip.delayReason?.trim() === reason.trim()) {
+      return trip
+    }
+
     const updated = await db.transportTrip.update({
       where: { id: tripId },
       data: {
@@ -1259,6 +1297,73 @@ export class TransportService {
     })
 
     return incident
+  }
+
+  /**
+   * 9b. INCIDENT RESOLUTION & CORRECTION
+   */
+  static async updateIncident(
+    ctx: ScopeContext,
+    id: string,
+    data: {
+      status?: TransportIncidentStatus
+      actionTaken?: string
+      resolutionNotes?: string
+      severity?: TransportIncidentSeverity
+      category?: TransportIncidentCategory
+      correctionReason?: string
+    }
+  ) {
+    const existing = await db.transportIncident.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      include: { trip: true, vehicle: true, student: true },
+    })
+    if (!existing) throw new Error('Transport incident not found')
+
+    const oldStatus = existing.status
+    const isResolving = data.status === 'RESOLVED' && oldStatus !== 'RESOLVED'
+
+    const updated = await db.transportIncident.update({
+      where: { id },
+      data: {
+        ...(data.status ? { status: data.status } : {}),
+        ...(data.actionTaken !== undefined ? { actionTaken: data.actionTaken?.trim() || null } : {}),
+        ...(isResolving ? { resolvedAt: new Date() } : {}),
+        ...(data.severity ? { severity: data.severity } : {}),
+        ...(data.category ? { category: data.category } : {}),
+      },
+    })
+
+    // If there was an operations FollowUp created for this incident and it's being resolved
+    if (isResolving) {
+      await db.followUp.updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          sourceType: 'TransportIncident',
+          sourceId: id,
+          status: { in: ['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'] },
+        },
+        data: {
+          status: 'RESOLVED',
+          resolvedAt: new Date(),
+        },
+      }).catch(() => {})
+    }
+
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      branchId: existing.branchId || undefined,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: isResolving ? 'RESOLVE_TRANSPORT_INCIDENT' : 'UPDATE_TRANSPORT_INCIDENT',
+      entity: 'TransportIncident',
+      entityId: existing.id,
+      module: 'TRANSPORT',
+      summary: `Incident "${existing.title}" status changed: ${oldStatus} -> ${updated.status}. ${data.correctionReason ? `Correction reason: ${data.correctionReason}` : ''}`,
+    })
+
+    return updated
   }
 
   /**

@@ -12,45 +12,79 @@ const config: Config = {
   theme: {
   	extend: {
   		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+  			background: 'var(--background)',
+  			foreground: 'var(--foreground)',
   			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
+  				DEFAULT: 'var(--surface)',
+  				foreground: 'var(--foreground)'
+  			},
+  			surface: {
+  				DEFAULT: 'var(--surface)',
+  				elevated: 'var(--surface-elevated)',
+  				muted: 'var(--surface-muted)'
   			},
   			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
+  				DEFAULT: 'var(--surface-elevated)',
+  				foreground: 'var(--foreground)'
   			},
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				DEFAULT: 'var(--primary)',
+  				foreground: 'var(--primary-foreground)',
+  				hover: 'var(--primary-hover)',
+  				active: 'var(--primary-active)',
+  				light: 'var(--primary-light)'
   			},
   			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
+  				DEFAULT: 'var(--secondary)',
+  				foreground: 'var(--primary-foreground)',
+  				hover: 'var(--secondary-hover)',
+  				light: 'var(--secondary-light)'
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
+  				DEFAULT: 'var(--surface-muted)',
+  				foreground: 'var(--text-muted)'
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
+  				DEFAULT: 'var(--accent)',
+  				foreground: 'var(--primary-foreground)',
+  				light: 'var(--accent-light)'
+  			},
+  			success: {
+  				DEFAULT: 'var(--success)',
+  				soft: 'var(--success-soft)'
+  			},
+  			warning: {
+  				DEFAULT: 'var(--warning)',
+  				soft: 'var(--warning-soft)'
+  			},
+  			danger: {
+  				DEFAULT: 'var(--danger)',
+  				soft: 'var(--danger-soft)'
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
+  				DEFAULT: 'var(--danger)',
+  				foreground: 'var(--primary-foreground)'
   			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
+  			info: {
+  				DEFAULT: 'var(--info)',
+  				soft: 'var(--info-soft)'
+  			},
+  			text: {
+  				primary: 'var(--text-primary)',
+  				secondary: 'var(--text-secondary)',
+  				muted: 'var(--text-muted)',
+  				disabled: 'var(--text-disabled)',
+  				inverse: 'var(--text-inverse)'
+  			},
+  			border: 'var(--border)',
+  			input: 'var(--input-border)',
+  			ring: 'var(--border-focus)',
   			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
+  				'1': 'var(--primary)',
+  				'2': 'var(--info)',
+  				'3': 'var(--success)',
+  				'4': 'var(--warning)',
+  				'5': 'var(--accent)'
   			}
   		},
   		borderRadius: {

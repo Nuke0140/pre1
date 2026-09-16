@@ -243,6 +243,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
 
   return (
     <>
+      <a href="#main" className="skip-link">Skip to main content</a>
       <RouteProgress />
       {/* ── Header ── */}
       <header className="app-header">
@@ -519,7 +520,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </header>
 
       {/* ── Content ── */}
-      <main className="app-main">
+      <main id="main" className="app-main">
         <div className="app-content">{children}</div>
       </main>
 

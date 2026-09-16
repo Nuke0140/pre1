@@ -754,7 +754,7 @@ export default function HRPage() {
       {/* ── 1. Page Header & Operational Context Strip ── */}
       <div
         className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4"
-        style={{ borderBottom: '1px solid #E7EAF2' }}
+        style={{ borderBottom: '1px solid var(--border-default)' }}
       >
         <div className="space-y-1.5">
           <Breadcrumbs items={[{ label: 'Dashboard', href: '/app' }, { label: 'HR & Workforce' }]} />
@@ -935,7 +935,7 @@ export default function HRPage() {
       </div>
 
       {/* ── 3. Workspace Navigation Tabs ── */}
-      <div className="overflow-x-auto pb-1" style={{ borderBottom: '1px solid #E7EAF2' }}>
+      <div className="overflow-x-auto pb-1" style={{ borderBottom: '1px solid var(--border-default)' }}>
         <Segmented
           value={tab}
           onChange={(val) => setTab(val as any)}
@@ -960,13 +960,13 @@ export default function HRPage() {
             <div
               className="lg:col-span-7 card p-5 space-y-4"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid #E7EAF2' }}>
+              <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                     <Building size={16} />
@@ -989,8 +989,8 @@ export default function HRPage() {
                       key={idx}
                       className="p-3.5 space-y-2"
                       style={{
-                        background: '#F8FAFD',
-                        border: '1px solid #E7EAF2',
+                        background: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-default)',
                         borderRadius: 12,
                       }}
                     >
@@ -998,10 +998,10 @@ export default function HRPage() {
                         <span className="font-semibold text-foreground">{b.branchName}</span>
                         <span className="font-mono text-muted-foreground">{b.count} staff ({pct}%)</span>
                       </div>
-                      <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: '#EAEFF8' }}>
+                      <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-muted)' }}>
                         <div
                           className="h-full rounded-full transition-all duration-300"
-                          style={{ width: `${pct}%`, background: '#6A35FF' }}
+                          style={{ width: `${pct}%`, background: 'var(--primary)' }}
                         />
                       </div>
                     </div>
@@ -1014,13 +1014,13 @@ export default function HRPage() {
             <div
               className="lg:col-span-5 card p-5 space-y-4"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid #E7EAF2' }}>
+              <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0">
                     <ListChecks size={16} />
@@ -1037,8 +1037,8 @@ export default function HRPage() {
                   onClick={() => { setTab('leaves'); setLeaveFilter('PENDING') }}
                   className="p-3.5 cursor-pointer transition-all flex items-center justify-between hover:border-primary"
                   style={{
-                    background: '#F8FAFD',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 12,
                   }}
                 >
@@ -1058,8 +1058,8 @@ export default function HRPage() {
                   onClick={() => { setTab('compliance'); setComplianceFilter('EXPIRING_SOON') }}
                   className="p-3.5 cursor-pointer transition-all flex items-center justify-between hover:border-primary"
                   style={{
-                    background: '#F8FAFD',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 12,
                   }}
                 >
@@ -1079,8 +1079,8 @@ export default function HRPage() {
                   onClick={() => setTab('offboarding')}
                   className="p-3.5 cursor-pointer transition-all flex items-center justify-between hover:border-primary"
                   style={{
-                    background: '#F8FAFD',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 12,
                   }}
                 >
@@ -1100,8 +1100,8 @@ export default function HRPage() {
                   onClick={() => setTab('recruitment')}
                   className="p-3.5 cursor-pointer transition-all flex items-center justify-between hover:border-primary"
                   style={{
-                    background: '#F8FAFD',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 12,
                   }}
                 >
@@ -1129,8 +1129,8 @@ export default function HRPage() {
           <div
             className="card flex flex-col md:flex-row md:items-center justify-between gap-4"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 16,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1192,8 +1192,8 @@ export default function HRPage() {
           <div
             className="card overflow-hidden"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 0,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1214,7 +1214,7 @@ export default function HRPage() {
                 {/* Desktop View Table */}
                 <div className="op-desktop-only overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead style={{ background: '#F8FAFD', borderBottom: '1px solid #E7EAF2', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: '#66738F', letterSpacing: '0.05em' }}>
+                    <thead style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       <tr>
                         <th className="p-3.5">Employee</th>
                         <th className="p-3.5">Code</th>
@@ -1225,9 +1225,9 @@ export default function HRPage() {
                         <th className="p-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y" style={{ borderColor: '#F1F4FA' }}>
+                    <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                       {staffList.map((st: any) => (
-                        <tr key={st.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                        <tr key={st.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                           <td className="p-3.5 flex items-center gap-3">
                             <Avatar name={st.name} size="md" />
                             <div>
@@ -1300,9 +1300,9 @@ export default function HRPage() {
                 </div>
 
                 {/* Mobile View Card List */}
-                <div className="op-mobile-only divide-y" style={{ borderColor: '#F1F4FA' }}>
+                <div className="op-mobile-only divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {staffList.map((st: any) => (
-                    <div key={st.id} className="p-4 space-y-3" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                    <div key={st.id} className="p-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
                           <Avatar name={st.name} size="md" />
@@ -1355,8 +1355,8 @@ export default function HRPage() {
           <div
             className="card flex flex-col md:flex-row md:items-center justify-between gap-4"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 16,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1396,8 +1396,8 @@ export default function HRPage() {
           <div
             className="card overflow-hidden"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 0,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1418,7 +1418,7 @@ export default function HRPage() {
                 {/* Desktop View Table */}
                 <div className="op-desktop-only overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead style={{ background: '#F8FAFD', borderBottom: '1px solid #E7EAF2', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: '#66738F', letterSpacing: '0.05em' }}>
+                    <thead style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       <tr>
                         <th className="p-3.5">Staff Member</th>
                         <th className="p-3.5">Code</th>
@@ -1429,11 +1429,11 @@ export default function HRPage() {
                         <th className="p-3.5 text-right">Correction</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y" style={{ borderColor: '#F1F4FA' }}>
+                    <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                       {attendanceRecords.map((r: any) => {
                         const variance = r.workedHours > 0 ? (r.workedHours - 8).toFixed(1) : null
                         return (
-                          <tr key={r.staffProfileId} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                          <tr key={r.staffProfileId} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                             <td className="p-3.5 flex items-center gap-3">
                               <Avatar name={r.name} size="sm" />
                               <div>
@@ -1482,11 +1482,11 @@ export default function HRPage() {
                 </div>
 
                 {/* Mobile View Card List */}
-                <div className="op-mobile-only divide-y" style={{ borderColor: '#F1F4FA' }}>
+                <div className="op-mobile-only divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {attendanceRecords.map((r: any) => {
                     const variance = r.workedHours > 0 ? (r.workedHours - 8).toFixed(1) : null
                     return (
-                      <div key={r.staffProfileId} className="p-4 space-y-2.5" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                      <div key={r.staffProfileId} className="p-4 space-y-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <Avatar name={r.name} size="md" />
@@ -1549,8 +1549,8 @@ export default function HRPage() {
                 key={i}
                 className="card p-4 space-y-1"
                 style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #E7EAF2',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 16,
                   boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                 }}
@@ -1580,8 +1580,8 @@ export default function HRPage() {
           <div
             className="card overflow-hidden"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 0,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1602,7 +1602,7 @@ export default function HRPage() {
                 {/* Desktop View Table */}
                 <div className="op-desktop-only overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead style={{ background: '#F8FAFD', borderBottom: '1px solid #E7EAF2', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: '#66738F', letterSpacing: '0.05em' }}>
+                    <thead style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       <tr>
                         <th className="p-3.5">Staff Member</th>
                         <th className="p-3.5">Leave Type</th>
@@ -1613,9 +1613,9 @@ export default function HRPage() {
                         <th className="p-3.5 text-right">Approval</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y" style={{ borderColor: '#F1F4FA' }}>
+                    <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                       {leaves.map((l: any) => (
-                        <tr key={l.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                        <tr key={l.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                           <td className="p-3.5 flex items-center gap-3">
                             <Avatar name={l.staffProfile?.user?.fullName} size="sm" />
                             <div>
@@ -1683,9 +1683,9 @@ export default function HRPage() {
                 </div>
 
                 {/* Mobile View Card List */}
-                <div className="op-mobile-only divide-y" style={{ borderColor: '#F1F4FA' }}>
+                <div className="op-mobile-only divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {leaves.map((l: any) => (
-                    <div key={l.id} className="p-4 space-y-2.5" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                    <div key={l.id} className="p-4 space-y-2.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
                           <Avatar name={l.staffProfile?.user?.fullName} size="md" />
@@ -1706,7 +1706,7 @@ export default function HRPage() {
                         )}
                       </div>
                       {l.status === 'PENDING' && (
-                        <div className="flex items-center justify-end gap-2 pt-1 border-t" style={{ borderColor: '#F1F4FA' }}>
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                           <button
                             type="button"
                             className="btn btn-outline btn-sm text-xs h-7 px-2.5 text-rose-600"
@@ -1775,8 +1775,8 @@ export default function HRPage() {
                       key={c.id}
                       className="card space-y-4"
                       style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #E7EAF2',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border-default)',
                         borderRadius: 16,
                         padding: 20,
                         boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1795,8 +1795,8 @@ export default function HRPage() {
                       <div
                         className="grid grid-cols-2 gap-2 text-xs"
                         style={{
-                          borderTop: '1px solid #F1F4FA',
-                          borderBottom: '1px solid #F1F4FA',
+                          borderTop: '1px solid var(--border-subtle)',
+                          borderBottom: '1px solid var(--border-subtle)',
                           padding: '12px 0',
                         }}
                       >
@@ -1810,8 +1810,8 @@ export default function HRPage() {
                         <div
                           className="flex items-center justify-between text-xs text-rose-600"
                           style={{
-                            background: '#FEF2F2',
-                            border: '1px solid #FECACA',
+                            background: 'var(--danger-soft)',
+                            border: '1px solid var(--border-danger)',
                             borderRadius: 12,
                             padding: '8px 12px',
                           }}
@@ -1890,14 +1890,14 @@ export default function HRPage() {
                   key={job.id}
                   className="card space-y-3"
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 16,
                     padding: 16,
                     boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                   }}
                 >
-                  <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid #E7EAF2' }}>
+                  <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-default)' }}>
                     <div>
                       <span className="font-bold text-sm text-foreground">{job.title}</span>
                       <span className="text-xs text-muted-foreground ml-2 font-medium">({job.department} • {job.branch?.name || 'All'})</span>
@@ -1911,8 +1911,8 @@ export default function HRPage() {
                         key={app.id}
                         className="p-3.5 space-y-3"
                         style={{
-                          background: '#F8FAFD',
-                          border: '1px solid #E7EAF2',
+                          background: 'var(--bg-subtle)',
+                          border: '1px solid var(--border-default)',
                           borderRadius: 12,
                         }}
                       >
@@ -1932,8 +1932,8 @@ export default function HRPage() {
                           <div
                             className="text-[11px] p-2"
                             style={{
-                              background: '#FFFFFF',
-                              border: '1px solid #E7EAF2',
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border-default)',
                               borderRadius: 8,
                             }}
                           >
@@ -1941,7 +1941,7 @@ export default function HRPage() {
                           </div>
                         )}
 
-                        <div className="pt-2 flex items-center justify-between gap-1" style={{ borderTop: '1px solid #E7EAF2' }}>
+                        <div className="pt-2 flex items-center justify-between gap-1" style={{ borderTop: '1px solid var(--border-default)' }}>
                           <select
                             className="select text-xs h-8 max-w-[130px]"
                             value={app.status}
@@ -2002,8 +2002,8 @@ export default function HRPage() {
             <div
               className="card overflow-hidden"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 0,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -2011,7 +2011,7 @@ export default function HRPage() {
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead style={{ background: '#F8FAFD', borderBottom: '1px solid #E7EAF2', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: '#66738F', letterSpacing: '0.05em' }}>
+                  <thead style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                     <tr>
                       <th className="p-3.5">Position Title</th>
                       <th className="p-3.5">Department</th>
@@ -2021,9 +2021,9 @@ export default function HRPage() {
                       <th className="p-3.5">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y" style={{ borderColor: '#F1F4FA' }}>
+                  <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                     {jobOpenings?.map((j) => (
-                      <tr key={j.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                      <tr key={j.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <td className="p-3.5 font-bold text-foreground">{j.title}</td>
                         <td className="p-3.5 text-xs text-foreground">{j.department}</td>
                         <td className="p-3.5 text-xs text-foreground">{j.designation}</td>

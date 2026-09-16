@@ -659,6 +659,13 @@ async function run() {
   })
   assert(delayAlert != null && delayAlert.body.includes('25 mins'), '45. Targeted Bus Delay Alert published to student timeline')
 
+  // Delay Idempotency Test: Repeating same delay does not spam timeline
+  await TransportService.recordDelay(ctx, eveningTrip.id, 25, 'Heavy traffic at Kothrud flyover')
+  const delayAlertsCount = await db.timelineEntry.count({
+    where: { studentId: student1.id, title: 'Bus Delay Alert' },
+  })
+  assert(delayAlertsCount === 1, '45b. Delay recording is strictly idempotent (no duplicate parent timeline alerts)')
+
   // -----------------------------------------------------------------
   // 11. IN-FLIGHT FLEET / DRIVER SUBSTITUTION
   // -----------------------------------------------------------------
@@ -675,6 +682,29 @@ async function run() {
   const subTrip = await TransportService.replaceTripVehicle(ctx, eveningTrip.id, standbyVehicle.id, 'Puncture replacement')
   assert(subTrip.vehicleId === standbyVehicle.id, '46. Trip vehicle successfully substituted in-flight')
   assert(subTrip.notes?.includes('Puncture replacement'), '47. Substitution reason persisted in audit trail')
+
+  // In-flight driver substitution test
+  const standbyDriverUser = await db.user.create({
+    data: {
+      email: `standby.drv.${timestamp}@preone.test`,
+      fullName: 'Ganesh Patil',
+      phone: `98300${timestamp.toString().slice(-5)}`,
+      passwordHash: 'dummy-hash',
+      status: 'ACTIVE',
+    },
+  })
+  const standbyDriverProfile = await db.staffProfile.create({
+    data: {
+      tenantId: tenant.id,
+      userId: standbyDriverUser.id,
+      employeeCode: `SDRV-${timestamp.toString().slice(-4)}`,
+      designation: 'Bus Driver',
+      branchId: branch.id,
+      status: 'ACTIVE',
+    },
+  })
+  const subDriverTrip = await TransportService.replaceTripDriver(ctx, eveningTrip.id, standbyDriverProfile.id, 'Driver shift handover')
+  assert(subDriverTrip.driverProfileId === standbyDriverProfile.id, '47b. Trip driver successfully substituted in-flight')
 
   // -----------------------------------------------------------------
   // 12. INCIDENT REPORTING & AUDIT INTEGRATION
@@ -703,6 +733,20 @@ async function run() {
     },
   })
   assert(incFollowUp != null, '50. Safety Follow-Up automatically escalated for HIGH severity incident')
+
+  // Incident Resolution & Follow-Up Closure
+  const resolvedIncident = await TransportService.updateIncident(ctx, incident.id, {
+    status: 'RESOLVED',
+    actionTaken: 'Parent counselled, attendant instructed to double check buckle before departure.',
+    correctionReason: 'Closed following principal review',
+  })
+  assert(resolvedIncident.status === 'RESOLVED', '50b. Transport incident resolved with corrective action')
+  assert(resolvedIncident.resolvedAt != null, '50c. Incident resolution timestamp stamped')
+
+  const closedFollowUp = await db.followUp.findFirst({
+    where: { tenantId: tenant.id, sourceId: incident.id },
+  })
+  assert(closedFollowUp?.status === 'RESOLVED', '50d. Linked Operations Safety Follow-Up automatically resolved')
 
   // -----------------------------------------------------------------
   // 13. STUDENT 360 INTEGRATION & RETRIEVAL

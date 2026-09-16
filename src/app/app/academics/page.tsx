@@ -650,7 +650,7 @@ export default function AcademicsPage() {
     <div
       className="page-shell"
       style={{
-        background: 'linear-gradient(180deg, #F8F7FF 0%, #F7F8FC 240px, #FFFFFF 100%)',
+        background: 'linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg-subtle) 240px, var(--surface) 100%)',
         minHeight: 'calc(100vh - 56px)',
         paddingBottom: 48,
       }}
@@ -667,14 +667,14 @@ export default function AcademicsPage() {
               style={{
                 height: 44,
                 borderRadius: 12,
-                background: '#FFFFFF',
-                borderColor: '#E7EAF2',
-                color: '#15254A',
+                background: 'var(--surface)',
+                borderColor: 'var(--border-default)',
+                color: 'var(--text-primary)',
                 fontWeight: 600,
                 boxShadow: '0 1px 2px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <Sparkles size={16} style={{ color: '#5B3DF5' }} /> Record Observation
+              <Sparkles size={16} style={{ color: 'var(--primary)' }} /> Record Observation
             </button>
             <button
               className="btn btn-secondary"
@@ -682,14 +682,14 @@ export default function AcademicsPage() {
               style={{
                 height: 44,
                 borderRadius: 12,
-                background: '#FFFFFF',
-                borderColor: '#E7EAF2',
-                color: '#15254A',
+                background: 'var(--surface)',
+                borderColor: 'var(--border-default)',
+                color: 'var(--text-primary)',
                 fontWeight: 600,
                 boxShadow: '0 1px 2px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <CalendarCheck size={16} style={{ color: '#5B3DF5' }} /> Schedule Activity
+              <CalendarCheck size={16} style={{ color: 'var(--primary)' }} /> Schedule Activity
             </button>
             <button
               className="btn btn-primary"
@@ -697,9 +697,9 @@ export default function AcademicsPage() {
               style={{
                 height: 44,
                 borderRadius: 12,
-                background: '#5B3DF5',
-                borderColor: '#5B3DF5',
-                color: '#FFFFFF',
+                background: 'var(--primary)',
+                borderColor: 'var(--primary)',
+                color: 'var(--surface)',
                 fontWeight: 600,
                 boxShadow: '0 2px 8px rgba(91, 61, 245, 0.25)',
               }}
@@ -724,165 +724,165 @@ export default function AcademicsPage() {
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Enrolled
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EAF2FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={15} style={{ color: '#3B82F6' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={15} style={{ color: 'var(--info)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {dashboardStats?.enrolledStudentsCount ?? 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active children</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Active children</div>
         </div>
 
         {/* Metric 2: Sections */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Sections
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <School size={15} style={{ color: '#8B5CF6' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <School size={15} style={{ color: 'var(--primary)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {dashboardStats?.classroomsCount ?? classrooms.length}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active classrooms</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Active classrooms</div>
         </div>
 
         {/* Metric 3: Teachers */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Teachers
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#CCFBF1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserCheck size={15} style={{ color: '#0D9488' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserCheck size={15} style={{ color: 'var(--info)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {dashboardStats?.teachersCount ?? teachers.length}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Assigned educators</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Assigned educators</div>
         </div>
 
         {/* Metric 4: Curriculum */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Curriculum
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BookOpen size={15} style={{ color: '#6366F1' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={15} style={{ color: 'var(--primary)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {dashboardStats?.curriculumCount ?? curricula.length}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active frameworks</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Active frameworks</div>
         </div>
 
         {/* Metric 5: Today's Activities */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Today's
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Flame size={15} style={{ color: '#D97706' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Flame size={15} style={{ color: 'var(--warning)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#D97706', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--warning)', lineHeight: 1.1 }}>
             {dashboardStats?.activitiesTodayCount ?? 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Planned activities</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Planned activities</div>
         </div>
 
         {/* Metric 6: Observations */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Observations
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles size={15} style={{ color: '#2563EB' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={15} style={{ color: 'var(--info)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {dashboardStats?.observationsCount ?? observations.length}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Recorded moments</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Recorded moments</div>
         </div>
 
         {/* Metric 7: Attention */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: `1px solid ${(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#FCA5A5' : '#E7EAF2'}`,
+            background: 'var(--surface)',
+            border: `1px solid ${(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? 'var(--danger-soft)' : 'var(--border-default)'}`,
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Attention
             </span>
             <div
@@ -890,16 +890,16 @@ export default function AcademicsPage() {
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                background: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#FEE2E2' : '#D1FAE5',
+                background: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? 'var(--danger-soft)' : 'var(--success-soft)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
               {(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? (
-                <AlertTriangle size={15} style={{ color: '#DC2626' }} />
+                <AlertTriangle size={15} style={{ color: 'var(--danger)' }} />
               ) : (
-                <CheckCircle2 size={15} style={{ color: '#10B981' }} />
+                <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
               )}
             </div>
           </div>
@@ -907,13 +907,13 @@ export default function AcademicsPage() {
             style={{
               fontSize: 26,
               fontWeight: 700,
-              color: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#DC2626' : '#10B981',
+              color: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? 'var(--danger)' : 'var(--success)',
               lineHeight: 1.1,
             }}
           >
             {dashboardStats?.observationsNeedsAttentionCount ?? 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
             {(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? 'Flagged concerns' : 'All on track'}
           </div>
         </div>
@@ -922,8 +922,8 @@ export default function AcademicsPage() {
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -931,27 +931,27 @@ export default function AcademicsPage() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Mastery
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Target size={15} style={{ color: '#059669' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={15} style={{ color: 'var(--success)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#059669', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
             {dashboardStats?.masteryPercentage ?? 0}%
           </div>
-          <div style={{ width: '100%', height: 4, background: '#E7EAF2', borderRadius: 2, overflow: 'hidden', marginTop: 6 }}>
+          <div style={{ width: '100%', height: 4, background: 'var(--border-default)', borderRadius: 2, overflow: 'hidden', marginTop: 6 }}>
             <div
               style={{
                 height: '100%',
                 width: `${Math.min(100, dashboardStats?.masteryPercentage ?? 0)}%`,
-                background: '#059669',
+                background: 'var(--success)',
                 borderRadius: 2,
               }}
             />
           </div>
-          <div style={{ fontSize: 11, color: '#8A94A8', marginTop: 4 }}>Milestone progress</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Milestone progress</div>
         </div>
       </div>
 
@@ -959,8 +959,8 @@ export default function AcademicsPage() {
       <div
         className="school-context-bar"
         style={{
-          background: '#FFFFFF',
-          border: '1px solid #E7EAF2',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-default)',
           borderRadius: 14,
           padding: '10px 16px',
           boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
@@ -971,12 +971,12 @@ export default function AcademicsPage() {
           marginBottom: 18,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <Calendar size={15} style={{ color: '#5B3DF5' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <Calendar size={15} style={{ color: 'var(--primary)' }} />
           <span style={{ fontWeight: 600 }}>Session:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={selectedSessionId}
             onChange={(e) => setSelectedSessionId(e.target.value)}
           >
@@ -987,24 +987,24 @@ export default function AcademicsPage() {
             ))}
           </select>
           {currentSessionObj?.isCurrent ? (
-            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#F0ECFF', color: '#5B3DF5' }}>
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>
               ★ Current Session
             </span>
           ) : (
-            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, background: '#F1F4FA', color: '#66738F' }}>
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}>
               Historical Session
             </span>
           )}
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <Building size={15} style={{ color: '#66738F' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <Building size={15} style={{ color: 'var(--text-secondary)' }} />
           <span style={{ fontWeight: 600 }}>Campus:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={selectedBranchId}
             onChange={(e) => setSelectedBranchId(e.target.value)}
           >
@@ -1016,13 +1016,13 @@ export default function AcademicsPage() {
           </select>
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
           <span style={{ fontWeight: 600 }}>Program:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={filterProgramType}
             onChange={(e) => setFilterProgramType(e.target.value)}
           >
@@ -1035,14 +1035,14 @@ export default function AcademicsPage() {
           </select>
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <School size={15} style={{ color: '#66738F' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <School size={15} style={{ color: 'var(--text-secondary)' }} />
           <span style={{ fontWeight: 600 }}>Section:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={filterClassroomId}
             onChange={(e) => setFilterClassroomId(e.target.value)}
           >
@@ -1057,10 +1057,10 @@ export default function AcademicsPage() {
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
           <div className="input-search" style={{ width: 220 }}>
-            <Search size={14} style={{ color: '#8A94A8' }} />
+            <Search size={14} style={{ color: 'var(--text-muted)' }} />
             <input
               className="input"
-              style={{ height: 34, fontSize: 13, borderRadius: 8, borderColor: '#E7EAF2' }}
+              style={{ height: 34, fontSize: 13, borderRadius: 8, borderColor: 'var(--border-default)' }}
               placeholder="Search student, classroom..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -1081,8 +1081,8 @@ export default function AcademicsPage() {
       {/* -- Navigation Tabs -- */}
       <div
         style={{
-          background: '#FFFFFF',
-          border: '1px solid #E7EAF2',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-default)',
           borderRadius: 14,
           padding: '6px 10px',
           boxShadow: '0 1px 3px rgba(21, 37, 74, 0.02)',
@@ -1101,8 +1101,8 @@ export default function AcademicsPage() {
       {loading ? (
         <div
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: 36,
             display: 'flex',
@@ -1124,24 +1124,24 @@ export default function AcademicsPage() {
                 <div
                   className="card"
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 16,
                     padding: 20,
                     boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CalendarCheck size={16} style={{ color: '#5B3DF5' }} />
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CalendarCheck size={16} style={{ color: 'var(--primary)' }} />
                       </div>
                       Today's Classroom Activities
                     </h3>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => setActiveTab('activities')}
-                      style={{ fontSize: 12, fontWeight: 600, color: '#5B3DF5' }}
+                      style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}
                     >
                       View All <ArrowRight size={13} />
                     </button>
@@ -1155,16 +1155,16 @@ export default function AcademicsPage() {
                       style={{
                         padding: '36px 16px',
                         textAlign: 'center',
-                        color: '#66738F',
+                        color: 'var(--text-secondary)',
                         fontSize: 13,
-                        background: '#F8FAFD',
+                        background: 'var(--bg-subtle)',
                         borderRadius: 12,
-                        border: '1px dashed #E7EAF2',
+                        border: '1px dashed var(--border-default)',
                       }}
                     >
-                      <Calendar size={28} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
-                      <div style={{ fontWeight: 600, color: '#15254A' }}>No activities scheduled for today</div>
-                      <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>
+                      <Calendar size={28} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>No activities scheduled for today</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                         Click "Schedule Activity" above to plan fine motor, literacy, or sensory experiences.
                       </div>
                     </div>
@@ -1178,8 +1178,8 @@ export default function AcademicsPage() {
                             style={{
                               padding: '12px 14px',
                               borderRadius: 12,
-                              border: '1px solid #E7EAF2',
-                              background: '#FFFFFF',
+                              border: '1px solid var(--border-default)',
+                              background: 'var(--surface)',
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
@@ -1187,9 +1187,9 @@ export default function AcademicsPage() {
                             }}
                           >
                             <div>
-                              <div style={{ fontWeight: 600, fontSize: 14, color: '#15254A' }}>{act.title}</div>
-                              <div style={{ fontSize: 12, color: '#66738F', display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: 500, color: '#5B3DF5' }}>Section: {act.classroom?.name}</span>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)' }}>{act.title}</div>
+                              <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 500, color: 'var(--primary)' }}>Section: {act.classroom?.name}</span>
                                 {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
                                 {act.teacher && <span>Educator: {act.teacher.fullName}</span>}
                               </div>
@@ -1238,24 +1238,24 @@ export default function AcademicsPage() {
                 <div
                   className="card"
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 16,
                     padding: 20,
                     boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <AlertTriangle size={16} style={{ color: '#EF4444' }} />
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--danger-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <AlertTriangle size={16} style={{ color: 'var(--danger)' }} />
                       </div>
                       Concern Triage & Support Needs
                     </h3>
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => setActiveTab('observations')}
-                      style={{ fontSize: 12, fontWeight: 600, color: '#5B3DF5' }}
+                      style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}
                     >
                       View All <ArrowRight size={13} />
                     </button>
@@ -1266,16 +1266,16 @@ export default function AcademicsPage() {
                       style={{
                         padding: '36px 16px',
                         textAlign: 'center',
-                        color: '#66738F',
+                        color: 'var(--text-secondary)',
                         fontSize: 13,
-                        background: '#F0FDF4',
+                        background: 'var(--success-soft)',
                         borderRadius: 12,
-                        border: '1px solid #DCFCE7',
+                        border: '1px solid var(--success-soft)',
                       }}
                     >
-                      <CheckCircle2 size={32} style={{ color: '#10B981', margin: '0 auto 8px' }} />
-                      <div style={{ fontWeight: 600, color: '#15254A' }}>No urgent developmental concerns flagged</div>
-                      <div style={{ fontSize: 12, color: '#66738F', marginTop: 4 }}>
+                      <CheckCircle2 size={32} style={{ color: 'var(--success)', margin: '0 auto 8px' }} />
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>No urgent developmental concerns flagged</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
                         All children in the active session are tracking positively along milestones!
                       </div>
                     </div>
@@ -1290,8 +1290,8 @@ export default function AcademicsPage() {
                             style={{
                               padding: '12px 14px',
                               borderRadius: 12,
-                              border: '1px solid #FED7AA',
-                              background: '#FFFBEB',
+                              border: '1px solid var(--warning-soft)',
+                              background: 'var(--warning-soft)',
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'flex-start',
@@ -1300,7 +1300,7 @@ export default function AcademicsPage() {
                           >
                             <div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: 700, fontSize: 13, color: '#15254A' }}>
+                                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>
                                   {obs.student?.firstName} {obs.student?.lastName}
                                 </span>
                                 <span className={`badge ${obs.concern === 'URGENT' ? 'b-danger' : 'b-warning'}`} style={{ fontSize: 10 }}>
@@ -1308,7 +1308,7 @@ export default function AcademicsPage() {
                                 </span>
                                 {obs.category && <span className="badge b-neutral" style={{ fontSize: 10 }}>{obs.category}</span>}
                               </div>
-                              <p style={{ fontSize: 12.5, color: '#4A5A72', marginTop: 6, lineHeight: 1.4, margin: '6px 0 0' }}>
+                              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.4, margin: '6px 0 0' }}>
                                 {obs.narrative}
                               </p>
                             </div>
@@ -1336,8 +1336,8 @@ export default function AcademicsPage() {
               >
                 <div
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 14,
                     padding: 16,
                     display: 'flex',
@@ -1349,19 +1349,19 @@ export default function AcademicsPage() {
                   }}
                   onClick={() => setObsModalOpen(true)}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Sparkles size={20} style={{ color: '#5B3DF5' }} />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Sparkles size={20} style={{ color: 'var(--primary)' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>Record Observation</div>
-                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Capture a child's learning moment and milestones.</div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>Record Observation</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Capture a child's learning moment and milestones.</div>
                   </div>
                 </div>
 
                 <div
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 14,
                     padding: 16,
                     display: 'flex',
@@ -1373,19 +1373,19 @@ export default function AcademicsPage() {
                   }}
                   onClick={() => setActivityModalOpen(true)}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <CalendarCheck size={20} style={{ color: '#8B5CF6' }} />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <CalendarCheck size={20} style={{ color: 'var(--primary)' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>Schedule Activity</div>
-                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Plan today's classroom lesson and experience.</div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>Schedule Activity</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Plan today's classroom lesson and experience.</div>
                   </div>
                 </div>
 
                 <div
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 14,
                     padding: 16,
                     display: 'flex',
@@ -1397,12 +1397,12 @@ export default function AcademicsPage() {
                   }}
                   onClick={() => setCurriculumModalOpen(true)}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Plus size={20} style={{ color: '#6366F1' }} />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Plus size={20} style={{ color: 'var(--primary)' }} />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>New Curriculum</div>
-                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Create a structured developmental learning framework.</div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>New Curriculum</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Create a structured developmental learning framework.</div>
                   </div>
                 </div>
               </div>
@@ -1414,8 +1414,8 @@ export default function AcademicsPage() {
             <div
               className="card"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 0,
                 overflow: 'hidden',
@@ -1428,15 +1428,15 @@ export default function AcademicsPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderBottom: '1px solid #E7EAF2',
-                  background: '#F8FAFD',
+                  borderBottom: '1px solid var(--border-default)',
+                  background: 'var(--bg-subtle)',
                 }}
               >
                 <div>
-                  <span style={{ fontWeight: 700, fontSize: 14.5, color: '#15254A' }}>
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)' }}>
                     Configured Sections & Rosters
                   </span>
-                  <span style={{ marginLeft: 8, fontSize: 12, color: '#66738F' }}>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
                     ({filteredClassrooms.length} active classroom sections)
                   </span>
                 </div>
@@ -1452,21 +1452,21 @@ export default function AcademicsPage() {
               <div style={{ overflowX: 'auto' }}>
                 <table className="table" style={{ width: '100%', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ background: '#FFFFFF', borderBottom: '1px solid #E7EAF2' }}>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Section / Classroom</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Program</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Capacity & Enrolment</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Primary Educator</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
+                    <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border-default)' }}>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Section / Classroom</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Program</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Capacity & Enrolment</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Primary Educator</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredClassrooms.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ textAlign: 'center', padding: '40px 20px', color: '#66738F' }}>
-                          <School size={32} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
-                          <div style={{ fontWeight: 600, color: '#15254A' }}>No classrooms found matching criteria</div>
-                          <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>Click "Add Section" to create a new classroom section.</div>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                          <School size={32} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>No classrooms found matching criteria</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Click "Add Section" to create a new classroom section.</div>
                         </td>
                       </tr>
                     ) : (
@@ -1475,27 +1475,27 @@ export default function AcademicsPage() {
                         const isFull = count >= c.capacity
                         const pct = Math.min(100, Math.round((count / (c.capacity || 20)) * 100))
                         return (
-                          <tr key={c.id} style={{ borderBottom: '1px solid #F1F4FA' }}>
+                          <tr key={c.id} style={{ borderBottom: '1px solid var(--bg-muted)' }}>
                             <td style={{ padding: '14px 18px' }}>
-                              <div style={{ fontWeight: 600, color: '#15254A' }}>{c.name}</div>
-                              <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 2 }}>Code: {c.code || 'N/A'}</div>
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{c.name}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>Code: {c.code || 'N/A'}</div>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
                               <span className="badge b-primary" style={{ fontSize: 11 }}>{enumLabel(c.programType)}</span>
                             </td>
                             <td style={{ padding: '14px 18px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ width: 90, height: 6, background: '#E7EAF2', borderRadius: 3, overflow: 'hidden' }}>
+                                <div style={{ width: 90, height: 6, background: 'var(--border-default)', borderRadius: 3, overflow: 'hidden' }}>
                                   <div
                                     style={{
                                       height: '100%',
                                       width: `${pct}%`,
-                                      background: isFull ? '#EF4444' : pct > 80 ? '#F59E0B' : '#10B981',
+                                      background: isFull ? 'var(--danger)' : pct > 80 ? 'var(--warning)' : 'var(--success)',
                                       borderRadius: 3,
                                     }}
                                   />
                                 </div>
-                                <span style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                                   {count} / {c.capacity}
                                 </span>
                                 {isFull && (
@@ -1509,10 +1509,10 @@ export default function AcademicsPage() {
                               {c.primaryTeacher ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                                   <Avatar name={c.primaryTeacher.fullName} size="sm" />
-                                  <span style={{ fontWeight: 500, color: '#15254A' }}>{c.primaryTeacher.fullName}</span>
+                                  <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{c.primaryTeacher.fullName}</span>
                                 </div>
                               ) : (
-                                <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>Unassigned</span>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Unassigned</span>
                               )}
                             </td>
                             <td style={{ padding: '14px 18px', textAlign: 'right' }}>
@@ -1542,8 +1542,8 @@ export default function AcademicsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Developmental Curricula & Milestone Goals</h3>
-                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Developmental Curricula & Milestone Goals</h3>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                     Scoped by Academic Session & Program. Teachers observe children against these developmental goals.
                   </p>
                 </div>
@@ -1562,14 +1562,14 @@ export default function AcademicsPage() {
                   style={{
                     padding: 44,
                     textAlign: 'center',
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 16,
                   }}
                 >
-                  <BookOpen size={36} style={{ color: '#8A94A8', margin: '0 auto 12px' }} />
-                  <div style={{ fontWeight: 700, fontSize: 15, color: '#15254A' }}>No curriculum frameworks found</div>
-                  <p style={{ color: '#66738F', fontSize: 13, marginTop: 4 }}>
+                  <BookOpen size={36} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>No curriculum frameworks found</div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
                     Create a curriculum for {selectedSessionId ? 'the selected session' : 'your school'} with foundational developmental areas.
                   </p>
                   <button
@@ -1587,8 +1587,8 @@ export default function AcademicsPage() {
                     className="card"
                     style={{
                       padding: 20,
-                      background: '#FFFFFF',
-                      border: '1px solid #E7EAF2',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: 16,
                       boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
                     }}
@@ -1600,24 +1600,24 @@ export default function AcademicsPage() {
                         alignItems: 'flex-start',
                         flexWrap: 'wrap',
                         gap: 12,
-                        borderBottom: '1px solid #F1F4FA',
+                        borderBottom: '1px solid var(--bg-muted)',
                         paddingBottom: 16,
                         marginBottom: 16,
                       }}
                     >
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: '#15254A' }}>{curr.name}</span>
+                          <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{curr.name}</span>
                           <span className="badge b-primary" style={{ fontSize: 11 }}>{enumLabel(curr.programType)}</span>
                           <span className={`badge ${curr.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`} style={{ fontSize: 11 }}>
                             {curr.status}
                           </span>
-                          <span style={{ fontSize: 11.5, color: '#8A94A8' }}>v{curr.version}</span>
+                          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>v{curr.version}</span>
                         </div>
                         {curr.description && (
-                          <p style={{ fontSize: 13, color: '#66738F', marginTop: 4 }}>{curr.description}</p>
+                          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{curr.description}</p>
                         )}
-                        <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4, display: 'flex', gap: 16 }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', gap: 16 }}>
                           <span>Framework: <b>{curr.framework || 'Standard'}</b></span>
                           {curr.academicSession && <span>Session: <b>{curr.academicSession.name}</b></span>}
                         </div>
@@ -1638,7 +1638,7 @@ export default function AcademicsPage() {
                     {/* Learning Areas and Goals Tree */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
                       {curr.learningAreas?.length === 0 ? (
-                        <div style={{ fontSize: 13, color: '#8A94A8', padding: 12, fontStyle: 'italic' }}>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', padding: 12, fontStyle: 'italic' }}>
                           No learning areas added yet. Click "Add Learning Area" to add areas like Literacy or Motor Skills.
                         </div>
                       ) : (
@@ -1646,19 +1646,19 @@ export default function AcademicsPage() {
                           <div
                             key={area.id}
                             style={{
-                              background: '#F8FAFD',
+                              background: 'var(--bg-subtle)',
                               borderRadius: 12,
-                              border: '1px solid #E7EAF2',
+                              border: '1px solid var(--border-default)',
                               padding: 14,
                             }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>
+                              <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>
                                 {area.name} {area.code ? `(${area.code})` : ''}
                               </div>
                               <button
                                 className="btn btn-ghost btn-sm"
-                                style={{ padding: '2px 8px', fontSize: 11, color: '#5B3DF5' }}
+                                style={{ padding: '2px 8px', fontSize: 11, color: 'var(--primary)' }}
                                 onClick={() => {
                                   setSelectedAreaId(area.id)
                                   setGoalModalOpen(true)
@@ -1669,7 +1669,7 @@ export default function AcademicsPage() {
                             </div>
 
                             {area.goals?.length === 0 ? (
-                              <div style={{ fontSize: 11.5, color: '#8A94A8', fontStyle: 'italic' }}>
+                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontStyle: 'italic' }}>
                                 No milestone goals yet
                               </div>
                             ) : (
@@ -1678,18 +1678,18 @@ export default function AcademicsPage() {
                                   <div
                                     key={g.id}
                                     style={{
-                                      background: '#FFFFFF',
+                                      background: 'var(--surface)',
                                       padding: '8px 10px',
                                       borderRadius: 8,
-                                      border: '1px solid #E7EAF2',
+                                      border: '1px solid var(--border-default)',
                                       fontSize: 12,
                                       display: 'flex',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                     }}
                                   >
-                                    <span style={{ fontWeight: 500, color: '#15254A' }}>{g.name}</span>
-                                    {g.code && <span style={{ fontSize: 10, color: '#8A94A8', background: '#F1F4FA', padding: '1px 6px', borderRadius: 4 }}>{g.code}</span>}
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{g.name}</span>
+                                    {g.code && <span style={{ fontSize: 10, color: 'var(--text-muted)', background: 'var(--bg-muted)', padding: '1px 6px', borderRadius: 4 }}>{g.code}</span>}
                                   </div>
                                 ))}
                               </div>
@@ -1709,8 +1709,8 @@ export default function AcademicsPage() {
             <div
               className="card"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 0,
                 overflow: 'hidden',
@@ -1723,15 +1723,15 @@ export default function AcademicsPage() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderBottom: '1px solid #E7EAF2',
-                  background: '#F8FAFD',
+                  borderBottom: '1px solid var(--border-default)',
+                  background: 'var(--bg-subtle)',
                 }}
               >
                 <div>
-                  <span style={{ fontWeight: 700, fontSize: 14.5, color: '#15254A' }}>
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text-primary)' }}>
                     Scheduled Classroom Activities
                   </span>
-                  <span style={{ marginLeft: 8, fontSize: 12, color: '#66738F' }}>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
                     ({filteredActivities.length} planned activities)
                   </span>
                 </div>
@@ -1747,30 +1747,30 @@ export default function AcademicsPage() {
               <div style={{ overflowX: 'auto' }}>
                 <table className="table" style={{ width: '100%', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ background: '#FFFFFF', borderBottom: '1px solid #E7EAF2' }}>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Activity & Schedule</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Classroom Section</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Learning Goal</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Educator</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Status</th>
-                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
+                    <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border-default)' }}>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Activity & Schedule</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Classroom Section</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Learning Goal</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Educator</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px' }}>Status</th>
+                      <th style={{ color: 'var(--text-secondary)', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredActivities.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', padding: '40px 20px', color: '#66738F' }}>
-                          <CalendarCheck size={32} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
-                          <div style={{ fontWeight: 600, color: '#15254A' }}>No activities scheduled</div>
-                          <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>Click "Schedule Activity" to create a lesson plan.</div>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                          <CalendarCheck size={32} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>No activities scheduled</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Click "Schedule Activity" to create a lesson plan.</div>
                         </td>
                       </tr>
                     ) : (
                       filteredActivities.map((act) => (
-                        <tr key={act.id} style={{ borderBottom: '1px solid #F1F4FA' }}>
+                        <tr key={act.id} style={{ borderBottom: '1px solid var(--bg-muted)' }}>
                           <td style={{ padding: '14px 18px' }}>
-                            <div style={{ fontWeight: 600, color: '#15254A' }}>{act.title}</div>
-                            <div style={{ fontSize: 11.5, color: '#8A94A8', display: 'flex', gap: 10, marginTop: 2 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{act.title}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', gap: 10, marginTop: 2 }}>
                               <span>Date: {fmtDate(act.activityDate)}</span>
                               {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
                             </div>
@@ -1781,21 +1781,21 @@ export default function AcademicsPage() {
                           <td style={{ padding: '14px 18px' }}>
                             {act.learningGoal ? (
                               <div>
-                                <div style={{ fontSize: 12, fontWeight: 600, color: '#15254A' }}>{act.learningGoal.name}</div>
-                                <div style={{ fontSize: 11, color: '#8A94A8' }}>{act.learningGoal.learningArea?.name}</div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{act.learningGoal.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{act.learningGoal.learningArea?.name}</div>
                               </div>
                             ) : (
-                              <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>General Activity</span>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>General Activity</span>
                             )}
                           </td>
                           <td style={{ padding: '14px 18px' }}>
                             {act.teacher ? (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                                 <Avatar name={act.teacher.fullName} size="sm" />
-                                <span style={{ fontWeight: 500, color: '#15254A' }}>{act.teacher.fullName}</span>
+                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{act.teacher.fullName}</span>
                               </div>
                             ) : (
-                              <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>Unassigned</span>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Unassigned</span>
                             )}
                           </td>
                           <td style={{ padding: '14px 18px' }}>
@@ -1850,8 +1850,8 @@ export default function AcademicsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Child Milestone & Learning Observations</h3>
-                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Child Milestone & Learning Observations</h3>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                     Observations logged by teachers. Publishing shares the milestone card on the Parent Portal Timeline.
                   </p>
                 </div>
@@ -1870,14 +1870,14 @@ export default function AcademicsPage() {
                   style={{
                     padding: 44,
                     textAlign: 'center',
-                    background: '#FFFFFF',
-                    border: '1px solid #E7EAF2',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: 16,
                   }}
                 >
-                  <Sparkles size={36} style={{ color: '#8A94A8', margin: '0 auto 12px' }} />
-                  <div style={{ fontWeight: 700, fontSize: 15, color: '#15254A' }}>No observations logged yet</div>
-                  <p style={{ color: '#66738F', fontSize: 13, marginTop: 4 }}>
+                  <Sparkles size={36} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>No observations logged yet</div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
                     Record classroom moments, developmental milestones, or concern flags for any enrolled child.
                   </p>
                 </div>
@@ -1887,8 +1887,8 @@ export default function AcademicsPage() {
                     key={obs.id}
                     className="card"
                     style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #E7EAF2',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: 16,
                       padding: 18,
                       boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
@@ -1901,7 +1901,7 @@ export default function AcademicsPage() {
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                         <span
-                          style={{ fontWeight: 700, fontSize: 14, cursor: 'pointer', color: '#5B3DF5' }}
+                          style={{ fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--primary)' }}
                           onClick={() => inspectStudent(obs.studentId)}
                         >
                           {obs.student?.firstName} {obs.student?.lastName} ({obs.student?.admissionNo || 'N/A'})
@@ -1915,10 +1915,10 @@ export default function AcademicsPage() {
                         )}
                         <StatusBadge status={obs.status} />
                       </div>
-                      <p style={{ fontSize: 13.5, color: '#15254A', lineHeight: 1.5, margin: '6px 0 10px' }}>
+                      <p style={{ fontSize: 13.5, color: 'var(--text-primary)', lineHeight: 1.5, margin: '6px 0 10px' }}>
                         {obs.narrative}
                       </p>
-                      <div style={{ fontSize: 11.5, color: '#8A94A8', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                         <span>Observed {timeAgo(obs.observedAt)}</span>
                         {obs.learningGoal && <span>Goal: <b>{obs.learningGoal.name}</b></span>}
                         {obs.milestoneTags && <span>Tags: <b>{obs.milestoneTags}</b></span>}
@@ -1953,8 +1953,8 @@ export default function AcademicsPage() {
             <div
               className="card"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 20,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1962,17 +1962,17 @@ export default function AcademicsPage() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Developmental Milestone Matrix</h3>
-                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Developmental Milestone Matrix</h3>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                     Session-scoped progression. Track each child's stage from Not Started to Achieved.
                   </p>
                 </div>
                 {/* Milestone Legend */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#66738F', background: '#F8FAFD', padding: '6px 12px', borderRadius: 8, border: '1px solid #E7EAF2' }}>
-                  <span><b style={{ color: '#94A3B8' }}>●</b> Not Started</span>
-                  <span><b style={{ color: '#3B82F6' }}>◐</b> Introduced</span>
-                  <span><b style={{ color: '#F59E0B' }}>◒</b> Developing</span>
-                  <span><b style={{ color: '#10B981' }}>✓</b> Achieved</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-subtle)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-default)' }}>
+                  <span><b style={{ color: 'var(--text-muted)' }}>●</b> Not Started</span>
+                  <span><b style={{ color: 'var(--info)' }}>◐</b> Introduced</span>
+                  <span><b style={{ color: 'var(--warning)' }}>◒</b> Developing</span>
+                  <span><b style={{ color: 'var(--success)' }}>✓</b> Achieved</span>
                 </div>
               </div>
 
@@ -1983,8 +1983,8 @@ export default function AcademicsPage() {
                     style={{
                       padding: 14,
                       borderRadius: 12,
-                      border: '1px solid #E7EAF2',
-                      background: '#FFFFFF',
+                      border: '1px solid var(--border-default)',
+                      background: 'var(--surface)',
                       cursor: 'pointer',
                       transition: 'all 0.18s ease',
                       boxShadow: '0 1px 2px rgba(21, 37, 74, 0.03)',
@@ -1994,11 +1994,11 @@ export default function AcademicsPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <Avatar name={stu.name || 'Student'} size="md" />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>{stu.name}</div>
-                        <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 1 }}>Adm: {stu.admissionNo || 'N/A'}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-primary)' }}>{stu.name}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 1 }}>Adm: {stu.admissionNo || 'N/A'}</div>
                       </div>
                     </div>
-                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#5B3DF5', fontWeight: 600 }}>
+                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
                       <span>View Progress Matrix</span>
                       <ChevronRight size={14} />
                     </div>
@@ -2015,20 +2015,20 @@ export default function AcademicsPage() {
               <div
                 className="card"
                 style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #E7EAF2',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 16,
                   padding: 20,
                   boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                 }}
               >
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <FileText size={16} style={{ color: '#5B3DF5' }} />
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={16} style={{ color: 'var(--primary)' }} />
                   </div>
                   Student Academic Progress Cards
                 </h3>
-                <p style={{ fontSize: 13, color: '#66738F', marginBottom: 16, lineHeight: 1.4 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.4 }}>
                   Generates an authoritative, session-scoped progress report with milestone mastery rates, teacher narratives, and developmental feedback.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2038,14 +2038,14 @@ export default function AcademicsPage() {
                       style={{
                         padding: '10px 14px',
                         borderRadius: 10,
-                        border: '1px solid #E7EAF2',
-                        background: '#F8FAFD',
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--bg-subtle)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                       }}
                     >
-                      <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>{stu.name}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>{stu.name}</span>
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => inspectStudent(stu.id)}
@@ -2062,20 +2062,20 @@ export default function AcademicsPage() {
               <div
                 className="card"
                 style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #E7EAF2',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 16,
                   padding: 20,
                   boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
                 }}
               >
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <TrendingUp size={16} style={{ color: '#10B981' }} />
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <TrendingUp size={16} style={{ color: 'var(--success)' }} />
                   </div>
                   Classroom Section Progress Summary
                 </h3>
-                <p style={{ fontSize: 13, color: '#66738F', marginBottom: 16, lineHeight: 1.4 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.4 }}>
                   Section-level developmental distribution, average mastery percentage, and total observation counts.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -2085,16 +2085,16 @@ export default function AcademicsPage() {
                       style={{
                         padding: '12px 14px',
                         borderRadius: 10,
-                        border: '1px solid #E7EAF2',
-                        background: '#F8FAFD',
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--bg-subtle)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                       }}
                     >
                       <div>
-                        <span style={{ fontSize: 13.5, fontWeight: 700, color: '#15254A' }}>{cls.name}</span>
-                        <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 2 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)' }}>{cls.name}</span>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
                           Capacity: {cls.studentCount ?? cls.students ?? 0} / {cls.capacity} children
                         </div>
                       </div>
@@ -2500,18 +2500,18 @@ export default function AcademicsPage() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: 16,
-                background: '#F8FAFD',
+                background: 'var(--bg-subtle)',
                 borderRadius: 12,
-                border: '1px solid #E7EAF2',
+                border: '1px solid var(--border-default)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Avatar name={`${studentProfile.student.firstName} ${studentProfile.student.lastName || ''}`} size="lg" />
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
                     {studentProfile.student.firstName} {studentProfile.student.lastName}
                   </div>
-                  <div style={{ fontSize: 12, color: '#66738F', display: 'flex', gap: 12, marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 12, marginTop: 2 }}>
                     <span>Adm: <b>{studentProfile.student.admissionNo}</b></span>
                     <span>Classroom: <b>{studentProfile.classroom?.name || 'Unallocated'}</b></span>
                     <span>Session: <b>{studentProfile.session?.name}</b></span>
@@ -2519,8 +2519,8 @@ export default function AcademicsPage() {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#8A94A8', textTransform: 'uppercase', fontWeight: 600 }}>Overall Mastery</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Overall Mastery</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--success)' }}>
                   {studentReport?.summary?.masteryRate ?? 0}%
                 </div>
               </div>
@@ -2528,15 +2528,15 @@ export default function AcademicsPage() {
 
             {/* Guardians & Teachers Info */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
-              <div style={{ padding: 12, border: '1px solid #E7EAF2', borderRadius: 10, background: '#FFFFFF' }}>
-                <span style={{ fontWeight: 600, color: '#15254A' }}>Primary Educator:</span>
-                <div style={{ marginTop: 4, color: '#66738F' }}>
+              <div style={{ padding: 12, border: '1px solid var(--border-default)', borderRadius: 10, background: 'var(--surface)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Primary Educator:</span>
+                <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>
                   {studentProfile.primaryTeacher?.fullName || 'Not assigned'}
                 </div>
               </div>
-              <div style={{ padding: 12, border: '1px solid #E7EAF2', borderRadius: 10, background: '#FFFFFF' }}>
-                <span style={{ fontWeight: 600, color: '#15254A' }}>Guardians (Parent Portal):</span>
-                <div style={{ marginTop: 4, color: '#66738F' }}>
+              <div style={{ padding: 12, border: '1px solid var(--border-default)', borderRadius: 10, background: 'var(--surface)' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Guardians (Parent Portal):</span>
+                <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>
                   {studentProfile.guardians?.map((g: any) => g.fullName).join(', ') || 'None listed'}
                 </div>
               </div>
@@ -2544,20 +2544,20 @@ export default function AcademicsPage() {
 
             {/* Developmental Areas & Milestone Matrix */}
             <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Target size={15} style={{ color: '#5B3DF5' }} />
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Target size={15} style={{ color: 'var(--primary)' }} />
                 Milestone Progress Matrix ({studentProfile.session?.name})
               </h4>
 
               {studentProgressMatrix?.learningAreas?.length === 0 ? (
-                <div style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic', padding: 12, background: '#F8FAFD', borderRadius: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', padding: 12, background: 'var(--bg-subtle)', borderRadius: 8 }}>
                   No curriculum goals configured for this program session yet.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
                   {studentProgressMatrix?.learningAreas?.map((area: any) => (
-                    <div key={area.id} style={{ border: '1px solid #E7EAF2', borderRadius: 10, padding: 12, background: '#FFFFFF' }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#15254A' }}>
+                    <div key={area.id} style={{ border: '1px solid var(--border-default)', borderRadius: 10, padding: 12, background: 'var(--surface)' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--text-primary)' }}>
                         {area.name}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -2571,12 +2571,12 @@ export default function AcademicsPage() {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 fontSize: 12,
-                                background: '#F8FAFD',
+                                background: 'var(--bg-subtle)',
                                 padding: '6px 10px',
                                 borderRadius: 6,
                               }}
                             >
-                              <span style={{ color: '#15254A', fontWeight: 500 }}>{g.name}</span>
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{g.name}</span>
                               <select
                                 className="select"
                                 style={{ height: 28, fontSize: 11.5, padding: '2px 24px 2px 8px', minWidth: 110, borderRadius: 6 }}
@@ -2600,13 +2600,13 @@ export default function AcademicsPage() {
 
             {/* Observations History */}
             <div>
-              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={15} style={{ color: '#5B3DF5' }} />
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={15} style={{ color: 'var(--primary)' }} />
                 Observations & Parent Timeline Milestones ({studentProfile.observations?.length || 0})
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                 {studentProfile.observations?.length === 0 ? (
-                  <div style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic', padding: 12, background: '#F8FAFD', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', padding: 12, background: 'var(--bg-subtle)', borderRadius: 8 }}>
                     No observations recorded for this child yet.
                   </div>
                 ) : (
@@ -2615,17 +2615,17 @@ export default function AcademicsPage() {
                       key={o.id}
                       style={{
                         padding: 10,
-                        background: '#F8FAFD',
+                        background: 'var(--bg-subtle)',
                         borderRadius: 8,
-                        border: '1px solid #E7EAF2',
+                        border: '1px solid var(--border-default)',
                         fontSize: 12,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600, color: '#15254A' }}>{o.category || 'General'}</span>
-                        <span style={{ fontSize: 10.5, color: '#8A94A8' }}>{timeAgo(o.observedAt)}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{o.category || 'General'}</span>
+                        <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{timeAgo(o.observedAt)}</span>
                       </div>
-                      <p style={{ margin: 0, color: '#4A5A72', lineHeight: 1.4 }}>{o.narrative}</p>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{o.narrative}</p>
                     </div>
                   ))
                 )}

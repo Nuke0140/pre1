@@ -771,14 +771,14 @@ export function OperationsClient() {
             id="critical-exceptions-section"
             className="card"
             style={{
-              background: '#FFFFFF',
-              border: `1px solid ${ex.criticalCount > 0 ? 'var(--danger, #EF4444)' : '#E7EAF2'}`,
+              background: 'var(--surface)',
+              border: `1px solid ${ex.criticalCount > 0 ? 'var(--danger, var(--danger))' : 'var(--border-default)'}`,
               borderRadius: 16,
               padding: 20,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid #E7EAF2', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid var(--border-default)', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div
                   style={{
@@ -792,11 +792,11 @@ export function OperationsClient() {
                     flexShrink: 0,
                   }}
                 >
-                  <Siren size={18} style={{ color: ex.criticalCount > 0 ? '#DC2626' : '#059669' }} />
+                  <Siren size={18} style={{ color: ex.criticalCount > 0 ? 'var(--danger)' : 'var(--success)' }} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', margin: 0 }}>Critical Safety Exceptions</h3>
-                  <p style={{ fontSize: 12, color: '#66738F', margin: '2px 0 0 0' }}>Real-time health isolations, safety incidents, and late arrivals requiring immediate escalation</p>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Critical Safety Exceptions</h3>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Real-time health isolations, safety incidents, and late arrivals requiring immediate escalation</p>
                 </div>
               </div>
               <span className={`badge ${ex.criticalCount > 0 ? 'b-danger' : 'b-success'}`} style={{ fontWeight: 700 }}>
@@ -806,9 +806,9 @@ export function OperationsClient() {
 
             {ex.critical.length === 0 ? (
               <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                <ShieldCheck size={36} style={{ margin: '0 auto 8px auto', color: '#10B981', opacity: 0.8 }} />
-                <p style={{ fontSize: 14, fontWeight: 600, color: '#15254A', margin: 0 }}>Zero Critical Alerts Active</p>
-                <p style={{ fontSize: 12, color: '#66738F', margin: '4px 0 0 0' }}>All gate arrivals, health triages, and classroom isolations are clear.</p>
+                <ShieldCheck size={36} style={{ margin: '0 auto 8px auto', color: 'var(--success)', opacity: 0.8 }} />
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Zero Critical Alerts Active</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0 0' }}>All gate arrivals, health triages, and classroom isolations are clear.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -817,7 +817,7 @@ export function OperationsClient() {
                     key={f.id}
                     style={{
                       padding: '14px 0',
-                      borderBottom: '1px solid #F1F4FA',
+                      borderBottom: '1px solid var(--border-subtle)',
                       display: 'flex',
                       flexWrap: 'wrap',
                       alignItems: 'center',
@@ -829,18 +829,18 @@ export function OperationsClient() {
                       <Avatar name={f.student || f.title} size="md" />
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: '#15254A' }}>{f.title}</span>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{f.title}</span>
                           <span className={`badge ${SEVERITY_BADGE[f.severity] || 'b-neutral'}`} style={{ fontSize: 10 }}>{f.severity}</span>
                           <StatusBadge status={f.status} />
                         </div>
-                        <div style={{ fontSize: 12, color: '#66738F', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          {f.student && <span style={{ fontWeight: 600, color: '#15254A' }}>{f.student}</span>}
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          {f.student && <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.student}</span>}
                           {f.classroom && <span>• {f.classroom}</span>}
                           <span>• {f.domain}</span>
                           <span>• {timeAgo(f.createdAt)}</span>
                         </div>
                         {f.detail && (
-                          <p style={{ fontSize: 12, color: '#66738F', marginTop: 6, padding: '6px 10px', background: '#F8FAFD', borderRadius: 8, border: '1px solid #E7EAF2' }}>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, padding: '6px 10px', background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-default)' }}>
                             {f.detail}
                           </p>
                         )}
@@ -880,14 +880,14 @@ export function OperationsClient() {
             <div
               className="lg:col-span-7 card"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 20,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid #E7EAF2', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid var(--border-default)', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div
                     style={{
@@ -901,54 +901,54 @@ export function OperationsClient() {
                       flexShrink: 0,
                     }}
                   >
-                    <Users size={18} style={{ color: '#6A35FF' }} />
+                    <Users size={18} style={{ color: 'var(--primary)' }} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', margin: 0 }}>Section Attendance Meters</h3>
-                    <p style={{ fontSize: 12, color: '#66738F', margin: '2px 0 0 0' }}>Classroom capacity, active staffing, and live check-in percentage</p>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Section Attendance Meters</h3>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Classroom capacity, active staffing, and live check-in percentage</p>
                   </div>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#66738F' }}>{data.sections.length} Sections</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{data.sections.length} Sections</span>
               </div>
 
               <div className="flex flex-col gap-3">
                 {data.sections.map((s) => (
                   <div
                     key={s.id}
-                    className="p-3.5 sm:p-4 rounded-xl border border-[#E7EAF2] bg-[#FAFBFC] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all hover:bg-white hover:shadow-sm"
+                    className="p-3.5 sm:p-4 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-all hover:bg-white hover:shadow-sm"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-[#15254A]">{s.name}</span>
+                        <span className="font-bold text-sm text-[var(--text-primary)]">{s.name}</span>
                         <span className="badge b-neutral text-[10px]">{s.programType}</span>
                         {s.understaffed && <span className="badge b-warning text-[10px]">Understaffed</span>}
                       </div>
-                      <div className="text-xs text-[#66738F] mt-0.5 truncate">
-                        Teacher: <span className="font-semibold text-[#15254A]">{s.teacher}</span> • Capacity: {s.capacity}
+                      <div className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                        Teacher: <span className="font-semibold text-[var(--text-primary)]">{s.teacher}</span> • Capacity: {s.capacity}
                       </div>
                       {/* Meter bar */}
                       <div className="mt-2 flex items-center gap-2.5">
-                        <div className="flex-1 h-2 bg-[#EAEFF8] rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all duration-300"
                             style={{
                               width: `${s.attendancePct}%`,
-                              backgroundColor: s.attendancePct >= 75 ? '#10B981' : s.attendancePct >= 40 ? '#F59E0B' : '#EF4444',
+                              backgroundColor: s.attendancePct >= 75 ? 'var(--success)' : s.attendancePct >= 40 ? 'var(--warning)' : 'var(--danger)',
                             }}
                           />
                         </div>
-                        <span className="text-xs font-mono font-semibold text-[#15254A] w-11 text-right shrink-0">
+                        <span className="text-xs font-mono font-semibold text-[var(--text-primary)] w-11 text-right shrink-0">
                           {s.attendancePct}%
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E7EAF2] shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-default)] shrink-0">
                       <div className="text-left sm:text-right">
-                        <div className="text-sm font-bold font-mono text-[#15254A]">
-                          {s.present} <span className="text-xs font-normal text-[#66738F]">/ {s.expected}</span>
+                        <div className="text-sm font-bold font-mono text-[var(--text-primary)]">
+                          {s.present} <span className="text-xs font-normal text-[var(--text-muted)]">/ {s.expected}</span>
                         </div>
-                        <div className="text-[11px] text-[#66738F]">{s.absent} absent</div>
+                        <div className="text-[11px] text-[var(--text-muted)]">{s.absent} absent</div>
                       </div>
                       <button
                         type="button"
@@ -971,14 +971,14 @@ export function OperationsClient() {
             <div
               className="lg:col-span-5 card"
               style={{
-                background: '#FFFFFF',
-                border: '1px solid #E7EAF2',
+                background: 'var(--surface)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 16,
                 padding: 20,
                 boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid #E7EAF2', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 14, borderBottom: '1px solid var(--border-default)', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div
                     style={{
@@ -992,11 +992,11 @@ export function OperationsClient() {
                       flexShrink: 0,
                     }}
                   >
-                    <AlertTriangle size={18} style={{ color: '#D97706' }} />
+                    <AlertTriangle size={18} style={{ color: 'var(--warning)' }} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', margin: 0 }}>Attention Queue</h3>
-                    <p style={{ fontSize: 12, color: '#66738F', margin: '2px 0 0 0' }}>Non-critical follow-ups & guardian calls</p>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Attention Queue</h3>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0 0' }}>Non-critical follow-ups & guardian calls</p>
                   </div>
                 </div>
                 <span className="badge b-warning" style={{ fontWeight: 600 }}>{ex.attentionCount} Open</span>
@@ -1004,9 +1004,9 @@ export function OperationsClient() {
 
               {ex.attention.length === 0 ? (
                 <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                  <CheckCircle2 size={32} style={{ margin: '0 auto 8px auto', color: '#10B981', opacity: 0.8 }} />
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#15254A', margin: 0 }}>No Attention Items</p>
-                  <p style={{ fontSize: 12, color: '#66738F', margin: '4px 0 0 0' }}>All day-to-day administrative items are up to date.</p>
+                  <CheckCircle2 size={32} style={{ margin: '0 auto 8px auto', color: 'var(--success)', opacity: 0.8 }} />
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No Attention Items</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0 0' }}>All day-to-day administrative items are up to date.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -1015,7 +1015,7 @@ export function OperationsClient() {
                       key={f.id}
                       style={{
                         padding: '12px 0',
-                        borderBottom: '1px solid #F1F4FA',
+                        borderBottom: '1px solid var(--border-subtle)',
                         display: 'flex',
                         alignItems: 'flex-start',
                         justifyContent: 'space-between',
@@ -1023,12 +1023,12 @@ export function OperationsClient() {
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: '#15254A' }}>{f.title}</div>
-                        <div style={{ fontSize: 11, color: '#66738F', marginTop: 2 }}>
-                          {f.student && <span style={{ fontWeight: 600, color: '#15254A' }}>{f.student} • </span>}
+                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{f.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                          {f.student && <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{f.student} • </span>}
                           <span>{timeAgo(f.createdAt)}</span>
                         </div>
-                        {f.detail && <p style={{ fontSize: 11, color: '#66738F', marginTop: 4 }}>{f.detail}</p>}
+                        {f.detail && <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{f.detail}</p>}
                       </div>
                       <button
                         type="button"
@@ -1054,8 +1054,8 @@ export function OperationsClient() {
           <div
             className="card flex flex-col md:flex-row md:items-center justify-between gap-4"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 16,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1079,7 +1079,7 @@ export function OperationsClient() {
             </div>
 
             {classroomData && (
-              <div className="flex items-center gap-2 flex-wrap border-t md:border-t-0 pt-2 md:pt-0" style={{ borderColor: '#E7EAF2' }}>
+              <div className="flex items-center gap-2 flex-wrap border-t md:border-t-0 pt-2 md:pt-0" style={{ borderColor: 'var(--border-default)' }}>
                 <span className="counter-chip">Enrolled: <b>{classroomData.summary.total}</b></span>
                 <span className="counter-chip c-present">Present: <b>{classroomData.summary.present}</b></span>
                 <span className="counter-chip c-absent">Absent: <b>{classroomData.summary.absent}</b></span>
@@ -1149,8 +1149,8 @@ export function OperationsClient() {
                     key={st.id}
                     className="card hover:shadow-md transition-all duration-200"
                     style={{
-                      background: '#FFFFFF',
-                      border: '1px solid #E7EAF2',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: 16,
                       padding: 16,
                       boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1211,9 +1211,9 @@ export function OperationsClient() {
                     </div>
 
                     {/* Operational Action Controls: Roll Call + Modal Triggers */}
-                    <div className="mt-4 pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid #E7EAF2' }}>
+                    <div className="mt-4 pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid var(--border-default)' }}>
                       {/* 1-Tap Attendance Roll Call (44px touch target) */}
-                      <div className="flex gap-1.5 bg-muted/40 p-1 rounded-xl" style={{ border: '1px solid #E7EAF2' }}>
+                      <div className="flex gap-1.5 bg-muted/40 p-1 rounded-xl" style={{ border: '1px solid var(--border-default)' }}>
                         <button
                           type="button"
                           className={`w-9 h-9 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
@@ -1325,8 +1325,8 @@ export function OperationsClient() {
           <div
             className="card flex flex-col md:flex-row md:items-center justify-between gap-4"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 16,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1384,8 +1384,8 @@ export function OperationsClient() {
           <div
             className="card overflow-hidden"
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #E7EAF2',
+              background: 'var(--surface)',
+              border: '1px solid var(--border-default)',
               borderRadius: 16,
               padding: 0,
               boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
@@ -1406,7 +1406,7 @@ export function OperationsClient() {
                 {/* Desktop View Table */}
                 <div className="op-desktop-only overflow-x-auto">
                   <table className="w-full text-left text-sm">
-                    <thead style={{ background: '#F8FAFD', borderBottom: '1px solid #E7EAF2', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: '#66738F', letterSpacing: '0.05em' }}>
+                    <thead style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border-default)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.05em' }}>
                       <tr>
                         <th className="p-3.5">Child</th>
                         <th className="p-3.5">Section</th>
@@ -1416,9 +1416,9 @@ export function OperationsClient() {
                         <th className="p-3.5 text-right">Verification</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y" style={{ borderColor: '#F1F4FA' }}>
+                    <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                       {filteredPickupQueue.map((item: any) => (
-                        <tr key={item.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                        <tr key={item.id} className="hover:bg-muted/15 transition-colors" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                           <td className="p-3.5 flex items-center gap-3">
                             <Avatar name={item.name} size="md" />
                             <div>
@@ -1492,9 +1492,9 @@ export function OperationsClient() {
                 </div>
 
                 {/* Mobile View Card List */}
-                <div className="op-mobile-only divide-y" style={{ borderColor: '#F1F4FA' }}>
+                <div className="op-mobile-only divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {filteredPickupQueue.map((item: any) => (
-                    <div key={item.id} className="p-4 space-y-3" style={{ borderBottom: '1px solid #F1F4FA' }}>
+                    <div key={item.id} className="p-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
                           <Avatar name={item.name} size="md" />

@@ -329,7 +329,7 @@ export default function StudentsPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar name={s.name} src={s.photoUrl} size="md" />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 14.5, fontWeight: 650, color: '#15254A', lineHeight: 1.2 }}>
+            <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--text-primary)', lineHeight: 1.2 }}>
               {s.name}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
@@ -339,9 +339,9 @@ export default function StudentsPage() {
                   fontSize: 11.5,
                   padding: '1px 6px',
                   borderRadius: 5,
-                  background: '#F1F4FA',
-                  color: '#66738F',
-                  border: '1px solid #E7EAF2',
+                  background: 'var(--bg-muted)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-default)',
                 }}
               >
                 {s.admissionNo}
@@ -353,8 +353,8 @@ export default function StudentsPage() {
                     fontSize: 11,
                     padding: '1px 5px',
                     borderRadius: 4,
-                    background: '#F0ECFF',
-                    color: '#5B3DF5',
+                    background: 'var(--primary-light)',
+                    color: 'var(--primary)',
                     fontWeight: 600,
                   }}
                 >
@@ -376,7 +376,7 @@ export default function StudentsPage() {
         s.classroom ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
                 {s.classroom.name}
               </span>
               <span
@@ -385,14 +385,14 @@ export default function StudentsPage() {
                   padding: '1px 6px',
                   borderRadius: 4,
                   fontWeight: 600,
-                  background: '#F0ECFF',
-                  color: '#5B3DF5',
+                  background: 'var(--primary-light)',
+                  color: 'var(--primary)',
                 }}
               >
                 {enumLabel(s.classroom.programType)}
               </span>
             </div>
-            <span style={{ fontSize: 12, color: '#66738F' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               {s.classroom.teacher ? `Educator: ${s.classroom.teacher}` : 'No primary teacher'}
             </span>
           </div>
@@ -405,9 +405,9 @@ export default function StudentsPage() {
               borderRadius: 6,
               fontSize: 11.5,
               fontWeight: 500,
-              background: '#FFFBEB',
-              color: '#B45309',
-              border: '1px solid #FDE68A',
+              background: 'var(--warning-soft)',
+              color: 'var(--warning)',
+              border: '1px solid var(--warning-soft)',
             }}
           >
             Unassigned
@@ -422,10 +422,10 @@ export default function StudentsPage() {
       export: (s) => `${fmtDate(s.dob)} (${formatAge(s.dob)})`,
       render: (s) => (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 13.5, fontWeight: 550, color: '#15254A' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 550, color: 'var(--text-primary)' }}>
             {formatAge(s.dob)}
           </span>
-          <span style={{ fontSize: 12, color: '#66738F' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             {fmtDate(s.dob)}
           </span>
         </div>
@@ -439,19 +439,19 @@ export default function StudentsPage() {
         s.primaryGuardian ? (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
                 {s.primaryGuardian.name}
               </span>
-              <span style={{ fontSize: 11, color: '#8A94A8', textTransform: 'capitalize' }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
                 ({s.primaryGuardian.relationship.toLowerCase()})
               </span>
             </div>
-            <span style={{ fontSize: 12, color: '#66738F', fontFamily: 'var(--font-mono, monospace)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono, monospace)' }}>
               {s.primaryGuardian.phone}
             </span>
           </div>
         ) : (
-          <span style={{ color: '#8A94A8', fontSize: 13 }}>-</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>-</span>
         ),
     },
     {
@@ -478,7 +478,7 @@ export default function StudentsPage() {
       width: 44,
       hideable: false,
       render: () => (
-        <div style={{ display: 'flex', justifyContent: 'center', color: '#8A94A8' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
           <ChevronRight size={17} />
         </div>
       ),
@@ -528,162 +528,162 @@ export default function StudentsPage() {
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Total Enrolled
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={15} style={{ color: '#5B3DF5' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={15} style={{ color: 'var(--primary)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {stats ? stats.totalStudents : 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Registered identities</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Registered identities</div>
         </div>
 
         {/* Metric 2: Active Children */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Active Children
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <GraduationCap size={15} style={{ color: '#10B981' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GraduationCap size={15} style={{ color: 'var(--success)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#10B981', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
             {stats ? stats.activeStudents : 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Currently attending</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Currently attending</div>
         </div>
 
         {/* Metric 3: New Admissions */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               New Admissions
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EBF5FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Activity size={15} style={{ color: '#3B82F6' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Activity size={15} style={{ color: 'var(--info)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {stats ? stats.recentAdmissions30d : 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Last 30 days</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Last 30 days</div>
         </div>
 
         {/* Metric 4: Avg Attendance */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Avg Attendance
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Calendar size={15} style={{ color: '#8B5CF6' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={15} style={{ color: 'var(--primary)' }} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: 26, fontWeight: 700, color: '#8B5CF6', lineHeight: 1.1 }}>
+            <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>
               {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : '—'}
             </span>
           </div>
-          <div style={{ width: '100%', background: '#F1F4FA', height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+          <div style={{ width: '100%', background: 'var(--bg-muted)', height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
             <div
               style={{
                 width: `${Math.min(100, Math.max(0, stats?.averageAttendanceRate || 0))}%`,
-                background: '#8B5CF6',
+                background: 'var(--primary)',
                 height: '100%',
                 borderRadius: 2,
               }}
             />
           </div>
-          <div style={{ fontSize: 11, color: '#8A94A8', marginTop: 4 }}>Live calculation</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Live calculation</div>
         </div>
 
         {/* Metric 5: Transferred */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Transferred
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowRightLeft size={15} style={{ color: '#D97706' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRightLeft size={15} style={{ color: 'var(--warning)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {stats ? stats.transferredStudents : 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Branch transfers</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Branch transfers</div>
         </div>
 
         {/* Metric 6: Withdrawn */}
         <div
           className="metric-cell"
           style={{
-            background: '#FFFFFF',
-            border: '1px solid #E7EAF2',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-default)',
             borderRadius: 16,
             padding: '14px 16px',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
               Withdrawn
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserX size={15} style={{ color: '#EF4444' }} />
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--danger-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserX size={15} style={{ color: 'var(--danger)' }} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
             {stats ? stats.withdrawnStudents : 0}
           </div>
-          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Non-destructive exit</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Non-destructive exit</div>
         </div>
       </div>
 
@@ -691,8 +691,8 @@ export default function StudentsPage() {
       <div
         className="school-context-bar"
         style={{
-          background: '#FFFFFF',
-          border: '1px solid #E7EAF2',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-default)',
           borderRadius: 14,
           padding: '10px 16px',
           boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
@@ -704,12 +704,12 @@ export default function StudentsPage() {
         }}
       >
         {/* Session Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <Calendar size={15} style={{ color: '#5B3DF5' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <Calendar size={15} style={{ color: 'var(--primary)' }} />
           <span style={{ fontWeight: 600 }}>Session:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value)}
           >
@@ -721,21 +721,21 @@ export default function StudentsPage() {
             ))}
           </select>
           {currentSessionObj?.isCurrent && sessionFilter !== 'ALL' && (
-            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#F0ECFF', color: '#5B3DF5' }}>
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>
               ★ Current
             </span>
           )}
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
         {/* Campus / Branch */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <Building size={15} style={{ color: '#66738F' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <Building size={15} style={{ color: 'var(--text-secondary)' }} />
           <span style={{ fontWeight: 600 }}>Campus:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
           >
@@ -748,15 +748,15 @@ export default function StudentsPage() {
           </select>
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
         {/* Program */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
-          <BookOpen size={15} style={{ color: '#66738F' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
+          <BookOpen size={15} style={{ color: 'var(--text-secondary)' }} />
           <span style={{ fontWeight: 600 }}>Program:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
           >
@@ -767,14 +767,14 @@ export default function StudentsPage() {
           </select>
         </div>
 
-        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
 
         {/* Lifecycle Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
           <span style={{ fontWeight: 600 }}>Status:</span>
           <select
             className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -793,7 +793,7 @@ export default function StudentsPage() {
             className="btn btn-ghost btn-sm"
             onClick={() => { load(); loadStats(); }}
             title="Refresh list"
-            style={{ height: 34, width: 34, padding: 0, borderRadius: 8, color: '#66738F' }}
+            style={{ height: 34, width: 34, padding: 0, borderRadius: 8, color: 'var(--text-secondary)' }}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -819,7 +819,7 @@ export default function StudentsPage() {
       <div style={{ position: 'relative', marginBottom: 16 }}>
         <Search
           size={18}
-          style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#8A94A8' }}
+          style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
         />
         <input
           type="text"
@@ -830,8 +830,8 @@ export default function StudentsPage() {
             paddingRight: 40,
             borderRadius: 12,
             fontSize: 14,
-            borderColor: '#E7EAF2',
-            background: '#FFFFFF',
+            borderColor: 'var(--border-default)',
+            background: 'var(--surface)',
             boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
           }}
           placeholder="Search child, admission ID or guardian phone..."
@@ -848,7 +848,7 @@ export default function StudentsPage() {
               transform: 'translateY(-50%)',
               background: 'none',
               border: 'none',
-              color: '#8A94A8',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
               padding: 4,
             }}
@@ -866,11 +866,11 @@ export default function StudentsPage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '10px 18px',
-            background: '#F0ECFF',
-            border: '1px solid #D8CEFD',
+            background: 'var(--primary-light)',
+            border: '1px solid var(--primary-light)',
             borderRadius: 12,
             marginBottom: 16,
-            color: '#5B3DF5',
+            color: 'var(--primary)',
             boxShadow: '0 2px 8px rgba(91, 61, 245, 0.12)',
             animation: 'fadeIn 0.2s ease',
           }}
@@ -882,21 +882,21 @@ export default function StudentsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               className="btn btn-secondary btn-sm"
-              style={{ background: '#FFFFFF', borderColor: '#D8CEFD', color: '#5B3DF5', height: 32, fontSize: 12.5 }}
+              style={{ background: 'var(--surface)', borderColor: 'var(--primary-light)', color: 'var(--primary)', height: 32, fontSize: 12.5 }}
               onClick={() => openBulkClass()}
             >
               <ArrowRightLeft size={13} /> Assign Class
             </button>
             <button
               className="btn btn-secondary btn-sm"
-              style={{ background: '#FFFFFF', borderColor: '#D8CEFD', color: '#5B3DF5', height: 32, fontSize: 12.5 }}
+              style={{ background: 'var(--surface)', borderColor: 'var(--primary-light)', color: 'var(--primary)', height: 32, fontSize: 12.5 }}
               onClick={() => setBulkStatusOpen(true)}
             >
               <CheckSquare2 size={13} /> Change Status
             </button>
             <button
               className="btn btn-ghost btn-sm"
-              style={{ height: 32, fontSize: 12.5, color: '#66738F' }}
+              style={{ height: 32, fontSize: 12.5, color: 'var(--text-secondary)' }}
               onClick={() => setSelected([])}
             >
               Clear Selection
@@ -908,8 +908,8 @@ export default function StudentsPage() {
       {/* 7. Student Directory Workspace */}
       <div
         style={{
-          background: '#FFFFFF',
-          border: '1px solid #E7EAF2',
+          background: 'var(--surface)',
+          border: '1px solid var(--border-default)',
           borderRadius: 16,
           boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
           overflow: 'hidden',
@@ -944,10 +944,10 @@ export default function StudentsPage() {
             ]}
             footer={
               rows ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: '#66738F' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: 'var(--text-secondary)' }}>
                   <span>Total Shown: <b>{rows.length}</b></span>
                   <span>·</span>
-                  <span>Active: <b style={{ color: '#10B981' }}>{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
+                  <span>Active: <b style={{ color: 'var(--success)' }}>{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
                   <span>·</span>
                   <span>Transferred: <b>{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
                   <span>·</span>
@@ -974,8 +974,8 @@ export default function StudentsPage() {
                 key={s.id}
                 onClick={() => router.push(`/app/students/${s.id}`)}
                 style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #E7EAF2',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 14,
                   padding: 14,
                   display: 'flex',
@@ -989,13 +989,13 @@ export default function StudentsPage() {
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     <Avatar name={s.name} src={s.photoUrl} size="md" />
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#15254A' }}>{s.name}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{s.name}</div>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F4FA', padding: '1px 5px', borderRadius: 4, color: '#66738F' }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--bg-muted)', padding: '1px 5px', borderRadius: 4, color: 'var(--text-secondary)' }}>
                           {s.admissionNo}
                         </span>
                         {s.seatNumber && (
-                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F0ECFF', color: '#5B3DF5', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--primary-light)', color: 'var(--primary)', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
                             {s.seatNumber}
                           </span>
                         )}
@@ -1005,33 +1005,33 @@ export default function StudentsPage() {
                   <StatusBadge status={s.status} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5, borderTop: '1px solid #F1F4FA', paddingTop: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5, borderTop: '1px solid var(--bg-muted)', paddingTop: 10 }}>
                   <div>
-                    <div style={{ color: '#8A94A8', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Classroom</div>
-                    <div style={{ fontWeight: 600, color: '#15254A' }}>{s.classroom?.name || 'Unassigned'}</div>
-                    {s.classroom && <div style={{ color: '#66738F', fontSize: 11 }}>{enumLabel(s.classroom.programType)}</div>}
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Classroom</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.classroom?.name || 'Unassigned'}</div>
+                    {s.classroom && <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{enumLabel(s.classroom.programType)}</div>}
                   </div>
                   <div>
-                    <div style={{ color: '#8A94A8', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Guardian</div>
-                    <div style={{ fontWeight: 600, color: '#15254A' }}>{s.primaryGuardian?.name || '-'}</div>
-                    {s.primaryGuardian?.phone && <div style={{ color: '#66738F', fontSize: 11 }}>{s.primaryGuardian.phone}</div>}
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Guardian</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.primaryGuardian?.name || '-'}</div>
+                    {s.primaryGuardian?.phone && <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{s.primaryGuardian.phone}</div>}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F1F4FA', paddingTop: 8 }}>
-                  <span style={{ fontSize: 12, color: '#8A94A8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--bg-muted)', paddingTop: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     Born: {fmtDate(s.dob)} ({formatAge(s.dob)})
                   </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#5B3DF5', fontSize: 12.5, fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: 12.5, fontWeight: 600 }}>
                     Profile <ChevronRight size={14} />
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div style={{ textAlign: 'center', padding: '36px 16px', color: '#8A94A8' }}>
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
               <UserRound size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#15254A' }}>No children found</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>No children found</div>
               <div style={{ fontSize: 13, marginTop: 4 }}>No students match the current filter criteria.</div>
             </div>
           )}
@@ -1052,27 +1052,27 @@ export default function StudentsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {/* Section A: Child Demographic Information */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
                   1. Child Information
                 </div>
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>First Name <span className="req">*</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>First Name <span className="req">*</span></label>
                     <input className="input" name="firstName" required placeholder="e.g. Aarav" />
                   </div>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Last Name</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Last Name</label>
                     <input className="input" name="lastName" placeholder="e.g. Sharma" />
                   </div>
                   <div className="field">
-                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: '#15254A' }}>
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                       <span>Date of Birth <span className="req">*</span></span>
-                      {dob && <span style={{ color: '#5B3DF5', fontWeight: 600, fontSize: 12 }}>Age: {formatAge(dob)}</span>}
+                      {dob && <span style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 12 }}>Age: {formatAge(dob)}</span>}
                     </label>
                     <DatePicker name="dob" value={dob} onChange={setDob} placeholder="Select date of birth" />
                   </div>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Gender <span className="req">*</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Gender <span className="req">*</span></label>
                     <select className="select" name="gender" required defaultValue="MALE">
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
@@ -1083,13 +1083,13 @@ export default function StudentsPage() {
               </div>
 
               {/* Section B: Classroom & Program Placement */}
-              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
                   2. Classroom Placement & Capacity
                 </div>
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <div className="field" style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Classroom / Section</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Classroom / Section</label>
                     <select
                       className="select"
                       name="classroomId"
@@ -1109,8 +1109,8 @@ export default function StudentsPage() {
                           marginTop: 8,
                           padding: '10px 14px',
                           borderRadius: 8,
-                          background: '#F9FAFD',
-                          border: '1px solid #E7EAF2',
+                          background: 'var(--bg-subtle)',
+                          border: '1px solid var(--border-default)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
@@ -1118,10 +1118,10 @@ export default function StudentsPage() {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <School size={15} style={{ color: '#5B3DF5' }} />
+                          <School size={15} style={{ color: 'var(--primary)' }} />
                           <span><b>{selectedEnrollClass.name}</b> ({enumLabel(selectedEnrollClass.programType)})</span>
                         </div>
-                        <span style={{ color: '#66738F' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>
                           Capacity: <b>{selectedEnrollClass.capacity || 20} seats</b>
                         </span>
                       </div>
@@ -1131,17 +1131,17 @@ export default function StudentsPage() {
               </div>
 
               {/* Section C: Family & Guardian Information */}
-              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
                   3. Parent / Guardian Details
                 </div>
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Name <span className="req">*</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Name <span className="req">*</span></label>
                     <input className="input" name="guardianName" required placeholder="e.g. Priya Sharma" />
                   </div>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Relationship <span className="req">*</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Relationship <span className="req">*</span></label>
                     <select className="select" name="guardianRelationship" defaultValue="MOTHER">
                       <option value="MOTHER">Mother</option>
                       <option value="FATHER">Father</option>
@@ -1150,24 +1150,24 @@ export default function StudentsPage() {
                     </select>
                   </div>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Phone <span className="req">*</span></label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Phone <span className="req">*</span></label>
                     <MaskedInput name="guardianPhone" mask="phone" required />
                   </div>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Email</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Email</label>
                     <input className="input" name="guardianEmail" type="email" placeholder="priya@example.com" />
                   </div>
                 </div>
               </div>
 
               {/* Section D: Health & Home Address */}
-              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
                   4. Health & Home Address
                 </div>
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
                   <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Blood Group</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Blood Group</label>
                     <select className="select" name="bloodGroup" defaultValue="">
                       <option value="">- Unknown / Not recorded -</option>
                       {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map((b) => (
@@ -1176,7 +1176,7 @@ export default function StudentsPage() {
                     </select>
                   </div>
                   <div className="field" style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Residential Address</label>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Residential Address</label>
                     <input className="input" name="address" placeholder="Flat 402, Green Valley Apartments, Pune" />
                   </div>
                 </div>
@@ -1184,8 +1184,8 @@ export default function StudentsPage() {
             </div>
           </EnterNav>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
-            <span style={{ fontSize: 12, color: draftSaved ? '#10B981' : '#8A94A8', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
+            <span style={{ fontSize: 12, color: draftSaved ? 'var(--success)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
               {draftSaved ? <><CheckCircle2 size={13} /> Draft autosaved</> : 'Autosaves as you type'}
             </span>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -1236,13 +1236,13 @@ export default function StudentsPage() {
                 style={{
                   padding: '10px 14px',
                   borderRadius: 8,
-                  background: '#F0ECFF',
-                  border: '1px solid #D8CEFD',
+                  background: 'var(--primary-light)',
+                  border: '1px solid var(--primary-light)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   fontSize: 12.5,
-                  color: '#5B3DF5',
+                  color: 'var(--primary)',
                 }}
               >
                 <span>Moving to <b>{selectedBulkClass.name}</b></span>
@@ -1317,9 +1317,9 @@ export default function StudentsPage() {
                 marginTop: 14,
                 padding: '10px 14px',
                 borderRadius: 8,
-                background: '#FEF2F2',
-                border: '1px solid #FCA5A5',
-                color: '#B91C1C',
+                background: 'var(--danger-soft)',
+                border: '1px solid var(--danger-soft)',
+                color: 'var(--danger)',
                 fontSize: 12.5,
                 display: 'flex',
                 alignItems: 'center',

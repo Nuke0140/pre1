@@ -35,11 +35,11 @@ const STATUS_META: Record<
   Status,
   { label: string; full: string; cls: string; color: string }
 > = {
-  PRESENT: { label: 'P', full: 'Present', cls: 'st-present', color: '#10b981' },
-  ABSENT: { label: 'A', full: 'Absent', cls: 'st-absent', color: '#ef4444' },
-  LATE: { label: 'L', full: 'Late', cls: 'st-late', color: '#f59e0b' },
-  HALF_DAY: { label: 'H', full: 'Half Day', cls: 'st-half', color: '#3b82f6' },
-  LEAVE: { label: 'V', full: 'Leave', cls: 'st-leave', color: '#8b5cf6' },
+  PRESENT: { label: 'P', full: 'Present', cls: 'st-present', color: 'var(--success)' },
+  ABSENT: { label: 'A', full: 'Absent', cls: 'st-absent', color: 'var(--danger)' },
+  LATE: { label: 'L', full: 'Late', cls: 'st-late', color: 'var(--warning)' },
+  HALF_DAY: { label: 'H', full: 'Half Day', cls: 'st-half', color: 'var(--info)' },
+  LEAVE: { label: 'V', full: 'Leave', cls: 'st-leave', color: 'var(--primary)' },
 }
 
 interface RegisterStudent {
@@ -466,8 +466,8 @@ export default function AttendancePage() {
           style={{
             padding: '12px 18px',
             borderRadius: 14,
-            background: 'color-mix(in srgb, var(--warning, #f59e0b) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--warning, #f59e0b) 30%, transparent)',
+            background: 'color-mix(in srgb, var(--warning, var(--warning)) 12%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--warning, var(--warning)) 30%, transparent)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -476,7 +476,7 @@ export default function AttendancePage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <AlertTriangle size={20} style={{ color: 'var(--warning, #d97706)', flexShrink: 0 }} />
+            <AlertTriangle size={20} style={{ color: 'var(--warning, var(--warning))', flexShrink: 0 }} />
             <div>
               <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--foreground)' }}>
                 School Calendar Notice: {dayStatus.status.replace(/_/g, ' ')}
@@ -492,8 +492,8 @@ export default function AttendancePage() {
             className="btn btn-sm btn-ghost"
             onClick={() => setForceModalOpen(true)}
             style={{
-              borderColor: 'color-mix(in srgb, var(--warning, #d97706) 40%, transparent)',
-              color: 'var(--warning, #d97706)',
+              borderColor: 'color-mix(in srgb, var(--warning, var(--warning)) 40%, transparent)',
+              color: 'var(--warning, var(--warning))',
               fontWeight: 600,
             }}
           >
@@ -510,9 +510,9 @@ export default function AttendancePage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: 12,
           padding: '14px 18px',
-          background: 'var(--surface-elevated, #ffffff)',
+          background: 'var(--surface-elevated, var(--surface))',
           borderRadius: 16,
-          border: '1px solid var(--border-subtle, #e5e7eb)',
+          border: '1px solid var(--border-subtle, var(--border-default))',
           boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
         }}
       >
@@ -557,7 +557,7 @@ export default function AttendancePage() {
             Capacity & Roster
           </div>
           <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
-            <span style={{ color: 'var(--preone-primary, #5B3DF5)' }}>{students.length}</span> Enrolled{' '}
+            <span style={{ color: 'var(--preone-primary, var(--primary))' }}>{students.length}</span> Enrolled{' '}
             <span style={{ color: 'var(--foreground-muted)' }}>/ {classroomDetails?.capacity || 20} Capacity</span>
           </div>
         </div>
@@ -606,12 +606,12 @@ export default function AttendancePage() {
                 fontSize: 13,
                 fontWeight: isActive ? 700 : 550,
                 border: isActive
-                  ? '1.5px solid var(--preone-primary, #5B3DF5)'
-                  : '1px solid var(--border-subtle, #e5e7eb)',
+                  ? '1.5px solid var(--preone-primary, var(--primary))'
+                  : '1px solid var(--border-subtle, var(--border-default))',
                 background: isActive
-                  ? 'color-mix(in srgb, var(--preone-primary, #5B3DF5) 10%, #ffffff)'
-                  : 'var(--surface-elevated, #ffffff)',
-                color: isActive ? 'var(--preone-primary, #5B3DF5)' : 'var(--foreground)',
+                  ? 'color-mix(in srgb, var(--preone-primary, var(--primary)) 10%, var(--surface))'
+                  : 'var(--surface-elevated, var(--surface))',
+                color: isActive ? 'var(--preone-primary, var(--primary))' : 'var(--foreground)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
@@ -632,9 +632,9 @@ export default function AttendancePage() {
       <div
         className="register-studio"
         style={{
-          background: 'var(--surface-elevated, #ffffff)',
+          background: 'var(--surface-elevated, var(--surface))',
           borderRadius: 20,
-          border: '1px solid var(--border-subtle, #e5e7eb)',
+          border: '1px solid var(--border-subtle, var(--border-default))',
           overflow: 'hidden',
           boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
         }}
@@ -643,7 +643,7 @@ export default function AttendancePage() {
         <div
           style={{
             padding: '16px 20px',
-            borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
+            borderBottom: '1px solid var(--border-subtle, var(--border-default))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -706,7 +706,7 @@ export default function AttendancePage() {
               disabled={!students.length}
               style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34 }}
             >
-              <CheckSquare2 size={15} style={{ color: 'var(--success, #10b981)' }} />
+              <CheckSquare2 size={15} style={{ color: 'var(--success, var(--success))' }} />
               <span>Mark All Present</span>
             </button>
             <button
@@ -716,7 +716,7 @@ export default function AttendancePage() {
               disabled={!students.length}
               style={{ display: 'flex', alignItems: 'center', gap: 6, height: 34 }}
             >
-              <Sparkles size={14} style={{ color: 'var(--preone-primary, #5B3DF5)' }} />
+              <Sparkles size={14} style={{ color: 'var(--preone-primary, var(--primary))' }} />
               <span>Mark Unmarked Present</span>
             </button>
             <button
@@ -739,7 +739,7 @@ export default function AttendancePage() {
                 gap: 6,
                 height: 34,
                 position: 'relative',
-                color: exceptions.length ? 'var(--danger, #ef4444)' : 'var(--foreground)',
+                color: exceptions.length ? 'var(--danger, var(--danger))' : 'var(--foreground)',
               }}
             >
               <AlertCircle size={15} />
@@ -750,7 +750,7 @@ export default function AttendancePage() {
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: 'var(--danger, #ef4444)',
+                    background: 'var(--danger, var(--danger))',
                     position: 'absolute',
                     top: 6,
                     right: 6,
@@ -768,8 +768,8 @@ export default function AttendancePage() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
             gap: 8,
             padding: '12px 20px',
-            background: 'var(--surface-muted, #f9fafb)',
-            borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
+            background: 'var(--surface-muted, var(--bg-subtle))',
+            borderBottom: '1px solid var(--border-subtle, var(--border-default))',
           }}
         >
           {/* Total */}
@@ -780,7 +780,7 @@ export default function AttendancePage() {
               padding: '8px 12px',
               borderRadius: 12,
               border: statusFilter === 'ALL' ? '2px solid var(--foreground)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'ALL' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              background: statusFilter === 'ALL' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
@@ -798,14 +798,14 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              border: statusFilter === 'PRESENT' ? '2px solid var(--success, #10b981)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'PRESENT' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              border: statusFilter === 'PRESENT' ? '2px solid var(--success, var(--success))' : '1px solid var(--border-subtle)',
+              background: statusFilter === 'PRESENT' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success, #10b981)' }}>PRESENT</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success, #10b981)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--success, var(--success))' }}>PRESENT</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success, var(--success))' }}>
               {summary.present ?? 0}
             </div>
           </button>
@@ -817,14 +817,14 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              border: statusFilter === 'ABSENT' ? '2px solid var(--danger, #ef4444)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'ABSENT' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              border: statusFilter === 'ABSENT' ? '2px solid var(--danger, var(--danger))' : '1px solid var(--border-subtle)',
+              background: statusFilter === 'ABSENT' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger, #ef4444)' }}>ABSENT</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger, #ef4444)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger, var(--danger))' }}>ABSENT</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger, var(--danger))' }}>
               {summary.absent ?? 0}
             </div>
           </button>
@@ -836,14 +836,14 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              border: statusFilter === 'LATE' ? '2px solid var(--warning, #f59e0b)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'LATE' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              border: statusFilter === 'LATE' ? '2px solid var(--warning, var(--warning))' : '1px solid var(--border-subtle)',
+              background: statusFilter === 'LATE' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning, #f59e0b)' }}>LATE</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--warning, #f59e0b)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning, var(--warning))' }}>LATE</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--warning, var(--warning))' }}>
               {summary.late ?? 0}
             </div>
           </button>
@@ -855,14 +855,14 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              border: statusFilter === 'HALF_DAY' ? '2px solid var(--info, #3b82f6)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'HALF_DAY' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              border: statusFilter === 'HALF_DAY' ? '2px solid var(--info, var(--info))' : '1px solid var(--border-subtle)',
+              background: statusFilter === 'HALF_DAY' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--info, #3b82f6)' }}>HALF DAY</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--info, #3b82f6)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--info, var(--info))' }}>HALF DAY</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--info, var(--info))' }}>
               {summary.halfDay ?? 0}
             </div>
           </button>
@@ -874,14 +874,14 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              border: statusFilter === 'LEAVE' ? '2px solid var(--preone-primary, #5B3DF5)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'LEAVE' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              border: statusFilter === 'LEAVE' ? '2px solid var(--preone-primary, var(--primary))' : '1px solid var(--border-subtle)',
+              background: statusFilter === 'LEAVE' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--preone-primary, #5B3DF5)' }}>LEAVE</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--preone-primary, #5B3DF5)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--preone-primary, var(--primary))' }}>LEAVE</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--preone-primary, var(--primary))' }}>
               {summary.leave ?? 0}
             </div>
           </button>
@@ -894,7 +894,7 @@ export default function AttendancePage() {
               padding: '8px 12px',
               borderRadius: 12,
               border: statusFilter === 'UNMARKED' ? '2px solid var(--foreground-muted)' : '1px solid var(--border-subtle)',
-              background: statusFilter === 'UNMARKED' ? 'var(--surface-elevated, #fff)' : 'transparent',
+              background: statusFilter === 'UNMARKED' ? 'var(--surface-elevated, var(--surface))' : 'transparent',
               textAlign: 'left',
               cursor: 'pointer',
             }}
@@ -910,13 +910,13 @@ export default function AttendancePage() {
             style={{
               padding: '8px 12px',
               borderRadius: 12,
-              background: 'var(--surface-elevated, #fff)',
+              background: 'var(--surface-elevated, var(--surface))',
               border: '1px solid var(--border-subtle)',
               textAlign: 'left',
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)' }}>ATTENDANCE RATE</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--preone-primary, #5B3DF5)' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--preone-primary, var(--primary))' }}>
               {summary.attendanceRate ?? 0}%
             </div>
           </div>
@@ -930,7 +930,7 @@ export default function AttendancePage() {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 12,
-            borderBottom: '1px solid var(--border-subtle, #e5e7eb)',
+            borderBottom: '1px solid var(--border-subtle, var(--border-default))',
             flexWrap: 'wrap',
           }}
         >
@@ -987,7 +987,7 @@ export default function AttendancePage() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'var(--surface-muted, #f9fafb)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <tr style={{ background: 'var(--surface-muted, var(--bg-subtle))', borderBottom: '1px solid var(--border-subtle)' }}>
                 <th style={{ padding: '12px 18px', fontSize: 12, fontWeight: 700, color: 'var(--foreground-muted)', width: '32%' }}>
                   STUDENT (360 LINK)
                 </th>
@@ -1015,8 +1015,8 @@ export default function AttendancePage() {
                   <tr
                     key={st.studentId}
                     style={{
-                      borderBottom: '1px solid var(--border-subtle, #f3f4f6)',
-                      background: isDraftDirty ? 'color-mix(in srgb, var(--preone-primary, #5B3DF5) 3%, #ffffff)' : 'transparent',
+                      borderBottom: '1px solid var(--border-subtle, var(--bg-muted))',
+                      background: isDraftDirty ? 'color-mix(in srgb, var(--preone-primary, var(--primary)) 3%, var(--surface))' : 'transparent',
                       transition: 'background 0.15s ease',
                     }}
                   >
@@ -1101,11 +1101,11 @@ export default function AttendancePage() {
                                 borderRadius: 8,
                                 border: isSelected
                                   ? '1.5px solid transparent'
-                                  : '1px solid var(--border-subtle, #e5e7eb)',
+                                  : '1px solid var(--border-subtle, var(--border-default))',
                                 background: isSelected
                                   ? STATUS_META[s].color
-                                  : 'var(--surface-muted, #f9fafb)',
-                                color: isSelected ? '#ffffff' : 'var(--foreground)',
+                                  : 'var(--surface-muted, var(--bg-subtle))',
+                                color: isSelected ? 'var(--surface)' : 'var(--foreground)',
                                 fontWeight: 750,
                                 fontSize: 12.5,
                                 cursor: 'pointer',
@@ -1126,7 +1126,7 @@ export default function AttendancePage() {
                       {st.markedAt ? (
                         <div style={{ fontSize: 11.5, color: 'var(--foreground-muted)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle2 size={12} style={{ color: 'var(--success, #10b981)' }} />
+                            <CheckCircle2 size={12} style={{ color: 'var(--success, var(--success))' }} />
                             <span>{st.markedByName || 'Staff'}</span>
                           </div>
                           <div style={{ fontSize: 10.5, marginTop: 1, opacity: 0.8 }}>
@@ -1200,8 +1200,8 @@ export default function AttendancePage() {
         <div
           style={{
             padding: '12px 20px',
-            background: 'var(--surface-muted, #f9fafb)',
-            borderTop: '1px solid var(--border-subtle, #e5e7eb)',
+            background: 'var(--surface-muted, var(--bg-subtle))',
+            borderTop: '1px solid var(--border-subtle, var(--border-default))',
             fontSize: 12,
             color: 'var(--foreground-muted)',
             display: 'flex',
@@ -1294,7 +1294,7 @@ export default function AttendancePage() {
                 gap: 12,
                 padding: 12,
                 borderRadius: 12,
-                background: 'var(--surface-muted, #f9fafb)',
+                background: 'var(--surface-muted, var(--bg-subtle))',
                 border: '1px solid var(--border-subtle)',
               }}
             >
@@ -1324,11 +1324,11 @@ export default function AttendancePage() {
                       style={{
                         padding: '10px 4px',
                         borderRadius: 10,
-                        border: active ? '2px solid var(--preone-primary, #5B3DF5)' : '1px solid var(--border-subtle)',
+                        border: active ? '2px solid var(--preone-primary, var(--primary))' : '1px solid var(--border-subtle)',
                         background: active
-                          ? 'color-mix(in srgb, var(--preone-primary, #5B3DF5) 12%, #fff)'
-                          : 'var(--surface-elevated, #fff)',
-                        color: active ? 'var(--preone-primary, #5B3DF5)' : 'var(--foreground)',
+                          ? 'color-mix(in srgb, var(--preone-primary, var(--primary)) 12%, var(--surface))'
+                          : 'var(--surface-elevated, var(--surface))',
+                        color: active ? 'var(--preone-primary, var(--primary))' : 'var(--foreground)',
                         fontWeight: 700,
                         fontSize: 12,
                         cursor: 'pointer',
@@ -1386,7 +1386,7 @@ export default function AttendancePage() {
             </div>
 
             <div style={{ fontSize: 11.5, color: 'var(--foreground-muted)', display: 'flex', gap: 6 }}>
-              <ShieldAlert size={14} style={{ color: 'var(--preone-primary, #5B3DF5)', flexShrink: 0 }} />
+              <ShieldAlert size={14} style={{ color: 'var(--preone-primary, var(--primary))', flexShrink: 0 }} />
               <span>
                 This correction will be permanently logged in the audit trail. If changing from ABSENT to PRESENT, any
                 open absence follow-up ticket will be automatically resolved.
@@ -1413,7 +1413,7 @@ export default function AttendancePage() {
 
           {!exceptions.length ? (
             <div style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
-              <CheckCircle2 size={36} style={{ color: 'var(--success, #10b981)', margin: '0 auto 8px' }} />
+              <CheckCircle2 size={36} style={{ color: 'var(--success, var(--success))', margin: '0 auto 8px' }} />
               <div style={{ fontWeight: 650, color: 'var(--foreground)' }}>No Exceptions Today!</div>
               <div style={{ fontSize: 12, marginTop: 4 }}>All marked students are present.</div>
             </div>
@@ -1425,7 +1425,7 @@ export default function AttendancePage() {
                   style={{
                     padding: 14,
                     borderRadius: 14,
-                    background: 'var(--surface-muted, #f9fafb)',
+                    background: 'var(--surface-muted, var(--bg-subtle))',
                     border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1465,7 +1465,7 @@ export default function AttendancePage() {
                       style={{
                         padding: '6px 10px',
                         borderRadius: 8,
-                        background: 'var(--surface-elevated, #fff)',
+                        background: 'var(--surface-elevated, var(--surface))',
                         border: '1px solid var(--border-subtle)',
                         fontSize: 11.5,
                       }}
@@ -1539,8 +1539,8 @@ export default function AttendancePage() {
             style={{
               padding: 12,
               borderRadius: 12,
-              background: 'color-mix(in srgb, var(--warning, #f59e0b) 12%, transparent)',
-              border: '1px solid color-mix(in srgb, var(--warning, #f59e0b) 30%, transparent)',
+              background: 'color-mix(in srgb, var(--warning, var(--warning)) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--warning, var(--warning)) 30%, transparent)',
               fontSize: 12,
               color: 'var(--foreground)',
             }}

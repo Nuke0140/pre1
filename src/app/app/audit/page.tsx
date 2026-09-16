@@ -238,7 +238,7 @@ export default function AuditPage() {
             <span className="m-lbl">Security Events</span>
             <ShieldCheck size={15} style={{ color: 'var(--warning)' }} />
           </div>
-          <div className="m-val" style={{ color: 'var(--warning-text, #d97706)' }}>{kpis?.securityEvents ?? '...'}</div>
+          <div className="m-val" style={{ color: 'var(--warning-text, var(--warning))' }}>{kpis?.securityEvents ?? '...'}</div>
           <div className="m-meta">Auth & access</div>
         </div>
 

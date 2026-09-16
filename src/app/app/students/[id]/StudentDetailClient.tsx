@@ -38,13 +38,13 @@ function formatAge(dobStr?: string | Date): string {
 }
 
 const TL_DOT: Record<string, { color: string; label: string }> = {
-  OBSERVATION: { color: '#5B3DF5', label: 'Observation' },
-  MILESTONE: { color: '#D97706', label: 'Milestone' },
-  MEAL: { color: '#059669', label: 'Meal' },
-  NAP: { color: '#2563EB', label: 'Nap' },
-  ACTIVITY: { color: '#DB2777', label: 'Activity' },
-  INCIDENT: { color: '#DC2626', label: 'Incident' },
-  NOTE: { color: '#6B7280', label: 'Note' },
+  OBSERVATION: { color: 'var(--primary)', label: 'Observation' },
+  MILESTONE: { color: 'var(--warning)', label: 'Milestone' },
+  MEAL: { color: 'var(--success)', label: 'Meal' },
+  NAP: { color: 'var(--info)', label: 'Nap' },
+  ACTIVITY: { color: 'var(--danger)', label: 'Activity' },
+  INCIDENT: { color: 'var(--danger)', label: 'Incident' },
+  NOTE: { color: 'var(--text-secondary)', label: 'Note' },
 }
 
 export function StudentDetailClient({ profile }: Props) {
@@ -464,7 +464,7 @@ export function StudentDetailClient({ profile }: Props) {
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, #FFFFFF 0%, #FAF9FE 100%)',
+          background: 'linear-gradient(135deg, var(--surface) 0%, var(--primary-light) 100%)',
           border: '1px solid var(--border)',
           borderRadius: 16,
           padding: '24px 28px',
@@ -482,8 +482,8 @@ export function StudentDetailClient({ profile }: Props) {
                 position: 'absolute',
                 bottom: -2,
                 right: -2,
-                background: student?.status === 'ACTIVE' ? '#10B981' : student?.status === 'WITHDRAWN' ? '#DC2626' : '#6B7280',
-                border: '2px solid #FFFFFF',
+                background: student?.status === 'ACTIVE' ? 'var(--success)' : student?.status === 'WITHDRAWN' ? 'var(--danger)' : 'var(--text-secondary)',
+                border: '2px solid var(--surface)',
                 width: 15,
                 height: 15,
                 borderRadius: '50%',
@@ -497,15 +497,15 @@ export function StudentDetailClient({ profile }: Props) {
                 position: 'absolute',
                 top: -4,
                 right: -4,
-                background: '#5B3DF5',
-                color: '#FFFFFF',
+                background: 'var(--primary)',
+                color: 'var(--surface)',
                 borderRadius: '50%',
                 width: 24,
                 height: 24,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid #FFFFFF',
+                border: '2px solid var(--surface)',
                 cursor: 'pointer',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
               }}
@@ -565,9 +565,9 @@ export function StudentDetailClient({ profile }: Props) {
                     fontWeight: 600,
                     padding: '2px 8px',
                     borderRadius: 6,
-                    background: '#EFF6FF',
-                    color: '#2563EB',
-                    border: '1px solid #DBEAFE',
+                    background: 'var(--info-soft)',
+                    color: 'var(--info)',
+                    border: '1px solid var(--info-soft)',
                   }}
                 >
                   Seat {student.seatNumber}
@@ -603,12 +603,12 @@ export function StudentDetailClient({ profile }: Props) {
                     gap: 6,
                     fontSize: 13,
                     color: 'var(--foreground-muted)',
-                    background: '#F8FAFC',
+                    background: 'var(--bg-subtle)',
                     padding: '4px 10px',
                     borderRadius: 6,
                   }}
                 >
-                  <UserCheck size={14} style={{ color: '#059669' }} />
+                  <UserCheck size={14} style={{ color: 'var(--success)' }} />
                   Lead: {academic.classroom.primaryTeacher.fullName}
                 </span>
               )}
@@ -646,7 +646,7 @@ export function StudentDetailClient({ profile }: Props) {
               {student?.bloodGroup && (
                 <>
                   <span>•</span>
-                  <span style={{ fontWeight: 600, color: '#DC2626' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--danger)' }}>
                     🩸 {student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-')}
                   </span>
                 </>
@@ -666,13 +666,13 @@ export function StudentDetailClient({ profile }: Props) {
               style={{
                 padding: '8px 14px',
                 borderRadius: 12,
-                background: '#FFFFFF',
+                background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 minWidth: 100,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: 17, fontWeight: 700, color: attendanceRate >= 80 ? '#059669' : '#D97706' }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: attendanceRate >= 80 ? 'var(--success)' : 'var(--warning)' }}>
                 {attendanceRate}%
               </div>
               <div style={{ fontSize: 11, color: 'var(--foreground-muted)', fontWeight: 500 }}>Attendance</div>
@@ -682,13 +682,13 @@ export function StudentDetailClient({ profile }: Props) {
               style={{
                 padding: '8px 14px',
                 borderRadius: 12,
-                background: '#FFFFFF',
+                background: 'var(--surface)',
                 border: '1px solid var(--border)',
                 minWidth: 100,
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: 17, fontWeight: 700, color: feeBalance > 0 ? '#DC2626' : '#059669' }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: feeBalance > 0 ? 'var(--danger)' : 'var(--success)' }}>
                 {inr(feeBalance, { compact: true })}
               </div>
               <div style={{ fontSize: 11, color: 'var(--foreground-muted)', fontWeight: 500 }}>Fee Balance</div>
@@ -789,7 +789,7 @@ export function StudentDetailClient({ profile }: Props) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <span className="t-caption" style={{ fontSize: 13 }}>Blood Group</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: student.bloodGroup ? '#DC2626' : undefined }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: student.bloodGroup ? 'var(--danger)' : undefined }}>
                   {student.bloodGroup ? student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-') : 'Not recorded'}
                 </span>
               </div>
@@ -851,7 +851,7 @@ export function StudentDetailClient({ profile }: Props) {
           <div className="card" style={{ padding: 20, gridColumn: '1 / -1' }}>
             <div className="card-head" style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShieldCheck size={18} style={{ color: '#059669' }} />
+                <ShieldCheck size={18} style={{ color: 'var(--success)' }} />
                 <div>
                   <div className="card-title" style={{ fontSize: 16 }}>Dismissal & Pickup Authorization</div>
                   <div className="card-sub" style={{ fontSize: 12 }}>Safety verification for guardian handover at school gate</div>
@@ -921,7 +921,7 @@ export function StudentDetailClient({ profile }: Props) {
                           style={{ height: 30, fontSize: 12, padding: '0 8px' }}
                           title="Record verified pickup event on child timeline"
                         >
-                          <ShieldCheck size={13} style={{ color: '#059669' }} /> Release
+                          <ShieldCheck size={13} style={{ color: 'var(--success)' }} /> Release
                         </button>
                       )}
                     </div>
@@ -1016,7 +1016,7 @@ export function StudentDetailClient({ profile }: Props) {
                         setGuardianToUnlink({ id: g.id, name: g.name })
                         setUnlinkModalOpen(true)
                       }}
-                      style={{ height: 28, width: 28, padding: 0, color: '#DC2626' }}
+                      style={{ height: 28, width: 28, padding: 0, color: 'var(--danger)' }}
                       title="Unlink guardian from child"
                     >
                       <Trash2 size={13} />
@@ -1185,8 +1185,8 @@ export function StudentDetailClient({ profile }: Props) {
                 style={{
                   fontSize: 15,
                   fontWeight: 700,
-                  color: attendanceRate >= 80 ? '#059669' : '#D97706',
-                  background: attendanceRate >= 80 ? '#ECFDF5' : '#FFFBEB',
+                  color: attendanceRate >= 80 ? 'var(--success)' : 'var(--warning)',
+                  background: attendanceRate >= 80 ? 'var(--success-soft)' : 'var(--warning-soft)',
                   padding: '4px 12px',
                   borderRadius: 8,
                 }}
@@ -1197,12 +1197,12 @@ export function StudentDetailClient({ profile }: Props) {
           </div>
 
           {/* Attendance progress bar */}
-          <div style={{ width: '100%', height: 8, background: '#E2E8F0', borderRadius: 4, overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{ width: '100%', height: 8, background: 'var(--border-default)', borderRadius: 4, overflow: 'hidden', marginBottom: 24 }}>
             <div
               style={{
                 width: `${Math.min(100, Math.max(0, attendanceRate))}%`,
                 height: '100%',
-                background: attendanceRate >= 80 ? 'linear-gradient(90deg, #10B981, #059669)' : 'linear-gradient(90deg, #F59E0B, #D97706)',
+                background: attendanceRate >= 80 ? 'linear-gradient(90deg, var(--success), var(--success))' : 'linear-gradient(90deg, var(--warning), var(--warning))',
                 borderRadius: 4,
               }}
             />
@@ -1258,7 +1258,7 @@ export function StudentDetailClient({ profile }: Props) {
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setCancelTransportOpen(true)}
-                    style={{ color: '#DC2626', height: 32, fontSize: 12 }}
+                    style={{ color: 'var(--danger)', height: 32, fontSize: 12 }}
                   >
                     Cancel Assignment
                   </button>
@@ -1406,7 +1406,7 @@ export function StudentDetailClient({ profile }: Props) {
                     <td style={{ fontSize: 13 }}>{fmtDate(i.dueDate)}</td>
                     <td style={{ fontSize: 13, fontWeight: 600 }}>{inr(i.totalCents)}</td>
                     <td style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>{inr(i.paidCents)}</td>
-                    <td style={{ fontSize: 13, fontWeight: 700, color: i.balanceCents > 0 ? '#DC2626' : '#059669' }}>
+                    <td style={{ fontSize: 13, fontWeight: 700, color: i.balanceCents > 0 ? 'var(--danger)' : 'var(--success)' }}>
                       {inr(i.balanceCents)}
                     </td>
                     <td><StatusBadge status={i.status} /></td>
@@ -1487,7 +1487,7 @@ export function StudentDetailClient({ profile }: Props) {
 
           <div className="timeline" style={{ paddingLeft: 8 }}>
             {timeline?.map((t: any) => {
-              const meta = TL_DOT[t.type] || { color: '#6B7280', label: 'Event' }
+              const meta = TL_DOT[t.type] || { color: 'var(--text-secondary)', label: 'Event' }
               return (
                 <div className="tl-item" key={t.id} style={{ display: 'flex', gap: 14, marginBottom: 20, position: 'relative' }}>
                   <div
@@ -1626,7 +1626,7 @@ export function StudentDetailClient({ profile }: Props) {
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => setEditForm((p) => ({ ...p, photoUrl: '' }))}
-                    style={{ height: 30, fontSize: 12, color: '#DC2626', gap: 4 }}
+                    style={{ height: 30, fontSize: 12, color: 'var(--danger)', gap: 4 }}
                   >
                     <Trash2 size={12} /> Remove
                   </button>
@@ -1740,7 +1740,7 @@ export function StudentDetailClient({ profile }: Props) {
                 className="input"
                 disabled
                 value={student.admissionNo}
-                style={{ height: 40, background: '#F1F5F9', fontFamily: 'var(--font-mono)' }}
+                style={{ height: 40, background: 'var(--bg-muted)', fontFamily: 'var(--font-mono)' }}
               />
               <span className="helper" style={{ fontSize: 11 }}>Immutable identifier generated by system.</span>
             </div>
@@ -1833,9 +1833,9 @@ export function StudentDetailClient({ profile }: Props) {
               style={{
                 padding: 14,
                 borderRadius: 10,
-                background: '#FEF2F2',
-                border: '1px solid #FCA5A5',
-                color: '#B91C1C',
+                background: 'var(--danger-soft)',
+                border: '1px solid var(--danger-soft)',
+                color: 'var(--danger)',
                 marginBottom: 16,
               }}
             >
@@ -1847,9 +1847,9 @@ export function StudentDetailClient({ profile }: Props) {
                 Withdrawing closes all active class allocations and sets status to INACTIVE. The child record is permanently preserved in the database for compliance and transcripts.
               </p>
               {feeBalance > 0 && (
-                <div style={{ marginTop: 8, padding: '8px 10px', background: '#FFFFFF', borderRadius: 8, border: '1px solid #FCA5A5' }}>
+                <div style={{ marginTop: 8, padding: '8px 10px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--danger-soft)' }}>
                   <div style={{ fontWeight: 700, fontSize: 13 }}>⚠️ Outstanding Balance: {inr(feeBalance)}</div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 6, cursor: 'pointer', color: '#B91C1C' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 6, cursor: 'pointer', color: 'var(--danger)' }}>
                     <input
                       type="checkbox"
                       checked={statusForm.forceWithPendingFees}
@@ -2008,7 +2008,7 @@ export function StudentDetailClient({ profile }: Props) {
         onClose={() => setUnlinkModalOpen(false)}
         title="Unlink Guardian"
         subtitle="Remove contact association from this student"
-        icon={<Trash2 size={20} style={{ color: '#DC2626' }} />}
+        icon={<Trash2 size={20} style={{ color: 'var(--danger)' }} />}
       >
         <div style={{ padding: '8px 0 16px' }}>
           <p style={{ fontSize: 14 }}>
@@ -2223,7 +2223,7 @@ export function StudentDetailClient({ profile }: Props) {
         onClose={() => setCancelTransportOpen(false)}
         title="Cancel Bus Route Assignment"
         subtitle="End student transportation without deleting past trip history"
-        icon={<Bus size={20} style={{ color: '#DC2626' }} />}
+        icon={<Bus size={20} style={{ color: 'var(--danger)' }} />}
       >
         <form onSubmit={handleCancelTransport}>
           <div style={{ padding: '6px 0 14px' }}>

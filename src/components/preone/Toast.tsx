@@ -18,7 +18,8 @@ interface ToastItem {
   out?: boolean
 }
 
-interface ToastApi {
+export interface ToastApi {
+  (title: string, type?: ToastType, body?: string): void
   success: (title: string, body?: string, action?: ToastAction) => void
   error: (title: string, body?: string, action?: ToastAction) => void
   warning: (title: string, body?: string, action?: ToastAction) => void
@@ -50,16 +51,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, wait)
   }, [])
 
-  const api = useMemo<ToastApi>(
-    () => ({
-      success: (t, b, a) => push('success', t, b, a),
-      error: (t, b, a) => push('error', t, b, a),
-      warning: (t, b, a) => push('warning', t, b, a),
-      info: (t, b, a) => push('info', t, b, a),
-      undo: (t, b, onUndo) => push('success', t, b, onUndo ? { label: 'Undo', onClick: onUndo } : undefined),
-    }),
-    [push],
-  )
+  const api = useMemo<ToastApi & ((title: string, type?: ToastType, body?: string) => void)>(() => {
+    const fn = (title: string, type: ToastType = 'info', body?: string) => push(type, title, body)
+    fn.success = (t: string, b?: string, a?: ToastAction) => push('success', t, b, a)
+    fn.error = (t: string, b?: string, a?: ToastAction) => push('error', t, b, a)
+    fn.warning = (t: string, b?: string, a?: ToastAction) => push('warning', t, b, a)
+    fn.info = (t: string, b?: string, a?: ToastAction) => push('info', t, b, a)
+    fn.undo = (t: string, b?: string, onUndo?: () => void) => push('success', t, b, onUndo ? { label: 'Undo', onClick: onUndo } : undefined)
+    return fn as any
+  }, [push])
 
   return (
     <ToastCtx.Provider value={api}>

@@ -6,6 +6,7 @@ import {
   Users, CalendarCheck, Wallet, ClipboardList, ArrowRight, Activity, School, Plus, CheckCircle2,
 } from 'lucide-react'
 import { PageHead, KpiTile } from '@/components/preone/ui'
+import { LineChart, BarChart } from '@/components/preone/Chart'
 import { inr, timeAgo, enumLabel } from '@/lib/format'
 
 interface Props {
@@ -77,7 +78,7 @@ export function DashboardClient({ role, perms, data }: Props) {
             <div className="metric-cell">
               <div className="m-top">
                 <span className="m-lbl">Fees Collected</span>
-                <Wallet size={16} style={{ color: '#B37B00' }} />
+                <Wallet size={16} style={{ color: 'var(--warning)' }} />
               </div>
               <div className="m-val">{inr(data.collected, { compact: true })}</div>
               <div className="m-meta">{data.collectRate}% of {inr(data.billed, { compact: true })} billed</div>
@@ -134,23 +135,15 @@ export function DashboardClient({ role, perms, data }: Props) {
               </div>
               <span className="badge b-success b-dot">Live Feed</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '8px 4px 0' }}>
-              {data.trend.map((t, i) => (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <span className="t-caption" style={{ fontWeight: 750 }}>{t.pct}%</span>
-                  <div
-                    style={{
-                      width: '100%', maxWidth: 46, borderRadius: '8px 8px 4px 4px',
-                      height: `${Math.max(6, (t.pct / maxTrend) * 120)}px`,
-                      background: t.pct >= 85
-                        ? 'linear-gradient(180deg, #10B981, #34d399)'
-                        : 'linear-gradient(180deg, var(--primary), #9F67FF)',
-                      transition: 'height 240ms var(--ease-standard)',
-                    }}
-                  />
-                  <span className="t-caption">{t.label}</span>
-                </div>
-              ))}
+            <div style={{ padding: '8px 4px' }}>
+              <LineChart
+                data={data.trend.map((t) => ({ label: t.label, value: t.pct }))}
+                height={190}
+                ariaLabel="Weekly attendance dynamics line chart"
+                color="var(--primary)"
+                fillGradient
+                showGrid
+              />
             </div>
             <div className="card-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
