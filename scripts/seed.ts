@@ -8,7 +8,15 @@ import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
 const db = new PrismaClient({
-  datasources: { db: { url: process.env.PREONE_PG_URL || 'postgresql://preone:preone@127.0.0.1:54329/preone' } },
+  datasources: {
+    db: {
+      url:
+        process.env.PREONE_PG_URL ||
+        process.env.DATABASE_URL ||
+        process.env.POSTGRES_URL ||
+        'postgresql://preone:preone@127.0.0.1:54329/preone',
+    },
+  },
 })
 
 const PASSWORD = 'Preone@123'
