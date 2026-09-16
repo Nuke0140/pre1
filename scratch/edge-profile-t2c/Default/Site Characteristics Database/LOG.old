@@ -1,2 +1,3 @@
-2026/09/16-21:44:23.582 4798 Creating DB c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\Site Characteristics Database since it was missing.
-2026/09/16-21:44:23.601 4798 Reusing MANIFEST c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\Site Characteristics Database/MANIFEST-000001
+2026/09/16-23:01:38.495 6b50 Reusing MANIFEST c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\Site Characteristics Database/MANIFEST-000001
+2026/09/16-23:01:38.496 6b50 Recovering log #3
+2026/09/16-23:01:38.496 6b50 Reusing old log c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\Site Characteristics Database/000003.log 

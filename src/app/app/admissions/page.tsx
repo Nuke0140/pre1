@@ -15,6 +15,7 @@ import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
 import { useToast } from '@/components/preone/Toast'
+import { FunnelChart } from '@/components/preone/Chart'
 import { fmtDate, enumLabel } from '@/lib/format'
 
 // ── Master Types ─────────────────────────────────────────────────────────────
@@ -2057,6 +2058,22 @@ setEnquiryModal(false)
             <h4 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: '0 0 16px' }}>
               Authoritative Admission Lifecycle Funnel
             </h4>
+
+            {/* Canonical SVG Funnel Chart */}
+            <div style={{ marginBottom: 20 }}>
+              <FunnelChart
+                height={200}
+                ariaLabel="Admissions lifecycle conversion funnel"
+                data={[
+                  { label: 'Leads', value: metrics.totalLeads, color: 'var(--info)' },
+                  { label: 'Applications', value: metrics.totalApps, color: 'var(--primary)' },
+                  { label: 'Approved', value: metrics.pendingApproval + metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, color: 'var(--accent)' },
+                  { label: 'Offers', value: metrics.offersIssued + metrics.offersAccepted + metrics.enrolledCount, color: 'var(--primary-hover)' },
+                  { label: 'Accepted', value: metrics.offersAccepted + metrics.enrolledCount, color: 'var(--success)' },
+                  { label: 'Enrolled', value: metrics.enrolledCount, color: 'var(--success)' },
+                ]}
+              />
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[

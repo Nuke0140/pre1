@@ -25,13 +25,12 @@ export async function GET(req: NextRequest) {
         item: {
           select: {
             id: true,
-            code: true,
+            sku: true,
             name: true,
             itemType: true,
             unit: { select: { code: true, symbol: true } },
             category: { select: { name: true } },
-            costPriceCents: true,
-            reorderPoint: true,
+            reorderLevel: true,
           },
         },
         location: {

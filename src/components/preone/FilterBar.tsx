@@ -138,74 +138,88 @@ export function FilterBar({
 
       {/* Applied Filter Chips Bar */}
       {activeChips.length > 0 && (
-        <div
-          className="filter-chips"
+        <FilterChips chips={activeChips} onClearAll={onReset} />
+      )}
+    </div>
+  )
+}
+
+export interface FilterChipsProps {
+  chips: ActiveChip[]
+  onClearAll?: () => void
+  className?: string
+}
+
+export function FilterChips({ chips, onClearAll, className = '' }: FilterChipsProps) {
+  if (!chips || chips.length === 0) return null
+
+  return (
+    <div
+      className={`filter-chips ${className}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap',
+        padding: '2px 4px',
+      }}
+    >
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Active ({chips.length}):
+      </span>
+
+      {chips.map((chip) => (
+        <span
+          key={chip.id}
+          className="badge b-primary"
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: 6,
-            flexWrap: 'wrap',
-            padding: '2px 4px',
+            gap: 5,
+            padding: '4px 8px',
+            fontSize: 12,
+            borderRadius: '999px',
           }}
         >
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Active ({activeChips.length}):
+          <span>
+            <strong>{chip.label}:</strong> {chip.valueLabel}
           </span>
+          <button
+            type="button"
+            onClick={chip.onRemove}
+            aria-label={`Remove filter ${chip.label}`}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <X size={12} />
+          </button>
+        </span>
+      ))}
 
-          {activeChips.map((chip) => (
-            <span
-              key={chip.id}
-              className="badge b-primary"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '4px 8px',
-                fontSize: 12,
-                borderRadius: '999px',
-              }}
-            >
-              <span>
-                <strong>{chip.label}:</strong> {chip.valueLabel}
-              </span>
-              <button
-                type="button"
-                onClick={chip.onRemove}
-                aria-label={`Remove filter ${chip.label}`}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-
-          {onReset && (
-            <button
-              type="button"
-              className="clear"
-              onClick={onReset}
-              style={{
-                fontSize: 11.5,
-                color: 'var(--primary)',
-                fontWeight: 650,
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                marginLeft: 4,
-              }}
-            >
-              Clear all
-            </button>
-          )}
-        </div>
+      {onClearAll && (
+        <button
+          type="button"
+          className="clear"
+          onClick={onClearAll}
+          style={{
+            fontSize: 11.5,
+            color: 'var(--primary)',
+            fontWeight: 650,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            marginLeft: 4,
+          }}
+        >
+          Clear all
+        </button>
       )}
     </div>
   )

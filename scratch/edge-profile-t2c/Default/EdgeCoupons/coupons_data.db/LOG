@@ -1,6 +1,6 @@
-2026/09/16-21:47:22.641 3898 Reusing MANIFEST c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
-2026/09/16-21:47:22.643 3898 Recovering log #3
-2026/09/16-21:47:22.644 3898 Reusing old log c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\EdgeCoupons/coupons_data.db/000003.log 
-2026/09/16-21:47:36.590 7490 Level-0 table #5: started
-2026/09/16-21:47:36.595 7490 Level-0 table #5: 683284 bytes OK
-2026/09/16-21:47:36.597 7490 Delete type=0 #3
+2026/09/16-22:40:03.282 1d8c Reusing MANIFEST c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2026/09/16-22:40:03.287 1d8c Recovering log #4
+2026/09/16-22:40:03.294 1d8c Reusing old log c:\Users\Nuke\Documents\GitHub\pre-one\scratch\edge-profile-t2c\Default\EdgeCoupons/coupons_data.db/000004.log 
+2026/09/16-22:40:17.886 6f58 Level-0 table #8: started
+2026/09/16-22:40:17.892 6f58 Level-0 table #8: 683444 bytes OK
+2026/09/16-22:40:17.896 6f58 Delete type=0 #4

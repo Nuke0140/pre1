@@ -1508,7 +1508,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                                 width: 30,
                                 height: 30,
                                 borderRadius: '50%',
-                                background: 'var(--c-surface-hover, #f3f4f6)',
+                                background: 'var(--bg-surface-hover)',
                                 color: 'var(--primary)',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -1545,7 +1545,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                             {a.status === 'ACTIVE' && (
                               <button
                                 className="btn btn-ghost btn-sm"
-                                style={{ color: 'var(--c-danger, #dc2626)' }}
+                                style={{ color: 'var(--danger)' }}
                                 onClick={() => setCancelAssignmentModal(a)}
                                 title="Discontinue Transport Service"
                               >
@@ -1611,8 +1611,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     style={{
                       padding: '14px 16px',
                       borderRadius: 10,
-                      border: inc.severity === 'CRITICAL' || inc.severity === 'HIGH' ? '1.5px solid var(--c-danger, #dc2626)' : '1px solid var(--border)',
-                      background: inc.severity === 'CRITICAL' ? 'rgba(220, 38, 38, 0.04)' : 'var(--c-surface-hover, rgba(0,0,0,0.02))',
+                      border: inc.severity === 'CRITICAL' || inc.severity === 'HIGH' ? '1.5px solid var(--danger)' : '1px solid var(--border)',
+                      background: inc.severity === 'CRITICAL' ? 'rgba(220, 38, 38, 0.04)' : 'var(--bg-surface-hover)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1679,8 +1679,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   width: 40,
                   height: 40,
                   borderRadius: '50%',
-                  background: 'var(--c-success, #059669)',
-                  color: '#fff',
+                  background: 'var(--success)',
+                  color: 'var(--text-inverse)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1705,8 +1705,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   padding: 12,
                   borderRadius: 8,
                   background: 'rgba(220, 38, 38, 0.1)',
-                  border: '1.5px solid var(--c-danger, #dc2626)',
-                  color: 'var(--c-danger, #dc2626)',
+                  border: '1.5px solid var(--danger)',
+                  color: 'var(--danger)',
                   fontSize: 13,
                 }}
               >
