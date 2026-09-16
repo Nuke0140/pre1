@@ -852,6 +852,9 @@ tr:hover .dt-row-actions .kebab,.dt-row-actions .kebab:focus-visible{opacity:1}
 
 @media (max-width: 760px) {
   .dtable { display: none !important; }
+  .dtable-scroll, .dtable-wrap {
+    overflow-x: visible !important;
+  }
   .dt-mobile-cards {
     display: flex !important;
     flex-direction: column;
