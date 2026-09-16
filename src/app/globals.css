@@ -35,16 +35,23 @@
   --bg-subtle:#F8FAFD;
   --bg-hover:#F1F4FA;
   --bg-active:#E8ECF7;
-  --bg-selected:#F0EBFF;
+  --bg-selected:var(--preone-primary-soft);
   --bg-disabled:#E2E8F0;
   --bg-overlay:rgba(0,0,0,0.40);
 
-  /* ── 2. Canonical Brand & Semantic Palette ───────────────────── */
-  --primary:#7C3AED;
-  --primary-hover:#6D28D9;
-  --primary-active:#5B21B6;
-  --primary-light:#F3EEFF;
-  --primary-foreground:#FFFFFF;
+  /* ── 2. Canonical Brand & Semantic Palette (PreOne Design System v4.1 §3.1) ── */
+  --preone-primary:#7C3AED;
+  --preone-primary-hover:#6D28D9;
+  --preone-primary-active:#5B21B6;
+  --preone-primary-soft:#F3EEFF;
+  --preone-primary-muted:#C4B5FD;
+  --preone-primary-foreground:#FFFFFF;
+
+  --primary:var(--preone-primary);
+  --primary-hover:var(--preone-primary-hover);
+  --primary-active:var(--preone-primary-active);
+  --primary-light:var(--preone-primary-soft);
+  --primary-foreground:var(--preone-primary-foreground);
 
   --secondary:#009688;
   --secondary-hover:#00796B;
@@ -143,6 +150,21 @@
   --font-sans:"Inter","Poppins","Nunito","Noto Sans Devanagari",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --font-mono:ui-monospace,"SF Mono","Cascadia Code","Consolas",monospace;
 
+  /* Canonical 12-Role Typography Tokens (Section 5.2) */
+  --fs-display: clamp(34px, 5vw, 54px);
+  --fs-h1: clamp(26px, 3.4vw, 36px);
+  --fs-h2: clamp(21px, 2.6vw, 28px);
+  --fs-h3: 19px;
+  --fs-h4: 15.5px;
+  --fs-body-lg: 16.5px;
+  --fs-body: 14.5px;
+  --fs-body-sm: 13px;
+  --fs-caption: 12px;
+  --fs-label: 12.5px;
+  --fs-btn: 14px;
+  --fs-kpi: 34px;
+  --fs-data: 13px;
+
   /* ── 14. Backward Compatibility Aliases ──────────────────────── */
   --background:var(--bg-page);
   --surface:var(--bg-card);
@@ -159,14 +181,7 @@
   --foreground-disabled:var(--text-disabled);
   --foreground-inverse:var(--text-inverse);
 
-  --border:var(--border-default);
-
-  --preone-primary:var(--primary);
-  --preone-primary-hover:var(--primary-hover);
-  --preone-primary-active:var(--primary-active);
-  --preone-primary-soft:var(--primary-light);
-  --preone-primary-muted:#C4B5FD;
-  --preone-primary-foreground:var(--primary-foreground);
+  /* PreOne brand tokens canonically defined in Section 2 above */
   --preone-blue:var(--info);
   --preone-electric-blue:var(--info);
   --preone-electric-blue-soft:var(--info-soft);
@@ -227,16 +242,23 @@
   --bg-subtle:#13193C;
   --bg-hover:#1C2454;
   --bg-active:#252F6B;
-  --bg-selected:rgba(106,53,255,.22);
+  --bg-selected:color-mix(in srgb,var(--preone-primary) 22%,#111636);
   --bg-disabled:#1E293B;
   --bg-overlay:rgba(0,0,0,0.70);
 
-  /* ── 2. Palette ──────────────────────────────────────────────── */
-  --primary:#8B5CF6;
-  --primary-hover:#9333EA;
-  --primary-active:#7E22CE;
-  --primary-light:rgba(139,92,246,.18);
-  --primary-foreground:#FFFFFF;
+  /* ── 2. Palette (PreOne Design System v4.1 Dark) ────────────── */
+  --preone-primary:#8B5CF6;
+  --preone-primary-hover:#9333EA;
+  --preone-primary-active:#7E22CE;
+  --preone-primary-soft:color-mix(in srgb,var(--preone-primary) 18%,transparent);
+  --preone-primary-muted:color-mix(in srgb,var(--preone-primary) 30%,#111636);
+  --preone-primary-foreground:#FFFFFF;
+
+  --primary:var(--preone-primary);
+  --primary-hover:var(--preone-primary-hover);
+  --primary-active:var(--preone-primary-active);
+  --primary-light:var(--preone-primary-soft);
+  --primary-foreground:var(--preone-primary-foreground);
 
   --secondary:#26A69A;
   --secondary-hover:#4DB6AC;
@@ -300,12 +322,7 @@
   --foreground-disabled:var(--text-disabled);
   --foreground-inverse:var(--text-inverse);
 
-  --border:var(--border-default);
-
-  --preone-primary:var(--primary);
-  --preone-primary-hover:var(--primary-hover);
-  --preone-primary-active:var(--primary-active);
-  --preone-primary-soft:var(--primary-light);
+  /* PreOne brand tokens canonically defined in Section 2 Dark above */
   --preone-blue:var(--info);
   --preone-electric-blue:var(--info);
   --preone-electric-blue-soft:var(--info-soft);

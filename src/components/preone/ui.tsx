@@ -298,3 +298,6 @@ export function Field({
     </div>
   )
 }
+
+export * from './Typography'
+

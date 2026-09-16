@@ -478,11 +478,11 @@ export default function AttendancePage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <AlertTriangle size={20} style={{ color: 'var(--warning, var(--warning))', flexShrink: 0 }} />
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--foreground)' }}>
+              <div className="t-body-sm" style={{ fontWeight: 700, color: 'var(--foreground)' }}>
                 School Calendar Notice: {dayStatus.status.replace(/_/g, ' ')}
                 {dayStatus.eventTitle ? ` — ${dayStatus.eventTitle}` : ''}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>
+              <div className="t-caption" style={{ color: 'var(--foreground-muted)' }}>
                 Regular attendance is not scheduled for this date. Emergency force overrides are audited.
               </div>
             </div>
@@ -517,10 +517,10 @@ export default function AttendancePage() {
         }}
       >
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--foreground-muted)' }}>
+          <div className="t-label">
             Branch & Session
           </div>
-          <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
+          <div className="t-body-sm" style={{ fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
             {classroomDetails?.branch?.name || 'Main Branch'} ·{' '}
             <span style={{ color: 'var(--foreground-muted)' }}>
               {classroomDetails?.academicSession?.name || 'Current Session'}
@@ -529,10 +529,10 @@ export default function AttendancePage() {
         </div>
 
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--foreground-muted)' }}>
+          <div className="t-label">
             Classroom & Room Code
           </div>
-          <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
+          <div className="t-body-sm" style={{ fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
             {classroomDetails?.name || 'Classroom'}{' '}
             {classroomDetails?.code ? (
               <span className="dt-id-chip" style={{ fontSize: 11, marginLeft: 6 }}>
@@ -543,20 +543,20 @@ export default function AttendancePage() {
         </div>
 
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--foreground-muted)' }}>
+          <div className="t-label">
             Primary Teacher
           </div>
-          <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--foreground)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="t-body-sm" style={{ fontWeight: 650, color: 'var(--foreground)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
             <User size={14} style={{ color: 'var(--foreground-muted)' }} />
             <span>{classroomDetails?.primaryTeacher?.name || activeClassroom?.teacher || 'Unassigned'}</span>
           </div>
         </div>
 
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--foreground-muted)' }}>
+          <div className="t-label">
             Capacity & Roster
           </div>
-          <div style={{ fontSize: 13.5, fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
+          <div className="t-body-sm" style={{ fontWeight: 650, color: 'var(--foreground)', marginTop: 2 }}>
             <span style={{ color: 'var(--preone-primary, var(--primary))' }}>{students.length}</span> Enrolled{' '}
             <span style={{ color: 'var(--foreground-muted)' }}>/ {classroomDetails?.capacity || 20} Capacity</span>
           </div>

@@ -376,7 +376,7 @@ export default function StudentsPage() {
         s.classroom ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+              <span className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                 {s.classroom.name}
               </span>
               <span
@@ -392,7 +392,7 @@ export default function StudentsPage() {
                 {enumLabel(s.classroom.programType)}
               </span>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            <span className="t-caption" style={{ color: 'var(--text-secondary)' }}>
               {s.classroom.teacher ? `Educator: ${s.classroom.teacher}` : 'No primary teacher'}
             </span>
           </div>
@@ -422,10 +422,10 @@ export default function StudentsPage() {
       export: (s) => `${fmtDate(s.dob)} (${formatAge(s.dob)})`,
       render: (s) => (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 13.5, fontWeight: 550, color: 'var(--text-primary)' }}>
+          <span className="t-body-sm" style={{ fontWeight: 550, color: 'var(--text-primary)' }}>
             {formatAge(s.dob)}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          <span className="t-caption" style={{ color: 'var(--text-secondary)' }}>
             {fmtDate(s.dob)}
           </span>
         </div>
@@ -439,14 +439,14 @@ export default function StudentsPage() {
         s.primaryGuardian ? (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)' }}>
+              <span className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                 {s.primaryGuardian.name}
               </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+              <span className="t-caption" style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>
                 ({s.primaryGuardian.relationship.toLowerCase()})
               </span>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono, monospace)' }}>
+            <span className="t-data" style={{ color: 'var(--text-secondary)' }}>
               {s.primaryGuardian.phone}
             </span>
           </div>

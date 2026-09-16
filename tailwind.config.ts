@@ -91,6 +91,21 @@ const config: Config = {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		fontSize: {
+  			't-display': ['clamp(34px, 5vw, 54px)', { lineHeight: '1.05', letterSpacing: '-0.035em', fontWeight: '800' }],
+  			't-h1': ['clamp(26px, 3.4vw, 36px)', { lineHeight: '1.2', letterSpacing: '-0.03em', fontWeight: '800' }],
+  			't-h2': ['clamp(21px, 2.6vw, 28px)', { lineHeight: '1.25', letterSpacing: '-0.025em', fontWeight: '700' }],
+  			't-h3': ['19px', { lineHeight: '1.3', letterSpacing: '-0.02em', fontWeight: '700' }],
+  			't-h4': ['15.5px', { lineHeight: '1.35', fontWeight: '700' }],
+  			't-body-lg': ['16.5px', { lineHeight: '1.65', fontWeight: '400' }],
+  			't-body': ['14.5px', { lineHeight: '1.65', fontWeight: '400' }],
+  			't-body-sm': ['13px', { lineHeight: '1.6', fontWeight: '400' }],
+  			't-caption': ['12px', { lineHeight: '1.4', fontWeight: '400' }],
+  			't-label': ['12.5px', { lineHeight: '1.4', letterSpacing: '0.03em', fontWeight: '700' }],
+  			't-btn': ['14px', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '650' }],
+  			't-kpi': ['34px', { lineHeight: '1.1', letterSpacing: '-0.03em', fontWeight: '800' }],
+  			't-data': ['13px', { lineHeight: '1.5', fontWeight: '600' }]
   		}
   	}
   },

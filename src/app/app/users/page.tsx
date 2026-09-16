@@ -768,14 +768,14 @@ export default function UsersPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Avatar name={u.name} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>
+            <div className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
               {u.name}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            <div className="t-caption">
               {u.email}
             </div>
             {u.phone && (
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+              <div className="t-caption" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                 <Phone size={10} /> {u.phone}
               </div>
             )}

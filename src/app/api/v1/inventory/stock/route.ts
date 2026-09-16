@@ -41,7 +41,12 @@ export async function GET(req: NextRequest) {
       orderBy: [{ item: { name: 'asc' } }, { location: { name: 'asc' } }],
     })
 
-    return ok(stocks)
+    const mapped = stocks.map((s) => ({
+      ...s,
+      item: s.item ? { ...s.item, code: s.item.sku } : null,
+    }))
+
+    return ok(mapped)
   } catch (err: any) {
     return bad(err.message, 'STOCK_FETCH_FAILED')
   }

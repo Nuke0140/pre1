@@ -23,14 +23,19 @@ export async function GET(req: NextRequest) {
         ...(movementType ? { movementType } : {}),
       },
       include: {
-        item: { select: { id: true, code: true, name: true, unit: { select: { symbol: true } } } },
+        item: { select: { id: true, sku: true, name: true, unit: { select: { symbol: true } } } },
         location: { select: { id: true, name: true, code: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
 
-    return ok(movements)
+    const mapped = movements.map((m) => ({
+      ...m,
+      item: m.item ? { ...m.item, code: m.item.sku } : null,
+    }))
+
+    return ok(mapped)
   } catch (err: any) {
     return bad(err.message, 'MOVEMENTS_FETCH_FAILED')
   }
