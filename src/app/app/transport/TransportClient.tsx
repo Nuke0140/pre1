@@ -741,7 +741,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
             padding: '16px 20px',
             borderRadius: 12,
             background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.12) 0%, rgba(239, 68, 68, 0.05) 100%)',
-            border: '2px solid var(--c-danger, #dc2626)',
+            border: '2px solid var(--danger)',
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'space-between',
@@ -754,8 +754,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 width: 42,
                 height: 42,
                 borderRadius: '50%',
-                background: 'var(--c-danger, #dc2626)',
-                color: '#fff',
+                background: 'var(--danger)',
+                color: 'var(--text-inverse)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -766,7 +766,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--c-danger, #dc2626)', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--danger)', textTransform: 'uppercase' }}>
                   Emergency Child Safety Alert
                 </span>
                 <span className="badge b-danger">PRINCIPAL ESCALATION</span>
@@ -928,11 +928,11 @@ export function TransportClient({ session }: { session: SessionProps }) {
                             {handledCount} / {t.manifest.length} Handled ({progressPct}%)
                           </div>
                           {t.delayMinutes > 0 ? (
-                            <div style={{ fontSize: 11, color: 'var(--c-danger, #dc2626)', fontWeight: 700 }}>
+                            <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 700 }}>
                               Delayed +{t.delayMinutes}m ({t.delayReason})
                             </div>
                           ) : (
-                            <div style={{ fontSize: 11, color: 'var(--c-success, #059669)', fontWeight: 600 }}>On time</div>
+                            <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>On time</div>
                           )}
                         </div>
                       </div>
@@ -943,7 +943,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                           style={{
                             width: `${progressPct}%`,
                             height: '100%',
-                            background: t.status === 'COMPLETED' ? 'var(--c-success, #059669)' : 'var(--primary)',
+                            background: t.status === 'COMPLETED' ? 'var(--success)' : 'var(--primary)',
                             transition: 'width 0.3s ease',
                           }}
                         />
@@ -1177,7 +1177,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                                       width: 34,
                                       height: 34,
                                       borderRadius: '50%',
-                                      background: 'var(--c-surface-hover, #f3f4f6)',
+                                      background: 'var(--bg-surface-hover)',
                                       color: 'var(--primary)',
                                       display: 'flex',
                                       alignItems: 'center',
