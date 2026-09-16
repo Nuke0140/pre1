@@ -395,7 +395,7 @@ async function main() {
     const [first, ...rest] = a.child.split(' ')
     const app = await db.admissionApplication.create({
       data: {
-        tenantId: tenant.id, branchId: branch.id,
+        tenantId: tenant.id, branchId: branch.id, academicSessionId: acad.id,
         applicationNumber: `ADM-${fy}-${String(appSeq).padStart(4, '0')}`,
         programType: a.program as 'NURSERY',
         childFirstName: first!, childLastName: rest.join(' '),
