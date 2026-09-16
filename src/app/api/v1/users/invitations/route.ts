@@ -60,10 +60,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { action, userId } = body as { action: 'resend' | 'cancel'; userId: string }
+    const { action, userId } = body as { action: 'resend' | 'cancel' | 'activate'; userId: string }
 
-    if (!action || !userId || !['resend', 'cancel'].includes(action)) {
-      return bad('Action ("resend" or "cancel") and userId are required', 'INVALID_INVITATION_ACTION')
+    if (!action || !userId || !['resend', 'cancel', 'activate'].includes(action)) {
+      return bad('Action ("resend", "cancel", or "activate") and userId are required', 'INVALID_INVITATION_ACTION')
     }
 
     const member = await db.tenantUser.findFirst({
@@ -83,7 +83,35 @@ export async function POST(req: NextRequest) {
 
     const meta = getRequestMeta(req)
 
-    if (action === 'resend') {
+    if (action === 'activate') {
+      await db.$transaction(async (tx) => {
+        await tx.tenantUser.update({
+          where: { id: member.id },
+          data: { status: 'ACTIVE' },
+        })
+        await tx.user.update({
+          where: { id: member.userId },
+          data: { status: 'ACTIVE' },
+        })
+      })
+
+      await recordAudit({
+        tenantId: session.tenantId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'ACTIVATE_INVITATION',
+        entity: 'User',
+        entityId: member.userId,
+        module: 'Users',
+        severity: 'INFO',
+        summary: `Activated invited user ${member.user.fullName} (${member.user.email})`,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      })
+
+      return ok({ success: true, message: `User ${member.user.email} successfully activated` })
+    } else if (action === 'resend') {
       // Touch user and membership
       await db.$transaction(async (tx) => {
         await tx.tenantUser.update({

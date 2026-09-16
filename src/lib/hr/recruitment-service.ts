@@ -197,4 +197,96 @@ export class RecruitmentService {
       return staff
     })
   }
+
+  /**
+   * Move Candidate Pipeline Stage
+   */
+  static async updateApplicationStatus(
+    tenantId: string,
+    jobApplicationId: string,
+    status: JobApplicationStatus,
+    actor: { id: string; name: string; role: string },
+    notes?: string
+  ) {
+    const app = await db.jobApplication.findFirst({
+      where: { id: jobApplicationId, tenantId },
+    })
+    if (!app) throw new Error('Application not found')
+
+    return await db.$transaction(async (tx) => {
+      const updated = await tx.jobApplication.update({
+        where: { id: jobApplicationId },
+        data: {
+          status,
+          notes: notes ? (app.notes ? `${app.notes}\n[${new Date().toISOString().split('T')[0]}] ${notes}` : notes) : undefined,
+        },
+      })
+
+      await AuditService.record({
+        tenantId,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        action: 'CANDIDATE_STAGE_UPDATED',
+        entity: 'JobApplication',
+        entityId: jobApplicationId,
+        module: 'HR',
+        summary: `Moved candidate ${app.candidateName} stage to ${status}`,
+        severity: 'INFO',
+        oldValues: { status: app.status },
+        newValues: { status, notes },
+      }, tx)
+
+      return updated
+    })
+  }
+
+  /**
+   * Record Interview Result (Feedback, Rating, Status)
+   */
+  static async recordInterviewResult(
+    tenantId: string,
+    interviewId: string,
+    data: {
+      status: InterviewStatus
+      feedback?: string
+      rating?: number
+    },
+    actor: { id: string; name: string; role: string }
+  ) {
+    const interview = await db.interview.findUnique({
+      where: { id: interviewId },
+      include: { jobApplication: true },
+    })
+    if (!interview || interview.jobApplication.tenantId !== tenantId) {
+      throw new Error('Interview round not found')
+    }
+
+    return await db.$transaction(async (tx) => {
+      const updated = await tx.interview.update({
+        where: { id: interviewId },
+        data: {
+          status: data.status,
+          feedback: data.feedback || undefined,
+          rating: data.rating !== undefined ? data.rating : undefined,
+        },
+      })
+
+      await AuditService.record({
+        tenantId,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        action: 'INTERVIEW_RESULT_RECORDED',
+        entity: 'Interview',
+        entityId: interviewId,
+        module: 'HR',
+        summary: `Recorded ${data.status} for interview ${interview.roundName} with ${interview.jobApplication.candidateName}`,
+        severity: 'INFO',
+        newValues: data,
+      }, tx)
+
+      return updated
+    })
+  }
 }

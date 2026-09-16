@@ -886,7 +886,9 @@ export class AdmissionService {
         siblingConcession: {
           hasSibling: existingChildren.length > 0,
           existingChildren,
-          applicableDiscountPercent: existingChildren.length > 0 ? 10 : 0,
+          applicableDiscountPercent: existingChildren.length > 0
+            ? (Number(admCfg.siblingDiscountPercent) > 0 ? Number(admCfg.siblingDiscountPercent) : 10)
+            : 0,
         },
         isReadyForApproval,
       },
@@ -1700,6 +1702,361 @@ export class AdmissionService {
       classroomName: result.classroom.name,
       invoiceNumber: result.invoice?.invoiceNumber ?? null,
       isAlreadyEnrolled: false,
+    }
+  }
+
+  // =========================================================================
+  // 12. CLASS + DIVISION ALLOCATION ENGINE
+  // =========================================================================
+
+  /**
+   * Evaluate eligible classroom divisions, live seat capacity, and policy-driven recommendations.
+   */
+  static async getAllocationRecommendations(ctx: ScopeContext, applicationId: string) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: scope.tenantId, deletedAt: null },
+      include: { program: true },
+    })
+    if (!app) throw new Error('Application not found')
+
+    // Find all active classrooms for this program, branch, and academic year
+    const classrooms = await db.classroom.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        branchId: app.branchId,
+        academicSessionId: app.academicSessionId,
+        programType: app.programType,
+        isActive: true,
+      },
+      include: {
+        allocations: {
+          where: { status: 'ACTIVE' },
+        },
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    const admConfig = await getAdmissionConfig(scope.tenantId)
+    const policy = (admConfig.allocationPolicy as string) || 'SYSTEM_AUTO_ALLOCATE'
+
+    const divisionStats = classrooms.map((cls) => {
+      const activeCount = cls.allocations.length
+      const availableSeats = Math.max(0, cls.capacity - activeCount)
+      return {
+        id: cls.id,
+        name: cls.name,
+        code: cls.code,
+        capacity: cls.capacity,
+        allocated: activeCount,
+        availableSeats,
+        isFull: availableSeats === 0,
+      }
+    })
+
+    // Find division with available seats
+    const availableDivisions = divisionStats.filter((d) => !d.isFull)
+    // Sort by most available seats to balance classroom distribution
+    availableDivisions.sort((a, b) => b.availableSeats - a.availableSeats)
+
+    const recommended = availableDivisions.length > 0 ? availableDivisions[0] : null
+    const totalAvailable = divisionStats.reduce((acc, d) => acc + d.availableSeats, 0)
+
+    return {
+      applicationId: app.id,
+      applicationNumber: app.applicationNumber,
+      childName: `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+      programType: app.programType,
+      programName: app.program?.name || app.programType,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      allocationPolicy: policy,
+      totalCapacity: divisionStats.reduce((acc, d) => acc + d.capacity, 0),
+      totalAllocated: divisionStats.reduce((acc, d) => acc + d.allocated, 0),
+      totalAvailableSeats: totalAvailable,
+      divisions: divisionStats,
+      recommendedClassroomId: recommended ? recommended.id : null,
+      recommendedClassroomName: recommended ? recommended.name : null,
+      isWaitlistRecommended: totalAvailable === 0,
+    }
+  }
+
+  /**
+   * Promote a waitlisted application back to active review or allocation.
+   */
+  static async promoteWaitingListEntry(ctx: ScopeContext, applicationId: string, targetClassroomId?: string, notes?: string) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+    if (!applicationId) throw new Error('Application ID is required for waiting list promotion')
+
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: scope.tenantId, deletedAt: null },
+    })
+    if (!app) throw new Error('Application not found')
+    if (app.status !== 'WAITLISTED') {
+      throw new Error(`Application ${app.applicationNumber} is not on the waiting list (current status: ${app.status})`)
+    }
+
+    if (targetClassroomId) {
+      const cls = await db.classroom.findFirst({
+        where: { id: targetClassroomId, tenantId: scope.tenantId, isActive: true },
+        include: { allocations: { where: { status: 'ACTIVE' } } },
+      })
+      if (!cls) throw new Error('Target classroom not found')
+      if (cls.allocations.length >= cls.capacity) {
+        throw new Error(`Classroom ${cls.name} has no available capacity (${cls.allocations.length}/${cls.capacity})`)
+      }
+    }
+
+    const updated = await db.admissionApplication.update({
+      where: { id: applicationId },
+      data: {
+        status: 'APPROVED',
+        classroomId: targetClassroomId || app.classroomId,
+        notes: notes ? `${app.notes || ''}\n[Promoted from Waitlist: ${notes}]` : `${app.notes || ''}\n[Promoted from Waitlist]`,
+      },
+    })
+
+    await audit({
+      tenantId: scope.tenantId,
+      branchId: scope.branchId,
+      academicSessionId: scope.academicYearId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'WAITLIST_PROMOTED',
+      entity: 'AdmissionApplication',
+      entityId: applicationId,
+      summary: `Application ${app.applicationNumber} promoted from Waiting List to Approved`,
+    })
+
+    return updated
+  }
+
+  // =========================================================================
+  // 13. CSV BULK IMPORT ENGINE (UNIFIED BUSINESS LOGIC)
+  // =========================================================================
+
+  /**
+   * Validate raw CSV rows against canonical masters and duplicate rules before import.
+   */
+  static async validateCsvImportRows(
+    ctx: ScopeContext,
+    type: 'leads' | 'applications',
+    rawRows: Array<Record<string, any>>,
+    mapping: Record<string, string>
+  ) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+
+    // Load canonical masters for resolution
+    const [programs, branches, sessions] = await Promise.all([
+      db.program.findMany({ where: { tenantId: scope.tenantId } }),
+      db.branch.findMany({ where: { tenantId: scope.tenantId, deletedAt: null } }),
+      db.academicSession.findMany({ where: { tenantId: scope.tenantId } }),
+    ])
+
+    const validatedRows: Array<{
+      rowNumber: number
+      raw: Record<string, any>
+      mapped: Record<string, any>
+      status: 'VALID' | 'DUPLICATE' | 'INVALID'
+      errors: string[]
+      duplicateMatch?: any
+    }> = []
+
+    let validCount = 0
+    let duplicateCount = 0
+    let invalidCount = 0
+
+    for (let i = 0; i < rawRows.length; i++) {
+      const row = rawRows[i]
+      const mapped: Record<string, any> = {}
+      const errors: string[] = []
+
+      // Apply column mapping
+      for (const [canonicalField, csvHeader] of Object.entries(mapping)) {
+        if (csvHeader && row[csvHeader] !== undefined) {
+          mapped[canonicalField] = String(row[csvHeader] || '').trim()
+        }
+      }
+
+      const parentName = mapped.parentName || mapped.parent_name || row.parent_name || row['Parent Name'] || ''
+      const phone = mapped.phone || mapped.parentPhone || mapped.parent_phone || row.parent_phone || row['Phone Number'] || row.phone || ''
+      const childName = mapped.childName || mapped.childFirstName || mapped.child_name || row.child_name || row['Child Name'] || ''
+      const dobStr = mapped.dob || mapped.childDob || mapped.child_dob || row.dob || row['Date of Birth'] || ''
+      const programStr = mapped.program || mapped.programType || row.program || row['Program'] || ''
+      const email = mapped.email || mapped.parentEmail || row.email || row['Email'] || null
+
+      if (!parentName) errors.push('Parent name is required')
+      if (!phone) errors.push('Phone number is required')
+      else if (phone.replace(/\D/g, '').length < 10) errors.push('Valid 10-digit phone number is required')
+
+      if (type === 'applications' && !childName) errors.push('Child name is required for application import')
+
+      let parsedDob: Date | null = null
+      if (dobStr) {
+        const d = new Date(dobStr)
+        if (isNaN(d.getTime())) errors.push(`Invalid Date of Birth format: ${dobStr}`)
+        else parsedDob = d
+      }
+
+      // Resolve Program
+      let resolvedProgramType: string = 'NURSERY'
+      if (programStr) {
+        const matched = programs.find(
+          (p) =>
+            p.name.toLowerCase() === programStr.toLowerCase() ||
+            p.code.toLowerCase() === programStr.toLowerCase() ||
+            p.programType.toLowerCase() === programStr.toLowerCase()
+        )
+        if (matched) {
+          resolvedProgramType = matched.programType
+        } else {
+          errors.push(`Unknown program '${programStr}'. Must match an existing school program.`)
+        }
+      }
+
+      let isDuplicate = false
+      let duplicateMatch: any = null
+
+      if (errors.length === 0 && phone) {
+        if (type === 'leads') {
+          const dup = await this.findDuplicateEnquiry(scope.tenantId, phone, email)
+          if (dup) {
+            isDuplicate = true
+            duplicateMatch = { id: dup.id, leadNumber: dup.leadNumber, parentName: dup.parentName, status: dup.status }
+          }
+        } else {
+          const dupApp = await this.checkDuplicateApplication(scope.tenantId, scope.academicYearId, phone, childName)
+          if (dupApp) {
+            isDuplicate = true
+            duplicateMatch = { id: dupApp.id, applicationNumber: dupApp.applicationNumber, parentName: dupApp.parentName, status: dupApp.status }
+          }
+        }
+      }
+
+      const rowStatus: 'VALID' | 'DUPLICATE' | 'INVALID' = errors.length > 0 ? 'INVALID' : isDuplicate ? 'DUPLICATE' : 'VALID'
+
+      if (rowStatus === 'VALID') validCount++
+      else if (rowStatus === 'DUPLICATE') duplicateCount++
+      else invalidCount++
+
+      validatedRows.push({
+        rowNumber: i + 1,
+        raw: row,
+        mapped: {
+          parentName,
+          phone,
+          email,
+          childName,
+          childDob: parsedDob ? parsedDob.toISOString() : null,
+          programType: resolvedProgramType,
+          notes: mapped.notes || row.notes || null,
+          source: mapped.source || row.lead_source || 'CSV_IMPORT',
+        },
+        status: rowStatus,
+        errors,
+        duplicateMatch,
+      })
+    }
+
+    return {
+      totalRows: rawRows.length,
+      validCount,
+      duplicateCount,
+      invalidCount,
+      rows: validatedRows,
+    }
+  }
+
+  /**
+   * Execute batch import of validated CSV rows using canonical entity creation.
+   */
+  static async executeCsvImportBatch(
+    ctx: ScopeContext,
+    type: 'leads' | 'applications',
+    validatedRows: Array<{ mapped: Record<string, any>; status: string }>,
+    duplicateAction: 'SKIP' | 'CREATE' | 'LINK' = 'SKIP'
+  ) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+    const fy = new Date().getFullYear()
+    const batchSeq = Math.floor(1000 + Math.random() * 9000)
+    const batchId = `IMP-${fy}-${batchSeq}`
+
+    const results: Array<{ id: string; identifier: string; name: string }> = []
+    let successCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+
+    for (const item of validatedRows) {
+      if (item.status === 'INVALID') {
+        failedCount++
+        continue
+      }
+      if (item.status === 'DUPLICATE' && duplicateAction === 'SKIP') {
+        skippedCount++
+        continue
+      }
+
+      const m = item.mapped
+      try {
+        if (type === 'leads') {
+          const res = await this.createEnquiry(ctx, {
+            parentName: m.parentName,
+            phone: m.phone,
+            email: m.email,
+            childName: m.childName,
+            childDob: m.childDob ? new Date(m.childDob) : null,
+            interestedProgram: m.programType as ProgramType,
+            source: 'OTHER',
+            notes: m.notes ? `[Batch: ${batchId}] ${m.notes}` : `[Batch: ${batchId}] Imported via CSV`,
+          })
+          results.push({ id: res.enquiry.id, identifier: res.enquiry.leadNumber, name: m.parentName })
+          successCount++
+        } else {
+          const names = (m.childName || 'Applicant').trim().split(' ')
+          const firstName = names[0]
+          const lastName = names.slice(1).join(' ') || null
+
+          const res = await this.submitApplication(ctx, {
+            programType: m.programType as ProgramType,
+            childFirstName: firstName,
+            childLastName: lastName,
+            childDob: m.childDob ? new Date(m.childDob) : new Date(Date.now() - 36 * 30 * 24 * 60 * 60 * 1000),
+            parentName: m.parentName,
+            parentPhone: m.phone,
+            parentEmail: m.email,
+            notes: `[Batch: ${batchId}] Imported via CSV application batch`,
+            isDuplicateConfirmed: duplicateAction === 'CREATE',
+          })
+          results.push({ id: res.id, identifier: res.applicationNumber, name: m.childName })
+          successCount++
+        }
+      } catch (err: any) {
+        failedCount++
+      }
+    }
+
+    await audit({
+      tenantId: scope.tenantId,
+      branchId: scope.branchId,
+      academicSessionId: scope.academicYearId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'CSV_IMPORT',
+      entity: type === 'leads' ? 'Lead' : 'AdmissionApplication',
+      entityId: batchId,
+      summary: `CSV Import Batch ${batchId} executed: ${successCount} created, ${skippedCount} skipped, ${failedCount} failed`,
+    })
+
+    return {
+      batchId,
+      total: validatedRows.length,
+      success: successCount,
+      skipped: skippedCount,
+      failed: failedCount,
+      records: results,
     }
   }
 }

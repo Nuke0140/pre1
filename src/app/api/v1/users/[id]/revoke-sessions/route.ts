@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 
 /** POST /api/v1/users/[id]/revoke-sessions  sign out all devices & revoke active sessions */
@@ -11,18 +11,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
+  const { targetMember: member } = manageCheck
+
   try {
-    const member = await db.tenantUser.findFirst({
-      where: {
-        userId: id,
-        tenantId: session.tenantId,
-        deletedAt: null,
-      },
-      include: { user: true },
-    })
-
-    if (!member) return notFound('User not found in this school')
-
     if (member.role === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
       return forbidden('Only owners can revoke sessions of school owner')
     }

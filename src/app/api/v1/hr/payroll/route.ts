@@ -10,6 +10,21 @@ export async function GET(req: NextRequest) {
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
+    const sp = req.nextUrl.searchParams
+    const exportParam = sp.get('export')
+    const cycleId = sp.get('cycleId')
+
+    if (exportParam === 'true' && cycleId) {
+      const csv = await PayrollService.generateBankPayoutFile(session.tenantId, cycleId)
+      return new Response(csv, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="bank-neft-payout-${cycleId}.csv"`,
+        },
+      })
+    }
+
     const cycles = await db.payrollCycle.findMany({
       where: { tenantId: session.tenantId },
       include: {
@@ -39,6 +54,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { action = 'CALCULATE', month, year, branchId, cycleId, paymentReference } = body
+
+    if (action === 'EXPORT_BANK_FILE') {
+      if (!cycleId) return Errors.validation('cycleId is required for bank export')
+      const csv = await PayrollService.generateBankPayoutFile(session.tenantId, cycleId)
+      return ok({
+        fileContent: csv,
+        fileName: `neft-payout-${cycleId}.csv`,
+      })
+    }
 
     if (action === 'DISBURSE') {
       if (!cycleId) return Errors.validation('cycleId is required for disbursement')

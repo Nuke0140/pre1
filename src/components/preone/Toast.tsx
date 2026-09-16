@@ -1,22 +1,30 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react'
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
+interface ToastAction {
+  label: string
+  onClick: () => void
+}
 interface ToastItem {
   id: number
   type: ToastType
   title: string
   body?: string
+  action?: ToastAction
+  duration?: number
   out?: boolean
 }
 
 interface ToastApi {
-  success: (title: string, body?: string) => void
-  error: (title: string, body?: string) => void
-  warning: (title: string, body?: string) => void
-  info: (title: string, body?: string) => void
+  success: (title: string, body?: string, action?: ToastAction) => void
+  error: (title: string, body?: string, action?: ToastAction) => void
+  warning: (title: string, body?: string, action?: ToastAction) => void
+  info: (title: string, body?: string, action?: ToastAction) => void
+  /** Success toast with an Undo action. */
+  undo: (title: string, body?: string, onUndo?: () => void) => void
 }
 
 const ToastCtx = createContext<ToastApi | null>(null)
@@ -32,21 +40,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
   const idRef = useRef(1)
 
-  const push = useCallback((type: ToastType, title: string, body?: string) => {
+  const push = useCallback((type: ToastType, title: string, body?: string, action?: ToastAction, duration?: number) => {
     const id = idRef.current++
-    setItems((prev) => [...prev.slice(-4), { id, type, title, body }])
+    setItems((prev) => [...prev.slice(-4), { id, type, title, body, action, duration: action ? 8000 : duration }])
+    const wait = action ? 8000 : (duration ?? 4200)
     setTimeout(() => {
-      setItems((prev) => prev.map((t) => (t.id === id ? { ...t, out: true } : t)))
+      setItems((prev) => prev.map((t) => (t.id === id && !t.out ? { ...t, out: true } : t)))
       setTimeout(() => setItems((prev) => prev.filter((t) => t.id !== id)), 280)
-    }, 4200)
+    }, wait)
   }, [])
 
-  const api: ToastApi = {
-    success: (t, b) => push('success', t, b),
-    error: (t, b) => push('error', t, b),
-    warning: (t, b) => push('warning', t, b),
-    info: (t, b) => push('info', t, b),
-  }
+  const api = useMemo<ToastApi>(
+    () => ({
+      success: (t, b, a) => push('success', t, b, a),
+      error: (t, b, a) => push('error', t, b, a),
+      warning: (t, b, a) => push('warning', t, b, a),
+      info: (t, b, a) => push('info', t, b, a),
+      undo: (t, b, onUndo) => push('success', t, b, onUndo ? { label: 'Undo', onClick: onUndo } : undefined),
+    }),
+    [push],
+  )
 
   return (
     <ToastCtx.Provider value={api}>
@@ -55,9 +68,22 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {items.map((t) => (
           <div key={t.id} className={`toast t-${t.type}${t.out ? ' out' : ''}`}>
             <span className="t-ic">{ICONS[t.type]}</span>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <b>{t.title}</b>
               {t.body && <p>{t.body}</p>}
+              {t.action && (
+                <button
+                  className="btn btn-sm btn-primary"
+                  style={{ marginTop: 8, padding: '3px 12px', fontSize: 12 }}
+                  onClick={() => {
+                    t.action!.onClick()
+                    setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, out: true } : x)))
+                    setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), 280)
+                  }}
+                >
+                  {t.action!.label}
+                </button>
+              )}
             </div>
           </div>
         ))}

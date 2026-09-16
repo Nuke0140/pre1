@@ -1,16 +1,21 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Users, UserPlus, Search, Phone, CheckCircle2,
   Edit3, Baby, Shield, Eye, LogOut, Ban, Check, Building,
-  Clock, Download, SlidersHorizontal, ChevronRight
+  Clock, Download, SlidersHorizontal, ChevronRight,
+  FileSpreadsheet, Upload, RefreshCw, AlertTriangle, AlertCircle, FileDown, Layers, Rows3, KeyRound
 } from 'lucide-react'
 import { Avatar, Segmented, Skeleton, Field, PageHead, StatusBadge, EmptyState } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
+import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { Modal, ConfirmModal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { ROLE_PERMISSIONS, Role } from '@/lib/auth'
+import { fmtDate, fmtDateTime, timeAgo } from '@/lib/format'
 
 interface ClassroomOption {
   id: string
@@ -63,6 +68,9 @@ interface UserRecord {
   } | null
 }
 
+const VALID_CATEGORY_TABS: string[] = ['ALL', 'STAFF', 'TEACHER', 'PARENT', 'PRINCIPAL', 'ACCOUNTS', 'GUARDIAN', 'PENDING']
+const VALID_STATUS_FILTERS: string[] = ['ALL', 'ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING']
+
 const ROLE_BADGE: Record<string, { cls: string; label: string }> = {
   OWNER: { cls: 'b-purple', label: 'Owner / Trust Head' },
   PRINCIPAL: { cls: 'b-blue', label: 'Principal / Center Head' },
@@ -89,14 +97,53 @@ export default function UsersPage() {
   const toast = useToast()
   const [users, setUsers] = useState<UserRecord[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const searchParams = useSearchParams()
 
   // Filters
-  const [categoryTab, setCategoryTab] = useState<'ALL' | 'STAFF' | 'TEACHER' | 'PARENT' | 'PRINCIPAL' | 'ACCOUNTS' | 'GUARDIAN' | 'PENDING'>('ALL')
+  const [categoryTab, setCategoryTab] = useState<'ALL' | 'STAFF' | 'TEACHER' | 'PARENT' | 'PRINCIPAL' | 'ACCOUNTS' | 'GUARDIAN' | 'PENDING'>(
+    () => {
+      const t = searchParams.get('tab')
+      return t && VALID_CATEGORY_TABS.includes(t) ? (t as any) : 'ALL'
+    },
+  )
+  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('ALL')
-  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const s = searchParams.get('status')
+    return s && VALID_STATUS_FILTERS.includes(s) ? s : 'ALL'
+  })
   const [branchFilter, setBranchFilter] = useState('ALL')
   const [userTypeFilter, setUserTypeFilter] = useState('ALL')
+  const [tableDensity, setTableDensity] = useState<'cozy' | 'compact'>('compact')
+
+  // Drill-through from the shell needs-attention panel (?tab=PENDING / ?status=SUSPENDED)
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && VALID_CATEGORY_TABS.includes(tab)) setCategoryTab(tab as any)
+    const status = searchParams.get('status')
+    if (status && VALID_STATUS_FILTERS.includes(status)) setStatusFilter(status)
+  }, [searchParams])
+
+  // Server-side pagination
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  // Category tab counts (from server meta.tabs)
+  const [tabCounts, setTabCounts] = useState<Record<string, number>>({
+    ALL: 0, STAFF: 0, TEACHER: 0, PARENT: 0, PRINCIPAL: 0, ACCOUNTS: 0, GUARDIAN: 0, PENDING: 0,
+  })
+
+  // Add-mode (direct create vs invitation) + password reset
+  const [addMode, setAddMode] = useState<'CREATE' | 'INVITE'>('CREATE')
+  const [resetPwUser, setResetPwUser] = useState<UserRecord | null>(null)
+  const [resetPwValue, setResetPwValue] = useState('')
+
+  // Fresh 360 detail (fetched on modal open)
+  const [viewDetail, setViewDetail] = useState<UserRecord | null>(null)
+  const [viewDetailLoading, setViewDetailLoading] = useState(false)
 
   // KPIs
   const [kpis, setKpis] = useState({ total: 0, active: 0, pending: 0, suspended: 0, inactive: 0 })
@@ -112,15 +159,51 @@ export default function UsersPage() {
 
   // Modals
   const [addModalOpen, setAddModalOpen] = useState(false)
+
+  // Auto-open the add-user modal when the command palette jumps here (?open=ADD)
+  useEffect(() => {
+    if (searchParams.get('open') === 'ADD') {
+      setAddModalOpen(true)
+    }
+  }, [searchParams])
+
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [rolesMatrix, setRolesMatrix] = useState<any[]>(DEFAULT_ROLES_MATRIX)
   const [groupsModalOpen, setGroupsModalOpen] = useState(false)
+
+  // CSV Manager Modal State
+  const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [csvMode, setCsvMode] = useState<'CREATE' | 'UPDATE' | 'DELETE'>('CREATE')
+  const [csvOverwrite, setCsvOverwrite] = useState(false)
+  const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [csvRawText, setCsvRawText] = useState('')
+  const [csvParsedRows, setCsvParsedRows] = useState<any[]>([])
+  const [csvValidating, setCsvValidating] = useState(false)
+  const [csvExecuting, setCsvExecuting] = useState(false)
+  const [csvValidationResult, setCsvValidationResult] = useState<any | null>(null)
+  const [csvApplyValidOnly, setCsvApplyValidOnly] = useState(false)
+  const [confirmCsvDelete, setConfirmCsvDelete] = useState(false)
 
   // Bulk Modals
   const [bulkModalAction, setBulkModalAction] = useState<string | null>(null)
   const [bulkRole, setBulkRole] = useState<Role>('TEACHER')
   const [bulkBranchId, setBulkBranchId] = useState('')
   const [bulkDesignation, setBulkDesignation] = useState('')
+
+  // Bulk Overwrite Modal State
+  const [bulkOverwriteOpen, setBulkOverwriteOpen] = useState(false)
+  const [bulkOverwriteRole, setBulkOverwriteRole] = useState<string>('')
+  const [bulkOverwriteBranchId, setBulkOverwriteBranchId] = useState<string>('')
+  const [bulkOverwriteDesignation, setBulkOverwriteDesignation] = useState<string>('')
+  const [bulkOverwriteDepartment, setBulkOverwriteDepartment] = useState<string>('')
+  const [bulkOverwriteStatus, setBulkOverwriteStatus] = useState<string>('')
+  const [bulkOverwriteFields, setBulkOverwriteFields] = useState<{
+    role: boolean
+    branch: boolean
+    designation: boolean
+    department: boolean
+    status: boolean
+  }>({ role: false, branch: false, designation: false, department: false, status: false })
 
   // Confirmation Modals
   const [confirmSuspend, setConfirmSuspend] = useState<UserRecord | null>(null)
@@ -136,12 +219,27 @@ export default function UsersPage() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (roleFilter !== 'ALL') params.set('role', roleFilter)
-      if (statusFilter !== 'ALL') params.set('status', statusFilter)
+      params.set('page', String(page))
+      params.set('pageSize', String(pageSize))
+      params.set('activeTab', categoryTab)
+
+      // Map active category tab onto server filters (mutually exclusive with the role/status/type dropdowns)
+      if (categoryTab === 'PENDING') {
+        params.set('status', 'PENDING')
+      } else if (categoryTab === 'STAFF') {
+        params.set('userType', 'STAFF')
+      } else if (categoryTab === 'GUARDIAN') {
+        params.set('userType', 'PARENT')
+      } else if (categoryTab === 'TEACHER' || categoryTab === 'PARENT' || categoryTab === 'PRINCIPAL' || categoryTab === 'ACCOUNTS') {
+        params.set('role', categoryTab)
+      } else {
+        if (roleFilter !== 'ALL') params.set('role', roleFilter)
+        if (statusFilter !== 'ALL') params.set('status', statusFilter)
+        if (userTypeFilter !== 'ALL') params.set('userType', userTypeFilter)
+      }
+
       if (branchFilter !== 'ALL') params.set('branchId', branchFilter)
-      if (userTypeFilter !== 'ALL') params.set('userType', userTypeFilter)
       if (search.trim()) params.set('q', search.trim())
-      params.set('pageSize', '150')
 
       const res = await fetch(`/api/v1/users?${params.toString()}`)
       const json = await res.json()
@@ -150,24 +248,25 @@ export default function UsersPage() {
         if (json.meta?.kpis) {
           setKpis(json.meta.kpis)
         }
-        if (viewingUser) {
-          const fresh = json.data.find((u: UserRecord) => u.userId === viewingUser.userId)
-          if (fresh) setViewingUser(fresh)
+        if (json.meta?.tabs) {
+          setTabCounts(json.meta.tabs)
         }
-        if (editingUser) {
-          const fresh = json.data.find((u: UserRecord) => u.userId === editingUser.userId)
-          if (fresh) setEditingUser(fresh)
-        }
+        setTotal(json.meta?.total ?? 0)
+        setTotalPages(json.meta?.totalPages ?? 1)
       } else {
         setUsers([])
+        setTotal(0)
+        setTotalPages(1)
       }
     } catch {
       toast.error('Failed to load users')
       setUsers([])
+      setTotal(0)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
-  }, [roleFilter, statusFilter, branchFilter, userTypeFilter, search, viewingUser, editingUser, toast])
+  }, [categoryTab, roleFilter, statusFilter, branchFilter, userTypeFilter, search, page, pageSize, toast])
 
   // Fetch Metadata
   const fetchMetadata = useCallback(async () => {
@@ -192,64 +291,33 @@ export default function UsersPage() {
     }
   }, [])
 
+  // Debounced search: commit input only after 300ms of inactivity
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchInput])
+
+  // Any filter/tab/search change resets navigation to the first page
+  useEffect(() => {
+    setPage(1)
+  }, [categoryTab, roleFilter, statusFilter, branchFilter, userTypeFilter, search])
+
   useEffect(() => {
     fetchUsers()
     fetchMetadata()
     fetchRolesDirectory()
   }, [fetchUsers, fetchMetadata, fetchRolesDirectory])
 
-  // Filtered Users based on category tabs
-  const filteredUsers = useMemo(() => {
-    if (!users) return []
-    return users.filter((u) => {
-      const assigned = u.roles && u.roles.length > 0 ? u.roles : [u.role]
-      if (categoryTab === 'ALL') return true
-      if (categoryTab === 'PENDING') return u.status === 'PENDING'
-      if (categoryTab === 'TEACHER') return assigned.includes('TEACHER')
-      if (categoryTab === 'PARENT') return assigned.includes('PARENT')
-      if (categoryTab === 'PRINCIPAL') return assigned.includes('PRINCIPAL')
-      if (categoryTab === 'ACCOUNTS') return assigned.includes('ACCOUNTS')
-      if (categoryTab === 'GUARDIAN') return !!u.guardianProfile || assigned.includes('PARENT')
-      if (categoryTab === 'STAFF') {
-        return assigned.some((r) => ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r))
-      }
-      return true
-    })
-  }, [users, categoryTab])
-
-  // Counts for Category Tabs
-  const categoryCounts = useMemo(() => {
-    if (!users) return { ALL: 0, STAFF: 0, TEACHER: 0, PARENT: 0, PRINCIPAL: 0, ACCOUNTS: 0, GUARDIAN: 0, PENDING: 0 }
-    let staff = 0, teachers = 0, parents = 0, principals = 0, accounts = 0, guardians = 0, pending = 0
-    for (const u of users) {
-      const assigned = u.roles && u.roles.length > 0 ? u.roles : [u.role]
-      if (u.status === 'PENDING') pending++
-      if (assigned.includes('TEACHER')) teachers++
-      if (assigned.includes('PARENT')) parents++
-      if (assigned.includes('PRINCIPAL')) principals++
-      if (assigned.includes('ACCOUNTS')) accounts++
-      if (u.guardianProfile || assigned.includes('PARENT')) guardians++
-      if (assigned.some((r) => ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r))) staff++
-    }
-    return {
-      ALL: users.length,
-      STAFF: staff,
-      TEACHER: teachers,
-      PARENT: parents,
-      PRINCIPAL: principals,
-      ACCOUNTS: accounts,
-      GUARDIAN: guardians,
-      PENDING: pending,
-    }
-  }, [users])
+  // Rows are filtered & paginated server-side (category tab drives the query);
+  // counts for each category tab come from the API response meta.tabs.
 
   // Map rows for DataTable with id set to userId
   const tableData = useMemo(() => {
-    return filteredUsers.map((u) => ({
+    return (users || []).map((u) => ({
       ...u,
       id: u.userId,
     }))
-  }, [filteredUsers])
+  }, [users])
 
   // Handle Create User
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -259,10 +327,11 @@ export default function UsersPage() {
     const fullName = fd.get('fullName') as string
     const email = fd.get('email') as string
     const phone = fd.get('phone') as string
-    const password = fd.get('password') as string
+    const password = (fd.get('password') as string) || 'Preone@123'
     const role = fd.get('role') as Role
     const branchId = fd.get('branchId') as string
     const designation = fd.get('designation') as string
+    const isInvite = addMode === 'INVITE'
 
     try {
       const res = await fetch('/api/v1/users', {
@@ -277,15 +346,83 @@ export default function UsersPage() {
           roles: [role],
           branchId: branchId || null,
           designation: designation || null,
+          isInvite,
+          status: isInvite ? 'PENDING' : undefined,
         }),
       })
       const json = await res.json()
       if (json.success) {
-        toast.success('User created successfully', `${fullName} has been provisioned`)
+        if (isInvite) {
+          toast.success('Invitation sent', `${fullName} was added as a pending invitation`)
+        } else {
+          toast.success('User created successfully', `${fullName} has been provisioned`)
+        }
         setAddModalOpen(false)
+        setAddMode('CREATE')
         fetchUsers()
       } else {
         toast.error(json.error?.message || 'Failed to create user')
+      }
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Open the 360 modal and fetch fresh detail from the API for up-to-date data
+  const openViewModal = useCallback(async (u: UserRecord) => {
+    setViewingUser(u)
+    setViewDetail(null)
+    setViewModalOpen(true)
+    setViewDetailLoading(true)
+    try {
+      const res = await fetch(`/api/v1/users/${u.userId}`)
+      const json = await res.json()
+      if (json.success && json.data) {
+        const d = json.data
+        setViewDetail({
+          ...u,
+          id: d.id ?? u.id,
+          userId: d.userId ?? u.userId,
+          name: d.fullName ?? u.name,
+          email: d.email ?? u.email,
+          phone: d.phone ?? u.phone,
+          role: d.role ?? u.role,
+          roles: d.roles ?? u.roles,
+          status: d.status ?? u.status,
+          branchId: d.branchId ?? u.branchId,
+          lastLoginAt: d.lastLoginAt ?? u.lastLoginAt,
+          createdAt: d.createdAt ?? u.createdAt,
+          staffProfile: d.staffProfile ?? u.staffProfile ?? null,
+          taughtClasses: d.taughtClasses ?? u.taughtClasses,
+          guardianProfile: d.guardianProfile ?? u.guardianProfile ?? null,
+        })
+      }
+    } catch {
+      // fall back to the row snapshot data
+    } finally {
+      setViewDetailLoading(false)
+    }
+  }, [])
+
+  // Reset a user's login password
+  const handleResetPassword = async () => {
+    if (!resetPwUser || resetPwValue.trim().length < 6) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/users/${resetPwUser.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: resetPwValue.trim() }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Password reset complete', `${resetPwUser.name} can now sign in with the new password`)
+        setResetPwUser(null)
+        setResetPwValue('')
+      } else {
+        toast.error(json.error?.message || 'Failed to reset password')
       }
     } catch {
       toast.error('Network error')
@@ -337,6 +474,217 @@ export default function UsersPage() {
     }
   }
 
+  // Parse CSV Client-Side Helper
+  const parseCsvText = (text: string) => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+    if (lines.length < 2) return { headers: [], rows: [] }
+
+    const parseLine = (line: string): string[] => {
+      const result: string[] = []
+      let cur = ''
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"'
+            i++
+          } else {
+            inQuotes = !inQuotes
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(cur.trim())
+          cur = ''
+        } else {
+          cur += char
+        }
+      }
+      result.push(cur.trim())
+      return result
+    }
+
+    const headers = parseLine(lines[0]).map((h) => h.replace(/^["']|["']$/g, '').trim())
+    const rows = lines.slice(1).map((line, idx) => {
+      const values = parseLine(line)
+      const obj: any = { rowNumber: idx + 2 }
+      headers.forEach((h, i) => {
+        if (values[i] !== undefined) {
+          obj[h] = values[i]
+        }
+      })
+      return obj
+    })
+
+    return { headers, rows }
+  }
+
+  // Handle CSV file selection
+  const handleCsvFileSelected = (file: File) => {
+    setCsvFile(file)
+    setCsvValidationResult(null)
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = (e.target?.result as string) || ''
+      setCsvRawText(content)
+      const { rows } = parseCsvText(content)
+      setCsvParsedRows(rows)
+    }
+    reader.readAsText(file)
+  }
+
+  // Handle CSV Dry-Run Validation
+  const handleValidateCsv = async () => {
+    if (csvParsedRows.length === 0) {
+      toast.error('No rows detected in CSV file')
+      return
+    }
+    setCsvValidating(true)
+    try {
+      const res = await fetch('/api/v1/users/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'validate',
+          mode: csvMode,
+          overwrite: csvOverwrite,
+          rows: csvParsedRows,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setCsvValidationResult(json.data)
+        if (json.data.errors && json.data.errors.length > 0) {
+          toast.warning(`Validation identified ${json.data.errors.length} issue(s)`, 'Review errors before applying')
+        } else {
+          toast.success('Validation passed!', `All ${json.data.validRows} rows are ready to execute`)
+        }
+      } else {
+        toast.error(json.error?.message || 'Validation failed')
+      }
+    } catch {
+      toast.error('Failed to validate CSV')
+    } finally {
+      setCsvValidating(false)
+    }
+  }
+
+  // Handle CSV Execution
+  const handleExecuteCsv = async () => {
+    if (csvParsedRows.length === 0) return
+    if (csvMode === 'DELETE' && !confirmCsvDelete) {
+      setConfirmCsvDelete(true)
+      return
+    }
+
+    setCsvExecuting(true)
+    try {
+      const res = await fetch('/api/v1/users/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'execute',
+          mode: csvMode,
+          overwrite: csvOverwrite,
+          rows: csvParsedRows,
+          applyValidOnly: csvApplyValidOnly,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        const d = json.data
+        toast.success(
+          `CSV ${csvMode} Complete!`,
+          `Created: ${d.createdCount}, Updated: ${d.updatedCount}, Deactivated: ${d.deletedCount || 0}, Skipped: ${d.skippedCount}`
+        )
+        setCsvModalOpen(false)
+        setCsvFile(null)
+        setCsvParsedRows([])
+        setCsvValidationResult(null)
+        setConfirmCsvDelete(false)
+        fetchUsers()
+      } else {
+        toast.error(json.error?.message || 'Execution failed')
+      }
+    } catch {
+      toast.error('Failed to execute CSV operation')
+    } finally {
+      setCsvExecuting(false)
+    }
+  }
+
+  // Download CSV Error Report
+  const handleDownloadCsvErrors = () => {
+    if (!csvValidationResult?.errors || csvValidationResult.errors.length === 0) return
+    const errorHeaders = ['rowNumber', 'identifier', 'field', 'currentValue', 'requestedValue', 'errorCode', 'errorMessage']
+    const csvContent = [
+      errorHeaders.join(','),
+      ...csvValidationResult.errors.map((err: any) =>
+        [
+          err.rowNumber,
+          `"${(err.identifier || '').replace(/"/g, '""')}"`,
+          `"${(err.field || '').replace(/"/g, '""')}"`,
+          `"${(err.currentValue || '').replace(/"/g, '""')}"`,
+          `"${(err.requestedValue || '').replace(/"/g, '""')}"`,
+          `"${(err.errorCode || '').replace(/"/g, '""')}"`,
+          `"${(err.errorMessage || '').replace(/"/g, '""')}"`,
+        ].join(',')
+      ),
+    ].join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `csv_validation_errors_${Date.now()}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  }
+
+  // Handle Bulk Overwrite Execution
+  const handleExecuteBulkOverwrite = async () => {
+    if (selected.length === 0) return
+    const hasAnyField = Object.values(bulkOverwriteFields).some(Boolean)
+    if (!hasAnyField) {
+      toast.warning('No fields selected for overwrite', 'Check at least one attribute to overwrite')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const changes: any = {}
+      if (bulkOverwriteFields.role && bulkOverwriteRole) changes.role = bulkOverwriteRole
+      if (bulkOverwriteFields.branch) changes.branchId = bulkOverwriteBranchId || null
+      if (bulkOverwriteFields.designation) changes.designation = bulkOverwriteDesignation.trim()
+      if (bulkOverwriteFields.department) changes.department = bulkOverwriteDepartment.trim()
+      if (bulkOverwriteFields.status && bulkOverwriteStatus) changes.status = bulkOverwriteStatus
+
+      const res = await fetch('/api/v1/users/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_PROFILE',
+          userIds: selected,
+          changes,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Bulk Overwrite applied!', `Updated attributes across ${json.data.updatedCount} accounts`)
+        setBulkOverwriteOpen(false)
+        setSelected([])
+        fetchUsers()
+      } else {
+        toast.error(json.error?.message || 'Bulk overwrite failed')
+      }
+    } catch {
+      toast.error('Network error during bulk overwrite')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Bulk Actions
   const handleExecuteBulkAction = async () => {
     if (!bulkModalAction || selected.length === 0) return
@@ -374,8 +722,16 @@ export default function UsersPage() {
     try {
       const payload: any = {}
       if (selected.length > 0) payload.userIds = selected
-      if (roleFilter !== 'ALL') payload.role = roleFilter
-      if (statusFilter !== 'ALL') payload.status = statusFilter
+      // Mirror the active category tab onto the export filters
+      if (categoryTab === 'PENDING') payload.status = 'PENDING'
+      else if (categoryTab === 'STAFF') payload.userType = 'STAFF'
+      else if (categoryTab === 'GUARDIAN') payload.userType = 'PARENT'
+      else if (categoryTab === 'TEACHER' || categoryTab === 'PARENT' || categoryTab === 'PRINCIPAL' || categoryTab === 'ACCOUNTS') payload.role = categoryTab
+      else {
+        if (roleFilter !== 'ALL') payload.role = roleFilter
+        if (statusFilter !== 'ALL') payload.status = statusFilter
+        if (userTypeFilter !== 'ALL') payload.userType = userTypeFilter
+      }
       if (branchFilter !== 'ALL') payload.branchId = branchFilter
       if (search.trim()) payload.search = search.trim()
 
@@ -513,7 +869,7 @@ export default function UsersPage() {
       render: (u) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
           <Clock size={12} />
-          <span>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}</span>
+          <span>{u.lastLoginAt ? fmtDate(u.lastLoginAt) : 'Never'}</span>
         </div>
       ),
     },
@@ -522,6 +878,12 @@ export default function UsersPage() {
   return (
     <div className="page-container">
       {/* 1. CANONICAL PAGEHEAD */}
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/app/home' },
+          { label: 'Users & Access' },
+        ]}
+      />
       <PageHead
         eyebrow="Identity & Access Management"
         badge={<span className="badge b-primary b-dot">Active Directory</span>}
@@ -543,6 +905,27 @@ export default function UsersPage() {
               className="btn btn-secondary"
             >
               <Users size={14} /> Groups
+            </button>
+            <a
+              href="/api/v1/users/import/template"
+              download="preone_users_template.csv"
+              className="btn btn-secondary"
+              title="Download official CSV template for user management"
+            >
+              <FileSpreadsheet size={14} /> CSV Template
+            </a>
+            <button
+              onClick={() => {
+                setCsvModalOpen(true)
+                setCsvValidationResult(null)
+                setCsvFile(null)
+                setCsvRawText('')
+                setCsvParsedRows([])
+              }}
+              className="btn btn-secondary"
+              title="Import, update, overwrite, or deactivate users in bulk using CSV"
+            >
+              <Upload size={14} /> Import / Bulk CSV
             </button>
             <button
               onClick={() => setAddModalOpen(true)}
@@ -571,7 +954,7 @@ export default function UsersPage() {
 
         <div
           className="metric-cell"
-          onClick={() => setStatusFilter('ACTIVE')}
+          onClick={() => { setCategoryTab('ALL'); setStatusFilter('ACTIVE'); }}
           style={{ cursor: 'pointer' }}
         >
           <div className="m-top">
@@ -591,7 +974,7 @@ export default function UsersPage() {
             <span className="m-lbl">Staff Accounts</span>
             <Building size={16} style={{ color: 'var(--info)' }} />
           </div>
-          <div className="m-val">{categoryCounts.STAFF}</div>
+          <div className="m-val">{tabCounts.STAFF}</div>
           <div className="m-meta">Faculty & workforce</div>
         </div>
 
@@ -604,13 +987,13 @@ export default function UsersPage() {
             <span className="m-lbl">Parent Accounts</span>
             <Baby size={16} style={{ color: 'var(--accent)' }} />
           </div>
-          <div className="m-val">{categoryCounts.PARENT}</div>
+          <div className="m-val">{tabCounts.PARENT}</div>
           <div className="m-meta">Guardian portal</div>
         </div>
 
         <div
           className="metric-cell"
-          onClick={() => setStatusFilter('SUSPENDED')}
+          onClick={() => { setCategoryTab('ALL'); setStatusFilter('SUSPENDED'); }}
           style={{ cursor: 'pointer' }}
         >
           <div className="m-top">
@@ -629,14 +1012,14 @@ export default function UsersPage() {
         {/* Category Navigation Pills */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
           {[
-            { id: 'ALL', label: 'All Users', count: categoryCounts.ALL },
-            { id: 'STAFF', label: 'Staff', count: categoryCounts.STAFF },
-            { id: 'TEACHER', label: 'Teachers', count: categoryCounts.TEACHER },
-            { id: 'PARENT', label: 'Parents', count: categoryCounts.PARENT },
-            { id: 'PRINCIPAL', label: 'Principals', count: categoryCounts.PRINCIPAL },
-            { id: 'ACCOUNTS', label: 'Accounts', count: categoryCounts.ACCOUNTS },
-            { id: 'GUARDIAN', label: 'Guardians', count: categoryCounts.GUARDIAN },
-            { id: 'PENDING', label: 'Invitations', count: categoryCounts.PENDING },
+            { id: 'ALL', label: 'All Users', count: tabCounts.ALL },
+            { id: 'STAFF', label: 'Staff', count: tabCounts.STAFF },
+            { id: 'TEACHER', label: 'Teachers', count: tabCounts.TEACHER },
+            { id: 'PARENT', label: 'Parents', count: tabCounts.PARENT },
+            { id: 'PRINCIPAL', label: 'Principals', count: tabCounts.PRINCIPAL },
+            { id: 'ACCOUNTS', label: 'Accounts', count: tabCounts.ACCOUNTS },
+            { id: 'GUARDIAN', label: 'Guardians', count: tabCounts.GUARDIAN },
+            { id: 'PENDING', label: 'Invitations', count: tabCounts.PENDING },
           ].map((tab) => {
             const isActive = categoryTab === tab.id
             return (
@@ -656,23 +1039,42 @@ export default function UsersPage() {
         </div>
 
         {/* Integrated Context & Filter Bar */}
-        <div className="school-context-bar" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="context-item" style={{ flex: 1, minWidth: 220 }}>
+        <div
+          className="school-context-bar"
+          style={{
+            borderRadius: 0,
+            border: 'none',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'nowrap',
+            overflowX: 'auto',
+            padding: '8px 16px',
+          }}
+        >
+          {/* Search */}
+          <div className="context-item" style={{ flex: '1 1 200px', minWidth: 170 }}>
             <div className="input-search" style={{ width: '100%' }}>
               <Search size={14} />
               <input
                 className="input"
-                placeholder="Search name, email, phone, employee code..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                style={{ height: 32 }}
+                placeholder="Search name, email, phone..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="context-item">
-            <label>Role:</label>
+          <span className="context-divider" />
+
+          {/* Role Filter */}
+          <div className="context-item" style={{ flex: '0 0 auto' }}>
+            <label style={{ fontSize: 12 }}>Role:</label>
             <select
               className="select"
+              style={{ height: 32, fontSize: 12, padding: '0 24px 0 8px' }}
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
             >
@@ -685,10 +1087,12 @@ export default function UsersPage() {
             </select>
           </div>
 
-          <div className="context-item">
-            <label>Status:</label>
+          {/* Status Filter */}
+          <div className="context-item" style={{ flex: '0 0 auto' }}>
+            <label style={{ fontSize: 12 }}>Status:</label>
             <select
               className="select"
+              style={{ height: 32, fontSize: 12, padding: '0 24px 0 8px' }}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -700,10 +1104,12 @@ export default function UsersPage() {
             </select>
           </div>
 
-          <div className="context-item">
-            <label>Branch:</label>
+          {/* Branch Filter */}
+          <div className="context-item" style={{ flex: '0 0 auto' }}>
+            <label style={{ fontSize: 12 }}>Branch:</label>
             <select
               className="select"
+              style={{ height: 32, fontSize: 12, padding: '0 24px 0 8px', maxWidth: 130 }}
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
             >
@@ -716,20 +1122,34 @@ export default function UsersPage() {
             </select>
           </div>
 
-          <div className="context-item">
-            <label>Type:</label>
+          {/* User Type Filter */}
+          <div className="context-item" style={{ flex: '0 0 auto' }}>
+            <label style={{ fontSize: 12 }}>Type:</label>
             <select
               className="select"
+              style={{ height: 32, fontSize: 12, padding: '0 24px 0 8px' }}
               value={userTypeFilter}
               onChange={(e) => setUserTypeFilter(e.target.value)}
             >
-              <option value="ALL">All User Types</option>
-              <option value="STAFF">Staff & Workforce</option>
-              <option value="PARENT">Parents & Guardians</option>
+              <option value="ALL">All Types</option>
+              <option value="STAFF">Staff</option>
+              <option value="PARENT">Parents</option>
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span className="context-divider" />
+
+          {/* Actions: Compact / Reset / Export CSV */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flex: '0 0 auto', marginLeft: 'auto' }}>
+            <button
+              onClick={() => setTableDensity((d) => (d === 'compact' ? 'cozy' : 'compact'))}
+              className={`btn btn-sm ${tableDensity === 'compact' ? 'btn-secondary' : 'btn-ghost'}`}
+              title={tableDensity === 'compact' ? 'Switch to cozy rows' : 'Switch to compact rows'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 32, whiteSpace: 'nowrap' }}
+            >
+              <Rows3 size={13} />
+              <span>{tableDensity === 'compact' ? 'Compact' : 'Cozy'}</span>
+            </button>
             <button
               onClick={() => {
                 setSearch('')
@@ -741,6 +1161,7 @@ export default function UsersPage() {
               }}
               className="btn btn-ghost btn-sm"
               title="Reset all filters"
+              style={{ height: 32, whiteSpace: 'nowrap' }}
             >
               <SlidersHorizontal size={13} /> Reset
             </button>
@@ -748,6 +1169,7 @@ export default function UsersPage() {
               onClick={handleExportCsv}
               className="btn btn-outline btn-sm"
               title="Export CSV"
+              style={{ height: 32, whiteSpace: 'nowrap' }}
             >
               <Download size={13} /> Export CSV
             </button>
@@ -759,59 +1181,59 @@ export default function UsersPage() {
           columns={columns}
           data={tableData}
           loading={loading}
-          paginate
-          defaultPageSize={10}
+          pagination={{ page, pageSize, total, onPageChange: setPage, onPageSizeChange: setPageSize }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          defaultPageSize={25}
+          tableKey="users-directory"
+          stickyCheckColumn
+          selectionSummary={
+            <span className="t-caption">
+              of {total.toLocaleString('en-IN')} matching · page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+            </span>
+          }
+          density={tableDensity}
+          onDensityChange={setTableDensity}
           onRowClick={(u) => {
-            setViewingUser(u)
-            setViewModalOpen(true)
+            openViewModal(u)
           }}
           rowSelection
           selectedKeys={selected}
           onSelectionChange={(keys) => setSelected(keys.map(String))}
+          showToolbar={false}
+          showExport={false}
           bulkActions={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>
-                {selected.length} selected
-              </span>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setBulkModalAction('ASSIGN_ROLE')}
-              >
-                <Shield size={13} /> Assign Role
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setBulkModalAction('CHANGE_BRANCH')}
-              >
-                <Building size={13} /> Change Branch
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setBulkModalAction('ACTIVATE')}
-              >
-                <Check size={13} /> Activate
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setBulkModalAction('SUSPEND')}
-              >
-                <Ban size={13} /> Suspend
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setBulkModalAction('CHANGE_DESIGNATION')}
-              >
-                <Edit3 size={13} /> Designation
-              </button>
-            </div>
+            selected.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', marginRight: 2 }}>
+                  Bulk tools:
+                </span>
+                <button className="btn btn-sm btn-secondary" onClick={() => setBulkModalAction('ASSIGN_ROLE')} title="Append an extra role to all selected accounts">
+                  Assign Role
+                </button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setBulkModalAction('CHANGE_BRANCH')} title="Move all selected accounts to another campus">
+                  Move Branch
+                </button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setBulkModalAction('CHANGE_DESIGNATION')} title="Update the workforce designation for all selected accounts">
+                  Set Designation
+                </button>
+                <button className="btn btn-sm btn-secondary" onClick={() => setBulkModalAction('ACTIVATE')} title="Activate all selected accounts">
+                  <Check size={12} /> Activate
+                </button>
+                <button className="btn btn-sm btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setBulkModalAction('SUSPEND')} title="Suspend access for all selected accounts">
+                  <Ban size={12} /> Suspend
+                </button>
+                <button className="btn btn-sm btn-ghost" onClick={() => setBulkOverwriteOpen(true)} title="Batch overwrite profile fields across selected accounts">
+                  Overwrite Profiles
+                </button>
+              </div>
+            ) : undefined
           }
           rowActions={(u) => [
             {
               label: 'View 360',
               icon: <Eye size={14} />,
               onClick: () => {
-                setViewingUser(u)
-                setViewModalOpen(true)
+                openViewModal(u)
               },
             },
             {
@@ -820,6 +1242,14 @@ export default function UsersPage() {
               onClick: () => {
                 setEditingUser(u)
                 setEditModalOpen(true)
+              },
+            },
+            {
+              label: u.status === 'PENDING' ? 'Set Password' : 'Reset Password',
+              icon: <KeyRound size={14} />,
+              onClick: () => {
+                setResetPwUser(u)
+                setResetPwValue('')
               },
             },
             {
@@ -846,12 +1276,24 @@ export default function UsersPage() {
       {/* 4. ADD USER MODAL */}
       <Modal
         open={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
-        title="Add New User"
-        subtitle="Create portal credentials and configure role assignments"
+        onClose={() => { setAddModalOpen(false); setAddMode('CREATE'); }}
+        title={addMode === 'INVITE' ? 'Send Invitation' : 'Add New User'}
+        subtitle={addMode === 'INVITE'
+          ? 'Create a pending invitation without full login credentials'
+          : 'Create portal credentials and configure role assignments'}
         icon={<UserPlus size={22} />}
         wide
       >
+        <div style={{ marginBottom: 16 }}>
+          <Segmented
+            options={[
+              { key: 'CREATE', label: 'Create Account' },
+              { key: 'INVITE', label: 'Send Invitation' },
+            ]}
+            value={addMode}
+            onChange={(k) => setAddMode(k as 'CREATE' | 'INVITE')}
+          />
+        </div>
         <form onSubmit={handleCreateUser}>
           <div className="form-grid">
             <div className="field">
@@ -866,10 +1308,12 @@ export default function UsersPage() {
               <label>Phone Number</label>
               <input className="input" name="phone" placeholder="+91 98765 43210" />
             </div>
-            <div className="field">
-              <label>Initial Password <span className="req">*</span></label>
-              <input className="input" type="password" name="password" defaultValue="Preone@123" required />
-            </div>
+            {addMode === 'CREATE' && (
+              <div className="field">
+                <label>Initial Password <span className="req">*</span></label>
+                <input className="input" type="password" name="password" defaultValue="Preone@123" required />
+              </div>
+            )}
             <div className="field">
               <label>Primary Role <span className="req">*</span></label>
               <select className="select" name="role" defaultValue="TEACHER">
@@ -898,11 +1342,11 @@ export default function UsersPage() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setAddModalOpen(false)}>
+            <button type="button" className="btn btn-ghost" onClick={() => { setAddModalOpen(false); setAddMode('CREATE'); }}>
               Cancel
             </button>
             <button className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>
-              Create User
+              {addMode === 'INVITE' ? 'Send Invitation' : 'Create User'}
             </button>
           </div>
         </form>
@@ -978,50 +1422,72 @@ export default function UsersPage() {
       {/* 6. USER 360 OVERVIEW MODAL */}
       <Modal
         open={viewModalOpen}
-        onClose={() => { setViewModalOpen(false); setViewingUser(null); }}
+        onClose={() => { setViewModalOpen(false); setViewingUser(null); setViewDetail(null); }}
         title="User Profile 360"
-        subtitle={viewingUser?.email || ''}
+        subtitle={`${viewingUser?.email || ''}${viewDetailLoading ? ' — refreshing live data…' : ''}`}
         icon={<Eye size={22} />}
         wide
       >
-        {viewingUser && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-            {/* Top Identity Block */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, background: 'var(--surface-muted)', borderRadius: 12 }}>
-              <Avatar name={viewingUser.name} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
-                  {viewingUser.name}
+        {(viewDetail || viewingUser) && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, position: 'relative' }}>
+            {viewDetailLoading && (
+              <div
+                style={{
+                  position: 'absolute', inset: 0, zIndex: 5, display: 'flex',
+                  flexDirection: 'column', gap: 12, padding: 4,
+                }}
+              >
+                <Skeleton h={72} variant="row" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                  <Skeleton h={58} /><Skeleton h={58} /><Skeleton h={58} /><Skeleton h={58} />
                 </div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-                  {viewingUser.email} {viewingUser.phone ? `· ${viewingUser.phone}` : ''}
-                </div>
+                <Skeleton h={80} variant="card" />
               </div>
-              <StatusBadge status={viewingUser.status} />
-            </div>
+            )}
+            {(viewDetail || viewingUser) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, background: 'var(--surface-muted)', borderRadius: 12 }}>
+                <Avatar name={(viewDetail || viewingUser)!.name} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                    {(viewDetail || viewingUser)!.name}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                    {(viewDetail || viewingUser)!.email} {(viewDetail || viewingUser)!.phone ? `· ${(viewDetail || viewingUser)!.phone}` : ''}
+                  </div>
+                </div>
+                <StatusBadge status={(viewDetail || viewingUser)!.status} />
+              </div>
+            )}
 
             {/* Scope and Assignment Matrix */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <div className="card" style={{ padding: 12 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Primary Role</span>
-                <strong style={{ fontSize: 13, color: 'var(--text)' }}>{ROLE_BADGE[viewingUser.role]?.label || viewingUser.role}</strong>
+                <strong style={{ fontSize: 13, color: 'var(--text)' }}>
+                  {ROLE_BADGE[(viewDetail || viewingUser)!.role]?.label || (viewDetail || viewingUser)!.role}
+                </strong>
               </div>
               <div className="card" style={{ padding: 12 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Branch Scope</span>
                 <strong style={{ fontSize: 13, color: 'var(--text)' }}>
-                  {branches.find((b) => b.id === viewingUser.branchId)?.name || 'All Campuses'}
+                  {branches.find((b) => b.id === (viewDetail || viewingUser)!.branchId)?.name || 'All Campuses'}
                 </strong>
               </div>
               <div className="card" style={{ padding: 12 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Last Login</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Last Active</span>
                 <span style={{ fontSize: 13, color: 'var(--text)' }}>
-                  {viewingUser.lastLoginAt ? new Date(viewingUser.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}
+                  {timeAgo((viewDetail || viewingUser)!.lastLoginAt)}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginTop: 2 }}>
+                  {(viewDetail || viewingUser)!.lastLoginAt
+                    ? fmtDateTime((viewDetail || viewingUser)!.lastLoginAt)
+                    : ''}
                 </span>
               </div>
               <div className="card" style={{ padding: 12 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block' }}>Account Created</span>
                 <span style={{ fontSize: 13, color: 'var(--text)' }}>
-                  {new Date(viewingUser.createdAt).toLocaleDateString('en-IN')}
+                  {fmtDate((viewDetail || viewingUser)!.createdAt)}
                 </span>
               </div>
             </div>
@@ -1032,7 +1498,7 @@ export default function UsersPage() {
                 Effective Assigned Roles
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {(viewingUser.roles || [viewingUser.role]).map((r, i) => (
+                {((viewDetail || viewingUser)!.roles || [(viewDetail || viewingUser)!.role]).map((r, i) => (
                   <span key={i} className={`badge ${ROLE_BADGE[r]?.cls || 'b-neutral'}`}>
                     {ROLE_BADGE[r]?.label || r}
                   </span>
@@ -1041,7 +1507,7 @@ export default function UsersPage() {
             </div>
 
             {/* Staff / Guardian Details */}
-            {viewingUser.staffProfile && (
+            {(viewDetail || viewingUser)!.staffProfile && (
               <div className="card" style={{ padding: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
                   Workforce & HR Information
@@ -1049,37 +1515,53 @@ export default function UsersPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, fontSize: 12 }}>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Employee Code:</span>{' '}
-                    <strong>{viewingUser.staffProfile.employeeCode}</strong>
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.employeeCode}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Designation:</span>{' '}
-                    <strong>{viewingUser.staffProfile.designation || '—'}</strong>
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.designation || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Department:</span>{' '}
-                    <strong>{viewingUser.staffProfile.department || '—'}</strong>
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.department || '—'}</strong>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Type:</span>{' '}
-                    <strong>{viewingUser.staffProfile.employmentType}</strong>
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.employmentType || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Qualification:</span>{' '}
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.qualification || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Date of Birth:</span>{' '}
+                    <strong>
+                      {(viewDetail || viewingUser)!.staffProfile!.dateOfBirth
+                        ? fmtDate((viewDetail || viewingUser)!.staffProfile!.dateOfBirth)
+                        : '—'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Gender:</span>{' '}
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.gender || '—'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Current Address:</span>{' '}
+                    <strong>{(viewDetail || viewingUser)!.staffProfile!.currentAddress || '—'}</strong>
                   </div>
                 </div>
               </div>
             )}
 
-            {viewingUser.guardianProfile && (
+            {(viewDetail || viewingUser)!.taughtClasses && (viewDetail || viewingUser)!.taughtClasses!.length > 0 && (
               <div className="card" style={{ padding: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
-                  Parent & Guardian Relationship
-                </div>
-                <div style={{ fontSize: 12, marginBottom: 8 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Relationship:</span>{' '}
-                  <span className="badge b-primary">{viewingUser.guardianProfile.relationship}</span>
+                  Educator & Classroom Assignment
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {viewingUser.guardianProfile.students?.map((ch) => (
+                  {(viewDetail || viewingUser)!.taughtClasses!.map((c) => (
                     <div
-                      key={ch.id}
+                      key={c.id}
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
@@ -1090,11 +1572,48 @@ export default function UsersPage() {
                         fontSize: 12,
                       }}
                     >
-                      <span style={{ fontWeight: 600 }}>{ch.name} ({ch.admissionNo})</span>
+                      <span style={{ fontWeight: 600 }}>{c.name}</span>
+                      <span className="badge b-success">{c.programType || 'Primary Educator'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(viewDetail || viewingUser)!.guardianProfile && (
+              <div className="card" style={{ padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                  Parent & Guardian Relationship
+                </div>
+                <div style={{ fontSize: 12, marginBottom: 8 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Relationship:</span>{' '}
+                  <span className="badge b-primary">{(viewDetail || viewingUser)!.guardianProfile!.relationship}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(viewDetail || viewingUser)!.guardianProfile!.students?.map((ch) => (
+                    <Link
+                      key={ch.id}
+                      href={`/app/students/${ch.id}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '6px 10px',
+                        background: 'var(--surface-muted)',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        textDecoration: 'none',
+                        color: 'inherit',
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {ch.name} ({ch.admissionNo})
+                        <ChevronRight size={12} />
+                      </span>
                       <span className={`badge ${ch.canPickup ? 'b-success' : 'b-neutral'}`}>
                         {ch.canPickup ? 'Authorized Pickup' : 'No Pickup'}
                       </span>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -1107,7 +1626,7 @@ export default function UsersPage() {
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   setViewModalOpen(false)
-                  setEditingUser(viewingUser)
+                  setEditingUser(viewDetail || viewingUser)
                   setEditModalOpen(true)
                 }}
               >
@@ -1115,11 +1634,21 @@ export default function UsersPage() {
               </button>
               <button
                 type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  setResetPwUser(viewDetail || viewingUser)
+                  setResetPwValue('')
+                }}
+              >
+                <KeyRound size={13} /> Reset Password
+              </button>
+              <button
+                type="button"
                 className="btn btn-outline btn-sm"
                 style={{ color: 'var(--danger)' }}
                 onClick={() => {
                   setViewModalOpen(false)
-                  setConfirmRevoke(viewingUser)
+                  setConfirmRevoke(viewDetail || viewingUser)
                 }}
               >
                 <LogOut size={13} /> Revoke Sessions
@@ -1127,25 +1656,62 @@ export default function UsersPage() {
               <button
                 type="button"
                 className="btn btn-outline btn-sm"
-                style={{ color: viewingUser.status === 'ACTIVE' ? 'var(--danger)' : 'var(--success)' }}
+                style={{ color: (viewDetail || viewingUser)!.status === 'ACTIVE' ? 'var(--danger)' : 'var(--success)' }}
                 onClick={() => {
                   setViewModalOpen(false)
-                  if (viewingUser.status === 'ACTIVE') setConfirmSuspend(viewingUser)
-                  else setConfirmReactivate(viewingUser)
+                  if ((viewDetail || viewingUser)!.status === 'ACTIVE') setConfirmSuspend(viewDetail || viewingUser)
+                  else setConfirmReactivate(viewDetail || viewingUser)
                 }}
               >
-                <Ban size={13} /> {viewingUser.status === 'ACTIVE' ? 'Suspend Access' : 'Reactivate'}
+                <Ban size={13} /> {(viewDetail || viewingUser)!.status === 'ACTIVE' ? 'Suspend Access' : 'Reactivate'}
               </button>
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => { setViewModalOpen(false); setViewingUser(null); }}
+                onClick={() => { setViewModalOpen(false); setViewingUser(null); setViewDetail(null); }}
               >
                 Close
               </button>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* 6b. RESET PASSWORD MODAL */}
+      <Modal
+        open={!!resetPwUser}
+        onClose={() => { setResetPwUser(null); setResetPwValue(''); }}
+        title="Reset Password"
+        subtitle={resetPwUser ? `Set a new login password for ${resetPwUser.name} (${resetPwUser.email})` : ''}
+        icon={<KeyRound size={22} />}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="field">
+            <label>New Password <span className="req">*</span></label>
+            <input
+              className="input"
+              type="password"
+              value={resetPwValue}
+              onChange={(e) => setResetPwValue(e.target.value)}
+              placeholder="Minimum 6 characters"
+            />
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+            The updated password applies on the user's next sign-in. Existing active sessions remain valid.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button className="btn btn-ghost" onClick={() => { setResetPwUser(null); setResetPwValue(''); }}>
+              Cancel
+            </button>
+            <button
+              className={`btn btn-primary ${busy ? 'is-loading' : ''}`}
+              onClick={handleResetPassword}
+              disabled={busy || resetPwValue.trim().length < 6}
+            >
+              Reset Password
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* 7. BULK ACTIONS MODAL */}
@@ -1307,14 +1873,27 @@ export default function UsersPage() {
         danger
         onConfirm={async () => {
           if (!confirmSuspend) return
-          await fetch(`/api/v1/users/${confirmSuspend.userId}/status`, {
+          const target = confirmSuspend
+          const res = await fetch(`/api/v1/users/${target.userId}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'SUSPENDED', reason: 'Administrative suspension' }),
           })
-          toast.success('User suspended')
           setConfirmSuspend(null)
+          if (!res.ok) {
+            toast.error('Action failed', 'Could not suspend access')
+            return
+          }
           fetchUsers()
+          toast.undo('User suspended', target.name, async () => {
+            await fetch(`/api/v1/users/${target.userId}/status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'ACTIVE' }),
+            })
+            toast.info('Reactivated', `${target.name} restored`)
+            fetchUsers()
+          })
         }}
       />
 
@@ -1326,14 +1905,27 @@ export default function UsersPage() {
         confirmLabel="Reactivate"
         onConfirm={async () => {
           if (!confirmReactivate) return
-          await fetch(`/api/v1/users/${confirmReactivate.userId}/status`, {
+          const target = confirmReactivate
+          const res = await fetch(`/api/v1/users/${target.userId}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'ACTIVE' }),
           })
-          toast.success('User reactivated')
           setConfirmReactivate(null)
+          if (!res.ok) {
+            toast.error('Action failed', 'Could not reactivate access')
+            return
+          }
           fetchUsers()
+          toast.undo('User reactivated', target.name, async () => {
+            await fetch(`/api/v1/users/${target.userId}/status`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: 'SUSPENDED', reason: 'Undo: reactivation reverted' }),
+            })
+            toast.info('Suspended', `${target.name}'s access re-suspended`)
+            fetchUsers()
+          })
         }}
       />
 
@@ -1349,6 +1941,443 @@ export default function UsersPage() {
           await fetch(`/api/v1/users/${confirmRevoke.userId}/revoke-sessions`, { method: 'POST' })
           toast.success('All sessions revoked')
           setConfirmRevoke(null)
+        }}
+      />
+
+      {/* 11. BULK OVERWRITE MODAL */}
+      <Modal
+        open={bulkOverwriteOpen}
+        onClose={() => setBulkOverwriteOpen(false)}
+        title="Bulk Overwrite User Profiles"
+        subtitle={`Batch update profile attributes across ${selected.length} selected user(s)`}
+        icon={<Layers size={22} />}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            Select the fields you want to overwrite. Only checked fields will be updated across all {selected.length} selected records.
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+            {/* Role Overwrite */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="chk-role"
+                checked={bulkOverwriteFields.role}
+                onChange={(e) => setBulkOverwriteFields({ ...bulkOverwriteFields, role: e.target.checked })}
+              />
+              <label htmlFor="chk-role" style={{ width: 110, fontSize: 13, fontWeight: 600 }}>Primary Role:</label>
+              <select
+                disabled={!bulkOverwriteFields.role}
+                value={bulkOverwriteRole}
+                onChange={(e) => setBulkOverwriteRole(e.target.value)}
+                className="select"
+                style={{ flex: 1 }}
+              >
+                <option value="">Select Role...</option>
+                {Object.keys(ROLE_BADGE).map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_BADGE[r].label} ({r})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Branch Overwrite */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="chk-branch"
+                checked={bulkOverwriteFields.branch}
+                onChange={(e) => setBulkOverwriteFields({ ...bulkOverwriteFields, branch: e.target.checked })}
+              />
+              <label htmlFor="chk-branch" style={{ width: 110, fontSize: 13, fontWeight: 600 }}>Campus Branch:</label>
+              <select
+                disabled={!bulkOverwriteFields.branch}
+                value={bulkOverwriteBranchId}
+                onChange={(e) => setBulkOverwriteBranchId(e.target.value)}
+                className="select"
+                style={{ flex: 1 }}
+              >
+                <option value="">All Branches / Main</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Designation Overwrite */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="chk-desig"
+                checked={bulkOverwriteFields.designation}
+                onChange={(e) => setBulkOverwriteFields({ ...bulkOverwriteFields, designation: e.target.checked })}
+              />
+              <label htmlFor="chk-desig" style={{ width: 110, fontSize: 13, fontWeight: 600 }}>Designation:</label>
+              <input
+                type="text"
+                disabled={!bulkOverwriteFields.designation}
+                placeholder="e.g. Lead Early Years Educator"
+                value={bulkOverwriteDesignation}
+                onChange={(e) => setBulkOverwriteDesignation(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              >
+              </input>
+            </div>
+
+            {/* Department Overwrite */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="chk-dept"
+                checked={bulkOverwriteFields.department}
+                onChange={(e) => setBulkOverwriteFields({ ...bulkOverwriteFields, department: e.target.checked })}
+              />
+              <label htmlFor="chk-dept" style={{ width: 110, fontSize: 13, fontWeight: 600 }}>Department:</label>
+              <input
+                type="text"
+                disabled={!bulkOverwriteFields.department}
+                placeholder="e.g. Montessori & Kindergarten"
+                value={bulkOverwriteDepartment}
+                onChange={(e) => setBulkOverwriteDepartment(e.target.value)}
+                className="input"
+                style={{ flex: 1 }}
+              >
+              </input>
+            </div>
+
+            {/* Status Overwrite */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                id="chk-status"
+                checked={bulkOverwriteFields.status}
+                onChange={(e) => setBulkOverwriteFields({ ...bulkOverwriteFields, status: e.target.checked })}
+              />
+              <label htmlFor="chk-status" style={{ width: 110, fontSize: 13, fontWeight: 600 }}>Account Status:</label>
+              <select
+                disabled={!bulkOverwriteFields.status}
+                value={bulkOverwriteStatus}
+                onChange={(e) => setBulkOverwriteStatus(e.target.value)}
+                className="select"
+                style={{ flex: 1 }}
+              >
+                <option value="">Select Status...</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE (Soft Deactivation)</option>
+                <option value="SUSPENDED">SUSPENDED</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
+            <button className="btn btn-ghost" onClick={() => setBulkOverwriteOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+            <button
+              className={`btn btn-primary ${busy ? 'is-loading' : ''}`}
+              onClick={handleExecuteBulkOverwrite}
+              disabled={busy || !Object.values(bulkOverwriteFields).some(Boolean)}
+            >
+              Apply Overwrite to {selected.length} Users
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 12. CSV MANAGER MODAL (CREATE / UPDATE / DELETE) */}
+      <Modal
+        open={csvModalOpen}
+        onClose={() => setCsvModalOpen(false)}
+        title="CSV User Management Hub"
+        subtitle="Bulk create, update/overwrite profiles, or deactivate users with zero schema breaking"
+        icon={<FileSpreadsheet size={22} />}
+        wide
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Workflow Mode Tabs */}
+          <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+            <button
+              className={`btn btn-sm ${csvMode === 'CREATE' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => {
+                setCsvMode('CREATE')
+                setCsvValidationResult(null)
+              }}
+            >
+              1. Create New Users
+            </button>
+            <button
+              className={`btn btn-sm ${csvMode === 'UPDATE' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => {
+                setCsvMode('UPDATE')
+                setCsvValidationResult(null)
+              }}
+            >
+              2. Update / Overwrite Profiles
+            </button>
+            <button
+              className={`btn btn-sm ${csvMode === 'DELETE' ? 'btn-danger' : 'btn-ghost'}`}
+              onClick={() => {
+                setCsvMode('DELETE')
+                setCsvValidationResult(null)
+              }}
+            >
+              3. Bulk Deactivate (Soft)
+            </button>
+          </div>
+
+          {/* Workflow Header & Settings */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: 12, borderRadius: 'var(--radius-sm)' }}>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>
+                {csvMode === 'CREATE' && 'Create Mode: Add new user accounts to tenant'}
+                {csvMode === 'UPDATE' && 'Update Mode: Match by email and overwrite non-empty fields'}
+                {csvMode === 'DELETE' && 'Deactivate Mode: Set matching accounts to INACTIVE and soft-delete'}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                {csvMode === 'CREATE' && 'New emails will be registered. Existing emails will be flagged unless overwrite is enabled.'}
+                {csvMode === 'UPDATE' && 'Passwords will be preserved if left empty. Non-empty cells overwrite current profile data.'}
+                {csvMode === 'DELETE' && 'Preserves relational history (attendance, grades, audit logs). Only flags status=INACTIVE.'}
+              </div>
+            </div>
+
+            {csvMode === 'CREATE' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>
+                <input
+                  type="checkbox"
+                  checked={csvOverwrite}
+                  onChange={(e) => setCsvOverwrite(e.target.checked)}
+                />
+                Overwrite if already exists
+              </label>
+            )}
+          </div>
+
+          {/* File Upload Zone */}
+          <div
+            style={{
+              border: '2px dashed var(--border)',
+              borderRadius: 'var(--radius-md)',
+              padding: '24px 16px',
+              textAlign: 'center',
+              background: csvFile ? 'var(--bg-card)' : 'transparent',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Upload size={28} style={{ color: 'var(--primary)', opacity: 0.8 }} />
+            <div style={{ fontWeight: 600, fontSize: 13 }}>
+              {csvFile ? csvFile.name : 'Select or drop your CSV file here'}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {csvFile
+                ? `${csvParsedRows.length} data rows detected (${(csvFile.size / 1024).toFixed(1)} KB)`
+                : 'Supports UTF-8 CSV with standard PreOne user headers'}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                id="csv-file-input"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleCsvFileSelected(e.target.files[0])
+                  }
+                }}
+              />
+              <label htmlFor="csv-file-input" className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+                Browse CSV File
+              </label>
+              <a
+                href="/api/v1/users/import/template"
+                download="preone_users_template.csv"
+                className="btn btn-ghost btn-sm"
+              >
+                <Download size={13} /> Download Template
+              </a>
+            </div>
+          </div>
+
+          {/* Stage 1: Validation Results Display */}
+          {csvValidationResult && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Summary KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div className="card" style={{ padding: 10, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Total Rows</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{csvValidationResult.totalRows}</div>
+                </div>
+                <div className="card" style={{ padding: 10, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--success)' }}>Valid Rows</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>{csvValidationResult.validRows}</div>
+                </div>
+                <div className="card" style={{ padding: 10, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--danger)' }}>Errors / Conflicts</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--danger)' }}>{csvValidationResult.invalidRows}</div>
+                </div>
+                <div className="card" style={{ padding: 10, textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--info)' }}>
+                    {csvMode === 'DELETE' ? 'To Deactivate' : 'To Update / Overwrite'}
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--info)' }}>
+                    {csvMode === 'DELETE' ? csvValidationResult.deactivatingUsers : csvValidationResult.existingUsers}
+                  </div>
+                </div>
+              </div>
+
+              {/* Diffs Viewer (if updates or new users exist) */}
+              {csvValidationResult.diffs && csvValidationResult.diffs.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--text)' }}>
+                    Preview Changes ({csvValidationResult.diffs.length} rows):
+                  </div>
+                  <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
+                    {csvValidationResult.diffs.map((d: any, idx: number) => (
+                      <div key={idx} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between' }}>
+                        <div>
+                          <strong>Row {d.rowNumber}</strong>: {d.name} ({d.identifier})
+                          <span className={`badge ${d.isNew ? 'b-success' : 'b-info'}`} style={{ marginLeft: 6 }}>
+                            {d.isNew ? 'NEW USER' : 'OVERWRITE'}
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)' }}>
+                          {d.changes.length} attribute change(s)
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Error Details Table (if any) */}
+              {csvValidationResult.errors && csvValidationResult.errors.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 600, fontSize: 12.5, color: 'var(--danger)' }}>
+                      Identified Validation Errors ({csvValidationResult.errors.length}):
+                    </div>
+                    <button className="btn btn-ghost btn-sm" onClick={handleDownloadCsvErrors}>
+                      <FileDown size={13} /> Download Error Report
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--bg-secondary)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '6px 8px' }}>Row</th>
+                          <th style={{ padding: '6px 8px' }}>User / Email</th>
+                          <th style={{ padding: '6px 8px' }}>Field</th>
+                          <th style={{ padding: '6px 8px' }}>Issue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvValidationResult.errors.map((err: any, idx: number) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '6px 8px' }}>{err.rowNumber}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: 600 }}>{err.identifier}</td>
+                            <td style={{ padding: '6px 8px', color: 'var(--danger)' }}>{err.field}</td>
+                            <td style={{ padding: '6px 8px' }}>{err.errorMessage}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Apply Valid Rows Only Toggle */}
+              {csvValidationResult.invalidRows > 0 && csvValidationResult.validRows > 0 && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: 'var(--warning)', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={csvApplyValidOnly}
+                    onChange={(e) => setCsvApplyValidOnly(e.target.checked)}
+                  />
+                  Apply valid rows only ({csvValidationResult.validRows} rows) and skip rows with errors
+                </label>
+              )}
+            </div>
+          )}
+
+          {/* Modal Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <button className="btn btn-ghost" onClick={() => setCsvModalOpen(false)} disabled={csvValidating || csvExecuting}>
+              Close
+            </button>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className={`btn btn-secondary ${csvValidating ? 'is-loading' : ''}`}
+                onClick={handleValidateCsv}
+                disabled={csvValidating || csvExecuting || csvParsedRows.length === 0}
+              >
+                <RefreshCw size={14} /> Validate Dry-Run
+              </button>
+
+              <button
+                className={`btn ${csvMode === 'DELETE' ? 'btn-danger' : 'btn-primary'} ${csvExecuting ? 'is-loading' : ''}`}
+                onClick={handleExecuteCsv}
+                disabled={
+                  csvValidating ||
+                  csvExecuting ||
+                  csvParsedRows.length === 0 ||
+                  (csvValidationResult &&
+                    csvValidationResult.invalidRows > 0 &&
+                    !csvApplyValidOnly)
+                }
+              >
+                {csvMode === 'DELETE' ? 'Execute Soft Deactivation' : 'Execute CSV Import'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 13. CONFIRM CSV SOFT DEACTIVATION */}
+      <ConfirmModal
+        open={confirmCsvDelete}
+        onClose={() => setConfirmCsvDelete(false)}
+        title="Confirm Bulk Soft Deactivation"
+        message={`Are you sure you want to deactivate the users identified in your CSV? Their status will be set to INACTIVE, but no data or relational history will be deleted.`}
+        confirmLabel="Deactivate Accounts"
+        danger
+        onConfirm={async () => {
+          setConfirmCsvDelete(false)
+          setCsvExecuting(true)
+          try {
+            const res = await fetch('/api/v1/users/csv', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'execute',
+                mode: 'DELETE',
+                rows: csvParsedRows,
+                applyValidOnly: csvApplyValidOnly,
+              }),
+            })
+            const json = await res.json()
+            if (json.success) {
+              toast.success(`Deactivated ${json.data.deletedCount} users`)
+              setCsvModalOpen(false)
+              setCsvFile(null)
+              setCsvParsedRows([])
+              setCsvValidationResult(null)
+              fetchUsers()
+            } else {
+              toast.error(json.error?.message || 'Deactivation failed')
+            }
+          } catch {
+            toast.error('Network error during bulk deactivation')
+          } finally {
+            setCsvExecuting(false)
+          }
         }}
       />
     </div>

@@ -6,7 +6,8 @@ import {
   CalendarCheck, UserCheck, ArrowRight, CheckCircle2, AlertTriangle,
   Clock, Calendar, Building, Search, Eye, Filter, RefreshCw,
   Award, TrendingUp, CheckCircle, AlertCircle, FileText, X,
-  Layers, Users, ChevronRight, Download, Printer, Target, Flame
+  Layers, Users, ChevronRight, Download, Printer, Target, Flame,
+  LayoutDashboard, Check, Info, Compass, ShieldCheck
 } from 'lucide-react'
 import { PageHead, StatusBadge, Skeleton, Avatar, Segmented, Field } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -643,142 +644,385 @@ export default function AcademicsPage() {
     })
   }, [observations, filterClassroomId, searchQuery])
 
+  const currentSessionObj = sessions.find((s) => s.id === selectedSessionId)
+
   return (
-    <div className="page-shell">
+    <div
+      className="page-shell"
+      style={{
+        background: 'linear-gradient(180deg, #F8F7FF 0%, #F7F8FC 240px, #FFFFFF 100%)',
+        minHeight: 'calc(100vh - 56px)',
+        paddingBottom: 48,
+      }}
+    >
       {/* -- Page Header -- */}
       <PageHead
         title="Academics & Learning"
-        sub="Continuous developmental journey: Master Sessions -> Classroom Sections -> Curriculum Frameworks -> Activities -> Observations -> Milestone Mastery -> Parent Timeline."
+        sub="Plan learning, manage classrooms, track observations and monitor child development."
         actions={
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" onClick={() => setObsModalOpen(true)}>
-              <Sparkles size={15} /> Record Observation
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setObsModalOpen(true)}
+              style={{
+                height: 44,
+                borderRadius: 12,
+                background: '#FFFFFF',
+                borderColor: '#E7EAF2',
+                color: '#15254A',
+                fontWeight: 600,
+                boxShadow: '0 1px 2px rgba(21, 37, 74, 0.04)',
+              }}
+            >
+              <Sparkles size={16} style={{ color: '#5B3DF5' }} /> Record Observation
             </button>
-            <button className="btn btn-secondary" onClick={() => setActivityModalOpen(true)}>
-              <CalendarCheck size={15} /> Schedule Activity
+            <button
+              className="btn btn-secondary"
+              onClick={() => setActivityModalOpen(true)}
+              style={{
+                height: 44,
+                borderRadius: 12,
+                background: '#FFFFFF',
+                borderColor: '#E7EAF2',
+                color: '#15254A',
+                fontWeight: 600,
+                boxShadow: '0 1px 2px rgba(21, 37, 74, 0.04)',
+              }}
+            >
+              <CalendarCheck size={16} style={{ color: '#5B3DF5' }} /> Schedule Activity
             </button>
-            <button className="btn btn-primary" onClick={() => setCurriculumModalOpen(true)}>
-              <Plus size={15} /> New Curriculum
+            <button
+              className="btn btn-primary"
+              onClick={() => setCurriculumModalOpen(true)}
+              style={{
+                height: 44,
+                borderRadius: 12,
+                background: '#5B3DF5',
+                borderColor: '#5B3DF5',
+                color: '#FFFFFF',
+                fontWeight: 600,
+                boxShadow: '0 2px 8px rgba(91, 61, 245, 0.25)',
+              }}
+            >
+              <Plus size={16} /> New Curriculum
             </button>
           </div>
         }
       />
 
-      {/* -- Canonical Metric Strip -- */}
-      <div className="metric-strip" style={{ marginBottom: 16 }}>
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Enrolled</span>
-            <Users size={14} style={{ color: 'var(--primary)' }} />
+      {/* -- Unified 8-Metric Academic Strip -- */}
+      <div
+        className="metric-strip"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(136px, 1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        {/* Metric 1: Enrolled */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Enrolled
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EAF2FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={15} style={{ color: '#3B82F6' }} />
+            </div>
           </div>
-          <div className="m-val">{dashboardStats?.enrolledStudentsCount ?? 0}</div>
-          <div className="m-meta">In session</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {dashboardStats?.enrolledStudentsCount ?? 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active children</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Sections</span>
-            <School size={14} style={{ color: 'var(--accent)' }} />
+        {/* Metric 2: Sections */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Sections
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <School size={15} style={{ color: '#8B5CF6' }} />
+            </div>
           </div>
-          <div className="m-val">{dashboardStats?.classroomsCount ?? classrooms.length}</div>
-          <div className="m-meta">Active Classrooms</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {dashboardStats?.classroomsCount ?? classrooms.length}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active classrooms</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Teachers</span>
-            <UserCheck size={14} style={{ color: 'var(--success)' }} />
+        {/* Metric 3: Teachers */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Teachers
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#CCFBF1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserCheck size={15} style={{ color: '#0D9488' }} />
+            </div>
           </div>
-          <div className="m-val m-success">{dashboardStats?.teachersCount ?? teachers.length}</div>
-          <div className="m-meta">Assigned Staff</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {dashboardStats?.teachersCount ?? teachers.length}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Assigned educators</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Curriculum</span>
-            <BookOpen size={14} style={{ color: '#8b5cf6' }} />
+        {/* Metric 4: Curriculum */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Curriculum
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BookOpen size={15} style={{ color: '#6366F1' }} />
+            </div>
           </div>
-          <div className="m-val">{dashboardStats?.curriculumCount ?? curricula.length}</div>
-          <div className="m-meta">Active Frameworks</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {dashboardStats?.curriculumCount ?? curricula.length}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Active frameworks</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Today's Activities</span>
-            <Flame size={14} style={{ color: 'var(--warning)' }} />
+        {/* Metric 5: Today's Activities */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Today's
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Flame size={15} style={{ color: '#D97706' }} />
+            </div>
           </div>
-          <div className="m-val" style={{ color: '#B45309' }}>{dashboardStats?.activitiesTodayCount ?? 0}</div>
-          <div className="m-meta">Scheduled Today</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#D97706', lineHeight: 1.1 }}>
+            {dashboardStats?.activitiesTodayCount ?? 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Planned activities</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Observations</span>
-            <Sparkles size={14} style={{ color: 'var(--primary)' }} />
+        {/* Metric 6: Observations */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Observations
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={15} style={{ color: '#2563EB' }} />
+            </div>
           </div>
-          <div className="m-val">{dashboardStats?.observationsCount ?? observations.length}</div>
-          <div className="m-meta">Logged Moments</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {dashboardStats?.observationsCount ?? observations.length}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Recorded moments</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Attention</span>
-            <AlertTriangle size={14} style={{ color: 'var(--danger)' }} />
+        {/* Metric 7: Attention */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: `1px solid ${(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#FCA5A5' : '#E7EAF2'}`,
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Attention
+            </span>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#FEE2E2' : '#D1FAE5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? (
+                <AlertTriangle size={15} style={{ color: '#DC2626' }} />
+              ) : (
+                <CheckCircle2 size={15} style={{ color: '#10B981' }} />
+              )}
+            </div>
           </div>
-          <div className="m-val" style={{ color: 'var(--danger)' }}>{dashboardStats?.observationsNeedsAttentionCount ?? 0}</div>
-          <div className="m-meta">Flagged Concerns</div>
+          <div
+            style={{
+              fontSize: 26,
+              fontWeight: 700,
+              color: (dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? '#DC2626' : '#10B981',
+              lineHeight: 1.1,
+            }}
+          >
+            {dashboardStats?.observationsNeedsAttentionCount ?? 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>
+            {(dashboardStats?.observationsNeedsAttentionCount ?? 0) > 0 ? 'Flagged concerns' : 'All on track'}
+          </div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Mastery</span>
-            <Target size={14} style={{ color: 'var(--success)' }} />
+        {/* Metric 8: Mastery */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+            gridColumn: 'span 1',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Mastery
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={15} style={{ color: '#059669' }} />
+            </div>
           </div>
-          <div className="m-val m-success">{dashboardStats?.masteryPercentage ?? 0}%</div>
-          <div className="m-meta">Achieved Goals</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#059669', lineHeight: 1.1 }}>
+            {dashboardStats?.masteryPercentage ?? 0}%
+          </div>
+          <div style={{ width: '100%', height: 4, background: '#E7EAF2', borderRadius: 2, overflow: 'hidden', marginTop: 6 }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.min(100, dashboardStats?.masteryPercentage ?? 0)}%`,
+                background: '#059669',
+                borderRadius: 2,
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: '#8A94A8', marginTop: 4 }}>Milestone progress</div>
         </div>
       </div>
 
-      {/* -- Canonical School Context Bar -- */}
-      <div className="school-context-bar" style={{ marginBottom: 16 }}>
-        <div className="context-item">
-          <label><Calendar size={14} style={{ color: 'var(--foreground-muted)' }} /> Session:</label>
+      {/* -- School Context Bar -- */}
+      <div
+        className="school-context-bar"
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E7EAF2',
+          borderRadius: 14,
+          padding: '10px 16px',
+          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <Calendar size={15} style={{ color: '#5B3DF5' }} />
+          <span style={{ fontWeight: 600 }}>Session:</span>
           <select
             className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
             value={selectedSessionId}
             onChange={(e) => setSelectedSessionId(e.target.value)}
           >
             {sessions.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} {s.isCurrent ? '(Current)' : ''}
+                {s.name} {s.isCurrent ? '★ (Current)' : ''}
               </option>
             ))}
           </select>
+          {currentSessionObj?.isCurrent ? (
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#F0ECFF', color: '#5B3DF5' }}>
+              ★ Current Session
+            </span>
+          ) : (
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 500, background: '#F1F4FA', color: '#66738F' }}>
+              Historical Session
+            </span>
+          )}
         </div>
 
-        <span className="context-divider" />
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
 
-        <div className="context-item">
-          <label><Building size={14} style={{ color: 'var(--foreground-muted)' }} /> Branch:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <Building size={15} style={{ color: '#66738F' }} />
+          <span style={{ fontWeight: 600 }}>Campus:</span>
           <select
             className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
             value={selectedBranchId}
             onChange={(e) => setSelectedBranchId(e.target.value)}
           >
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.name} {b.isMain ? '(Main)' : ''}
+                {b.name} {b.isMain ? '(Main Campus)' : ''}
               </option>
             ))}
           </select>
         </div>
 
-        <span className="context-divider" />
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
 
-        <div className="context-item">
-          <label>Program:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <span style={{ fontWeight: 600 }}>Program:</span>
           <select
             className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
             value={filterProgramType}
             onChange={(e) => setFilterProgramType(e.target.value)}
           >
@@ -791,12 +1035,14 @@ export default function AcademicsPage() {
           </select>
         </div>
 
-        <span className="context-divider" />
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
 
-        <div className="context-item">
-          <label><School size={14} style={{ color: 'var(--foreground-muted)' }} /> Section:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <School size={15} style={{ color: '#66738F' }} />
+          <span style={{ fontWeight: 600 }}>Section:</span>
           <select
             className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
             value={filterClassroomId}
             onChange={(e) => setFilterClassroomId(e.target.value)}
           >
@@ -810,11 +1056,12 @@ export default function AcademicsPage() {
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div className="input-search" style={{ maxWidth: 220 }}>
-            <Search size={14} />
+          <div className="input-search" style={{ width: 220 }}>
+            <Search size={14} style={{ color: '#8A94A8' }} />
             <input
               className="input"
-              placeholder="Search curriculum, class..."
+              style={{ height: 34, fontSize: 13, borderRadius: 8, borderColor: '#E7EAF2' }}
+              placeholder="Search student, classroom..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -824,6 +1071,7 @@ export default function AcademicsPage() {
             onClick={loadAcademicData}
             title="Reload Scoped Academic Data"
             disabled={loading}
+            style={{ height: 34, width: 34, padding: 0, borderRadius: 8 }}
           >
             <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
@@ -831,7 +1079,17 @@ export default function AcademicsPage() {
       </div>
 
       {/* -- Navigation Tabs -- */}
-      <div className="card" style={{ padding: '8px 12px', marginBottom: 16 }}>
+      <div
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E7EAF2',
+          borderRadius: 14,
+          padding: '6px 10px',
+          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.02)',
+          marginBottom: 20,
+          overflowX: 'auto',
+        }}
+      >
         <Segmented
           value={activeTab}
           onChange={setActiveTab}
@@ -841,232 +1099,441 @@ export default function AcademicsPage() {
 
       {/* -- Tab Content Areas -- */}
       {loading ? (
-        <div className="card" style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Skeleton h={40} />
-          <Skeleton h={40} />
-          <Skeleton h={40} />
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: 36,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 14,
+          }}
+        >
+          <Skeleton h={44} />
+          <Skeleton h={44} />
+          <Skeleton h={44} />
         </div>
       ) : (
         <>
           {/* ====== TAB 1: ACADEMIC DASHBOARD ====== */}
           {activeTab === 'dashboard' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 16 }}>
-              {/* Today's Activities Panel */}
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <CalendarCheck size={18} style={{ color: 'var(--primary)' }} />
-                    Today's Classroom Activities
-                  </h3>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('activities')}>
-                    View All <ArrowRight size={13} />
-                  </button>
-                </div>
-                {activities.filter((a) => {
-                  const today = new Date().toISOString().slice(0, 10)
-                  return a.activityDate?.slice(0, 10) === today
-                }).length === 0 ? (
-                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--c-muted)', fontSize: 13 }}>
-                    No activities scheduled for today. Click "Schedule Activity" above to plan one.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 18 }}>
+                {/* Today's Activities Panel */}
+                <div
+                  className="card"
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 16,
+                    padding: 20,
+                    boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CalendarCheck size={16} style={{ color: '#5B3DF5' }} />
+                      </div>
+                      Today's Classroom Activities
+                    </h3>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setActiveTab('activities')}
+                      style={{ fontSize: 12, fontWeight: 600, color: '#5B3DF5' }}
+                    >
+                      View All <ArrowRight size={13} />
+                    </button>
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {activities
-                      .filter((a) => a.activityDate?.slice(0, 10) === new Date().toISOString().slice(0, 10))
-                      .map((act) => (
-                        <div
-                          key={act.id}
-                          style={{
-                            padding: 12,
-                            borderRadius: 8,
-                            border: '1px solid var(--border-color)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14 }}>{act.title}</div>
-                            <div style={{ fontSize: 12, color: 'var(--c-muted)', display: 'flex', gap: 12, marginTop: 4 }}>
-                              <span>Section: {act.classroom?.name}</span>
-                              {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
-                              {act.teacher && <span>Teacher: {act.teacher.fullName}</span>}
+
+                  {activities.filter((a) => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    return a.activityDate?.slice(0, 10) === today
+                  }).length === 0 ? (
+                    <div
+                      style={{
+                        padding: '36px 16px',
+                        textAlign: 'center',
+                        color: '#66738F',
+                        fontSize: 13,
+                        background: '#F8FAFD',
+                        borderRadius: 12,
+                        border: '1px dashed #E7EAF2',
+                      }}
+                    >
+                      <Calendar size={28} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
+                      <div style={{ fontWeight: 600, color: '#15254A' }}>No activities scheduled for today</div>
+                      <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>
+                        Click "Schedule Activity" above to plan fine motor, literacy, or sensory experiences.
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {activities
+                        .filter((a) => a.activityDate?.slice(0, 10) === new Date().toISOString().slice(0, 10))
+                        .map((act) => (
+                          <div
+                            key={act.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: 12,
+                              border: '1px solid #E7EAF2',
+                              background: '#FFFFFF',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              transition: 'box-shadow 0.18s ease, border-color 0.18s ease',
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 600, fontSize: 14, color: '#15254A' }}>{act.title}</div>
+                              <div style={{ fontSize: 12, color: '#66738F', display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 500, color: '#5B3DF5' }}>Section: {act.classroom?.name}</span>
+                                {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
+                                {act.teacher && <span>Educator: {act.teacher.fullName}</span>}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <span
+                                className={`badge ${
+                                  act.status === 'COMPLETED'
+                                    ? 'b-success'
+                                    : act.status === 'IN_PROGRESS'
+                                    ? 'b-primary'
+                                    : act.status === 'CANCELLED'
+                                    ? 'b-danger'
+                                    : 'b-neutral'
+                                }`}
+                                style={{ fontSize: 11 }}
+                              >
+                                {enumLabel(act.status)}
+                              </span>
+                              {act.status === 'PLANNED' && (
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleUpdateActivityStatus(act.id, 'IN_PROGRESS')}
+                                  style={{ fontSize: 11, height: 28, padding: '0 10px' }}
+                                >
+                                  Start
+                                </button>
+                              )}
+                              {act.status === 'IN_PROGRESS' && (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => handleUpdateActivityStatus(act.id, 'COMPLETED')}
+                                  style={{ fontSize: 11, height: 28, padding: '0 10px' }}
+                                >
+                                  Complete
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <span className={`badge ${act.status === 'COMPLETED' ? 'b-success' : act.status === 'IN_PROGRESS' ? 'b-primary' : 'b-neutral'}`}>
-                              {enumLabel(act.status)}
-                            </span>
-                            {act.status === 'PLANNED' && (
-                              <button
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => handleUpdateActivityStatus(act.id, 'IN_PROGRESS')}
-                              >
-                                Start
-                              </button>
-                            )}
-                            {act.status === 'IN_PROGRESS' && (
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleUpdateActivityStatus(act.id, 'COMPLETED')}
-                              >
-                                Complete
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Triage & Observations Requiring Follow-Up */}
+                <div
+                  className="card"
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 16,
+                    padding: 20,
+                    boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <AlertTriangle size={16} style={{ color: '#EF4444' }} />
+                      </div>
+                      Concern Triage & Support Needs
+                    </h3>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setActiveTab('observations')}
+                      style={{ fontSize: 12, fontWeight: 600, color: '#5B3DF5' }}
+                    >
+                      View All <ArrowRight size={13} />
+                    </button>
                   </div>
-                )}
+
+                  {observations.filter((o) => o.concern !== 'NORMAL').length === 0 ? (
+                    <div
+                      style={{
+                        padding: '36px 16px',
+                        textAlign: 'center',
+                        color: '#66738F',
+                        fontSize: 13,
+                        background: '#F0FDF4',
+                        borderRadius: 12,
+                        border: '1px solid #DCFCE7',
+                      }}
+                    >
+                      <CheckCircle2 size={32} style={{ color: '#10B981', margin: '0 auto 8px' }} />
+                      <div style={{ fontWeight: 600, color: '#15254A' }}>No urgent developmental concerns flagged</div>
+                      <div style={{ fontSize: 12, color: '#66738F', marginTop: 4 }}>
+                        All children in the active session are tracking positively along milestones!
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {observations
+                        .filter((o) => o.concern !== 'NORMAL')
+                        .slice(0, 5)
+                        .map((obs) => (
+                          <div
+                            key={obs.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: 12,
+                              border: '1px solid #FED7AA',
+                              background: '#FFFBEB',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              gap: 12,
+                            }}
+                          >
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 700, fontSize: 13, color: '#15254A' }}>
+                                  {obs.student?.firstName} {obs.student?.lastName}
+                                </span>
+                                <span className={`badge ${obs.concern === 'URGENT' ? 'b-danger' : 'b-warning'}`} style={{ fontSize: 10 }}>
+                                  {enumLabel(obs.concern)}
+                                </span>
+                                {obs.category && <span className="badge b-neutral" style={{ fontSize: 10 }}>{obs.category}</span>}
+                              </div>
+                              <p style={{ fontSize: 12.5, color: '#4A5A72', marginTop: 6, lineHeight: 1.4, margin: '6px 0 0' }}>
+                                {obs.narrative}
+                              </p>
+                            </div>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => inspectStudent(obs.studentId)}
+                              style={{ fontSize: 11, height: 28, padding: '0 10px', flexShrink: 0 }}
+                            >
+                              <Eye size={13} /> Inspect
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Triage & Observations Requiring Follow-Up */}
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle size={18} style={{ color: '#ef4444' }} />
-                    Concern Triage & Support Needs
-                  </h3>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setActiveTab('observations')}>
-                    View All <ArrowRight size={13} />
-                  </button>
+              {/* Quick Actions Launcher Strip */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: 14,
+                }}
+              >
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 14,
+                    padding: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+                    transition: 'transform 0.18s ease, border-color 0.18s ease',
+                  }}
+                  onClick={() => setObsModalOpen(true)}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Sparkles size={20} style={{ color: '#5B3DF5' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>Record Observation</div>
+                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Capture a child's learning moment and milestones.</div>
+                  </div>
                 </div>
-                {observations.filter((o) => o.concern !== 'NORMAL').length === 0 ? (
-                  <div style={{ padding: 24, textAlign: 'center', color: 'var(--c-muted)', fontSize: 13 }}>
-                    <CheckCircle2 size={32} style={{ color: '#10b981', margin: '0 auto 8px' }} />
-                    No urgent developmental concerns flagged in this session. All students on track!
+
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 14,
+                    padding: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+                    transition: 'transform 0.18s ease, border-color 0.18s ease',
+                  }}
+                  onClick={() => setActivityModalOpen(true)}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <CalendarCheck size={20} style={{ color: '#8B5CF6' }} />
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {observations
-                      .filter((o) => o.concern !== 'NORMAL')
-                      .slice(0, 5)
-                      .map((obs) => (
-                        <div
-                          key={obs.id}
-                          style={{
-                            padding: 12,
-                            borderRadius: 8,
-                            border: '1px solid #fed7aa',
-                            background: '#fffbeb',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'flex-start',
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ fontWeight: 600, fontSize: 13 }}>
-                                {obs.student?.firstName} {obs.student?.lastName}
-                              </span>
-                              <span className={`badge ${obs.concern === 'URGENT' ? 'b-danger' : 'b-warning'}`}>
-                                {enumLabel(obs.concern)}
-                              </span>
-                              {obs.category && <span className="badge b-neutral">{obs.category}</span>}
-                            </div>
-                            <p style={{ fontSize: 12, color: 'var(--c-ink)', marginTop: 6, lineHeight: 1.4 }}>
-                              {obs.narrative}
-                            </p>
-                          </div>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => inspectStudent(obs.studentId)}
-                          >
-                            <Eye size={14} /> Inspect Child
-                          </button>
-                        </div>
-                      ))}
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>Schedule Activity</div>
+                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Plan today's classroom lesson and experience.</div>
                   </div>
-                )}
+                </div>
+
+                <div
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 14,
+                    padding: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+                    transition: 'transform 0.18s ease, border-color 0.18s ease',
+                  }}
+                  onClick={() => setCurriculumModalOpen(true)}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Plus size={20} style={{ color: '#6366F1' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>New Curriculum</div>
+                    <div style={{ fontSize: 12, color: '#66738F', marginTop: 2 }}>Create a structured developmental learning framework.</div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {/* ====== TAB 2: CLASSES & SECTIONS ====== */}
           {activeTab === 'classes' && (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>
-                  Configured Sections & Rosters ({filteredClassrooms.length})
-                </span>
-                <button className="btn btn-primary btn-sm" onClick={() => setClassModalOpen(true)}>
+            <div
+              className="card"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E7EAF2',
+                borderRadius: 16,
+                padding: 0,
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: '1px solid #E7EAF2',
+                  background: '#F8FAFD',
+                }}
+              >
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: '#15254A' }}>
+                    Configured Sections & Rosters
+                  </span>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: '#66738F' }}>
+                    ({filteredClassrooms.length} active classroom sections)
+                  </span>
+                </div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setClassModalOpen(true)}
+                  style={{ borderRadius: 8, fontSize: 12, fontWeight: 600 }}
+                >
                   <Plus size={14} /> Add Section
                 </button>
               </div>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Section / Classroom</th>
-                    <th>Program</th>
-                    <th>Capacity & Enrolment</th>
-                    <th>Primary Educator</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredClassrooms.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)' }}>
-                        No classrooms found matching criteria. Click "Add Section" to create one.
-                      </td>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#FFFFFF', borderBottom: '1px solid #E7EAF2' }}>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Section / Classroom</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Program</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Capacity & Enrolment</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Primary Educator</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
                     </tr>
-                  ) : (
-                    filteredClassrooms.map((c) => {
-                      const count = c.studentCount ?? c.students ?? 0
-                      const isFull = count >= c.capacity
-                      return (
-                        <tr key={c.id}>
-                          <td>
-                            <div style={{ fontWeight: 600, color: 'var(--c-ink)' }}>{c.name}</div>
-                            <div style={{ fontSize: 12, color: 'var(--c-muted)' }}>Code: {c.code || 'N/A'}</div>
-                          </td>
-                          <td>
-                            <span className="badge b-primary">{enumLabel(c.programType)}</span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ width: 80, height: 6, background: 'var(--bg-sunken)', borderRadius: 3, overflow: 'hidden' }}>
-                                <div
-                                  style={{
-                                    height: '100%',
-                                    width: `${Math.min(100, Math.round((count / (c.capacity || 20)) * 100))}%`,
-                                    background: isFull ? '#EF4444' : '#10B981',
-                                  }}
-                                />
+                  </thead>
+                  <tbody>
+                    {filteredClassrooms.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '40px 20px', color: '#66738F' }}>
+                          <School size={32} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
+                          <div style={{ fontWeight: 600, color: '#15254A' }}>No classrooms found matching criteria</div>
+                          <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>Click "Add Section" to create a new classroom section.</div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredClassrooms.map((c) => {
+                        const count = c.studentCount ?? c.students ?? 0
+                        const isFull = count >= c.capacity
+                        const pct = Math.min(100, Math.round((count / (c.capacity || 20)) * 100))
+                        return (
+                          <tr key={c.id} style={{ borderBottom: '1px solid #F1F4FA' }}>
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ fontWeight: 600, color: '#15254A' }}>{c.name}</div>
+                              <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 2 }}>Code: {c.code || 'N/A'}</div>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <span className="badge b-primary" style={{ fontSize: 11 }}>{enumLabel(c.programType)}</span>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 90, height: 6, background: '#E7EAF2', borderRadius: 3, overflow: 'hidden' }}>
+                                  <div
+                                    style={{
+                                      height: '100%',
+                                      width: `${pct}%`,
+                                      background: isFull ? '#EF4444' : pct > 80 ? '#F59E0B' : '#10B981',
+                                      borderRadius: 3,
+                                    }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>
+                                  {count} / {c.capacity}
+                                </span>
+                                {isFull && (
+                                  <span className="badge b-danger" style={{ fontSize: 10, padding: '2px 6px' }}>
+                                    FULL
+                                  </span>
+                                )}
                               </div>
-                              <span style={{ fontSize: 13, fontWeight: 600 }}>
-                                {count} / {c.capacity}
-                              </span>
-                              {isFull && <span className="badge b-danger" style={{ fontSize: 10 }}>FULL</span>}
-                            </div>
-                          </td>
-                          <td>
-                            {c.primaryTeacher ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                                <Avatar name={c.primaryTeacher.fullName} size="sm" />
-                                <span>{c.primaryTeacher.fullName}</span>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>Unassigned</span>
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => {
-                                setSelectedClass(c)
-                                setAssignModalOpen(true)
-                              }}
-                            >
-                              <UserCheck size={14} /> Assign Teacher
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
+                            </td>
+                            <td style={{ padding: '14px 18px' }}>
+                              {c.primaryTeacher ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                                  <Avatar name={c.primaryTeacher.fullName} size="sm" />
+                                  <span style={{ fontWeight: 500, color: '#15254A' }}>{c.primaryTeacher.fullName}</span>
+                                </div>
+                              ) : (
+                                <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>Unassigned</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  setSelectedClass(c)
+                                  setAssignModalOpen(true)
+                                }}
+                                style={{ fontSize: 11.5, borderRadius: 8 }}
+                              >
+                                <UserCheck size={13} /> Assign Teacher
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -1075,46 +1542,84 @@ export default function AcademicsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>Developmental Curricula & Milestone Goals</h3>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)' }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Developmental Curricula & Milestone Goals</h3>
+                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
                     Scoped by Academic Session & Program. Teachers observe children against these developmental goals.
                   </p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setCurriculumModalOpen(true)}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setCurriculumModalOpen(true)}
+                  style={{ borderRadius: 10, fontWeight: 600, fontSize: 13 }}
+                >
                   <Plus size={15} /> Add Curriculum
                 </button>
               </div>
 
               {filteredCurricula.length === 0 ? (
-                <div className="card" style={{ padding: 36, textAlign: 'center' }}>
-                  <BookOpen size={36} style={{ color: 'var(--c-muted)', margin: '0 auto 12px' }} />
-                  <div style={{ fontWeight: 600 }}>No curriculum frameworks found</div>
-                  <p style={{ color: 'var(--c-muted)', fontSize: 13, marginTop: 4 }}>
+                <div
+                  className="card"
+                  style={{
+                    padding: 44,
+                    textAlign: 'center',
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 16,
+                  }}
+                >
+                  <BookOpen size={36} style={{ color: '#8A94A8', margin: '0 auto 12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#15254A' }}>No curriculum frameworks found</div>
+                  <p style={{ color: '#66738F', fontSize: 13, marginTop: 4 }}>
                     Create a curriculum for {selectedSessionId ? 'the selected session' : 'your school'} with foundational developmental areas.
                   </p>
-                  <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setCurriculumModalOpen(true)}>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: 14, borderRadius: 8 }}
+                    onClick={() => setCurriculumModalOpen(true)}
+                  >
                     <Plus size={14} /> Seed Foundational Curriculum
                   </button>
                 </div>
               ) : (
                 filteredCurricula.map((curr) => (
-                  <div key={curr.id} className="card" style={{ padding: 18 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border-color)', paddingBottom: 14, marginBottom: 14 }}>
+                  <div
+                    key={curr.id}
+                    className="card"
+                    style={{
+                      padding: 20,
+                      background: '#FFFFFF',
+                      border: '1px solid #E7EAF2',
+                      borderRadius: 16,
+                      boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        flexWrap: 'wrap',
+                        gap: 12,
+                        borderBottom: '1px solid #F1F4FA',
+                        paddingBottom: 16,
+                        marginBottom: 16,
+                      }}
+                    >
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--c-ink)' }}>{curr.name}</span>
-                          <span className="badge b-primary">{enumLabel(curr.programType)}</span>
-                          <span className={`badge ${curr.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 17, fontWeight: 700, color: '#15254A' }}>{curr.name}</span>
+                          <span className="badge b-primary" style={{ fontSize: 11 }}>{enumLabel(curr.programType)}</span>
+                          <span className={`badge ${curr.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`} style={{ fontSize: 11 }}>
                             {curr.status}
                           </span>
-                          <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>v{curr.version}</span>
+                          <span style={{ fontSize: 11.5, color: '#8A94A8' }}>v{curr.version}</span>
                         </div>
                         {curr.description && (
-                          <p style={{ fontSize: 13, color: 'var(--c-muted)', marginTop: 4 }}>{curr.description}</p>
+                          <p style={{ fontSize: 13, color: '#66738F', marginTop: 4 }}>{curr.description}</p>
                         )}
-                        <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 4, display: 'flex', gap: 16 }}>
-                          <span>Framework: {curr.framework || 'Standard'}</span>
-                          {curr.academicSession && <span>Session: {curr.academicSession.name}</span>}
+                        <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4, display: 'flex', gap: 16 }}>
+                          <span>Framework: <b>{curr.framework || 'Standard'}</b></span>
+                          {curr.academicSession && <span>Session: <b>{curr.academicSession.name}</b></span>}
                         </div>
                       </div>
 
@@ -1124,15 +1629,16 @@ export default function AcademicsPage() {
                           setSelectedCurriculumId(curr.id)
                           setAreaModalOpen(true)
                         }}
+                        style={{ borderRadius: 8, fontSize: 12 }}
                       >
-                        <Plus size={14} /> Add Learning Area
+                        <Plus size={13} /> Add Learning Area
                       </button>
                     </div>
 
                     {/* Learning Areas and Goals Tree */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
                       {curr.learningAreas?.length === 0 ? (
-                        <div style={{ fontSize: 13, color: 'var(--c-muted)', padding: 12 }}>
+                        <div style={{ fontSize: 13, color: '#8A94A8', padding: 12, fontStyle: 'italic' }}>
                           No learning areas added yet. Click "Add Learning Area" to add areas like Literacy or Motor Skills.
                         </div>
                       ) : (
@@ -1140,19 +1646,19 @@ export default function AcademicsPage() {
                           <div
                             key={area.id}
                             style={{
-                              background: 'var(--bg-sunken, #f8fafc)',
-                              borderRadius: 8,
-                              border: '1px solid var(--border-color, #e2e8f0)',
-                              padding: 12,
+                              background: '#F8FAFD',
+                              borderRadius: 12,
+                              border: '1px solid #E7EAF2',
+                              padding: 14,
                             }}
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                              <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--c-ink)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>
                                 {area.name} {area.code ? `(${area.code})` : ''}
                               </div>
                               <button
                                 className="btn btn-ghost btn-sm"
-                                style={{ padding: '2px 6px', fontSize: 11 }}
+                                style={{ padding: '2px 8px', fontSize: 11, color: '#5B3DF5' }}
                                 onClick={() => {
                                   setSelectedAreaId(area.id)
                                   setGoalModalOpen(true)
@@ -1163,7 +1669,7 @@ export default function AcademicsPage() {
                             </div>
 
                             {area.goals?.length === 0 ? (
-                              <div style={{ fontSize: 11, color: 'var(--c-muted)', fontStyle: 'italic' }}>
+                              <div style={{ fontSize: 11.5, color: '#8A94A8', fontStyle: 'italic' }}>
                                 No milestone goals yet
                               </div>
                             ) : (
@@ -1172,18 +1678,18 @@ export default function AcademicsPage() {
                                   <div
                                     key={g.id}
                                     style={{
-                                      background: '#ffffff',
-                                      padding: '6px 10px',
-                                      borderRadius: 6,
-                                      border: '1px solid #e2e8f0',
+                                      background: '#FFFFFF',
+                                      padding: '8px 10px',
+                                      borderRadius: 8,
+                                      border: '1px solid #E7EAF2',
                                       fontSize: 12,
                                       display: 'flex',
                                       justifyContent: 'space-between',
                                       alignItems: 'center',
                                     }}
                                   >
-                                    <span style={{ fontWeight: 500 }}>{g.name}</span>
-                                    {g.code && <span style={{ fontSize: 10, color: 'var(--c-muted)' }}>{g.code}</span>}
+                                    <span style={{ fontWeight: 500, color: '#15254A' }}>{g.name}</span>
+                                    {g.code && <span style={{ fontSize: 10, color: '#8A94A8', background: '#F1F4FA', padding: '1px 6px', borderRadius: 4 }}>{g.code}</span>}
                                   </div>
                                 ))}
                               </div>
@@ -1200,165 +1706,239 @@ export default function AcademicsPage() {
 
           {/* ====== TAB 4: ACTIVITIES & PLANNER ====== */}
           {activeTab === 'activities' && (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>
-                  Scheduled Classroom Activities ({filteredActivities.length})
-                </span>
-                <button className="btn btn-primary btn-sm" onClick={() => setActivityModalOpen(true)}>
+            <div
+              className="card"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E7EAF2',
+                borderRadius: 16,
+                padding: 0,
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+              }}
+            >
+              <div
+                style={{
+                  padding: '14px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderBottom: '1px solid #E7EAF2',
+                  background: '#F8FAFD',
+                }}
+              >
+                <div>
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: '#15254A' }}>
+                    Scheduled Classroom Activities
+                  </span>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: '#66738F' }}>
+                    ({filteredActivities.length} planned activities)
+                  </span>
+                </div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setActivityModalOpen(true)}
+                  style={{ borderRadius: 8, fontSize: 12, fontWeight: 600 }}
+                >
                   <Plus size={14} /> Schedule Activity
                 </button>
               </div>
 
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Activity & Date</th>
-                    <th>Classroom Section</th>
-                    <th>Learning Goal</th>
-                    <th>Educator</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredActivities.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--c-muted)' }}>
-                        No activities scheduled. Click "Schedule Activity" to create a lesson plan.
-                      </td>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#FFFFFF', borderBottom: '1px solid #E7EAF2' }}>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Activity & Schedule</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Classroom Section</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Learning Goal</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Educator</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px' }}>Status</th>
+                      <th style={{ color: '#66738F', fontWeight: 600, padding: '12px 18px', textAlign: 'right' }}>Actions</th>
                     </tr>
-                  ) : (
-                    filteredActivities.map((act) => (
-                      <tr key={act.id}>
-                        <td>
-                          <div style={{ fontWeight: 600, color: 'var(--c-ink)' }}>{act.title}</div>
-                          <div style={{ fontSize: 12, color: 'var(--c-muted)', display: 'flex', gap: 8, marginTop: 2 }}>
-                            <span>Date: {fmtDate(act.activityDate)}</span>
-                            {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="badge b-primary">{act.classroom?.name}</span>
-                        </td>
-                        <td>
-                          {act.learningGoal ? (
-                            <div>
-                              <div style={{ fontSize: 12, fontWeight: 600 }}>{act.learningGoal.name}</div>
-                              <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>{act.learningGoal.learningArea?.name}</div>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>General Activity</span>
-                          )}
-                        </td>
-                        <td>
-                          {act.teacher ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                              <Avatar name={act.teacher.fullName} size="sm" />
-                              <span>{act.teacher.fullName}</span>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 12, color: 'var(--c-muted)' }}>Unassigned</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`badge ${act.status === 'COMPLETED' ? 'b-success' : act.status === 'IN_PROGRESS' ? 'b-primary' : act.status === 'CANCELLED' ? 'b-danger' : 'b-neutral'}`}>
-                            {enumLabel(act.status)}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: 6 }}>
-                            {act.status === 'PLANNED' && (
-                              <button
-                                className="btn btn-ghost btn-sm"
-                                onClick={() => handleUpdateActivityStatus(act.id, 'IN_PROGRESS')}
-                              >
-                                Start
-                              </button>
-                            )}
-                            {act.status === 'IN_PROGRESS' && (
-                              <button
-                                className="btn btn-primary btn-sm"
-                                onClick={() => handleUpdateActivityStatus(act.id, 'COMPLETED')}
-                              >
-                                Complete
-                              </button>
-                            )}
-                          </div>
+                  </thead>
+                  <tbody>
+                    {filteredActivities.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '40px 20px', color: '#66738F' }}>
+                          <CalendarCheck size={32} style={{ color: '#8A94A8', margin: '0 auto 8px' }} />
+                          <div style={{ fontWeight: 600, color: '#15254A' }}>No activities scheduled</div>
+                          <div style={{ fontSize: 12, color: '#8A94A8', marginTop: 4 }}>Click "Schedule Activity" to create a lesson plan.</div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredActivities.map((act) => (
+                        <tr key={act.id} style={{ borderBottom: '1px solid #F1F4FA' }}>
+                          <td style={{ padding: '14px 18px' }}>
+                            <div style={{ fontWeight: 600, color: '#15254A' }}>{act.title}</div>
+                            <div style={{ fontSize: 11.5, color: '#8A94A8', display: 'flex', gap: 10, marginTop: 2 }}>
+                              <span>Date: {fmtDate(act.activityDate)}</span>
+                              {act.startTime && <span>Time: {act.startTime} ({act.durationMinutes || 30}m)</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span className="badge b-primary" style={{ fontSize: 11 }}>{act.classroom?.name}</span>
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            {act.learningGoal ? (
+                              <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#15254A' }}>{act.learningGoal.name}</div>
+                                <div style={{ fontSize: 11, color: '#8A94A8' }}>{act.learningGoal.learningArea?.name}</div>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>General Activity</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            {act.teacher ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                                <Avatar name={act.teacher.fullName} size="sm" />
+                                <span style={{ fontWeight: 500, color: '#15254A' }}>{act.teacher.fullName}</span>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic' }}>Unassigned</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '14px 18px' }}>
+                            <span
+                              className={`badge ${
+                                act.status === 'COMPLETED'
+                                  ? 'b-success'
+                                  : act.status === 'IN_PROGRESS'
+                                  ? 'b-primary'
+                                  : act.status === 'CANCELLED'
+                                  ? 'b-danger'
+                                  : 'b-neutral'
+                              }`}
+                              style={{ fontSize: 11 }}
+                            >
+                              {enumLabel(act.status)}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 18px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: 6 }}>
+                              {act.status === 'PLANNED' && (
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleUpdateActivityStatus(act.id, 'IN_PROGRESS')}
+                                  style={{ fontSize: 11.5, borderRadius: 8 }}
+                                >
+                                  Start
+                                </button>
+                              )}
+                              {act.status === 'IN_PROGRESS' && (
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => handleUpdateActivityStatus(act.id, 'COMPLETED')}
+                                  style={{ fontSize: 11.5, borderRadius: 8 }}
+                                >
+                                  Complete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
           {/* ====== TAB 5: LEARNING OBSERVATIONS ====== */}
           {activeTab === 'observations' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>Child Milestone & Learning Observations</h3>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)' }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Child Milestone & Learning Observations</h3>
+                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
                     Observations logged by teachers. Publishing shares the milestone card on the Parent Portal Timeline.
                   </p>
                 </div>
-                <button className="btn btn-primary" onClick={() => setObsModalOpen(true)}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setObsModalOpen(true)}
+                  style={{ borderRadius: 10, fontWeight: 600, fontSize: 13 }}
+                >
                   <Plus size={15} /> Record Observation
                 </button>
               </div>
 
               {filteredObservations.length === 0 ? (
-                <div className="card" style={{ padding: 36, textAlign: 'center' }}>
-                  <Sparkles size={36} style={{ color: 'var(--c-muted)', margin: '0 auto 12px' }} />
-                  <div style={{ fontWeight: 600 }}>No observations logged yet</div>
-                  <p style={{ color: 'var(--c-muted)', fontSize: 13, marginTop: 4 }}>
+                <div
+                  className="card"
+                  style={{
+                    padding: 44,
+                    textAlign: 'center',
+                    background: '#FFFFFF',
+                    border: '1px solid #E7EAF2',
+                    borderRadius: 16,
+                  }}
+                >
+                  <Sparkles size={36} style={{ color: '#8A94A8', margin: '0 auto 12px' }} />
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#15254A' }}>No observations logged yet</div>
+                  <p style={{ color: '#66738F', fontSize: 13, marginTop: 4 }}>
                     Record classroom moments, developmental milestones, or concern flags for any enrolled child.
                   </p>
                 </div>
               ) : (
                 filteredObservations.map((obs) => (
-                  <div key={obs.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+                  <div
+                    key={obs.id}
+                    className="card"
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E7EAF2',
+                      borderRadius: 16,
+                      padding: 18,
+                      boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: 16,
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                         <span
-                          style={{ fontWeight: 600, fontSize: 14, cursor: 'pointer', color: 'var(--primary)' }}
+                          style={{ fontWeight: 700, fontSize: 14, cursor: 'pointer', color: '#5B3DF5' }}
                           onClick={() => inspectStudent(obs.studentId)}
                         >
                           {obs.student?.firstName} {obs.student?.lastName} ({obs.student?.admissionNo || 'N/A'})
                         </span>
-                        {obs.classroom && <span className="badge b-primary">{obs.classroom.name}</span>}
-                        {obs.category && <span className="badge b-neutral">{obs.category}</span>}
+                        {obs.classroom && <span className="badge b-primary" style={{ fontSize: 11 }}>{obs.classroom.name}</span>}
+                        {obs.category && <span className="badge b-neutral" style={{ fontSize: 11 }}>{obs.category}</span>}
                         {obs.concern && obs.concern !== 'NORMAL' && (
-                          <span className={`badge ${obs.concern === 'URGENT' ? 'b-danger' : 'b-warning'}`}>
+                          <span className={`badge ${obs.concern === 'URGENT' ? 'b-danger' : 'b-warning'}`} style={{ fontSize: 11 }}>
                             {enumLabel(obs.concern)}
                           </span>
                         )}
                         <StatusBadge status={obs.status} />
                       </div>
-                      <p style={{ fontSize: 13, color: 'var(--c-ink)', lineHeight: 1.5, margin: '4px 0' }}>
+                      <p style={{ fontSize: 13.5, color: '#15254A', lineHeight: 1.5, margin: '6px 0 10px' }}>
                         {obs.narrative}
                       </p>
-                      <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 8, display: 'flex', gap: 12 }}>
+                      <div style={{ fontSize: 11.5, color: '#8A94A8', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                         <span>Observed {timeAgo(obs.observedAt)}</span>
-                        {obs.learningGoal && <span>Goal: {obs.learningGoal.name}</span>}
-                        {obs.milestoneTags && <span>Tags: {obs.milestoneTags}</span>}
+                        {obs.learningGoal && <span>Goal: <b>{obs.learningGoal.name}</b></span>}
+                        {obs.milestoneTags && <span>Tags: <b>{obs.milestoneTags}</b></span>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <button
-                        className="btn btn-ghost btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => inspectStudent(obs.studentId)}
+                        style={{ fontSize: 11.5, borderRadius: 8 }}
                       >
-                        <Eye size={14} /> Profile
+                        <Eye size={13} /> Profile
                       </button>
                       {obs.status === 'DRAFT' && (
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => handlePublishObservation(obs.id)}
+                          style={{ fontSize: 11.5, borderRadius: 8 }}
                         >
-                          <Send size={13} /> Publish to Parent
+                          <Send size={12} /> Publish to Parent
                         </button>
                       )}
                     </div>
@@ -1370,39 +1950,56 @@ export default function AcademicsPage() {
 
           {/* ====== TAB 6: PROGRESS MATRIX ====== */}
           {activeTab === 'progress' && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div
+              className="card"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E7EAF2',
+                borderRadius: 16,
+                padding: 20,
+                boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>Developmental Milestone Matrix</h3>
-                  <p style={{ fontSize: 13, color: 'var(--c-muted)' }}>
-                    Select a student to view or update milestone progress across all developmental areas.
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>Developmental Milestone Matrix</h3>
+                  <p style={{ fontSize: 13, color: '#66738F', marginTop: 2 }}>
+                    Session-scoped progression. Track each child's stage from Not Started to Achieved.
                   </p>
+                </div>
+                {/* Milestone Legend */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#66738F', background: '#F8FAFD', padding: '6px 12px', borderRadius: 8, border: '1px solid #E7EAF2' }}>
+                  <span><b style={{ color: '#94A3B8' }}>●</b> Not Started</span>
+                  <span><b style={{ color: '#3B82F6' }}>◐</b> Introduced</span>
+                  <span><b style={{ color: '#F59E0B' }}>◒</b> Developing</span>
+                  <span><b style={{ color: '#10B981' }}>✓</b> Achieved</span>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 14 }}>
                 {students.map((stu) => (
                   <div
                     key={stu.id}
                     style={{
-                      padding: 12,
-                      borderRadius: 8,
-                      border: '1px solid var(--border-color)',
-                      background: 'var(--surface-card)',
+                      padding: 14,
+                      borderRadius: 12,
+                      border: '1px solid #E7EAF2',
+                      background: '#FFFFFF',
                       cursor: 'pointer',
-                      transition: 'border-color 0.2s',
+                      transition: 'all 0.18s ease',
+                      boxShadow: '0 1px 2px rgba(21, 37, 74, 0.03)',
                     }}
                     onClick={() => inspectStudent(stu.id)}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Avatar name={stu.name || 'Student'} size="sm" />
+                      <Avatar name={stu.name || 'Student'} size="md" />
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{stu.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>Adm: {stu.admissionNo || 'N/A'}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13.5, color: '#15254A' }}>{stu.name}</div>
+                        <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 1 }}>Adm: {stu.admissionNo || 'N/A'}</div>
                       </div>
                     </div>
-                    <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--primary)' }}>
-                      <span>Inspect Progress Matrix</span>
+                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#5B3DF5', fontWeight: 600 }}>
+                      <span>View Progress Matrix</span>
                       <ChevronRight size={14} />
                     </div>
                   </div>
@@ -1413,13 +2010,25 @@ export default function AcademicsPage() {
 
           {/* ====== TAB 7: ACADEMIC REPORTS ====== */}
           {activeTab === 'reports' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-              <div className="card">
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FileText size={18} style={{ color: 'var(--primary)' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 18 }}>
+              {/* Student Academic Progress Cards */}
+              <div
+                className="card"
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid #E7EAF2',
+                  borderRadius: 16,
+                  padding: 20,
+                  boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+                }}
+              >
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={16} style={{ color: '#5B3DF5' }} />
+                  </div>
                   Student Academic Progress Cards
                 </h3>
-                <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 14 }}>
+                <p style={{ fontSize: 13, color: '#66738F', marginBottom: 16, lineHeight: 1.4 }}>
                   Generates an authoritative, session-scoped progress report with milestone mastery rates, teacher narratives, and developmental feedback.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1427,18 +2036,20 @@ export default function AcademicsPage() {
                     <div
                       key={stu.id}
                       style={{
-                        padding: 10,
-                        borderRadius: 6,
-                        border: '1px solid var(--border-color)',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #E7EAF2',
+                        background: '#F8FAFD',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                       }}
                     >
-                      <span style={{ fontSize: 13, fontWeight: 500 }}>{stu.name}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>{stu.name}</span>
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() => inspectStudent(stu.id)}
+                        style={{ fontSize: 11.5, borderRadius: 8 }}
                       >
                         <Eye size={13} /> View Report
                       </button>
@@ -1447,12 +2058,24 @@ export default function AcademicsPage() {
                 </div>
               </div>
 
-              <div className="card">
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <TrendingUp size={18} style={{ color: '#10b981' }} />
+              {/* Classroom Section Progress Summary */}
+              <div
+                className="card"
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid #E7EAF2',
+                  borderRadius: 16,
+                  padding: 20,
+                  boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+                }}
+              >
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <TrendingUp size={16} style={{ color: '#10B981' }} />
+                  </div>
                   Classroom Section Progress Summary
                 </h3>
-                <p style={{ fontSize: 13, color: 'var(--c-muted)', marginBottom: 14 }}>
+                <p style={{ fontSize: 13, color: '#66738F', marginBottom: 16, lineHeight: 1.4 }}>
                   Section-level developmental distribution, average mastery percentage, and total observation counts.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1460,21 +2083,22 @@ export default function AcademicsPage() {
                     <div
                       key={cls.id}
                       style={{
-                        padding: 10,
-                        borderRadius: 6,
-                        border: '1px solid var(--border-color)',
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #E7EAF2',
+                        background: '#F8FAFD',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
                       }}
                     >
                       <div>
-                        <span style={{ fontSize: 13, fontWeight: 600 }}>{cls.name}</span>
-                        <div style={{ fontSize: 11, color: 'var(--c-muted)' }}>
-                          Capacity: {cls.studentCount ?? cls.students ?? 0} / {cls.capacity}
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: '#15254A' }}>{cls.name}</span>
+                        <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 2 }}>
+                          Capacity: {cls.studentCount ?? cls.students ?? 0} / {cls.capacity} children
                         </div>
                       </div>
-                      <span className="badge b-info">{enumLabel(cls.programType)}</span>
+                      <span className="badge b-info" style={{ fontSize: 11 }}>{enumLabel(cls.programType)}</span>
                     </div>
                   ))}
                 </div>
@@ -1531,7 +2155,7 @@ export default function AcademicsPage() {
             </select>
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setClassModalOpen(false)}>
               Cancel
             </button>
@@ -1562,7 +2186,7 @@ export default function AcademicsPage() {
               </select>
             </Field>
 
-            <div className="modal-actions">
+            <div className="modal-actions" style={{ marginTop: 20 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setAssignModalOpen(false)}>
                 Cancel
               </button>
@@ -1621,7 +2245,7 @@ export default function AcademicsPage() {
             </label>
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setCurriculumModalOpen(false)}>
               Cancel
             </button>
@@ -1652,7 +2276,7 @@ export default function AcademicsPage() {
             <textarea className="input" name="description" rows={2} placeholder="Development of hand-eye coordination and pencil grip." />
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setAreaModalOpen(false)}>
               Cancel
             </button>
@@ -1683,7 +2307,7 @@ export default function AcademicsPage() {
             <textarea className="input" name="description" rows={2} placeholder="Child demonstrates tripod grasp during drawing activities without prompting." />
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setGoalModalOpen(false)}>
               Cancel
             </button>
@@ -1757,7 +2381,7 @@ export default function AcademicsPage() {
             <textarea className="input" name="expectedOutcome" rows={2} placeholder="Children experiment with shapes and strengthen finger muscles." />
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setActivityModalOpen(false)}>
               Cancel
             </button>
@@ -1837,7 +2461,7 @@ export default function AcademicsPage() {
             </label>
           </Field>
 
-          <div className="modal-actions">
+          <div className="modal-actions" style={{ marginTop: 20 }}>
             <button type="button" className="btn btn-ghost" onClick={() => setObsModalOpen(false)}>
               Cancel
             </button>
@@ -1875,27 +2499,28 @@ export default function AcademicsPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: 14,
-                background: 'var(--bg-sunken)',
-                borderRadius: 8,
+                padding: 16,
+                background: '#F8FAFD',
+                borderRadius: 12,
+                border: '1px solid #E7EAF2',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Avatar name={`${studentProfile.student.firstName} ${studentProfile.student.lastName || ''}`} size="lg" />
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)' }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#15254A' }}>
                     {studentProfile.student.firstName} {studentProfile.student.lastName}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--c-muted)', display: 'flex', gap: 12, marginTop: 2 }}>
-                    <span>Adm: {studentProfile.student.admissionNo}</span>
-                    <span>Classroom: {studentProfile.classroom?.name || 'Unallocated'}</span>
-                    <span>Session: {studentProfile.session?.name}</span>
+                  <div style={{ fontSize: 12, color: '#66738F', display: 'flex', gap: 12, marginTop: 2 }}>
+                    <span>Adm: <b>{studentProfile.student.admissionNo}</b></span>
+                    <span>Classroom: <b>{studentProfile.classroom?.name || 'Unallocated'}</b></span>
+                    <span>Session: <b>{studentProfile.session?.name}</b></span>
                   </div>
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: 'var(--c-muted)', textTransform: 'uppercase' }}>Overall Mastery</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#059669' }}>
+                <div style={{ fontSize: 11, color: '#8A94A8', textTransform: 'uppercase', fontWeight: 600 }}>Overall Mastery</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#059669' }}>
                   {studentReport?.summary?.masteryRate ?? 0}%
                 </div>
               </div>
@@ -1903,15 +2528,15 @@ export default function AcademicsPage() {
 
             {/* Guardians & Teachers Info */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 12 }}>
-              <div style={{ padding: 10, border: '1px solid var(--border-color)', borderRadius: 6 }}>
-                <span style={{ fontWeight: 600, color: 'var(--c-ink)' }}>Primary Educator:</span>
-                <div style={{ marginTop: 4, color: 'var(--c-muted)' }}>
+              <div style={{ padding: 12, border: '1px solid #E7EAF2', borderRadius: 10, background: '#FFFFFF' }}>
+                <span style={{ fontWeight: 600, color: '#15254A' }}>Primary Educator:</span>
+                <div style={{ marginTop: 4, color: '#66738F' }}>
                   {studentProfile.primaryTeacher?.fullName || 'Not assigned'}
                 </div>
               </div>
-              <div style={{ padding: 10, border: '1px solid var(--border-color)', borderRadius: 6 }}>
-                <span style={{ fontWeight: 600, color: 'var(--c-ink)' }}>Guardians (Parent Portal):</span>
-                <div style={{ marginTop: 4, color: 'var(--c-muted)' }}>
+              <div style={{ padding: 12, border: '1px solid #E7EAF2', borderRadius: 10, background: '#FFFFFF' }}>
+                <span style={{ fontWeight: 600, color: '#15254A' }}>Guardians (Parent Portal):</span>
+                <div style={{ marginTop: 4, color: '#66738F' }}>
                   {studentProfile.guardians?.map((g: any) => g.fullName).join(', ') || 'None listed'}
                 </div>
               </div>
@@ -1919,20 +2544,20 @@ export default function AcademicsPage() {
 
             {/* Developmental Areas & Milestone Matrix */}
             <div>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Target size={15} style={{ color: 'var(--primary)' }} />
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Target size={15} style={{ color: '#5B3DF5' }} />
                 Milestone Progress Matrix ({studentProfile.session?.name})
               </h4>
 
               {studentProgressMatrix?.learningAreas?.length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--c-muted)', fontStyle: 'italic' }}>
+                <div style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic', padding: 12, background: '#F8FAFD', borderRadius: 8 }}>
                   No curriculum goals configured for this program session yet.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 300, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
                   {studentProgressMatrix?.learningAreas?.map((area: any) => (
-                    <div key={area.id} style={{ border: '1px solid var(--border-color)', borderRadius: 6, padding: 10 }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6, color: 'var(--c-ink)' }}>
+                    <div key={area.id} style={{ border: '1px solid #E7EAF2', borderRadius: 10, padding: 12, background: '#FFFFFF' }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#15254A' }}>
                         {area.name}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1946,15 +2571,15 @@ export default function AcademicsPage() {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 fontSize: 12,
-                                background: '#f8fafc',
-                                padding: '6px 8px',
-                                borderRadius: 4,
+                                background: '#F8FAFD',
+                                padding: '6px 10px',
+                                borderRadius: 6,
                               }}
                             >
-                              <span>{g.name}</span>
+                              <span style={{ color: '#15254A', fontWeight: 500 }}>{g.name}</span>
                               <select
                                 className="select"
-                                style={{ height: 26, fontSize: 11, padding: '2px 6px', minWidth: 110 }}
+                                style={{ height: 28, fontSize: 11.5, padding: '2px 24px 2px 8px', minWidth: 110, borderRadius: 6 }}
                                 value={currentStage}
                                 onChange={(e) => handleUpdateProgressStage(studentProfile.student.id, g.id, e.target.value)}
                               >
@@ -1975,13 +2600,13 @@ export default function AcademicsPage() {
 
             {/* Observations History */}
             <div>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={15} style={{ color: 'var(--primary)' }} />
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#15254A', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={15} style={{ color: '#5B3DF5' }} />
                 Observations & Parent Timeline Milestones ({studentProfile.observations?.length || 0})
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
                 {studentProfile.observations?.length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--c-muted)', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: 12, color: '#8A94A8', fontStyle: 'italic', padding: 12, background: '#F8FAFD', borderRadius: 8 }}>
                     No observations recorded for this child yet.
                   </div>
                 ) : (
@@ -1989,18 +2614,18 @@ export default function AcademicsPage() {
                     <div
                       key={o.id}
                       style={{
-                        padding: 8,
-                        background: '#f8fafc',
-                        borderRadius: 6,
-                        border: '1px solid var(--border-color)',
+                        padding: 10,
+                        background: '#F8FAFD',
+                        borderRadius: 8,
+                        border: '1px solid #E7EAF2',
                         fontSize: 12,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600 }}>{o.category || 'General'}</span>
-                        <span style={{ fontSize: 10, color: 'var(--c-muted)' }}>{timeAgo(o.observedAt)}</span>
+                        <span style={{ fontWeight: 600, color: '#15254A' }}>{o.category || 'General'}</span>
+                        <span style={{ fontSize: 10.5, color: '#8A94A8' }}>{timeAgo(o.observedAt)}</span>
                       </div>
-                      <p style={{ margin: 0, color: 'var(--c-ink)' }}>{o.narrative}</p>
+                      <p style={{ margin: 0, color: '#4A5A72', lineHeight: 1.4 }}>{o.narrative}</p>
                     </div>
                   ))
                 )}
@@ -2008,7 +2633,7 @@ export default function AcademicsPage() {
             </div>
 
             {/* Modal Actions */}
-            <div className="modal-actions" style={{ marginTop: 12 }}>
+            <div className="modal-actions" style={{ marginTop: 14 }}>
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -2025,6 +2650,7 @@ export default function AcademicsPage() {
                 onClick={() => {
                   window.print()
                 }}
+                style={{ borderRadius: 8 }}
               >
                 <Printer size={14} /> Print Report Card
               </button>

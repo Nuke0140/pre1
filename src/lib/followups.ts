@@ -55,8 +55,26 @@ export interface RaiseFollowUpInput {
 export async function raiseFollowUp(input: RaiseFollowUpInput) {
   if (input.dedupeKey) {
     const existing = await db.followUp.findUnique({ where: { dedupeKey: input.dedupeKey } })
-    if (existing && !['RESOLVED', 'CLOSED'].includes(existing.status)) {
-      return { followUp: existing, created: false }
+    if (existing) {
+      if (!['RESOLVED', 'CLOSED'].includes(existing.status)) {
+        return { followUp: existing, created: false }
+      }
+      // Re-open existing resolved ticket for new occurrence safely
+      const reopened = await db.followUp.update({
+        where: { id: existing.id },
+        data: {
+          status: 'OPEN',
+          severity: input.severity,
+          title: input.title,
+          detail: input.detail,
+          resolvedAt: null,
+          resolvedByName: null,
+          closedAt: null,
+          actionTaken: null,
+          outcome: null,
+        },
+      })
+      return { followUp: reopened, created: true }
     }
   }
 

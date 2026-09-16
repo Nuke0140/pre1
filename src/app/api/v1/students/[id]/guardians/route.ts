@@ -21,6 +21,9 @@ export async function POST(
     const {
       action,
       guardianId,
+      fullName,
+      phone,
+      email,
       relationship,
       isPrimary,
       canPickup,
@@ -29,8 +32,8 @@ export async function POST(
       receivesCommunication,
     } = body
 
-    if (!action || !guardianId) {
-      return Errors.validation('action and guardianId are required')
+    if (!action || (!guardianId && !phone)) {
+      return Errors.validation('action and either guardianId or phone are required')
     }
 
     if (!['LINK', 'UPDATE', 'UNLINK'].includes(action)) {
@@ -49,6 +52,9 @@ export async function POST(
       {
         action,
         guardianId,
+        fullName,
+        phone,
+        email,
         relationship,
         isPrimary,
         canPickup,

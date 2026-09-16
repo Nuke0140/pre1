@@ -2,11 +2,11 @@ import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { ok, bad, conflict, serverError, forbidden } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
-import { UserRole, Relationship } from '@prisma/client'
+import { UserRole, Relationship, UserStatus } from '@prisma/client'
 
-/** GET /api/v1/users � directory with role/search filtering & pagination (users:read) */
+/** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export async function GET(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
@@ -15,71 +15,105 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url)
   const roleFilter = url.searchParams.get('role') as UserRole | null
   const statusFilter = url.searchParams.get('status') as string | null
-  const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
+  const rawBranchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
+  const branchFilter = rawBranchFilter && rawBranchFilter !== 'undefined' && rawBranchFilter !== 'null' ? rawBranchFilter : null
   const departmentFilter = url.searchParams.get('department')?.toLowerCase()?.trim()
   const designationFilter = url.searchParams.get('designation')?.toLowerCase()?.trim()
   const userTypeFilter = url.searchParams.get('userType')?.toUpperCase() // 'STAFF' | 'PARENT'
   const query = url.searchParams.get('q')?.toLowerCase()?.trim()
+  const activeTab = (url.searchParams.get('activeTab') || 'ALL').toUpperCase()
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50')))
 
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  )
+
+  let effectiveBranchId: string | undefined = undefined
+  if (!isInstitutionWide && session.branchId) {
+    if (branchFilter && branchFilter !== session.branchId) {
+      return forbidden('Access denied: branch scope restricted')
+    }
+    effectiveBranchId = session.branchId
+  } else if (branchFilter) {
+    effectiveBranchId = branchFilter
+  }
+
   try {
-    const where: any = {
-      tenantId: session.tenantId,
-      deletedAt: null,
-      ...(roleFilter
-        ? {
-            OR: [
-              { role: roleFilter },
-              { roles: { has: roleFilter } },
-            ],
-          }
-        : {}),
-      ...(statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)
-        ? { status: statusFilter }
-        : {}),
-      ...(branchFilter ? { branchId: branchFilter } : {}),
-      ...(userTypeFilter === 'PARENT'
-        ? {
-            OR: [
-              { role: 'PARENT' },
-              { roles: { has: 'PARENT' } },
-            ],
-          }
-        : userTypeFilter === 'STAFF'
-        ? {
-            AND: [
-              { role: { not: 'PARENT' } },
-              { NOT: { roles: { equals: ['PARENT'] } } },
-            ],
-          }
-        : {}),
-      ...(departmentFilter || designationFilter
-        ? {
-            user: {
-              staffProfile: {
-                ...(departmentFilter ? { department: { contains: departmentFilter, mode: 'insensitive' } } : {}),
-                ...(designationFilter ? { designation: { contains: designationFilter, mode: 'insensitive' } } : {}),
+    // Build the tenantUser where clause; the active category tab maps onto the
+    // role/userType/status params, so baseWhere can skip that contribution to
+    // produce per-tab counts for the current search/branch/status context.
+    const buildWhere = (opts: { skipRole?: boolean; skipStatus?: boolean; skipUserType?: boolean } = {}) => {
+      const { skipRole = false, skipStatus = false, skipUserType = false } = opts
+      const w: any = {
+        tenantId: session.tenantId,
+        deletedAt: null,
+        ...(!skipRole && roleFilter
+          ? { OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] }
+          : {}),
+        ...(!skipStatus && statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)
+          ? { status: statusFilter }
+          : {}),
+        ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+        ...(!skipUserType && userTypeFilter === 'PARENT'
+          ? { OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }] }
+          : !skipUserType && userTypeFilter === 'STAFF'
+          ? { AND: [{ role: { not: 'PARENT' } }, { NOT: { roles: { equals: ['PARENT'] } } }] }
+          : {}),
+        ...(departmentFilter || designationFilter
+          ? {
+              user: {
+                staffProfile: {
+                  ...(departmentFilter ? { department: { contains: departmentFilter, mode: 'insensitive' } } : {}),
+                  ...(designationFilter ? { designation: { contains: designationFilter, mode: 'insensitive' } } : {}),
+                },
               },
-            },
-          }
-        : {}),
-      ...(query
-        ? {
-            user: {
-              OR: [
-                { fullName: { contains: query, mode: 'insensitive' } },
-                { email: { contains: query, mode: 'insensitive' } },
-                { phone: { contains: query } },
-                { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
-                { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
-              ],
-            },
-          }
-        : {}),
+            }
+          : {}),
+        ...(query
+          ? {
+              user: {
+                OR: [
+                  { fullName: { contains: query, mode: 'insensitive' } },
+                  { email: { contains: query, mode: 'insensitive' } },
+                  { phone: { contains: query } },
+                  { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
+                  { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
+                ],
+              },
+            }
+          : {}),
+      }
+      return w
     }
 
-    const [total, members, activeCount, pendingCount, suspendedCount, inactiveCount] = await Promise.all([
+    const where = buildWhere()
+
+    const isRoleTab = ['TEACHER', 'PARENT', 'PRINCIPAL', 'ACCOUNTS'].includes(activeTab)
+    const baseWhere = buildWhere({
+      skipRole: isRoleTab,
+      skipUserType: activeTab === 'STAFF' || activeTab === 'GUARDIAN',
+      skipStatus: activeTab === 'PENDING',
+    })
+
+    const countByRole = (role: UserRole) =>
+      db.tenantUser.count({ where: { ...baseWhere, OR: [{ role }, { roles: { has: role } }] } })
+
+    const tabAllP = db.tenantUser.count({ where: baseWhere })
+    const tabStaffP = db.tenantUser.count({
+      where: {
+        ...baseWhere,
+        AND: [{ role: { not: 'PARENT' } }, { NOT: { roles: { equals: ['PARENT'] } } }],
+      },
+    })
+    const tabTeacherP = countByRole('TEACHER')
+    const parentRoleCountP = countByRole('PARENT')
+    const tabPrincipalP = countByRole('PRINCIPAL')
+    const tabAccountsP = countByRole('ACCOUNTS')
+    const tabPendingP = db.tenantUser.count({ where: { ...baseWhere, status: 'PENDING' } })
+
+    const [total, members, activeCount, pendingCount, suspendedCount, inactiveCount, tabAll, tabStaff, tabTeacher, tabParent, tabPrincipal, tabAccounts, tabGuardian, tabPending] = await Promise.all([
       db.tenantUser.count({ where }),
       db.tenantUser.findMany({
         where,
@@ -107,11 +141,18 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-      }),
-      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'ACTIVE' } }),
-      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'PENDING' } }),
-      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'SUSPENDED' } }),
-      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'INACTIVE' } }),
+      }),      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'ACTIVE', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'PENDING', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'SUSPENDED', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'INACTIVE', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
+      tabAllP,
+      tabStaffP,
+      tabTeacherP,
+      parentRoleCountP,
+      tabPrincipalP,
+      tabAccountsP,
+      parentRoleCountP,
+      tabPendingP,
     ])
 
     return ok(
@@ -165,6 +206,16 @@ export async function GET(req: NextRequest) {
           suspended: suspendedCount,
           inactive: inactiveCount,
         },
+        tabs: {
+          ALL: tabAll,
+          STAFF: tabStaff,
+          TEACHER: tabTeacher,
+          PARENT: tabParent,
+          PRINCIPAL: tabPrincipal,
+          ACCOUNTS: tabAccounts,
+          GUARDIAN: tabGuardian,
+          PENDING: tabPending,
+        },
       }
     )
   } catch (err: any) {
@@ -172,7 +223,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/v1/users � create/invite user with role and relations (users:write) */
+/** POST /api/v1/users — create/invite user with role and relations (users:write) */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
@@ -199,6 +250,8 @@ export async function POST(req: NextRequest) {
       isPrimary,
       designation,
       employeeCode,
+      status: inputStatus,
+      isInvite,
     } = body as {
       fullName: string
       email: string
@@ -218,6 +271,8 @@ export async function POST(req: NextRequest) {
       isPrimary?: boolean
       designation?: string
       employeeCode?: string
+      status?: UserStatus
+      isInvite?: boolean
     }
 
     // Determine roles array and primary role
@@ -238,19 +293,21 @@ export async function POST(req: NextRequest) {
         ? primaryRole
         : assignedRoles[0]
 
-    // Validate role escalation for all requested roles
-    for (const r of assignedRoles) {
-      if (r === 'PLATFORM_ADMIN') {
-        return forbidden('Cannot assign PLATFORM_ADMIN role')
-      }
-      if (r === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
-        return forbidden('Only school owners can assign the OWNER role')
-      }
+    // Validate role escalation using centralized helper
+    const roleErr = requireCanAssignRole(session, assignedRoles)
+    if (roleErr) return roleErr
+
+    // Validate branch boundary using centralized helper
+    if (branchId) {
+      const branchErr = requireBranchAccess(session, branchId)
+      if (branchErr) return branchErr
     }
 
     if (password.length < 6) {
       return bad('Password must be at least 6 characters', 'PASSWORD_TOO_SHORT')
     }
+
+    const initialStatus: UserStatus = inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
 
     const emailNorm = email.toLowerCase().trim()
     const phoneNorm = phone?.trim() || null
@@ -292,7 +349,7 @@ export async function POST(req: NextRequest) {
             fullName: fullName.trim(),
             phone: phoneNorm,
             passwordHash: await bcrypt.hash(password, 10),
-            status: 'ACTIVE',
+            status: initialStatus,
           },
         })
       } else {
@@ -302,6 +359,7 @@ export async function POST(req: NextRequest) {
           data: {
             fullName: fullName.trim(),
             ...(phoneNorm ? { phone: phoneNorm } : {}),
+            status: initialStatus,
           },
         })
       }
@@ -314,7 +372,7 @@ export async function POST(req: NextRequest) {
           role: finalPrimaryRole,
           roles: assignedRoles,
           branchId: branchId || null,
-          status: 'ACTIVE',
+          status: initialStatus,
         },
       })
 

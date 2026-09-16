@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3, School,
+  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3, School, Inbox, UserPlus, Ban, Keyboard, X,
 } from 'lucide-react'
 import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
 import { Avatar } from '@/components/preone/ui'
@@ -12,6 +12,7 @@ import { navForRole, NavItem } from '@/lib/nav'
 import { Role } from '@/lib/auth'
 import { enumLabel, timeAgo } from '@/lib/format'
 import { GlobalSearchModal } from '@/components/shell/GlobalSearchModal'
+import { RouteProgress } from '@/components/preone/RouteProgress'
 
 export interface ShellUser {
   name: string
@@ -40,8 +41,13 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState<number>(0)
   const [notifOpen, setNotifOpen] = useState<boolean>(false)
+  const [attention, setAttention] = useState<{ invited: number; suspended: number }>({ invited: 0, suspended: 0 })
+  const [attnOpen, setAttnOpen] = useState<boolean>(false)
+  const [shortcutOpen, setShortcutOpen] = useState<boolean>(false)
   const bellBtnRef = useRef<HTMLButtonElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+  const attnBtnRef = useRef<HTMLButtonElement>(null)
+  const attnRef = useRef<HTMLDivElement>(null)
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -89,6 +95,26 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     }
     checkCount()
     const timer = setInterval(checkCount, 30000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Poll users KPIs for the "needs attention" panel (quiet fail for non-privileged roles)
+  useEffect(() => {
+    const loadAttention = async () => {
+      try {
+        const res = await fetch('/api/v1/users?pageSize=1').then((r) => r.json())
+        if (res.success && res.meta?.kpis) {
+          setAttention({
+            invited: res.meta.kpis.pending || 0,
+            suspended: res.meta.kpis.suspended || 0,
+          })
+        }
+      } catch {
+        // quiet
+      }
+    }
+    loadAttention()
+    const timer = setInterval(loadAttention, 60000)
     return () => clearInterval(timer)
   }, [])
 
@@ -141,22 +167,32 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       } else if (e.key === 'Escape') {
         setMenuOpen(false)
         setSearchModalOpen(false)
+        setAttnOpen(false)
+        setShortcutOpen(false)
       } else if (e.key === '/' && !inInput && !searchModalOpen) {
         e.preventDefault()
         setMenuOpen(true)
         setTimeout(() => searchRef.current?.focus(), 50)
+      } else if (e.key === '?' && !inInput) {
+        e.preventDefault()
+        setSearchModalOpen(false)
+        setMenuOpen(false)
+        setShortcutOpen((v) => !v)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [searchModalOpen])
 
-  // close menu, search modal & notifications on navigation
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // close menu, search modal, notifications & attention panel on navigation
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setMenuOpen(false)
     setSearchModalOpen(false)
     setNotifOpen(false)
+    setAttnOpen(false)
+    setShortcutOpen(false)
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [pathname])
 
   // close the start menu and notification popover when clicking outside
@@ -180,10 +216,17 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
           setNotifOpen(false)
         }
       }
+
+      if (attnOpen) {
+        if (!attnRef.current?.contains(target) &&
+            !attnBtnRef.current?.contains(target)) {
+          setAttnOpen(false)
+        }
+      }
     }
     document.addEventListener('click', onDocClick)
     return () => document.removeEventListener('click', onDocClick)
-  }, [menuOpen, notifOpen])
+  }, [menuOpen, notifOpen, attnOpen])
 
   const logout = useCallback(async () => {
     await fetch('/api/v1/auth/logout', { method: 'POST' })
@@ -196,9 +239,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
 
   const roleLabel = enumLabel(user.role)
   const initials = user.name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
+  const attentionTotal = attention.invited + attention.suspended
 
   return (
     <>
+      <RouteProgress />
       {/* ── Header ── */}
       <header className="app-header">
         <Link href="/app" className="h-logo" aria-label="PreOne home">
@@ -338,6 +383,132 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
             </div>
           )}
         </div>
+        <div style={{ position: 'relative' }}>
+          <button
+            suppressHydrationWarning
+            ref={attnBtnRef}
+            className="h-icbtn"
+            aria-label="Needs attention"
+            aria-haspopup="dialog"
+            aria-expanded={attnOpen}
+            title={attentionTotal > 0 ? `${attentionTotal} item${attentionTotal === 1 ? '' : 's'} need attention` : 'Needs attention'}
+            onClick={() => setAttnOpen((v) => !v)}
+          >
+            <Inbox />
+            {attentionTotal > 0 && <span className="cnt cnt-amber">{attentionTotal > 99 ? '99+' : attentionTotal}</span>}
+          </button>
+
+          {attnOpen && (
+            <div
+              ref={attnRef}
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                right: 0,
+                width: 'min(340px, calc(100vw - 20px))',
+                maxWidth: 'calc(100vw - 20px)',
+                backgroundColor: 'var(--bg-card, #ffffff)',
+                border: '1px solid var(--border, #e2e8f0)',
+                borderRadius: 10,
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                zIndex: 100,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{
+                padding: '12px 14px',
+                borderBottom: '1px solid var(--border, #e2e8f0)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Inbox size={15} />
+                  <b style={{ fontSize: 13.5 }}>Needs attention</b>
+                  {attentionTotal > 0 && (
+                    <span style={{
+                      fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
+                      borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
+                    }}>{attentionTotal}</span>
+                  )}
+                </div>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11.5, padding: '2px 6px' }} onClick={() => setAttnOpen(false)}>
+                  Dismiss
+                </button>
+              </div>
+
+              <div style={{ overflowY: 'auto', flex: 1, maxHeight: 340 }}>
+                {attentionTotal === 0 ? (
+                  <div style={{ padding: '30px 16px', textAlign: 'center' }} className="txt-muted">
+                    <p style={{ fontSize: 13 }}>You're all caught up</p>
+                  </div>
+                ) : (
+                  <>
+                    <Link
+                      href="/app/users?tab=PENDING"
+                      onClick={() => setAttnOpen(false)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+                        borderBottom: '1px solid var(--border, #f1f5f9)', textDecoration: 'none', color: 'inherit',
+                      }}
+                    >
+                      <span className="tico g-purple" style={{ width: 30, height: 30, borderRadius: 8 }}>
+                        <UserPlus size={14} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>Pending invitations</span>
+                        <span className="txt-muted" style={{ fontSize: 11, display: 'block' }}>Awaiting enrolment or password setup</span>
+                      </span>
+                      <span style={{
+                          fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
+                          borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
+                        }}>{attention.invited}</span>
+                      <ChevronRight size={14} className="txt-muted" style={{ flexShrink: 0 }} />
+                    </Link>
+                    <Link
+                      href="/app/users?status=SUSPENDED"
+                      onClick={() => setAttnOpen(false)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
+                        borderBottom: '1px solid var(--border, #f1f5f9)', textDecoration: 'none', color: 'inherit',
+                      }}
+                    >
+                      <span className="tico g-orange" style={{ width: 30, height: 30, borderRadius: 8 }}>
+                        <Ban size={14} />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>Suspended accounts</span>
+                        <span className="txt-muted" style={{ fontSize: 11, display: 'block' }}>Portal access blocked until reactivated</span>
+                      </span>
+                      <span style={{
+                          fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
+                          borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
+                        }}>{attention.suspended}</span>
+                      <ChevronRight size={14} className="txt-muted" style={{ flexShrink: 0 }} />
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              <div style={{
+                padding: '8px 14px',
+                borderTop: '1px solid var(--border, #e2e8f0)',
+                backgroundColor: 'var(--bg-subtle, #f8fafc)',
+                textAlign: 'center',
+              }}>
+                <Link
+                  href="/app/users"
+                  onClick={() => setAttnOpen(false)}
+                  style={{ fontSize: 12, color: 'var(--primary, #6366f1)', textDecoration: 'none', fontWeight: 500 }}
+                >
+                  Open Users &amp; Access →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
         <button suppressHydrationWarning className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
           <span className="avatar sm a-p">{initials}</span>
           <span className="who">
@@ -460,6 +631,89 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
       />
+
+      {/* ── Keyboard shortcut cheat sheet (? key) ── */}
+      {shortcutOpen && (
+        <div
+          className="cheatsheet-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShortcutOpen(false)
+          }}
+        >
+          <div className="cheatsheet-panel">
+            <div className="cheatsheet-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="tico g-purple" style={{ width: 32, height: 32, borderRadius: 9 }}>
+                  <Keyboard size={15} />
+                </span>
+                <div>
+                  <h3 style={{ fontSize: 15.5, fontWeight: 700 }}>Keyboard shortcuts</h3>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Get around PreOne without leaving the keyboard
+                  </div>
+                </div>
+              </div>
+              <button className="x-btn" onClick={() => setShortcutOpen(false)} aria-label="Close keyboard shortcuts">
+                <X />
+              </button>
+            </div>
+
+            <div className="cheatsheet-body">
+              {[
+                {
+                  group: 'Global',
+                  keys: [
+                    { combo: '⌘ / Ctrl + K', label: 'Open search & command palette' },
+                    { combo: '/', label: 'Open the start menu' },
+                    { combo: '?', label: 'Toggle this cheat sheet' },
+                    { combo: 'Esc', label: 'Close menus, panels and modals' },
+                  ],
+                },
+                {
+                  group: 'Inside the palette',
+                  keys: [
+                    { combo: '↑ ↓', label: 'Move through results or commands' },
+                    { combo: 'Enter', label: 'Open the highlighted item' },
+                    { combo: '>', label: 'Prefix a query to run a command' },
+                    { combo: 'Esc', label: 'Close the palette' },
+                  ],
+                },
+                {
+                  group: 'Everywhere',
+                  keys: [
+                    { combo: 'Tab', label: 'Move to the next field or control' },
+                    { combo: 'Shift + Tab', label: 'Move to the previous field or control' },
+                  ],
+                },
+              ].map((g) => (
+                <div key={g.group} className="cheatsheet-group">
+                  <div className="cheatsheet-group-title">{g.group}</div>
+                  {g.keys.map((k) => (
+                    <div key={k.combo} className="cheatsheet-row">
+                      <span className="cheatsheet-combo">
+                        {k.combo.split(' + ').map((token, i) => (
+                          <React.Fragment key={`${k.combo}-${token}`}>
+                            {i > 0 && <span className="cheatsheet-plus">+</span>}
+                            <kbd>{token}</kbd>
+                          </React.Fragment>
+                        ))}
+                      </span>
+                      <span className="cheatsheet-label">{k.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="cheatsheet-foot">
+              Press <kbd>?</kbd> anywhere to toggle this sheet
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

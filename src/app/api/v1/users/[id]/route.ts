@@ -1,17 +1,26 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, notFound, bad, serverError, forbidden } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import {
+  requireApi,
+  isResponse,
+  requireCanManageUser,
+  requireBranchAccess,
+  requireCanAssignRole,
+} from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
 import { UserRole } from '@prisma/client'
 
-/** GET /api/v1/users/[id] � get user details including linked profile, roles, and taught classes */
+/** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
+
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
 
   try {
     const member = await db.tenantUser.findFirst({
@@ -80,34 +89,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-/** PATCH /api/v1/users/[id] � update user profile, roles, scope, designation, or password */
+/** PATCH /api/v1/users/[id] — update user profile, roles, scope, designation, or password */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
+  const { targetMember: member } = manageCheck
+
   try {
-    const member = await db.tenantUser.findFirst({
-      where: {
-        userId: id,
-        tenantId: session.tenantId,
-        deletedAt: null,
-      },
-      include: {
-        user: {
-          include: { staffProfile: true },
-        },
-      },
-    })
-
-    if (!member) return notFound('User not found in this school')
-
-    // Prevent non-owners from editing owners
-    if (member.role === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
-      return forbidden('Only owners can modify owner accounts')
-    }
-
     const body = await req.json()
     const {
       fullName,
@@ -144,15 +137,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     if (targetRoles) {
-      // Validate role escalation for any updated roles
-      for (const r of targetRoles) {
-        if (r === 'PLATFORM_ADMIN') {
-          return forbidden('Cannot assign PLATFORM_ADMIN role')
-        }
-        if (r === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
-          return forbidden('Only owners can assign OWNER role')
-        }
-      }
+      const roleErr = requireCanAssignRole(session, targetRoles)
+      if (roleErr) return roleErr
+    }
+
+    if (branchId) {
+      const branchErr = requireBranchAccess(session, branchId)
+      if (branchErr) return branchErr
     }
 
     const finalPrimaryRole: UserRole | undefined =
@@ -302,20 +293,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
-  if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
+  const { targetMember: member } = manageCheck
 
   try {
-    const member = await db.tenantUser.findFirst({
-      where: {
-        userId: id,
-        tenantId: session.tenantId,
-        deletedAt: null,
-      },
-      include: { user: true },
-    })
-
-    if (!member) return notFound('User not found in this school')
-
     if (member.role === 'OWNER') {
       return forbidden('Cannot delete school owner account')
     }

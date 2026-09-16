@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plus, ChevronRight, Users, GraduationCap, ArrowRightLeft, UserX,
   Activity, Calendar, Building, BookOpen, UserRound, CheckSquare2,
+  Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
 } from 'lucide-react'
-import { PageHead, StatusBadge, Avatar, Segmented, Field } from '@/components/preone/ui'
+import { PageHead, StatusBadge, Avatar, Segmented, Field, Skeleton } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
@@ -17,6 +18,7 @@ interface StudentRow {
   id: string
   admissionNo: string
   seatNumber?: string | null
+  photoUrl?: string | null
   name: string
   dob: string
   gender: string
@@ -48,6 +50,25 @@ interface DashboardStats {
 interface ContextOption {
   id: string
   name: string
+  isCurrent?: boolean
+  isMain?: boolean
+}
+
+// Helper: Calculate child age in human-readable preschool format
+function formatAge(dobString: string): string {
+  if (!dobString) return ''
+  const birth = new Date(dobString)
+  if (isNaN(birth.getTime())) return ''
+  const now = new Date()
+  let years = now.getFullYear() - birth.getFullYear()
+  let months = now.getMonth() - birth.getMonth()
+  if (months < 0) {
+    years--
+    months += 12
+  }
+  if (years <= 0) return `${months} mos`
+  if (months === 0) return `${years} yrs`
+  return `${years}y ${months}m`
 }
 
 export default function StudentsPage() {
@@ -72,11 +93,14 @@ export default function StudentsPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [enrollClassroomId, setEnrollClassroomId] = useState('')
 
   // Enroll form enhancements (date picker, mask, draft autosave)
   const formRef = useRef<HTMLFormElement>(null)
   const saveTimer = useRef<number | undefined>(undefined)
   const [dob, setDob] = useState('')
+  const [draftSaved, setDraftSaved] = useState(false)
   const draft = useFormDraft('preone.create-student.v1')
 
   useEffect(() => {
@@ -90,7 +114,11 @@ export default function StudentsPage() {
   const onDraftChange = () => {
     if (!formRef.current) return
     window.clearTimeout(saveTimer.current)
-    saveTimer.current = window.setTimeout(() => draft.save(formRef.current as HTMLFormElement), 400)
+    saveTimer.current = window.setTimeout(() => {
+      draft.save(formRef.current as HTMLFormElement)
+      setDraftSaved(true)
+      setTimeout(() => setDraftSaved(false), 2000)
+    }, 400)
   }
 
   // Bulk operations
@@ -211,23 +239,31 @@ export default function StudentsPage() {
   }, [branchFilter, sessionFilter])
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams()
-    if (q) params.set('q', q)
-    if (branchFilter !== 'ALL') params.set('branchId', branchFilter)
-    if (sessionFilter !== 'ALL') params.set('academicSessionId', sessionFilter)
-    if (programFilter !== 'ALL') params.set('programId', programFilter)
-    if (classFilter !== 'ALL') params.set('classroomId', classFilter)
-    if (statusFilter !== 'ALL') params.set('status', statusFilter)
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (q) params.set('q', q)
+      if (branchFilter !== 'ALL') params.set('branchId', branchFilter)
+      if (sessionFilter !== 'ALL') params.set('academicSessionId', sessionFilter)
+      if (programFilter !== 'ALL') params.set('programType', programFilter)
+      if (classFilter !== 'ALL') params.set('classroomId', classFilter)
+      if (statusFilter !== 'ALL') params.set('status', statusFilter)
 
-    const [sRes, cRes] = await Promise.all([
-      fetch(`/api/v1/students?${params}`),
-      fetch('/api/v1/classrooms'),
-    ])
-    const sJson = await sRes.json()
-    const cJson = await cRes.json()
-    if (sJson.success) setRows(sJson.data)
-    if (cJson.success) setClassrooms(cJson.data)
-  }, [q, branchFilter, sessionFilter, programFilter, classFilter, statusFilter])
+      const [sRes, cRes] = await Promise.all([
+        fetch(`/api/v1/students?${params}`),
+        fetch('/api/v1/classrooms'),
+      ])
+      const sJson = await sRes.json()
+      const cJson = await cRes.json()
+      if (sJson.success) setRows(sJson.data)
+      if (cJson.success) setClassrooms(cJson.data)
+    } catch (err: any) {
+      console.error('Failed to load students:', err)
+      toast.error('Failed to load students', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [q, branchFilter, sessionFilter, programFilter, classFilter, statusFilter, toast])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -242,23 +278,45 @@ export default function StudentsPage() {
     setSaving(true)
     const fd = new FormData(e.currentTarget)
     const payload = Object.fromEntries(fd.entries())
-    const res = await fetch('/api/v1/students', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const json = await res.json()
-    setSaving(false)
-    if (json.success) {
-      toast.success('Child admitted', `${payload.firstName} joined with ID ${json.data.admissionNo}`)
-      setCreateOpen(false)
-      setDob('')
-      draft.clear()
-      load()
-    } else {
-      toast.error('Could not add child', json.error?.message)
+    try {
+      const res = await fetch('/api/v1/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Child admitted', `${payload.firstName} joined with ID ${json.data.admissionNo}`)
+        setCreateOpen(false)
+        setDob('')
+        setEnrollClassroomId('')
+        draft.clear()
+        load()
+        loadStats()
+      } else {
+        toast.error('Could not add child', json.error?.message || 'Check form fields and retry')
+      }
+    } catch (err: any) {
+      toast.error('Error saving child', err.message)
+    } finally {
+      setSaving(false)
     }
   }
+
+  // Selected enroll classroom helper for capacity display
+  const selectedEnrollClass = useMemo(() => {
+    return classrooms.find((c) => c.id === enrollClassroomId)
+  }, [classrooms, enrollClassroomId])
+
+  // Selected destination classroom helper for bulk transfer
+  const selectedBulkClass = useMemo(() => {
+    return classrooms.find((c) => c.id === bulkNewClass)
+  }, [classrooms, bulkNewClass])
+
+  // Context current session label
+  const currentSessionObj = useMemo(() => {
+    return sessions.find((s) => s.id === sessionFilter || s.isCurrent)
+  }, [sessions, sessionFilter])
 
   const columns: Column<StudentRow>[] = [
     {
@@ -268,22 +326,44 @@ export default function StudentsPage() {
       sortValue: (s) => s.name.toLowerCase(),
       export: (s) => s.name,
       render: (s) => (
-        <span className="cell-user">
-          <Avatar name={s.name} />
-          <span>
-            <span className="cell-strong">{s.name}</span>
-            {s.seatNumber && <span className="cell-sub">Seat: {s.seatNumber}</span>}
-          </span>
-        </span>
-      ),
-    },
-    {
-      key: 'admissionNo',
-      header: 'Admission No',
-      sortable: true,
-      export: (s) => s.admissionNo,
-      render: (s) => (
-        <span className="dt-id-chip">{s.admissionNo}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Avatar name={s.name} src={s.photoUrl} size="md" />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 14.5, fontWeight: 650, color: '#15254A', lineHeight: 1.2 }}>
+              {s.name}
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono, monospace)',
+                  fontSize: 11.5,
+                  padding: '1px 6px',
+                  borderRadius: 5,
+                  background: '#F1F4FA',
+                  color: '#66738F',
+                  border: '1px solid #E7EAF2',
+                }}
+              >
+                {s.admissionNo}
+              </span>
+              {s.seatNumber && (
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontSize: 11,
+                    padding: '1px 5px',
+                    borderRadius: 4,
+                    background: '#F0ECFF',
+                    color: '#5B3DF5',
+                    fontWeight: 600,
+                  }}
+                >
+                  Seat: {s.seatNumber}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       ),
     },
     {
@@ -291,39 +371,87 @@ export default function StudentsPage() {
       header: 'Class / Section',
       sortable: true,
       sortValue: (s) => s.classroom?.name || '',
-      export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : '',
+      export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : 'Unassigned',
       render: (s) =>
         s.classroom ? (
-          <>
-            <span className="cell-strong">{s.classroom.name}</span>
-            <span className="cell-sub">
-              {s.classroom.code} · {enumLabel(s.classroom.programType)} · {s.classroom.teacher}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>
+                {s.classroom.name}
+              </span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  padding: '1px 6px',
+                  borderRadius: 4,
+                  fontWeight: 600,
+                  background: '#F0ECFF',
+                  color: '#5B3DF5',
+                }}
+              >
+                {enumLabel(s.classroom.programType)}
+              </span>
+            </div>
+            <span style={{ fontSize: 12, color: '#66738F' }}>
+              {s.classroom.teacher ? `Educator: ${s.classroom.teacher}` : 'No primary teacher'}
             </span>
-          </>
+          </div>
         ) : (
-          <span className="badge b-warning">Unassigned</span>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '2px 8px',
+              borderRadius: 6,
+              fontSize: 11.5,
+              fontWeight: 500,
+              background: '#FFFBEB',
+              color: '#B45309',
+              border: '1px solid #FDE68A',
+            }}
+          >
+            Unassigned
+          </span>
         ),
     },
     {
       key: 'dob',
-      header: 'Date of Birth',
+      header: 'Age & DOB',
       sortable: true,
       sortValue: (s) => new Date(s.dob).getTime(),
-      export: (s) => s.dob,
-      render: (s) => fmtDate(s.dob),
+      export: (s) => `${fmtDate(s.dob)} (${formatAge(s.dob)})`,
+      render: (s) => (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 550, color: '#15254A' }}>
+            {formatAge(s.dob)}
+          </span>
+          <span style={{ fontSize: 12, color: '#66738F' }}>
+            {fmtDate(s.dob)}
+          </span>
+        </div>
+      ),
     },
     {
       key: 'primaryGuardian',
-      header: 'Parent / Guardian',
-      export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} ${s.primaryGuardian.phone}` : ''),
+      header: 'Primary Guardian',
+      export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : 'None'),
       render: (s) =>
         s.primaryGuardian ? (
-          <>
-            <span style={{ fontSize: 13, fontWeight: 500 }}>{s.primaryGuardian.name}</span>
-            <span className="cell-sub">{s.primaryGuardian.phone}</span>
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#15254A' }}>
+                {s.primaryGuardian.name}
+              </span>
+              <span style={{ fontSize: 11, color: '#8A94A8', textTransform: 'capitalize' }}>
+                ({s.primaryGuardian.relationship.toLowerCase()})
+              </span>
+            </div>
+            <span style={{ fontSize: 12, color: '#66738F', fontFamily: 'var(--font-mono, monospace)' }}>
+              {s.primaryGuardian.phone}
+            </span>
+          </div>
         ) : (
-          '-'
+          <span style={{ color: '#8A94A8', fontSize: 13 }}>-</span>
         ),
     },
     {
@@ -347,141 +475,306 @@ export default function StudentsPage() {
     {
       key: 'actions',
       header: '',
-      width: 36,
+      width: 44,
       hideable: false,
-      render: () => <ChevronRight size={15} style={{ color: 'var(--foreground-muted)' }} />,
+      render: () => (
+        <div style={{ display: 'flex', justifyContent: 'center', color: '#8A94A8' }}>
+          <ChevronRight size={17} />
+        </div>
+      ),
     },
   ]
 
   return (
-    <>
+    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 40 }}>
+      {/* 1. Standard PageHead */}
       <PageHead
-        eyebrow="Preschool Enrollment & Academics"
+        eyebrow="Preschool Enrollment & Operations"
         badge={<span className="badge b-primary b-dot">Active Roster</span>}
         title="Students & Children"
-        sub="Canonical enrolled-child directory connecting Admissions, Academics, Operations, Attendance, and Finance."
+        sub="Manage enrolled children, classroom allocations, guardians and the complete child journey."
         actions={
-          <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-            <Plus size={16} /> Enroll Child
+          <button
+            className="btn btn-primary"
+            style={{
+              height: 44,
+              padding: '0 18px',
+              borderRadius: 11,
+              fontWeight: 600,
+              fontSize: 14,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: '0 2px 8px rgba(91, 61, 245, 0.25)',
+            }}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus size={17} /> Enroll Child
           </button>
         }
       />
 
-      {/* Unified Metric Strip */}
-      <div className="metric-strip" style={{ marginBottom: 20 }}>
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Users size={14} style={{ color: 'var(--primary, #6A35FF)' }} /> Total Enrolled
+      {/* 2. Unified 6-Metric Student Health Strip */}
+      <div
+        className="metric-strip"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        {/* Metric 1: Total Enrolled */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Total Enrolled
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0ECFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={15} style={{ color: '#5B3DF5' }} />
+            </div>
           </div>
-          <div className="m-val">{stats ? stats.totalStudents : '-'}</div>
-          <div className="m-meta">Registered identities</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {stats ? stats.totalStudents : 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Registered identities</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <GraduationCap size={14} style={{ color: 'var(--success, #10B981)' }} /> Active Children
+        {/* Metric 2: Active Children */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Active Children
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <GraduationCap size={15} style={{ color: '#10B981' }} />
+            </div>
           </div>
-          <div className="m-val" style={{ color: 'var(--success, #10B981)' }}>{stats ? stats.activeStudents : '-'}</div>
-          <div className="m-meta">Currently attending</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#10B981', lineHeight: 1.1 }}>
+            {stats ? stats.activeStudents : 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Currently attending</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Activity size={14} style={{ color: '#3B82F6' }} /> New Admissions
+        {/* Metric 3: New Admissions */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              New Admissions
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#EBF5FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Activity size={15} style={{ color: '#3B82F6' }} />
+            </div>
           </div>
-          <div className="m-val">{stats ? stats.recentAdmissions30d : '-'}</div>
-          <div className="m-meta">Last 30 days</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {stats ? stats.recentAdmissions30d : 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Last 30 days</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Calendar size={14} style={{ color: '#8B5CF6' }} /> Avg Attendance
+        {/* Metric 4: Avg Attendance */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Avg Attendance
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={15} style={{ color: '#8B5CF6' }} />
+            </div>
           </div>
-          <div className="m-val" style={{ color: '#8B5CF6' }}>{stats ? stats.averageAttendanceRate + '%' : '-'}</div>
-          <div className="m-meta">Live calculation</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ fontSize: 26, fontWeight: 700, color: '#8B5CF6', lineHeight: 1.1 }}>
+              {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : '—'}
+            </span>
+          </div>
+          <div style={{ width: '100%', background: '#F1F4FA', height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${Math.min(100, Math.max(0, stats?.averageAttendanceRate || 0))}%`,
+                background: '#8B5CF6',
+                height: '100%',
+                borderRadius: 2,
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: '#8A94A8', marginTop: 4 }}>Live calculation</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <ArrowRightLeft size={14} style={{ color: '#F59E0B' }} /> Transferred
+        {/* Metric 5: Transferred */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Transferred
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ArrowRightLeft size={15} style={{ color: '#D97706' }} />
+            </div>
           </div>
-          <div className="m-val">{stats ? stats.transferredStudents : '-'}</div>
-          <div className="m-meta">Branch transfers</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {stats ? stats.transferredStudents : 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Branch transfers</div>
         </div>
 
-        <div className="metric-cell">
-          <div className="m-lbl" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <UserX size={14} style={{ color: '#EF4444' }} /> Withdrawn
+        {/* Metric 6: Withdrawn */}
+        <div
+          className="metric-cell"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E7EAF2',
+            borderRadius: 16,
+            padding: '14px 16px',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: '#66738F', textTransform: 'uppercase' }}>
+              Withdrawn
+            </span>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserX size={15} style={{ color: '#EF4444' }} />
+            </div>
           </div>
-          <div className="m-val">{stats ? stats.withdrawnStudents : '-'}</div>
-          <div className="m-meta">Non-destructive exit</div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#15254A', lineHeight: 1.1 }}>
+            {stats ? stats.withdrawnStudents : 0}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#8A94A8', marginTop: 4 }}>Non-destructive exit</div>
         </div>
       </div>
 
-      {/* Student Register Table Workspace */}
-      <div className="table-workspace">
-        <div className="school-context-bar" style={{ borderRadius: 0, border: 'none', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-        {branches.length > 0 && (
-          <>
-            <div className="context-item">
-              <label><Building size={14} style={{ color: 'var(--text-muted)' }} /> Branch:</label>
-              <select
-                className="select"
-                value={branchFilter}
-                onChange={(e) => setBranchFilter(e.target.value)}
-              >
-                <option value="ALL">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-            <span className="context-divider" />
-          </>
-        )}
-
-        {sessions.length > 0 && (
-          <>
-            <div className="context-item">
-              <label><Calendar size={14} style={{ color: 'var(--text-muted)' }} /> Session:</label>
-              <select
-                className="select"
-                value={sessionFilter}
-                onChange={(e) => setSessionFilter(e.target.value)}
-              >
-                <option value="ALL">All Academic Sessions</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <span className="context-divider" />
-          </>
-        )}
-
-        {programs.length > 0 && (
-          <>
-            <div className="context-item">
-              <label><BookOpen size={14} style={{ color: 'var(--text-muted)' }} /> Program:</label>
-              <select
-                className="select"
-                value={programFilter}
-                onChange={(e) => setProgramFilter(e.target.value)}
-              >
-                <option value="ALL">All Programs</option>
-                {programs.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <span className="context-divider" />
-          </>
-        )}
-
-        <div className="context-item">
-          <label>Status:</label>
+      {/* 3. School Context Bar */}
+      <div
+        className="school-context-bar"
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E7EAF2',
+          borderRadius: 14,
+          padding: '10px 16px',
+          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        {/* Session Dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <Calendar size={15} style={{ color: '#5B3DF5' }} />
+          <span style={{ fontWeight: 600 }}>Session:</span>
           <select
             className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            value={sessionFilter}
+            onChange={(e) => setSessionFilter(e.target.value)}
+          >
+            <option value="ALL">All Academic Sessions</option>
+            {sessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} {s.isCurrent ? '★ (Current)' : ''}
+              </option>
+            ))}
+          </select>
+          {currentSessionObj?.isCurrent && sessionFilter !== 'ALL' && (
+            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#F0ECFF', color: '#5B3DF5' }}>
+              ★ Current
+            </span>
+          )}
+        </div>
+
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+
+        {/* Campus / Branch */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <Building size={15} style={{ color: '#66738F' }} />
+          <span style={{ fontWeight: 600 }}>Campus:</span>
+          <select
+            className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+          >
+            <option value="ALL">All Branches</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} {b.isMain ? '(Main Campus)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+
+        {/* Program */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <BookOpen size={15} style={{ color: '#66738F' }} />
+          <span style={{ fontWeight: 600 }}>Program:</span>
+          <select
+            className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
+            value={programFilter}
+            onChange={(e) => setProgramFilter(e.target.value)}
+          >
+            <option value="ALL">All Programs</option>
+            {programs.map((p) => (
+              <option key={p.id} value={p.programType || p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ width: 1, height: 22, background: '#E7EAF2' }} />
+
+        {/* Lifecycle Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#15254A' }}>
+          <span style={{ fontWeight: 600 }}>Status:</span>
+          <select
+            className="select"
+            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: '#E7EAF2' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -490,232 +783,568 @@ export default function StudentsPage() {
             <option value="TRANSFERRED">Transferred</option>
             <option value="WITHDRAWN">Withdrawn</option>
             <option value="SUSPENDED">Suspended</option>
+            <option value="GRADUATED">Graduated</option>
           </select>
+        </div>
+
+        {/* Spin Refresh button */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => { load(); loadStats(); }}
+            title="Refresh list"
+            style={{ height: 34, width: 34, padding: 0, borderRadius: 8, color: '#66738F' }}
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        loading={rows === null}
-        searchPlaceholder="Search child name, admission no, or guardian phone..."
-        searchValue={q}
-        onSearch={setQ}
-        onRowClick={(s) => router.push(`/app/students/${s.id}`)}
-        emptyTitle="No children found"
-        emptyMessage="No students match the current filter or search criteria."
-        filters={
-          <Segmented
-            options={[
-              { key: 'ALL', label: 'All Classes' },
-              ...classrooms.map((c) => ({ key: c.id, label: c.name })),
-            ]}
-            value={classFilter}
-            onChange={setClassFilter}
-          />
-        }
-        paginate
-        defaultPageSize={10}
-        exportFileName="students.csv"
-        rowSelection
-        selectedKeys={selected}
-        onSelectionChange={setSelected}
-        bulkActions={
-          <>
-            <button className="btn btn-ghost btn-sm" onClick={() => openBulkClass()} disabled={selected.length === 0}>
-              <ArrowRightLeft size={14} /> Assign class
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setBulkStatusOpen(true)} disabled={selected.length === 0}>
-              <CheckSquare2 size={14} /> Change status
-            </button>
-          </>
-        }
-        rowActions={(s) => [
-          {
-            label: 'View profile',
-            icon: <UserRound size={15} />,
-            onClick: () => router.push(`/app/students/${s.id}`),
-          },
-          {
-            label: 'Assign classroom',
-            icon: <ArrowRightLeft size={15} />,
-            onClick: () => openBulkClass([s.id]),
-          },
-        ]}
-        footer={
-          rows ? (
-            <span>
-              Active <b>{rows.filter((r) => r.status === 'ACTIVE').length}</b>
-              <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
-              Transferred <b>{rows.filter((r) => r.status === 'TRANSFERRED').length}</b>
-              <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
-              Withdrawn <b>{rows.filter((r) => r.status === 'WITHDRAWN').length}</b>
-              <span className="t-caption" style={{ margin: '0 8px' }}>·</span>
-              Unassigned <b>{rows.filter((r) => !r.classroom).length}</b>
-            </span>
-          ) : null
-        }
-      />
+      {/* 4. Classroom Roster Quick-Switch Navigation */}
+      <div style={{ marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <Segmented
+          options={[
+            { key: 'ALL', label: 'All Classrooms' },
+            ...classrooms.map((c) => ({
+              key: c.id,
+              label: `${c.name} (${enumLabel(c.programType)})`,
+            })),
+          ]}
+          value={classFilter}
+          onChange={setClassFilter}
+        />
       </div>
 
+      {/* 5. Prominent Search Bar */}
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        <Search
+          size={18}
+          style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#8A94A8' }}
+        />
+        <input
+          type="text"
+          className="input"
+          style={{
+            height: 46,
+            paddingLeft: 42,
+            paddingRight: 40,
+            borderRadius: 12,
+            fontSize: 14,
+            borderColor: '#E7EAF2',
+            background: '#FFFFFF',
+            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
+          }}
+          placeholder="Search child, admission ID or guardian phone..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        {q && (
+          <button
+            onClick={() => setQ('')}
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              color: '#8A94A8',
+              cursor: 'pointer',
+              padding: 4,
+            }}
+          >
+            <X size={15} />
+          </button>
+        )}
+      </div>
 
-      {/* Enroll Child Modal */}
+      {/* 6. Contextual Bulk Action Floating / Docked Toolbar */}
+      {selected.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 18px',
+            background: '#F0ECFF',
+            border: '1px solid #D8CEFD',
+            borderRadius: 12,
+            marginBottom: 16,
+            color: '#5B3DF5',
+            boxShadow: '0 2px 8px rgba(91, 61, 245, 0.12)',
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+            <CheckSquare2 size={16} />
+            <span>{selected.length} child{selected.length === 1 ? '' : 'ren'} selected</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ background: '#FFFFFF', borderColor: '#D8CEFD', color: '#5B3DF5', height: 32, fontSize: 12.5 }}
+              onClick={() => openBulkClass()}
+            >
+              <ArrowRightLeft size={13} /> Assign Class
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ background: '#FFFFFF', borderColor: '#D8CEFD', color: '#5B3DF5', height: 32, fontSize: 12.5 }}
+              onClick={() => setBulkStatusOpen(true)}
+            >
+              <CheckSquare2 size={13} /> Change Status
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ height: 32, fontSize: 12.5, color: '#66738F' }}
+              onClick={() => setSelected([])}
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Student Directory Workspace */}
+      <div
+        style={{
+          background: '#FFFFFF',
+          border: '1px solid #E7EAF2',
+          borderRadius: 16,
+          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Desktop Table View */}
+        <div className="hidden-mobile">
+          <DataTable
+            columns={columns}
+            data={rows}
+            loading={loading}
+            onRowClick={(s) => router.push(`/app/students/${s.id}`)}
+            emptyTitle="No children found"
+            emptyMessage="No students match the selected campus, session, classroom, or search query."
+            paginate
+            defaultPageSize={10}
+            exportFileName="students-roster.csv"
+            rowSelection
+            selectedKeys={selected}
+            onSelectionChange={setSelected}
+            rowActions={(s) => [
+              {
+                label: 'View 360° Profile',
+                icon: <UserRound size={15} />,
+                onClick: () => router.push(`/app/students/${s.id}`),
+              },
+              {
+                label: 'Assign Classroom',
+                icon: <ArrowRightLeft size={15} />,
+                onClick: () => openBulkClass([s.id]),
+              },
+            ]}
+            footer={
+              rows ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: '#66738F' }}>
+                  <span>Total Shown: <b>{rows.length}</b></span>
+                  <span>·</span>
+                  <span>Active: <b style={{ color: '#10B981' }}>{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
+                  <span>·</span>
+                  <span>Transferred: <b>{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
+                  <span>·</span>
+                  <span>Withdrawn: <b>{rows.filter((r) => r.status === 'WITHDRAWN').length}</b></span>
+                  <span>·</span>
+                  <span>Unassigned: <b>{rows.filter((r) => !r.classroom).length}</b></span>
+                </div>
+              ) : null
+            }
+          />
+        </div>
+
+        {/* Mobile View: High-Fidelity Child Cards (<768px) */}
+        <div className="visible-mobile" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Skeleton h={90} />
+              <Skeleton h={90} />
+              <Skeleton h={90} />
+            </div>
+          ) : rows && rows.length > 0 ? (
+            rows.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => router.push(`/app/students/${s.id}`)}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1px solid #E7EAF2',
+                  borderRadius: 14,
+                  padding: 14,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  boxShadow: '0 1px 2px rgba(21, 37, 74, 0.03)',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <Avatar name={s.name} src={s.photoUrl} size="md" />
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#15254A' }}>{s.name}</div>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F1F4FA', padding: '1px 5px', borderRadius: 4, color: '#66738F' }}>
+                          {s.admissionNo}
+                        </span>
+                        {s.seatNumber && (
+                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: '#F0ECFF', color: '#5B3DF5', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
+                            {s.seatNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <StatusBadge status={s.status} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5, borderTop: '1px solid #F1F4FA', paddingTop: 10 }}>
+                  <div>
+                    <div style={{ color: '#8A94A8', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Classroom</div>
+                    <div style={{ fontWeight: 600, color: '#15254A' }}>{s.classroom?.name || 'Unassigned'}</div>
+                    {s.classroom && <div style={{ color: '#66738F', fontSize: 11 }}>{enumLabel(s.classroom.programType)}</div>}
+                  </div>
+                  <div>
+                    <div style={{ color: '#8A94A8', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Guardian</div>
+                    <div style={{ fontWeight: 600, color: '#15254A' }}>{s.primaryGuardian?.name || '-'}</div>
+                    {s.primaryGuardian?.phone && <div style={{ color: '#66738F', fontSize: 11 }}>{s.primaryGuardian.phone}</div>}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F1F4FA', paddingTop: 8 }}>
+                  <span style={{ fontSize: 12, color: '#8A94A8' }}>
+                    Born: {fmtDate(s.dob)} ({formatAge(s.dob)})
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#5B3DF5', fontSize: 12.5, fontWeight: 600 }}>
+                    Profile <ChevronRight size={14} />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ textAlign: 'center', padding: '36px 16px', color: '#8A94A8' }}>
+              <UserRound size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#15254A' }}>No children found</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>No students match the current filter criteria.</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 8. Enroll Child Modal */}
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         title="Enroll Child"
-        subtitle="Add a new child directly to the student register"
+        subtitle="Add a new child directly to the preschool student register"
         icon={<Plus size={22} />}
         wide
       >
         <form id="create-student" onSubmit={onCreate} onInput={onDraftChange} ref={formRef}>
           <EnterNav>
-          <div className="form-grid">
-            <div className="field">
-              <label>First Name <span className="req">*</span></label>
-              <input className="input" name="firstName" required placeholder="Aarav" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Section A: Child Demographic Information */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+                  1. Child Information
+                </div>
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>First Name <span className="req">*</span></label>
+                    <input className="input" name="firstName" required placeholder="e.g. Aarav" />
+                  </div>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Last Name</label>
+                    <input className="input" name="lastName" placeholder="e.g. Sharma" />
+                  </div>
+                  <div className="field">
+                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: '#15254A' }}>
+                      <span>Date of Birth <span className="req">*</span></span>
+                      {dob && <span style={{ color: '#5B3DF5', fontWeight: 600, fontSize: 12 }}>Age: {formatAge(dob)}</span>}
+                    </label>
+                    <DatePicker name="dob" value={dob} onChange={setDob} placeholder="Select date of birth" />
+                  </div>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Gender <span className="req">*</span></label>
+                    <select className="select" name="gender" required defaultValue="MALE">
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section B: Classroom & Program Placement */}
+              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+                  2. Classroom Placement & Capacity
+                </div>
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Classroom / Section</label>
+                    <select
+                      className="select"
+                      name="classroomId"
+                      value={enrollClassroomId}
+                      onChange={(e) => setEnrollClassroomId(e.target.value)}
+                    >
+                      <option value="">- Unassigned -</option>
+                      {classrooms.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Cap: ${c.capacity}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedEnrollClass && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          padding: '10px 14px',
+                          borderRadius: 8,
+                          background: '#F9FAFD',
+                          border: '1px solid #E7EAF2',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: 12.5,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <School size={15} style={{ color: '#5B3DF5' }} />
+                          <span><b>{selectedEnrollClass.name}</b> ({enumLabel(selectedEnrollClass.programType)})</span>
+                        </div>
+                        <span style={{ color: '#66738F' }}>
+                          Capacity: <b>{selectedEnrollClass.capacity || 20} seats</b>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section C: Family & Guardian Information */}
+              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+                  3. Parent / Guardian Details
+                </div>
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Name <span className="req">*</span></label>
+                    <input className="input" name="guardianName" required placeholder="e.g. Priya Sharma" />
+                  </div>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Relationship <span className="req">*</span></label>
+                    <select className="select" name="guardianRelationship" defaultValue="MOTHER">
+                      <option value="MOTHER">Mother</option>
+                      <option value="FATHER">Father</option>
+                      <option value="GRANDPARENT">Grandparent</option>
+                      <option value="LEGAL_GUARDIAN">Legal Guardian</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Phone <span className="req">*</span></label>
+                    <MaskedInput name="guardianPhone" mask="phone" required />
+                  </div>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Guardian Email</label>
+                    <input className="input" name="guardianEmail" type="email" placeholder="priya@example.com" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section D: Health & Home Address */}
+              <div style={{ borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#5B3DF5', marginBottom: 12 }}>
+                  4. Health & Home Address
+                </div>
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                  <div className="field">
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Blood Group</label>
+                    <select className="select" name="bloodGroup" defaultValue="">
+                      <option value="">- Unknown / Not recorded -</option>
+                      {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map((b) => (
+                        <option key={b} value={b}>{b.replace('_POSITIVE','+').replace('_NEGATIVE','-')}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field" style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: '#15254A' }}>Residential Address</label>
+                    <input className="input" name="address" placeholder="Flat 402, Green Valley Apartments, Pune" />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="field">
-              <label>Last Name</label>
-              <input className="input" name="lastName" placeholder="Sharma" />
-            </div>
-            <div className="field">
-              <label>Date of Birth <span className="req">*</span></label>
-              <DatePicker name="dob" value={dob} onChange={setDob} placeholder="Date of birth" />
-            </div>
-            <div className="field">
-              <label>Gender <span className="req">*</span></label>
-              <select className="select" name="gender" required defaultValue="MALE">
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Class / Section</label>
-              <select className="select" name="classroomId" defaultValue="">
-                <option value="">- Unassigned -</option>
-                {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({enumLabel(c.programType)}){c.capacity ? ` - Cap: ${c.capacity}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Blood Group</label>
-              <select className="select" name="bloodGroup" defaultValue="">
-                <option value="">-</option>
-                {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map((b) => (
-                  <option key={b} value={b}>{b.replace('_POSITIVE','+').replace('_NEGATIVE','-')}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Parent / Guardian Name <span className="req">*</span></label>
-              <input className="input" name="guardianName" required placeholder="Priya Sharma" />
-            </div>
-            <div className="field">
-              <label>Guardian Phone <span className="req">*</span></label>
-              <MaskedInput name="guardianPhone" mask="phone" required />
-            </div>
-            <div className="field">
-              <label>Guardian Email</label>
-              <input className="input" name="guardianEmail" type="email" placeholder="priya@example.com" />
-            </div>
-            <div className="field">
-              <label>Relationship</label>
-              <select className="select" name="guardianRelationship" defaultValue="MOTHER">
-                <option value="MOTHER">Mother</option>
-                <option value="FATHER">Father</option>
-                <option value="GRANDPARENT">Grandparent</option>
-                <option value="LEGAL_GUARDIAN">Legal Guardian</option>
-              </select>
-            </div>
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Home Address</label>
-              <input className="input" name="address" placeholder="Flat 402, Green Valley Apartments, Pune" />
-            </div>
-          </div>
           </EnterNav>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)}>Cancel</button>
-            <button type="submit" className={`btn btn-primary ${saving ? 'is-loading' : ''}`} disabled={saving}>
-              {saving ? 'Saving...' : 'Enroll Child'}
-            </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, borderTop: '1px solid #E7EAF2', paddingTop: 16 }}>
+            <span style={{ fontSize: 12, color: draftSaved ? '#10B981' : '#8A94A8', display: 'flex', alignItems: 'center', gap: 4 }}>
+              {draftSaved ? <><CheckCircle2 size={13} /> Draft autosaved</> : 'Autosaves as you type'}
+            </span>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`btn btn-primary ${saving ? 'is-loading' : ''}`}
+                disabled={saving}
+                style={{ height: 42, padding: '0 20px', borderRadius: 9, fontWeight: 600 }}
+              >
+                {saving ? 'Admitting...' : 'Complete Enrollment'}
+              </button>
+            </div>
           </div>
         </form>
       </Modal>
 
-      {/* Bulk Assign Classroom Modal */}
+      {/* 9. Bulk Assign Classroom Modal */}
       <Modal
         open={bulkClassOpen}
         onClose={() => setBulkClassOpen(false)}
-        title="Assign classroom"
+        title="Assign Classroom Section"
         subtitle={`Move ${selected.length} child${selected.length === 1 ? '' : 'ren'} to a new section`}
         icon={<ArrowRightLeft size={22} />}
       >
         <form onSubmit={applyBulkClass}>
-          <div className="form-grid" style={{ gridTemplateColumns: '1fr' }}>
-            <Field label="Destination class / section" required helper="Capacity is enforced per classroom on the server.">
-              <select className="select" value={bulkNewClass} onChange={(e) => setBulkNewClass(e.target.value)} required>
+          <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
+            <Field label="Destination class / section" required helper="Classroom capacity is strictly enforced on the server.">
+              <select
+                className="select"
+                value={bulkNewClass}
+                onChange={(e) => setBulkNewClass(e.target.value)}
+                required
+              >
                 <option value="">- Select classroom -</option>
                 {classrooms.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} ({enumLabel(c.programType)}){c.capacity ? ` - Cap: ${c.capacity}` : ''}
+                    {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Capacity: ${c.capacity}` : ''}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Reason (optional)">
-              <input className="input" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder="Section regrouping, sibling placement..." />
+
+            {selectedBulkClass && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  background: '#F0ECFF',
+                  border: '1px solid #D8CEFD',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: 12.5,
+                  color: '#5B3DF5',
+                }}
+              >
+                <span>Moving to <b>{selectedBulkClass.name}</b></span>
+                <span>Capacity: <b>{selectedBulkClass.capacity || 20} seats</b></span>
+              </div>
+            )}
+
+            <Field label="Reason (for audit trail)">
+              <input
+                className="input"
+                value={bulkReason}
+                onChange={(e) => setBulkReason(e.target.value)}
+                placeholder="e.g. Sibling placement, cohort regrouping, teacher request"
+              />
             </Field>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setBulkClassOpen(false)}>Cancel</button>
-            <button type="submit" className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`} disabled={bulkAssigning || !bulkNewClass || selected.length === 0}>
-              {bulkAssigning ? 'Assigning...' : `Assign ${selected.length} child${selected.length === 1 ? '' : 'ren'}`}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setBulkClassOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`}
+              disabled={bulkAssigning || !bulkNewClass || selected.length === 0}
+            >
+              {bulkAssigning ? 'Moving...' : `Assign ${selected.length} child${selected.length === 1 ? '' : 'ren'}`}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Bulk Change Status Modal */}
+      {/* 10. Bulk Change Status Modal */}
       <Modal
         open={bulkStatusOpen}
         onClose={() => setBulkStatusOpen(false)}
-        title="Change status"
-        subtitle={`Update ${selected.length} child${selected.length === 1 ? '' : 'ren'} lifecycle status`}
+        title="Update Student Lifecycle Status"
+        subtitle={`Update ${selected.length} child${selected.length === 1 ? '' : 'ren'} status`}
         icon={<CheckSquare2 size={22} />}
       >
         <form onSubmit={applyBulkStatus}>
-          <div className="form-grid" style={{ gridTemplateColumns: '1fr' }}>
-            <Field label="New status" required>
-              <select className="select" value={bulkNewStatus} onChange={(e) => setBulkNewStatus(e.target.value)} required>
+          <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
+            <Field label="New lifecycle status" required>
+              <select
+                className="select"
+                value={bulkNewStatus}
+                onChange={(e) => setBulkNewStatus(e.target.value)}
+                required
+              >
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
                 <option value="TRANSFERRED">Transferred</option>
                 <option value="WITHDRAWN">Withdrawn</option>
                 <option value="SUSPENDED">Suspended</option>
+                <option value="GRADUATED">Graduated</option>
               </select>
             </Field>
-            <Field label="Reason" required helper="Required for audit trail">
-              <input className="input" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} required placeholder="Why is this status being applied?" />
+            <Field label="Reason for change" required helper="Required for administrative compliance and immutable audit trail.">
+              <input
+                className="input"
+                value={bulkReason}
+                onChange={(e) => setBulkReason(e.target.value)}
+                required
+                placeholder="Why is this status being applied?"
+              />
             </Field>
           </div>
+
           {bulkNewStatus === 'WITHDRAWN' && (
-            <div className="msg" style={{ marginTop: 12 }}>
-              Withdrawal is non-destructive and may be blocked for students with pending fees unless forced.
+            <div
+              style={{
+                marginTop: 14,
+                padding: '10px 14px',
+                borderRadius: 8,
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                color: '#B91C1C',
+                fontSize: 12.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <AlertCircle size={16} />
+              <span>Withdrawal is non-destructive. Students with pending fees may require settlement before withdrawal.</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setBulkStatusOpen(false)}>Cancel</button>
-            <button type="submit" className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`} disabled={bulkAssigning || selected.length === 0}>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setBulkStatusOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`}
+              disabled={bulkAssigning || selected.length === 0}
+            >
               {bulkAssigning ? 'Updating...' : `Update ${selected.length} child${selected.length === 1 ? '' : 'ren'}`}
             </button>
           </div>
         </form>
       </Modal>
-    </>
+    </div>
   )
 }

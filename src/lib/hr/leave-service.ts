@@ -35,7 +35,7 @@ export class LeaveService {
       leaveTypes = await db.leaveType.findMany({ where: { tenantId, isActive: true } })
     }
 
-    const balances = []
+    const balances: any[] = []
     for (const lt of leaveTypes) {
       let b = await db.leaveBalance.findUnique({
         where: {
@@ -290,7 +290,7 @@ export class LeaveService {
         },
       })
 
-      const createdCoverages = []
+      const createdCoverages: any[] = []
       if (classrooms.length > 0) {
         // Look for available substitute teachers in the same branch
         const candidateSubstitutes = await tx.staffProfile.findMany({
@@ -319,7 +319,7 @@ export class LeaveService {
               classroomId: cls.id,
               date: leaveDate,
               substituteStaffId: sub?.id || null,
-              coordinatorStaffId: !sub && coordinator ? coordinator.id : (sub?.id === coordinator?.id ? coordinator.id : null),
+              coordinatorStaffId: !sub && coordinator ? coordinator.id : (sub?.id === coordinator?.id ? (coordinator?.id || null) : null),
               status: sub ? 'ASSIGNED' : 'COORDINATOR_COVERAGE',
               notificationSent: true,
               notes: `Auto-coverage triggered for classroom ${cls.name}`,

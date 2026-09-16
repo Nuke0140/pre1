@@ -187,4 +187,102 @@ export class OffboardingService {
       return updated
     })
   }
+
+  /**
+   * Reopen a clearance task
+   */
+  static async reopenClearanceTask(
+    tenantId: string,
+    taskId: string,
+    actor: { id: string; name: string; role: string },
+    remarks?: string
+  ) {
+    const task = await db.offboardingTask.findFirst({
+      where: { id: taskId, tenantId },
+      include: { staffProfile: { include: { user: true } } },
+    })
+    if (!task) throw new Error('Task not found')
+
+    return await db.$transaction(async (tx) => {
+      const updated = await tx.offboardingTask.update({
+        where: { id: taskId },
+        data: {
+          isCompleted: false,
+          completedById: null,
+          completedByName: null,
+          completedAt: null,
+          remarks: remarks || 'Reopened clearance task',
+        },
+      })
+
+      // If resignation was completed, revert to UNDER_NOTICE
+      await tx.resignationRequest.updateMany({
+        where: { staffProfileId: task.staffProfileId, status: 'COMPLETED' },
+        data: { status: 'UNDER_NOTICE' },
+      })
+
+      await AuditService.record({
+        tenantId,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        action: 'CLEARANCE_TASK_REOPENED',
+        entity: 'OffboardingTask',
+        entityId: taskId,
+        module: 'HR',
+        summary: `Reopened ${task.taskType} clearance for ${task.staffProfile.user.fullName}`,
+        severity: 'WARNING',
+      }, tx)
+
+      return updated
+    })
+  }
+
+  /**
+   * Action Resignation (Approve, set agreed LWD, or Reject)
+   */
+  static async actionResignation(
+    tenantId: string,
+    resignationId: string,
+    data: {
+      status: ResignationStatus
+      agreedLwd?: Date | string
+    },
+    actor: { id: string; name: string; role: string }
+  ) {
+    const resignation = await db.resignationRequest.findFirst({
+      where: { id: resignationId, tenantId },
+      include: { staffProfile: { include: { user: true } } },
+    })
+    if (!resignation) throw new Error('Resignation not found')
+
+    return await db.$transaction(async (tx) => {
+      const updated = await tx.resignationRequest.update({
+        where: { id: resignationId },
+        data: {
+          status: data.status,
+          agreedLwd: data.agreedLwd ? new Date(data.agreedLwd) : undefined,
+          actionedById: actor.id,
+          actionedAt: new Date(),
+        },
+      })
+
+      await AuditService.record({
+        tenantId,
+        actorId: actor.id,
+        actorName: actor.name,
+        actorRole: actor.role,
+        action: 'RESIGNATION_ACTIONED',
+        entity: 'ResignationRequest',
+        entityId: resignationId,
+        module: 'HR',
+        summary: `Updated resignation status to ${data.status} for ${resignation.staffProfile.user.fullName}`,
+        severity: 'INFO',
+        oldValues: { status: resignation.status },
+        newValues: data,
+      }, tx)
+
+      return updated
+    })
+  }
 }

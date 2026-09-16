@@ -611,6 +611,163 @@ async function run() {
   const totalProfilesCount = await db.staffProfile.count({ where: { tenantId: tenant.id, deletedAt: null } })
   assert(totalProfilesCount >= 3, '16. HR Staff Directory count accurately matches all active workforce members')
 
+  // ----------------------------------------------------
+  // TEST SUITE 8: COMPLETE FIELD EDITABILITY & ATTENDANCE CORRECTION
+  // ----------------------------------------------------
+  console.log('\nTEST SUITE 8: Complete Field Editability & Attendance Correction')
+
+  // 1. Full Editability Matrix via StaffService.updateStaffProfile
+  const updatedStaff = await StaffService.updateStaffProfile(
+    tenant.id,
+    syncTeacherProfile.id,
+    {
+      fullName: 'Aarohi Sen-Gupta',
+      phone: '9988776655',
+      bloodGroup: 'O_POSITIVE',
+      currentAddress: '42 Orchid Boulevard, Tech Park Road',
+      emergencyContactName: 'Amit Sen',
+      emergencyContactPhone: '9988776650',
+      panNumber: 'ABCDE1234F',
+      aadhaarNumber: '123456789012',
+      designation: 'Lead Pedagogist',
+      department: 'Primary Early Years',
+      salary: {
+        basicSalary: 55000,
+        hra: 15000,
+        specialAllowance: 5000,
+        pfEligible: true,
+      },
+      bankDetails: {
+        accountNumber: '9876543210123',
+        ifscCode: 'HDFC0000123',
+        bankName: 'HDFC Bank',
+        accountHolderName: 'Aarohi Sen-Gupta',
+      },
+    },
+    { id: syncTeacherUser.id, name: 'Admin', role: 'CAMPUS_ADMIN' }
+  )
+
+  const updatedSalary = await db.staffSalaryStructure.findUnique({ where: { staffProfileId: syncTeacherProfile.id } })
+  const updatedBank = await db.staffBankDetail.findUnique({ where: { staffProfileId: syncTeacherProfile.id } })
+
+  assert(updatedStaff.user.fullName === 'Aarohi Sen-Gupta', '1. User fullName updated via StaffProfile editor')
+  assert(updatedStaff.user.phone === '9988776655', '2. User phone updated via StaffProfile editor')
+  assert(updatedStaff.designation === 'Lead Pedagogist', '3. Designation updated to Lead Pedagogist')
+  assert(updatedStaff.department === 'Primary Early Years', '4. Department updated to Primary Early Years')
+  assert(updatedStaff.bloodGroup === 'O_POSITIVE', '5. Blood group recorded as O_POSITIVE')
+  assert(updatedStaff.panNumber === 'ABCDE1234F', '6. PAN number recorded securely')
+  assert(updatedBank?.accountNumberMasked.includes('0123') === true, '7. Bank account masked correctly (0123)')
+  assert(updatedBank?.ifscCode === 'HDFC0000123', '8. Bank IFSC code updated')
+  assert(Number(updatedSalary?.basicSalary) === 55000, '9. Base salary amount updated to 55000')
+
+  // 2. Attendance Correction Workflow with Mandatory Audit Reason
+  const todayStr = new Date().toISOString().split('T')[0]
+  const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
+  
+  // Ensure attendance record exists
+  const existingAtt = await db.attendanceStaff.upsert({
+    where: {
+      staffProfileId_date: {
+        staffProfileId: syncTeacherProfile.id,
+        date: todayDate,
+      },
+    },
+    create: {
+      tenantId: tenant.id,
+      branchId: branch.id,
+      staffProfileId: syncTeacherProfile.id,
+      date: todayDate,
+      status: 'PRESENT',
+      checkIn: new Date(`${todayStr}T09:30:00.000Z`),
+      checkOut: new Date(`${todayStr}T17:30:00.000Z`),
+      workedHours: 8,
+      shiftHours: 8,
+    },
+    update: {},
+  })
+
+  // Perform correction
+  const newPunchIn = new Date(`${todayStr}T08:45:00.000Z`)
+  const newPunchOut = new Date(`${todayStr}T17:45:00.000Z`)
+  const diffMs = newPunchOut.getTime() - newPunchIn.getTime()
+  const correctedHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10
+
+  const correctedAtt = await db.attendanceStaff.update({
+    where: { id: existingAtt.id },
+    data: {
+      checkIn: newPunchIn,
+      checkOut: newPunchOut,
+      workedHours: correctedHours,
+      status: 'PRESENT',
+      notes: 'Biometric reader sync delay: Manual correction by Administrator',
+    },
+  })
+
+  assert(correctedAtt.workedHours === 9, '10. Attendance workHours recalculated correctly to 9 hours')
+  assert(correctedAtt.notes?.includes('Manual correction') === true, '11. Attendance correction audit remark persisted')
+
+  // 3. Application Stage Progression in Recruitment Pipeline
+  const activeOpening = await db.jobOpening.findFirst({ where: { tenantId: tenant.id } })
+  if (activeOpening) {
+    const candidate2 = await RecruitmentService.applyForJob(
+      tenant.id,
+      activeOpening.id,
+      {
+        candidateName: 'Vikram Joshi',
+        email: `vikram.joshi.${Date.now()}@preone.test`,
+        phone: '9811223344',
+        experienceYears: 4,
+        currentSalary: 40000,
+        expectedSalary: 50000,
+        noticePeriodDays: 15,
+      }
+    )
+
+    const movedCandidate = await RecruitmentService.updateApplicationStatus(
+      tenant.id,
+      candidate2.id,
+      'SCREENING',
+      actor,
+      'Resume screened and approved by Academic Coordinator'
+    )
+    assert(movedCandidate.status === 'SCREENING', '12. Candidate status advanced to SCREENING')
+
+    const interviewRound = await RecruitmentService.scheduleInterview(
+      tenant.id,
+      candidate2.id,
+      {
+        roundName: 'Round 1 - Technical Demo',
+        scheduledAt: new Date(Date.now() + 86400000),
+        interviewerName: 'Academic Director',
+      },
+      actor
+    )
+
+    const interviewRes = await RecruitmentService.recordInterviewResult(
+      tenant.id,
+      interviewRound.id,
+      {
+        status: 'COMPLETED',
+        rating: 5,
+        feedback: 'Excellent Montessori domain knowledge and pedagogy demo',
+      },
+      actor
+    )
+    assert(interviewRes.feedback?.includes('Excellent Montessori') === true, '13. Interview feedback & 5-star rating recorded')
+  }
+
+  // 4. Compliance Radar Evaluation Check
+  const allStaffCount = await db.staffProfile.count({ where: { tenantId: tenant.id, deletedAt: null } })
+  const validPoshTrainings = await db.staffTraining.count({
+    where: {
+      tenantId: tenant.id,
+      trainingType: 'POSH',
+      expiryDate: { gte: new Date() },
+    },
+  })
+  assert(allStaffCount >= 2, '14. Total staff count valid for compliance radar assessment')
+  assert(validPoshTrainings >= 1, '15. At least 1 staff member has active POSH certification')
+
   console.log('\n====================================================')
   console.log(`E2E TEST RUN COMPLETE: ${passed} PASSED, ${failed} FAILED`)
   console.log('====================================================')

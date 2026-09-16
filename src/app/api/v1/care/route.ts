@@ -192,3 +192,98 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+/**
+ * PATCH /api/v1/care — update / correct an existing care timeline entry.
+ * Body: { id: string, title?: string, body?: string, mood?: string, reason?: string }
+ */
+export async function PATCH(req: NextRequest) {
+  const session = await requireApi(req, 'attendance:mark')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  try {
+    const body = await req.json()
+    const { id, title, body: bodyText, mood, reason } = body as {
+      id: string
+      title?: string
+      body?: string
+      mood?: string
+      reason?: string
+    }
+
+    if (!id) return Errors.validation('id is required')
+
+    const entry = await db.timelineEntry.findFirst({
+      where: { id, tenantId: session.tenantId },
+    })
+    if (!entry) return Errors.notFound('Care timeline entry')
+
+    const updated = await db.timelineEntry.update({
+      where: { id },
+      data: {
+        title: title ?? entry.title,
+        body: bodyText ?? entry.body,
+        mood: mood ?? entry.mood,
+        actorId: session.uid,
+      },
+    })
+
+    const { audit } = await import('@/lib/sequence')
+    await audit({
+      tenantId: session.tenantId,
+      actorId: session.uid,
+      actorName: session.name,
+      action: 'UPDATE',
+      entity: 'TimelineEntry',
+      entityId: id,
+      summary: `Care record updated for student ${entry.studentId}: ${entry.type} — ${title || entry.title}${
+        reason ? ` [Reason: ${reason}]` : ''
+      }`,
+    })
+
+    return ok(updated)
+  } catch (e) {
+    return Errors.system(e)
+  }
+}
+
+/**
+ * DELETE /api/v1/care?id= — delete an erroneously created care record.
+ */
+export async function DELETE(req: NextRequest) {
+  const session = await requireApi(req, 'attendance:mark')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  try {
+    const sp = req.nextUrl.searchParams
+    const id = sp.get('id')
+    if (!id) return Errors.validation('id is required')
+
+    const entry = await db.timelineEntry.findFirst({
+      where: { id, tenantId: session.tenantId },
+    })
+    if (!entry) return Errors.notFound('Care timeline entry')
+
+    await db.timelineEntry.delete({
+      where: { id },
+    })
+
+    const { audit } = await import('@/lib/sequence')
+    await audit({
+      tenantId: session.tenantId,
+      actorId: session.uid,
+      actorName: session.name,
+      action: 'DELETE',
+      entity: 'TimelineEntry',
+      entityId: id,
+      summary: `Care record deleted for student ${entry.studentId}: ${entry.type} — ${entry.title}`,
+    })
+
+    return ok({ deleted: true, id })
+  } catch (e) {
+    return Errors.system(e)
+  }
+}
+

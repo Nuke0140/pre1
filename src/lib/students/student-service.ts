@@ -1510,6 +1510,18 @@ export class StudentService {
         where: { id: input.guardianId, tenantId: scope.tenantId },
       })
       if (!guardian) throw new Error('Guardian not found')
+
+      // Update canonical guardian details if provided
+      if (input.fullName || input.phone || input.email !== undefined) {
+        guardian = await db.guardian.update({
+          where: { id: guardian.id },
+          data: {
+            ...(input.fullName ? { fullName: input.fullName.trim() } : {}),
+            ...(input.phone ? { phone: input.phone.trim() } : {}),
+            ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
+          },
+        })
+      }
     } else if (input.phone) {
       // Candidate check by phone AND fullName (to prevent merging shared household phones)
       const phoneNorm = input.phone.trim()

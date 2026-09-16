@@ -3,8 +3,33 @@
 import React from 'react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
 
-export function Avatar({ name, size, className }: { name?: string | null; size?: 'sm' | 'lg'; className?: string }) {
+export function Avatar({
+  name,
+  src,
+  size,
+  className,
+}: {
+  name?: string | null
+  src?: string | null
+  size?: 'sm' | 'md' | 'lg'
+  className?: string
+}) {
+  const [imgError, setImgError] = React.useState(false)
   const safeName = name || ''
+
+  if (src && !imgError) {
+    return (
+      <span className={`avatar ${size || ''} ${className || ''}`} style={{ overflow: 'hidden', padding: 0 }} aria-hidden="true">
+        <img
+          src={src}
+          alt={safeName}
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}
+        />
+      </span>
+    )
+  }
+
   return (
     <span className={`avatar ${size || ''} ${avatarClass(safeName)} ${className || ''}`} aria-hidden="true">
       {initials(safeName)}
@@ -95,17 +120,19 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
 }
 
 export function EmptyState({
-  icon, title, message, action, why,
+  icon, title, message, action, why, kicker,
 }: {
   icon: React.ReactNode
   title: string
   message: string
   action?: React.ReactNode
   why?: string
+  kicker?: string
 }) {
   return (
     <div className="empty">
       <div className="empty-art">{icon}</div>
+      {kicker && <div className="empty-kicker">{kicker}</div>}
       <div className="empty-what">{title}</div>
       <p className="empty-why">{why || message}</p>
       {action && <div className="empty-next">{action}</div>}

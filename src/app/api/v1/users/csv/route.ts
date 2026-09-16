@@ -10,6 +10,8 @@ const VALID_ROLES = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS',
 const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'] as const
 const VALID_EMP_TYPES = ['REGULAR', 'PROBATION', 'CONTRACT', 'INTERN', 'PART_TIME'] as const
 
+export type CsvMode = 'CREATE' | 'UPDATE' | 'UPSERT' | 'DELETE'
+
 export interface CsvRowInput {
   rowNumber: number
   fullName?: string
@@ -116,7 +118,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/v1/users/csv — Validate or Execute CSV import
+ * POST /api/v1/users/csv — Validate or Execute CSV import, update, overwrite, or soft-deactivation
  */
 export async function POST(req: NextRequest) {
   const session = await requireApi(req, 'users:write')
@@ -125,9 +127,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { action, mode = 'CREATE', rows, applyValidOnly = false } = body as {
+    const {
+      action,
+      mode = 'CREATE',
+      overwrite = false,
+      rows,
+      applyValidOnly = false,
+    } = body as {
       action: 'validate' | 'execute'
-      mode: 'CREATE' | 'UPDATE'
+      mode: CsvMode
+      overwrite?: boolean
       rows: CsvRowInput[]
       applyValidOnly?: boolean
     }
@@ -142,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     const isActorOwnerOrPlatform = session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
 
-    // Fetch master data for tenant: branches & existing users
+    // Fetch master data for tenant: branches & existing users (TENANT SCOPED)
     const [branches, existingTenantUsers] = await Promise.all([
       db.branch.findMany({
         where: { tenantId: session.tenantId, deletedAt: null },
@@ -172,8 +181,9 @@ export async function POST(req: NextRequest) {
     let validRowsCount = 0
     let newUsersCount = 0
     let existingUsersCount = 0
+    let deactivatingUsersCount = 0
 
-    // Dry-run validation loop
+    // Dry-run validation loop (Zero mutation)
     for (const r of rows) {
       const rowNum = r.rowNumber || 1
       const email = r.email?.trim().toLowerCase()
@@ -206,28 +216,69 @@ export async function POST(req: NextRequest) {
 
       const existing = existingUserMap.get(email)
 
-      if (mode === 'CREATE') {
-        if (existing) {
-          addErr('email', 'EXISTS', email, 'USER_ALREADY_EXISTS', `User ${email} already exists in this school`)
-        }
-
-        if (!r.fullName?.trim()) {
-          addErr('fullName', '', '', 'MISSING_NAME', 'Full name is required')
-        }
-
-        if (!r.password || r.password.length < 6) {
-          addErr('password', '', '', 'INVALID_PASSWORD', 'Password must be at least 6 characters')
-        }
-      } else {
-        // UPDATE mode
+      // 1. DELETE Mode — Controlled Soft-Deactivation
+      if (mode === 'DELETE') {
         if (!existing) {
           addErr('email', 'NOT_FOUND', email, 'USER_NOT_FOUND', `User ${email} not found in this school`)
           continue
         }
 
         if (existing.role === 'OWNER' && !isActorOwnerOrPlatform) {
-          addErr('role', 'OWNER', '', 'PROTECTED_ACCOUNT', 'Only school owners can modify an OWNER account')
+          addErr('role', 'OWNER', '', 'CANNOT_MODIFY_OWNER', 'Only school owners can deactivate an OWNER account')
           continue
+        }
+
+        if (existing.role === 'PRINCIPAL' && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+          addErr('role', 'PRINCIPAL', '', 'CANNOT_MODIFY_PRINCIPAL', 'You do not have permission to deactivate principal accounts')
+          continue
+        }
+
+        if (rowValid) {
+          validRowsCount++
+          deactivatingUsersCount++
+          diffs.push({
+            rowNumber: rowNum,
+            identifier: email,
+            name: existing.user.fullName,
+            isNew: false,
+            changes: [{ field: 'status', currentValue: existing.status, requestedValue: 'INACTIVE' }],
+          })
+        }
+        continue
+      }
+
+      // 2. CREATE Mode (respects overwrite flag)
+      if (mode === 'CREATE') {
+        if (existing && !overwrite) {
+          addErr('email', 'EXISTS', email, 'USER_ALREADY_EXISTS', `User ${email} already exists in this school`)
+        } else if (!existing) {
+          if (!r.fullName?.trim()) {
+            addErr('fullName', '', '', 'MISSING_NAME', 'Full name is required')
+          }
+          if (r.password && r.password.length < 6) {
+            addErr('password', '', '', 'INVALID_PASSWORD', 'Password must be at least 6 characters')
+          }
+        }
+      }
+
+      // 3. UPDATE Mode
+      if (mode === 'UPDATE') {
+        if (!existing) {
+          addErr('email', 'NOT_FOUND', email, 'USER_NOT_FOUND', `User ${email} not found in this school`)
+          continue
+        }
+
+        if (existing.role === 'OWNER' && !isActorOwnerOrPlatform) {
+          addErr('role', 'OWNER', '', 'CANNOT_MODIFY_OWNER', 'Only school owners can modify an OWNER account')
+          continue
+        }
+      }
+
+      // 4. UPSERT Mode
+      // (If existing, acts as update; if not existing, acts as create)
+      if (mode === 'UPSERT' && !existing) {
+        if (!r.fullName?.trim()) {
+          addErr('fullName', '', '', 'MISSING_NAME', 'Full name is required')
         }
       }
 
@@ -252,11 +303,15 @@ export async function POST(req: NextRequest) {
       }
 
       if (parsedRoles.includes('PLATFORM_ADMIN' as any)) {
-        addErr('role', '', 'PLATFORM_ADMIN', 'UNAUTHORIZED_ROLE', 'Cannot assign PLATFORM_ADMIN role')
+        addErr('role', '', 'PLATFORM_ADMIN', 'ROLE_ASSIGNMENT_FORBIDDEN', 'Cannot assign PLATFORM_ADMIN role')
       }
 
       if (parsedRoles.includes('OWNER') && !isActorOwnerOrPlatform) {
-        addErr('role', '', 'OWNER', 'UNAUTHORIZED_ROLE', 'Only owners can assign OWNER role')
+        addErr('role', '', 'OWNER', 'ROLE_ASSIGNMENT_FORBIDDEN', 'Only owners can assign OWNER role')
+      }
+
+      if (parsedRoles.includes('PRINCIPAL') && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+        addErr('role', '', 'PRINCIPAL', 'ROLE_ASSIGNMENT_FORBIDDEN', 'Only owners and principals can assign PRINCIPAL role')
       }
 
       // Validate Branch
@@ -264,9 +319,12 @@ export async function POST(req: NextRequest) {
       if (r.branchCode?.trim()) {
         const b = branchCodeMap.get(r.branchCode.trim().toUpperCase())
         if (!b) {
-          addErr('branchCode', '', r.branchCode, 'INVALID_BRANCH', `Branch code "${r.branchCode}" not found`)
+          addErr('branchCode', '', r.branchCode, 'INVALID_BRANCH', `Branch code "${r.branchCode}" not found in this school`)
         } else {
           resolvedBranchId = b.id
+          if (session.branchId && session.branchId !== b.id && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+            addErr('branchCode', session.branchId, b.id, 'CROSS_BRANCH_FORBIDDEN', 'Cannot assign users to another campus branch')
+          }
         }
       }
 
@@ -334,7 +392,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If action is validate, return preview results with ZERO mutation
+    // DRY-RUN VALIDATION — Return results with strictly ZERO mutation
     if (action === 'validate') {
       return ok({
         action: 'validate',
@@ -344,12 +402,13 @@ export async function POST(req: NextRequest) {
         invalidRows: rows.length - validRowsCount,
         newUsers: newUsersCount,
         existingUsers: existingUsersCount,
+        deactivatingUsers: deactivatingUsersCount,
         diffs,
         errors,
       })
     }
 
-    // Action is EXECUTE
+    // EXECUTION
     if (errors.length > 0 && !applyValidOnly) {
       return bad('CSV contains validation errors. Resolve errors or enable applyValidOnly.', 'VALIDATION_FAILED')
     }
@@ -359,9 +418,32 @@ export async function POST(req: NextRequest) {
 
     let createdCount = 0
     let updatedCount = 0
+    let deletedCount = 0
     const meta = getRequestMeta(req)
 
+    // Execute within an atomic transaction
     await db.$transaction(async (tx) => {
+      // 1. DELETE Mode Execution (Soft-Deactivation)
+      if (mode === 'DELETE') {
+        for (const r of validRowsToExecute) {
+          const email = r.email!.trim().toLowerCase()
+          const existing = existingUserMap.get(email)
+          if (!existing) continue
+
+          await tx.tenantUser.update({
+            where: { id: existing.id },
+            data: { status: 'INACTIVE', deletedAt: new Date() },
+          })
+          await tx.user.update({
+            where: { id: existing.userId },
+            data: { status: 'INACTIVE', deletedAt: new Date(), updatedAt: new Date() },
+          })
+          deletedCount++
+        }
+        return
+      }
+
+      // 2. CREATE, UPDATE, UPSERT Mode Execution
       for (const r of validRowsToExecute) {
         const email = r.email!.trim().toLowerCase()
         const existing = existingUserMap.get(email)
@@ -377,10 +459,62 @@ export async function POST(req: NextRequest) {
         const branch = r.branchCode ? branchCodeMap.get(r.branchCode.trim().toUpperCase()) : undefined
         const status = (r.status?.trim().toUpperCase() as UserStatus) || 'ACTIVE'
 
-        if (mode === 'CREATE') {
+        const shouldUpdate = existing && (mode === 'UPDATE' || mode === 'UPSERT' || (mode === 'CREATE' && overwrite))
+
+        if (shouldUpdate) {
+          // In-place update of existing user
+          if (r.fullName?.trim() || r.phone !== undefined || (r.password && r.password.length >= 6)) {
+            await tx.user.update({
+              where: { id: existing.userId },
+              data: {
+                ...(r.fullName?.trim() ? { fullName: r.fullName.trim() } : {}),
+                ...(r.phone !== undefined ? { phone: r.phone?.trim() || null } : {}),
+                ...(r.password && r.password.length >= 6 ? { passwordHash: await bcrypt.hash(r.password, 10) } : {}),
+              },
+            })
+          }
+
+          await tx.tenantUser.update({
+            where: { id: existing.id },
+            data: {
+              ...(parsedRoles.length > 0 ? { role: primaryRole, roles: parsedRoles } : {}),
+              ...(branch ? { branchId: branch.id } : {}),
+              ...(r.status ? { status } : {}),
+            },
+          })
+
+          if (r.designation !== undefined || r.department !== undefined || r.employeeCode) {
+            if (existing.user.staffProfile) {
+              await tx.staffProfile.update({
+                where: { id: existing.user.staffProfile.id },
+                data: {
+                  ...(r.designation !== undefined ? { designation: r.designation.trim() || null } : {}),
+                  ...(r.department !== undefined ? { department: r.department.trim() || null } : {}),
+                  ...(r.employeeCode ? { employeeCode: r.employeeCode.trim() } : {}),
+                  ...(branch ? { branchId: branch.id } : {}),
+                },
+              })
+            } else {
+              await tx.staffProfile.create({
+                data: {
+                  tenantId: session.tenantId!,
+                  userId: existing.userId,
+                  employeeCode: r.employeeCode?.trim() || `EMP-${Date.now().toString().slice(-4)}-${existing.userId.slice(0, 3)}`,
+                  designation: r.designation?.trim() || null,
+                  department: r.department?.trim() || null,
+                  branchId: branch?.id || existing.branchId,
+                },
+              })
+            }
+          }
+
+          updatedCount++
+        } else if (!existing && (mode === 'CREATE' || mode === 'UPSERT')) {
+          // Creation of new user
           let user = await tx.user.findUnique({ where: { email } })
+          const hash = await bcrypt.hash(r.password && r.password.length >= 6 ? r.password : 'Preone@123', 10)
+
           if (!user) {
-            const hash = await bcrypt.hash(r.password!, 10)
             user = await tx.user.create({
               data: {
                 email,
@@ -422,73 +556,25 @@ export async function POST(req: NextRequest) {
           }
 
           createdCount++
-        } else {
-          // UPDATE
-          if (!existing) continue
-
-          if (r.fullName?.trim() || r.phone !== undefined || r.password) {
-            await tx.user.update({
-              where: { id: existing.userId },
-              data: {
-                ...(r.fullName?.trim() ? { fullName: r.fullName.trim() } : {}),
-                ...(r.phone !== undefined ? { phone: r.phone?.trim() || null } : {}),
-                ...(r.password ? { passwordHash: await bcrypt.hash(r.password, 10) } : {}),
-              },
-            })
-          }
-
-          await tx.tenantUser.update({
-            where: { id: existing.id },
-            data: {
-              ...(parsedRoles.length > 0 ? { role: primaryRole, roles: parsedRoles } : {}),
-              ...(branch ? { branchId: branch.id } : {}),
-              ...(r.status ? { status } : {}),
-            },
-          })
-
-          if (r.designation !== undefined || r.department !== undefined || r.employeeCode) {
-            if (existing.user.staffProfile) {
-              await tx.staffProfile.update({
-                where: { id: existing.user.staffProfile.id },
-                data: {
-                  ...(r.designation !== undefined ? { designation: r.designation.trim() || null } : {}),
-                  ...(r.department !== undefined ? { department: r.department.trim() || null } : {}),
-                  ...(r.employeeCode ? { employeeCode: r.employeeCode.trim() } : {}),
-                  ...(branch ? { branchId: branch.id } : {}),
-                },
-              })
-            } else {
-              await tx.staffProfile.create({
-                data: {
-                  tenantId: session.tenantId!,
-                  userId: existing.userId,
-                  employeeCode: r.employeeCode?.trim() || `EMP-${Date.now().toString().slice(-4)}-${existing.userId.slice(0, 3)}`,
-                  designation: r.designation?.trim() || null,
-                  department: r.department?.trim() || null,
-                  branchId: branch?.id || existing.branchId,
-                },
-              })
-            }
-          }
-
-          updatedCount++
         }
       }
     })
+
+    const auditAction = mode === 'DELETE' ? 'CSV_DELETE' : mode === 'UPSERT' ? 'CSV_UPSERT' : `CSV_${mode}`
 
     await recordAudit({
       tenantId: session.tenantId,
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
-      action: `CSV_${mode}`,
+      action: auditAction,
       entity: 'User',
       module: 'Users',
-      severity: 'INFO',
-      summary: `Executed CSV ${mode}: ${createdCount} created, ${updatedCount} updated, ${errors.length} skipped`,
+      severity: mode === 'DELETE' ? 'WARNING' : 'INFO',
+      summary: `Executed CSV ${mode}: ${createdCount} created, ${updatedCount} updated, ${deletedCount} deactivated, ${errors.length} skipped`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
-      newValues: { mode, createdCount, updatedCount, skippedCount: errors.length },
+      newValues: { mode, overwrite, createdCount, updatedCount, deletedCount, skippedCount: errors.length },
     })
 
     return ok({
@@ -496,6 +582,7 @@ export async function POST(req: NextRequest) {
       mode,
       createdCount,
       updatedCount,
+      deletedCount,
       skippedCount: errors.length,
       errors,
     })
@@ -503,3 +590,4 @@ export async function POST(req: NextRequest) {
     return serverError(err.message)
   }
 }
+

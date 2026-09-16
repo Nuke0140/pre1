@@ -53,6 +53,40 @@ export async function POST(req: NextRequest) {
       return ok(task)
     }
 
+    if (action === 'REOPEN_TASK') {
+      const task = await OffboardingService.reopenClearanceTask(
+        session.tenantId,
+        body.taskId,
+        {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        },
+        body.remarks
+      )
+      return ok(task)
+    }
+
+    if (action === 'ACTION_RESIGNATION') {
+      if (!body.resignationId || !body.status) {
+        return Errors.validation('resignationId and status are required')
+      }
+      const updated = await OffboardingService.actionResignation(
+        session.tenantId,
+        body.resignationId,
+        {
+          status: body.status,
+          agreedLwd: body.agreedLwd,
+        },
+        {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        }
+      )
+      return ok(updated)
+    }
+
     // Default: SUBMIT_RESIGNATION
     const resignation = await OffboardingService.submitResignation(
       session.tenantId,

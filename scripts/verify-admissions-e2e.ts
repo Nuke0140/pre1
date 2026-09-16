@@ -499,6 +499,208 @@ async function runAdmissionsTests() {
     assert(enqYear2.enquiry.id !== undefined, 'Enquiry created for next cycle 2027-28')
 
     // -------------------------------------------------------------------------
+    // [11] CLASS + DIVISION ALLOCATION ENGINE & WAITING LIST PROMOTION
+    // -------------------------------------------------------------------------
+    console.log('\n[11] Class + Division Allocation Engine & Waiting List Promotion')
+    
+    // Create Section B for Nursery to test multi-division recommendation
+    const classroomB = await db.classroom.create({
+      data: {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicSessionId: session2627.id,
+        name: 'Nursery-B',
+        code: `NUR-B-${testSuffix}`,
+        programType: 'NURSERY',
+        capacity: 5,
+        isActive: true,
+      },
+    })
+    assert(classroomB.id !== undefined, 'Created Classroom Division Nursery-B with capacity 5')
+
+    // Create a new application to test allocation recommendations
+    const appCandidate = await AdmissionService.submitApplication(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+        actorId: 'admin-user',
+      },
+      {
+        programType: 'NURSERY',
+        childFirstName: 'Vihaan',
+        childLastName: 'Deshmukh',
+        childDob: new Date(Date.now() - 40 * 30 * 24 * 60 * 60 * 1000),
+        parentName: 'Ganesh Deshmukh',
+        parentPhone: '9822998877',
+      }
+    )
+
+    const allocRec = await AdmissionService.getAllocationRecommendations(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+      },
+      appCandidate.id
+    )
+
+    assert(allocRec.divisions.length >= 2, 'Evaluated all divisions for Nursery')
+    assert(allocRec.recommendedClassroomId === classroomB.id, 'Recommended division B with available capacity over full division A')
+    assert(allocRec.isWaitlistRecommended === false, 'Correctly identified seat availability across divisions')
+
+    // Waitlist an application and test waiting list promotion
+    const waitlistedRes = await AdmissionService.waitlistApplication(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+        actorId: 'admin-user',
+      },
+      appCandidate.id,
+      'Classroom allocation hold'
+    )
+    assert(waitlistedRes.application.status === 'WAITLISTED', 'Application marked WAITLISTED')
+
+    const promoted = await AdmissionService.promoteWaitingListEntry(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+        actorId: 'admin-user',
+      },
+      waitlistedRes.application.id,
+      classroomB.id,
+      'Seat opened up in Nursery-B'
+    )
+    assert(promoted.status === 'APPROVED', 'Waitlisted application successfully promoted to APPROVED')
+    assert(promoted.classroomId === classroomB.id, 'Promoted application allocated to Nursery-B')
+
+    // -------------------------------------------------------------------------
+    // [12] CSV BULK IMPORT ENGINE (UNIFIED BUSINESS ENGINE)
+    // -------------------------------------------------------------------------
+    console.log('\n[12] CSV Bulk Import Engine (Validation, Duplicate Guard & Batch Execution)')
+
+    const rawCsvRows = [
+      {
+        'Parent Name': 'Kavita Joshi',
+        'Phone Number': '9890123456',
+        'Email': 'kavita.j@example.com',
+        'Child Name': 'Ishaan Joshi',
+        'Date of Birth': '2023-01-15',
+        'Program': 'Nursery',
+        'Notes': 'Morning batch preferred',
+      },
+      {
+        // Duplicate row with same phone as Kavita Joshi
+        'Parent Name': 'Kavita Joshi',
+        'Phone Number': '9890123456',
+        'Child Name': 'Ishaan Duplicate',
+        'Date of Birth': '2023-01-15',
+        'Program': 'Nursery',
+      },
+      {
+        // Invalid row: Bad phone & invalid DOB
+        'Parent Name': 'Invalid Entry',
+        'Phone Number': '123',
+        'Child Name': 'Bad Kid',
+        'Date of Birth': 'not-a-date',
+        'Program': 'UnknownProgram',
+      }
+    ]
+
+    const columnMapping = {
+      parentName: 'Parent Name',
+      phone: 'Phone Number',
+      email: 'Email',
+      childName: 'Child Name',
+      dob: 'Date of Birth',
+      program: 'Program',
+      notes: 'Notes',
+    }
+
+    // Step A: Validate CSV rows
+    const validationResult = await AdmissionService.validateCsvImportRows(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+      },
+      'leads',
+      rawCsvRows,
+      columnMapping
+    )
+
+    assert(validationResult.totalRows === 3, 'Processed 3 raw CSV rows')
+    assert(validationResult.validCount >= 1, 'Identified valid rows')
+    assert(validationResult.invalidCount >= 1, 'Flagged invalid row with specific field errors')
+    assert(validationResult.rows[2].errors.length >= 2, 'Reported multiple errors for invalid phone and date format')
+
+    // Step B: Execute CSV batch import
+    const batchImportResult = await AdmissionService.executeCsvImportBatch(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+        actorId: 'admin-user',
+        actorName: 'Principal Sharma',
+        actorRole: 'PRINCIPAL',
+      },
+      'leads',
+      validationResult.rows,
+      'SKIP'
+    )
+
+    assert(batchImportResult.batchId.startsWith('IMP-'), `Generated sequential batch reference: ${batchImportResult.batchId}`)
+    assert(batchImportResult.success >= 1, 'Successfully created canonical Lead records through admission engine')
+    assert(batchImportResult.failed >= 1, 'Safely skipped invalid rows without crashing')
+
+    // Verify AuditLog record for CSV Import
+    const importAudit = await db.auditLog.findFirst({
+      where: {
+        tenantId: tenant.id,
+        action: 'CSV_IMPORT',
+        entityId: batchImportResult.batchId,
+      },
+    })
+    assert(importAudit !== null, 'Immutable AuditLog entry created for CSV import batch')
+
+    // -------------------------------------------------------------------------
+    // [13] SIBLING CONCESSION DYNAMIC RESOLUTION
+    // -------------------------------------------------------------------------
+    console.log('\n[13] Sibling Concession Dynamic Resolution')
+
+    // Test reviewApplication sibling detection for parent who already has an enrolled child
+    const siblingCheckApp = await AdmissionService.submitApplication(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+        actorId: 'admin-user',
+      },
+      {
+        programType: 'NURSERY',
+        childFirstName: 'Kabir',
+        childLastName: 'Sharma',
+        childDob: new Date(Date.now() - 42 * 30 * 24 * 60 * 60 * 1000),
+        parentName: 'Rahul Sharma', // Same parent as STU-2026-0001
+        parentPhone: '9876543210',
+      }
+    )
+
+    const siblingReview = await AdmissionService.reviewApplication(
+      {
+        tenantId: tenant.id,
+        branchId: branch.id,
+        academicYearId: session2627.id,
+      },
+      siblingCheckApp.id
+    )
+
+    assert(siblingReview.requirements.siblingConcession.hasSibling === true, 'Successfully resolved existing student sibling via Guardian relationship')
+    assert(siblingReview.requirements.siblingConcession.applicableDiscountPercent > 0, 'Applied dynamic sibling concession policy')
+
+    // -------------------------------------------------------------------------
     // RESULTS
     // -------------------------------------------------------------------------
     console.log('\n====================================================================')

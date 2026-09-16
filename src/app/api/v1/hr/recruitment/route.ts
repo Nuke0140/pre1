@@ -51,6 +51,45 @@ export async function POST(req: NextRequest) {
       return ok(interview)
     }
 
+    if (action === 'UPDATE_STAGE') {
+      if (!body.jobApplicationId || !body.status) {
+        return Errors.validation('jobApplicationId and status are required')
+      }
+      const updated = await RecruitmentService.updateApplicationStatus(
+        session.tenantId,
+        body.jobApplicationId,
+        body.status,
+        {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        },
+        body.notes
+      )
+      return ok(updated)
+    }
+
+    if (action === 'RECORD_INTERVIEW') {
+      if (!body.interviewId || !body.status) {
+        return Errors.validation('interviewId and status are required')
+      }
+      const updated = await RecruitmentService.recordInterviewResult(
+        session.tenantId,
+        body.interviewId,
+        {
+          status: body.status,
+          feedback: body.feedback,
+          rating: body.rating,
+        },
+        {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        }
+      )
+      return ok(updated)
+    }
+
     if (action === 'CONVERT_TO_STAFF') {
       const staff = await RecruitmentService.convertCandidateToStaff(
         session.tenantId,

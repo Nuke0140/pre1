@@ -78,6 +78,16 @@ export interface DataTableProps<T extends { id?: string | number }> {
   showExport?: boolean
   exportFileName?: string
   rowActions?: (row: T) => RowAction[]
+  density?: 'cozy' | 'compact'
+  onDensityChange?: (density: 'cozy' | 'compact') => void
+  showToolbar?: boolean
+  showColumnsMenu?: boolean
+  /** Persist density, page size and hidden columns under this key (localStorage). */
+  tableKey?: string
+  /** Extra context shown next to the selection count in the bulk bar. */
+  selectionSummary?: React.ReactNode
+  /** Keep the selection checkbox column pinned while scrolling horizontally. */
+  stickyCheckColumn?: boolean
 }
 
 type MenuState = { kind: 'cols' } | { kind: 'kebab'; rowId: string } | { kind: 'filter'; colKey: string } | null
@@ -127,13 +137,30 @@ export function DataTable<T extends { id?: string | number }>({
   showExport = true,
   exportFileName = 'export.csv',
   rowActions,
+  density: controlledDensity,
+  onDensityChange,
+  showToolbar = true,
+  showColumnsMenu = true,
+  tableKey,
+  selectionSummary,
+  stickyCheckColumn,
 }: DataTableProps<T>) {
   const [localSearch, setLocalSearch] = useState(searchValue || '')
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultSortDir)
   const [colFilters, setColFilters] = useState<Record<string, Set<string>>>({})
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set())
-  const [density, setDensity] = useState<'cozy' | 'compact'>('cozy')
+  const [density, setDensity] = useState<'cozy' | 'compact'>(controlledDensity || 'cozy')
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (controlledDensity) setDensity(controlledDensity)
+  }, [controlledDensity])
+
+  const changeDensity = (newDensity: 'cozy' | 'compact') => {
+    setDensity(newDensity)
+    onDensityChange?.(newDensity)
+  }
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(defaultPageSize)
   const [selection, setSelection] = useState<Set<string | number>>(
@@ -142,9 +169,57 @@ export function DataTable<T extends { id?: string | number }>({
   const [menu, setMenu] = useState<MenuState>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
+  // Remembered table preferences (density / page size / hidden columns)
+  const prefKey = tableKey ? `preone:dt:${tableKey}` : null
+  const hydratedRef = useRef(false)
+
+  useEffect(() => {
+    if (!prefKey) {
+      hydratedRef.current = true
+      return
+    }
+    try {
+      const raw = localStorage.getItem(prefKey)
+      if (raw) {
+        const p = JSON.parse(raw)
+        /* eslint-disable react-hooks/set-state-in-effect */
+        if (p?.density && !controlledDensity) {
+          setDensity(p.density)
+          onDensityChange?.(p.density as 'cozy' | 'compact')
+        }
+        if (typeof p?.pageSize === 'number') {
+          if (pagination?.onPageSizeChange) {
+            if (pagination.pageSize !== p.pageSize) pagination.onPageSizeChange(p.pageSize)
+          } else {
+            setPageSize(p.pageSize)
+          }
+        }
+        if (Array.isArray(p?.hiddenCols)) setHiddenCols(new Set(p.hiddenCols as string[]))
+        /* eslint-enable react-hooks/set-state-in-effect */
+      }
+    } catch {
+      // ignore corrupt prefs
+    }
+    hydratedRef.current = true
+  }, [])
+
+  useEffect(() => {
+    if (!prefKey || !hydratedRef.current) return
+    try {
+      localStorage.setItem(prefKey, JSON.stringify({
+        density,
+        pageSize: pagination ? pagination.pageSize : pageSize,
+        hiddenCols: [...hiddenCols],
+      }))
+    } catch {
+      // ignore write failures
+    }
+  }, [prefKey, density, pageSize, pagination?.pageSize, hiddenCols])
+
   const allRows = data || []
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selectedKeys) setSelection(new Set(selectedKeys))
   }, [selectedKeys])
 
@@ -295,7 +370,7 @@ export function DataTable<T extends { id?: string | number }>({
 
   return (
     <div className="dtable-wrap" ref={wrapRef}>
-      {(searchPlaceholder || filters || toolbarActions || rowSelection || showExport) && (
+      {showToolbar && (searchPlaceholder || filters || toolbarActions || rowSelection || showExport) && (
         <div className="table-toolbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, flexWrap: 'wrap' }}>
             {searchPlaceholder && (
@@ -327,45 +402,47 @@ export function DataTable<T extends { id?: string | number }>({
                 <Download size={14} /> CSV
               </button>
             )}
-            <div className="menu-anchor">
-              <button
-                className="btn btn-ghost btn-sm dt-icon-btn"
-                onClick={() => setMenu((m) => (m?.kind === 'cols' ? null : { kind: 'cols' }))}
-                aria-label="Columns and density"
-                aria-haspopup="menu"
-                aria-expanded={menu?.kind === 'cols'}
-              >
-                <Columns3 size={14} />
-              </button>
-              {menu?.kind === 'cols' && (
-                <div className="menu" role="menu" style={{ right: 0 }}>
-                  <div className="menu-group">
-                    <div className="menu-item menu-row-action" onClick={() => setDensity((d) => (d === 'cozy' ? 'compact' : 'cozy'))} role="menuitem">
-                      <Rows3 size={14} />
-                      {density === 'cozy' ? 'Compact rows' : 'Cozy rows'}
+            {showColumnsMenu && (
+              <div className="menu-anchor">
+                <button
+                  className="btn btn-ghost btn-sm dt-icon-btn"
+                  onClick={() => setMenu((m) => (m?.kind === 'cols' ? null : { kind: 'cols' }))}
+                  aria-label="Columns and density"
+                  aria-haspopup="menu"
+                  aria-expanded={menu?.kind === 'cols'}
+                >
+                  <Columns3 size={14} />
+                </button>
+                {menu?.kind === 'cols' && (
+                  <div className="menu" role="menu" style={{ right: 0 }}>
+                    <div className="menu-group">
+                      <div className="menu-item menu-row-action" onClick={() => changeDensity(density === 'cozy' ? 'compact' : 'cozy')} role="menuitem">
+                        <Rows3 size={14} />
+                        {density === 'cozy' ? 'Compact rows' : 'Cozy rows'}
+                      </div>
                     </div>
+                    <div className="menu-label">Visible columns</div>
+                    {columns.filter((c) => c.hideable !== false && c.key !== 'actions').map((c) => (
+                      <label key={c.key} className="menu-item menu-check" role="menuitemcheckbox" aria-checked={!hiddenCols.has(c.key)}>
+                        <input
+                          type="checkbox"
+                          checked={!hiddenCols.has(c.key)}
+                          onChange={() =>
+                            setHiddenCols((prev) => {
+                              const next = new Set(prev)
+                              if (next.has(c.key)) next.delete(c.key)
+                              else next.add(c.key)
+                              return next
+                            })
+                          }
+                        />
+                        <span>{c.header}</span>
+                      </label>
+                    ))}
                   </div>
-                  <div className="menu-label">Visible columns</div>
-                  {columns.filter((c) => c.hideable !== false && c.key !== 'actions').map((c) => (
-                    <label key={c.key} className="menu-item menu-check" role="menuitemcheckbox" aria-checked={!hiddenCols.has(c.key)}>
-                      <input
-                        type="checkbox"
-                        checked={!hiddenCols.has(c.key)}
-                        onChange={() =>
-                          setHiddenCols((prev) => {
-                            const next = new Set(prev)
-                            if (next.has(c.key)) next.delete(c.key)
-                            else next.add(c.key)
-                            return next
-                          })
-                        }
-                      />
-                      <span>{c.header}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -373,6 +450,9 @@ export function DataTable<T extends { id?: string | number }>({
       {rowSelection && selection.size > 0 && (
         <div className="bulk-bar" role="status">
           <span className="bulk-count">{selection.size} selected</span>
+          {selectionSummary && (
+            <span className="bulk-summary">{selectionSummary}</span>
+          )}
           {showExport && (
             <button className="btn btn-sm btn-ghost" onClick={exportSelected}>
               <Download size={14} /> Export selected CSV
@@ -384,7 +464,10 @@ export function DataTable<T extends { id?: string | number }>({
       )}
 
       <div className="dtable-scroll">
-        <table className={`dtable density-${density}`}>
+        <table
+          className={`dtable density-${density}${stickyCheckColumn ? ' bdt-sticky' : ''}`}
+          style={stickyCheckColumn ? { borderCollapse: 'separate' } : undefined}
+        >
           <thead>
             <tr>
               {rowSelection && (
