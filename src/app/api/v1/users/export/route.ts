@@ -47,8 +47,10 @@ export async function POST(req: NextRequest) {
       ...(branchId ? { branchId } : {}),
       ...(userType === 'PARENT'
         ? { OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }] }
+        : userType === 'GUARDIAN'
+        ? { OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }] }
         : userType === 'STAFF'
-        ? { AND: [{ role: { not: 'PARENT' } }, { NOT: { roles: { equals: ['PARENT'] } } }] }
+        ? { AND: [{ role: { notIn: ['PARENT', 'GUARDIAN'] } }, { NOT: { roles: { hasSome: ['PARENT', 'GUARDIAN'] } } }] }
         : {}),
       ...(search
         ? {

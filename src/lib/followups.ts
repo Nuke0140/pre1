@@ -17,10 +17,12 @@ type PrismaEnum<T> = T
 export type FollowUpDomain =
   | 'ATTENDANCE' | 'HEALTH' | 'SAFETY' | 'LEARNING' | 'CARE' | 'ADMISSION' | 'FINANCE' | 'OPERATIONS'
 export type FollowUpSeverity = 'INFO' | 'WARNING' | 'URGENT' | 'EMERGENCY'
+import { SchoolRole } from '@/lib/auth'
+
 export type FollowUpStatus = 'OPEN' | 'ACKNOWLEDGED' | 'IN_PROGRESS' | 'WAITING' | 'RESOLVED' | 'CLOSED'
 
 /** Severity → responsible default role (who should act). */
-export const RESPONSIBLE_ROLE: Record<FollowUpSeverity | 'DEFAULT', 'TEACHER' | 'PRINCIPAL' | 'OWNER' | 'ACCOUNTS' | 'COORDINATOR'> = {
+export const RESPONSIBLE_ROLE: Record<FollowUpSeverity | 'DEFAULT', SchoolRole> = {
   EMERGENCY: 'PRINCIPAL',
   URGENT: 'PRINCIPAL',
   WARNING: 'TEACHER',
@@ -41,7 +43,7 @@ export interface RaiseFollowUpInput {
   classroomId?: string | null
   branchId?: string | null
   academicSessionId?: string | null
-  responsibleRole?: 'TEACHER' | 'PRINCIPAL' | 'OWNER' | 'ACCOUNTS' | 'COORDINATOR'
+  responsibleRole?: SchoolRole
   dueAt?: Date | null
   actorId?: string | null
   actorName?: string | null

@@ -17,7 +17,7 @@ import { db } from '@/lib/db'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { classroomSeats } from '@/lib/capacity'
 import { audit } from '@/lib/audit'
-import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole } from '@prisma/client'
+import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
 
 export interface ScopeContext {
   tenantId: string
@@ -355,6 +355,12 @@ export class StudentService {
       if (!isLinked) throw new Error('Unauthorized: You can only view your own child')
     }
 
+    // Guardian permission check: Only allowed to view linked ward
+    if (ctx.actorRole === 'GUARDIAN') {
+      const isLinked = student.guardians.some((g) => g.guardian.userId === ctx.actorId)
+      if (!isLinked) throw new Error('Unauthorized: You can only view your linked child')
+    }
+
     // Teacher permission check: Only allowed to view students in assigned classrooms
     if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
       if (student.currentClassroom?.primaryTeacher?.id !== ctx.actorId) {
@@ -399,29 +405,38 @@ export class StudentService {
       .filter((i) => i.status === 'OVERDUE' || (i.balanceCents > 0 && new Date(i.dueDate) < new Date()))
       .reduce((acc, i) => acc + i.balanceCents, 0)
 
-    const financeSummary = {
-      totalBilledCents,
-      totalPaidCents,
-      balanceCents,
-      overdueCents,
-      invoices: student.invoices.map((inv) => ({
-        id: inv.id,
-        invoiceNumber: inv.invoiceNumber,
-        title: inv.title,
-        totalCents: inv.totalCents,
-        paidCents: inv.paidCents,
-        balanceCents: inv.balanceCents,
-        status: inv.status,
-        dueDate: inv.dueDate,
-        payments: inv.payments.map((p) => ({
-          id: p.id,
-          amountCents: p.amountCents,
-          method: p.method,
-          reference: p.transactionRef,
-          receivedAt: p.paymentDate,
-        })),
-      })),
-    }
+    const hasFinanceAccess = ctx.actorRole !== 'GUARDIAN'
+    const financeSummary = hasFinanceAccess
+      ? {
+          totalBilledCents,
+          totalPaidCents,
+          balanceCents,
+          overdueCents,
+          invoices: student.invoices.map((inv) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            title: inv.title,
+            totalCents: inv.totalCents,
+            paidCents: inv.paidCents,
+            balanceCents: inv.balanceCents,
+            status: inv.status,
+            dueDate: inv.dueDate,
+            payments: inv.payments.map((p) => ({
+              id: p.id,
+              amountCents: p.amountCents,
+              method: p.method,
+              reference: p.transactionRef,
+              receivedAt: p.paymentDate,
+            })),
+          })),
+        }
+      : {
+          totalBilledCents: 0,
+          totalPaidCents: 0,
+          balanceCents: 0,
+          overdueCents: 0,
+          invoices: [],
+        }
 
 
     // 4. Learning & Progress aggregation
@@ -670,7 +685,8 @@ export class StudentService {
       canPickup?: boolean
       isFeePayer?: boolean
       confirmDuplicate?: boolean
-    }
+    },
+    txClient?: Prisma.TransactionClient
   ) {
     const scope = await this.verifyScope(ctx.tenantId, input.branchId || ctx.branchId, input.academicSessionId || ctx.academicSessionId)
 
@@ -733,7 +749,7 @@ export class StudentService {
     const admissionNo = await this.generateAdmissionNumber(scope.tenantId)
     const seatNumber = classroom ? await this.generateSeatNumber(scope.tenantId, classroom.id) : null
 
-    const result = await db.$transaction(async (tx) => {
+    const runInTx = async (tx: Prisma.TransactionClient) => {
       // 1. Create Student
       const student = await tx.student.create({
         data: {
@@ -817,7 +833,9 @@ export class StudentService {
 
 
       return { student, guardian, classroom }
-    })
+    }
+
+    const result = txClient ? await runInTx(txClient) : await db.$transaction(runInTx)
 
     await audit({
       tenantId: scope.tenantId,

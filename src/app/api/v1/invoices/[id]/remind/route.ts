@@ -61,7 +61,7 @@ export async function POST(
       sourceId: invoice.id,
       dedupeKey: `invoice:${invoice.id}:overdue`,
       studentId: invoice.studentId,
-      responsibleRole: 'ACCOUNTS',
+      responsibleRole: 'ACCOUNTANT',
       actorId: session.uid,
       actorName: session.name,
     })

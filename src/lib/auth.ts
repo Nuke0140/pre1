@@ -5,15 +5,21 @@ const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'preone-dev-jwt-secret-2f8b7c9d4e6a1f3b5c8d0e'
 )
 
-export type Role =
-  | 'PLATFORM_ADMIN'
-  | 'OWNER'
-  | 'PRINCIPAL'
-  | 'COORDINATOR'
-  | 'TEACHER'
-  | 'ACCOUNTS'
-  | 'RECEPTION'
-  | 'PARENT'
+export const SCHOOL_ROLES = [
+  'OWNER',
+  'PRINCIPAL',
+  'TEACHER',
+  'HELPER',
+  'ACCOUNTANT',
+  'HR',
+  'DRIVER',
+  'PARENT',
+  'GUARDIAN',
+] as const
+
+export type SchoolRole = (typeof SCHOOL_ROLES)[number]
+
+export type Role = SchoolRole | 'PLATFORM_ADMIN'
 
 export interface SessionPayload {
   uid: string
@@ -46,21 +52,6 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read', 'transport:write', 'transport:assign', 'transport:trip', 'transport:board', 'transport:drop', 'transport:incident',
     'reports:read', 'reports:write', 'reports:export', 'reports:custom',
   ],
-  COORDINATOR: [
-    'students:read', 'students:write',
-    'admissions:read', 'admissions:write',
-    'attendance:read', 'attendance:mark',
-    'finance:read',
-    'communication:read', 'communication:broadcast',
-    'academics:read', 'academics:write',
-    'timeline:read',
-    'settings:read', 'users:read',
-    'operations:read', 'operations:write', // M01
-    'inventory:read', 'inventory:write', 'inventory:request', 'inventory:approve', 'inventory:issue',
-    'hr:read', 'hr:write', 'hr:self',
-    'transport:read', 'transport:write', 'transport:assign', 'transport:trip', 'transport:board', 'transport:drop',
-    'reports:read', 'reports:export', 'reports:custom',
-  ],
   TEACHER: [
     'students:read',
     'attendance:read', 'attendance:mark',
@@ -73,7 +64,13 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read',
     'reports:read', 'reports:export',
   ],
-  ACCOUNTS: [
+  HELPER: [
+    'attendance:read',
+    'operations:read',
+    'inventory:request',
+    'hr:self',
+  ],
+  ACCOUNTANT: [
     'students:read',
     'finance:read', 'finance:write',
     'attendance:read',
@@ -84,17 +81,42 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read',
     'reports:read', 'reports:export',
   ],
-  RECEPTION: [
-    'students:read', 'students:write',
-    'admissions:read', 'admissions:write',
-    'communication:read',
-    'timeline:read',
-    'inventory:read', 'inventory:request',
-    'hr:self',
-    'transport:read', 'transport:trip',
-    'reports:read',
+  HR: [
+    'users:read', 'users:write',
+    'hr:read', 'hr:write', 'hr:approve', 'payroll:process', 'hr:self',
+    'audit:read',
+    'reports:read', 'reports:export',
   ],
-  PARENT: ['timeline:read', 'communication:read', 'finance:read', 'transport:read', 'reports:read'],
+  DRIVER: [
+    'transport:read', 'transport:trip', 'transport:board', 'transport:drop', 'transport:incident',
+    'students:read',
+    'hr:self',
+  ],
+  PARENT: [
+    'timeline:read',
+    'communication:read',
+    'finance:read',
+    'transport:read',
+    'reports:read',
+    'students:read-linked',
+    'attendance:read-linked',
+    'diary:read-linked',
+    'milestones:read-linked',
+    'documents:read-linked',
+    'pickup:read-linked',
+  ],
+  GUARDIAN: [
+    'timeline:read',
+    'communication:read',
+    'students:read-linked',
+    'attendance:read-linked',
+    'diary:read-linked',
+    'milestones:read-linked',
+    'documents:read-linked',
+    'pickup:read-linked',
+    'pickup:verify-linked',
+    'transport:read',
+  ],
 }
 
 /**

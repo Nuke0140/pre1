@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { bad } from '@/lib/api'
-import { CsvValidationError } from '../route'
+export interface CsvValidationError {
+  rowNumber?: number
+  identifier?: string
+  field?: string
+  currentValue?: string
+  requestedValue?: string
+  errorCode?: string
+  errorMessage?: string
+}
 
 /**
  * POST /api/v1/users/csv/error-report — generate downloadable CSV error report

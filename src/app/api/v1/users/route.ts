@@ -5,6 +5,7 @@ import { ok, bad, conflict, serverError, forbidden } from '@/lib/api'
 import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus } from '@prisma/client'
+import { FamilyUserService } from '@/lib/users/family-user-service'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export async function GET(req: NextRequest) {
@@ -58,8 +59,12 @@ export async function GET(req: NextRequest) {
         ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
         ...(!skipUserType && userTypeFilter === 'PARENT'
           ? { OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }] }
+          : !skipUserType && userTypeFilter === 'GUARDIAN'
+          ? { OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }] }
+          : !skipUserType && userTypeFilter === 'FAMILY'
+          ? { OR: [{ role: { in: ['PARENT', 'GUARDIAN'] } }, { roles: { hasSome: ['PARENT', 'GUARDIAN'] } }] }
           : !skipUserType && userTypeFilter === 'STAFF'
-          ? { AND: [{ role: { not: 'PARENT' } }, { NOT: { roles: { equals: ['PARENT'] } } }] }
+          ? { AND: [{ role: { notIn: ['PARENT', 'GUARDIAN'] } }, { NOT: { roles: { hasSome: ['PARENT', 'GUARDIAN'] } } }] }
           : {}),
         ...(departmentFilter || designationFilter
           ? {
@@ -78,8 +83,11 @@ export async function GET(req: NextRequest) {
                   { fullName: { contains: query, mode: 'insensitive' } },
                   { email: { contains: query, mode: 'insensitive' } },
                   { phone: { contains: query } },
+                  { username: { contains: query, mode: 'insensitive' } },
                   { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
                   { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
+                  { guardianProfile: { studentLinks: { some: { student: { admissionNo: { contains: query, mode: 'insensitive' } } } } } },
+                  { guardianProfile: { studentLinks: { some: { student: { firstName: { contains: query, mode: 'insensitive' } } } } } },
                 ],
               },
             }
@@ -90,10 +98,10 @@ export async function GET(req: NextRequest) {
 
     const where = buildWhere()
 
-    const isRoleTab = ['TEACHER', 'PARENT', 'PRINCIPAL', 'ACCOUNTS'].includes(activeTab)
+    const isRoleTab = ['TEACHER', 'PARENT', 'GUARDIAN', 'PRINCIPAL', 'ACCOUNTANT', 'HELPER', 'HR', 'DRIVER'].includes(activeTab)
     const baseWhere = buildWhere({
       skipRole: isRoleTab,
-      skipUserType: activeTab === 'STAFF' || activeTab === 'GUARDIAN',
+      skipUserType: activeTab === 'STAFF' || activeTab === 'FAMILY',
       skipStatus: activeTab === 'PENDING',
     })
 
@@ -104,16 +112,41 @@ export async function GET(req: NextRequest) {
     const tabStaffP = db.tenantUser.count({
       where: {
         ...baseWhere,
-        AND: [{ role: { not: 'PARENT' } }, { NOT: { roles: { equals: ['PARENT'] } } }],
+        AND: [
+          { role: { notIn: ['PARENT', 'GUARDIAN'] } },
+          { NOT: { roles: { hasSome: ['PARENT', 'GUARDIAN'] } } },
+        ],
       },
     })
     const tabTeacherP = countByRole('TEACHER')
-    const parentRoleCountP = countByRole('PARENT')
+    const tabParentP = countByRole('PARENT')
+    const tabGuardianP = countByRole('GUARDIAN')
     const tabPrincipalP = countByRole('PRINCIPAL')
-    const tabAccountsP = countByRole('ACCOUNTS')
+    const tabAccountantP = countByRole('ACCOUNTANT')
+    const tabHelperP = countByRole('HELPER')
+    const tabHrP = countByRole('HR')
+    const tabDriverP = countByRole('DRIVER')
     const tabPendingP = db.tenantUser.count({ where: { ...baseWhere, status: 'PENDING' } })
 
-    const [total, members, activeCount, pendingCount, suspendedCount, inactiveCount, tabAll, tabStaff, tabTeacher, tabParent, tabPrincipal, tabAccounts, tabGuardian, tabPending] = await Promise.all([
+    const [
+      total,
+      members,
+      activeCount,
+      pendingCount,
+      suspendedCount,
+      inactiveCount,
+      tabAll,
+      tabStaff,
+      tabTeacher,
+      tabParent,
+      tabGuardian,
+      tabPrincipal,
+      tabAccountant,
+      tabHelper,
+      tabHr,
+      tabDriver,
+      tabPending,
+    ] = await Promise.all([
       db.tenantUser.count({ where }),
       db.tenantUser.findMany({
         where,
@@ -141,17 +174,21 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
-      }),      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'ACTIVE', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
+      }),
+      db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'ACTIVE', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
       db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'PENDING', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
       db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'SUSPENDED', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
       db.tenantUser.count({ where: { tenantId: session.tenantId, deletedAt: null, status: 'INACTIVE', ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}) } }),
       tabAllP,
       tabStaffP,
       tabTeacherP,
-      parentRoleCountP,
+      tabParentP,
+      tabGuardianP,
       tabPrincipalP,
-      tabAccountsP,
-      parentRoleCountP,
+      tabAccountantP,
+      tabHelperP,
+      tabHrP,
+      tabDriverP,
       tabPendingP,
     ])
 
@@ -161,6 +198,7 @@ export async function GET(req: NextRequest) {
         return {
           id: m.id,
           userId: m.user.id,
+          username: m.user.username,
           name: m.user.fullName,
           email: m.user.email,
           phone: m.user.phone,
@@ -189,6 +227,9 @@ export async function GET(req: NextRequest) {
                   name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
                   admissionNo: sl.student.admissionNo,
                   canPickup: sl.canPickup,
+                  receivesComm: sl.receivesComm,
+                  pickupPin: sl.pickupPin,
+                  relationship: sl.relationship || m.user.guardianProfile!.relationship,
                 })),
               }
             : null,
@@ -211,9 +252,12 @@ export async function GET(req: NextRequest) {
           STAFF: tabStaff,
           TEACHER: tabTeacher,
           PARENT: tabParent,
-          PRINCIPAL: tabPrincipal,
-          ACCOUNTS: tabAccounts,
           GUARDIAN: tabGuardian,
+          PRINCIPAL: tabPrincipal,
+          ACCOUNTANT: tabAccountant,
+          HELPER: tabHelper,
+          HR: tabHr,
+          DRIVER: tabDriver,
           PENDING: tabPending,
         },
       }
@@ -283,9 +327,11 @@ export async function POST(req: NextRequest) {
       assignedRoles = [role]
     }
 
-    if (!fullName || !email || !password || assignedRoles.length === 0) {
-      return bad('fullName, email, password and at least one role are required', 'MISSING_FIELDS')
+    if (!fullName || !email || assignedRoles.length === 0) {
+      return bad('fullName, email, and at least one role are required', 'MISSING_FIELDS')
     }
+
+    const effectivePassword = password && password.length >= 6 ? password : 'PreOneUser@2026'
 
     // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
     const finalPrimaryRole: UserRole =
@@ -301,10 +347,6 @@ export async function POST(req: NextRequest) {
     if (branchId) {
       const branchErr = requireBranchAccess(session, branchId)
       if (branchErr) return branchErr
-    }
-
-    if (password.length < 6) {
-      return bad('Password must be at least 6 characters', 'PASSWORD_TOO_SHORT')
     }
 
     const initialStatus: UserStatus = inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
@@ -347,18 +389,20 @@ export async function POST(req: NextRequest) {
           data: {
             email: emailNorm,
             fullName: fullName.trim(),
+            username: (body as any).username?.trim() || undefined,
             phone: phoneNorm,
-            passwordHash: await bcrypt.hash(password, 10),
+            passwordHash: await bcrypt.hash(effectivePassword, 10),
             status: initialStatus,
           },
         })
       } else {
-        // Update user name/phone if not set
+        // Update user name/phone/username if provided
         await tx.user.update({
           where: { id: user.id },
           data: {
             fullName: fullName.trim(),
             ...(phoneNorm ? { phone: phoneNorm } : {}),
+            ...((body as any).username ? { username: (body as any).username.trim() } : {}),
             status: initialStatus,
           },
         })
@@ -376,8 +420,8 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // If any assigned role is PARENT, resolve or link guardian profile
-      if (assignedRoles.includes('PARENT')) {
+      // If any assigned role is PARENT or GUARDIAN, resolve or link guardian profile
+      if (assignedRoles.includes('PARENT') || assignedRoles.includes('GUARDIAN')) {
         let guardian: any = null
 
         // 1. Explicit guardianId provided (strongest)
@@ -443,8 +487,6 @@ export async function POST(req: NextRequest) {
                   })
                 }
               }
-              // If name doesn't match, it could be a shared household phone (Mother vs Father).
-              // Do NOT merge; fall through to create a distinct Guardian record.
             }
           }
 
@@ -479,6 +521,14 @@ export async function POST(req: NextRequest) {
             where: { id: sid, tenantId: session.tenantId!, deletedAt: null },
           })
           if (student) {
+            // Enforce Max 2 Parents policy if PARENT role
+            if (assignedRoles.includes('PARENT')) {
+              const currentParents = await FamilyUserService.countActiveParentsForStudent(session.tenantId!, sid, user.id, tx)
+              if (currentParents >= 2) {
+                throw new Error(`Child ${student.firstName} already has 2 registered Parent accounts. An additional caregiver must be registered with the GUARDIAN role.`)
+              }
+            }
+
             const existingLink = await tx.studentGuardian.findUnique({
               where: { studentId_guardianId: { studentId: sid, guardianId: guardian.id } },
             })
@@ -491,7 +541,7 @@ export async function POST(req: NextRequest) {
                   canPickup: canPickup !== false,
                   pickupPin: pickupPin?.trim() || null,
                   isPrimary: Boolean(isPrimary),
-                  isFeePayer: true,
+                  isFeePayer: assignedRoles.includes('PARENT'),
                   receivesComm: true,
                 },
               })
@@ -502,7 +552,7 @@ export async function POST(req: NextRequest) {
 
       // If any assigned role is staff or designation provided, ensure StaffProfile exists
       const isStaff = assignedRoles.some((r) =>
-        ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
+        ['OWNER', 'PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].includes(r)
       )
 
       if (isStaff || designation) {

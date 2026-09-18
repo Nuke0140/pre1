@@ -180,6 +180,7 @@ model Branch {
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
+  username        String?       @unique
   phone           String?
   passwordHash    String
   fullName        String
@@ -296,6 +297,7 @@ model Student {
   tenantId           String
   branchId           String
   admissionNo        String
+  username           String?             @unique
   firstName          String
   lastName           String?
   dob                DateTime
@@ -1105,14 +1107,20 @@ enum SubscriptionPlanCode {
 }
 
 enum UserRole {
-  PLATFORM_ADMIN
   OWNER
   PRINCIPAL
-  COORDINATOR
   TEACHER
+  HELPER
+  ACCOUNTANT
+  HR
+  DRIVER
+  PARENT
+  GUARDIAN
+  PLATFORM_ADMIN
+  // Legacy backward-compatibility variants
+  COORDINATOR
   ACCOUNTS
   RECEPTION
-  PARENT
 }
 
 enum UserStatus {

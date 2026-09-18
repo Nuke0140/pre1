@@ -51,10 +51,10 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const toast = useToast()
   const role = session.role
   const isTeacher = role === 'TEACHER'
-  const isStaff = role === 'TEACHER' || role === 'RECEPTION'
-  const canApprove = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(role)
-  const canProcure = ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(role)
-  const canManageStock = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(role)
+  const isStaff = ['TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].includes(role)
+  const canApprove = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(role)
+  const canProcure = ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PLATFORM_ADMIN'].includes(role)
+  const canManageStock = ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PLATFORM_ADMIN'].includes(role)
 
   // Subtabs
   type TabKey = 'OVERVIEW' | 'ITEMS' | 'REQUESTS' | 'STORES' | 'PROCUREMENT' | 'RECEIVING' | 'VENDORS' | 'ANALYTICS'

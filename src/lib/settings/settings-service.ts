@@ -272,11 +272,13 @@ export class SettingsService {
     const roles: Role[] = [
       'OWNER',
       'PRINCIPAL',
-      'COORDINATOR',
       'TEACHER',
-      'ACCOUNTS',
-      'RECEPTION',
+      'HELPER',
+      'ACCOUNTANT',
+      'HR',
+      'DRIVER',
       'PARENT',
+      'GUARDIAN',
       'PLATFORM_ADMIN',
     ]
 

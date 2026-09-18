@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 interface ModalProps {
@@ -19,6 +20,11 @@ export function Modal({
   open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, children, footer,
 }: ModalProps) {
   const panelRef = React.useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -66,9 +72,9 @@ export function Modal({
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
+  return createPortal(
     <div className="ovl" role="dialog" aria-modal="true" aria-label={title}>
       <div className="ovl-backdrop" onClick={onClose} />
       <div className={`modal${wide ? ' modal-wide' : ''}`} ref={panelRef} tabIndex={-1}>
@@ -87,7 +93,8 @@ export function Modal({
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -141,6 +148,11 @@ export function Drawer({
   open, onClose, title, subtitle, icon, iconClass = 'ic-purple', children, footer,
 }: DrawerProps) {
   const panelRef = React.useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -188,9 +200,9 @@ export function Drawer({
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
+  return createPortal(
     <div className="ovl ovl-drawer" role="dialog" aria-modal="true" aria-label={title}>
       <div className="ovl-backdrop" onClick={onClose} />
       <div className="drawer" ref={panelRef} tabIndex={-1}>
@@ -207,7 +219,8 @@ export function Drawer({
         <div className="drawer-body">{children}</div>
         {footer && <div className="drawer-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

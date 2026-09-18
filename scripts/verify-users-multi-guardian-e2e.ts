@@ -741,13 +741,13 @@ async function runTests() {
         tenantId: testTenant.id,
         userId: multiRoleUser.id,
         role: 'TEACHER',
-        roles: ['TEACHER', 'ACCOUNTS'],
+        roles: ['TEACHER', 'ACCOUNTANT'],
         status: 'ACTIVE',
       },
     })
     assert(
-      multiMembership.roles.includes('TEACHER') && multiMembership.roles.includes('ACCOUNTS'),
-      'Multi-role user created with roles: [TEACHER, ACCOUNTS]'
+      multiMembership.roles.includes('TEACHER') && multiMembership.roles.includes('ACCOUNTANT'),
+      'Multi-role user created with roles: [TEACHER, ACCOUNTANT]'
     )
 
     // Test 33: Effective permission union
@@ -757,16 +757,16 @@ async function runTests() {
     assert(canDoTeacher === true && canDoFinance === true && cannotDoSettings === false, 'Permission resolver computes exact mathematical union')
 
     // Test 34: Removing one role recalculates permissions
-    const singleRoleList = multiMembership.roles.filter((r) => r !== 'ACCOUNTS')
+    const singleRoleList = multiMembership.roles.filter((r) => r !== 'ACCOUNTANT')
     const canStillDoFinance = can(singleRoleList as any, 'finance:write')
-    assert(canStillDoFinance === false, 'Removing ACCOUNTS role immediately revokes finance permissions')
+    assert(canStillDoFinance === false, 'Removing ACCOUNTANT role immediately revokes finance permissions')
 
     // Test 35: Primary role change
     const updatedMembership = await db.tenantUser.update({
       where: { id: multiMembership.id },
-      data: { role: 'ACCOUNTS' },
+      data: { role: 'ACCOUNTANT' },
     })
-    assert(updatedMembership.role === 'ACCOUNTS', 'Primary role updated cleanly')
+    assert(updatedMembership.role === 'ACCOUNTANT', 'Primary role updated cleanly')
 
     // Test 36: Protected role escalation denied
     let escalationBlocked = false

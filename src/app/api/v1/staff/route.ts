@@ -6,7 +6,7 @@ import { audit } from '@/lib/sequence'
 import bcrypt from 'bcryptjs'
 import type { UserRole } from '@prisma/client'
 
-const ASSIGNABLE_ROLES: UserRole[] = ['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION']
+const ASSIGNABLE_ROLES: UserRole[] = ['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER']
 
 /** GET /api/v1/staff — staff foundation list (profile + assignment state) */
 export async function GET(req: NextRequest) {

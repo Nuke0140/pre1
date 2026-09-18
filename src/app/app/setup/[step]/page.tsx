@@ -1013,7 +1013,7 @@ function StaffModal({ onClose, onDone, api, toast }: { onClose: () => void; onDo
           <div className="field"><label>Email (login) <span className="req">*</span></label><input className="input" name="email" type="email" required /></div>
           <div className="field"><label>Temporary password <span className="req">*</span></label><input className="input" name="password" required minLength={6} /></div>
           <div className="field"><label>Role <span className="req">*</span></label>
-            <select className="select" name="role" required>{['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].map((r) => <option key={r} value={r}>{r}</option>)}</select>
+            <select className="select" name="role" required>{['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].map((r) => <option key={r} value={r}>{r}</option>)}</select>
           </div>
           <div className="field"><label>Employee code <span className="req">*</span></label><input className="input" name="employeeCode" required placeholder="EMP-001" /></div>
           <div className="field"><label>Branch (operational assignment)</label>
@@ -1450,7 +1450,7 @@ function EditStaffModal({ item, onClose, onDone, api, toast }: { item: Dict; onC
           <div className="field"><label>Employee Code</label><input className="input" value={String(item.employeeCode || '')} disabled /></div>
           <div className="field"><label>Operating Role <span className="req">*</span></label>
             <select className="select" name="role" defaultValue={String(item.role || 'TEACHER')}>
-              {['PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTION'].map((r) => <option key={r} value={r}>{r}</option>)}
+              {['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div className="field"><label>Branch Assignment</label>

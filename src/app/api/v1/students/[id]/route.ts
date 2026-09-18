@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
+import { can } from '@/lib/auth'
 import { StudentService } from '@/lib/students/student-service'
 
 /**
@@ -10,9 +11,15 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireApi(req, 'students:read')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const hasAccess = can(effectiveRoles, 'students:read') || can(effectiveRoles, 'students:read-linked')
+  if (!hasAccess) {
+    return Errors.forbidden('Missing permission: students:read or students:read-linked')
+  }
 
   const { id } = await params
   const academicSessionId = req.nextUrl.searchParams.get('academicSessionId') || undefined

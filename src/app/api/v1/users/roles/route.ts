@@ -2,14 +2,9 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, bad, serverError } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { ROLE_PERMISSIONS, Role } from '@/lib/auth'
+import { SCHOOL_ROLES, SchoolRole, ROLE_PERMISSIONS } from '@/lib/auth'
 
-const ROLE_METADATA: Record<Role, { label: string; description: string; category: 'EXECUTIVE' | 'ACADEMIC' | 'OPERATIONS' | 'PORTAL' }> = {
-  PLATFORM_ADMIN: {
-    label: 'Platform Administrator',
-    description: 'Global infrastructure and multi-tenant management plane',
-    category: 'EXECUTIVE',
-  },
+const ROLE_METADATA: Record<SchoolRole, { label: string; description: string; category: 'EXECUTIVE' | 'ACADEMIC' | 'OPERATIONS' | 'PORTAL' }> = {
   OWNER: {
     label: 'Owner / Trust Head',
     description: 'Full institutional control across all branches, finance, and system settings',
@@ -20,29 +15,39 @@ const ROLE_METADATA: Record<Role, { label: string; description: string; category
     description: 'Complete academic, admissions, operational, and staff management',
     category: 'EXECUTIVE',
   },
-  COORDINATOR: {
-    label: 'Academic Coordinator',
-    description: 'Curriculum oversight, teacher management, class schedules, and attendance',
-    category: 'ACADEMIC',
-  },
   TEACHER: {
     label: 'Teacher / Educator',
     description: 'Assigned classroom management, daily student attendance, activities, and logs',
     category: 'ACADEMIC',
   },
-  ACCOUNTS: {
-    label: 'Finance / Accounts',
+  HELPER: {
+    label: 'Helper / Support Staff',
+    description: 'Classroom assistance, child care, facility maintenance, and operational tasks',
+    category: 'OPERATIONS',
+  },
+  ACCOUNTANT: {
+    label: 'Accountant / Finance',
     description: 'Fee invoicing, collections, discounts, receipts, and financial audits',
     category: 'OPERATIONS',
   },
-  RECEPTION: {
-    label: 'Front Desk / Reception',
-    description: 'Parent enquiries, admissions desk, visitor tracking, and general notifications',
+  HR: {
+    label: 'HR / Personnel Manager',
+    description: 'Workforce records, onboarding, staff lifecycle, payroll processing, and leave approval',
+    category: 'OPERATIONS',
+  },
+  DRIVER: {
+    label: 'Driver / Transport Operator',
+    description: 'Route navigation, student boarding/drop verification, and vehicle logs',
     category: 'OPERATIONS',
   },
   PARENT: {
-    label: 'Parent / Guardian',
+    label: 'Parent',
     description: 'Student daily timeline, notices, fee payments, and school communication',
+    category: 'PORTAL',
+  },
+  GUARDIAN: {
+    label: 'Guardian / Authorized Caregiver',
+    description: 'Authorized pickup, child diary, updates, and verified attendance access',
     category: 'PORTAL',
   },
 }
@@ -62,19 +67,20 @@ export async function GET(req: NextRequest) {
       select: { role: true, roles: true },
     })
 
-    const roleCounts: Record<string, number> = {
+    const roleCounts: Record<SchoolRole, number> = {
       OWNER: 0,
       PRINCIPAL: 0,
-      COORDINATOR: 0,
       TEACHER: 0,
-      ACCOUNTS: 0,
-      RECEPTION: 0,
+      HELPER: 0,
+      ACCOUNTANT: 0,
+      HR: 0,
+      DRIVER: 0,
       PARENT: 0,
-      PLATFORM_ADMIN: 0,
+      GUARDIAN: 0,
     }
 
     for (const m of members) {
-      const allRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+      const allRoles = (m.roles && m.roles.length > 0 ? m.roles : [m.role]) as SchoolRole[]
       for (const r of allRoles) {
         if (roleCounts[r] !== undefined) {
           roleCounts[r]++
@@ -82,7 +88,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const rolesList = (Object.keys(ROLE_PERMISSIONS) as Role[]).map((role) => {
+    const rolesList = SCHOOL_ROLES.map((role) => {
       const meta = ROLE_METADATA[role] || {
         label: role,
         description: 'System role',

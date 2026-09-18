@@ -1,6 +1,8 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
+import { ChevronLeft } from 'lucide-react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
 
 export function Avatar({
@@ -129,9 +131,10 @@ export function EmptyState({
   why?: string
   kicker?: string
 }) {
+  const isIllustration = React.isValidElement(icon) && (Boolean((icon.props as any)?.size) || (icon.props as any)?.role === 'img')
   return (
     <div className="empty">
-      <div className="empty-art">{icon}</div>
+      <div className={`empty-art ${isIllustration ? 'empty-illustration' : ''}`}>{icon}</div>
       {kicker && <div className="empty-kicker">{kicker}</div>}
       <div className="empty-what">{title}</div>
       <p className="empty-why">{why || message}</p>
@@ -146,23 +149,28 @@ export function Card({
   className = '',
   onClick,
   style,
+  as: Component = 'div',
+  ...props
 }: {
   children: React.ReactNode
-  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info'
+  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info' | 'nav'
   className?: string
   onClick?: () => void
   style?: React.CSSProperties
+  as?: React.ElementType
+  [key: string]: any
 }) {
   const varClass = variant !== 'default' ? `card-${variant}` : ''
   return (
-    <div
-      className={`card ${varClass} ${className}`}
+    <Component
+      className={`card ${varClass} ${className}`.trim()}
       style={style}
       onClick={onClick}
-      {...(onClick ? { role: 'button', tabIndex: 0 } : {})}
+      {...(onClick && Component === 'div' ? { role: 'button', tabIndex: 0 } : {})}
+      {...props}
     >
       {children}
-    </div>
+    </Component>
   )
 }
 
@@ -219,22 +227,48 @@ export function KpiTile({
 }
 
 export function PageHead({
-  title, sub, actions, eyebrow, badge,
+  title, sub, actions, eyebrow, badge, backHref,
 }: {
-  title: string
+  title: React.ReactNode
   sub?: string
   actions?: React.ReactNode
   eyebrow?: string
   badge?: React.ReactNode
+  backHref?: string
 }) {
   return (
     <div className="page-head">
       <div>
         {eyebrow && <div className="page-eyebrow">{eyebrow}</div>}
-        <h1 className="t-h1">
-          {title}
-          {badge && <span className="page-head-badge">{badge}</span>}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {backHref && (
+            <Link
+              href={backHref}
+              tabIndex={-1}
+              className="btn btn-ghost"
+              style={{
+                width: 34,
+                height: 34,
+                padding: 0,
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-default)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)',
+                outline: 'none',
+                boxShadow: 'none',
+              }}
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </Link>
+          )}
+          <h1 className="t-h1" style={{ margin: 0 }}>
+            {title}
+            {badge && <span className="page-head-badge">{badge}</span>}
+          </h1>
+        </div>
         {sub && <div className="sub">{sub}</div>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}

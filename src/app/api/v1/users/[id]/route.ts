@@ -80,6 +80,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
               name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
               admissionNo: sl.student.admissionNo,
               canPickup: sl.canPickup,
+              receivesComm: sl.receivesComm,
+              pickupPin: sl.pickupPin,
+              relationship: sl.relationship || member.user.guardianProfile!.relationship,
             })),
           }
         : null,
@@ -192,7 +195,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // If workforce designation or employeeCode provided, update or create StaffProfile
       const effectiveRoles = updated.roles && updated.roles.length > 0 ? updated.roles : [updated.role]
       const isStaff = effectiveRoles.some((r) =>
-        ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION', 'OWNER'].includes(r)
+        ['TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER', 'PRINCIPAL', 'OWNER'].includes(r)
       )
 
       if (isStaff || designation !== undefined || employeeCode !== undefined) {

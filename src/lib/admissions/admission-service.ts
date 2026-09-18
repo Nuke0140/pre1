@@ -21,6 +21,7 @@ import { db } from '@/lib/db'
 import { audit, nextNumber } from '@/lib/sequence'
 import { emit } from '@/lib/events'
 import { raiseFollowUp } from '@/lib/followups'
+import { SchoolRole } from '@/lib/auth'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { getDomainConfig, getAdmissionConfig } from '@/lib/config'
 import type { ProgramType, Gender, LeadSource, LeadStatus, ApplicationStatus, DocumentType, OfferStatus, DocumentStatus } from '@prisma/client'
@@ -276,7 +277,7 @@ export class AdmissionService {
       note: string
       dueAt?: Date | string
       outcome?: string
-      responsibleRole?: 'TEACHER' | 'PRINCIPAL' | 'OWNER' | 'ACCOUNTS' | 'COORDINATOR'
+      responsibleRole?: SchoolRole
     }
   ) {
     const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
@@ -298,7 +299,7 @@ export class AdmissionService {
       sourceId: enquiryId,
       dedupeKey: `enquiry-fu:${enquiryId}:${Date.now()}`,
       dueAt: input.dueAt ? new Date(input.dueAt) : new Date(Date.now() + 24 * 60 * 60 * 1000),
-      responsibleRole: input.responsibleRole || 'COORDINATOR',
+      responsibleRole: input.responsibleRole || 'PRINCIPAL',
       actorId: ctx.actorId,
       actorName: ctx.actorName,
     })
@@ -350,7 +351,7 @@ export class AdmissionService {
       sourceId: enquiryId,
       dedupeKey: `visit:${enquiryId}:${visitTime.toISOString().slice(0, 10)}`,
       dueAt: visitTime,
-      responsibleRole: 'COORDINATOR',
+      responsibleRole: 'PRINCIPAL',
       actorId: ctx.actorId,
       actorName: ctx.actorName,
     })
@@ -700,7 +701,7 @@ export class AdmissionService {
       sourceId: applicationId,
       dedupeKey: `counselling:${applicationId}:${sessionDate.getTime()}`,
       dueAt: sessionDate,
-      responsibleRole: 'COORDINATOR',
+      responsibleRole: 'PRINCIPAL',
       actorId: ctx.actorId,
       actorName: ctx.actorName,
     })
@@ -1356,7 +1357,7 @@ export class AdmissionService {
       sourceType: 'AdmissionApplication',
       sourceId: applicationId,
       dedupeKey: `waitlist:${applicationId}`,
-      responsibleRole: 'COORDINATOR',
+      responsibleRole: 'PRINCIPAL',
       actorId: ctx.actorId,
       actorName: ctx.actorName,
     })

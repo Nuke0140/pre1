@@ -202,7 +202,7 @@ export async function requireTeacherClassroomAccess(
 ): Promise<boolean | Response> {
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isSupervisory = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(r)
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
   )
   if (isSupervisory) return true
 
@@ -232,7 +232,7 @@ export async function requireGuardianChildAccess(
 ): Promise<boolean | Response> {
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isStaff = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'RECEPTION', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(r)
+    ['OWNER', 'PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER', 'PLATFORM_ADMIN'].includes(r)
   )
   if (isStaff) return true
 

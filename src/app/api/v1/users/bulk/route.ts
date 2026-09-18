@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    const memberMap = new Map(members.map((m) => [m.userId, m]))
+    const memberMap = new Map<string, (typeof members)[number]>(members.map((m) => [m.userId, m]))
     const isActorOwnerOrPlatform = session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
 
     const blocked: BlockedUserRecord[] = []

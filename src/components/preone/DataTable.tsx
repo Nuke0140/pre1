@@ -47,6 +47,7 @@ export interface DataTableProps<T extends { id?: string | number }> {
   emptyTitle?: string
   emptyMessage?: string
   emptyAction?: React.ReactNode
+  emptyIcon?: React.ReactNode
   searchPlaceholder?: string
   onSearch?: (q: string) => void
   searchValue?: string
@@ -116,6 +117,7 @@ export function DataTable<T extends { id?: string | number }>({
   emptyTitle = 'No records found',
   emptyMessage = 'No records are currently available matching your criteria.',
   emptyAction,
+  emptyIcon,
   searchPlaceholder,
   onSearch,
   searchValue,
@@ -743,9 +745,9 @@ export function DataTable<T extends { id?: string | number }>({
 
         {!loading && !error && data && data.length === 0 && (
           <EmptyState
-            icon={<Filter size={36} />}
-            title={emptyTitle}
-            message={emptyMessage}
+            icon={emptyIcon || <Filter size={36} />}
+            title={emptyTitle || 'No matching records found'}
+            message={emptyMessage || 'Try adjusting your filters, search terms, or role selection.'}
             action={emptyAction}
           />
         )}

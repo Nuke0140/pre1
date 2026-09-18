@@ -541,6 +541,48 @@ a:hover{color:var(--text-link-hover)}
 }
 .card-interactive{cursor:pointer}
 .card-interactive:active{transform:translateY(0) scale(0.995)}
+.card-nav{
+  cursor:pointer;
+  border-radius:var(--radius-2xl);
+  padding:clamp(24px, 3.5vw, 36px);
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  min-height:300px;
+  background:var(--bg-card);
+  border:1px solid var(--border-default);
+  box-shadow:var(--shadow-card);
+  text-decoration:none;
+  color:var(--text-primary);
+  position:relative;
+  overflow:hidden;
+  transition:transform var(--motion-normal) var(--ease-standard),
+             box-shadow var(--motion-normal) var(--ease-standard),
+             border-color var(--motion-normal) var(--ease-standard);
+}
+.card-nav:hover{
+  transform:translateY(-3px);
+  box-shadow:var(--shadow-elevated);
+  border-color:color-mix(in srgb,var(--primary) 35%,var(--border-default));
+}
+.card-nav:active{transform:translateY(-1px) scale(0.995)}
+.card-nav:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+.card-nav p{color:var(--text-secondary)}
+.card-nav h2,.card-nav h3{color:var(--text-primary)}
+
+/* PreOne 2-Up Access Cards Grid */
+.users-access-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+@media (max-width: 640px) {
+  .users-access-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
 .card-compact{padding:var(--space-3) var(--space-4)}
 .card-featured{
   background:color-mix(in srgb,var(--primary-light) 30%,var(--bg-card));
@@ -623,11 +665,167 @@ a:hover{color:var(--text-link-hover)}
 .kpi.clickable:active{transform:scale(0.99)}
 .kpi.clickable:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .kpi.active{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-light),var(--shadow-card)}
-/* Fixed 5-up strip so a 5-tile module summary stays on one line on desktop */
-.kpi-row.kpi-5{grid-template-columns:repeat(5,minmax(0,1fr))}
-@media (max-width:1160px){.kpi-row.kpi-5{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:720px){.kpi-row.kpi-5{grid-template-columns:1fr 1fr}}
-@media (max-width:480px){.kpi-row.kpi-5{grid-template-columns:1fr}}
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none !important;
+}
+/* Fixed 5-up strip so a 5-tile module summary stays on one line on desktop and laptops */
+.kpi-row.kpi-5 {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.kpi-row.kpi-5 .kpi {
+  padding: 12px 14px;
+  gap: 6px;
+  border-radius: var(--radius-xl);
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.kpi-row.kpi-5 .kpi-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+}
+.kpi-row.kpi-5 .kpi-ic svg {
+  width: 16px;
+  height: 16px;
+}
+.kpi-row.kpi-5 .kpi-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+.kpi-row.kpi-5 .kpi-value {
+  font-size: clamp(15px, 1.35vw, 20px);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-row.kpi-5 .kpi-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+@media (max-width: 1060px) {
+  .kpi-row.kpi-5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .kpi-row.kpi-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+@media (max-width: 420px) {
+  .kpi-row.kpi-5 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fixed 4-up strip so a 4-tile module summary stays on one line on desktop and laptops */
+.kpi-row.kpi-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.kpi-row.kpi-4 .kpi {
+  padding: 14px 16px;
+  gap: 8px;
+  border-radius: var(--radius-xl);
+  min-height: 102px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.kpi-row.kpi-4 .kpi-ic {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.kpi-row.kpi-4 .kpi-ic svg {
+  width: 18px;
+  height: 18px;
+}
+.kpi-row.kpi-4 .kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.2;
+}
+.kpi-row.kpi-4 .kpi-value {
+  font-size: clamp(18px, 1.5vw, 24px);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-row.kpi-4 .kpi-meta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+@media (max-width: 1060px) {
+  .kpi-row.kpi-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .kpi-row.kpi-4 {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+/* Responsive Toolbar / Header Row */
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+@media (max-width: 640px) {
+  .header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Responsive Filter Row */
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+@media (max-width: 860px) {
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-row > div,
+  .filter-row > a,
+  .filter-row > button {
+    width: 100% !important;
+  }
+}
 
 /* ════════════════════════════════════════════════════════════════════
    MODERN PRODUCT PRIMITIVES (BREAKING "CARD FOR EVERYTHING")
@@ -1165,26 +1363,32 @@ tr:hover .dt-row-actions .kebab,.dt-row-actions .kebab:focus-visible{opacity:1}
 /* ════════════════════════════════════════════════════════════════════
    OVERLAYS — modal / drawer
    ════════════════════════════════════════════════════════════════════ */
-.ovl{position:fixed;inset:0;z-index:var(--z-overlay);display:flex;align-items:center;justify-content:center;padding:16px}
-.ovl-backdrop{position:absolute;inset:0;background:var(--bg-overlay);backdrop-filter:blur(4px);animation:fade-in var(--motion-fast) var(--ease-standard)}
+.ovl{position:fixed;inset:0;z-index:var(--z-overlay);display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.ovl-backdrop{position:fixed;inset:0;background:var(--bg-overlay);backdrop-filter:blur(4px);animation:fade-in var(--motion-fast) var(--ease-standard)}
 .modal{
-  position:relative;width:min(560px,100vw - 32px);max-height:min(84vh,760px);display:flex;flex-direction:column;
+  position:relative;width:min(560px,100vw - 32px);max-height:min(88vh,780px);display:flex;flex-direction:column;
   background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:var(--radius-xl);box-shadow:var(--shadow-modal);
   animation:pop-in var(--motion-normal) var(--ease-standard);
+  overflow:hidden;
 }
-.modal-wide{width:min(760px,100vw - 32px)}
-.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 24px 0}
+.modal-wide{width:min(720px,100vw - 32px)}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 24px;border-bottom:1px solid var(--border-subtle);flex:none}
 .modal-head h3{font-size:16.5px;font-weight:700;color:var(--text-primary)}
 .modal-sub{font-size:12.5px;color:var(--text-muted);margin-top:2px}
-.modal-body{padding:16px 24px;overflow-y:auto}
-.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px 20px;border-top:1px solid var(--border-subtle)}
-.modal-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
-.modal-icon svg{width:24px;height:24px}
+.modal-body{padding:20px 24px;overflow-y:auto;flex:1 1 auto;min-height:0}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border-subtle);flex:none;background:var(--bg-card)}
+.modal-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.modal-icon svg{width:22px;height:22px}
 .x-btn{width:32px;height:32px;border-radius:var(--radius-sm);border:none;background:var(--bg-muted);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:all var(--motion-fast)}
 .x-btn:hover{background:var(--danger-soft);color:var(--danger)}
 .x-btn svg{width:15px;height:15px}
 .modal:focus{outline:none}
 .modal:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+/* Input with icon wrapper to guarantee text clearance */
+.input-icon-wrap{position:relative;display:flex;align-items:center;width:100%}
+.input-icon-wrap > svg, .input-icon-wrap > .input-icon{position:absolute;left:12px;width:16px;height:16px;color:var(--text-muted);pointer-events:none;z-index:2}
+.input-icon-wrap .input, .input-icon-wrap input{padding-left:38px !important}
 
 /* ── Right-side Drawer (slides in from right edge) ── */
 .ovl-drawer{align-items:stretch;justify-content:flex-end;padding:0}
@@ -1436,6 +1640,8 @@ tr:hover .dt-row-actions .kebab,.dt-row-actions .kebab:focus-visible{opacity:1}
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px 24px;border-radius:var(--radius-lg);background:var(--bg-card)}
 .empty-art{width:56px;height:56px;border-radius:18px;background:var(--bg-muted);display:flex;align-items:center;justify-content:center;color:var(--text-muted);margin-bottom:16px;box-shadow:var(--shadow-card)}
 .empty-art svg{width:28px;height:28px}
+.empty-art.empty-illustration{width:auto;height:auto;border-radius:0;background:transparent;box-shadow:none;margin-bottom:8px}
+.empty-art.empty-illustration svg{width:auto;height:auto;max-width:100%}
 .empty-what{font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:6px;letter-spacing:-.01em}
 .empty-why{font-size:13.5px;color:var(--text-secondary);max-width:440px;line-height:1.45;margin-bottom:18px}
 .empty-next{display:flex;align-items:center;gap:10px}
@@ -3405,6 +3611,9 @@ kbd{
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .table-workspace .school-context-bar {
@@ -3417,6 +3626,9 @@ kbd{
   border: none;
   border-radius: 0;
   box-shadow: none;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* ── 5. Attendance Register Studio ── */

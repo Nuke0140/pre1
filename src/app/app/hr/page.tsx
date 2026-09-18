@@ -20,7 +20,7 @@ import { fmtDate } from '@/lib/format'
 
 type TabKey = 'overview' | 'staff' | 'attendance' | 'leaves' | 'payroll' | 'recruitment' | 'compliance' | 'offboarding'
 
-const STAFF_ROLES = ['TEACHER', 'COORDINATOR', 'PRINCIPAL', 'ACCOUNTS', 'RECEPTION']
+const STAFF_ROLES = ['TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER', 'PRINCIPAL']
 
 const money = (n?: number | null) => `₹${Number(n ?? 0).toLocaleString('en-IN')}`
 const timeOf = (d?: string | null) => (d ? new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')
