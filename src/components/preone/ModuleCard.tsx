@@ -2,72 +2,12 @@
 
 import React from 'react'
 import Link from 'next/link'
-import type { HomeModule, SemanticTheme } from '@/lib/modules'
+import type { HomeModule } from '@/lib/modules'
+import { SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 
 interface ModuleCardProps {
   module: HomeModule
   className?: string
-}
-
-const THEME_STYLES: Record<
-  SemanticTheme,
-  {
-    iconBg: string
-    iconColor: string
-    iconBorder: string
-    hoverBorder: string
-    accentGlow: string
-  }
-> = {
-  lavender: {
-    iconBg: 'var(--primary-light, #F3EEFF)',
-    iconColor: 'var(--primary, #7C3AED)',
-    iconBorder: 'color-mix(in srgb, var(--primary, #7C3AED) 20%, transparent)',
-    hoverBorder: 'var(--primary, #7C3AED)',
-    accentGlow: 'color-mix(in srgb, var(--primary, #7C3AED) 8%, transparent)',
-  },
-  blue: {
-    iconBg: 'var(--info-soft, #EBF5FF)',
-    iconColor: 'var(--info, #2563EB)',
-    iconBorder: 'color-mix(in srgb, var(--info, #2563EB) 20%, transparent)',
-    hoverBorder: 'var(--info, #2563EB)',
-    accentGlow: 'color-mix(in srgb, var(--info, #2563EB) 8%, transparent)',
-  },
-  teal: {
-    iconBg: 'var(--secondary-light, #E6FFFA)',
-    iconColor: 'var(--secondary, #0D9488)',
-    iconBorder: 'color-mix(in srgb, var(--secondary, #0D9488) 20%, transparent)',
-    hoverBorder: 'var(--secondary, #0D9488)',
-    accentGlow: 'color-mix(in srgb, var(--secondary, #0D9488) 8%, transparent)',
-  },
-  orange: {
-    iconBg: 'var(--accent-light, #FFF7ED)',
-    iconColor: 'var(--warning, #D97706)',
-    iconBorder: 'color-mix(in srgb, var(--warning, #D97706) 20%, transparent)',
-    hoverBorder: 'var(--warning, #D97706)',
-    accentGlow: 'color-mix(in srgb, var(--warning, #D97706) 8%, transparent)',
-  },
-  pink: {
-    iconBg: 'var(--pink-soft, #FDF2F8)',
-    iconColor: 'var(--pink, #DB2777)',
-    iconBorder: 'color-mix(in srgb, var(--pink, #DB2777) 20%, transparent)',
-    hoverBorder: 'var(--pink, #DB2777)',
-    accentGlow: 'color-mix(in srgb, var(--pink, #DB2777) 8%, transparent)',
-  },
-  green: {
-    iconBg: 'var(--success-soft, #ECFDF5)',
-    iconColor: 'var(--success, #16A34A)',
-    iconBorder: 'color-mix(in srgb, var(--success, #16A34A) 20%, transparent)',
-    hoverBorder: 'var(--success, #16A34A)',
-    accentGlow: 'color-mix(in srgb, var(--success, #16A34A) 8%, transparent)',
-  },
-  purple: {
-    iconBg: 'var(--primary-light, #F3EEFF)',
-    iconColor: 'var(--primary, #7C3AED)',
-    iconBorder: 'color-mix(in srgb, var(--primary, #7C3AED) 20%, transparent)',
-    hoverBorder: 'var(--primary, #7C3AED)',
-    accentGlow: 'color-mix(in srgb, var(--primary, #7C3AED) 8%, transparent)',
-  },
 }
 
 /**
@@ -81,7 +21,7 @@ const THEME_STYLES: Record<
  */
 export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
   const Icon = m.icon
-  const theme = THEME_STYLES[m.semanticTheme] || THEME_STYLES.lavender
+  const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
 
   return (
     <Link

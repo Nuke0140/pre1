@@ -586,3 +586,71 @@ export function PreschoolLearningBannerIllustration({
   )
 }
 
+export const StartMenuIllustration = PreschoolLearningBannerIllustration
+
+/**
+ * Subtle preschool decorative stars & pastel particles for the PreOne Dock / Global Bottom Navigation
+ * Non-interactive, aria-hidden, lightweight SVG using canonical theme variables.
+ */
+export function DockStarsAccent({
+  className = '',
+  variant = 'left',
+  ...props
+}: {
+  className?: string
+  variant?: 'left' | 'right' | 'sparkle'
+} & React.SVGProps<SVGSVGElement>) {
+  if (variant === 'sparkle') {
+    return (
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 20 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+        aria-hidden="true"
+        {...props}
+      >
+        <path
+          d="M10 2L11.5 7.5L17 9L11.5 10.5L10 16L8.5 10.5L3 9L8.5 7.5L10 2Z"
+          fill="var(--warning, #F59E0B)"
+          opacity="0.65"
+        />
+        <circle cx="16" cy="4" r="1.5" fill="var(--info, #3B82F6)" opacity="0.5" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg
+      width="72"
+      height="32"
+      viewBox="0 0 72 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+      {...props}
+    >
+      {/* 4-point soft star */}
+      <path
+        d="M16 6L18 12L24 14L18 16L16 22L14 16L8 14L14 12L16 6Z"
+        fill="var(--warning, #F59E0B)"
+        opacity="0.7"
+      />
+      {/* Tiny pastel dots */}
+      <circle cx="34" cy="18" r="2.2" fill="var(--primary, #7C3AED)" opacity="0.45" />
+      <circle cx="48" cy="11" r="1.8" fill="var(--info, #3B82F6)" opacity="0.5" />
+      <circle cx="60" cy="21" r="1.4" fill="var(--danger, #F43F5E)" opacity="0.4" />
+      {/* Miniature sparkle */}
+      <path
+        d="M42 6L43 8.5L45.5 9.5L43 10.5L42 13L41 10.5L38.5 9.5L41 8.5L42 6Z"
+        fill="var(--primary, #7C3AED)"
+        opacity="0.4"
+      />
+    </svg>
+  )
+}
+
+export const PreOneDecorativeAccent = DockStarsAccent

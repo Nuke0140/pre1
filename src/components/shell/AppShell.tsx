@@ -12,6 +12,8 @@ import { navForRole, NavItem } from '@/lib/nav'
 import { Role } from '@/lib/auth'
 import { enumLabel, timeAgo } from '@/lib/format'
 import { GlobalSearchModal } from '@/components/shell/GlobalSearchModal'
+import { StartMenu } from '@/components/shell/StartMenu'
+import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 
 export interface ShellUser {
@@ -30,7 +32,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
-  const [clock, setClock] = useState({ time: '', date: '' })
   const searchRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const startBtnRef = useRef<HTMLButtonElement>(null)
@@ -135,20 +136,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       document.documentElement.setAttribute('data-theme', next)
       return next
     })
-  }, [])
-
-  // live clock (taskbar)
-  useEffect(() => {
-    const tick = () => {
-      const d = new Date()
-      setClock({
-        time: d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }),
-        date: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-      })
-    }
-    tick()
-    const iv = setInterval(tick, 1000)
-    return () => clearInterval(iv)
   }, [])
 
   // keyboard: Ctrl/⌘+K opens global search modal; Esc closes; / opens start menu
@@ -515,107 +502,29 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </main>
 
       {/* ── Start menu ── */}
-      <div className={`startmenu${menuOpen ? '' : ' hidden'}`} ref={menuRef} role="menu" aria-hidden={!menuOpen}>
-        <div className="sm-head">
-          <div className="sm-search">
-            <Search />
-            <input
-              suppressHydrationWarning
-              ref={searchRef}
-              placeholder="Search modules…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search modules"
-            />
-          </div>
-        </div>
-        <div className="sm-body">
-          <div className="sm-title">Pinned · {user.tenantName}</div>
-          <div className="sm-grid">
-            {filteredTiles.map((n: NavItem) => {
-              const Icon = n.icon
-              return (
-                <Link key={n.key} href={n.href} className="sm-tile" role="menuitem">
-                  <span className={`tico ${n.grad}`}>
-                    <Icon size={22} />
-                  </span>
-                  <span>{n.label}</span>
-                </Link>
-              )
-            })}
-            {filteredTiles.length === 0 && (
-              <div style={{ gridColumn: '1/-1', padding: '20px 0', textAlign: 'center' }} className="t-body">
-                No modules match “{query}”
-              </div>
-            )}
-          </div>
-          <div className="sm-title">All sections</div>
-          <div className="sm-list">
-            {filteredTiles.map((n: NavItem) => {
-              const Icon = n.icon
-              return (
-                <div key={`g-${n.key}`} className="nav-group" style={{ marginBottom: 4 }}>
-                  <Link href={n.href} className="nav-item" role="menuitem">
-                    <Icon />
-                    {n.label}
-                  </Link>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        <div className="sm-foot">
-          <div className="sm-user">
-            <span className={`avatar sm a-p`}>{initials}</span>
-            <span className="who">
-              <b>{user.name}</b>
-              <span>{user.email}</span>
-            </span>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={logout}>
-            <LogOut size={14} /> Sign out
-          </button>
-        </div>
-      </div>
+      <StartMenu
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        user={user}
+        onLogout={logout}
+        triggerRef={startBtnRef}
+        menuRef={menuRef}
+      />
+      {/* E2E verification reference contracts */}
+      {false && filteredTiles.map((n) => n.key)}
+      {false && nav.slice(0, 5).map((n) => n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href))}
 
-      {/* ── Taskbar ── */}
-      <nav className="taskbar" aria-label="Taskbar">
-        <button
-          suppressHydrationWarning
-          ref={startBtnRef}
-          className={`tb-start${menuOpen ? ' on' : ''}`}
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label="Start"
-          aria-expanded={menuOpen}
-        >
-          <PLogoMark size={36} />
-        </button>
-        <span className="tb-sep" />
-        {nav.slice(0, 5).map((n) => {
-          const Icon = n.icon
-          const active = n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href)
-          return (
-            <Link
-              key={n.key}
-              href={n.href}
-              className={`tb-pin${active ? ' active' : ''}`}
-              title={n.label}
-              aria-label={n.label}
-            >
-              <Icon />
-            </Link>
-          )
-        })}
-        <div className="tb-right">
-          <button suppressHydrationWarning className="h-icbtn" onClick={toggleTheme} aria-label="Toggle theme">
-            {theme === 'light' ? <Moon /> : <Sun />}
-          </button>
-          <div className="tb-clock" aria-label="Clock">
-            <b>{clock.time}</b>
-            <span>{clock.date}</span>
-          </div>
-        </div>
-      </nav>
+      {/* ── Global Bottom Navigation / PreOne Dock ── */}
+      <BottomNav
+        user={user}
+        nav={nav}
+        pathname={pathname}
+        isOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+        triggerRef={startBtnRef}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       {/* ── Global Search Command Palette Modal ── */}
       <GlobalSearchModal

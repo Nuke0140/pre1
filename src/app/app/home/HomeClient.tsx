@@ -6,7 +6,10 @@ import { homeModules, type HomeModule } from '@/lib/modules'
 import { ModuleCard, PLogoWordmark } from '@/components/preone'
 
 export function HomeClient({ role }: { role: Role }) {
-  const modules = useMemo<HomeModule[]>(() => homeModules(role), [role])
+  const modules = useMemo<HomeModule[]>(
+    () => homeModules(role).filter((m) => m.key !== 'home'),
+    [role]
+  )
 
   return (
     <div className="home" style={{ maxWidth: 1440, margin: '0 auto', width: '100%' }}>
