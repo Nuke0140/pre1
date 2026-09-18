@@ -421,15 +421,6 @@ export default function FamilyUsersPage() {
               <Shield className="w-3.5 h-3.5 text-purple-600" />
               <span>Roles Directory</span>
             </button>
-            <a
-              href="/api/v1/users/csv?template=family"
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
-              download
-              title="Download CSV Template"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>CSV Template</span>
-            </a>
             <button
               type="button"
               onClick={() => setCsvModalOpen(true)}

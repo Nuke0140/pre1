@@ -12,12 +12,14 @@ interface ModalProps {
   icon?: React.ReactNode
   iconClass?: string
   wide?: boolean
+  maxWidth?: string | number
+  className?: string
   children: React.ReactNode
   footer?: React.ReactNode
 }
 
 export function Modal({
-  open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, children, footer,
+  open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, maxWidth, className, children, footer,
 }: ModalProps) {
   const panelRef = React.useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
@@ -77,7 +79,12 @@ export function Modal({
   return createPortal(
     <div className="ovl" role="dialog" aria-modal="true" aria-label={title}>
       <div className="ovl-backdrop" onClick={onClose} />
-      <div className={`modal${wide ? ' modal-wide' : ''}`} ref={panelRef} tabIndex={-1}>
+      <div
+        className={`modal${wide ? ' modal-wide' : ''}${className ? ` ${className}` : ''}`}
+        style={maxWidth ? { maxWidth, width: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth } : undefined}
+        ref={panelRef}
+        tabIndex={-1}
+      >
         <div className="modal-head">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             {icon && <div className={`modal-icon ${iconClass}`}>{icon}</div>}

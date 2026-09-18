@@ -147,11 +147,6 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
       open={open}
       onClose={handleClose}
       title={type === 'STAFF' ? 'Bulk Import Staff Users (CSV)' : 'Bulk Import Family Users (CSV)'}
-      subtitle={
-        type === 'STAFF'
-          ? 'Upload teachers, helpers, and campus staff with role and branch assignments'
-          : 'Upload parents and authorized guardians linked to enrolled children'
-      }
       icon={<FileSpreadsheet className="w-5 h-5 text-emerald-600" />}
       iconClass="ic-green"
       wide
@@ -233,115 +228,11 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
       }
     >
       <div className="space-y-4">
-        {/* Step Indicator Stepper */}
-        <div className="p-2.5 bg-[var(--bg-subtle)] rounded-xl border border-[var(--border-default)] flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 sm:gap-4 text-xs">
-            {/* Step 1 */}
-            <div
-              className={`flex items-center gap-2 ${
-                step === 'UPLOAD'
-                  ? 'text-purple-700 dark:text-purple-300 font-bold'
-                  : step === 'PREVIEW' || step === 'RESULT'
-                  ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step === 'UPLOAD'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : step === 'PREVIEW' || step === 'RESULT'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
-                }`}
-              >
-                {step === 'PREVIEW' || step === 'RESULT' ? <Check className="w-3.5 h-3.5" /> : '1'}
-              </span>
-              <span>Upload & Map</span>
-            </div>
-
-            <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
-
-            {/* Step 2 */}
-            <div
-              className={`flex items-center gap-2 ${
-                step === 'PREVIEW'
-                  ? 'text-purple-700 dark:text-purple-300 font-bold'
-                  : step === 'RESULT'
-                  ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step === 'PREVIEW'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : step === 'RESULT'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
-                }`}
-              >
-                {step === 'RESULT' ? <Check className="w-3.5 h-3.5" /> : '2'}
-              </span>
-              <span>Validate & Preview</span>
-            </div>
-
-            <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-700 shrink-0" />
-
-            {/* Step 3 */}
-            <div
-              className={`flex items-center gap-2 ${
-                step === 'RESULT'
-                  ? 'text-purple-700 dark:text-purple-300 font-bold'
-                  : 'text-[var(--text-muted)]'
-              }`}
-            >
-              <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                  step === 'RESULT'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
-                }`}
-              >
-                3
-              </span>
-              <span>Execution Report</span>
-            </div>
-          </div>
-
-          {/* Quick Template Download */}
-          {step === 'UPLOAD' && (
-            <div className="flex items-center gap-1.5">
-              {type === 'STAFF' ? (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadTemplate('staff')}
-                  className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
-                  title="Download clean staff CSV template"
-                >
-                  <Download className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Download Staff Template</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleDownloadTemplate('family')}
-                  className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
-                  title="Download clean family CSV template"
-                >
-                  <Download className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Download Family Template</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
         {/* STEP 1: Upload Workspace */}
         {step === 'UPLOAD' && (
           <div className="space-y-3.5">
-            {/* Input Mode Toggle (File Upload vs Direct Paste) */}
-            <div className="flex items-center justify-between gap-3">
+            {/* Input Mode Toggle (File Upload vs Direct Paste) + Quick Template Download */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="seg text-xs" role="tablist">
                 <button
                   type="button"
@@ -365,12 +256,29 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                 </button>
               </div>
 
-              {csvText && (
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Content loaded ({csvText.trim().split('\n').length} rows)</span>
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {type === 'STAFF' ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadTemplate('staff')}
+                    className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
+                    title="Download clean staff CSV template"
+                  >
+                    <Download className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Download Staff Template</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadTemplate('family')}
+                    className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
+                    title="Download clean family CSV template"
+                  >
+                    <Download className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Download Family Template</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Mode 1: Drag & Drop File Upload */}
@@ -394,9 +302,6 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                     <h4 className="text-sm font-bold text-[var(--text-primary)]">
                       Select or Drop your {type === 'STAFF' ? 'Staff' : 'Family'} CSV File
                     </h4>
-                    <p className="text-xs text-[var(--text-muted)] mt-1 max-w-md mx-auto">
-                      Drag and drop your spreadsheet here, or click browse to choose from your computer
-                    </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <label className="btn btn-primary text-xs cursor-pointer inline-flex items-center gap-1.5 font-semibold py-2 px-4 shadow-xs">
                         <FileSpreadsheet className="w-4 h-4" />
@@ -524,13 +429,13 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                 </div>
               </div>
 
-              <div className="shrink-0">
-                <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                  {type === 'STAFF'
-                    ? 'Roles: TEACHER, HELPER, PRINCIPAL, HR, ACCOUNTANT, DRIVER'
-                    : 'Max 2 Parents per student strictly enforced'}
-                </span>
-              </div>
+              {type === 'STAFF' && (
+                <div className="shrink-0">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    Roles: TEACHER, HELPER, PRINCIPAL, HR, ACCOUNTANT, DRIVER
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         )}
