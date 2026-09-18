@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3, School, Inbox, UserPlus, Ban, Keyboard, X,
+  Search, Bell, Sun, Moon, LogOut, ChevronRight, Clock3, Inbox, UserPlus, Ban, Keyboard, X,
 } from 'lucide-react'
 import { PLogoMark, PLogoWordmark } from '@/components/preone/PLogo'
 import { Avatar } from '@/components/preone/ui'
@@ -120,11 +120,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
 
   const nav = useMemo(() => navForRole(user.role), [user.role])
 
-  // current module from path
-  const current = useMemo(() => {
-    const match = nav.find((n) => n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href))
-    return match?.label || (pathname.startsWith('/app/home') ? 'Home' : 'Dashboard')
-  }, [nav, pathname])
 
   // theme boot + persistence (reads localStorage once on mount)
   useEffect(() => {
@@ -247,16 +242,11 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       <RouteProgress />
       {/* ── Header ── */}
       <header className="app-header">
-        <Link href="/app" className="h-logo" aria-label="PreOne home">
-          <PLogoWordmark />
-        </Link>
-        <div className="h-school-badge">
-          <div className="badge-icon">
-            <School size={11} />
-          </div>
-          <span>{user.tenantName}</span>
-          <span className="badge-branch">· {current}</span>
-        </div>
+        {pathname !== '/app/home' && pathname !== '/app' && (
+          <Link href="/app" className="h-logo" aria-label="PreOne home">
+            <PLogoWordmark />
+          </Link>
+        )}
         <div className="h-spacer" />
         <div className="h-search" onClick={() => setSearchModalOpen(true)} style={{ cursor: 'pointer' }}>
           <Search />

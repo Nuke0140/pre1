@@ -99,126 +99,217 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     }
   }
 
+  const modalFooter = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12 }}>
+      <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 6 }}>
+        <span
+          className="badge b-primary"
+          style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, gap: 6 }}
+        >
+          <Briefcase style={{ width: 13, height: 13 }} />
+          Campus Workforce Member
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 'auto', marginLeft: 'auto' }}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={onClose}
+          disabled={submitting}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          form="add-staff-form"
+          className="btn btn-primary btn-sm"
+          disabled={submitting}
+        >
+          {submitting ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="animate-spin" style={{ width: 12, height: 12, border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%' }} />
+              Creating Staff Account...
+            </span>
+          ) : (
+            'Create Staff Member'
+          )}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Add Preschool Staff User"
       subtitle="Create an authorized workforce account for teachers, administration, and campus operations"
-      icon={<Briefcase className="w-5 h-5 text-indigo-600" />}
+      icon={<Briefcase style={{ width: 20, height: 20 }} />}
       iconClass="ic-purple"
       wide
-      footer={
-        <div className="flex items-center justify-end gap-2.5 w-full">
-          <button
-            type="button"
-            className="btn btn-secondary text-xs"
-            onClick={onClose}
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="add-staff-form"
-            className="btn btn-primary text-xs"
-            disabled={submitting}
-          >
-            {submitting ? 'Creating Staff Account...' : 'Create Staff Member'}
-          </button>
-        </div>
-      }
+      footer={modalFooter}
     >
-      <form id="add-staff-form" onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
-        {/* Basic Information */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Identity & Access</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Full Name <span className="text-red-500">*</span>
+      <form id="add-staff-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }} autoComplete="off">
+        {/* Section 1: Identity & Access */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              1
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Identity & Access
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <div className="field">
+              <label>
+                Full Name <span className="req">*</span>
               </label>
-              <div className="relative input-icon-wrap">
-                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <div className="input-icon-wrap">
+                <User style={{ width: 16, height: 16 }} />
                 <input
                   type="text"
                   required
                   placeholder="e.g. Priya Sharma"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  className="input"
                   style={{ paddingLeft: 38 }}
-                  className="input w-full text-sm"
-                  autoComplete="off"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Work Email <span className="text-red-500">*</span>
+            <div className="field">
+              <label>
+                Work Email <span className="req">*</span>
               </label>
-              <div className="relative input-icon-wrap">
-                <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <div className="input-icon-wrap">
+                <Mail style={{ width: 16, height: 16 }} />
                 <input
                   type="email"
                   required
                   placeholder="e.g. priya@preschool.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="input"
                   style={{ paddingLeft: 38 }}
-                  className="input w-full text-sm"
-                  autoComplete="off"
                   data-lpignore="true"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Mobile Phone
-              </label>
-              <div className="relative input-icon-wrap">
-                <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="field">
+              <label>Mobile Phone</label>
+              <div className="input-icon-wrap">
+                <Phone style={{ width: 16, height: 16 }} />
                 <input
                   type="tel"
                   placeholder="e.g. +91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="input"
                   style={{ paddingLeft: 38 }}
-                  className="input w-full text-sm"
-                  autoComplete="off"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Username <span className="text-gray-400 font-normal">(Optional, auto-generated if blank)</span>
+            <div className="field">
+              <label>
+                Username <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Optional, auto-generated if blank)</span>
               </label>
               <input
                 type="text"
                 placeholder="e.g. priya.sharma"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="input w-full text-sm font-mono"
-                autoComplete="off"
+                className="input font-mono"
               />
             </div>
           </div>
         </div>
 
-        {/* Role & Campus Placement */}
-        <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-800">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Role & Placement</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Staff Role <span className="text-red-500">*</span>
+        {/* Section 2: Role & Campus Placement */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              2
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Role & Placement
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <div className="field">
+              <label>
+                Staff Role <span className="req">*</span>
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
-                className="select w-full text-sm"
+                className="select"
               >
                 {CANONICAL_STAFF_ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -228,17 +319,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Campus Branch
-              </label>
-              <div className="relative input-icon-wrap">
-                <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="field">
+              <label>Campus Branch</label>
+              <div className="input-icon-wrap">
+                <Building style={{ width: 16, height: 16 }} />
                 <select
                   value={branchId}
                   onChange={(e) => setBranchId(e.target.value)}
+                  className="select"
                   style={{ paddingLeft: 38 }}
-                  className="select w-full text-sm"
                 >
                   <option value="">All Branches / Central</option>
                   {branches.map((b) => (
@@ -251,16 +340,25 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
             </div>
           </div>
 
-          {/* Teacher Specific Classroom Allocation */}
+          {/* Teacher Specific Primary Classroom Allocation */}
           {role === 'TEACHER' && (
-            <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900 rounded-lg">
-              <label className="block text-xs font-medium text-indigo-950 dark:text-indigo-200 mb-1">
+            <div
+              style={{
+                marginTop: 14,
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                background: 'var(--preone-primary-soft)',
+                border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)',
+              }}
+            >
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--primary)', marginBottom: 6 }}>
                 Assigned Primary Classroom
               </label>
               <select
                 value={classroomId}
                 onChange={(e) => setClassroomId(e.target.value)}
-                className="select w-full text-sm bg-white dark:bg-gray-900"
+                className="select"
+                style={{ background: 'var(--bg-card)' }}
               >
                 <option value="">No specific classroom / Floater Teacher</option>
                 {classrooms.map((c) => (
@@ -269,66 +367,94 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                   </option>
                 ))}
               </select>
-              <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-1">
+              <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', marginTop: 6, lineHeight: 1.35 }}>
                 Teachers receive daily attendance and activity permissions for their assigned classroom.
               </p>
             </div>
           )}
         </div>
 
-        {/* Professional Details & Credentials */}
-        <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-800">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Professional Profile</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Employee Code / ID
-              </label>
+        {/* Section 3: Professional Details & Credentials */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              3
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Professional Profile
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <div className="field">
+              <label>Employee Code / ID</label>
               <input
                 type="text"
                 placeholder="e.g. EMP-1042"
                 value={employeeCode}
                 onChange={(e) => setEmployeeCode(e.target.value)}
-                className="input w-full text-sm font-mono"
+                className="input font-mono"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Highest Qualification
-              </label>
+            <div className="field">
+              <label>Highest Qualification</label>
               <input
                 type="text"
                 placeholder="e.g. B.Ed, Early Childhood Dip."
                 value={qualification}
                 onChange={(e) => setQualification(e.target.value)}
-                className="input w-full text-sm"
+                className="input"
               />
             </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Job Designation / Title
-              </label>
+            <div className="field">
+              <label>Job Designation / Title</label>
               <input
                 type="text"
                 placeholder="e.g. Lead Montessori Guide"
                 value={designation}
                 onChange={(e) => setDesignation(e.target.value)}
-                className="input w-full text-sm"
+                className="input"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Department
-              </label>
+            <div className="field">
+              <label>Department</label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="select w-full text-sm"
+                className="select"
               >
                 <option value="Academics">Academics</option>
                 <option value="Operations">Operations</option>
@@ -338,17 +464,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                 <option value="Administration">Administration</option>
               </select>
             </div>
-          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginTop: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Employment Type
-              </label>
+            <div className="field">
+              <label>Employment Type</label>
               <select
                 value={employmentType}
                 onChange={(e) => setEmploymentType(e.target.value)}
-                className="select w-full text-sm"
+                className="select"
               >
                 <option value="REGULAR">Regular / Permanent</option>
                 <option value="PROBATION">Probationary</option>
@@ -357,23 +479,24 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Initial Password <span className="text-gray-400 font-normal">(Optional)</span>
+            <div className="field">
+              <label>
+                Initial Password <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Optional)</span>
               </label>
-              <div className="relative input-icon-wrap">
-                <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <div className="input-icon-wrap">
+                <Key style={{ width: 16, height: 16 }} />
                 <input
                   type="password"
                   placeholder="Leave blank for invite email"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="input font-mono"
                   style={{ paddingLeft: 38 }}
-                  className="input w-full text-sm font-mono"
                   autoComplete="new-password"
                   data-lpignore="true"
                 />
               </div>
+              <span className="helper">Leave blank to send an email invitation with password setup link.</span>
             </div>
           </div>
         </div>
@@ -381,3 +504,4 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     </Modal>
   )
 }
+

@@ -449,3 +449,140 @@ export function SecurityShieldIllustration({
   )
 }
 
+/**
+ * Cheerful preschool learning banner illustration
+ * Features young children exploring, learning blocks, paper airplane, books, gentle sunshine,
+ * and the visual phrase "Small Steps, Big Futures"
+ */
+export function PreschoolLearningBannerIllustration({
+  className = '',
+  size,
+  ...props
+}: IllustrationProps) {
+  return (
+    <svg
+      width={size ?? 320}
+      height={size ? undefined : 96}
+      viewBox="0 0 340 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+      role="img"
+      {...props}
+    >
+      <defs>
+        <linearGradient id="banner-sun" x1="280" y1="10" x2="330" y2="70" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FDE68A" stopOpacity="0.9" />
+          <stop stopColor="#F59E0B" stopOpacity="0.3" />
+        </linearGradient>
+        <linearGradient id="banner-glow" x1="40" y1="20" x2="300" y2="90" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--primary-light, #F3EEFF)" stopOpacity="0.75" />
+          <stop stopColor="#EFF6FF" stopOpacity="0.4" />
+        </linearGradient>
+        <linearGradient id="book-spine" x1="130" y1="65" x2="165" y2="95" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#3B82F6" />
+          <stop stopColor="#1D4ED8" />
+        </linearGradient>
+        <linearGradient id="kid-shirt" x1="70" y1="60" x2="105" y2="95" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--primary, #7C3AED)" />
+          <stop stopColor="#9333EA" />
+        </linearGradient>
+        <linearGradient id="plane-grad" x1="240" y1="18" x2="270" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#38BDF8" />
+          <stop stopColor="#0284C7" />
+        </linearGradient>
+      </defs>
+
+      {/* Ambient background soft cloud / aura */}
+      <path
+        d="M30 65C30 45 48 30 70 30C82 30 92 35 98 42C106 32 120 25 138 25C162 25 180 40 185 58C194 50 208 45 224 45C248 45 268 62 270 82H30V65Z"
+        fill="url(#banner-glow)"
+        opacity="0.7"
+      />
+
+      {/* Gentle Rising Sunshine in top right */}
+      <circle cx="295" cy="32" r="22" fill="url(#banner-sun)" />
+      {/* Sun rays */}
+      <line x1="295" y1="4" x2="295" y2="8" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+      <line x1="316" y1="11" x2="313" y2="14" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+      <line x1="324" y1="32" x2="320" y2="32" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+      <line x1="274" y1="11" x2="277" y2="14" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
+
+      {/* Floating Paper Airplane with curved trail */}
+      <path
+        d="M170 55C195 52 215 35 242 28"
+        stroke="#94A3B8"
+        strokeWidth="1.5"
+        strokeDasharray="2 3"
+        strokeLinecap="round"
+      />
+      <g transform="translate(242, 22) rotate(-15)">
+        <polygon points="0,6 18,0 8,14" fill="url(#plane-grad)" />
+        <polygon points="18,0 8,14 8,8" fill="#BAE6FD" />
+      </g>
+
+      {/* Cheerful Preschool Learner (Left) */}
+      {/* Torso / Clothes */}
+      <path d="M72 96C72 78 79 66 90 66C101 66 108 78 108 96H72Z" fill="url(#kid-shirt)" />
+      {/* Collar */}
+      <path d="M86 66L90 73L94 66H86Z" fill="#FFFFFF" />
+      {/* Neck & Head */}
+      <rect x="87" y="58" width="6" height="8" rx="2" fill="#FCD34D" />
+      <circle cx="90" cy="46" r="14" fill="#FDE68A" />
+      {/* Hair */}
+      <path d="M76 43C76 33 83 27 92 27C101 27 106 33 105 40C102 38 98 35 91 35C85 35 80 39 77 43Z" fill="#334155" />
+      {/* Eyes & Smile */}
+      <circle cx="86" cy="45" r="1.5" fill="#1E293B" />
+      <circle cx="94" cy="45" r="1.5" fill="#1E293B" />
+      <path d="M88 51C89.5 53 91.5 53 93 51" stroke="#B45309" strokeWidth="1.4" strokeLinecap="round" />
+      {/* Blush */}
+      <circle cx="83" cy="49" r="2" fill="#F87171" opacity="0.45" />
+      <circle cx="97" cy="49" r="2" fill="#F87171" opacity="0.45" />
+
+      {/* Stacked Learning Blocks (A & B) */}
+      <rect x="36" y="74" width="22" height="22" rx="5" fill="#3B82F6" />
+      <rect x="38" y="76" width="18" height="18" rx="3.5" fill="#60A5FA" opacity="0.25" />
+      <text x="47" y="89" fill="#FFFFFF" fontSize="12" fontWeight="800" fontFamily="var(--font-sans, sans-serif)" textAnchor="middle">A</text>
+
+      <rect x="48" y="56" width="18" height="18" rx="4" fill="#F59E0B" />
+      <rect x="50" y="58" width="14" height="14" rx="3" fill="#FDE68A" opacity="0.3" />
+      <text x="57" y="70" fill="#FFFFFF" fontSize="10" fontWeight="800" fontFamily="var(--font-sans, sans-serif)" textAnchor="middle">B</text>
+
+      {/* Open Storybook in center */}
+      <path d="M125 78C132 75 140 76 146 80V96C140 92 132 91 125 94V78Z" fill="#38BDF8" />
+      <path d="M167 78C160 75 152 76 146 80V96C152 92 160 91 167 94V78Z" fill="#0284C7" />
+      <path d="M126 79C132 76 139 77 145 81V94C139 91 132 90 126 93V79Z" fill="#FFFFFF" />
+      <path d="M166 79C160 76 153 77 147 81V94C153 91 160 90 166 93V79Z" fill="#F8FAFC" />
+      <line x1="131" y1="84" x2="141" y2="84" stroke="#CBD5E1" strokeWidth="1" strokeLinecap="round" />
+      <line x1="131" y1="88" x2="139" y2="88" stroke="#CBD5E1" strokeWidth="1" strokeLinecap="round" />
+      <line x1="151" y1="84" x2="161" y2="84" stroke="#CBD5E1" strokeWidth="1" strokeLinecap="round" />
+      <line x1="151" y1="88" x2="159" y2="88" stroke="#CBD5E1" strokeWidth="1" strokeLinecap="round" />
+
+      {/* Sparkles / Stars */}
+      <path d="M210 24L211.5 27.5L215 29L211.5 30.5L210 34L208.5 30.5L205 29L208.5 27.5L210 24Z" fill="#F59E0B" />
+      <path d="M116 28L117 30L119 31L117 32L116 34L115 32L113 31L115 30L116 28Z" fill="#A855F7" />
+      <circle cx="280" cy="65" r="2" fill="#10B981" />
+      <circle cx="188" cy="72" r="2.5" fill="#EC4899" opacity="0.6" />
+
+      {/* Visual Motto Badge: "Small Steps, Big Futures" */}
+      <g transform="translate(182, 68)">
+        <rect width="146" height="24" rx="12" fill="var(--bg-card, #FFFFFF)" stroke="var(--border-default, #E5E7EB)" strokeWidth="1" />
+        <circle cx="14" cy="12" r="4" fill="#F59E0B" />
+        <path d="M14 9.5L14.7 11.2L16.5 12L14.7 12.8L14 14.5L13.3 12.8L11.5 12L13.3 11.2L14 9.5Z" fill="#FFFFFF" />
+        <text
+          x="26"
+          y="16"
+          fill="var(--text-primary, #0F172A)"
+          fontSize="10.5"
+          fontWeight="700"
+          fontFamily="var(--font-sans, sans-serif)"
+          letterSpacing="-0.01em"
+        >
+          Small Steps, Big Futures
+        </text>
+      </g>
+    </svg>
+  )
+}
+

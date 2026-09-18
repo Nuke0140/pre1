@@ -1,31 +1,33 @@
 'use client'
 
-import { useMemo } from 'react'
-import { LayoutGrid } from 'lucide-react'
+import React, { useMemo } from 'react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule } from '@/lib/modules'
-import { ModuleTile } from '@/components/preone/ModuleTile'
+import { ModuleCard, PLogoWordmark } from '@/components/preone'
 
-export function HomeClient({ role }: {
-  role: Role
-}) {
+export function HomeClient({ role }: { role: Role }) {
   const modules = useMemo<HomeModule[]>(() => homeModules(role), [role])
 
   return (
-    <div className="home">
-      <section aria-label="Applications">
-        <div className="home-sec">
-          <span className="t-title"><LayoutGrid /> Applications</span>
+    <div className="home" style={{ maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+      {/* ── Centered PreOne Brand Logo ── */}
+      <section className="home-center-hero" aria-label="PreOne Home">
+        <div className="home-center-brand">
+          <PLogoWordmark subtitle="Preschool OS" />
         </div>
-        <div className="tile-grid">
+      </section>
+
+      {/* ── Main Module Grid ── */}
+      <main aria-label="Available Modules">
+        <div className="module-grid">
           {modules.map((m) => (
-            <ModuleTile key={m.key} module={m} />
+            <ModuleCard key={m.key} module={m} />
           ))}
         </div>
         {modules.length === 0 && (
           <div className="home-note">No modules available yet — your little stars are waiting to be added!</div>
         )}
-      </section>
+      </main>
     </div>
   )
 }

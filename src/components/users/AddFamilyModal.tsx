@@ -226,22 +226,31 @@ export function AddFamilyModal({
   }
 
   const modalFooter = (
-    <div className="flex items-center justify-between w-full gap-3">
-      <div className="hidden sm:flex text-xs text-[var(--text-muted)] items-center gap-1.5">
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12 }}>
+      <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 6 }}>
         {role === 'PARENT' ? (
-          <span className="flex items-center gap-1">
-            <Shield className="w-3.5 h-3.5 text-indigo-500" /> Max 2 Parents per child policy enforced
+          <span
+            className="badge b-primary"
+            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, gap: 6 }}
+          >
+            <Shield style={{ width: 13, height: 13 }} />
+            Max 2 Parents per child policy enforced
           </span>
         ) : (
-          <span className="flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Unlimited authorized guardians allowed
+          <span
+            className="badge b-amber"
+            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, gap: 6 }}
+          >
+            <CheckCircle2 style={{ width: 13, height: 13 }} />
+            Unlimited authorized guardians allowed
           </span>
         )}
       </div>
-      <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 'auto', marginLeft: 'auto' }}>
         <button
           type="button"
-          className="btn btn-secondary text-xs flex-1 sm:flex-none"
+          className="btn btn-secondary btn-sm"
           onClick={onClose}
           disabled={submitting}
         >
@@ -250,10 +259,22 @@ export function AddFamilyModal({
         <button
           type="submit"
           form="add-family-form"
-          className={`btn text-xs flex-1 sm:flex-none ${role === 'PARENT' ? 'btn-primary' : 'bg-amber-600 hover:bg-amber-700 text-white'}`}
+          className={`btn btn-sm ${role === 'PARENT' ? 'btn-primary' : ''}`}
+          style={
+            role === 'GUARDIAN'
+              ? { background: 'var(--warning)', color: '#FFFFFF', border: 'none' }
+              : undefined
+          }
           disabled={submitting || isParentLimitExceeded}
         >
-          {submitting ? 'Creating...' : `Create ${role === 'PARENT' ? 'Parent' : 'Guardian'}`}
+          {submitting ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span className="animate-spin" style={{ width: 12, height: 12, border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%' }} />
+              Saving...
+            </span>
+          ) : (
+            `Create ${role === 'PARENT' ? 'Parent Account' : 'Authorized Guardian'}`
+          )}
         </button>
       </div>
     </div>
@@ -271,18 +292,19 @@ export function AddFamilyModal({
       }
       icon={
         role === 'PARENT' ? (
-          <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <User style={{ width: 20, height: 20 }} />
         ) : (
-          <Shield className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <Shield style={{ width: 20, height: 20 }} />
         )
       }
       iconClass={role === 'PARENT' ? 'ic-purple' : 'ic-amber'}
       wide
       footer={modalFooter}
     >
-      <form id="add-family-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="add-family-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Role Selector Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {/* Parent Account Card */}
           <button
             type="button"
             onClick={() => {
@@ -290,30 +312,62 @@ export function AddFamilyModal({
               setRelationship('FATHER')
               setIsFeePayer(true)
             }}
-            className={`p-3 rounded-xl text-left border transition-all flex items-start gap-3 ${
-              role === 'PARENT'
-                ? 'border-indigo-500 bg-indigo-50/70 dark:bg-indigo-950/40 shadow-sm ring-1 ring-indigo-500/20'
-                : 'border-[var(--border-default)] bg-[var(--bg-card)] hover:border-gray-300 dark:hover:border-gray-700'
-            }`}
+            style={{
+              position: 'relative',
+              textAlign: 'left',
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-lg)',
+              background: role === 'PARENT' ? 'var(--preone-primary-soft)' : 'var(--bg-card)',
+              border: role === 'PARENT' ? '2px solid var(--primary)' : '1px solid var(--border-default)',
+              boxShadow: role === 'PARENT' ? 'var(--shadow-card)' : 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              transition: 'all 150ms ease',
+            }}
           >
             <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                role === 'PARENT' ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-              }`}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: role === 'PARENT' ? 'var(--primary)' : 'var(--bg-muted)',
+                color: role === 'PARENT' ? '#FFFFFF' : 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'background 150ms ease',
+              }}
             >
-              <User className="w-4 h-4" />
+              <User style={{ width: 18, height: 18 }} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-[var(--text-primary)]">Parent Account</span>
-                <span className="badge b-primary text-[10px] py-0 px-1.5">Fee Payer</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Parent Account</span>
+                <span className="badge b-primary b-sm">Fee Payer</span>
               </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5 leading-tight">
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.35 }}>
                 Max 2 per child. Full billing, academic, and attendance access.
               </p>
             </div>
+            {role === 'PARENT' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: 'var(--primary)',
+                }}
+              />
+            )}
           </button>
 
+          {/* Authorized Guardian Card */}
           <button
             type="button"
             onClick={() => {
@@ -321,69 +375,130 @@ export function AddFamilyModal({
               setRelationship('GRANDPARENT')
               setIsFeePayer(false)
             }}
-            className={`p-3 rounded-xl text-left border transition-all flex items-start gap-3 ${
-              role === 'GUARDIAN'
-                ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 shadow-sm ring-1 ring-amber-500/20'
-                : 'border-[var(--border-default)] bg-[var(--bg-card)] hover:border-gray-300 dark:hover:border-gray-700'
-            }`}
+            style={{
+              position: 'relative',
+              textAlign: 'left',
+              padding: '14px 16px',
+              borderRadius: 'var(--radius-lg)',
+              background: role === 'GUARDIAN' ? 'var(--warning-soft)' : 'var(--bg-card)',
+              border: role === 'GUARDIAN' ? '2px solid var(--warning)' : '1px solid var(--border-default)',
+              boxShadow: role === 'GUARDIAN' ? 'var(--shadow-card)' : 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 12,
+              transition: 'all 150ms ease',
+            }}
           >
             <div
-              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                role === 'GUARDIAN' ? 'bg-amber-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'
-              }`}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                background: role === 'GUARDIAN' ? 'var(--warning)' : 'var(--bg-muted)',
+                color: role === 'GUARDIAN' ? '#FFFFFF' : 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                transition: 'background 150ms ease',
+              }}
             >
-              <Shield className="w-4 h-4" />
+              <Shield style={{ width: 18, height: 18 }} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-[var(--text-primary)]">Authorized Guardian</span>
-                <span className="badge text-[10px] py-0 px-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                  Unlimited
-                </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Authorized Guardian</span>
+                <span className="badge b-amber b-sm">Unlimited</span>
               </div>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5 leading-tight">
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.35 }}>
                 Grandparents & relatives. Gate pickup & timeline notices.
               </p>
             </div>
+            {role === 'GUARDIAN' && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  right: 10,
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: 'var(--warning)',
+                }}
+              />
+            )}
           </button>
         </div>
 
-        {/* Caregiver Identity Information */}
-        <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3">
-          <div className="flex items-center justify-between pb-1 border-b border-[var(--border-subtle)]">
-            <span className="text-xs font-bold tracking-wide uppercase text-[var(--text-muted)] flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-indigo-500" />
-              1. Caregiver Information
+        {/* Section 1: Caregiver Information */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              1
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Caregiver Information
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Full Name <span className="text-red-500">*</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <div className="field">
+              <label>
+                Full Name <span className="req">*</span>
               </label>
               <div className="input-icon-wrap">
-                <User />
+                <User style={{ width: 16, height: 16 }} />
                 <input
                   type="text"
                   required
                   placeholder="e.g. Rahul Sharma"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                   style={{ paddingLeft: 38 }}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Relationship to Child <span className="text-red-500">*</span>
+            <div className="field">
+              <label>
+                Relationship to Child <span className="req">*</span>
               </label>
               <select
                 value={relationship}
                 onChange={(e) => setRelationship(e.target.value)}
-                className="select text-sm"
+                className="select"
               >
                 {role === 'PARENT' ? (
                   <>
@@ -401,37 +516,37 @@ export function AddFamilyModal({
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Email Address <span className="text-red-500">*</span>
+            <div className="field">
+              <label>
+                Email Address <span className="req">*</span>
               </label>
               <div className="input-icon-wrap">
-                <Mail />
+                <Mail style={{ width: 16, height: 16 }} />
                 <input
                   type="email"
                   required
                   placeholder="e.g. rahul@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                   style={{ paddingLeft: 38 }}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Mobile Phone <span className="text-red-500">*</span>
+            <div className="field">
+              <label>
+                Mobile Phone <span className="req">*</span>
               </label>
               <div className="input-icon-wrap">
-                <Phone />
+                <Phone style={{ width: 16, height: 16 }} />
                 <input
                   type="tel"
                   required
                   placeholder="e.g. +91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                   style={{ paddingLeft: 38 }}
                 />
               </div>
@@ -439,13 +554,50 @@ export function AddFamilyModal({
           </div>
         </div>
 
-        {/* Linked Child Selection */}
-        <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3">
-          <div className="flex items-center justify-between pb-1 border-b border-[var(--border-subtle)]">
-            <span className="text-xs font-bold tracking-wide uppercase text-[var(--text-muted)] flex items-center gap-1.5">
-              <Baby className="w-3.5 h-3.5 text-indigo-500" />
-              2. Student Association
-            </span>
+        {/* Section 2: Student Association */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 6,
+                  background: 'var(--primary-light)',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                2
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Student Association
+              </span>
+            </div>
+
             <div className="seg" role="tablist">
               <button
                 type="button"
@@ -469,11 +621,11 @@ export function AddFamilyModal({
           </div>
 
           {childMode === 'EXISTING' ? (
-            <div className="space-y-2.5">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {!selectedStudent ? (
-                <div className="space-y-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div className="input-icon-wrap">
-                    <Search />
+                    <Search style={{ width: 16, height: 16 }} />
                     <input
                       type="search"
                       name="search_student_record_query"
@@ -483,20 +635,29 @@ export function AddFamilyModal({
                       placeholder="Type student name or admission number (e.g. Aarav, PRE-1001)..."
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
-                      className="input text-sm"
+                      className="input"
                       style={{ paddingLeft: 38 }}
                     />
                   </div>
 
                   {searchingStudents && (
-                    <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 px-1">
-                      <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-                      Searching student roster...
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, padding: '2px 4px' }}>
+                      <span className="animate-spin" style={{ width: 12, height: 12, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                      Searching student directory...
                     </div>
                   )}
 
                   {studentOptions.length > 0 && (
-                    <div className="max-h-48 overflow-y-auto border border-[var(--border-default)] rounded-xl divide-y divide-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-lg">
+                    <div
+                      style={{
+                        maxHeight: 190,
+                        overflowY: 'auto',
+                        border: '1px solid var(--border-default)',
+                        borderRadius: 'var(--radius-lg)',
+                        background: 'var(--bg-card)',
+                        boxShadow: 'var(--shadow-elevated)',
+                      }}
+                    >
                       {studentOptions.map((s) => (
                         <button
                           key={s.id}
@@ -506,22 +667,49 @@ export function AddFamilyModal({
                             setStudentSearch('')
                             setStudentOptions([])
                           }}
-                          className="w-full p-2.5 text-left hover:bg-[var(--bg-subtle)] flex items-center justify-between transition-colors text-xs"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'background 120ms ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold flex items-center justify-center text-[11px]">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: '50%',
+                                background: 'var(--primary-light)',
+                                color: 'var(--primary)',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12,
+                              }}
+                            >
                               {s.firstName?.[0] || 'S'}
                             </div>
                             <div>
-                              <div className="font-semibold text-[var(--text-primary)]">
+                              <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-primary)' }}>
                                 {s.firstName} {s.lastName || ''}
                               </div>
-                              <div className="text-[11px] text-[var(--text-muted)]">
+                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                                 Class: {s.currentClassroom?.name || 'Unassigned'}
                               </div>
                             </div>
                           </div>
-                          <span className="font-mono text-[11px] font-medium bg-[var(--bg-subtle)] text-[var(--text-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-subtle)]">
+                          <span className="badge b-neutral b-sm font-mono" style={{ fontSize: 11 }}>
                             {s.admissionNo}
                           </span>
                         </button>
@@ -530,44 +718,81 @@ export function AddFamilyModal({
                   )}
                 </div>
               ) : (
-                <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-sm">
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    background: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-lg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        background: 'var(--primary)',
+                        color: '#FFFFFF',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 15,
+                        boxShadow: 'var(--shadow-soft)',
+                      }}
+                    >
                       {selectedStudent.firstName?.[0] || 'S'}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                        {selectedStudent.firstName} {selectedStudent.lastName || ''}
-                        <span className="badge b-primary font-mono text-[10px] py-0 px-1.5">{selectedStudent.admissionNo}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 750, color: 'var(--text-primary)' }}>
+                          {selectedStudent.firstName} {selectedStudent.lastName || ''}
+                        </span>
+                        <span className="badge b-primary b-sm font-mono" style={{ fontWeight: 700 }}>
+                          {selectedStudent.admissionNo}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5 flex items-center gap-2">
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span>Class: {selectedStudent.currentClassroom?.name || 'Unassigned'}</span>
                         <span>•</span>
                         <span>
                           {checkingParentCount ? (
-                            'Checking parents...'
+                            <span style={{ color: 'var(--primary)' }}>Verifying quota...</span>
                           ) : (
                             <span
-                              className={
-                                existingParentCount >= 2
-                                  ? 'text-amber-600 dark:text-amber-400 font-medium'
-                                  : 'text-emerald-600 dark:text-emerald-400 font-medium'
-                              }
+                              className={`badge b-sm ${
+                                existingParentCount >= 2 ? 'b-amber' : 'b-success'
+                              }`}
+                              style={{ padding: '2px 8px' }}
                             >
+                              {existingParentCount >= 2 ? (
+                                <AlertTriangle style={{ width: 11, height: 11 }} />
+                              ) : (
+                                <CheckCircle2 style={{ width: 11, height: 11 }} />
+                              )}
                               {existingParentCount}/2 Parents registered
+                              {existingParentCount < 2 && ` (${2 - existingParentCount} slot open)`}
                             </span>
                           )}
                         </span>
                       </div>
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedStudent(null)
                       setStudentSearch('')
                     }}
-                    className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--danger)', fontSize: 12 }}
                   >
                     Change Student
                   </button>
@@ -576,74 +801,97 @@ export function AddFamilyModal({
 
               {/* Max 2 Parents policy warning */}
               {isParentLimitExceeded && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <strong className="block font-semibold">Max 2 Parents Rule Enforced</strong>
-                    This child already has 2 registered Parent accounts in this school. To add an additional caregiver (grandparent, uncle, or pickup escort), please switch this user to a Guardian account.
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRole('GUARDIAN')
-                        setRelationship('GRANDPARENT')
-                        setIsFeePayer(false)
-                      }}
-                      className="mt-2 inline-flex items-center gap-1 font-bold text-amber-800 dark:text-amber-300 underline hover:no-underline"
-                    >
-                      Switch role to GUARDIAN account →
-                    </button>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    background: 'var(--warning-soft)',
+                    border: '1px solid var(--warning)',
+                    borderRadius: 'var(--radius-lg)',
+                    fontSize: 12,
+                    color: '#92400E',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 10,
+                  }}
+                >
+                  <AlertTriangle style={{ width: 18, height: 18, color: '#D97706', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>
+                      Max 2 Parents Rule Enforced
+                    </strong>
+                    This child already has 2 registered Parent accounts in this preschool. According to school policy, primary parent accounts are capped at 2. You can add this caregiver as an Authorized Guardian with full gate pickup authorizations.
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRole('GUARDIAN')
+                          setRelationship('GRANDPARENT')
+                          setIsFeePayer(false)
+                        }}
+                        className="btn btn-sm"
+                        style={{ background: '#D97706', color: '#FFFFFF', border: 'none', fontWeight: 700 }}
+                      >
+                        Switch to Authorized Guardian account →
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }} className="p-3 bg-[var(--bg-subtle)] rounded-xl border border-[var(--border-subtle)]">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Child First Name <span className="text-red-500">*</span>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: 14,
+                padding: '14px 16px',
+                background: 'var(--bg-subtle)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div className="field">
+                <label>
+                  Child First Name <span className="req">*</span>
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Aarav"
                   value={childFirstName}
                   onChange={(e) => setChildFirstName(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Child Last Name
-                </label>
+              <div className="field">
+                <label>Child Last Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Sharma"
                   value={childLastName}
                   onChange={(e) => setChildLastName(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Date of Birth <span className="text-red-500">*</span>
+              <div className="field">
+                <label>
+                  Date of Birth <span className="req">*</span>
                 </label>
                 <input
                   type="date"
                   value={childDOB}
                   onChange={(e) => setChildDOB(e.target.value)}
-                  className="input text-sm"
+                  className="input"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Program Level
-                </label>
+              <div className="field">
+                <label>Program Level</label>
                 <select
                   value={childProgram}
                   onChange={(e) => setChildProgram(e.target.value)}
-                  className="select text-sm"
+                  className="select"
                 >
                   <option value="PLAYGROUP">Playgroup</option>
                   <option value="NURSERY">Nursery</option>
@@ -656,22 +904,54 @@ export function AddFamilyModal({
           )}
         </div>
 
-        {/* Pickup & Security Authorization */}
-        <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3">
-          <div className="flex items-center justify-between pb-1 border-b border-[var(--border-subtle)]">
-            <span className="text-xs font-bold tracking-wide uppercase text-[var(--text-muted)] flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-indigo-500" />
-              3. Security & Campus Authorizations
+        {/* Section 3: Security & Campus Authorizations */}
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '16px 18px',
+            boxShadow: 'var(--shadow-soft)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              paddingBottom: 10,
+              borderBottom: '1px solid var(--border-subtle)',
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                background: 'var(--primary-light)',
+                color: 'var(--primary)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              3
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Security & Campus Authorizations
             </span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                4-Digit Pickup PIN <span className="text-[var(--text-muted)] font-normal">(Campus gate signout)</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 }}>
+            <div className="field">
+              <label>
+                4-Digit Pickup PIN <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Campus gate signout)</span>
               </label>
               <div className="input-icon-wrap">
-                <Lock />
+                <Lock style={{ width: 16, height: 16 }} />
                 <input
                   type="password"
                   maxLength={4}
@@ -681,15 +961,16 @@ export function AddFamilyModal({
                   placeholder="e.g. 1234"
                   value={pickupPin}
                   onChange={(e) => setPickupPin(e.target.value.replace(/\D/g, ''))}
-                  className="input text-sm font-mono tracking-widest"
-                  style={{ paddingLeft: 38 }}
+                  className="input font-mono"
+                  style={{ paddingLeft: 38, letterSpacing: '0.2em' }}
                 />
               </div>
+              <span className="helper">Used for biometric or kiosk verification during afternoon student dismissal.</span>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                Portal Username <span className="text-[var(--text-muted)] font-normal">(Optional)</span>
+            <div className="field">
+              <label>
+                Portal Username <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Optional)</span>
               </label>
               <input
                 type="text"
@@ -699,50 +980,69 @@ export function AddFamilyModal({
                 placeholder="e.g. rahul.sharma"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="input text-sm font-mono"
+                className="input font-mono"
               />
+              <span className="helper">Auto-generated from email handle if left empty.</span>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }} className="pt-1">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
             <label
-              className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
-                canPickup
-                  ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-800'
-                  : 'bg-[var(--bg-subtle)] border-[var(--border-default)] opacity-75'
-              }`}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                border: canPickup ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
+                background: canPickup ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
+                cursor: 'pointer',
+                transition: 'all 120ms ease',
+                userSelect: 'none',
+              }}
             >
               <input
                 type="checkbox"
                 checked={canPickup}
                 onChange={(e) => setCanPickup(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded accent-indigo-600 cursor-pointer"
+                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
               <div>
-                <span className="text-xs font-bold text-[var(--text-primary)] block">Authorized Campus Pickup</span>
-                <span className="text-[11px] text-[var(--text-muted)] leading-tight block mt-0.5">
-                  Authorized to sign-out child from campus gate with PIN verification
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
+                  Authorized Campus Pickup
+                </span>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
+                  Authorized to sign-out child from campus gate with PIN verification.
                 </span>
               </div>
             </label>
 
             <label
-              className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none ${
-                receivesComm
-                  ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-800'
-                  : 'bg-[var(--bg-subtle)] border-[var(--border-default)] opacity-75'
-              }`}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                border: receivesComm ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
+                background: receivesComm ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
+                cursor: 'pointer',
+                transition: 'all 120ms ease',
+                userSelect: 'none',
+              }}
             >
               <input
                 type="checkbox"
                 checked={receivesComm}
                 onChange={(e) => setReceivesComm(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded accent-indigo-600 cursor-pointer"
+                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
               <div>
-                <span className="text-xs font-bold text-[var(--text-primary)] block">Timeline & Notice Broadcasts</span>
-                <span className="text-[11px] text-[var(--text-muted)] leading-tight block mt-0.5">
-                  Receives daily attendance, photos, notifications, and alerts
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
+                  Timeline & Notice Broadcasts
+                </span>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
+                  Receives daily attendance alerts, classroom photos, and announcements.
                 </span>
               </div>
             </label>
@@ -752,3 +1052,4 @@ export function AddFamilyModal({
     </Modal>
   )
 }
+

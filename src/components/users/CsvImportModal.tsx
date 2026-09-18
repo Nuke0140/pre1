@@ -234,25 +234,25 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
     >
       <div className="space-y-4">
         {/* Step Indicator Stepper */}
-        <div className="p-2.5 bg-gray-50/70 dark:bg-gray-900/40 rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2 flex-wrap">
+        <div className="p-2.5 bg-[var(--bg-subtle)] rounded-xl border border-[var(--border-default)] flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 sm:gap-4 text-xs">
             {/* Step 1 */}
             <div
               className={`flex items-center gap-2 ${
                 step === 'UPLOAD'
-                  ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                  ? 'text-purple-700 dark:text-purple-300 font-bold'
                   : step === 'PREVIEW' || step === 'RESULT'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                  : 'text-gray-400'
+                  ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
+                  : 'text-[var(--text-muted)]'
               }`}
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   step === 'UPLOAD'
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-purple-600 text-white shadow-xs'
                     : step === 'PREVIEW' || step === 'RESULT'
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
                 }`}
               >
                 {step === 'PREVIEW' || step === 'RESULT' ? <Check className="w-3.5 h-3.5" /> : '1'}
@@ -266,19 +266,19 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
             <div
               className={`flex items-center gap-2 ${
                 step === 'PREVIEW'
-                  ? 'text-indigo-600 dark:text-indigo-400 font-bold'
+                  ? 'text-purple-700 dark:text-purple-300 font-bold'
                   : step === 'RESULT'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                  : 'text-gray-400'
+                  ? 'text-emerald-700 dark:text-emerald-300 font-semibold'
+                  : 'text-[var(--text-muted)]'
               }`}
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   step === 'PREVIEW'
-                    ? 'bg-indigo-600 text-white shadow-xs'
+                    ? 'bg-purple-600 text-white shadow-xs'
                     : step === 'RESULT'
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
                 }`}
               >
                 {step === 'RESULT' ? <Check className="w-3.5 h-3.5" /> : '2'}
@@ -292,15 +292,15 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
             <div
               className={`flex items-center gap-2 ${
                 step === 'RESULT'
-                  ? 'text-indigo-600 dark:text-indigo-400 font-bold'
-                  : 'text-gray-400'
+                  ? 'text-purple-700 dark:text-purple-300 font-bold'
+                  : 'text-[var(--text-muted)]'
               }`}
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
                   step === 'RESULT'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'bg-gray-200 dark:bg-gray-800 text-[var(--text-secondary)]'
                 }`}
               >
                 3
@@ -319,7 +319,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                   className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
                   title="Download clean staff CSV template"
                 >
-                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  <Download className="w-3.5 h-3.5 text-purple-600" />
                   <span>Download Staff Template</span>
                 </button>
               ) : (
@@ -329,7 +329,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                   className="btn btn-secondary text-xs flex items-center gap-1.5 py-1 px-2.5"
                   title="Download clean family CSV template"
                 >
-                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  <Download className="w-3.5 h-3.5 text-purple-600" />
                   <span>Download Family Template</span>
                 </button>
               )}
@@ -342,27 +342,23 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
           <div className="space-y-3.5">
             {/* Input Mode Toggle (File Upload vs Direct Paste) */}
             <div className="flex items-center justify-between gap-3">
-              <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs">
+              <div className="seg text-xs" role="tablist">
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={inputMode === 'FILE'}
                   onClick={() => setInputMode('FILE')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
-                    inputMode === 'FILE'
-                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs'
-                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
+                  className={`flex items-center gap-1.5 ${inputMode === 'FILE' ? 'on' : ''}`}
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>File Upload</span>
                 </button>
                 <button
                   type="button"
+                  role="tab"
+                  aria-selected={inputMode === 'PASTE'}
                   onClick={() => setInputMode('PASTE')}
-                  className={`px-3 py-1.5 rounded-md font-semibold transition-all flex items-center gap-1.5 ${
-                    inputMode === 'PASTE'
-                      ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs'
-                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
+                  className={`flex items-center gap-1.5 ${inputMode === 'PASTE' ? 'on' : ''}`}
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>Paste Raw CSV</span>
@@ -390,15 +386,15 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                     onDrop={handleFileDrop}
                     className={`border-2 border-dashed rounded-2xl p-7 text-center transition-all ${
                       isDragging
-                        ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/30 ring-2 ring-indigo-200'
-                        : 'border-gray-300 dark:border-gray-700 hover:border-indigo-400 bg-gray-50/40 dark:bg-gray-900/20'
+                        ? 'border-purple-600 bg-purple-50/70 dark:bg-purple-950/30 ring-2 ring-purple-200'
+                        : 'border-[var(--border-default)] hover:border-purple-400 bg-[var(--bg-subtle)]'
                     }`}
                   >
                     <CsvUploadIllustration size={80} className="mx-auto mb-2.5" />
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    <h4 className="text-sm font-bold text-[var(--text-primary)]">
                       Select or Drop your {type === 'STAFF' ? 'Staff' : 'Family'} CSV File
                     </h4>
-                    <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                    <p className="text-xs text-[var(--text-muted)] mt-1 max-w-md mx-auto">
                       Drag and drop your spreadsheet here, or click browse to choose from your computer
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
