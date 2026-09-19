@@ -78,13 +78,20 @@ export function StartMenu({
     return filteredModules
   }, [filteredModules])
 
-  // Focus management: when opening, focus search input. When closing, restore focus to trigger.
+  // Focus management: when opening, focus search input on desktop with fine pointer only.
+  // On mobile/touch devices, do NOT auto-focus to prevent the virtual keyboard from irritatingly popping up.
   useEffect(() => {
     if (isOpen) {
-      const timer = setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 50)
-      return () => clearTimeout(timer)
+      const isMobile =
+        typeof window !== 'undefined' &&
+        (window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches)
+
+      if (!isMobile) {
+        const timer = setTimeout(() => {
+          searchInputRef.current?.focus()
+        }, 50)
+        return () => clearTimeout(timer)
+      }
     } else {
       setQuery('')
       triggerRef?.current?.focus()

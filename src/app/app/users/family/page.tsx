@@ -400,7 +400,6 @@ export default function FamilyUsersPage() {
       {/* Page Header */}
       <PageHead
         title="Family Users"
-        sub="Student-linked parent and authorized guardian accounts with relationship-scoped access"
         backHref="/app/users"
         actions={
           <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -500,7 +499,6 @@ export default function FamilyUsersPage() {
             <KpiTile
               label="Security Policy"
               value="Max 2 Parents"
-              meta="Full fee & academic scope"
               icon={<Lock />}
               iconClass="ic-purple"
               variant="compact"
@@ -508,7 +506,6 @@ export default function FamilyUsersPage() {
             <KpiTile
               label="Total Parents"
               value={parentCount}
-              meta="Enrolled family contacts"
               icon={<User />}
               iconClass="ic-blue"
               variant="compact"
@@ -516,7 +513,6 @@ export default function FamilyUsersPage() {
             <KpiTile
               label="Linked Students"
               value={kpis.linkedChildrenTotal}
-              meta="Across all classrooms"
               icon={<Baby />}
               iconClass="ic-green"
               variant="compact"
@@ -524,7 +520,6 @@ export default function FamilyUsersPage() {
             <KpiTile
               label="Fee Visibility"
               value="Fee Payers"
-              meta="Full invoice access"
               icon={<CheckCircle2 />}
               iconClass="ic-orange"
               variant="compact"
@@ -532,7 +527,6 @@ export default function FamilyUsersPage() {
             <KpiTile
               label="Multi-Child Parents"
               value={kpis.multiChildCount}
-              meta="2+ siblings linked"
               icon={<Users />}
               iconClass="ic-teal"
               variant="compact"

@@ -239,7 +239,6 @@ export default function StaffUsersPage() {
       {/* Page Header */}
       <PageHead
         title="Staff Users"
-        sub="Preschool workforce directory: Teachers, Helpers, Principals, Accountants, HR, and Drivers"
         backHref="/app/users"
         actions={
           <div className="flex items-center gap-2 flex-wrap shrink-0">
@@ -285,7 +284,6 @@ export default function StaffUsersPage() {
         <KpiTile
           label="Total Staff"
           value={total}
-          meta={`${kpis.active} active on payroll`}
           icon={<Briefcase />}
           iconClass="ic-purple"
           variant="compact"
@@ -293,7 +291,6 @@ export default function StaffUsersPage() {
         <KpiTile
           label="Teachers / Guides"
           value={kpis.teachers}
-          meta="Classroom educators"
           icon={<GraduationCap />}
           iconClass="ic-blue"
           variant="compact"
@@ -301,7 +298,6 @@ export default function StaffUsersPage() {
         <KpiTile
           label="Classroom Helpers"
           value={kpis.helpers}
-          meta="Operational support"
           icon={<Users />}
           iconClass="ic-green"
           variant="compact"
@@ -309,7 +305,6 @@ export default function StaffUsersPage() {
         <KpiTile
           label="Campus Leadership"
           value={kpis.admins}
-          meta="Principals, HR & Accounts"
           icon={<Shield />}
           iconClass="ic-orange"
           variant="compact"
