@@ -39,6 +39,44 @@ export function Avatar({
   )
 }
 
+export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  icon: React.ReactNode
+  label: string
+  title?: string
+  variant?: 'ghost' | 'secondary' | 'outline' | 'primary'
+  size?: 'sm' | 'md' | 'lg'
+  danger?: boolean
+}
+
+export function IconButton({
+  icon,
+  label,
+  onClick,
+  title,
+  variant = 'ghost',
+  size = 'md',
+  danger = false,
+  disabled = false,
+  className = '',
+  type = 'button',
+  ...rest
+}: IconButtonProps) {
+  const tooltipText = title || label
+  return (
+    <button
+      type={type}
+      className={`btn-icon btn-icon-${size} btn-icon-${variant}${danger ? ' btn-icon-danger' : ''} ${className}`.trim()}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={tooltipText}
+      {...rest}
+    >
+      {icon}
+    </button>
+  )
+}
+
 const STATUS_BADGE: Record<string, { cls: string; dot?: boolean }> = {
   // students
   ACTIVE: { cls: 'b-success', dot: true },

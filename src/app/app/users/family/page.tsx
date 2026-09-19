@@ -8,7 +8,7 @@ import {
   ChevronLeft, CheckCircle2, User, Users,
   KeyRound, Clock, X
 } from 'lucide-react'
-import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead } from '@/components/preone/ui'
+import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
@@ -177,10 +177,10 @@ export default function FamilyUsersPage() {
         return (
           <div className="space-y-1">
             {children.map((child) => (
-              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium">
+              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
                 <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
-                <span className="badge b-primary font-mono text-[10px]">{child.admissionNo}</span>
-                <span className="text-gray-400 text-[10px] capitalize">({child.relationship?.toLowerCase() || 'parent'})</span>
+                <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
+                <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'parent'})</span>
               </div>
             ))}
           </div>
@@ -192,7 +192,7 @@ export default function FamilyUsersPage() {
       header: 'Contact Details',
       render: (u) => (
         <div className="text-xs space-y-1">
-          <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono">
+          <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono break-all">
             <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
             <span>{u.email}</span>
           </div>
@@ -235,23 +235,17 @@ export default function FamilyUsersPage() {
       header: 'Actions',
       align: 'right',
       render: (u) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <button
-            type="button"
-            title="View 360 Profile"
+        <div className="dt-actions-row">
+          <IconButton
+            icon={<Eye size={15} />}
+            label="View 360 Profile"
             onClick={() => setViewingUser(u)}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            title="Edit Parent"
+          />
+          <IconButton
+            icon={<Edit3 size={15} />}
+            label="Edit Parent"
             onClick={() => setEditingUser(u)}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-all"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
+          />
         </div>
       ),
     },
@@ -292,10 +286,10 @@ export default function FamilyUsersPage() {
         return (
           <div className="space-y-1">
             {children.map((child) => (
-              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium">
+              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
                 <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
-                <span className="badge b-primary font-mono text-[10px]">{child.admissionNo}</span>
-                <span className="badge b-amber text-[10px] capitalize">
+                <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
+                <span className="badge b-amber text-[10px] capitalize shrink-0">
                   {child.relationship?.toLowerCase() || 'guardian'}
                 </span>
               </div>
@@ -364,30 +358,24 @@ export default function FamilyUsersPage() {
       header: 'Actions',
       align: 'right',
       render: (u) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <button
-            type="button"
-            title="View 360 Profile"
+        <div className="dt-actions-row">
+          <IconButton
+            icon={<Eye size={15} />}
+            label="View 360 Profile"
             onClick={() => setViewingUser(u)}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all"
-          >
-            <Eye className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            title="Edit Guardian"
+          />
+          <IconButton
+            icon={<Edit3 size={15} />}
+            label="Edit Guardian"
             onClick={() => setEditingUser(u)}
-            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-800 hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-gray-400 hover:text-amber-600 dark:hover:text-amber-400 transition-all"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
+          />
         </div>
       ),
     },
   ]
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="users-workspace-container">
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
@@ -402,11 +390,11 @@ export default function FamilyUsersPage() {
         title="Family Users"
         backHref="/app/users"
         actions={
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="users-actions-bar">
             <button
               type="button"
               onClick={fetchFamilyUsers}
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
               title="Refresh list"
               aria-label="Refresh list"
             >
@@ -415,7 +403,7 @@ export default function FamilyUsersPage() {
             <button
               type="button"
               onClick={() => setRolesModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
             >
               <Shield className="w-3.5 h-3.5 text-purple-600" />
               <span>Roles Directory</span>
@@ -423,10 +411,10 @@ export default function FamilyUsersPage() {
             <button
               type="button"
               onClick={() => setCsvModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Bulk Import Family</span>
+              <span>Bulk Import</span>
             </button>
             {activeTab === 'PARENTS' ? (
               <button
@@ -435,7 +423,7 @@ export default function FamilyUsersPage() {
                   setAddFamilyRole('PARENT')
                   setAddFamilyOpen(true)
                 }}
-                className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold shrink-0"
+                className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>+ Add Parent</span>
@@ -447,7 +435,7 @@ export default function FamilyUsersPage() {
                   setAddFamilyRole('GUARDIAN')
                   setAddFamilyOpen(true)
                 }}
-                className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold shrink-0"
+                className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
               >
                 <Shield className="w-3.5 h-3.5" />
                 <span>+ Add Guardian</span>
@@ -459,17 +447,17 @@ export default function FamilyUsersPage() {
 
       {/* Workspace Tabs: Parents vs Guardians */}
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
-        <div className="seg flex" role="tablist">
+        <div className="seg users-segmented-nav" role="tablist">
           <button
             role="tab"
             aria-selected={activeTab === 'PARENTS'}
-            className={`px-4 py-1.5 ${activeTab === 'PARENTS' ? 'on' : ''}`}
+            className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'PARENTS' ? 'on' : ''}`}
             onClick={() => {
               setActiveTab('PARENTS')
               setPage(1)
             }}
           >
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center justify-center gap-1.5">
               <User className="w-3.5 h-3.5" />
               <span>Parents ({parentCount})</span>
             </span>
@@ -478,13 +466,13 @@ export default function FamilyUsersPage() {
           <button
             role="tab"
             aria-selected={activeTab === 'GUARDIANS'}
-            className={`px-4 py-1.5 ${activeTab === 'GUARDIANS' ? 'on' : ''}`}
+            className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'GUARDIANS' ? 'on' : ''}`}
             onClick={() => {
               setActiveTab('GUARDIANS')
               setPage(1)
             }}
           >
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center justify-center gap-1.5">
               <Shield className="w-3.5 h-3.5" />
               <span>Guardians ({guardianCount})</span>
             </span>
@@ -579,10 +567,10 @@ export default function FamilyUsersPage() {
       </div>
 
       {/* Filter / Search Area */}
-      <div className="card card-compact" style={{ borderRadius: 'var(--radius-xl)', padding: '12px 16px' }}>
-        <div className="filter-row">
+      <div className="card card-compact p-3 sm:p-4 rounded-xl sm:rounded-2xl">
+        <div className="users-filter-row">
           {/* Search */}
-          <div className="relative flex-1 min-w-0">
+          <div className="relative users-filter-search">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
@@ -592,7 +580,7 @@ export default function FamilyUsersPage() {
                 setSearch(e.target.value)
                 setPage(1)
               }}
-              style={{ paddingLeft: '36px', paddingRight: '32px' }}
+              style={{ paddingLeft: '36px', paddingRight: search ? '32px' : '14px' }}
               className="input w-full text-xs"
             />
             {search && (
@@ -611,7 +599,7 @@ export default function FamilyUsersPage() {
           </div>
 
           {/* Branch Filter */}
-          <div className="w-52 shrink-0">
+          <div className="users-filter-select">
             <select
               value={selectedBranch}
               onChange={(e) => {
@@ -620,7 +608,7 @@ export default function FamilyUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Campus Branches</option>
+              <option value="ALL">All Branches</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -630,7 +618,7 @@ export default function FamilyUsersPage() {
           </div>
 
           {/* Status Filter */}
-          <div className="w-40 shrink-0">
+          <div className="users-filter-select">
             <select
               value={selectedStatus}
               onChange={(e) => {
@@ -650,12 +638,12 @@ export default function FamilyUsersPage() {
           {/* Export CSV */}
           <a
             href={`/api/v1/users/export?role=${activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN'}`}
-            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
             download
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>Export CSV</span>
+            <span>Export</span>
           </a>
 
           {/* Clear Filters Button if filters dirty */}
@@ -668,7 +656,7 @@ export default function FamilyUsersPage() {
                 setSelectedStatus('ALL')
                 setPage(1)
               }}
-              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
+              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
             >
               Reset
             </button>

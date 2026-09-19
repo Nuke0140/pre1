@@ -5,7 +5,7 @@ import {
   Search, Filter, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download,
   AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown,
 } from 'lucide-react'
-import { Skeleton, EmptyState } from './ui'
+import { Skeleton, EmptyState, IconButton } from './ui'
 
 export interface ColumnFilterOption {
   value: string
@@ -406,15 +406,16 @@ export function DataTable<T extends { id?: string | number }>({
             )}
             {showColumnsMenu && (
               <div className="menu-anchor">
-                <button
-                  className="btn btn-ghost btn-sm dt-icon-btn"
+                <IconButton
+                  icon={<Columns3 size={14} />}
+                  label="Columns and density"
                   onClick={() => setMenu((m) => (m?.kind === 'cols' ? null : { kind: 'cols' }))}
-                  aria-label="Columns and density"
+                  variant="ghost"
+                  size="sm"
+                  className="dt-icon-btn"
                   aria-haspopup="menu"
                   aria-expanded={menu?.kind === 'cols'}
-                >
-                  <Columns3 size={14} />
-                </button>
+                />
                 {menu?.kind === 'cols' && (
                   <div className="menu" role="menu" style={{ right: 0 }}>
                     <div className="menu-group">
@@ -599,15 +600,16 @@ export function DataTable<T extends { id?: string | number }>({
                   {rowActions && (
                     <td className="dt-row-actions" onClick={(e) => e.stopPropagation()}>
                       <span className="menu-anchor">
-                        <button
-                          className="btn btn-ghost btn-sm dt-icon-btn kebab"
+                        <IconButton
+                          icon={<MoreVertical size={15} />}
+                          label="Row actions"
                           onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: String(rid) })}
-                          aria-label="Row actions"
+                          variant="ghost"
+                          size="sm"
+                          className="dt-icon-btn kebab"
                           aria-haspopup="menu"
                           aria-expanded={menu?.kind === 'kebab' && menu.rowId === String(rid)}
-                        >
-                          <MoreVertical size={15} />
-                        </button>
+                        />
                         {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === String(rid) && (
                           <div className="menu" role="menu" style={{ right: 0 }}>
                             {(rowActions(row) || []).map((act, i) => (
@@ -677,15 +679,16 @@ export function DataTable<T extends { id?: string | number }>({
                   {rowActions && (
                     <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0 }}>
                       <span className="menu-anchor">
-                        <button
-                          className="btn btn-ghost btn-sm dt-icon-btn kebab"
+                        <IconButton
+                          icon={<MoreVertical size={15} />}
+                          label="Row actions"
                           onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: `m-${String(rid)}` })}
-                          aria-label="Row actions"
+                          variant="ghost"
+                          size="sm"
+                          className="dt-icon-btn kebab"
                           aria-haspopup="menu"
                           aria-expanded={menu?.kind === 'kebab' && menu.rowId === `m-${String(rid)}`}
-                        >
-                          <MoreVertical size={15} />
-                        </button>
+                        />
                         {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === `m-${String(rid)}` && (
                           <div className="menu" role="menu" style={{ right: 0 }}>
                             {(rowActions(row) || []).map((act, i) => (
@@ -710,16 +713,19 @@ export function DataTable<T extends { id?: string | number }>({
                 {/* Card Body: Remaining columns as labeled key-value fields */}
                 {remainingCols.length > 0 && (
                   <div className="dt-card-body">
-                    {remainingCols.map((col) => (
-                      <div key={col.key} className="dt-card-field">
-                        <span className="dt-card-lbl">{col.header}</span>
-                        <div className="dt-card-val">
-                          {col.render
-                            ? col.render(row, idx)
-                            : highlightText(cellText(col, row), localSearch)}
+                    {remainingCols.map((col) => {
+                      const isWide = ['children', 'email', 'contact', 'notes', 'bio', 'description', 'address'].includes(col.key)
+                      return (
+                        <div key={col.key} className={`dt-card-field${isWide ? ' dt-card-field-wide' : ''}`}>
+                          <span className="dt-card-lbl">{col.header}</span>
+                          <div className="dt-card-val">
+                            {col.render
+                              ? col.render(row, idx)
+                              : highlightText(cellText(col, row), localSearch)}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>

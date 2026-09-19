@@ -9,7 +9,10 @@ import {
   ClipboardCheck, LayoutList, ArrowRight, History, Sparkles, Edit3, Plus,
   Sliders, Activity, Check, RefreshCw, Layers, ExternalLink, AlertCircle, Info,
 } from 'lucide-react'
-import { PageHead, Segmented, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
+import {
+  PageHead, Segmented, Skeleton, EmptyState, StatusBadge,
+  SetupPhaseCard, SetupStepTile,
+} from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { PHASES, SETUP_STEPS, STEP_MAP, type StepKey } from '@/lib/setup/steps'
@@ -110,9 +113,10 @@ const CAT_STATUS_MAP: Record<string, { cls: string; label: string }> = {
 export default function SetupPage() {
   const toast = useToast()
   const [status, setStatus] = useState<StatusPayload | null>(null)
-  const [tab, setTab] = useState<'hub' | 'steps' | 'validation' | 'summary'>('hub')
+  const [metroFilter, setMetroFilter] = useState<'ALL' | 'MANDATORY' | 'RECOMMENDED' | 'REMAINING'>('ALL')
   const [validation, setValidation] = useState<ValidationPayload | null>(null)
   const [validating, setValidating] = useState(false)
+  const [validationOpen, setValidationOpen] = useState(false)
   const [deps, setDeps] = useState<DepsPayload | null>(null)
   const [depOpen, setDepOpen] = useState(false)
   const [goLiveOpen, setGoLiveOpen] = useState(false)
@@ -198,7 +202,7 @@ export default function SetupPage() {
       setValidating(false)
       if (j.success) {
         setValidation(j.data)
-        setTab('validation')
+        setValidationOpen(true)
         toast.success('Validation complete', `Overall: ${j.data.overall}`)
         load()
       } else {
@@ -239,7 +243,56 @@ export default function SetupPage() {
   const mandatorySteps = useMemo(() => status?.steps.filter((s) => s.applicability === 'MANDATORY') ?? [], [status])
   const mandatoryCompleted = useMemo(() => mandatorySteps.filter((s) => s.status === 'COMPLETE' || s.status === 'SKIPPED').length, [mandatorySteps])
   const mandatoryLeft = useMemo(() => mandatorySteps.length - mandatoryCompleted, [mandatorySteps, mandatoryCompleted])
-  const blockedCount = useMemo(() => status?.steps.filter((s) => s.status === 'BLOCKED').length ?? 0, [status])
+  const recommendedSteps = useMemo(
+    () => status?.steps.filter((s) => s.applicability === 'RECOMMENDED') ?? [],
+    [status]
+  )
+  const remainingSteps = useMemo(
+    () => status?.steps.filter((s) => s.status !== 'COMPLETE' && s.status !== 'SKIPPED') ?? [],
+    [status]
+  )
+  const remainingCount = remainingSteps.length
+
+  const phaseCounts = useMemo(() => {
+    const counts: Record<string, { total: number; completed: number }> = {
+      FOUNDATION: { total: 0, completed: 0 },
+      ACADEMIC_STRUCTURE: { total: 0, completed: 0 },
+      BUSINESS_RULES: { total: 0, completed: 0 },
+      OPERATIONS_READINESS: { total: 0, completed: 0 },
+    }
+    if (!status?.steps) return counts
+    for (const s of status.steps) {
+      if (counts[s.phase]) {
+        counts[s.phase].total += 1
+        if (s.status === 'COMPLETE' || s.status === 'SKIPPED') {
+          counts[s.phase].completed += 1
+        }
+      }
+    }
+    return counts
+  }, [status])
+
+  const phaseSteps = useMemo(() => {
+    const map: Record<string, StepRow[]> = {
+      FOUNDATION: [],
+      ACADEMIC_STRUCTURE: [],
+      BUSINESS_RULES: [],
+      OPERATIONS_READINESS: [],
+    }
+    if (!status?.steps) return map
+    for (const s of status.steps) {
+      if (map[s.phase]) {
+        let match = true
+        if (metroFilter === 'MANDATORY') match = s.applicability === 'MANDATORY'
+        else if (metroFilter === 'RECOMMENDED') match = s.applicability === 'RECOMMENDED'
+        else if (metroFilter === 'REMAINING') match = s.status !== 'COMPLETE' && s.status !== 'SKIPPED'
+        if (match) {
+          map[s.phase].push(s)
+        }
+      }
+    }
+    return map
+  }, [status, metroFilter])
 
   const filteredSteps = useMemo(() => {
     if (!status?.steps) return []
@@ -256,19 +309,11 @@ export default function SetupPage() {
         <PageHead
           eyebrow="PRESCHOOL SETUP & READINESS"
           title="Preschool Setup & Configuration"
-          sub="Configure your preschool, verify operational readiness, and prepare the school for go-live."
         />
-        <div className="metric-strip" style={{ marginBottom: 20 }}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="metric-cell"><Skeleton h={54} /></div>
-          ))}
-        </div>
-        <div className="table-workspace"><div style={{ padding: 24 }}><Skeleton h={180} /></div></div>
+        <div className="table-workspace"><div style={{ padding: 24 }}><Skeleton h={240} /></div></div>
       </div>
     )
   }
-
-  const lifecycleBadge = LIFECYCLE_STATUS_MAP[status.status] || LIFECYCLE_STATUS_MAP.NOT_STARTED
 
   return (
     <div className="page-container">
@@ -276,7 +321,6 @@ export default function SetupPage() {
       <PageHead
         eyebrow="PRESCHOOL SETUP & READINESS"
         title="Preschool Setup & Configuration"
-        sub="Configure your preschool, verify operational readiness, and prepare the school for go-live."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>
@@ -302,864 +346,143 @@ export default function SetupPage() {
         }
       />
 
-      {/* ── 2. CANONICAL READINESS METRIC STRIP ── */}
-      <div className="metric-strip" style={{ marginBottom: 20 }}>
-        {/* Cell 1: Overall Progress */}
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Readiness Progress</span>
-            <Rocket size={15} style={{ color: 'var(--primary)' }} />
-          </div>
-          <div className="m-val m-highlight">{status.progress}%</div>
-          <div className="m-meta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div className="progressbar" style={{ width: 60, height: 5 }}>
-              <div style={{ width: `${status.progress}%` }} />
-            </div>
-            <span>{status.status === 'LIVE' ? 'Fully operational' : `${100 - status.progress}% remaining`}</span>
-          </div>
+      {/* ── 2. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
+      <div style={{ marginTop: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            marginBottom: 16,
+          }}
+        >
+          <Segmented
+            value={metroFilter}
+            onChange={(v) => setMetroFilter(v as typeof metroFilter)}
+            options={[
+              { key: 'ALL', label: `All (${status.steps.length})` },
+              { key: 'MANDATORY', label: `Mandatory (${mandatorySteps.length})` },
+              { key: 'RECOMMENDED', label: `Recommended (${recommendedSteps.length})` },
+              { key: 'REMAINING', label: `Remaining (${remainingCount})` },
+            ]}
+          />
         </div>
 
-        {/* Cell 2: Mandatory Steps */}
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Mandatory Steps</span>
-            <ShieldCheck size={15} style={{ color: mandatoryLeft === 0 ? 'var(--success)' : 'var(--warning)' }} />
-          </div>
-          <div className={`m-val ${mandatoryLeft === 0 ? 'm-success' : 'm-warning'}`}>
-            {mandatoryCompleted} / {mandatorySteps.length}
-          </div>
-          <div className="m-meta">
-            {mandatoryLeft === 0 ? 'All prerequisites met' : `${mandatoryLeft} required step${mandatoryLeft === 1 ? '' : 's'} remaining`}
-          </div>
-        </div>
+        {/* 4 Phase Columns */}
+        <div className="setup-phases-grid">
+          {PHASES.map((phase, idx) => {
+            const phaseKey = phase.key === 'FOUNDATION'
+              ? 'foundation'
+              : phase.key === 'ACADEMIC_STRUCTURE'
+              ? 'academic'
+              : phase.key === 'BUSINESS_RULES'
+              ? 'business'
+              : 'operations'
+            const stepsInPhase = phaseSteps[phase.key] || []
+            const counts = phaseCounts[phase.key] || { total: 0, completed: 0 }
 
-        {/* Cell 3: Dependency Blockers */}
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Active Blockers</span>
-            <Lock size={15} style={{ color: blockedCount === 0 ? 'var(--success)' : 'var(--danger)' }} />
-          </div>
-          <div className={`m-val ${blockedCount === 0 ? 'm-success' : 'm-danger'}`}>
-            {blockedCount}
-          </div>
-          <div className="m-meta">
-            {blockedCount === 0 ? 'Zero dependency locks' : 'Blocked by dependencies'}
-          </div>
-        </div>
-
-        {/* Cell 4: Validation Health */}
-        <div className="metric-cell" onClick={runValidation} style={{ cursor: 'pointer' }}>
-          <div className="m-top">
-            <span className="m-lbl">System Health</span>
-            <Activity size={15} style={{ color: validation?.overall === 'PASS' ? 'var(--success)' : validation?.overall === 'BLOCKED' ? 'var(--danger)' : 'var(--primary)' }} />
-          </div>
-          <div className={`m-val ${validation?.overall === 'PASS' ? 'm-success' : validation?.overall === 'BLOCKED' ? 'm-danger' : 'm-highlight'}`}>
-            {validation?.overall || (health?.overall === 'HEALTHY' ? 'PASS' : 'UNCHECKED')}
-          </div>
-          <div className="m-meta">
-            {validation ? `${validation.categories.filter((c) => c.status === 'PASS').length}/15 categories passed` : 'Click to run health check'}
-          </div>
-        </div>
-
-        {/* Cell 5: Lifecycle Stage */}
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Lifecycle Status</span>
-            <Sparkles size={15} style={{ color: 'var(--primary)' }} />
-          </div>
-          <div className="m-val" style={{ fontSize: 18, marginTop: 4 }}>
-            <span className={`badge ${lifecycleBadge.cls}`}>{lifecycleBadge.label}</span>
-          </div>
-          <div className="m-meta">
-            {status.status === 'LIVE' ? `Live since ${status.goLiveAt ? new Date(status.goLiveAt).toLocaleDateString() : 'recent'}` : 'Pre-operational setup'}
-          </div>
+            return (
+              <SetupPhaseCard
+                key={phase.key}
+                phaseNumber={idx + 1}
+                phaseKey={phaseKey}
+                title={phase.label}
+                description={phase.sub}
+                completedCount={counts.completed}
+                totalCount={counts.total}
+              >
+                {stepsInPhase.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                    No steps match this filter
+                  </div>
+                ) : (
+                  stepsInPhase.map((s) => {
+                    const Icon = ICONS[s.icon] ?? School
+                    const badge = STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING
+                    return (
+                      <SetupStepTile
+                        key={s.key}
+                        href={`/app/setup/${s.key}`}
+                        name={s.label}
+                        status={s.status}
+                        icon={<Icon size={16} />}
+                        applicability={s.applicability}
+                        statusBadge={
+                          <span className={`badge ${badge.cls}`} style={{ fontSize: 10.5 }}>
+                            {badge.label}
+                          </span>
+                        }
+                        helper={
+                          s.status === 'BLOCKED'
+                            ? (s.blockedReason || 'Blocked by prerequisites')
+                            : (s.detail || s.description)
+                        }
+                      />
+                    )
+                  })
+                )}
+              </SetupPhaseCard>
+            )
+          })}
         </div>
       </div>
 
-      {/* ── 3. OPERATIONAL HERO / NEXT ACTION COMMAND BANNER ── */}
-      <div className="operational-hero" style={{ marginBottom: 20 }}>
-        <div className="operational-hero-head">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span className="badge b-primary">Operational Status</span>
-              {blockedCount > 0 && <span className="badge b-danger">{blockedCount} Blocked</span>}
-              {mandatoryLeft === 0 && status.status !== 'LIVE' && (
-                <span className="badge b-success">Ready for Go-Live</span>
-              )}
-            </div>
-            <div className="operational-hero-title">
-              {status.status === 'LIVE'
-                ? 'Preschool Operating in Production'
-                : mandatoryLeft === 0
-                  ? 'All Mandatory Foundations Complete — Ready for Go-Live'
-                  : nextStep
-                    ? `Next Step: ${nextStep.label}`
-                    : 'Preschool Foundation Configuration'}
-            </div>
-            <div className="operational-hero-sub">
-              {status.status === 'LIVE'
-                ? 'All master data, branches, fee schedules, classrooms, and daily ops rules are live. Configuration remains fully editable in place.'
-                : mandatoryLeft === 0
-                  ? 'Your preschool has satisfied all foundational, academic, and business policies. Execute a final health check and launch the preschool.'
-                  : nextStep
-                    ? `${nextStep.description} — ${nextStep.detail || 'Complete this step to unlock downstream academic and financial modules.'}`
-                    : 'Complete all mandatory foundational steps to prepare the preschool for child enrollments and operations.'}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {status.status !== 'LIVE' && mandatoryLeft === 0 ? (
-              <button className="btn btn-primary" onClick={() => setGoLiveOpen(true)}>
-                <Rocket size={15} /> Launch Preschool (Go Live)
-              </button>
-            ) : nextStep ? (
-              <a className="btn btn-primary" href={`/app/setup/${nextStep.key}`}>
-                <PlayCircle size={15} /> Configure {nextStep.label} <ChevronRight size={14} />
-              </a>
-            ) : null}
-          </div>
-        </div>
+      {/* ════════════════════ CANONICAL MODALS ════════════════════ */}
 
-        {/* Guidance and Drift Alerts */}
-        {status.guidance && status.guidance.length > 0 && status.status !== 'LIVE' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-subtle)' }}>
-            {status.guidance.map((g, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                {g.level === 'warning' ? (
-                  <AlertTriangle size={14} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-                ) : (
-                  <Info size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
-                )}
-                <span style={{ color: 'var(--text-secondary)' }}>{g.message}</span>
-                <a href={`/app/setup/${g.stepKey}`} className="cell-link" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-                  Resolve <ChevronRight size={12} />
-                </a>
+      {/* 0. VALIDATION HEALTH CHECK MODAL */}
+      <Modal
+        open={validationOpen}
+        onClose={() => setValidationOpen(false)}
+        title="Operational Readiness & Health Check"
+        subtitle="Authoritative 15-category cross-module validation engine"
+        icon={<ClipboardCheck size={22} />}
+        wide
+      >
+        {!validation ? (
+          <div style={{ textAlign: 'center', padding: 32 }}>
+            <ClipboardCheck size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
+            <h4 style={{ margin: '0 0 6px', fontSize: 16 }}>No Validation Run Yet</h4>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
+              Run the full 15-category validation to verify master data integrity, cross-module links, and operational rules.
+            </p>
+            <button className="btn btn-primary" onClick={runValidation} disabled={validating}>
+              <ClipboardCheck size={14} /> {validating ? 'Running Verification…' : 'Run Full Validation'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+              <div>
+                <span className="cell-strong" style={{ fontSize: 14 }}>Overall System Readiness:</span>
+                <span className={`badge ${CAT_STATUS_MAP[validation.overall]?.cls || 'b-neutral'}`} style={{ marginLeft: 8 }}>
+                  {validation.overall}
+                </span>
+              </div>
+              <button className="btn btn-outline btn-sm" onClick={runValidation} disabled={validating}>
+                <RefreshCw size={13} /> Re-verify
+              </button>
+            </div>
+            {validation.categories.map((c) => (
+              <div key={c.key} style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-card)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span className="cell-strong">{c.label}</span>
+                  <span className={`badge ${CAT_STATUS_MAP[c.status]?.cls || 'b-neutral'}`}>{c.status}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {c.findings.map((f, fi) => (
+                    <div key={fi} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5 }}>
+                      <span style={{ color: f.status === 'PASS' ? 'var(--success)' : f.status === 'WARNING' ? 'var(--warning)' : 'var(--danger)', flexShrink: 0 }}>
+                        {f.status === 'PASS' ? '✓' : f.status === 'WARNING' ? '⚠' : '✕'}
+                      </span>
+                      <span style={{ color: f.status === 'PASS' ? 'var(--text-secondary)' : 'var(--text-primary)' }}>{f.message}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         )}
-      </div>
-
-      {/* ── 4. WORKSPACE TABS (SEGMENTED) ── */}
-      <Segmented
-        value={tab}
-        onChange={(v) => {
-          setTab(v as typeof tab)
-          if (v === 'summary' && !deps) loadDeps()
-        }}
-        options={[
-          { key: 'hub', label: '⚡ Quick Configuration Hub' },
-          { key: 'steps', label: `All 21 Setup Steps (${status.steps.filter((s) => s.status === 'COMPLETE' || s.status === 'SKIPPED').length}/21)` },
-          { key: 'validation', label: 'Readiness & Health (Validation)' },
-          { key: 'summary', label: 'Data Summary & Dependencies' },
-        ]}
-      />
-
-      {/* ════════════════════ TAB 1: QUICK CONFIGURATION HUB ════════════════════ */}
-      {tab === 'hub' && (
-        <div style={{ marginTop: 16 }} className="table-workspace">
-          <div className="table-workspace-toolbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span className="cell-strong">Core Operational Master Data</span>
-              <span className="badge b-neutral">7 Master Domains</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-outline btn-sm" onClick={refreshAll}>
-                <RefreshCw size={13} /> Refresh
-              </button>
-            </div>
-          </div>
-
-          <div className="dtable-scroll">
-            <table className="dtable">
-              <thead>
-                <tr>
-                  <th style={{ width: 280 }}>Master Configuration Area</th>
-                  <th style={{ width: 140 }}>Status</th>
-                  <th>Current Derived Operational State</th>
-                  <th style={{ textAlign: 'right', width: 180 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {/* 1. School Profile & Identity */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-violet" style={{ width: 32, height: 32 }}><School size={16} /></div>
-                      <div>
-                        <span className="cell-strong">School Profile & Identity</span>
-                        <span className="cell-sub">Legal identity, code, timezone & address</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${profile?.email && profile?.phone && profile?.city ? 'b-success' : 'b-warning'}`}>
-                      {profile?.email && profile?.phone && profile?.city ? 'Verified' : 'Incomplete'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      <b>{profile?.name || 'School Name'}</b>
-                      <span className="cell-sub">
-                        Code: {profile?.code || '—'} · {profile?.city || 'City missing'}, {profile?.state || ''} · {profile?.email || 'No email'} · {profile?.phone || 'No phone'}
-                      </span>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-sm btn-outline" onClick={() => setActiveModal('profile')}>
-                      <Edit3 size={13} /> Edit Profile
-                    </button>
-                  </td>
-                </tr>
-
-                {/* 2. Operating Academic Year */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-green" style={{ width: 32, height: 32 }}><CalendarRange size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Academic Year</span>
-                        <span className="cell-sub">Session range for admissions & attendance</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${currentYear ? 'b-success' : 'b-danger'}`}>
-                      {currentYear ? 'Current Active' : 'No Active Year'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      {currentYear ? (
-                        <>
-                          <b>{currentYear.name}</b>
-                          <span className="cell-sub">
-                            {new Date(currentYear.startDate).toLocaleDateString()} → {new Date(currentYear.endDate).toLocaleDateString()} ({years.length} total years registered)
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--danger)' }}>No academic year marked current</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      {currentYear && (
-                        <button className="btn btn-sm btn-outline" onClick={() => { setEditingItem(currentYear); setActiveModal('editYear'); }}>
-                          <Edit3 size={13} /> Edit
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-outline" onClick={() => setActiveModal('newYear')}>
-                        <Plus size={13} /> Add Year
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* 3. Campuses & Branches */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-blue" style={{ width: 32, height: 32 }}><Building2 size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Campuses & Branches</span>
-                        <span className="cell-sub">Physical school operating locations</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${branches.length > 0 ? 'b-success' : 'b-danger'}`}>
-                      {branches.length} Active Branch{branches.length === 1 ? '' : 'es'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      {branches.length > 0 ? (
-                        <>
-                          <b>{branches.map((b) => b.name).join(' · ')}</b>
-                          <span className="cell-sub">
-                            Timings: {branches[0]?.timingOpen || '08:30'} – {branches[0]?.timingClose || '16:00'} · Total Capacity: {branches.reduce((acc, b) => acc + (b.capacity || 0), 0)} seats
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--danger)' }}>No active campus configured</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      {branches[0] && (
-                        <button className="btn btn-sm btn-outline" onClick={() => { setEditingItem(branches[0]); setActiveModal('editBranch'); }}>
-                          <Edit3 size={13} /> Edit
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-outline" onClick={() => setActiveModal('newBranch')}>
-                        <Plus size={13} /> Add Branch
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* 4. Programs Offered */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-violet" style={{ width: 32, height: 32 }}><Blocks size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Programs Offered</span>
-                        <span className="cell-sub">Educational tracks, age eligibility & capacity</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${programs.length > 0 ? 'b-success' : 'b-danger'}`}>
-                      {programs.length} Program{programs.length === 1 ? '' : 's'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      {programs.length > 0 ? (
-                        <>
-                          <b>{programs.map((p) => p.name).join(', ')}</b>
-                          <span className="cell-sub">
-                            Configured tracks: {programs.map((p) => `${p.code} (${p.ageMinMonths || 0}–${p.ageMaxMonths || 0} mo)`).join(', ')}
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--danger)' }}>No programs configured</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      {programs[0] && (
-                        <button className="btn btn-sm btn-outline" onClick={() => { setEditingItem(programs[0]); setActiveModal('editProgram'); }}>
-                          <Edit3 size={13} /> Edit
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-outline" onClick={() => setActiveModal('newProgram')}>
-                        <Plus size={13} /> Add Program
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* 5. Classrooms & Rooms */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-orange" style={{ width: 32, height: 32 }}><LayoutGrid size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Classrooms & Sections</span>
-                        <span className="cell-sub">Learning spaces linked to programs</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${classrooms.length > 0 ? 'b-success' : 'b-danger'}`}>
-                      {classrooms.length} Class Section{classrooms.length === 1 ? '' : 's'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      {classrooms.length > 0 ? (
-                        <>
-                          <b>{classrooms.map((c) => c.name).join(', ')}</b>
-                          <span className="cell-sub">
-                            Total seats: {classrooms.reduce((acc, c) => acc + (c.capacity || 0), 0)} · Teachers assigned: {classrooms.filter((c) => c.primaryTeacherId).length}/{classrooms.length}
-                          </span>
-                        </>
-                      ) : (
-                        <span style={{ color: 'var(--danger)' }}>No classroom sections created</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: 6 }}>
-                      {classrooms[0] && (
-                        <button className="btn btn-sm btn-outline" onClick={() => { setEditingItem(classrooms[0]); setActiveModal('editClass'); }}>
-                          <Edit3 size={13} /> Edit
-                        </button>
-                      )}
-                      <button className="btn btn-sm btn-outline" onClick={() => setActiveModal('newClass')}>
-                        <Plus size={13} /> Add Class
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* 6. Operating Hours & Schedule Rules */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-blue" style={{ width: 32, height: 32 }}><Clock size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Operating Rules & Schedule</span>
-                        <span className="cell-sub">Arrival, pickup, and daily attendance windows</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${operatingConfig?.schoolStartTime ? 'b-success' : 'b-warning'}`}>
-                      {operatingConfig?.schoolStartTime ? 'Configured' : 'Defaults Active'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      <b>Hours: {operatingConfig?.schoolStartTime || '08:30'} – {operatingConfig?.schoolEndTime || '16:00'}</b>
-                      <span className="cell-sub">
-                        Arrival window: {operatingConfig?.arrivalWindowStart || '08:00'}–{operatingConfig?.arrivalWindowEnd || '09:30'} · Pickup window: {operatingConfig?.pickupWindowStart || '15:30'}–{operatingConfig?.pickupWindowEnd || '17:00'} · Days: {(operatingConfig?.workingDays || ['MON', 'TUE', 'WED', 'THU', 'FRI']).join(', ')}
-                      </span>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <a className="btn btn-sm btn-outline" href="/app/setup/operating_config">
-                      <Edit3 size={13} /> Configure Rules
-                    </a>
-                  </td>
-                </tr>
-
-                {/* 7. Live System & Integration Health */}
-                <tr>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="kpi-ic ic-green" style={{ width: 32, height: 32 }}><Activity size={16} /></div>
-                      <div>
-                        <span className="cell-strong">Integrations & Live Health</span>
-                        <span className="cell-sub">Database, gateway & notification infrastructure</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${health?.overall === 'HEALTHY' ? 'b-success' : 'b-warning'}`}>
-                      {health?.overall || 'HEALTHY'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: 13 }}>
-                      {health?.checks ? (
-                        <>
-                          <b>All Core Services Online</b>
-                          <span className="cell-sub">
-                            {Object.entries(health.checks).map(([k, v]: [string, any]) => `${k}: ${v.status}`).join(' · ')}
-                          </span>
-                        </>
-                      ) : (
-                        <span>Database connected · Storage active · Multi-tenant security verified</span>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-sm btn-outline" onClick={runValidation}>
-                      <ClipboardCheck size={13} /> Re-verify
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════ TAB 2: ALL 21 SETUP STEPS ════════════════════ */}
-      {tab === 'steps' && (
-        <div style={{ marginTop: 16 }} className="table-workspace">
-          {/* Workspace Filter Bar */}
-          <div className="table-workspace-toolbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="t-caption" style={{ fontWeight: 600 }}>Phase:</span>
-                <select
-                  className="select"
-                  style={{ height: 32, fontSize: 12.5 }}
-                  value={phaseFilter}
-                  onChange={(e) => setPhaseFilter(e.target.value)}
-                >
-                  <option value="ALL">All 4 Phases</option>
-                  {PHASES.map((p) => (
-                    <option key={p.key} value={p.key}>{p.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className="t-caption" style={{ fontWeight: 600 }}>Status:</span>
-                <select
-                  className="select"
-                  style={{ height: 32, fontSize: 12.5 }}
-                  value={stepStatusFilter}
-                  onChange={(e) => setStepStatusFilter(e.target.value)}
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="COMPLETE">Complete</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="BLOCKED">Blocked</option>
-                  <option value="SKIPPED">Skipped</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="t-caption">Showing {filteredSteps.length} of {status.steps.length} steps</span>
-            </div>
-          </div>
-
-          <div className="dtable-scroll">
-            <table className="dtable">
-              <thead>
-                <tr>
-                  <th style={{ width: 260 }}>Setup Step</th>
-                  <th style={{ width: 130 }}>Phase</th>
-                  <th style={{ width: 110 }}>Applicability</th>
-                  <th style={{ width: 120 }}>Status</th>
-                  <th>Operational Reality & Blocker Reason</th>
-                  <th style={{ width: 160 }}>Sign-Off Metadata</th>
-                  <th style={{ textAlign: 'right', width: 120 }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredSteps.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 32 }}>
-                      <EmptyState
-                        icon={<ClipboardCheck size={36} />}
-                        title="No steps match the selected filter"
-                        message="Adjust the phase or status filters above to view other setup steps."
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  filteredSteps.map((s) => {
-                    const Icon = ICONS[s.icon] ?? School
-                    const badge = STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING
-                    const phase = PHASES.find((p) => p.key === s.phase)
-                    return (
-                      <tr key={s.key}>
-                        {/* Step Name */}
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div className={`kpi-ic ${s.status === 'COMPLETE' ? 'ic-green' : s.status === 'BLOCKED' ? 'ic-red' : 'ic-violet'}`} style={{ width: 30, height: 30 }}>
-                              <Icon size={15} />
-                            </div>
-                            <div>
-                              <span className="cell-strong">{s.label}</span>
-                              <span className="cell-sub">{s.description}</span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Phase */}
-                        <td>
-                          <span className="badge b-neutral" style={{ fontSize: 11 }}>{phase?.label || s.phase}</span>
-                        </td>
-
-                        {/* Applicability */}
-                        <td>
-                          <span className={`badge ${s.applicability === 'MANDATORY' ? 'b-primary' : 'b-neutral'}`} style={{ fontSize: 11 }}>
-                            {s.applicability}
-                          </span>
-                        </td>
-
-                        {/* Status */}
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            <span className={`badge ${badge.cls}`}>{badge.label}</span>
-                            {s.changedAfterCompletion && (
-                              <span className="badge b-orange" title="Underlying master records changed after completion">drift</span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Operational Reality */}
-                        <td>
-                          <div style={{ fontSize: 13 }}>
-                            {s.status === 'BLOCKED' ? (
-                              <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Lock size={13} style={{ flexShrink: 0 }} />
-                                <span>{s.blockedReason || 'Blocked by prerequisites'}</span>
-                              </div>
-                            ) : s.status === 'COMPLETE' ? (
-                              <div style={{ color: 'var(--success)' }}>
-                                ✓ {s.detail || 'Requirements satisfied'}
-                              </div>
-                            ) : (
-                              <div style={{ color: 'var(--text-secondary)' }}>
-                                {s.detail || s.description}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Sign-off metadata */}
-                        <td>
-                          <div className="t-caption">
-                            {s.completedByName ? (
-                              <>
-                                <div>{s.completedByName}</div>
-                                <div>{s.completedAt ? new Date(s.completedAt).toLocaleDateString() : ''}</div>
-                              </>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)' }}>—</span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Action */}
-                        <td style={{ textAlign: 'right' }}>
-                          <a
-                            className="btn btn-sm btn-outline"
-                            href={`/app/setup/${s.key}`}
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                          >
-                            {s.status === 'COMPLETE' ? 'Edit' : 'Configure'}
-                            <ChevronRight size={13} />
-                          </a>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════ TAB 3: READINESS & HEALTH (VALIDATION) ════════════════════ */}
-      {tab === 'validation' && (
-        <div style={{ marginTop: 16 }} className="table-workspace">
-          <div className="table-workspace-toolbar">
-            <div>
-              <span className="cell-strong">Operational Readiness & Health Check</span>
-              <div className="cell-sub">Authoritative 15-category cross-module validation engine</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {validation && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span className="t-caption" style={{ fontWeight: 600 }}>Overall Result:</span>
-                  <span className={`badge ${CAT_STATUS_MAP[validation.overall]?.cls || 'b-neutral'}`}>
-                    {validation.overall}
-                  </span>
-                </div>
-              )}
-              <button className="btn btn-primary btn-sm" onClick={runValidation} disabled={validating}>
-                <ClipboardCheck size={14} /> {validating ? 'Running Verification…' : 'Run Full Validation'}
-              </button>
-            </div>
-          </div>
-
-          {!validation ? (
-            <div style={{ padding: 48, textAlign: 'center' }}>
-              <EmptyState
-                icon={<ClipboardCheck size={40} />}
-                title="System Health Has Not Been Verified"
-                message="Run the complete 15-category verification suite to audit cross-module dependencies, academic calendars, fee coverage, classroom capacities, and go-live readiness."
-                action={
-                  <button className="btn btn-primary" onClick={runValidation} disabled={validating}>
-                    <ClipboardCheck size={15} /> Run Health Check
-                  </button>
-                }
-              />
-            </div>
-          ) : (
-            <div className="dtable-scroll">
-              <table className="dtable">
-                <thead>
-                  <tr>
-                    <th style={{ width: 220 }}>Validation Category</th>
-                    <th style={{ width: 120 }}>Health Status</th>
-                    <th>Automated Findings & Integrity Checks</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {validation.categories.map((c) => {
-                    const statusConfig = CAT_STATUS_MAP[c.status] || CAT_STATUS_MAP.PASS
-                    return (
-                      <tr key={c.key}>
-                        <td>
-                          <span className="cell-strong">{c.label}</span>
-                        </td>
-                        <td>
-                          <span className={`badge ${statusConfig.cls}`}>{statusConfig.label}</span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {c.findings.map((f, idx) => (
-                              <div
-                                key={idx}
-                                style={{
-                                  fontSize: 13,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  color: f.status === 'PASS' ? 'var(--text-secondary)' : f.status === 'BLOCKED' ? 'var(--danger)' : 'var(--warning)',
-                                }}
-                              >
-                                {f.status === 'PASS' ? (
-                                  <Check size={13} style={{ color: 'var(--success)' }} />
-                                ) : f.status === 'BLOCKED' ? (
-                                  <AlertCircle size={13} style={{ color: 'var(--danger)' }} />
-                                ) : (
-                                  <AlertTriangle size={13} style={{ color: 'var(--warning)' }} />
-                                )}
-                                <span>{f.message}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Go-Live Launch Strip */}
-          {validation && (
-            <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>
-                  {validation.overall === 'BLOCKED'
-                    ? 'Go-Live Blocked by Integrity Errors'
-                    : status.status === 'LIVE'
-                      ? 'Preschool is Live in Production'
-                      : 'Preschool Ready for Production Go-Live'}
-                </div>
-                <div className="t-caption">
-                  {validation.overall === 'BLOCKED'
-                    ? 'Resolve all categories marked BLOCKED above before launching the school.'
-                    : status.status === 'LIVE'
-                      ? 'Normal PreOne preschool operations are active.'
-                      : 'All mandatory gates passed. Launching the school promotes the operational dashboard as primary.'}
-                </div>
-              </div>
-              <div>
-                {status.status !== 'LIVE' && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setGoLiveOpen(true)}
-                    disabled={validation.overall === 'BLOCKED' || mandatoryLeft > 0}
-                  >
-                    <Rocket size={15} /> Launch Preschool (Go Live)
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════ TAB 4: DATA SUMMARY & DEPENDENCIES ════════════════════ */}
-      {tab === 'summary' && (
-        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {!deps ? (
-            <div className="table-workspace"><div style={{ padding: 32 }}><Skeleton h={150} /></div></div>
-          ) : (
-            <>
-              {/* Metric Strip for Master Counts */}
-              <div className="metric-strip">
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Campuses</span><Building2 size={15} /></div>
-                  <div className="m-val">{deps.summary.branches}</div>
-                  <div className="m-meta">Operating branches</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Programs</span><Blocks size={15} /></div>
-                  <div className="m-val">{deps.summary.programs}</div>
-                  <div className="m-meta">Educational tracks</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Classrooms</span><LayoutGrid size={15} /></div>
-                  <div className="m-val">{deps.summary.classes}</div>
-                  <div className="m-meta">Class sections</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Staff Members</span><Users size={15} /></div>
-                  <div className="m-val">{deps.summary.staff}</div>
-                  <div className="m-meta">Employment profiles</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Fee Plans</span><IndianRupee size={15} /></div>
-                  <div className="m-val">{deps.summary.feePlans}</div>
-                  <div className="m-meta">Active billing plans</div>
-                </div>
-                <div className="metric-cell">
-                  <div className="m-top"><span className="m-lbl">Students</span><GraduationCap size={15} /></div>
-                  <div className="m-val">{deps.summary.students}</div>
-                  <div className="m-meta">Enrolled children</div>
-                </div>
-              </div>
-
-              {/* Dependency Graph Workspace */}
-              <div className="table-workspace">
-                <div className="table-workspace-toolbar">
-                  <div>
-                    <span className="cell-strong">Setup Dependency DAG</span>
-                    <div className="cell-sub">Authoritative prerequisite graph — what unlocks what</div>
-                  </div>
-                  <span className="badge b-neutral">{deps.graph.length} Dependent Nodes</span>
-                </div>
-
-                <div className="dtable-scroll">
-                  <table className="dtable">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 240 }}>Step Target</th>
-                        <th style={{ width: 120 }}>Applicability</th>
-                        <th style={{ width: 110 }}>Current Status</th>
-                        <th>Required Prerequisites (Unlocks when all COMPLETE)</th>
-                        <th>Active Blockers</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {deps.graph.map((node) => (
-                        <tr key={node.key}>
-                          <td>
-                            <span className="cell-strong">{node.label}</span>
-                            <span className="cell-sub">{node.key}</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${node.applicability === 'MANDATORY' ? 'b-primary' : 'b-neutral'}`} style={{ fontSize: 11 }}>
-                              {node.applicability}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${STEP_STATUS_MAP[node.status]?.cls || 'b-neutral'}`}>{node.status}</span>
-                          </td>
-                          <td>
-                            {node.deps.length === 0 ? (
-                              <span style={{ color: 'var(--text-muted)' }}>Root step — no prerequisites</span>
-                            ) : (
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {node.deps.map((d) => (
-                                  <span key={d.key} className={`badge ${d.status === 'COMPLETE' ? 'b-success' : 'b-neutral'}`} style={{ fontSize: 11 }}>
-                                    {d.status === 'COMPLETE' ? '✓ ' : ''}{d.label}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            {node.blockedBy.length > 0 ? (
-                              <div style={{ color: 'var(--danger)', fontSize: 12.5 }}>
-                                Needs: {node.blockedBy.map((b) => b.label).join(', ')}
-                              </div>
-                            ) : (
-                              <span style={{ color: 'var(--success)', fontSize: 12.5 }}>✓ Unlocked</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════ CANONICAL MODALS ════════════════════ */}
+      </Modal>
 
       {/* 1. EDIT SCHOOL PROFILE MODAL */}
       {activeModal === 'profile' && profile && (

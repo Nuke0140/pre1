@@ -7,7 +7,7 @@ import {
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
   ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X
 } from 'lucide-react'
-import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead } from '@/components/preone/ui'
+import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
@@ -157,9 +157,9 @@ export default function StaffUsersPage() {
       header: 'Contact',
       render: (u) => (
         <div className="text-xs space-y-0.5">
-          <div className="text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5">
-            <Mail className="w-3 h-3 text-gray-400" />
-            {u.email}
+          <div className="text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5 break-all">
+            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+            <span>{u.email}</span>
           </div>
           {u.phone && (
             <div className="text-gray-500 font-mono flex items-center gap-1.5">
@@ -203,30 +203,24 @@ export default function StaffUsersPage() {
       header: '',
       align: 'right',
       render: (u) => (
-        <div className="flex items-center justify-end gap-1.5">
-          <button
-            type="button"
-            title="View 360 Profile"
+        <div className="dt-actions-row">
+          <IconButton
+            icon={<Eye size={15} />}
+            label="View 360 Profile"
             onClick={() => setViewingUser(u)}
-            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            title="Edit Staff Member"
+          />
+          <IconButton
+            icon={<Edit3 size={15} />}
+            label="Edit Staff Member"
             onClick={() => setEditingUser(u)}
-            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-900 transition-colors"
-          >
-            <Edit3 className="w-4 h-4" />
-          </button>
+          />
         </div>
       ),
     },
   ]
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="users-workspace-container">
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
@@ -241,11 +235,11 @@ export default function StaffUsersPage() {
         title="Staff Users"
         backHref="/app/users"
         actions={
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <div className="users-actions-bar">
             <button
               type="button"
               onClick={fetchStaff}
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
               title="Refresh list"
               aria-label="Refresh list"
             >
@@ -254,7 +248,7 @@ export default function StaffUsersPage() {
             <button
               type="button"
               onClick={() => setRolesModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
             >
               <Shield className="w-3.5 h-3.5 text-purple-600" />
               <span>Roles Directory</span>
@@ -262,15 +256,15 @@ export default function StaffUsersPage() {
             <button
               type="button"
               onClick={() => setCsvModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Bulk Import Staff</span>
+              <span>Bulk Import</span>
             </button>
             <button
               type="button"
               onClick={() => setAddStaffOpen(true)}
-              className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold shrink-0"
+              className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>+ Add Staff User</span>
@@ -312,10 +306,10 @@ export default function StaffUsersPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="card card-compact" style={{ borderRadius: 'var(--radius-xl)', padding: '12px 16px' }}>
-        <div className="filter-row">
+      <div className="card card-compact p-3 sm:p-4 rounded-xl sm:rounded-2xl">
+        <div className="users-filter-row">
           {/* Search */}
-          <div className="relative flex-1 min-w-0">
+          <div className="relative users-filter-search">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
@@ -344,7 +338,7 @@ export default function StaffUsersPage() {
           </div>
 
           {/* Role Filter */}
-          <div className="w-48 shrink-0">
+          <div className="users-filter-select">
             <select
               value={selectedRole}
               onChange={(e) => {
@@ -353,7 +347,7 @@ export default function StaffUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Staff Roles</option>
+              <option value="ALL">All Roles</option>
               {CANONICAL_STAFF_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_BADGE[r]?.label || r}
@@ -363,7 +357,7 @@ export default function StaffUsersPage() {
           </div>
 
           {/* Branch Filter */}
-          <div className="w-48 shrink-0">
+          <div className="users-filter-select">
             <select
               value={selectedBranch}
               onChange={(e) => {
@@ -372,7 +366,7 @@ export default function StaffUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Campus Branches</option>
+              <option value="ALL">All Branches</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -382,7 +376,7 @@ export default function StaffUsersPage() {
           </div>
 
           {/* Status Filter */}
-          <div className="w-36 shrink-0">
+          <div className="users-filter-select">
             <select
               value={selectedStatus}
               onChange={(e) => {
@@ -402,14 +396,15 @@ export default function StaffUsersPage() {
           {/* Export CSV */}
           <a
             href="/api/v1/users/export?role=STAFF"
-            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 shrink-0"
+            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
             download
             title="Export CSV"
           >
             <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>Export CSV</span>
+            <span>Export</span>
           </a>
 
+          {/* Reset */}
           {(search || selectedRole !== 'ALL' || selectedBranch !== 'ALL' || selectedStatus !== 'ALL') && (
             <button
               type="button"
@@ -420,7 +415,7 @@ export default function StaffUsersPage() {
                 setSelectedStatus('ALL')
                 setPage(1)
               }}
-              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
+              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
               title="Reset filters"
             >
               Reset
@@ -435,6 +430,7 @@ export default function StaffUsersPage() {
           columns={columns}
           data={users}
           loading={loading}
+          showToolbar={false}
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle="No staff members found"
           emptyMessage="No staff records match your selected role, branch, status, or search query."
