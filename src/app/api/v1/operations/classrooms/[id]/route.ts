@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import { OperationsService } from '@/lib/operations/operations-service'
  * GET /api/v1/operations/classrooms/[id]
  * Real-time classroom daily operational board
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -32,3 +33,5 @@ export async function GET(
     return Errors.system(err)
   }
 }
+
+export const GET = withApi(_GET)

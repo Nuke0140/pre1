@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
+import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { ok, bad, serverError, traceId } from '@/lib/api'
+import { ok, errValidation } from '@/lib/api'
 import { GlobalSearchService, SearchCategory } from '@/lib/search/search-service'
 
 const VALID_CATEGORIES: Array<SearchCategory | 'all'> = [
@@ -28,8 +29,7 @@ const VALID_CATEGORIES: Array<SearchCategory | 'all'> = [
  * Cross-module, RBAC-restricted search endpoint for PreOne.
  * Enforces tenant isolation, role permissions, and relationship scopes server-side.
  */
-export async function GET(req: NextRequest) {
-  const tid = traceId()
+export const GET = withApi(async (req: NextRequest) => {
   const session = await requireApi(req)
   if (isResponse(session)) return session
 
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   const branchIdParam = searchParams.get('branchId') || undefined
 
   if (!VALID_CATEGORIES.includes(categoryParam)) {
-    return bad(`Invalid search category: ${categoryParam}`, 'INVALID_CATEGORY', tid)
+    throw errValidation(`Invalid search category: ${categoryParam}`, 'category')
   }
 
   const limit = isNaN(limitParam) ? 20 : Math.min(Math.max(limitParam, 1), 50)
@@ -52,17 +52,12 @@ export async function GET(req: NextRequest) {
     return ok({ query: '', total: 0, categoryCounts: {}, results: [] })
   }
 
-  try {
-    const result = await GlobalSearchService.search(session, q, {
-      category: categoryParam,
-      limit,
-      offset,
-      branchId: branchIdParam,
-    })
+  const result = await GlobalSearchService.search(session, q, {
+    category: categoryParam,
+    limit,
+    offset,
+    branchId: branchIdParam,
+  })
 
-    return ok(result)
-  } catch (err: any) {
-    console.error('[SearchAPI] Internal search error:', err)
-    return serverError('Search service encountered an internal error')
-  }
-}
+  return ok(result)
+}, { module: 'search' })

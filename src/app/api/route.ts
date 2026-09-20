@@ -1,5 +1,10 @@
-import { NextResponse } from "next/server";
+import { withApi } from '@/lib/with-api'
+import { ok } from '@/lib/api'
 
-export async function GET() {
-  return NextResponse.json({ message: "Hello, world!" });
-}
+export const GET = withApi(async () => {
+  return ok({
+    status: 'online',
+    service: 'PreOne Enterprise OS',
+    timestamp: new Date().toISOString(),
+  })
+}, { module: 'core' })

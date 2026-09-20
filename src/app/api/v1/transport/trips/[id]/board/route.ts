@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors, bad } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { TransportService } from '@/lib/transport/transport-service'
 /**
  * POST /api/v1/transport/trips/[id]/board â€” Record child boarding at stop
  */
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApi(req, 'transport:board')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('Tenant context required')
@@ -39,3 +40,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return bad(e.message)
   }
 }
+
+export const POST = withApi(_POST)

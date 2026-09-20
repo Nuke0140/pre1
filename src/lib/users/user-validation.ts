@@ -1,6 +1,7 @@
 import { UserRole, Relationship, UserStatus, EmploymentType, Gender, BloodGroup, ProgramType } from '@prisma/client'
 
 export interface StaffCreateInput {
+  avatarUrl?: string | null
   fullName: string
   email: string
   phone?: string | null
@@ -9,21 +10,28 @@ export interface StaffCreateInput {
   role?: UserRole
   roles?: UserRole[]
   primaryRole?: UserRole
+  additionalRoles?: UserRole[]
   branchId?: string | null
   employeeCode?: string
   designation?: string
   department?: string
   qualification?: string
   employmentType?: EmploymentType
+  joiningDate?: string | Date | null
+  dateOfBirth?: string | Date | null
+  gender?: Gender | null
+  reportingManagerId?: string | null
   classroomId?: string
   status?: UserStatus
 }
 
 export interface FamilyCreateInput {
+  avatarUrl?: string | null
   role: 'PARENT' | 'GUARDIAN'
   fullName: string
   email: string
   phone: string
+  gender?: Gender | null
   username?: string
   password?: string
   status?: UserStatus
@@ -34,7 +42,13 @@ export interface FamilyCreateInput {
     studentId?: string
     admissionNo?: string
   }
+  additionalChildren?: Array<{
+    studentId?: string
+    admissionNo?: string
+    relationship?: Relationship
+  }>
   newChild?: {
+    admissionNo?: string
     username?: string
     firstName: string
     lastName?: string
@@ -45,6 +59,7 @@ export interface FamilyCreateInput {
     branchId?: string
     classroomId?: string
     seatNumber?: string
+    academicSessionId?: string
   }
   permissions: {
     canPickup?: boolean
@@ -70,6 +85,8 @@ export function validateStaffInput(input: StaffCreateInput): { valid: boolean; e
   const assignedRoles =
     input.roles && input.roles.length > 0
       ? input.roles
+      : input.additionalRoles && input.additionalRoles.length > 0
+      ? [input.primaryRole || input.role || ('TEACHER' as UserRole), ...input.additionalRoles]
       : input.primaryRole
       ? [input.primaryRole]
       : input.role
@@ -79,10 +96,13 @@ export function validateStaffInput(input: StaffCreateInput): { valid: boolean; e
     errors.push('At least one staff role must be specified')
   }
 
-  // Ensure staff does not contain PARENT or GUARDIAN
+  // Ensure staff does not contain PARENT, GUARDIAN, or PLATFORM_ADMIN
   for (const r of assignedRoles) {
     if (r === 'PARENT' || r === 'GUARDIAN') {
       errors.push('Parent and Guardian roles cannot be created via Staff creation flow')
+    }
+    if (r === 'PLATFORM_ADMIN') {
+      errors.push('PLATFORM_ADMIN role cannot be assigned through school staff workflow')
     }
   }
 

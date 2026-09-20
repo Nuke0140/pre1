@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -8,7 +9,7 @@ import { audit } from '@/lib/sequence'
  * POST /api/v1/observations/{id}/publish — teacher approves & publishes
  * → fans out to parent timeline (PRD: "one data entry → three outputs").
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -64,3 +65,5 @@ export async function POST(
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

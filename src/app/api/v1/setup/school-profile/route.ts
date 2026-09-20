@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -5,7 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 
 /** PATCH /api/v1/setup/school-profile — Step 1/2: edit existing Tenant identity (writes the real Tenant row) */
-export async function PATCH(req: NextRequest) {
+async function _PATCH(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -47,7 +48,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 /** GET /api/v1/setup/school-profile — current identity for the step form */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'settings:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -65,3 +66,6 @@ export async function GET(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const PATCH = withApi(_PATCH)

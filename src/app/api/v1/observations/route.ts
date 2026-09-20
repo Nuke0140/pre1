@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -9,7 +10,7 @@ import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
 
 /** GET /api/v1/observations — list (teacher sees own; principal sees all) */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'academics:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
  *  M01 learning loop (Spec §17-19): category (CURRICULUM learning areas) +
  *  deterministic concern triage (NORMAL/PROGRESS/NEEDS_ATTENTION/URGENT — never
  *  a diagnosis). NEEDS_ATTENTION/URGENT → Learning follow-up via event seam. */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'academics:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -138,3 +139,6 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

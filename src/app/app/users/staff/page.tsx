@@ -122,7 +122,7 @@ export default function StaffUsersPage() {
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
-          <Avatar name={u.name} size="md" />
+          <Avatar name={u.name} src={u.avatarUrl} size="md" />
           <div>
             <div className="font-semibold text-gray-900 dark:text-white hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => setViewingUser(u)}>
               {u.name}

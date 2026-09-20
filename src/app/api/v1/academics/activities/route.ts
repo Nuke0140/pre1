@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import type { ActivityStatus } from '@prisma/client'
 /**
  * GET /api/v1/academics/activities — List classroom activities with filters
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'academics:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/v1/academics/activities — Schedule a classroom activity
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'academics:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -103,3 +104,6 @@ export async function POST(req: NextRequest) {
     return Errors.business('ACTIVITY_CREATE_FAILED', e.message || 'Failed to schedule activity', 422)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

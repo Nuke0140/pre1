@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, bad, serverError } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import { UserCsvEngine, CsvPreviewRow } from '@/lib/users/csv-engine'
  * GET /api/v1/users/csv — Download template
  * Query params: ?type=staff | family
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
 
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/v1/users/csv — Two-stage CSV preview and execution for Staff and Family
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
@@ -143,3 +144,6 @@ export async function POST(req: NextRequest) {
     return serverError(err.message)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

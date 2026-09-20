@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import { db } from '@/lib/db'
 /**
  * GET /api/v1/academics/observations — Query observations with academic filters
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'academics:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/v1/academics/observations — Record observation using AcademicService
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'academics:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -99,3 +100,6 @@ export async function POST(req: NextRequest) {
     return Errors.business('OBSERVATION_FAILED', e.message || 'Failed to record observation', 422)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -12,7 +13,7 @@ import { registerIntegrations } from '@/lib/integrations'
  * Reminder sent ≠ problem solved: a FINANCE follow-up stays OPEN until the
  * invoice is fully paid (auto-resolved by PaymentReceived handler).
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -85,3 +86,5 @@ export async function POST(
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

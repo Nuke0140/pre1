@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
-import { ok, bad, forbidden, serverError } from '@/lib/api'
+import { ok, bad, forbidden, errValidation, errAuth } from '@/lib/api'
+import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
@@ -49,15 +50,14 @@ export interface BlockedUserRecord {
 /**
  * POST /api/v1/users/bulk — enterprise batch management with preview, validation, and execution
  */
-export async function POST(req: NextRequest) {
+export const POST = withApi(async (req: NextRequest) => {
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
-  if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
+  if (!session.tenantId) throw errAuth('Tenant required')
 
-  try {
-    const body = (await req.json()) as BulkRequest
-    const {
-      action,
+  const body = (await req.json()) as BulkRequest
+  const {
+    action,
       userIds,
       mode = 'EXECUTE',
       role,
@@ -459,7 +459,7 @@ export async function POST(req: NextRequest) {
         }
 
         default:
-          throw new Error(`Unsupported bulk action: ${action}`)
+          throw errValidation(`Unsupported bulk action: ${action}`, 'action')
       }
     })
 
@@ -506,7 +506,4 @@ export async function POST(req: NextRequest) {
       affectedUserIds,
       skippedUserIds,
     })
-  } catch (err: any) {
-    return serverError(err.message)
-  }
-}
+}, { module: 'users', permission: 'users:write' })

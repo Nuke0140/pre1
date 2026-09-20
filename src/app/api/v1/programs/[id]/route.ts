@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -5,7 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 
 /** PATCH /api/v1/programs/{id} - update / deactivate program */
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -61,7 +62,7 @@ export async function PATCH(
 }
 
 /** DELETE /api/v1/programs/{id} - soft delete program with dependency check */
-export async function DELETE(
+async function _DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -109,3 +110,6 @@ export async function DELETE(
     return Errors.system(e)
   }
 }
+
+export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)

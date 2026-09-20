@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -8,7 +9,7 @@ import { db } from '@/lib/db'
  * GET /api/v1/applications/[id]/allocation
  * Returns live classroom divisions, capacity, seat counts, and policy recommendation
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -36,7 +37,7 @@ export async function GET(
  * POST /api/v1/applications/[id]/allocation
  * Confirms classroom division allocation or routes to waitlist
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -96,3 +97,6 @@ export async function POST(
     return Errors.business('ALLOCATION_FAILED', err.message || 'Could not allocate classroom', 422)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

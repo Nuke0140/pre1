@@ -1,10 +1,11 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit } from '@/lib/audit'
 
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -65,7 +66,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -124,3 +125,6 @@ export async function PATCH(
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const PATCH = withApi(_PATCH)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -7,7 +8,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
  * GET /api/v1/notifications/unread-count
  * Returns the unread notification count for the Topbar badge.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -26,3 +27,5 @@ export async function GET(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)

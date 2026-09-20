@@ -1,9 +1,10 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { FeeService } from '@/lib/fees/fee-service'
 import { db } from '@/lib/db'
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { tenantId, paymentNumber, transactionRef, gatewayStatus, signature } = body
@@ -36,3 +37,5 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -8,7 +9,7 @@ import type { ProgramType } from '@prisma/client'
 const PROGRAM_TYPES: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
 
 /** GET /api/v1/programs — program master data with classroom/fee coverage */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** POST /api/v1/programs — create program (M00 Step 4) */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -73,3 +74,6 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { StaffUserService } from './staff-user-service'
 import { FamilyUserService, normalizeRelationship } from './family-user-service'
-import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType } from '@prisma/client'
+import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType, BloodGroup } from '@prisma/client'
 
 /**
  * Sanitizes a cell against spreadsheet formula injection (=, +, -, @, \t, \r)
@@ -112,14 +112,18 @@ export class UserCsvEngine {
       'employeeCode',
       'designation',
       'department',
+      'qualification',
+      'employmentType',
       'joiningDate',
+      'dateOfBirth',
+      'gender',
     ]
 
     const sampleRows = [
-      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', '2026-06-01'],
-      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTANT', 'MAIN', 'EMP-2026-02', 'Senior Accountant', 'Finance', '2026-05-15'],
-      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'HELPER', 'MAIN', 'EMP-2026-03', 'Classroom Assistant', 'Operations', '2026-06-10'],
-      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', 'EMP-2026-04', 'School Bus Driver', 'Transport', '2026-05-01'],
+      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'REGULAR', '2026-06-01', '1992-05-14', 'FEMALE'],
+      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTANT', 'MAIN', 'EMP-2026-02', 'Senior Accountant', 'Finance', 'M.Com, Tally Pro', 'REGULAR', '2026-05-15', '1988-11-20', 'MALE'],
+      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'HELPER', 'MAIN', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
+      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'REGULAR', '2026-05-01', '1985-08-09', 'MALE'],
     ]
 
     return [
@@ -188,27 +192,38 @@ export class UserCsvEngine {
   }
 
   /**
-   * Generates downloadable Combined Parent + Guardian CSV template
+   * Generates downloadable Canonical 21-column Family CSV template (PARENT & GUARDIAN)
    */
   static getFamilyTemplate(): string {
     const headers = [
+      'photo',
       'username',
-      'fullName',
+      'name',
+      'gender',
       'email',
       'phone',
       'role',
-      'branchCode',
-      'studentAdmissionNo',
       'relationship',
-      'canPickup',
-      'receivesComm',
+      'studentAdmissionNo',
+      'studentUsername',
+      'studentName',
+      'studentDateOfBirth',
+      'studentGender',
+      'studentBloodGroup',
+      'studentBranch',
+      'studentClass',
+      'studentSeatNumber',
+      'studentAdmissionYear',
       'pickupPin',
+      'feePayer',
+      'status',
     ]
 
     const sampleRows = [
-      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1024', 'FATHER', 'true', 'true', '1234'],
-      ['priya01', 'Priya Sharma', 'priya@example.com', '+919876543211', 'PARENT', 'MAIN', 'PRE-1024', 'MOTHER', 'true', 'true', '5678'],
-      ['sunita01', 'Sunita Sharma', 'sunita@example.com', '+919876543212', 'GUARDIAN', 'MAIN', 'PRE-1024', 'GRANDMOTHER', 'true', 'true', '4321'],
+      ['', 'rahul.patil', 'Rahul Patil', 'MALE', 'rahul.patil@example.com', '+919876543210', 'PARENT', 'FATHER', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '1234', 'true', 'ACTIVE'],
+      ['', 'priya.patil', 'Priya Patil', 'FEMALE', 'priya.patil@example.com', '+919876543211', 'PARENT', 'MOTHER', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '5678', 'false', 'ACTIVE'],
+      ['', 'sunita.patil', 'Sunita Patil', 'FEMALE', 'sunita.patil@example.com', '+919876543212', 'GUARDIAN', 'GRANDPARENT', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '4321', 'false', 'ACTIVE'],
+      ['', 'vikram.joshi', 'Vikram Joshi', 'MALE', 'vikram.joshi@example.com', '+919876543213', 'PARENT', 'FATHER', 'ADM-2026-00124', 'ananya.joshi', 'Ananya Joshi', '2022-01-15', 'FEMALE', 'O_POSITIVE', 'MAIN', 'PLAYGROUP-A', '', '2026-27', '9876', 'true', 'ACTIVE'],
     ]
 
     return [
@@ -348,6 +363,9 @@ export class UserCsvEngine {
           employeeCode: r.employeeCode || null,
           qualification: r.qualification || null,
           employmentType: (r.employmentType?.toUpperCase() as EmploymentType) || 'REGULAR',
+          joiningDate: r.joiningDate || null,
+          dateOfBirth: r.dateOfBirth || null,
+          gender: (r.gender?.toUpperCase() as Gender) || null,
           status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
         },
       })
@@ -371,6 +389,10 @@ export class UserCsvEngine {
    * Preview & Validation for Parent / Guardian CSV
    * Supports Multi-Child linking and enforces strict Max 2 Parents rule
    */
+  /**
+   * Preview & Validation for Parent / Guardian CSV
+   * Supports Multi-Child linking, authoritative student resolution, and enforces strict Max 2 Parents rule
+   */
   static async previewFamilyCsv(tenantId: string, csvContent: string): Promise<CsvPreviewResult> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
@@ -383,19 +405,27 @@ export class UserCsvEngine {
     const studentDbParentCount = new Map<string, number>()
     const studentIncomingParents = new Map<string, number>()
 
-    // Preload branches and classrooms for code lookup
+    // Preload branches and classrooms for code/name lookup
     const branches = await db.branch.findMany({
       where: { tenantId, deletedAt: null },
-      select: { id: true, code: true },
+      select: { id: true, code: true, name: true },
     })
-    const branchMap = new Map<string, string>(branches.map((b) => [b.code.toUpperCase(), b.id]))
+    const branchMap = new Map<string, string>()
+    for (const b of branches) {
+      branchMap.set(b.code.toUpperCase(), b.id)
+      branchMap.set(b.name.toUpperCase(), b.id)
+    }
 
-    type ClassroomItem = { id: string; code: string | null; name: string; branchId: string | null }
+    type ClassroomItem = { id: string; code: string | null; name: string; branchId: string | null; programType: ProgramType }
     const classrooms: ClassroomItem[] = await db.classroom.findMany({
       where: { tenantId, isActive: true },
-      select: { id: true, code: true, name: true, branchId: true },
+      select: { id: true, code: true, name: true, branchId: true, programType: true },
     })
-    const classroomMap = new Map<string, ClassroomItem>(classrooms.map((c) => [(c.code || c.name).toUpperCase(), c]))
+    const classroomMap = new Map<string, ClassroomItem>()
+    for (const c of classrooms) {
+      if (c.code) classroomMap.set(c.code.toUpperCase(), c)
+      classroomMap.set(c.name.toUpperCase(), c)
+    }
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
@@ -403,25 +433,30 @@ export class UserCsvEngine {
       const errors: string[] = []
       const warnings: string[] = []
 
+      const photo = r.photo || r.avatarUrl || ''
       const username = r.username?.trim().toLowerCase() || ''
       const role = (r.role?.trim().toUpperCase() || 'PARENT') as 'PARENT' | 'GUARDIAN'
-      const fullName = r.fullName?.trim() || ''
+      const fullName = r.name?.trim() || r.fullName?.trim() || ''
+      const gender = (r.gender?.trim().toUpperCase() as Gender) || null
       const email = r.email?.trim().toLowerCase() || ''
       const phone = r.phone?.trim() || ''
-      const relationship = normalizeRelationship(r.relationship)
-      const admissionNo = r.studentAdmissionNo?.trim() || ''
-
-      // Child fields if new child creation mode
-      const childFirstName = r.childFirstName?.trim() || ''
-      const childLastName = r.childLastName?.trim() || ''
-      const childDOB = r.childDOB?.trim() || ''
-      const childGender = (r.childGender?.trim().toUpperCase() || 'MALE') as Gender
-      const program = (r.program?.trim().toUpperCase() || 'NURSERY') as ProgramType
-      const branchCode = r.branchCode?.trim().toUpperCase() || ''
-      const classroomCode = r.classroomCode?.trim().toUpperCase() || ''
+      const relationship = normalizeRelationship(r.relationship || r.relationToChild)
+      const admissionNo = r.studentAdmissionNo?.trim() || r.admissionNo?.trim() || ''
+      const studentUsername = r.studentUsername?.trim().toLowerCase() || ''
+      const studentName = r.studentName?.trim() || r.childName?.trim() || ''
+      const studentDateOfBirth = r.studentDateOfBirth?.trim() || r.studentDob?.trim() || r.childDOB?.trim() || ''
+      const studentGender = (r.studentGender?.trim().toUpperCase() || r.childGender?.trim().toUpperCase() || 'MALE') as Gender
+      const studentBloodGroup = (r.studentBloodGroup?.trim().toUpperCase() || r.bloodGroup?.trim().toUpperCase()) as BloodGroup | undefined
+      const branchInput = r.studentBranch?.trim().toUpperCase() || r.branchCode?.trim().toUpperCase() || ''
+      const classInput = r.studentClass?.trim().toUpperCase() || r.classroomCode?.trim().toUpperCase() || ''
+      const seatNumber = r.studentSeatNumber?.trim() || r.seatNumber?.trim() || r.seatNo?.trim() || ''
+      const admissionYear = r.studentAdmissionYear?.trim() || r.admissionYear?.trim() || ''
+      const pickupPin = r.pickupPin?.trim() || ''
+      const feePayerInput = r.feePayer || r.isFeePayer
+      const status = (r.status?.trim().toUpperCase() as UserStatus) || 'ACTIVE'
 
       if (role !== 'PARENT' && role !== 'GUARDIAN') {
-        errors.push(`Invalid role "${role}". Must be PARENT or GUARDIAN.`)
+        errors.push(`Invalid role "${role}". Allowed: PARENT or GUARDIAN only.`)
       }
       if (!fullName) errors.push('Caregiver full name is missing')
       if (!email) {
@@ -444,9 +479,9 @@ export class UserCsvEngine {
       }
 
       // Check existing user in database
-      let userInDb = false
+      let userInDb: any = null
       if (email || username) {
-        const existing = await db.user.findFirst({
+        userInDb = await db.user.findFirst({
           where: {
             OR: [
               ...(email ? [{ email }] : []),
@@ -454,9 +489,6 @@ export class UserCsvEngine {
             ],
           },
         })
-        if (existing) {
-          userInDb = true
-        }
       }
 
       const isMultiChildLink = seenUserKeys.has(userKey)
@@ -464,22 +496,67 @@ export class UserCsvEngine {
         seenUserKeys.add(userKey)
       }
 
+      // Priority 1: studentAdmissionNo; Priority 2: studentUsername
       let targetStudent: any = null
-      const isExistingChild = Boolean(admissionNo)
-
-      if (isExistingChild) {
-        // Mode 1: Link to Existing Student by Admission Number
+      if (admissionNo) {
         targetStudent = await db.student.findFirst({
           where: { tenantId, admissionNo, deletedAt: null },
           include: { currentClassroom: true },
         })
+      }
+      if (!targetStudent && studentUsername) {
+        targetStudent = await db.student.findFirst({
+          where: { tenantId, username: studentUsername, deletedAt: null },
+          include: { currentClassroom: true },
+        })
+      }
 
-        if (!targetStudent) {
-          errors.push(`Student with Admission No. "${admissionNo}" not found in this school`)
-        } else if (role === 'PARENT') {
-          // Enforce Max 2 PARENT rule dynamically combining DB count + previous CSV rows
+      const isExistingChild = Boolean(targetStudent)
+      let isAlreadyLinked = false
+
+      if (isExistingChild) {
+        // Mismatch checks — Do NOT silently overwrite existing student data!
+        if (studentName) {
+          const dbFullName = `${targetStudent.firstName} ${targetStudent.lastName || ''}`.trim().toLowerCase()
+          if (dbFullName !== studentName.toLowerCase()) {
+            warnings.push(
+              `Student name in CSV ("${studentName}") differs from authoritative DB record ("${targetStudent.firstName} ${targetStudent.lastName || ''}"). DB data will not be overwritten.`
+            )
+          }
+        }
+
+        if (studentDateOfBirth && targetStudent.dob) {
+          try {
+            const csvDob = new Date(studentDateOfBirth).toISOString().slice(0, 10)
+            const dbDob = new Date(targetStudent.dob).toISOString().slice(0, 10)
+            if (csvDob !== dbDob) {
+              warnings.push(
+                `Student DOB in CSV ("${csvDob}") differs from existing record ("${dbDob}"). Existing student data will not be overwritten.`
+              )
+            }
+          } catch (e) {
+            // invalid date in CSV
+          }
+        }
+
+        // Check if caregiver is already linked to this student
+        if (userInDb) {
+          const existingLink = await db.studentGuardian.findFirst({
+            where: {
+              studentId: targetStudent.id,
+              guardian: { userId: userInDb.id },
+            },
+          })
+          if (existingLink) {
+            isAlreadyLinked = true
+            warnings.push(`Caregiver is already linked to this student. Link will be preserved.`)
+          }
+        }
+
+        // Enforce Max 2 PARENT rule dynamically combining DB count + previous CSV rows
+        if (role === 'PARENT' && !isAlreadyLinked) {
           if (!studentDbParentCount.has(targetStudent.id)) {
-            const dbCount = await FamilyUserService.countActiveParentsForStudent(tenantId, targetStudent.id)
+            const dbCount = await FamilyUserService.countActiveParentsForStudent(tenantId, targetStudent.id, userInDb?.id)
             studentDbParentCount.set(targetStudent.id, dbCount)
           }
 
@@ -488,7 +565,7 @@ export class UserCsvEngine {
 
           if (existingCount + incomingCount >= 2) {
             errors.push(
-              `Student ${targetStudent.firstName} (${admissionNo}) already has 2 registered Parent accounts. Change role to GUARDIAN.`
+              `Maximum 2 Parent accounts allowed for this student (Admission No: ${targetStudent.admissionNo}). Please use GUARDIAN role for additional caregivers.`
             )
           } else {
             studentIncomingParents.set(targetStudent.id, incomingCount + 1)
@@ -496,47 +573,64 @@ export class UserCsvEngine {
         }
       } else {
         // Mode 2: Enroll New Student
-        if (!childFirstName) errors.push('New child first name is missing (or provide studentAdmissionNo for existing child)')
-        if (!childDOB) errors.push('New child DOB is missing (YYYY-MM-DD)')
-
-        if (branchCode && !branchMap.has(branchCode)) {
-          errors.push(`Branch code "${branchCode}" not found`)
+        if (!studentName && !admissionNo) {
+          errors.push('Student admission number or new student name is required')
+        } else if (!studentName) {
+          errors.push(`Student with Admission No. "${admissionNo}" not found in this school (or provide studentName to enroll new child)`)
         }
-        if (classroomCode && !classroomMap.has(classroomCode)) {
-          errors.push(`Classroom code "${classroomCode}" not found`)
+
+        if (!studentDateOfBirth) {
+          errors.push('New student date of birth is required (YYYY-MM-DD)')
+        }
+
+        if (branchInput && !branchMap.has(branchInput)) {
+          errors.push(`Student branch "${branchInput}" not found in this school`)
+        }
+        if (classInput && !classroomMap.has(classInput)) {
+          errors.push(`Student class "${classInput}" not found in this school`)
         }
       }
 
-      const branchId = branchCode ? branchMap.get(branchCode) : null
-      const classroom = classroomCode ? classroomMap.get(classroomCode) : null
+      const branchId = branchInput ? branchMap.get(branchInput) || null : null
+      const classroom = classInput ? classroomMap.get(classInput) || null : null
 
       const isBlocked = errors.length > 0
-      const isLinkAction = isMultiChildLink || userInDb
+      const isLinkAction = isMultiChildLink || Boolean(userInDb)
 
-      let rowAction: 'CREATE' | 'LINK' | 'BLOCK' = isBlocked ? 'BLOCK' : isLinkAction ? 'LINK' : 'CREATE'
+      let rowAction: 'CREATE' | 'LINK' | 'SKIP' | 'BLOCK' = 'CREATE'
       let actionDetail = ''
 
       if (isBlocked) {
+        rowAction = 'BLOCK'
         actionDetail = `${fullName} (${role}) - Blocked: ${errors[0]}`
+      } else if (isAlreadyLinked) {
+        rowAction = 'SKIP'
+        actionDetail = `SKIP_ALREADY_LINKED: ${fullName} already linked to ${targetStudent.admissionNo}`
       } else if (isExistingChild) {
         if (isLinkAction) {
-          actionDetail = `LINK EXISTING USER + LINK CHILD (${admissionNo})`
+          rowAction = 'LINK'
+          actionDetail = `LINK_EXISTING_USER: Link ${fullName} to ${targetStudent.admissionNo}`
         } else {
-          actionDetail = `CREATE USER + LINK CHILD (${admissionNo})`
+          rowAction = 'CREATE'
+          actionDetail = `CREATE_RELATIONSHIP: Link new ${role} ${fullName} to ${targetStudent.admissionNo}`
         }
       } else {
-        actionDetail = `CREATE USER + ENROLL CHILD (${childFirstName})`
+        rowAction = 'CREATE'
+        actionDetail = `CREATE_STUDENT_AND_FAMILY: Enroll new student "${studentName}" and register ${role}`
       }
 
-      // Support both receivesComm and receivesCommunication
-      const receivesCommValue = r.receivesComm !== undefined ? r.receivesComm : r.receivesCommunication
+      // Name splitting for new child
+      const nameParts = studentName.trim().split(/\s+/)
+      const childFirstName = nameParts[0] || 'Child'
+      const childLastName = nameParts.slice(1).join(' ') || undefined
+
       const canPickup = r.canPickup?.toLowerCase() !== 'false'
-      const receivesComm = receivesCommValue?.toLowerCase() !== 'false'
-      const isFeePayer = role === 'PARENT' ? true : r.isFeePayer?.toLowerCase() === 'true'
+      const receivesComm = r.receivesComm?.toLowerCase() !== 'false' && r.receivesCommunication?.toLowerCase() !== 'false'
+      const isFeePayer = role === 'PARENT' ? true : feePayerInput?.toLowerCase() === 'true'
 
       previewRows.push({
         rowNumber: rowNum,
-        status: isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID',
+        status: isBlocked ? 'BLOCKED' : isAlreadyLinked ? 'VALID' : warnings.length > 0 ? 'WARNING' : 'VALID',
         action: rowAction,
         identifier: username || email || `Row ${rowNum}`,
         name: fullName,
@@ -545,32 +639,39 @@ export class UserCsvEngine {
         errors,
         warnings,
         data: {
-          role,
+          photo: photo || undefined,
+          avatarUrl: photo || undefined,
           username: username || undefined,
           fullName,
+          gender,
           email,
           phone,
+          role,
           relationship,
+          status,
           isPrimaryContact: r.isPrimaryContact?.toLowerCase() === 'true',
           childMode: isExistingChild ? 'EXISTING' : 'CREATE',
-          existingChild: isExistingChild ? { admissionNo } : undefined,
+          existingChild: isExistingChild ? { admissionNo: targetStudent.admissionNo, studentId: targetStudent.id } : undefined,
           newChild: !isExistingChild
             ? {
+                admissionNo: admissionNo || undefined,
+                username: studentUsername || undefined,
                 firstName: childFirstName,
-                lastName: childLastName || undefined,
-                dob: childDOB,
-                gender: childGender,
-                programType: program,
+                lastName: childLastName,
+                dob: studentDateOfBirth,
+                gender: studentGender,
+                bloodGroup: studentBloodGroup,
+                programType: classroom?.programType || 'NURSERY',
                 branchId: branchId || undefined,
                 classroomId: classroom?.id || undefined,
-                seatNumber: r.seatNo || undefined,
+                seatNumber: seatNumber || undefined,
               }
             : undefined,
           permissions: {
             canPickup,
             receivesCommunication: receivesComm,
             isFeePayer,
-            pickupPin: r.pickupPin?.trim() || null,
+            pickupPin: pickupPin || null,
           },
         },
       })
@@ -646,13 +747,19 @@ export class UserCsvEngine {
   ) {
     let createdCount = 0
     let linkedCount = 0
+    let skippedCount = 0
     let blockedCount = 0
     const errors: Array<{ rowNumber: number; message: string }> = []
 
     for (const row of rows) {
-      if (row.status === 'BLOCKED') {
+      if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
         blockedCount++
         errors.push({ rowNumber: row.rowNumber, message: row.errors.join('; ') })
+        continue
+      }
+
+      if (row.action === 'SKIP') {
+        skippedCount++
         continue
       }
 
@@ -666,8 +773,13 @@ export class UserCsvEngine {
           },
           row.data as any
         )
-        if (res.isNewStudent) createdCount++
-        else linkedCount++
+        if (res.isAlreadyLinked) {
+          skippedCount++
+        } else if (res.isNewStudent) {
+          createdCount++
+        } else {
+          linkedCount++
+        }
       } catch (err: any) {
         blockedCount++
         errors.push({ rowNumber: row.rowNumber, message: err.message })
@@ -678,8 +790,8 @@ export class UserCsvEngine {
       total: rows.length,
       createdCount,
       linkedCount,
+      skippedCount,
       blockedCount,
-      skippedCount: blockedCount,
       errors,
     }
   }

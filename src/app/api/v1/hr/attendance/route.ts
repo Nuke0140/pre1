@@ -1,10 +1,11 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AuditService } from '@/lib/audit/audit-service'
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'hr:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'hr:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
  * PATCH /api/v1/hr/attendance — Attendance Correction Workflow
  * Allows adjusting historical punch-in/out times or status with mandatory reason & audit
  */
-export async function PATCH(req: NextRequest) {
+async function _PATCH(req: NextRequest) {
   const session = await requireApi(req, 'hr:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -281,3 +282,6 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)
+export const PATCH = withApi(_PATCH)

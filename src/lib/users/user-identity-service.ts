@@ -12,6 +12,7 @@ export interface BaseIdentityOptions {
   password?: string
   status?: UserStatus
   usernameType: UsernameType
+  avatarUrl?: string | null
 }
 
 export interface TenantMembershipOptions {
@@ -100,6 +101,7 @@ export class UserIdentityService {
           username,
           phone: phoneNorm,
           fullName: opts.fullName.trim(),
+          avatarUrl: opts.avatarUrl?.trim() || null,
           passwordHash,
           status: initialStatus,
         },
@@ -109,13 +111,15 @@ export class UserIdentityService {
       // Update phone if previously unset
       const needsPhoneUpdate = !user.phone && phoneNorm
       const needsUsernameUpdate = !user.username && username
+      const needsAvatarUpdate = !user.avatarUrl && opts.avatarUrl?.trim()
 
-      if (needsPhoneUpdate || needsUsernameUpdate) {
+      if (needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate) {
         user = await tx.user.update({
           where: { id: user.id },
           data: {
             ...(needsPhoneUpdate ? { phone: phoneNorm } : {}),
             ...(needsUsernameUpdate ? { username } : {}),
+            ...(needsAvatarUpdate ? { avatarUrl: opts.avatarUrl!.trim() } : {}),
           },
         })
       }

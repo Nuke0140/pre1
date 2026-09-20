@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -8,7 +9,7 @@ import { transitionFollowUp } from '@/lib/followups'
  * exception/follow-up state machine (notification ≠ resolution).
  * Body: { action: acknowledge|start|wait|resolve|close|reopen, note?, outcome? }
  */
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,3 +48,5 @@ export async function PATCH(
     return Errors.system(e)
   }
 }
+
+export const PATCH = withApi(_PATCH)

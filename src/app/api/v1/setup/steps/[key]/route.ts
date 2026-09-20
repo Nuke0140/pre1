@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import { completeStep, skipStep, reopenStep } from '@/lib/setup/engine'
  * POST /api/v1/setup/steps/{key} — explicit step actions
  * body: { action: 'complete' | 'skip' | 'reopen' }
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ key: string }> }
 ) {
@@ -35,3 +36,5 @@ export async function POST(
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

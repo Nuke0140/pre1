@@ -1,10 +1,11 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -35,3 +36,5 @@ export async function PATCH(
     return bad(err.message, 'LOCATION_UPDATE_FAILED')
   }
 }
+
+export const PATCH = withApi(_PATCH)

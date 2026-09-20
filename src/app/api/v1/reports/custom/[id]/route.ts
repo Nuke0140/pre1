@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApi } from '@/lib/with-api'
+import { errAuth } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { ReportService } from '@/lib/reports/report-service'
 import { ScopeContext } from '@/lib/reports/report-types'
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withApi(async (req: NextRequest, ctx) => {
   const session = await requireApi(req, 'reports:custom')
   if (isResponse(session)) return session
   if (!session.tenantId) {
-    return NextResponse.json({ success: false, error: 'Tenant context required' }, { status: 401 })
+    throw errAuth('Tenant context required')
   }
 
-  const { id } = await params
-  const ctx: ScopeContext = {
+  const id = ctx.params?.id as string
+  const scopeCtx: ScopeContext = {
     tenantId: session.tenantId,
     branchId: session.branchId,
     actorId: session.uid,
@@ -23,10 +22,9 @@ export async function DELETE(
     roles: session.roles && session.roles.length > 0 ? session.roles : [session.role],
   }
 
-  try {
-    await ReportService.deleteCustomReport(id, ctx)
-    return NextResponse.json({ success: true })
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
-  }
-}
+  await ReportService.deleteCustomReport(id, scopeCtx)
+  return NextResponse.json({
+    success: true,
+    traceId: ctx.traceId,
+  })
+}, { module: 'reports' })

@@ -1,9 +1,10 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'inventory:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -51,3 +52,5 @@ export async function GET(req: NextRequest) {
     return bad(err.message, 'STOCK_FETCH_FAILED')
   }
 }
+
+export const GET = withApi(_GET)

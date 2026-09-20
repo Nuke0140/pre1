@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors, bad } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -9,7 +10,7 @@ import { TripStatus } from '@prisma/client'
  * GET /api/v1/transport/trips â€” List trips for a given date / route
  * POST /api/v1/transport/trips â€” Start or schedule an operational trip
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'transport:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('Tenant context required')
@@ -73,7 +74,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'transport:trip')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('Tenant context required')
@@ -109,3 +110,6 @@ export async function POST(req: NextRequest) {
     return bad(e.message)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

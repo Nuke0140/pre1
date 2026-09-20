@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { bad, serverError } from '@/lib/api'
@@ -18,7 +19,7 @@ function sanitizeCsvCell(val: string | null | undefined): string {
 /**
  * POST /api/v1/users/export — secure CSV export
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
@@ -169,3 +170,5 @@ export async function POST(req: NextRequest) {
     return serverError(err.message)
   }
 }
+
+export const POST = withApi(_POST)

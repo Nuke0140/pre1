@@ -1,10 +1,11 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { FeeService } from '@/lib/fees/fee-service'
 import { db } from '@/lib/db'
 
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -32,3 +33,5 @@ export async function GET(
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)

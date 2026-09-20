@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { UsernameService, UsernameType } from '@/lib/users/username-service'
 /**
  * GET /api/v1/users/username?name=Ananya+Sharma&type=STAFF|PARENT|GUARDIAN|STUDENT
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
 
@@ -39,3 +40,5 @@ export async function GET(req: NextRequest) {
     return bad(err.message)
   }
 }
+
+export const GET = withApi(_GET)

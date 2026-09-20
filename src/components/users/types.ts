@@ -32,6 +32,7 @@ export interface UserRecord {
   id: string
   userId: string
   username?: string | null
+  avatarUrl?: string | null
   name: string
   email: string
   phone: string | null
@@ -47,6 +48,7 @@ export interface UserRecord {
     department: string | null
     qualification: string | null
     employmentType: string
+    joiningDate?: string | null
     dateOfBirth?: string | null
     gender?: string | null
     currentAddress?: string | null

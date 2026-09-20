@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import type { TimelineEntry } from '@prisma/client'
 import { ok, bad, Errors } from '@/lib/api'
@@ -10,7 +11,7 @@ import { getRequestMeta } from '@/lib/audit'
  * GET /api/v1/operations/pickup/queue?classroomId=&branchId=&date=
  * Real-time pickup release queue
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -110,7 +111,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/v1/operations/pickup — verify and release child to authorized guardian
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -144,3 +145,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -9,7 +10,7 @@ import type { UserRole } from '@prisma/client'
 const ASSIGNABLE_ROLES: UserRole[] = ['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER']
 
 /** GET /api/v1/staff — staff foundation list (profile + assignment state) */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
  *  - { mode:'new', fullName, email, password, role } — create User + TenantUser + StaffProfile in one transaction
  * "created ≠ assigned": operational assignment requires branchId.
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** PATCH /api/v1/staff — assign / update staff (branch assignment completes "Staff Foundation") */
-export async function PATCH(req: NextRequest) {
+async function _PATCH(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -194,3 +195,7 @@ export async function PATCH(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)
+export const PATCH = withApi(_PATCH)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, notFound, bad, serverError, forbidden } from '@/lib/api'
@@ -13,7 +14,7 @@ import bcrypt from 'bcryptjs'
 import { UserRole } from '@prisma/client'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 /** PATCH /api/v1/users/[id] — update user profile, roles, scope, designation, or password */
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
@@ -292,7 +293,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 /** DELETE /api/v1/users/[id] � deactivate user from school */
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
@@ -336,3 +337,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return serverError(err.message)
   }
 }
+
+export const GET = withApi(_GET)
+export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)

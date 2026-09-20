@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, bad, serverError } from '@/lib/api'
@@ -55,7 +56,7 @@ const ROLE_METADATA: Record<SchoolRole, { label: string; description: string; ca
 /**
  * GET /api/v1/users/roles — roles directory with user counts and permission matrix
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'users:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
@@ -115,3 +116,5 @@ export async function GET(req: NextRequest) {
     return serverError(err.message)
   }
 }
+
+export const GET = withApi(_GET)

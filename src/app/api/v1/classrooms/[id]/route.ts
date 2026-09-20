@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -9,7 +10,7 @@ import { ConfigurationService } from '@/lib/setup/config-service'
  * PATCH /api/v1/classrooms/{id} - assign teacher / link program & facility /
  * adjust capacity (M00 Steps: Classes & Sections, Teacher Assignment)
  */
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -79,3 +80,5 @@ export async function PATCH(
     return Errors.system(e)
   }
 }
+
+export const PATCH = withApi(_PATCH)

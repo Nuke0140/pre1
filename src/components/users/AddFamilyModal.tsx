@@ -1,7 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Baby, User, Mail, Phone, Key, Shield, AlertCircle, AlertTriangle, CheckCircle2, Lock, Search } from 'lucide-react'
+import {
+  Baby, User, Mail, Phone, Key, Shield, AlertCircle, AlertTriangle,
+  CheckCircle2, Lock, Search, RefreshCw, Eye, EyeOff, Plus, Trash2, Camera
+} from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { BranchOption, ClassroomOption } from './types'
@@ -21,6 +24,7 @@ interface StudentSearchItem {
   lastName: string | null
   admissionNo: string
   currentClassroom?: { id: string; name: string } | null
+  branchId?: string
 }
 
 export function AddFamilyModal({
@@ -34,15 +38,20 @@ export function AddFamilyModal({
   const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
 
+  // Step 1: Caregiver Identity
   const [role, setRole] = useState<'PARENT' | 'GUARDIAN'>(defaultRole)
+  const [avatarUrl, setAvatarUrl] = useState('')
   const [fullName, setFullName] = useState('')
+  const [caregiverGender, setCaregiverGender] = useState<string>('UNSPECIFIED')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [relationship, setRelationship] = useState('FATHER')
+  const [status, setStatus] = useState<string>('ACTIVE')
 
-  // Child association mode: EXISTING vs CREATE
+  // Step 2: Child Association
   const [childMode, setChildMode] = useState<'EXISTING' | 'CREATE'>('EXISTING')
 
   // Existing student state
@@ -53,18 +62,29 @@ export function AddFamilyModal({
   const [existingParentCount, setExistingParentCount] = useState<number>(0)
   const [checkingParentCount, setCheckingParentCount] = useState(false)
 
+  // Multi-child (additional siblings)
+  const [additionalStudents, setAdditionalStudents] = useState<StudentSearchItem[]>([])
+  const [siblingSearch, setSiblingSearch] = useState('')
+  const [siblingSearching, setSiblingSearching] = useState(false)
+  const [siblingOptions, setSiblingOptions] = useState<StudentSearchItem[]>([])
+  const [showSiblingSearch, setShowSiblingSearch] = useState(false)
+
   // New child state
+  const [childAdmissionNo, setChildAdmissionNo] = useState('')
   const [childFirstName, setChildFirstName] = useState('')
   const [childLastName, setChildLastName] = useState('')
   const [childDOB, setChildDOB] = useState('')
   const [childGender, setChildGender] = useState('MALE')
-  const [childProgram, setChildProgram] = useState('NURSERY')
-  const [childBranchId, setChildBranchId] = useState('')
-  const [childClassroomId, setChildClassroomId] = useState('')
+  const [childBloodGroup, setChildBloodGroup] = useState('')
+  const [childBranchId, setChildBranchId] = useState(branches[0]?.id || '')
+  const [childClassroomId, setChildClassroomId] = useState(classrooms[0]?.id || '')
+  const [childSeatNumber, setChildSeatNumber] = useState('')
+  const [childAdmissionYear, setChildAdmissionYear] = useState('2026-27')
 
-  // Permissions & pickup
+  // Step 3: Permissions & pickup
   const [canPickup, setCanPickup] = useState(true)
   const [pickupPin, setPickupPin] = useState('')
+  const [showPin, setShowPin] = useState(false)
   const [receivesComm, setReceivesComm] = useState(true)
   const [isFeePayer, setIsFeePayer] = useState(true)
   const [isPrimary, setIsPrimary] = useState(false)
@@ -80,7 +100,35 @@ export function AddFamilyModal({
     }
   }, [defaultRole, open])
 
-  // Search students when search query changes
+  useEffect(() => {
+    if (branches.length > 0 && !childBranchId) {
+      setChildBranchId(branches[0].id)
+    }
+    if (classrooms.length > 0 && !childClassroomId) {
+      setChildClassroomId(classrooms[0].id)
+    }
+  }, [branches, classrooms, childBranchId, childClassroomId])
+
+  // Auto-generate username helper
+  const handleAutoSuggestUsername = () => {
+    if (!fullName.trim()) return
+    const clean = fullName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
+    const rand = Math.floor(100 + Math.random() * 900)
+    setUsername(`${clean}.${rand}`)
+  }
+
+  // Random password generator
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*'
+    let pwd = ''
+    for (let i = 0; i < 10; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setPassword(pwd)
+    setShowPassword(true)
+  }
+
+  // Search students for primary link
   useEffect(() => {
     if (!studentSearch.trim() || studentSearch.length < 2) {
       setStudentOptions([])
@@ -104,6 +152,35 @@ export function AddFamilyModal({
 
     return () => clearTimeout(timer)
   }, [studentSearch])
+
+  // Search siblings
+  useEffect(() => {
+    if (!siblingSearch.trim() || siblingSearch.length < 2) {
+      setSiblingOptions([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setSiblingSearching(true)
+      try {
+        const res = await fetch(`/api/v1/students?search=${encodeURIComponent(siblingSearch.trim())}&pageSize=10`)
+        if (res.ok) {
+          const json = await res.json()
+          const items: StudentSearchItem[] = json.data || json.items || []
+          const filtered = items.filter(
+            (it) => it.id !== selectedStudent?.id && !additionalStudents.some((s) => s.id === it.id)
+          )
+          setSiblingOptions(filtered)
+        }
+      } catch (err) {
+        console.error('Failed to search siblings:', err)
+      } finally {
+        setSiblingSearching(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [siblingSearch, selectedStudent, additionalStudents])
 
   // Check parent count when selectedStudent changes
   useEffect(() => {
@@ -143,19 +220,28 @@ export function AddFamilyModal({
     setPhone('')
     setUsername('')
     setPassword('')
+    setAvatarUrl('')
+    setCaregiverGender('UNSPECIFIED')
+    setStatus('ACTIVE')
     setSelectedStudent(null)
     setStudentSearch('')
+    setAdditionalStudents([])
+    setSiblingSearch('')
+    setShowSiblingSearch(false)
+    setChildAdmissionNo('')
     setChildFirstName('')
     setChildLastName('')
     setChildDOB('')
+    setChildBloodGroup('')
+    setChildSeatNumber('')
     setPickupPin('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!fullName.trim() || !email.trim()) {
-      toast.error('Validation Error', 'Name and email are required')
+    if (!fullName.trim() || !email.trim() || !phone.trim()) {
+      toast.error('Validation Error', 'Full name, email, and mobile phone are required')
       return
     }
 
@@ -177,18 +263,26 @@ export function AddFamilyModal({
       return
     }
 
+    if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
+      toast.error('Invalid PIN', 'Pickup PIN must be 4 to 6 numeric digits')
+      return
+    }
+
     setSubmitting(true)
     try {
       const payload: any = {
+        avatarUrl: avatarUrl.trim() || null,
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
+        gender: caregiverGender !== 'UNSPECIFIED' ? caregiverGender : undefined,
         username: username.trim() || undefined,
         password: password.trim() || undefined,
         role,
         primaryRole: role,
         roles: [role],
         relationship,
+        status,
         isPrimary,
         canPickup,
         pickupPin: pickupPin.trim() || undefined,
@@ -198,6 +292,25 @@ export function AddFamilyModal({
 
       if (childMode === 'EXISTING' && selectedStudent) {
         payload.studentId = selectedStudent.id
+        payload.studentAdmissionNo = selectedStudent.admissionNo
+        if (additionalStudents.length > 0) {
+          payload.studentAdmissionNos = additionalStudents.map((s) => s.admissionNo)
+        }
+      }
+
+      if (childMode === 'CREATE') {
+        payload.newChild = {
+          admissionNo: childAdmissionNo.trim() || undefined,
+          firstName: childFirstName.trim(),
+          lastName: childLastName.trim() || undefined,
+          dob: childDOB,
+          gender: childGender,
+          bloodGroup: childBloodGroup || undefined,
+          branchId: childBranchId || undefined,
+          classroomId: childClassroomId || undefined,
+          seatNumber: childSeatNumber.trim() || undefined,
+          admissionYear: childAdmissionYear,
+        }
       }
 
       const res = await fetch('/api/v1/users', {
@@ -213,7 +326,7 @@ export function AddFamilyModal({
 
       toast.success(
         `${role === 'PARENT' ? 'Parent' : 'Guardian'} Account Created`,
-        `${fullName} has been registered and linked to child. Username: ${json.data?.username || 'Auto-generated'}`
+        `${fullName} registered successfully. ${json.data?.username ? `Username: ${json.data.username}` : ''}`
       )
       resetForm()
       onSuccess()
@@ -352,19 +465,6 @@ export function AddFamilyModal({
                 Max 2 per child. Full billing, academic, and attendance access.
               </p>
             </div>
-            {role === 'PARENT' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  right: 10,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: 'var(--primary)',
-                }}
-              />
-            )}
           </button>
 
           {/* Authorized Guardian Card */}
@@ -415,19 +515,6 @@ export function AddFamilyModal({
                 Grandparents & relatives. Gate pickup & timeline notices.
               </p>
             </div>
-            {role === 'GUARDIAN' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 10,
-                  right: 10,
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: 'var(--warning)',
-                }}
-              />
-            )}
           </button>
         </div>
 
@@ -482,7 +569,7 @@ export function AddFamilyModal({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Rahul Sharma"
+                  placeholder="e.g. Rahul Patil"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="input"
@@ -525,7 +612,7 @@ export function AddFamilyModal({
                 <input
                   type="email"
                   required
-                  placeholder="e.g. rahul@example.com"
+                  placeholder="e.g. rahul.patil@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input"
@@ -546,6 +633,111 @@ export function AddFamilyModal({
                   placeholder="e.g. +91 98765 43210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="input"
+                  style={{ paddingLeft: 38 }}
+                />
+              </div>
+            </div>
+
+            <div className="field">
+              <label>Caregiver Gender (Optional)</label>
+              <select
+                value={caregiverGender}
+                onChange={(e) => setCaregiverGender(e.target.value)}
+                className="select"
+              >
+                <option value="UNSPECIFIED">Select Gender (Optional)</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Account Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="select"
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="PENDING">PENDING</option>
+                <option value="INACTIVE">INACTIVE</option>
+                <option value="SUSPENDED">SUSPENDED</option>
+              </select>
+            </div>
+
+            <div className="field">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label>Portal Username</label>
+                <button
+                  type="button"
+                  onClick={handleAutoSuggestUsername}
+                  className="btn-link text-xs"
+                  style={{ fontSize: 11, color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                >
+                  Suggest from Name
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. rahul.patil"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input font-mono"
+              />
+            </div>
+
+            <div className="field">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label>Password</label>
+                <button
+                  type="button"
+                  onClick={handleGeneratePassword}
+                  className="btn-link text-xs"
+                  style={{ fontSize: 11, color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                >
+                  Generate Password
+                </button>
+              </div>
+              <div className="input-icon-wrap" style={{ position: 'relative' }}>
+                <Key style={{ width: 16, height: 16 }} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Leave empty for default"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input font-mono"
+                  style={{ paddingLeft: 38, paddingRight: 38 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Photo / Avatar URL (Optional)</label>
+              <div className="input-icon-wrap">
+                <Camera style={{ width: 16, height: 16 }} />
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
                   className="input"
                   style={{ paddingLeft: 38 }}
                 />
@@ -615,24 +807,20 @@ export function AddFamilyModal({
                 onClick={() => setChildMode('CREATE')}
                 className={childMode === 'CREATE' ? 'on' : ''}
               >
-                Enroll New
+                Enroll New Student
               </button>
             </div>
           </div>
 
           {childMode === 'EXISTING' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {!selectedStudent ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div className="input-icon-wrap">
                     <Search style={{ width: 16, height: 16 }} />
                     <input
                       type="search"
-                      name="search_student_record_query"
-                      autoComplete="off"
-                      data-lpignore="true"
-                      data-1p-ignore="true"
-                      placeholder="Type student name or admission number (e.g. Aarav, PRE-1001)..."
+                      placeholder="Search by Admission No (e.g. ADM-2026-00123) or Student Name..."
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
                       className="input"
@@ -680,8 +868,6 @@ export function AddFamilyModal({
                             cursor: 'pointer',
                             transition: 'background 120ms ease',
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div
@@ -837,19 +1023,142 @@ export function AddFamilyModal({
                   </div>
                 </div>
               )}
+
+              {/* Multi-Child / Sibling Support */}
+              {selectedStudent && (
+                <div style={{ marginTop: 8, borderTop: '1px dashed var(--border-default)', paddingTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      Linked Siblings / Additional Children ({additionalStudents.length})
+                    </span>
+                    {!showSiblingSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSiblingSearch(true)}
+                        className="btn btn-ghost btn-xs"
+                        style={{ fontSize: 11.5, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <Plus size={13} /> Link Another Child
+                      </button>
+                    )}
+                  </div>
+
+                  {additionalStudents.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                      {additionalStudents.map((s) => (
+                        <div
+                          key={s.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-md)',
+                            background: 'var(--bg-muted)',
+                            fontSize: 12,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Baby size={14} className="text-primary" />
+                            <span style={{ fontWeight: 600 }}>{s.firstName} {s.lastName || ''}</span>
+                            <span className="badge b-primary b-sm font-mono">{s.admissionNo}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAdditionalStudents(additionalStudents.filter((x) => x.id !== s.id))}
+                            className="btn btn-ghost btn-xs text-danger"
+                            style={{ padding: 4 }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {showSiblingSearch && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--bg-card)', padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <input
+                          type="search"
+                          placeholder="Search sibling by name or admission no..."
+                          value={siblingSearch}
+                          onChange={(e) => setSiblingSearch(e.target.value)}
+                          className="input input-sm"
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSiblingSearch(false)
+                            setSiblingSearch('')
+                            setSiblingOptions([])
+                          }}
+                          className="btn btn-secondary btn-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      {siblingSearching && (
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Searching siblings...</div>
+                      )}
+
+                      {siblingOptions.length > 0 && (
+                        <div style={{ maxHeight: 130, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
+                          {siblingOptions.map((s) => (
+                            <div
+                              key={s.id}
+                              onClick={() => {
+                                setAdditionalStudents([...additionalStudents, s])
+                                setSiblingSearch('')
+                                setSiblingOptions([])
+                                setShowSiblingSearch(false)
+                              }}
+                              style={{
+                                padding: '6px 10px',
+                                fontSize: 12,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid var(--border-subtle)',
+                              }}
+                            >
+                              <span>{s.firstName} {s.lastName || ''}</span>
+                              <span className="font-mono text-xs">{s.admissionNo}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: 14,
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 12,
                 padding: '14px 16px',
                 background: 'var(--bg-subtle)',
                 borderRadius: 'var(--radius-lg)',
                 border: '1px solid var(--border-subtle)',
               }}
             >
+              <div className="field">
+                <label>Admission No. (Optional / Auto)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ADM-2026-00125"
+                  value={childAdmissionNo}
+                  onChange={(e) => setChildAdmissionNo(e.target.value)}
+                  className="input font-mono"
+                />
+              </div>
+
               <div className="field">
                 <label>
                   Child First Name <span className="req">*</span>
@@ -867,7 +1176,7 @@ export function AddFamilyModal({
                 <label>Child Last Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Sharma"
+                  placeholder="e.g. Patil"
                   value={childLastName}
                   onChange={(e) => setChildLastName(e.target.value)}
                   className="input"
@@ -887,18 +1196,86 @@ export function AddFamilyModal({
               </div>
 
               <div className="field">
-                <label>Program Level</label>
+                <label>Gender <span className="req">*</span></label>
                 <select
-                  value={childProgram}
-                  onChange={(e) => setChildProgram(e.target.value)}
+                  value={childGender}
+                  onChange={(e) => setChildGender(e.target.value)}
                   className="select"
                 >
-                  <option value="PLAYGROUP">Playgroup</option>
-                  <option value="NURSERY">Nursery</option>
-                  <option value="LKG">LKG / Junior KG</option>
-                  <option value="UKG">UKG / Senior KG</option>
-                  <option value="DAYCARE">Daycare</option>
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
                 </select>
+              </div>
+
+              <div className="field">
+                <label>Blood Group</label>
+                <select
+                  value={childBloodGroup}
+                  onChange={(e) => setChildBloodGroup(e.target.value)}
+                  className="select"
+                >
+                  <option value="">Select (Optional)</option>
+                  <option value="A_POSITIVE">A+</option>
+                  <option value="A_NEGATIVE">A-</option>
+                  <option value="B_POSITIVE">B+</option>
+                  <option value="B_NEGATIVE">B-</option>
+                  <option value="O_POSITIVE">O+</option>
+                  <option value="O_NEGATIVE">O-</option>
+                  <option value="AB_POSITIVE">AB+</option>
+                  <option value="AB_NEGATIVE">AB-</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Campus Branch <span className="req">*</span></label>
+                <select
+                  value={childBranchId}
+                  onChange={(e) => setChildBranchId(e.target.value)}
+                  className="select"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Classroom / Section <span className="req">*</span></label>
+                <select
+                  value={childClassroomId}
+                  onChange={(e) => setChildClassroomId(e.target.value)}
+                  className="select"
+                >
+                  {classrooms.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label>Seat Number (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. SEAT-12"
+                  value={childSeatNumber}
+                  onChange={(e) => setChildSeatNumber(e.target.value)}
+                  className="input font-mono"
+                />
+              </div>
+
+              <div className="field">
+                <label>Admission Year <span className="req">*</span></label>
+                <input
+                  type="text"
+                  value={childAdmissionYear}
+                  onChange={(e) => setChildAdmissionYear(e.target.value)}
+                  className="input font-mono"
+                />
               </div>
             </div>
           )}
@@ -948,41 +1325,37 @@ export function AddFamilyModal({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 }}>
             <div className="field">
               <label>
-                4-Digit Pickup PIN <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Campus gate signout)</span>
+                4-6 Digit Pickup PIN <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Gate signout verification)</span>
               </label>
-              <div className="input-icon-wrap">
+              <div className="input-icon-wrap" style={{ position: 'relative' }}>
                 <Lock style={{ width: 16, height: 16 }} />
                 <input
-                  type="password"
-                  maxLength={4}
-                  autoComplete="new-password"
-                  data-lpignore="true"
-                  data-1p-ignore="true"
-                  placeholder="e.g. 1234"
+                  type={showPin ? 'text' : 'password'}
+                  maxLength={6}
+                  placeholder="••••"
                   value={pickupPin}
                   onChange={(e) => setPickupPin(e.target.value.replace(/\D/g, ''))}
                   className="input font-mono"
-                  style={{ paddingLeft: 38, letterSpacing: '0.2em' }}
+                  style={{ paddingLeft: 38, paddingRight: 38, letterSpacing: '0.2em' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
-              <span className="helper">Used for biometric or kiosk verification during afternoon student dismissal.</span>
-            </div>
-
-            <div className="field">
-              <label>
-                Portal Username <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Optional)</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                data-lpignore="true"
-                data-1p-ignore="true"
-                placeholder="e.g. rahul.sharma"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="input font-mono"
-              />
-              <span className="helper">Auto-generated from email handle if left empty.</span>
+              <span className="helper">Never stored in plain text. Used for afternoon dismissal authorization.</span>
             </div>
           </div>
 
@@ -1046,10 +1419,45 @@ export function AddFamilyModal({
                 </span>
               </div>
             </label>
+
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 'var(--radius-lg)',
+                border: isFeePayer ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
+                background: isFeePayer ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
+                cursor: 'pointer',
+                transition: 'all 120ms ease',
+                userSelect: 'none',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isFeePayer}
+                onChange={(e) => setIsFeePayer(e.target.checked)}
+                disabled={role === 'PARENT'}
+                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
+                    Fee Payer Authorization
+                  </span>
+                  {role === 'PARENT' && (
+                    <span className="badge b-primary b-sm" style={{ fontSize: 10 }}>Mandatory for Parent</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
+                  Authorized to view fee schedules, make payments, and access fee receipts.
+                </span>
+              </div>
+            </label>
           </div>
         </div>
       </form>
     </Modal>
   )
 }
-

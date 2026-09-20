@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { StudentService } from '@/lib/students/student-service'
 /**
  * GET /api/v1/students/dashboard — Student directory dashboard statistics
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'students:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -33,4 +34,4 @@ export async function GET(req: NextRequest) {
   }
 }
 
-
+export const GET = withApi(_GET)

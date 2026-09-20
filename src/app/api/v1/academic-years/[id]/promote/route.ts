@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -17,7 +18,7 @@ import { registerIntegrations } from '@/lib/integrations'
  *  · unallocated students remain in the old year (must be handled explicitly).
  *  · idempotent per student (students already allocated into `to` are skipped).
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -134,3 +135,5 @@ export async function POST(
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

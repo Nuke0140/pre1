@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -10,7 +11,7 @@ const FACILITY_TYPES: FacilityType[] = [
 ]
 
 /** GET /api/v1/facilities — infrastructure tree below branches */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** POST /api/v1/facilities — register facility under a branch (M00 Step 5) */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -71,3 +72,6 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -11,7 +12,7 @@ import { registerIntegrations } from '@/lib/integrations'
  * Generates receipt (RCT-{FY}-{SEQ}) within the flow (PRD: auto receipt ≤60s).
  * Invoice invariant: paid + balance = total (BRC Financial).
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -147,3 +148,5 @@ export async function POST(
     return Errors.system(e)
   }
 }
+
+export const POST = withApi(_POST)

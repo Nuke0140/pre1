@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -11,7 +12,7 @@ const VALID_DOMAINS: ConfigDomain[] = [
 ]
 
 /** GET /api/v1/setup/config/{domain} — read JSON config (defaults for null) */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
@@ -34,7 +35,7 @@ export async function GET(
 }
 
 /** PUT /api/v1/setup/config/{domain} — upsert JSON config (single source of truth for that domain) */
-export async function PUT(
+async function _PUT(
   req: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
@@ -79,3 +80,6 @@ export async function PUT(
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const PUT = withApi(_PUT)

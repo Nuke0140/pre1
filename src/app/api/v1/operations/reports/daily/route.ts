@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, bad, Errors } from '@/lib/api'
@@ -8,7 +9,7 @@ import { OperationsService } from '@/lib/operations/operations-service'
  * GET /api/v1/operations/reports/daily?studentId=&date=
  * Compiles parent-facing daily report aggregating attendance, care, activities, and pickup
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'timeline:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -37,3 +38,5 @@ export async function GET(req: NextRequest) {
     return bad(err.message, 'REPORT_GENERATION_FAILED')
   }
 }
+
+export const GET = withApi(_GET)

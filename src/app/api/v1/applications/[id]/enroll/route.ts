@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
  * POST /api/v1/applications/[id]/enroll — Final Admission Enrollment & Student Conversion
  * Atomically converts Application -> Student + Guardian + Classroom Allocation + Fee Invoice + Parent Portal sync
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -40,3 +41,5 @@ export async function POST(
     return Errors.business('ADMISSION_ENROLL_FAILED', e.message || 'Could not complete final admission', 422)
   }
 }
+
+export const POST = withApi(_POST)

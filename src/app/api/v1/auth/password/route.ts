@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
+import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { SettingsService } from '@/lib/settings/settings-service'
 
@@ -7,7 +8,7 @@ import { SettingsService } from '@/lib/settings/settings-service'
  * POST /api/v1/auth/password
  * Secure password update for authenticated user.
  */
-export async function POST(req: NextRequest) {
+export const POST = withApi(async (req: NextRequest) => {
   const session = await requireApi(req)
   if (isResponse(session)) return session
 
@@ -32,4 +33,4 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     return Errors.business('PASSWORD_CHANGE_FAILED', e.message || 'Failed to change password', 400)
   }
-}
+}, { module: 'auth' })

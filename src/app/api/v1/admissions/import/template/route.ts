@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireApi, isResponse } from '@/lib/auth-api'
 
@@ -5,7 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
  * GET /api/v1/admissions/import/template?type=leads|applications
  * Downloads standardized CSV template for bulk import
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'admissions:read')
   if (isResponse(session)) return session
 
@@ -39,3 +40,5 @@ export async function GET(req: NextRequest) {
     },
   })
 }
+
+export const GET = withApi(_GET)

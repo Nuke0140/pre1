@@ -1,9 +1,10 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { ok, bad, serverError } from '@/lib/api'
 import { enqueueJob, listJobs, JobType } from '@/lib/jobs'
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'finance:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'finance:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
@@ -41,3 +42,6 @@ export async function POST(req: NextRequest) {
     return serverError(err.message)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

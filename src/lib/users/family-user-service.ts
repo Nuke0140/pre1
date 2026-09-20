@@ -157,6 +157,7 @@ export class FamilyUserService {
           fullName: input.fullName,
           email: input.email,
           phone: input.phone,
+          avatarUrl: input.avatarUrl,
           username: input.username,
           password: input.password,
           status: initialStatus,
@@ -310,6 +311,7 @@ export class FamilyUserService {
           fullName: input.fullName,
           email: input.email,
           phone: input.phone,
+          avatarUrl: input.avatarUrl,
           username: input.username,
           password: input.password,
           status: initialStatus,
@@ -375,7 +377,7 @@ export class FamilyUserService {
         }
 
         // Step 4: Create or update StudentGuardian junction
-        let studentGuardian = await tx.studentGuardian.findUnique({
+        const existingLink = await tx.studentGuardian.findUnique({
           where: {
             studentId_guardianId: {
               studentId: targetStudent.id,
@@ -384,6 +386,7 @@ export class FamilyUserService {
           },
         })
 
+        let studentGuardian = existingLink
         if (studentGuardian) {
           studentGuardian = await tx.studentGuardian.update({
             where: { id: studentGuardian.id },
@@ -409,6 +412,56 @@ export class FamilyUserService {
               isFeePayer: perms.isFeePayer,
             },
           })
+        }
+
+        // Step 4b: Multi-child support (linking additional siblings in same transaction)
+        if (input.additionalChildren && input.additionalChildren.length > 0) {
+          for (const extra of input.additionalChildren) {
+            if (!extra.studentId && !extra.admissionNo) continue
+            const extraStudent = await tx.student.findFirst({
+              where: {
+                tenantId: ctx.tenantId,
+                deletedAt: null,
+                ...(extra.studentId ? { id: extra.studentId } : {}),
+                ...(extra.admissionNo ? { admissionNo: extra.admissionNo.trim() } : {}),
+              },
+            })
+            if (!extraStudent) continue
+
+            await tx.$queryRaw`SELECT id FROM students WHERE id = ${extraStudent.id} FOR UPDATE`
+            if (assignedRole === 'PARENT') {
+              const inTxExtraParents = await this.countActiveParentsForStudent(ctx.tenantId, extraStudent.id, user.id, tx)
+              if (inTxExtraParents >= 2) {
+                throw new Error(
+                  `Child ${extraStudent.firstName} already has 2 registered Parent accounts. An additional caregiver must be registered with the GUARDIAN role.`
+                )
+              }
+            }
+
+            const extraRel = extra.relationship ? normalizeRelationship(extra.relationship) : mappedRel
+            const extraExistingLink = await tx.studentGuardian.findUnique({
+              where: {
+                studentId_guardianId: {
+                  studentId: extraStudent.id,
+                  guardianId: guardian.id,
+                },
+              },
+            })
+            if (!extraExistingLink) {
+              await tx.studentGuardian.create({
+                data: {
+                  studentId: extraStudent.id,
+                  guardianId: guardian.id,
+                  relationship: extraRel,
+                  isPrimary: false,
+                  canPickup: perms.canPickup,
+                  pickupPin: perms.pickupPin || guardian.pickupPin || null,
+                  receivesComm: perms.receivesCommunication,
+                  isFeePayer: perms.isFeePayer,
+                },
+              })
+            }
+          }
         }
 
         // If primary contact, ensure other guardians for this student are marked non-primary
@@ -454,8 +507,139 @@ export class FamilyUserService {
           student: targetStudent,
           studentGuardian,
           isNewStudent: false,
+          isAlreadyLinked: Boolean(existingLink),
         }
       })
     }
+  }
+
+  /**
+   * Helper: Links an additional student to an existing guardian or user
+   */
+  static async linkStudentToGuardian(
+    ctx: FamilyContext,
+    params: {
+      userId?: string
+      guardianId?: string
+      studentAdmissionNo?: string
+      studentId?: string
+      relationship?: string
+      permissions?: {
+        canPickup?: boolean
+        pickupPin?: string | null
+        receivesCommunication?: boolean
+        isFeePayer?: boolean
+      }
+    }
+  ) {
+    if (!ctx.tenantId) throw new Error('Tenant identifier is required')
+
+    return await db.$transaction(async (tx) => {
+      // 1. Resolve guardian
+      let guardian = params.guardianId
+        ? await tx.guardian.findFirst({ where: { id: params.guardianId, tenantId: ctx.tenantId } })
+        : params.userId
+        ? await tx.guardian.findFirst({ where: { userId: params.userId, tenantId: ctx.tenantId } })
+        : null
+
+      if (!guardian) throw new Error('Guardian profile not found')
+
+      // 2. Resolve target student
+      const student = await tx.student.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          deletedAt: null,
+          ...(params.studentId ? { id: params.studentId } : {}),
+          ...(params.studentAdmissionNo ? { admissionNo: params.studentAdmissionNo.trim() } : {}),
+        },
+      })
+      if (!student) throw new Error('Student not found in this school')
+
+      await tx.$queryRaw`SELECT id FROM students WHERE id = ${student.id} FOR UPDATE`
+
+      // 3. If parent account, check max 2 parent accounts limit
+      const user = guardian.userId ? await tx.user.findUnique({ where: { id: guardian.userId } }) : null
+      const tenantUser = guardian.userId
+        ? await tx.tenantUser.findFirst({ where: { userId: guardian.userId, tenantId: ctx.tenantId } })
+        : null
+
+      const isParent = tenantUser?.role === 'PARENT' || tenantUser?.roles.includes('PARENT')
+      if (isParent) {
+        const activeParents = await this.countActiveParentsForStudent(ctx.tenantId, student.id, user?.id, tx)
+        if (activeParents >= 2) {
+          throw new Error(
+            `Child ${student.firstName} already has 2 registered Parent accounts. An additional caregiver must be registered with the GUARDIAN role.`
+          )
+        }
+      }
+
+      // 4. Create or update StudentGuardian link
+      const mappedRel = normalizeRelationship(params.relationship || guardian.relationship)
+      const existingLink = await tx.studentGuardian.findUnique({
+        where: {
+          studentId_guardianId: {
+            studentId: student.id,
+            guardianId: guardian.id,
+          },
+        },
+      })
+
+      let link = existingLink
+      if (link) {
+        link = await tx.studentGuardian.update({
+          where: { id: link.id },
+          data: {
+            relationship: mappedRel,
+            canPickup: params.permissions?.canPickup !== false,
+            pickupPin: params.permissions?.pickupPin || guardian.pickupPin || null,
+            receivesComm: params.permissions?.receivesCommunication !== false,
+            isFeePayer: params.permissions?.isFeePayer !== undefined ? Boolean(params.permissions.isFeePayer) : isParent,
+          },
+        })
+      } else {
+        link = await tx.studentGuardian.create({
+          data: {
+            studentId: student.id,
+            guardianId: guardian.id,
+            relationship: mappedRel,
+            canPickup: params.permissions?.canPickup !== false,
+            pickupPin: params.permissions?.pickupPin || guardian.pickupPin || null,
+            receivesComm: params.permissions?.receivesCommunication !== false,
+            isFeePayer: params.permissions?.isFeePayer !== undefined ? Boolean(params.permissions.isFeePayer) : isParent,
+          },
+        })
+      }
+
+      // 5. AuditLog
+      if (user) {
+        await recordAudit({
+          tenantId: ctx.tenantId,
+          branchId: student.branchId || undefined,
+          actorId: ctx.actorId,
+          actorName: ctx.actorName,
+          actorRole: ctx.actorRole,
+          action: isParent ? 'PARENT_LINKED' : 'GUARDIAN_LINKED',
+          entity: 'User',
+          entityId: user.id,
+          module: 'Users',
+          summary: `Linked ${guardian.fullName} to sibling student ${student.firstName} (${student.admissionNo})`,
+          ipAddress: ctx.reqMeta?.ipAddress,
+          userAgent: ctx.reqMeta?.userAgent,
+          newValues: {
+            userId: user.id,
+            studentId: student.id,
+            admissionNo: student.admissionNo,
+            relationship: mappedRel,
+          },
+        })
+      }
+
+      return {
+        guardian,
+        student,
+        studentGuardian: link,
+        isAlreadyLinked: Boolean(existingLink),
+      }
+    })
   }
 }

@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { withApi } from '@/lib/with-api'
+import { errAuth } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { ReportService } from '@/lib/reports/report-service'
 import { ScopeContext } from '@/lib/reports/report-types'
 
-export async function GET(req: NextRequest) {
+export const GET = withApi(async (req: NextRequest, ctx) => {
   const session = await requireApi(req, 'reports:read')
   if (isResponse(session)) return session
 
   const searchParams = req.nextUrl.searchParams
   if (!session.tenantId) {
-    return NextResponse.json({ success: false, error: 'Tenant context is required' }, { status: 401 })
+    throw errAuth('Tenant context is required')
   }
   const branchId = searchParams.get('branchId') || session.branchId
   const academicSessionId = searchParams.get('academicSessionId')
 
-  const ctx: ScopeContext = {
+  const scopeCtx: ScopeContext = {
     tenantId: session.tenantId,
     branchId,
     academicSessionId,
@@ -24,10 +26,11 @@ export async function GET(req: NextRequest) {
     roles: session.roles && session.roles.length > 0 ? session.roles : [session.role],
   }
 
-  try {
-    const kpis = await ReportService.getDashboardKPIs(ctx)
-    return NextResponse.json({ success: true, kpis })
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
-  }
-}
+  const kpis = await ReportService.getDashboardKPIs(scopeCtx)
+  return NextResponse.json({
+    success: true,
+    kpis,
+    data: kpis,
+    traceId: ctx.traceId,
+  })
+}, { module: 'reports' })

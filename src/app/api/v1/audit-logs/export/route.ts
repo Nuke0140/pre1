@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Errors } from '@/lib/api'
@@ -14,7 +15,7 @@ function escapeCsvCell(val: unknown): string {
  * GET /api/v1/audit-logs/export
  * Authoritative CSV export of audit logs with automatic export auditing.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'audit:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -127,3 +128,5 @@ export async function GET(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)

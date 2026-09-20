@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -7,7 +8,7 @@ import type { ProgressStage } from '@prisma/client'
 /**
  * GET /api/v1/academics/students/[studentId]/progress — Student progress matrix across goals
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
@@ -42,7 +43,7 @@ export async function GET(
 /**
  * POST /api/v1/academics/students/[studentId]/progress — Update milestone stage on a goal
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
@@ -92,3 +93,6 @@ export async function POST(
     return Errors.business('PROGRESS_UPDATE_FAILED', e.message || 'Failed to update student progress', 422)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

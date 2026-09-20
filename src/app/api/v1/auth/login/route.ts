@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
+import { withApi } from '@/lib/with-api'
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE, Role } from '@/lib/auth'
 import { audit, getRequestMeta } from '@/lib/audit'
 
-export async function POST(req: NextRequest) {
+export const POST = withApi(async (req: NextRequest) => {
   try {
     const meta = getRequestMeta(req)
     const body = await req.json().catch(() => null)
@@ -173,4 +174,4 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return Errors.system(e)
   }
-}
+}, { module: 'auth' })

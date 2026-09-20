@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { AcademicService } from '@/lib/academics/academic-service'
 /**
  * PATCH /api/v1/academics/activities/[id] — Update activity status or details
  */
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -35,3 +36,5 @@ export async function PATCH(
     return Errors.business('ACTIVITY_UPDATE_FAILED', e.message || 'Failed to update activity', 422)
   }
 }
+
+export const PATCH = withApi(_PATCH)

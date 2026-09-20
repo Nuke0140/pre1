@@ -39,7 +39,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
         {/* Header Profile Card */}
         <div className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-indigo-50/30 dark:from-gray-900 dark:to-indigo-950/20 border border-gray-200 dark:border-gray-800 flex items-start justify-between">
           <div className="flex items-center gap-3.5">
-            <Avatar name={user.name} size="lg" />
+            <Avatar name={user.name} src={user.avatarUrl} size="lg" />
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">{user.name}</h3>
@@ -185,6 +185,24 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     {user.staffProfile.employmentType}
                   </span>
                 </div>
+                <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <span className="text-gray-400 block text-[11px] mb-0.5">Qualifications</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {user.staffProfile.qualification || 'Not recorded'}
+                  </span>
+                </div>
+                <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <span className="text-gray-400 block text-[11px] mb-0.5">Joining Date</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {user.staffProfile.joiningDate ? new Date(user.staffProfile.joiningDate).toLocaleDateString() : 'Not recorded'}
+                  </span>
+                </div>
+                <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800">
+                  <span className="text-gray-400 block text-[11px] mb-0.5">Date of Birth / Gender</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {user.staffProfile.dateOfBirth ? new Date(user.staffProfile.dateOfBirth).toLocaleDateString() : 'DOB unset'} • {user.staffProfile.gender || 'Gender unset'}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -218,8 +236,8 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                         {child.canPickup ? 'Pickup Authorized' : 'No Pickup'}
                       </span>
                       {child.pickupPin && (
-                        <span className="badge b-purple font-mono text-[10px]">
-                          PIN Set
+                        <span className="badge b-purple font-mono text-[10px]" title="Pickup PIN is set and secured">
+                          PIN: ••••
                         </span>
                       )}
                     </div>

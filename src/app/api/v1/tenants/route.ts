@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -7,7 +8,7 @@ import { SETUP_STEPS } from '@/lib/setup/steps'
 import bcrypt from 'bcryptjs'
 
 /** GET /api/v1/tenants — platform admin: all clients (tenants) */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'platform:manage')
   if (isResponse(session)) return session
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
  * POST /api/v1/tenants — CLIENT ONBOARDING WIZARD (Platform Management domain, PRD 8.13)
  * Creates tenant + main branch + academic session + classrooms + owner account in one transaction.
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'platform:manage')
   if (isResponse(session)) return session
 
@@ -210,3 +211,6 @@ export async function POST(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

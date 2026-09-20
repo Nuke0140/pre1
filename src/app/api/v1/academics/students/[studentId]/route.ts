@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { AcademicService } from '@/lib/academics/academic-service'
 /**
  * GET /api/v1/academics/students/[studentId] — 360° student academic profile
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
@@ -37,3 +38,5 @@ export async function GET(
     return Errors.notFound('Student')
   }
 }
+
+export const GET = withApi(_GET)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { StudentService } from '@/lib/students/student-service'
 /**
  * POST /api/v1/students/[id]/promote — Promote student to next academic session
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,3 +48,4 @@ export async function POST(
   }
 }
 
+export const POST = withApi(_POST)

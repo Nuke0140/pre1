@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -17,7 +18,7 @@ import { registerIntegrations } from '@/lib/integrations'
  *  · raises STUDENT_ALLOC follow-up for records review when reason provided? — no:
  *    audited directly; follow-ups are for exceptions only.
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -129,7 +130,7 @@ export async function POST(
 }
 
 /** GET /api/v1/students/{id}/allocate — allocation history (never overwritten) */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -156,3 +157,6 @@ export async function GET(
     })),
   })
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

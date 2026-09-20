@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -8,7 +9,7 @@ import { AuditService } from '@/lib/audit/audit-service'
  * GET /api/v1/hr/compliance
  * Single-query aggregated compliance radar for all active staff
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'hr:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -132,7 +133,7 @@ export async function GET(req: NextRequest) {
  * POST /api/v1/hr/compliance
  * Record new training or compliance certificate (e.g. POSH, Police Verification)
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'hr:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -248,3 +249,6 @@ export async function POST(req: NextRequest) {
     return Errors.validation(e.message || 'Failed to record compliance certification')
   }
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)

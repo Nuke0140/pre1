@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -8,7 +9,7 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
  * Body: { documentId?: string, action?: 'VERIFY' | 'NEEDS_CORRECTION', remarks?: string }
  * If documentId is omitted, verifies all pending documents for the application.
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -77,3 +78,5 @@ export async function POST(
     return Errors.business('VERIFICATION_FAILED', e.message || 'Failed to verify documents', 422)
   }
 }
+
+export const POST = withApi(_POST)

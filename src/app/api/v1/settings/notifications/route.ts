@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -9,7 +10,7 @@ import { SettingsService } from '@/lib/settings/settings-service'
  * GET /api/v1/settings/notifications
  * Returns notification config (channels, rules, templates) + recent delivery logs for administrators.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'settings:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
  * PUT /api/v1/settings/notifications
  * Updates notification configuration (channels, rules, templates) in SchoolConfig.
  */
-export async function PUT(req: NextRequest) {
+async function _PUT(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -71,3 +72,6 @@ export async function PUT(req: NextRequest) {
     return Errors.system(e)
   }
 }
+
+export const GET = withApi(_GET)
+export const PUT = withApi(_PUT)

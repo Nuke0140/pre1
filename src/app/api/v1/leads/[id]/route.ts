@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -7,7 +8,7 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
 /**
  * GET /api/v1/leads/[id] — Retrieve single enquiry details with history & followups
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -47,7 +48,7 @@ export async function GET(
 /**
  * PATCH /api/v1/leads/[id] — Update status/notes via AdmissionService
  */
-export async function PATCH(
+async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -91,3 +92,6 @@ export async function PATCH(
     return Errors.business('UPDATE_FAILED', e.message || 'Failed to update enquiry', 422)
   }
 }
+
+export const GET = withApi(_GET)
+export const PATCH = withApi(_PATCH)

@@ -1,6 +1,7 @@
 import { db } from '../db'
 import { NextRequest } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { logger } from '../logger'
 
 export type AuditSeverity = 'INFO' | 'WARNING' | 'CRITICAL'
 
@@ -231,7 +232,7 @@ export class AuditService {
         },
       })
     } catch (err) {
-      console.error('[AuditService.record] Failed to write audit log:', err)
+      logger.warn('Failed to write audit log', { code: 'AUDIT_WRITE_FAILED', entity: entry.entity, action: entry.action }, err)
       if (tx) throw err
       return null
     }

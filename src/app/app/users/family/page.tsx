@@ -150,7 +150,7 @@ export default function FamilyUsersPage() {
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
-          <Avatar name={u.name} size="md" />
+          <Avatar name={u.name} src={u.avatarUrl} size="md" />
           <div className="min-w-0">
             <div
               className="font-semibold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer text-sm truncate"
@@ -259,7 +259,7 @@ export default function FamilyUsersPage() {
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
-          <Avatar name={u.name} size="md" />
+          <Avatar name={u.name} src={u.avatarUrl} size="md" />
           <div className="min-w-0">
             <div
               className="font-semibold text-gray-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer text-sm truncate"
@@ -414,33 +414,30 @@ export default function FamilyUsersPage() {
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Bulk Import</span>
+              <span>Import Family CSV</span>
             </button>
-            {activeTab === 'PARENTS' ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setAddFamilyRole('PARENT')
-                  setAddFamilyOpen(true)
-                }}
-                className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>+ Add Parent</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setAddFamilyRole('GUARDIAN')
-                  setAddFamilyOpen(true)
-                }}
-                className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>+ Add Guardian</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setAddFamilyRole('PARENT')
+                setAddFamilyOpen(true)
+              }}
+              className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>+ Add Parent</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddFamilyRole('GUARDIAN')
+                setAddFamilyOpen(true)
+              }}
+              className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>+ Add Guardian</span>
+            </button>
           </div>
         }
       />

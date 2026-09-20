@@ -1,9 +1,10 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { StaffService } from '@/lib/hr/staff-service'
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApi(req, 'hr:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireApi(req, 'hr:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -56,3 +57,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return Errors.validation(e.message || 'Failed to update staff profile')
   }
 }
+
+export const GET = withApi(_GET)
+export const PATCH = withApi(_PATCH)

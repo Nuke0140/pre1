@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -8,7 +9,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
  * Authoritative immutable audit query & dashboard aggregates.
  * Requires 'audit:read' permission. Strictly tenant-isolated.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'audit:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -189,18 +190,24 @@ export async function GET(req: NextRequest) {
 /**
  * Audit logs are immutable. Rejects any mutation method.
  */
-export async function POST() {
+async function _POST() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs are immutable and cannot be created directly via API', 405)
 }
 
-export async function PUT() {
+async function _PUT() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs are immutable and cannot be modified', 405)
 }
 
-export async function PATCH() {
+async function _PATCH() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs are immutable and cannot be modified', 405)
 }
 
-export async function DELETE() {
+async function _DELETE() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs are immutable and cannot be deleted', 405)
 }
+
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)
+export const PUT = withApi(_PUT)
+export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)

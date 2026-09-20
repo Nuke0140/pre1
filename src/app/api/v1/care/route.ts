@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -14,7 +15,7 @@ import { registerIntegrations } from '@/lib/integrations'
  * Parent: own children only. Staff: tenant scope.
  * Record types are config-driven (DAILY_OPERATIONS.recordTypes) — nothing hardcoded.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'timeline:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -81,7 +82,7 @@ const CARE_TO_TIMELINE: Record<string, 'ARRIVAL' | 'MEAL' | 'NAP' | 'ACTIVITY' |
  * · HEALTH_CHECK outcome NORMAL/ABNORMAL — abnormal raises HEALTH follow-up
  * · INCIDENT (category from HEALTH_SAFETY config) raises follow-up; parent alerted
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -197,7 +198,7 @@ export async function POST(req: NextRequest) {
  * PATCH /api/v1/care — update / correct an existing care timeline entry.
  * Body: { id: string, title?: string, body?: string, mood?: string, reason?: string }
  */
-export async function PATCH(req: NextRequest) {
+async function _PATCH(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -251,7 +252,7 @@ export async function PATCH(req: NextRequest) {
 /**
  * DELETE /api/v1/care?id= — delete an erroneously created care record.
  */
-export async function DELETE(req: NextRequest) {
+async function _DELETE(req: NextRequest) {
   const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -287,3 +288,7 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export const GET = withApi(_GET)
+export const POST = withApi(_POST)
+export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)

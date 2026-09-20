@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -5,7 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 
 /** DELETE /api/v1/calendar/{id} — remove a calendar entry */
-export async function DELETE(
+async function _DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -28,3 +29,5 @@ export async function DELETE(
     return Errors.system(e)
   }
 }
+
+export const DELETE = withApi(_DELETE)

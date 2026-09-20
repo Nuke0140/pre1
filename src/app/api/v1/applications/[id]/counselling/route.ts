@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
 /**
  * POST /api/v1/applications/[id]/counselling — Record or schedule a counselling session
  */
-export async function POST(
+async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -48,3 +49,5 @@ export async function POST(
     return Errors.business('COUNSELLING_FAILED', e.message || 'Failed to record counselling session', 422)
   }
 }
+
+export const POST = withApi(_POST)

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -8,7 +9,7 @@ import { OperationsService } from '@/lib/operations/operations-service'
  * POST /api/v1/operations/incidents
  * Records safety / health incident and initiates escalation workflow
  */
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'operations:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
@@ -35,3 +36,5 @@ export async function POST(req: NextRequest) {
     return bad(err.message, 'INCIDENT_RECORD_FAILED')
   }
 }
+
+export const POST = withApi(_POST)

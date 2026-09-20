@@ -36,6 +36,8 @@ export class StaffUserService {
     const assignedRoles: UserRole[] =
       input.roles && input.roles.length > 0
         ? [...new Set(input.roles)]
+        : input.additionalRoles && input.additionalRoles.length > 0
+        ? [...new Set([input.primaryRole || input.role || ('TEACHER' as UserRole), ...input.additionalRoles])]
         : input.primaryRole
         ? [input.primaryRole]
         : input.role
@@ -83,6 +85,7 @@ export class StaffUserService {
         password: input.password,
         status: initialStatus,
         usernameType: 'STAFF',
+        avatarUrl: input.avatarUrl || null,
       })
 
       // Step B: Create TenantUser membership
@@ -105,6 +108,9 @@ export class StaffUserService {
         staffProfile?.employeeCode ||
         `EMP-${Date.now().toString().slice(-6)}`
 
+      const parsedDob = input.dateOfBirth ? new Date(input.dateOfBirth) : undefined
+      const parsedJoining = input.joiningDate ? new Date(input.joiningDate) : undefined
+
       if (staffProfile) {
         staffProfile = await tx.staffProfile.update({
           where: { id: staffProfile.id },
@@ -115,6 +121,9 @@ export class StaffUserService {
             qualification: input.qualification?.trim() || staffProfile.qualification,
             employmentType: input.employmentType || staffProfile.employmentType,
             branchId: input.branchId !== undefined ? input.branchId : staffProfile.branchId,
+            ...(parsedDob ? { dateOfBirth: parsedDob } : {}),
+            ...(input.gender !== undefined ? { gender: input.gender } : {}),
+            ...(parsedJoining ? { joiningDate: parsedJoining } : {}),
           },
         })
       } else {
@@ -128,6 +137,9 @@ export class StaffUserService {
             qualification: input.qualification?.trim() || null,
             employmentType: input.employmentType || 'REGULAR',
             branchId: input.branchId || null,
+            dateOfBirth: parsedDob || null,
+            gender: input.gender || null,
+            joiningDate: parsedJoining || null,
           },
         })
       }

@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
@@ -6,7 +7,7 @@ import { AcademicService } from '@/lib/academics/academic-service'
 /**
  * GET /api/v1/academics/reports/student/[studentId] — Generate student academic progress report
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
@@ -37,3 +38,5 @@ export async function GET(
     return Errors.business('REPORT_GENERATE_FAILED', e.message || 'Failed to generate student report', 422)
   }
 }
+
+export const GET = withApi(_GET)

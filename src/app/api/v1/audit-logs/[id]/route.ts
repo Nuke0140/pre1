@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
@@ -7,7 +8,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
  * GET /api/v1/audit-logs/[id]
  * Fetch single immutable audit log record with human-readable resolution.
  */
-export async function GET(
+async function _GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -62,14 +63,19 @@ export async function GET(
 /**
  * Strict Immutability Protection: Rejects any attempt to modify or delete audit logs.
  */
-export async function PATCH() {
+async function _PATCH() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs cannot be modified or updated', 405)
 }
 
-export async function PUT() {
+async function _PUT() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs cannot be modified or updated', 405)
 }
 
-export async function DELETE() {
+async function _DELETE() {
   return Errors.business('IMMUTABLE_LOG', 'Audit logs cannot be deleted', 405)
 }
+
+export const GET = withApi(_GET)
+export const PUT = withApi(_PUT)
+export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)

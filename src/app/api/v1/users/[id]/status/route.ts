@@ -1,3 +1,4 @@
+import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
@@ -6,7 +7,7 @@ import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserStatus } from '@prisma/client'
 
 /** POST /api/v1/users/[id]/status — manage user lifecycle (ACTIVE, SUSPENDED, INACTIVE, PENDING) */
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
@@ -96,3 +97,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return serverError(err.message)
   }
 }
+
+export const POST = withApi(_POST)
