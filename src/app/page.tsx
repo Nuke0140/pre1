@@ -12,7 +12,7 @@ const DEMO_USERS = [
   { role: 'Principal', email: 'principal@sunshine.demo', desc: 'Approvals + academics' },
   { role: 'Teacher', email: 'teacher@sunshine.demo', desc: 'Attendance + observations' },
   { role: 'Accounts', email: 'accounts@sunshine.demo', desc: 'Invoices + payments' },
-  { role: 'Reception', email: 'reception@sunshine.demo', desc: 'Leads + admissions' },
+  { role: 'Receptionist', email: 'reception@sunshine.demo', desc: 'Leads + admissions' },
   { role: 'Parent', email: 'parent@sunshine.demo', desc: "Child's timeline" },
   { role: 'Platform', email: 'platform@preone.in', desc: 'Onboard new clients' },
 ]

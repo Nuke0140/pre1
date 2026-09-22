@@ -126,10 +126,12 @@ export function AddStaffModal({
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
               >
                 <option value="TEACHER">Teacher</option>
-                <option value="HELPER">Helper / Caregiver</option>
-                <option value="ACCOUNTANT">Accountant</option>
-                <option value="HR">HR Administrator</option>
+                <option value="STAFF">Staff / Operations</option>
+                <option value="ACCOUNTS">Accounts & Billing</option>
+                <option value="RECEPTIONIST">Front Desk / Receptionist</option>
+                <option value="ATTENDANT">Attendant / Caregiver</option>
                 <option value="DRIVER">Driver</option>
+                <option value="COORDINATOR">Academic Coordinator</option>
                 <option value="PRINCIPAL">Principal / Head</option>
               </select>
             </Field>

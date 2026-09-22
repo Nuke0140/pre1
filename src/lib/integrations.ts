@@ -134,7 +134,7 @@ export function registerIntegrations() {
           sourceId: e.invoiceId,
           dedupeKey: `invoice:${e.invoiceId}:overdue`,
           studentId: e.studentId,
-          responsibleRole: 'ACCOUNTANT',
+          responsibleRole: 'ACCOUNTS',
         })
         break
       }

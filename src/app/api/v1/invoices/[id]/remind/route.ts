@@ -62,7 +62,7 @@ async function _POST(
       sourceId: invoice.id,
       dedupeKey: `invoice:${invoice.id}:overdue`,
       studentId: invoice.studentId,
-      responsibleRole: 'ACCOUNTANT',
+      responsibleRole: 'ACCOUNTS',
       actorId: session.uid,
       actorName: session.name,
     })

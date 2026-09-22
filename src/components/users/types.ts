@@ -106,11 +106,6 @@ export const ROLE_BADGE: Record<string, { cls: string; label: string }> = {
   DRIVER: { cls: 'b-orange', label: 'Driver / Transport' },
   PARENT: { cls: 'b-primary', label: 'Parent' },
   GUARDIAN: { cls: 'b-amber', label: 'Guardian' },
-  // Legacy aliases
-  HELPER: { cls: 'b-teal', label: 'Helper (Staff)' },
-  ACCOUNTANT: { cls: 'b-warning', label: 'Accountant (Accounts)' },
-  HR: { cls: 'b-indigo', label: 'HR (Staff)' },
-  RECEPTION: { cls: 'b-pink', label: 'Reception (Receptionist)' },
 }
 
 export interface RoleMatrixItem {

@@ -37,6 +37,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
 import { Role } from '@/lib/auth'
+import { normalizeRole } from '@/lib/roles'
 
 interface SessionProps {
   uid: string
@@ -50,11 +51,11 @@ interface SessionProps {
 export function InventoryClient({ session }: { session: SessionProps }) {
   const toast = useToast()
   const role = session.role
-  const isTeacher = role === 'TEACHER'
-  const isStaff = ['TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].includes(role)
-  const canApprove = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(role)
-  const canProcure = ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PLATFORM_ADMIN'].includes(role)
-  const canManageStock = ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PLATFORM_ADMIN'].includes(role)
+  const isTeacher = normalizeRole(role) === 'TEACHER'
+  const isStaff = ['TEACHER', 'STAFF', 'ACCOUNTS', 'DRIVER'].includes(normalizeRole(role))
+  const canApprove = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
+  const canProcure = ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
+  const canManageStock = ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
 
   // Subtabs
   type TabKey = 'OVERVIEW' | 'ITEMS' | 'REQUESTS' | 'STORES' | 'PROCUREMENT' | 'RECEIVING' | 'VENDORS' | 'ANALYTICS'

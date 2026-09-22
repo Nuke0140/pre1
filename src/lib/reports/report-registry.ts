@@ -62,7 +62,7 @@ export const REPORT_REGISTRY: ReportDefinition[] = [
     domain: 'ADMISSIONS',
     canonicalSource: 'Lead, AdmissionApplication, AdmissionOffer',
     requiredPermission: 'reports:read',
-    allowedRoles: ['PLATFORM_ADMIN', 'OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTION'],
+    allowedRoles: ['PLATFORM_ADMIN', 'OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTIONIST'],
     freshness: 'REAL_TIME',
     columns: [
       { key: 'leadNumber', label: 'Enquiry / App #', type: 'STRING', sortable: true },

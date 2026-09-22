@@ -15,6 +15,7 @@ import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } fro
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus } from '@prisma/client'
 import { FamilyUserService } from '@/lib/users/family-user-service'
+import { normalizeRole } from '@/lib/roles'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export const GET = withApi(async (req: NextRequest) => {
@@ -129,13 +130,15 @@ export const GET = withApi(async (req: NextRequest) => {
 
   const isRoleTab = [
     'TEACHER',
+    'STAFF',
+    'ACCOUNTS',
+    'RECEPTIONIST',
+    'ATTENDANT',
+    'DRIVER',
+    'PRINCIPAL',
+    'COORDINATOR',
     'PARENT',
     'GUARDIAN',
-    'PRINCIPAL',
-    'ACCOUNTANT',
-    'HELPER',
-    'HR',
-    'DRIVER',
   ].includes(activeTab)
   const baseWhere = buildWhere({
     skipRole: isRoleTab,
@@ -160,9 +163,10 @@ export const GET = withApi(async (req: NextRequest) => {
   const tabParentP = countByRole('PARENT')
   const tabGuardianP = countByRole('GUARDIAN')
   const tabPrincipalP = countByRole('PRINCIPAL')
-  const tabAccountantP = countByRole('ACCOUNTANT')
-  const tabHelperP = countByRole('HELPER')
-  const tabHrP = countByRole('HR')
+  const tabCoordinatorP = countByRole('COORDINATOR')
+  const tabAccountsP = countByRole('ACCOUNTS')
+  const tabReceptionistP = countByRole('RECEPTIONIST')
+  const tabAttendantP = countByRole('ATTENDANT')
   const tabDriverP = countByRole('DRIVER')
   const tabPendingP = db.tenantUser.count({ where: { ...baseWhere, status: 'PENDING' } })
 
@@ -179,9 +183,10 @@ export const GET = withApi(async (req: NextRequest) => {
     tabParent,
     tabGuardian,
     tabPrincipal,
-    tabAccountant,
-    tabHelper,
-    tabHr,
+    tabCoordinator,
+    tabAccounts,
+    tabReceptionist,
+    tabAttendant,
     tabDriver,
     tabPending,
   ] = await Promise.all([
@@ -251,9 +256,10 @@ export const GET = withApi(async (req: NextRequest) => {
     tabParentP,
     tabGuardianP,
     tabPrincipalP,
-    tabAccountantP,
-    tabHelperP,
-    tabHrP,
+    tabCoordinatorP,
+    tabAccountsP,
+    tabReceptionistP,
+    tabAttendantP,
     tabDriverP,
     tabPendingP,
   ])
@@ -329,9 +335,10 @@ export const GET = withApi(async (req: NextRequest) => {
         PARENT: tabParent,
         GUARDIAN: tabGuardian,
         PRINCIPAL: tabPrincipal,
-        ACCOUNTANT: tabAccountant,
-        HELPER: tabHelper,
-        HR: tabHr,
+        COORDINATOR: tabCoordinator,
+        ACCOUNTS: tabAccounts,
+        RECEPTIONIST: tabReceptionist,
+        ATTENDANT: tabAttendant,
         DRIVER: tabDriver,
         PENDING: tabPending,
       },
@@ -411,11 +418,13 @@ export const POST = withApi(async (req: NextRequest) => {
   // Determine roles array and primary role
   let assignedRoles: UserRole[] = []
   if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
-    assignedRoles = [...new Set(inputRoles)]
+    assignedRoles = [...new Set(inputRoles.map((r) => normalizeRole(r) as UserRole))]
   } else if (inputAdditionalRoles && Array.isArray(inputAdditionalRoles) && inputAdditionalRoles.length > 0) {
-    assignedRoles = [...new Set([primaryRole || role || ('TEACHER' as UserRole), ...inputAdditionalRoles])]
+    const primary = normalizeRole(primaryRole || role || ('TEACHER' as UserRole)) as UserRole
+    const others = inputAdditionalRoles.map((r) => normalizeRole(r) as UserRole)
+    assignedRoles = [...new Set([primary, ...others])]
   } else if (role) {
-    assignedRoles = [role]
+    assignedRoles = [normalizeRole(role) as UserRole]
   }
 
   if (!fullName || !email || assignedRoles.length === 0) {
@@ -425,9 +434,10 @@ export const POST = withApi(async (req: NextRequest) => {
   const effectivePassword = password && password.length >= 6 ? password : 'PreOneUser@2026'
 
   // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
+  const normPrimaryRole = primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined
   const finalPrimaryRole: UserRole =
-    primaryRole && assignedRoles.includes(primaryRole)
-      ? primaryRole
+    normPrimaryRole && assignedRoles.includes(normPrimaryRole)
+      ? normPrimaryRole
       : assignedRoles[0]
 
   // Validate role escalation using centralized helper
@@ -713,7 +723,7 @@ export const POST = withApi(async (req: NextRequest) => {
 
     // If any assigned role is staff or designation provided, ensure StaffProfile exists
     const isStaff = assignedRoles.some((r) =>
-      ['OWNER', 'PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].includes(r)
+      ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'STAFF', 'ACCOUNTS', 'RECEPTIONIST', 'ATTENDANT', 'DRIVER'].includes(r)
     )
 
     if (isStaff || designation) {
@@ -816,6 +826,7 @@ export const POST = withApi(async (req: NextRequest) => {
     {
       id: result.membership.id,
       userId: result.user.id,
+      membershipId: result.membership.id,
       fullName: result.user.fullName,
       email: result.user.email,
       phone: result.user.phone,

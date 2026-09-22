@@ -12,6 +12,7 @@ import {
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
 import { UserRole } from '@prisma/client'
+import { normalizeRole } from '@/lib/roles'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -26,9 +27,9 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
   try {
     const member = await db.tenantUser.findFirst({
       where: {
-        userId: id,
         tenantId: session.tenantId,
         deletedAt: null,
+        OR: [{ userId: id }, { id }],
       },
       include: {
         user: {
@@ -135,9 +136,9 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     // Determine target roles
     let targetRoles: UserRole[] | undefined
     if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
-      targetRoles = [...new Set(inputRoles)]
+      targetRoles = [...new Set(inputRoles.map((r) => normalizeRole(r) as UserRole))]
     } else if (role) {
-      targetRoles = [role]
+      targetRoles = [normalizeRole(role) as UserRole]
     }
 
     if (targetRoles) {
@@ -152,8 +153,12 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     const finalPrimaryRole: UserRole | undefined =
       targetRoles
-        ? (primaryRole && targetRoles.includes(primaryRole) ? primaryRole : (role && targetRoles.includes(role) ? role : targetRoles[0]))
-        : (role || primaryRole)
+        ? (primaryRole && targetRoles.includes(normalizeRole(primaryRole) as UserRole)
+            ? (normalizeRole(primaryRole) as UserRole)
+            : (role && targetRoles.includes(normalizeRole(role) as UserRole)
+                ? (normalizeRole(role) as UserRole)
+                : targetRoles[0]))
+        : (role ? (normalizeRole(role) as UserRole) : primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined)
 
     const oldValues = {
       fullName: member.user.fullName,
@@ -196,7 +201,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       // If workforce designation or employeeCode provided, update or create StaffProfile
       const effectiveRoles = updated.roles && updated.roles.length > 0 ? updated.roles : [updated.role]
       const isStaff = effectiveRoles.some((r) =>
-        ['TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER', 'PRINCIPAL', 'OWNER'].includes(r)
+        ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'STAFF', 'ACCOUNTS', 'RECEPTIONIST', 'ATTENDANT', 'DRIVER'].includes(normalizeRole(r))
       )
 
       if (isStaff || designation !== undefined || employeeCode !== undefined) {

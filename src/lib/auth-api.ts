@@ -119,9 +119,9 @@ export async function requireCanManageUser(
 
   const targetMember = await db.tenantUser.findFirst({
     where: {
-      userId: targetUserId,
       tenantId: session.tenantId,
       deletedAt: null,
+      OR: [{ userId: targetUserId }, { id: targetUserId }],
     },
     include: {
       user: {
@@ -254,11 +254,7 @@ export async function requireGuardianChildAccess(
       'ATTENDANT',
       'DRIVER',
       'PLATFORM_ADMIN',
-      'HELPER',
-      'ACCOUNTANT',
-      'HR',
-      'RECEPTION',
-    ].includes(r)
+    ].includes(normalizeRole(r))
   )
   if (isStaff) return true
 

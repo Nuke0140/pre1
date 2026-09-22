@@ -21,6 +21,7 @@ import {
   UserRecord, BranchOption, ClassroomOption, Role,
   CANONICAL_STAFF_ROLES, ROLE_BADGE
 } from '@/components/users/types'
+import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
 
 export default function StaffUsersPage() {
@@ -108,10 +109,10 @@ export default function StaffUsersPage() {
   // KPIs
   const kpis = useMemo(() => {
     const active = users.filter((u) => u.status === 'ACTIVE').length
-    const teachers = users.filter((u) => u.role === 'TEACHER').length
-    const helpers = users.filter((u) => u.role === 'HELPER').length
-    const admins = users.filter((u) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'HR'].includes(u.role)).length
-    return { active, teachers, helpers, admins }
+    const teachers = users.filter((u) => normalizeRole(u.role) === 'TEACHER').length
+    const staffOps = users.filter((u) => ['STAFF', 'ATTENDANT'].includes(normalizeRole(u.role))).length
+    const leadership = users.filter((u) => ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'ACCOUNTS'].includes(normalizeRole(u.role))).length
+    return { active, teachers, staffOps, leadership }
   }, [users])
 
   // Columns definition for DataTable
@@ -139,7 +140,7 @@ export default function StaffUsersPage() {
       header: 'Role & Title',
       sortable: true,
       render: (u) => {
-        const badge = ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
+        const badge = ROLE_BADGE[normalizeRole(u.role)] || ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
         return (
           <div>
             <span className={`badge ${badge.cls} text-xs font-semibold`}>
@@ -297,15 +298,15 @@ export default function StaffUsersPage() {
           variant="compact"
         />
         <KpiTile
-          label="Classroom Helpers"
-          value={kpis.helpers}
+          label="Support Staff & Ops"
+          value={kpis.staffOps}
           icon={<Users />}
           iconClass="ic-green"
           variant="compact"
         />
         <KpiTile
-          label="Campus Leadership"
-          value={kpis.admins}
+          label="Leadership & Admin"
+          value={kpis.leadership}
           icon={<Shield />}
           iconClass="ic-orange"
           variant="compact"

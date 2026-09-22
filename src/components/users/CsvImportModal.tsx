@@ -432,7 +432,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
               {type === 'STAFF' && (
                 <div className="shrink-0">
                   <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                    Roles: TEACHER, HELPER, PRINCIPAL, HR, ACCOUNTANT, DRIVER
+                    Roles: TEACHER, STAFF, ACCOUNTS, RECEPTIONIST, DRIVER, ATTENDANT, PRINCIPAL, COORDINATOR
                   </span>
                 </div>
               )}

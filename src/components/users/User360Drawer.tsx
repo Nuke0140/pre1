@@ -8,6 +8,7 @@ import {
 import { Modal } from '@/components/preone/Modal'
 import { Avatar, StatusBadge } from '@/components/preone/ui'
 import { UserRecord, ROLE_BADGE } from './types'
+import { normalizeRole } from '@/lib/roles'
 import { fmtDateTime, timeAgo } from '@/lib/format'
 
 interface User360DrawerProps {
@@ -23,9 +24,9 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
 
   if (!user) return null
 
-  const isStaff = !['PARENT', 'GUARDIAN'].includes(user.role)
-  const isFamily = ['PARENT', 'GUARDIAN'].includes(user.role)
-  const badge = ROLE_BADGE[user.role] || { cls: 'b-neutral', label: user.role }
+  const isStaff = !['PARENT', 'GUARDIAN'].includes(normalizeRole(user.role))
+  const isFamily = ['PARENT', 'GUARDIAN'].includes(normalizeRole(user.role))
+  const badge = ROLE_BADGE[normalizeRole(user.role)] || { cls: 'b-neutral', label: user.role }
 
   return (
     <Modal
@@ -255,7 +256,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
               <span className="text-gray-400 block text-[11px] mb-1">Assigned RBAC Roles</span>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {(user.roles && user.roles.length > 0 ? user.roles : [user.role]).map((r) => (
-                  <span key={r} className={`badge ${ROLE_BADGE[r]?.cls || 'b-neutral'} text-xs font-semibold`}>
+                  <span key={r} className={`badge ${ROLE_BADGE[normalizeRole(r)]?.cls || 'b-neutral'} text-xs font-semibold`}>
                     {r}
                   </span>
                 ))}

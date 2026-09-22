@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
+import { sanitizeUsernameSlug } from '../src/lib/users/username-service'
 
 const db = new PrismaClient({
   datasources: {
@@ -45,22 +46,26 @@ async function main() {
   console.log('🌱 Seeding PreOne demo data…')
 
   // clean slate (idempotent re-run)
-  await db.$transaction([
-    db.auditLog.deleteMany(), db.timelineEntry.deleteMany(), db.observation.deleteMany(),
-    db.announcement.deleteMany(), db.receipt.deleteMany(), db.payment.deleteMany(),
-    db.invoiceItem.deleteMany(), db.invoice.deleteMany(), db.feePlanItem.deleteMany(),
-    db.feePlan.deleteMany(), db.attendance.deleteMany(), db.applicationDocument.deleteMany(),
-    db.admissionApplication.deleteMany(), db.lead.deleteMany(), db.studentGuardian.deleteMany(),
-    db.guardian.deleteMany(), db.student.deleteMany(), db.classroom.deleteMany(),
-    db.academicSession.deleteMany(), db.tenantUser.deleteMany(), db.user.deleteMany(),
-    db.branch.deleteMany(), db.tenant.deleteMany(),
-  ])
+  try {
+    await db.$executeRawUnsafe('TRUNCATE TABLE "tenants", "users" CASCADE;')
+  } catch {
+    await db.$transaction([
+      db.auditLog.deleteMany(), db.timelineEntry.deleteMany(), db.observation.deleteMany(),
+      db.announcement.deleteMany(), db.receipt.deleteMany(), db.payment.deleteMany(),
+      db.invoiceItem.deleteMany(), db.invoice.deleteMany(), db.feePlanItem.deleteMany(),
+      db.feePlan.deleteMany(), db.attendance.deleteMany(), db.applicationDocument.deleteMany(),
+      db.admissionApplication.deleteMany(), db.lead.deleteMany(), db.studentGuardian.deleteMany(),
+      db.guardian.deleteMany(), db.student.deleteMany(), db.classroom.deleteMany(),
+      db.academicSession.deleteMany(), db.tenantUser.deleteMany(), db.user.deleteMany(),
+      db.branch.deleteMany(), db.tenant.deleteMany(),
+    ])
+  }
 
   const hash = await bcrypt.hash(PASSWORD, 10)
 
   // ── Platform admin (no tenant) ──
   await db.user.create({
-    data: { email: 'platform@preone.in', fullName: 'PreOne Platform Admin', passwordHash: hash, status: 'ACTIVE' },
+    data: { email: 'platform@preone.in', username: 'platform.admin', fullName: 'PreOne Platform Admin', passwordHash: hash, status: 'ACTIVE' },
   })
 
   // ── Tenant ──
@@ -107,13 +112,19 @@ async function main() {
     { email: 'teacher2@sunshine.demo', name: 'Sana Sheikh', role: 'TEACHER' },
     { email: 'teacher3@sunshine.demo', name: 'Kavya Reddy', role: 'TEACHER' },
     { email: 'accounts@sunshine.demo', name: 'Vikram Rao', role: 'ACCOUNTS' },
-    { email: 'reception@sunshine.demo', name: 'Divya Nair', role: 'RECEPTION' },
+    { email: 'reception@sunshine.demo', name: 'Divya Nair', role: 'RECEPTIONIST' },
   ] as const
 
   const staff: Record<string, string> = {}
   for (const s of staffSpecs) {
     const u = await db.user.create({
-      data: { email: s.email, fullName: s.name, passwordHash: hash, status: 'ACTIVE' },
+      data: {
+        email: s.email,
+        username: sanitizeUsernameSlug(s.name),
+        fullName: s.name,
+        passwordHash: hash,
+        status: 'ACTIVE',
+      },
     })
     await db.tenantUser.create({
       data: { tenantId: tenant.id, userId: u.id, role: s.role, branchId: s.role === 'OWNER' ? null : branch.id },
@@ -238,7 +249,13 @@ async function main() {
 
   // Parent portal user linked to 2 children via a single guardian record
   const parentUser = await db.user.create({
-    data: { email: 'parent@sunshine.demo', fullName: 'Priya Sharma', passwordHash: hash, status: 'ACTIVE' },
+    data: {
+      email: 'parent@sunshine.demo',
+      username: sanitizeUsernameSlug('Priya Sharma'),
+      fullName: 'Priya Sharma',
+      passwordHash: hash,
+      status: 'ACTIVE',
+    },
   })
   await db.tenantUser.create({
     data: { tenantId: tenant.id, userId: parentUser.id, role: 'PARENT' },

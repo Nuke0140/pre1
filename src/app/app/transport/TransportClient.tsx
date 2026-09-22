@@ -34,6 +34,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
 import { Role } from '@/lib/auth'
+import { normalizeRole } from '@/lib/roles'
 
 interface SessionProps {
   uid: string
@@ -47,8 +48,8 @@ interface SessionProps {
 export function TransportClient({ session }: { session: SessionProps }) {
   const toast = useToast()
   const role = session.role
-  const canWrite = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(role)
-  const canOperate = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTION', 'PLATFORM_ADMIN'].includes(role)
+  const canWrite = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
+  const canOperate = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTIONIST', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
 
   type TabKey = 'OVERVIEW' | 'TRIPS' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'INCIDENTS'
   const [tab, setTab] = useState<TabKey>('OVERVIEW')

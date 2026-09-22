@@ -130,7 +130,7 @@ export function BottomNav({
       })
     }
 
-    // If right items are sparse (e.g. for PARENT or RECEPTION roles), backfill from remaining nav items
+    // If right items are sparse (e.g. for PARENT or RECEPTIONIST roles), backfill from remaining nav items
     if (right.length === 0) {
       const remaining = nav.filter(
         (n) => n.key !== homeItem.key && n.key !== appsItem.key

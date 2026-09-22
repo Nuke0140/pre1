@@ -6,8 +6,11 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 import bcrypt from 'bcryptjs'
 import type { UserRole } from '@prisma/client'
+import { CANONICAL_ROLES, type CanonicalRole, normalizeRole } from '@/lib/roles'
 
-const ASSIGNABLE_ROLES: UserRole[] = ['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER']
+const ASSIGNABLE_ROLES: CanonicalRole[] = CANONICAL_ROLES.filter(
+  (r) => r !== 'PLATFORM_ADMIN' && r !== 'OWNER' && r !== 'PARENT' && r !== 'GUARDIAN'
+)
 
 /** GET /api/v1/staff — staff foundation list (profile + assignment state) */
 async function _GET(req: NextRequest) {
@@ -102,7 +105,8 @@ async function _POST(req: NextRequest) {
       if (!fullName || !email || !password || !role) {
         return Errors.validation('fullName, email, password and role are required for new staff')
       }
-      if (!ASSIGNABLE_ROLES.includes(role)) {
+      const canonicalRole = normalizeRole(role)
+      if (!ASSIGNABLE_ROLES.includes(canonicalRole)) {
         return Errors.validation(`role must be one of: ${ASSIGNABLE_ROLES.join(', ')}`)
       }
       if (password.length < 6) return Errors.validation('Password must be at least 6 characters', 'password')
@@ -120,7 +124,7 @@ async function _POST(req: NextRequest) {
           },
         })
         await tx.tenantUser.create({
-          data: { tenantId: session.tenantId!, userId: user.id, role, branchId: branchId || null },
+          data: { tenantId: session.tenantId!, userId: user.id, role: canonicalRole as UserRole, branchId: branchId || null },
         })
         const p = await tx.staffProfile.create({
           data: {

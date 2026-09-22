@@ -12,6 +12,7 @@
 import { db } from '@/lib/db'
 import { recordAudit } from '@/lib/audit'
 import { ROLE_PERMISSIONS, Role } from '@/lib/auth'
+import { CANONICAL_ROLES } from '@/lib/roles'
 import bcrypt from 'bcryptjs'
 import type { ConfigDomain } from '@prisma/client'
 import { getDomainConfig } from '@/lib/config'
@@ -269,18 +270,7 @@ export class SettingsService {
    * Authoritative Role-Permission Matrix
    */
   static getRolePermissionsMatrix() {
-    const roles: Role[] = [
-      'OWNER',
-      'PRINCIPAL',
-      'TEACHER',
-      'HELPER',
-      'ACCOUNTANT',
-      'HR',
-      'DRIVER',
-      'PARENT',
-      'GUARDIAN',
-      'PLATFORM_ADMIN',
-    ]
+    const roles: Role[] = [...CANONICAL_ROLES]
 
     const modules = [
       'students',

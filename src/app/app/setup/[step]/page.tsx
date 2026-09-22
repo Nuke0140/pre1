@@ -11,6 +11,18 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { CONFIG_FORMS, type FormField, type DomainForm } from '@/lib/setup/step-forms'
 import { STEP_MAP } from '@/lib/setup/steps'
+import { ROLE_META, type CanonicalRole } from '@/lib/roles'
+
+const CANONICAL_SETUP_STAFF_ROLES: CanonicalRole[] = [
+  'PRINCIPAL',
+  'COORDINATOR',
+  'TEACHER',
+  'STAFF',
+  'ACCOUNTS',
+  'RECEPTIONIST',
+  'DRIVER',
+  'ATTENDANT',
+]
 
 interface StepRow {
   key: string; label: string; status: 'PENDING' | 'COMPLETE' | 'BLOCKED' | 'SKIPPED'
@@ -1013,7 +1025,13 @@ function StaffModal({ onClose, onDone, api, toast }: { onClose: () => void; onDo
           <div className="field"><label>Email (login) <span className="req">*</span></label><input className="input" name="email" type="email" required /></div>
           <div className="field"><label>Temporary password <span className="req">*</span></label><input className="input" name="password" required minLength={6} /></div>
           <div className="field"><label>Role <span className="req">*</span></label>
-            <select className="select" name="role" required>{['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].map((r) => <option key={r} value={r}>{r}</option>)}</select>
+            <select className="select" name="role" required>
+              {CANONICAL_SETUP_STAFF_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_META[r]?.label ? `${r} — ${ROLE_META[r].label}` : r}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="field"><label>Employee code <span className="req">*</span></label><input className="input" name="employeeCode" required placeholder="EMP-001" /></div>
           <div className="field"><label>Branch (operational assignment)</label>
@@ -1450,7 +1468,11 @@ function EditStaffModal({ item, onClose, onDone, api, toast }: { item: Dict; onC
           <div className="field"><label>Employee Code</label><input className="input" value={String(item.employeeCode || '')} disabled /></div>
           <div className="field"><label>Operating Role <span className="req">*</span></label>
             <select className="select" name="role" defaultValue={String(item.role || 'TEACHER')}>
-              {['PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER'].map((r) => <option key={r} value={r}>{r}</option>)}
+              {CANONICAL_SETUP_STAFF_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_META[r]?.label ? `${r} — ${ROLE_META[r].label}` : r}
+                </option>
+              ))}
             </select>
           </div>
           <div className="field"><label>Branch Assignment</label>

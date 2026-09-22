@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { StaffUserService } from './staff-user-service'
 import { FamilyUserService, normalizeRelationship } from './family-user-service'
 import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType, BloodGroup } from '@prisma/client'
+import { normalizeRole, type CanonicalRole } from '@/lib/roles'
 
 /**
  * Sanitizes a cell against spreadsheet formula injection (=, +, -, @, \t, \r)
@@ -121,8 +122,8 @@ export class UserCsvEngine {
 
     const sampleRows = [
       ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'REGULAR', '2026-06-01', '1992-05-14', 'FEMALE'],
-      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTANT', 'MAIN', 'EMP-2026-02', 'Senior Accountant', 'Finance', 'M.Com, Tally Pro', 'REGULAR', '2026-05-15', '1988-11-20', 'MALE'],
-      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'HELPER', 'MAIN', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
+      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'REGULAR', '2026-05-15', '1988-11-20', 'MALE'],
+      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
       ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'REGULAR', '2026-05-01', '1985-08-09', 'MALE'],
     ]
 
@@ -243,14 +244,16 @@ export class UserCsvEngine {
     const seenPhones = new Set<string>()
     const seenUsernames = new Set<string>()
 
-    const CANONICAL_STAFF_ROLES: UserRole[] = [
+    const CANONICAL_STAFF_ROLES: CanonicalRole[] = [
       'OWNER',
       'PRINCIPAL',
+      'COORDINATOR',
       'TEACHER',
-      'HELPER',
-      'ACCOUNTANT',
-      'HR',
+      'STAFF',
+      'ACCOUNTS',
+      'RECEPTIONIST',
       'DRIVER',
+      'ATTENDANT',
     ]
 
     // Fetch branches in tenant for code matching
@@ -270,7 +273,8 @@ export class UserCsvEngine {
       const fullName = r.fullName?.trim() || ''
       const email = r.email?.trim().toLowerCase() || ''
       const phone = r.phone?.trim() || ''
-      const roleStr = (r.role?.trim().toUpperCase() || 'TEACHER') as UserRole
+      const rawRole = (r.role?.trim().toUpperCase() || 'TEACHER')
+      const roleStr = normalizeRole(rawRole) as UserRole
       const branchCode = r.branchCode?.trim().toUpperCase() || ''
 
       if (!fullName) errors.push('Full name is missing')
@@ -318,8 +322,8 @@ export class UserCsvEngine {
       // Validate role
       if (roleStr === 'PARENT' || roleStr === 'GUARDIAN') {
         errors.push('Cannot assign PARENT or GUARDIAN role in Staff CSV. Use Family CSV.')
-      } else if (!CANONICAL_STAFF_ROLES.includes(roleStr)) {
-        errors.push(`Invalid staff role "${roleStr}". Allowed: OWNER, PRINCIPAL, TEACHER, HELPER, ACCOUNTANT, HR, DRIVER.`)
+      } else if (!CANONICAL_STAFF_ROLES.includes(roleStr as CanonicalRole)) {
+        errors.push(`Invalid staff role "${rawRole}". Allowed: ${CANONICAL_STAFF_ROLES.join(', ')}.`)
       }
 
       // Check existing User in DB
