@@ -46,7 +46,7 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
             border: `1px solid ${theme.iconBorder}`,
           }}
         >
-          <Icon size={24} />
+          <Icon size={35} strokeWidth={2.2} />
         </span>
       </div>
 

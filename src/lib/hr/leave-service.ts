@@ -319,7 +319,7 @@ export class LeaveService {
               classroomId: cls.id,
               date: leaveDate,
               substituteStaffId: sub?.id || null,
-              coordinatorStaffId: !sub && coordinator ? coordinator.id : (sub?.id === coordinator?.id ? (coordinator?.id || null) : null),
+              coordinatorStaffId: !sub && coordinator ? (coordinator as any).id : (sub?.id === coordinator?.id ? ((coordinator as any)?.id || null) : null),
               status: sub ? 'ASSIGNED' : 'COORDINATOR_COVERAGE',
               notificationSent: true,
               notes: `Auto-coverage triggered for classroom ${cls.name}`,

@@ -12,7 +12,7 @@ export function HomeClient({ role }: { role: Role }) {
   )
 
   return (
-    <div className="home" style={{ maxWidth: 1440, margin: '0 auto', width: '100%' }}>
+    <div className="home">
       {/* ── Centered PreOne Brand Logo ── */}
       <section className="home-center-hero" aria-label="PreOne Home">
         <div className="home-center-brand">
