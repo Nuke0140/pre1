@@ -5,28 +5,20 @@ const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'preone-dev-jwt-secret-2f8b7c9d4e6a1f3b5c8d0e'
 )
 
-export const SCHOOL_ROLES = [
-  'OWNER',
-  'PRINCIPAL',
-  'TEACHER',
-  'HELPER',
-  'ACCOUNTANT',
-  'HR',
-  'DRIVER',
-  'PARENT',
-  'GUARDIAN',
-] as const
+import { CANONICAL_ROLES, CanonicalRole, normalizeRole, LEGACY_ROLE_MAP } from './roles'
 
-export type SchoolRole = (typeof SCHOOL_ROLES)[number]
+export const SCHOOL_ROLES = CANONICAL_ROLES.filter((r) => r !== 'PLATFORM_ADMIN')
 
-export type Role = SchoolRole | 'PLATFORM_ADMIN'
+export type SchoolRole = Exclude<CanonicalRole, 'PLATFORM_ADMIN'> | keyof typeof LEGACY_ROLE_MAP
+
+export type Role = CanonicalRole | keyof typeof LEGACY_ROLE_MAP
 
 export interface SessionPayload {
   uid: string
   email: string
   name: string
   tenantId: string | null
-  branchId: string | null
+  branchId?: string | null
   role: Role // Canonical primary role
   roles?: Role[] // All assigned roles
 }
@@ -52,6 +44,17 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read', 'transport:write', 'transport:assign', 'transport:trip', 'transport:board', 'transport:drop', 'transport:incident',
     'reports:read', 'reports:write', 'reports:export', 'reports:custom',
   ],
+  COORDINATOR: [
+    'students:read',
+    'attendance:read', 'attendance:mark',
+    'academics:read', 'academics:write', 'academics:approve',
+    'communication:read', 'communication:broadcast',
+    'timeline:read',
+    'operations:read', 'operations:write',
+    'inventory:read', 'inventory:request',
+    'hr:self',
+    'reports:read', 'reports:export',
+  ],
   TEACHER: [
     'students:read',
     'attendance:read', 'attendance:mark',
@@ -64,13 +67,16 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read',
     'reports:read', 'reports:export',
   ],
-  HELPER: [
+  STAFF: [
+    'users:read',
     'attendance:read',
-    'operations:read',
-    'inventory:request',
-    'hr:self',
+    'operations:read', 'operations:write',
+    'inventory:read', 'inventory:request',
+    'hr:read', 'hr:self',
+    'communication:read',
+    'reports:read',
   ],
-  ACCOUNTANT: [
+  ACCOUNTS: [
     'students:read',
     'finance:read', 'finance:write',
     'attendance:read',
@@ -81,11 +87,21 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'transport:read',
     'reports:read', 'reports:export',
   ],
-  HR: [
-    'users:read', 'users:write',
-    'hr:read', 'hr:write', 'hr:approve', 'payroll:process', 'hr:self',
-    'audit:read',
-    'reports:read', 'reports:export',
+  RECEPTIONIST: [
+    'students:read',
+    'admissions:read', 'admissions:write',
+    'attendance:read', 'attendance:mark',
+    'communication:read', 'communication:broadcast',
+    'operations:read', 'operations:write',
+    'timeline:read',
+    'inventory:read', 'inventory:request',
+    'hr:self',
+  ],
+  ATTENDANT: [
+    'attendance:read',
+    'operations:read',
+    'inventory:request',
+    'hr:self',
   ],
   DRIVER: [
     'transport:read', 'transport:trip', 'transport:board', 'transport:drop', 'transport:incident',
@@ -117,6 +133,40 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'pickup:verify-linked',
     'transport:read',
   ],
+  // Legacy aliases
+  HELPER: [
+    'attendance:read',
+    'operations:read',
+    'inventory:request',
+    'hr:self',
+  ],
+  ACCOUNTANT: [
+    'students:read',
+    'finance:read', 'finance:write',
+    'attendance:read',
+    'audit:read',
+    'operations:read',
+    'inventory:read', 'inventory:order', 'inventory:receive',
+    'hr:read', 'payroll:process', 'hr:self',
+    'transport:read',
+    'reports:read', 'reports:export',
+  ],
+  HR: [
+    'users:read', 'users:write',
+    'hr:read', 'hr:write', 'hr:approve', 'payroll:process', 'hr:self',
+    'audit:read',
+    'reports:read', 'reports:export',
+  ],
+  RECEPTION: [
+    'students:read',
+    'admissions:read', 'admissions:write',
+    'attendance:read', 'attendance:mark',
+    'communication:read', 'communication:broadcast',
+    'operations:read', 'operations:write',
+    'timeline:read',
+    'inventory:read', 'inventory:request',
+    'hr:self',
+  ],
 }
 
 /**
@@ -130,7 +180,8 @@ export function can(roleOrRoles: Role | Role[] | undefined | null, permission: s
   if (roles.length === 0) return false
 
   return roles.some((role) => {
-    const perms = ROLE_PERMISSIONS[role] || []
+    const normalized = normalizeRole(role)
+    const perms = ROLE_PERMISSIONS[role] || (ROLE_PERMISSIONS as Record<string, string[]>)[normalized] || []
     if (perms.includes(permission)) return true
     // '*' grants every SCHOOL-scope permission, but never platform-scope ones —
     // platform:* is reserved for PLATFORM_ADMIN (tenant plane ≠ school plane).

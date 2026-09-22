@@ -44,7 +44,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [designation, setDesignation] = useState('')
   const [department, setDepartment] = useState('Academics')
   const [qualification, setQualification] = useState('')
-  const [employmentType, setEmploymentType] = useState('REGULAR')
+  const [employmentType, setEmploymentType] = useState('FULL_TIME')
   const [joiningDate, setJoiningDate] = useState('')
   const [reportingManagerId, setReportingManagerId] = useState('')
 
@@ -54,12 +54,12 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   // Auto-generate employee code on open if blank
   useEffect(() => {
     if (open && !employeeCode) {
-      generateEmployeeCode(primaryRole)
+      generateEmployeeCode()
     }
     if (open && !branchId && branches.length > 0) {
       setBranchId(branches[0].id)
     }
-  }, [open, primaryRole, branches])
+  }, [open, branches])
 
   // Auto-generate username from fullName if not manually customized
   const handleFullNameChange = (val: string) => {
@@ -84,10 +84,10 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     }
   }
 
-  const generateEmployeeCode = (r: Role = primaryRole) => {
-    const prefix = r === 'TEACHER' ? 'TCH' : r === 'PRINCIPAL' ? 'PRN' : r === 'DRIVER' ? 'DRV' : 'EMP'
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000)
-    setEmployeeCode(`${prefix}-${randomSuffix}`)
+  const generateEmployeeCode = () => {
+    const year = new Date().getFullYear()
+    const randomSuffix = Math.floor(100 + Math.random() * 900)
+    setEmployeeCode(`EMP-${year}-${randomSuffix}`)
   }
 
   const generateRandomPassword = () => {
@@ -130,7 +130,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setEmployeeCode('')
     setDesignation('')
     setDepartment('Academics')
-    setEmploymentType('REGULAR')
+    setEmploymentType('FULL_TIME')
     setQualification('')
     setJoiningDate('')
     setReportingManagerId('')
@@ -527,7 +527,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                   const newRole = e.target.value as Role
                   setPrimaryRole(newRole)
                   setAdditionalRoles((prev) => prev.filter((r) => r !== newRole))
-                  generateEmployeeCode(newRole)
+                  generateEmployeeCode()
                 }}
                 className="select"
               >
@@ -727,11 +727,11 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                 onChange={(e) => setEmploymentType(e.target.value)}
                 className="select"
               >
-                <option value="REGULAR">Regular / Permanent</option>
+                <option value="FULL_TIME">Full Time / Permanent</option>
                 <option value="PROBATION">Probationary</option>
                 <option value="CONTRACT">Contractual</option>
                 <option value="PART_TIME">Part Time</option>
-                <option value="INTERN">Intern</option>
+                <option value="REGULAR">Regular (Legacy)</option>
               </select>
             </div>
 

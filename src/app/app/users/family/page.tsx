@@ -160,7 +160,7 @@ export default function FamilyUsersPage() {
               {u.name}
             </div>
             <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email.split('@')[0]}
+              @{u.username || u.email?.split('@')[0] || 'parent'}
             </div>
           </div>
         </div>
@@ -192,10 +192,17 @@ export default function FamilyUsersPage() {
       header: 'Contact Details',
       render: (u) => (
         <div className="text-xs space-y-1">
-          <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono break-all">
-            <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <span>{u.email}</span>
-          </div>
+          {u.email ? (
+            <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono break-all">
+              <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span>{u.email}</span>
+            </div>
+          ) : (
+            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+              <span>No email address</span>
+            </div>
+          )}
           {u.phone && (
             <div className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-mono">
               <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -269,7 +276,7 @@ export default function FamilyUsersPage() {
               {u.name}
             </div>
             <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email.split('@')[0]}
+              @{u.username || u.email?.split('@')[0] || 'guardian'}
             </div>
           </div>
         </div>
@@ -289,9 +296,7 @@ export default function FamilyUsersPage() {
               <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
                 <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
                 <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
-                <span className="badge b-amber text-[10px] capitalize shrink-0">
-                  {child.relationship?.toLowerCase() || 'guardian'}
-                </span>
+                <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'guardian'})</span>
               </div>
             ))}
           </div>
@@ -324,10 +329,17 @@ export default function FamilyUsersPage() {
       header: 'Contact Details',
       render: (u) => (
         <div className="text-xs space-y-1">
-          <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono">
-            <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <span>{u.email}</span>
-          </div>
+          {u.email ? (
+            <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono">
+              <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span>{u.email}</span>
+            </div>
+          ) : (
+            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
+              <span>No email address</span>
+            </div>
+          )}
           {u.phone && (
             <div className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-mono">
               <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -626,9 +638,10 @@ export default function FamilyUsersPage() {
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
               <option value="SUSPENDED">SUSPENDED</option>
-              <option value="PENDING">PENDING</option>
+              <option value="LOCKED">LOCKED</option>
+              <option value="DEACTIVATED">DEACTIVATED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
             </select>
           </div>
 

@@ -6,7 +6,7 @@ import { SettingsService } from '@/lib/settings/settings-service'
 
 /**
  * GET /api/v1/settings/preferences
- * Returns user-level UI preferences.
+ * Returns user-level UI preferences backed by User.preferences JSON.
  */
 async function _GET(req: NextRequest) {
   const session = await requireApi(req)
@@ -22,7 +22,7 @@ async function _GET(req: NextRequest) {
 
 /**
  * PATCH /api/v1/settings/preferences
- * Updates user-level UI preferences.
+ * Updates user-level UI preferences backed by User.preferences JSON.
  */
 async function _PATCH(req: NextRequest) {
   const session = await requireApi(req)
@@ -30,12 +30,8 @@ async function _PATCH(req: NextRequest) {
 
   try {
     const body = await req.json()
-    // Return updated preferences
-    return ok({
-      userId: session.uid,
-      ...body,
-      updatedAt: new Date().toISOString(),
-    })
+    const updated = await SettingsService.updateUserPreferences(session.uid, body)
+    return ok(updated)
   } catch (e: any) {
     return Errors.system(e)
   }

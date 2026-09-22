@@ -3,6 +3,8 @@ import { UserRole, UserStatus } from '@prisma/client'
 import { StaffCreateInput, validateStaffInput } from './user-validation'
 import { UserIdentityService } from './user-identity-service'
 import { recordAudit } from '@/lib/audit'
+import { nextNumber } from '@/lib/sequence'
+import { normalizeRole } from '@/lib/roles'
 
 export interface StaffContext {
   tenantId: string
@@ -19,6 +21,26 @@ export interface StaffContext {
 
 export class StaffUserService {
   /**
+   * Generates a collision-resistant employee code in format EMP-YYYY-NNN
+   */
+  static async generateUniqueEmployeeCode(tenantId: string): Promise<string> {
+    const maxRetries = 5
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const candidate = await nextNumber('employee', tenantId)
+      const existing = await db.staffProfile.findFirst({
+        where: { tenantId, employeeCode: candidate },
+        select: { id: true },
+      })
+      if (!existing) {
+        return candidate
+      }
+    }
+    // Fallback if extreme concurrency
+    const year = new Date().getFullYear()
+    return `EMP-${year}-${Date.now().toString().slice(-4)}`
+  }
+
+  /**
    * Authoritative Flow 1: Create or Invite a Staff Member
    */
   static async createStaff(ctx: StaffContext, input: StaffCreateInput) {
@@ -33,7 +55,7 @@ export class StaffUserService {
       throw err
     }
 
-    const assignedRoles: UserRole[] =
+    const rawRoles =
       input.roles && input.roles.length > 0
         ? [...new Set(input.roles)]
         : input.additionalRoles && input.additionalRoles.length > 0
@@ -44,9 +66,11 @@ export class StaffUserService {
         ? [input.role]
         : ['TEACHER']
 
+    const assignedRoles: UserRole[] = rawRoles.map((r) => normalizeRole(r) as UserRole)
+
     const primaryRole: UserRole =
-      input.primaryRole && assignedRoles.includes(input.primaryRole)
-        ? input.primaryRole
+      input.primaryRole && assignedRoles.includes(normalizeRole(input.primaryRole) as UserRole)
+        ? (normalizeRole(input.primaryRole) as UserRole)
         : assignedRoles[0]
 
     // 2. Role escalation check
@@ -73,6 +97,12 @@ export class StaffUserService {
     }
 
     const initialStatus: UserStatus = input.status || 'ACTIVE'
+
+    // Determine employee code prior to transaction if not provided
+    let candidateEmpCode = input.employeeCode?.trim()
+    if (!candidateEmpCode) {
+      candidateEmpCode = await this.generateUniqueEmployeeCode(ctx.tenantId)
+    }
 
     // 4. Atomic transaction
     const result = await db.$transaction(async (tx) => {
@@ -106,7 +136,7 @@ export class StaffUserService {
       const empCode =
         input.employeeCode?.trim() ||
         staffProfile?.employeeCode ||
-        `EMP-${Date.now().toString().slice(-6)}`
+        candidateEmpCode
 
       const parsedDob = input.dateOfBirth ? new Date(input.dateOfBirth) : undefined
       const parsedJoining = input.joiningDate ? new Date(input.joiningDate) : undefined
@@ -119,7 +149,7 @@ export class StaffUserService {
             designation: input.designation?.trim() || staffProfile.designation,
             department: input.department?.trim() || staffProfile.department,
             qualification: input.qualification?.trim() || staffProfile.qualification,
-            employmentType: input.employmentType || staffProfile.employmentType,
+            employmentType: input.employmentType || staffProfile.employmentType || 'FULL_TIME',
             branchId: input.branchId !== undefined ? input.branchId : staffProfile.branchId,
             ...(parsedDob ? { dateOfBirth: parsedDob } : {}),
             ...(input.gender !== undefined ? { gender: input.gender } : {}),
@@ -135,7 +165,7 @@ export class StaffUserService {
             designation: input.designation?.trim() || null,
             department: input.department?.trim() || null,
             qualification: input.qualification?.trim() || null,
-            employmentType: input.employmentType || 'REGULAR',
+            employmentType: input.employmentType || 'FULL_TIME',
             branchId: input.branchId || null,
             dateOfBirth: parsedDob || null,
             gender: input.gender || null,

@@ -341,34 +341,48 @@ export class UserCsvEngine {
       }
 
       const isBlocked = errors.length > 0
-      previewRows.push({
-        rowNumber: rowNum,
-        status: isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID',
-        action: isBlocked ? 'BLOCK' : isExisting ? 'LINK' : 'CREATE',
-        identifier: username || email || `Row ${rowNum}`,
-        name: fullName,
-        role: roleStr,
-        details: `${fullName} (${roleStr}) - ${branchCode || 'All Branches'}`,
-        errors,
-        warnings,
-        data: {
-          username: username || undefined,
-          fullName,
-          email,
-          phone,
-          role: roleStr,
-          branchId,
-          designation: r.designation || null,
-          department: r.department || null,
-          employeeCode: r.employeeCode || null,
-          qualification: r.qualification || null,
-          employmentType: (r.employmentType?.toUpperCase() as EmploymentType) || 'REGULAR',
-          joiningDate: r.joiningDate || null,
-          dateOfBirth: r.dateOfBirth || null,
-          gender: (r.gender?.toUpperCase() as Gender) || null,
-          status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
-        },
-      })
+      previewRows.push(
+        (() => {
+          const status = isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID'
+          const action = isBlocked ? 'BLOCK' : isExisting ? 'LINK' : 'CREATE'
+          const rawEmpType = r.employmentType?.toUpperCase()
+          const empType: EmploymentType =
+            rawEmpType === 'REGULAR' || rawEmpType === 'FULL_TIME'
+              ? 'FULL_TIME'
+              : rawEmpType === 'INTERN' || rawEmpType === 'PROBATION'
+              ? 'PROBATION'
+              : (rawEmpType as EmploymentType) || 'FULL_TIME'
+
+          return {
+            rowNumber: rowNum,
+            status,
+            action,
+            identifier: email || username || phone,
+            name: fullName,
+            role: roleStr,
+            details: `Branch: ${branchId || 'Main'}, EmpCode: ${r.employeeCode || 'Auto'}`,
+            errors,
+            warnings,
+            data: {
+              username: username || undefined,
+              fullName,
+              email,
+              phone,
+              role: roleStr,
+              branchId,
+              designation: r.designation || null,
+              department: r.department || null,
+              employeeCode: r.employeeCode || null,
+              qualification: r.qualification || null,
+              employmentType: empType,
+              joiningDate: r.joiningDate || null,
+              dateOfBirth: r.dateOfBirth || null,
+              gender: (r.gender?.toUpperCase() as Gender) || null,
+              status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
+            },
+          }
+        })()
+      )
     }
 
     const blockedCount = previewRows.filter((r) => r.status === 'BLOCKED').length

@@ -19,12 +19,13 @@ export interface FamilyContext {
 }
 
 export function normalizeRelationship(rel?: string): Relationship {
-  if (!rel) return 'OTHER'
+  if (!rel) return 'GUARDIAN'
   const upper = rel.toUpperCase().trim()
   if (upper === 'FATHER') return 'FATHER'
   if (upper === 'MOTHER') return 'MOTHER'
+  if (upper === 'SIBLING' || upper === 'BROTHER' || upper === 'SISTER') return 'SIBLING'
   if (upper === 'GRANDPARENT' || upper.includes('GRAND')) return 'GRANDPARENT'
-  if (upper === 'LEGAL_GUARDIAN' || upper === 'GUARDIAN') return 'LEGAL_GUARDIAN'
+  if (upper === 'LEGAL_GUARDIAN' || upper === 'GUARDIAN') return 'GUARDIAN'
   return 'OTHER'
 }
 

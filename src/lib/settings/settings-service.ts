@@ -325,20 +325,60 @@ export class SettingsService {
   }
 
   /**
-   * User UI Preferences (Theme, Density, Notifications)
+   * User UI Preferences (Theme, Density, Notifications, etc.) backed by canonical User.preferences JSON
    */
   static async getUserPreferences(userId: string) {
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { id: true, fullName: true, locale: true },
+      select: { id: true, fullName: true, locale: true, preferences: true },
     })
-    return {
-      userId,
+    const defaultPrefs = {
       theme: 'SYSTEM',
       density: 'COMFORTABLE',
       soundEnabled: true,
       emailAlerts: true,
       locale: user?.locale || 'en-IN',
+    }
+    const storedPrefs = (user?.preferences as Record<string, any>) || {}
+    return {
+      userId,
+      ...defaultPrefs,
+      ...storedPrefs,
+      locale: user?.locale || storedPrefs.locale || 'en-IN',
+    }
+  }
+
+  /**
+   * Updates user preferences in User.preferences and optionally User.locale
+   */
+  static async updateUserPreferences(userId: string, updates: Record<string, any>) {
+    const current = await this.getUserPreferences(userId)
+    const { userId: _uid, ...existingPrefs } = current
+
+    const merged = {
+      ...existingPrefs,
+      ...updates,
+    }
+
+    const dataToUpdate: any = {
+      preferences: merged,
+      updatedAt: new Date(),
+    }
+    if (updates.locale && typeof updates.locale === 'string') {
+      dataToUpdate.locale = updates.locale
+    }
+
+    const updatedUser = await db.user.update({
+      where: { id: userId },
+      data: dataToUpdate,
+      select: { id: true, locale: true, preferences: true, updatedAt: true },
+    })
+
+    return {
+      userId,
+      ...(updatedUser.preferences as Record<string, any>),
+      locale: updatedUser.locale,
+      updatedAt: updatedUser.updatedAt.toISOString(),
     }
   }
 }

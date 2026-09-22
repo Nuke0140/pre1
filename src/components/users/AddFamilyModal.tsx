@@ -591,12 +591,13 @@ export function AddFamilyModal({
                   <>
                     <option value="FATHER">Father</option>
                     <option value="MOTHER">Mother</option>
-                    <option value="LEGAL_GUARDIAN">Legal Guardian</option>
+                    <option value="GUARDIAN">Guardian</option>
                   </>
                 ) : (
                   <>
+                    <option value="GUARDIAN">Guardian</option>
                     <option value="GRANDPARENT">Grandparent (Grandmother / Grandfather)</option>
-                    <option value="LEGAL_GUARDIAN">Legal Guardian</option>
+                    <option value="SIBLING">Sibling (Brother / Sister of legal age)</option>
                     <option value="OTHER">Uncle / Aunt / Caregiver / Nanny</option>
                   </>
                 )}

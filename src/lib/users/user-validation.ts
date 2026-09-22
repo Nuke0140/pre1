@@ -76,10 +76,14 @@ export function validateStaffInput(input: StaffCreateInput): { valid: boolean; e
     errors.push('Full name is required')
   }
 
-  if (!input.email || !input.email.trim()) {
-    errors.push('Email is required')
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
-    errors.push('Invalid email address format')
+  if (input.email && input.email.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+      errors.push('Invalid email address format')
+    }
+  } else {
+    if (!input.username?.trim() && !input.phone?.trim()) {
+      errors.push('Either email, username, or phone is required')
+    }
   }
 
   const assignedRoles =
@@ -126,10 +130,10 @@ export function validateFamilyInput(input: FamilyCreateInput): { valid: boolean;
     errors.push('Full name is required')
   }
 
-  if (!input.email || !input.email.trim()) {
-    errors.push('Email is required')
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
-    errors.push('Invalid email address format')
+  if (input.email && input.email.trim()) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim())) {
+      errors.push('Invalid email address format')
+    }
   }
 
   if (!input.phone || !input.phone.trim()) {

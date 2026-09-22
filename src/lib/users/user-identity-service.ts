@@ -6,7 +6,7 @@ import { UsernameService, UsernameType } from './username-service'
 
 export interface BaseIdentityOptions {
   fullName: string
-  email: string
+  email?: string | null
   phone?: string | null
   username?: string
   password?: string
@@ -56,13 +56,26 @@ export class UserIdentityService {
     tx: Prisma.TransactionClient,
     opts: BaseIdentityOptions
   ): Promise<{ user: any; isNewUser: boolean }> {
-    const emailNorm = this.normalizeEmail(opts.email)
+    const emailNorm = opts.email && opts.email.trim() ? this.normalizeEmail(opts.email) : null
     const phoneNorm = this.normalizePhone(opts.phone)
     const initialStatus: UserStatus = opts.status || 'ACTIVE'
 
-    let user = await tx.user.findUnique({
-      where: { email: emailNorm },
-    })
+    let user: any = null
+    if (emailNorm) {
+      user = await tx.user.findUnique({
+        where: { email: emailNorm },
+      })
+    }
+    if (!user && opts.username?.trim()) {
+      user = await tx.user.findUnique({
+        where: { username: opts.username.trim().toLowerCase() },
+      })
+    }
+    if (!user && phoneNorm) {
+      user = await tx.user.findFirst({
+        where: { phone: phoneNorm },
+      })
+    }
     if (!user && opts.username?.trim()) {
       user = await tx.user.findUnique({
         where: { username: opts.username.trim().toLowerCase() },

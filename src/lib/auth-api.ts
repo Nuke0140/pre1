@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { SessionPayload, can } from './auth'
+import { ROLE_META, normalizeRole } from './roles'
 import { getSession } from './auth-server'
 import { Errors, forbidden, notFound, bad } from './api'
 import { AuditService } from './audit/audit-service'
@@ -174,6 +175,9 @@ export function requireCanAssignRole(
   const isOwnerOrPlatform =
     session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
 
+  const actorRole = normalizeRole(session.role)
+  const actorLevel = ROLE_META[actorRole]?.hierarchyLevel ?? 0
+
   for (const r of targetRoles) {
     if (r === 'PLATFORM_ADMIN') {
       return forbidden('Cannot assign PLATFORM_ADMIN role')
@@ -187,6 +191,13 @@ export function requireCanAssignRole(
       session.role !== 'PRINCIPAL'
     ) {
       return forbidden('Only owners and principals can assign PRINCIPAL role')
+    }
+
+    // General hierarchy: cannot assign a role with higher hierarchy than actor
+    const targetNormalized = normalizeRole(r)
+    const targetLevel = ROLE_META[targetNormalized]?.hierarchyLevel ?? 0
+    if (!isOwnerOrPlatform && targetLevel >= actorLevel) {
+      return forbidden(`Insufficient privileges to assign role: ${r}`)
     }
   }
 
@@ -232,7 +243,22 @@ export async function requireGuardianChildAccess(
 ): Promise<boolean | Response> {
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isStaff = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'TEACHER', 'HELPER', 'ACCOUNTANT', 'HR', 'DRIVER', 'PLATFORM_ADMIN'].includes(r)
+    [
+      'OWNER',
+      'PRINCIPAL',
+      'COORDINATOR',
+      'TEACHER',
+      'STAFF',
+      'ACCOUNTS',
+      'RECEPTIONIST',
+      'ATTENDANT',
+      'DRIVER',
+      'PLATFORM_ADMIN',
+      'HELPER',
+      'ACCOUNTANT',
+      'HR',
+      'RECEPTION',
+    ].includes(r)
   )
   if (isStaff) return true
 

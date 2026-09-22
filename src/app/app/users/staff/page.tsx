@@ -128,7 +128,7 @@ export default function StaffUsersPage() {
               {u.name}
             </div>
             <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email.split('@')[0]}
+              @{u.username || u.email?.split('@')[0] || 'staff'}
             </div>
           </div>
         </div>
@@ -157,10 +157,17 @@ export default function StaffUsersPage() {
       header: 'Contact',
       render: (u) => (
         <div className="text-xs space-y-0.5">
-          <div className="text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5 break-all">
-            <Mail className="w-3 h-3 text-gray-400 shrink-0" />
-            <span>{u.email}</span>
-          </div>
+          {u.email ? (
+            <div className="text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5 break-all">
+              <Mail className="w-3 h-3 text-gray-400 shrink-0" />
+              <span>{u.email}</span>
+            </div>
+          ) : (
+            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
+              <Mail className="w-3 h-3 text-gray-300 shrink-0" />
+              <span>No email address</span>
+            </div>
+          )}
           {u.phone && (
             <div className="text-gray-500 font-mono flex items-center gap-1.5">
               <Phone className="w-3 h-3 text-gray-400" />
@@ -387,9 +394,10 @@ export default function StaffUsersPage() {
             >
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
               <option value="SUSPENDED">SUSPENDED</option>
-              <option value="PENDING">PENDING</option>
+              <option value="LOCKED">LOCKED</option>
+              <option value="DEACTIVATED">DEACTIVATED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
             </select>
           </div>
 

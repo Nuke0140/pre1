@@ -5,8 +5,32 @@ import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserStatus } from '@prisma/client'
+import { SessionService } from '@/lib/users/session-service'
+import { PermissionCache } from '@/lib/cache/permission-cache'
 
-/** POST /api/v1/users/[id]/status — manage user lifecycle (ACTIVE, SUSPENDED, INACTIVE, PENDING) */
+type ActionType = 'activate' | 'suspend' | 'unlock' | 'reactivate' | 'deactivate' | 'archive'
+
+const ACTION_MAP: Record<ActionType, UserStatus> = {
+  activate: 'ACTIVE',
+  suspend: 'SUSPENDED',
+  unlock: 'ACTIVE',
+  reactivate: 'ACTIVE',
+  deactivate: 'DEACTIVATED',
+  archive: 'ARCHIVED',
+}
+
+const VALID_TRANSITIONS: Record<string, UserStatus[]> = {
+  ACTIVE: ['SUSPENDED', 'LOCKED', 'DEACTIVATED'],
+  SUSPENDED: ['ACTIVE', 'DEACTIVATED'],
+  LOCKED: ['ACTIVE', 'DEACTIVATED'],
+  DEACTIVATED: ['ACTIVE', 'ARCHIVED'],
+  ARCHIVED: [], // Terminal state
+  // Legacy states backward compatibility
+  INACTIVE: ['ACTIVE', 'DEACTIVATED'],
+  PENDING: ['ACTIVE', 'DEACTIVATED'],
+}
+
+/** POST /api/v1/users/[id]/status — manage user lifecycle states (UAM-E1) */
 async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
@@ -19,55 +43,87 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
   try {
     const body = await req.json()
-    const { status, reason } = body as { status?: UserStatus; reason?: string }
-
-    if (!status || !['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(status)) {
-      return bad('Valid status is required (ACTIVE, INACTIVE, SUSPENDED, PENDING)', 'INVALID_STATUS')
+    const { action, status: explicitStatus, reason } = body as {
+      action?: ActionType
+      status?: UserStatus
+      reason?: string
     }
+
+    let targetStatus: UserStatus | undefined = explicitStatus
+
+    if (action) {
+      const mapped = ACTION_MAP[action.toLowerCase() as ActionType]
+      if (!mapped) {
+        return bad(`Invalid lifecycle action: ${action}. Allowed: ${Object.keys(ACTION_MAP).join(', ')}`, 'INVALID_ACTION')
+      }
+      targetStatus = mapped
+    }
+
+    if (!targetStatus) {
+      return bad('Either action or status must be provided', 'STATUS_OR_ACTION_REQUIRED')
+    }
+
+    const previousStatus = member.status as string
 
     if (member.role === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
       return forbidden('Only owners can modify school owner account status')
     }
 
-    const previousStatus = member.status
-
-    const validTransitions: Record<UserStatus, UserStatus[]> = {
-      PENDING: ['ACTIVE', 'INACTIVE'],
-      ACTIVE: ['SUSPENDED', 'INACTIVE'],
-      SUSPENDED: ['ACTIVE', 'INACTIVE'],
-      INACTIVE: ['ACTIVE', 'PENDING'],
+    if (previousStatus === 'ARCHIVED') {
+      return bad('Archived user accounts cannot be modified', 'ACCOUNT_ARCHIVED_IMMUTABLE')
     }
 
-    if (previousStatus === status) {
-      return ok({ userId: member.userId, status: member.status, message: 'Status already set' })
+    if (previousStatus === targetStatus) {
+      return ok({
+        userId: member.userId,
+        status: member.status,
+        message: 'Status already set to requested state',
+      })
     }
 
-    if (!validTransitions[previousStatus]?.includes(status)) {
-      return bad(`Cannot transition user status from ${previousStatus} to ${status}`, 'INVALID_STATE_TRANSITION')
+    const allowed = VALID_TRANSITIONS[previousStatus] || []
+    if (!allowed.includes(targetStatus)) {
+      return bad(
+        `Cannot transition user status from ${previousStatus} to ${targetStatus}. Allowed transitions: ${allowed.join(', ') || 'None'}`,
+        'INVALID_STATE_TRANSITION'
+      )
     }
 
-    // Update TenantUser status inside transaction
+    // Update in transaction
     const updatedMember = await db.$transaction(async (tx) => {
       const tu = await tx.tenantUser.update({
         where: { id: member.id },
-        data: { status },
+        data: { status: targetStatus },
       })
 
-      // If SUSPENDED or INACTIVE, also reflect on User account and revoke active sessions
-      if (['SUSPENDED', 'INACTIVE'].includes(status)) {
-        await tx.user.update({
-          where: { id: member.userId },
-          data: { status, updatedAt: new Date() },
-        })
-      } else if (status === 'ACTIVE') {
-        await tx.user.update({
-          where: { id: member.userId },
-          data: { status: 'ACTIVE' },
-        })
-      }
+      await tx.user.update({
+        where: { id: member.userId },
+        data: { status: targetStatus, updatedAt: new Date() },
+      })
 
       return tu
     })
+
+    // If account was suspended, locked, deactivated, or archived, revoke active sessions immediately
+    if (['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
+      await SessionService.revokeAllUserSessions(member.userId)
+      PermissionCache.bumpUserVersion(member.userId)
+    }
+
+    // Determine audit action name
+    let auditAction = 'UPDATE_USER_STATUS'
+    if (action) {
+      auditAction = `USER_${action.toUpperCase()}`
+    } else {
+      const statusActionMap: Record<string, string> = {
+        ACTIVE: previousStatus === 'LOCKED' ? 'USER_UNLOCKED' : 'USER_ACTIVATED',
+        SUSPENDED: 'USER_SUSPENDED',
+        LOCKED: 'USER_LOCKED',
+        DEACTIVATED: 'USER_DEACTIVATED',
+        ARCHIVED: 'USER_ARCHIVED',
+      }
+      auditAction = statusActionMap[targetStatus] || 'UPDATE_USER_STATUS'
+    }
 
     const meta = getRequestMeta(req)
     await recordAudit({
@@ -76,16 +132,16 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
-      action: status === 'SUSPENDED' ? 'SUSPEND_USER' : status === 'ACTIVE' ? 'ACTIVATE_USER' : 'UPDATE_USER_STATUS',
+      action: auditAction,
       entity: 'User',
       entityId: member.userId,
-      module: 'Users',
-      severity: status === 'SUSPENDED' ? 'WARNING' : 'INFO',
-      summary: `Changed user ${member.user.fullName} status from ${previousStatus} to ${status}${reason ? `: ${reason}` : ''}`,
+      module: 'USERS',
+      severity: ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus) ? 'WARNING' : 'INFO',
+      summary: `Transitioned user ${member.user.fullName} (${member.role}) from ${previousStatus} to ${targetStatus}${reason ? `: ${reason}` : ''}`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
       oldValues: { status: previousStatus },
-      newValues: { status, reason },
+      newValues: { status: targetStatus, action, reason },
     })
 
     return ok({

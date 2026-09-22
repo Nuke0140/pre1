@@ -179,7 +179,7 @@ model Branch {
 
 model User {
   id              String        @id @default(uuid())
-  email           String        @unique
+  email           String?       @unique
   username        String?       @unique
   phone           String?
   passwordHash    String
@@ -187,6 +187,7 @@ model User {
   avatarUrl       String?
   status          UserStatus    @default(ACTIVE)
   locale          String        @default("en-IN")
+  preferences     Json?
   lastLoginAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -198,8 +199,30 @@ model User {
   conductedActivities ClassroomActivity[]
   assessedProgresses  StudentProgress[]
   inAppNotifications  InAppNotification[]
+  sessions        UserSession[]
 
   @@map("users")
+}
+
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tenantId     String?
+  tokenHash    String    @unique
+  device       String?
+  platform     String?
+  ipAddress    String?
+  userAgent    String?
+  lastActiveAt DateTime  @default(now())
+  expiresAt    DateTime
+  status       String    @default("ACTIVE")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([tokenHash])
+  @@map("user_sessions")
 }
 
 model TenantUser {
@@ -995,7 +1018,7 @@ model StaffProfile {
   department            String?
   qualification         String?
   joiningDate           DateTime?
-  employmentType        EmploymentType @default(REGULAR)
+  employmentType        EmploymentType @default(FULL_TIME)
   emergencyContactName  String?
   emergencyContactPhone String?
   status                UserStatus     @default(ACTIVE)
@@ -1110,23 +1133,30 @@ enum UserRole {
   OWNER
   PRINCIPAL
   TEACHER
-  HELPER
-  ACCOUNTANT
-  HR
+  STAFF
+  ACCOUNTS
+  RECEPTIONIST
   DRIVER
+  ATTENDANT
   PARENT
   GUARDIAN
   PLATFORM_ADMIN
-  // Legacy backward-compatibility variants
   COORDINATOR
-  ACCOUNTS
+  // Legacy backward-compatibility variants
+  HELPER
+  ACCOUNTANT
+  HR
   RECEPTION
 }
 
 enum UserStatus {
   ACTIVE
-  INACTIVE
   SUSPENDED
+  LOCKED
+  DEACTIVATED
+  ARCHIVED
+  // Legacy backward-compatibility variants
+  INACTIVE
   PENDING
 }
 
@@ -1176,7 +1206,10 @@ enum StudentStatus {
 enum Relationship {
   FATHER
   MOTHER
+  GUARDIAN
+  SIBLING
   GRANDPARENT
+  // Legacy backward-compatibility variants
   LEGAL_GUARDIAN
   OTHER
 }
@@ -1443,9 +1476,12 @@ enum FacilityType {
 }
 
 enum EmploymentType {
-  REGULAR
+  FULL_TIME
   PART_TIME
   CONTRACT
+  PROBATION
+  // Legacy backward-compatibility variants
+  REGULAR
   INTERN
 }
 

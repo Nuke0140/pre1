@@ -48,7 +48,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 font-mono">
-                <span>@{user.username || user.email.split('@')[0]}</span>
+                <span>@{user.username || user.email?.split('@')[0] || 'user'}</span>
                 <span>•</span>
                 <span>ID: {user.userId.slice(-6)}</span>
               </div>

@@ -17,7 +17,8 @@ export async function nextNumber(
     | 'goods_receipt'
     | 'stock_issue'
     | 'stock_return'
-    | 'stock_adjustment',
+    | 'stock_adjustment'
+    | 'employee',
   tenantId: string
 ): Promise<string> {
   const fy = new Date().getFullYear()
@@ -34,11 +35,17 @@ export async function nextNumber(
     stock_issue: 'ISS',
     stock_return: 'RET',
     stock_adjustment: 'ADJ',
+    employee: 'EMP',
   } as const
   const prefix = `${prefixMap[model]}-${fy}`
 
   let seq = 0
   switch (model) {
+    case 'employee': {
+      const c = await db.staffProfile.count({ where: { tenantId, employeeCode: { startsWith: prefix } } })
+      seq = c + 1
+      return `${prefix}-${String(seq).padStart(3, '0')}`
+    }
     case 'invoice': {
       const c = await db.invoice.count({ where: { tenantId, invoiceNumber: { startsWith: prefix } } })
       seq = c + 1

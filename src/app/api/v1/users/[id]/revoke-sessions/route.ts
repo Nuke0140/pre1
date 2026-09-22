@@ -4,8 +4,10 @@ import { db } from '@/lib/db'
 import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
+import { SessionService } from '@/lib/users/session-service'
+import { PermissionCache } from '@/lib/cache/permission-cache'
 
-/** POST /api/v1/users/[id]/revoke-sessions  sign out all devices & revoke active sessions */
+/** POST /api/v1/users/[id]/revoke-sessions — sign out all devices & revoke active sessions */
 async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
@@ -21,7 +23,12 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       return forbidden('Only owners can revoke sessions of school owner')
     }
 
-    // Touch user updatedAt to invalidate cached tokens / trigger session re-auth
+    // Revoke all stored sessions in database
+    const revokedCount = await SessionService.revokeAllUserSessions(member.userId)
+    // Invalidate permission version cache
+    PermissionCache.bumpUserVersion(member.userId)
+
+    // Touch user updatedAt
     await db.user.update({
       where: { id: member.userId },
       data: { updatedAt: new Date() },
@@ -37,14 +44,15 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       action: 'REVOKE_SESSIONS',
       entity: 'User',
       entityId: member.userId,
-      module: 'Users',
+      module: 'USERS',
       severity: 'WARNING',
-      summary: `Revoked all active sessions for user ${member.user.fullName}`,
+      summary: `Revoked all active sessions (${revokedCount}) for user ${member.user.fullName}`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
+      newValues: { revokedSessionsCount: revokedCount },
     })
 
-    return ok({ revoked: true, userId: member.userId })
+    return ok({ revoked: true, userId: member.userId, revokedCount })
   } catch (err: any) {
     return serverError(err.message)
   }

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { User, Phone, Building, Briefcase, Shield, Key } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { UserRecord, BranchOption, CANONICAL_STAFF_ROLES, CANONICAL_FAMILY_ROLES, ROLE_BADGE, Role } from './types'
+import { Role, UserLifecycleStatus, BranchOption, UserRecord, CANONICAL_STAFF_ROLES, CANONICAL_FAMILY_ROLES, ROLE_BADGE } from './types'
 
 interface EditUserModalProps {
   open: boolean
@@ -21,7 +21,7 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [role, setRole] = useState<Role>('TEACHER')
-  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING'>('ACTIVE')
+  const [status, setStatus] = useState<UserLifecycleStatus>('ACTIVE')
   const [branchId, setBranchId] = useState('')
   const [designation, setDesignation] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -158,9 +158,10 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
               className="select w-full text-sm"
             >
               <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
               <option value="SUSPENDED">SUSPENDED</option>
-              <option value="PENDING">PENDING</option>
+              <option value="LOCKED">LOCKED</option>
+              <option value="DEACTIVATED">DEACTIVATED</option>
+              <option value="ARCHIVED">ARCHIVED</option>
             </select>
           </div>
         </div>
