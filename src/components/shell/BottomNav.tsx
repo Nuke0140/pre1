@@ -149,7 +149,7 @@ export function BottomNav({
   }, [nav])
 
   const isItemActive = (href: string) => {
-    if (href === '/app/home') return pathname === '/app/home'
+    if (href === '/app/home') return pathname === '/app/home' || pathname === '/app'
     return pathname.startsWith(href)
   }
 

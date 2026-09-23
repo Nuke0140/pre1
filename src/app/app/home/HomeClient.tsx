@@ -1,23 +1,56 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule } from '@/lib/modules'
 import { ModuleCard, PLogoWordmark } from '@/components/preone'
 
-export function HomeClient({ role }: { role: Role }) {
+export interface HomeClientProps {
+  role: Role
+  user?: {
+    name: string
+    role: Role
+    tenantName: string
+  }
+}
+
+export function HomeClient({ role, user }: HomeClientProps) {
+  const [greeting, setGreeting] = useState('Welcome back')
+
+  useEffect(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) setGreeting('Good morning')
+    else if (hour < 17) setGreeting('Good afternoon')
+    else setGreeting('Good evening')
+  }, [])
+
   const modules = useMemo<HomeModule[]>(
     () => homeModules(role).filter((m) => m.key !== 'home'),
     [role]
   )
 
+  const firstName = user?.name ? user.name.split(' ')[0] : 'Educator'
+
   return (
     <div className="home">
-      {/* ── Centered PreOne Brand Logo ── */}
+      {/* ── Centered PreOne Brand Logo & Preschool Workspace Context ── */}
       <section className="home-center-hero" aria-label="PreOne Home">
         <div className="home-center-brand">
           <PLogoWordmark subtitle="Preschool OS" />
         </div>
+
+        {user && (
+          <div className="home-context-bar" role="status">
+            <span className="home-tenant-badge">
+              <span className="home-tenant-dot" aria-hidden="true" />
+              {user.tenantName || 'Sunshine Kids Preschool'}
+            </span>
+            <span className="home-context-sep" aria-hidden="true">•</span>
+            <span className="home-greeting">
+              {greeting}, <strong className="home-user-name">{firstName}</strong>
+            </span>
+          </div>
+        )}
       </section>
 
       {/* ── Main Module Grid ── */}

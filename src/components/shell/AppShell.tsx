@@ -15,6 +15,7 @@ import { GlobalSearchModal } from '@/components/shell/GlobalSearchModal'
 import { StartMenu } from '@/components/shell/StartMenu'
 import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
+import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 
 export interface ShellUser {
   name: string
@@ -497,8 +498,9 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       </header>
 
       {/* ── Content ── */}
-      <main id="main" className="app-main">
-        <div className="app-content">{children}</div>
+      <main id="main" className="app-main relative">
+        <WorkspaceBackground />
+        <div className="app-content relative z-10">{children}</div>
       </main>
 
       {/* ── Start menu ── */}
