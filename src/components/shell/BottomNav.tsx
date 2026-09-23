@@ -9,8 +9,6 @@ import {
   GraduationCap,
   Sparkles,
   Briefcase,
-  Moon,
-  Sun,
 } from 'lucide-react'
 import { PLogoMark } from '@/components/preone/PLogo'
 import { DockStarsAccent } from '@/components/preone/illustrations'
@@ -25,8 +23,6 @@ export interface BottomNavProps {
   isOpen: boolean
   onToggleMenu: () => void
   triggerRef: React.RefObject<HTMLButtonElement | null>
-  theme: 'light' | 'dark'
-  onToggleTheme: () => void
   className?: string
 }
 
@@ -42,7 +38,7 @@ interface ResolvedDockItem {
  * A wide floating pill dock with 3 visual zones:
  * - Left: Clean breathing space with subtle preschool decorative stars & pastel particles
  * - Center: Symmetrically centered canonical navigation around an elevated glowing PreOne Orb
- * - Right: Live Date/Time utility & accessible theme toggle
+ * - Right: Live Date/Time utility
  */
 export function BottomNav({
   user,
@@ -51,8 +47,6 @@ export function BottomNav({
   isOpen,
   onToggleMenu,
   triggerRef,
-  theme,
-  onToggleTheme,
   className = '',
 }: BottomNavProps) {
   // Resolve canonical dock navigation items based on user role and permissions
@@ -155,7 +149,7 @@ export function BottomNav({
 
   return (
     <footer className={`dock-wrapper ${className}`.trim()} role="contentinfo">
-      <nav className="taskbar preone-dock" aria-label="Global navigation dock">
+      <nav className="taskbar preone-dock workspace-floating-surface" aria-label="Global navigation dock">
         {/* ── Left Zone: Clean breathing space + subtle decorative stars ── */}
         <div className="dock-zone dock-zone-left" aria-hidden="true">
           <DockStarsAccent className="dock-decorative-stars" />
@@ -233,20 +227,9 @@ export function BottomNav({
           </div>
         </div>
 
-        {/* ── Right Zone: Live Date/Time + Theme Toggle ── */}
+        {/* ── Right Zone: Live Date/Time ── */}
         <div className="dock-zone dock-zone-right">
           <DockDateTime />
-          <span className="dock-divider dock-divider-utility" aria-hidden="true" />
-          <button
-            suppressHydrationWarning
-            className="dock-theme-toggle"
-            onClick={onToggleTheme}
-            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-            aria-pressed={theme === 'dark'}
-            type="button"
-          >
-            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-          </button>
         </div>
       </nav>
     </footer>

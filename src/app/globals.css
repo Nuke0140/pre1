@@ -247,6 +247,28 @@ html, body {
   --po-focus-ring:var(--focus-ring);
   --po-shadow-card:var(--shadow-card);
   --po-shadow-elevated:var(--shadow-elevated);
+
+  /* ── 15. PreOne Global Workspace Design Tokens (Reference Match) ── */
+  --workspace-surface:color-mix(in srgb, var(--bg-card) 78%, transparent);
+  --workspace-surface-elevated:color-mix(in srgb, var(--bg-card) 92%, transparent);
+  --workspace-surface-hover:color-mix(in srgb, var(--primary) 7%, var(--bg-card));
+  --workspace-surface-active:color-mix(in srgb, var(--primary) 12%, var(--bg-card));
+  --workspace-border:color-mix(in srgb, var(--border-default) 65%, transparent);
+  --workspace-border-subtle:color-mix(in srgb, var(--border-subtle) 60%, transparent);
+  --workspace-shadow:0 4px 20px -2px rgba(99, 102, 241, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+  --workspace-shadow-dropdown:0 16px 36px -6px rgba(15, 23, 42, 0.12), 0 6px 16px -4px rgba(15, 23, 42, 0.08);
+  --workspace-primary:var(--primary);
+  --workspace-primary-soft:var(--primary-light);
+  --workspace-text:var(--text-primary);
+  --workspace-text-muted:var(--text-muted);
+  --workspace-text-secondary:var(--text-secondary);
+  --workspace-focus:var(--focus-ring);
+
+  /* ── 16. PreOne Shared Floating Curved Surface Tokens (Header & Dock Family) ── */
+  --workspace-floating-surface:color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  --workspace-floating-border:color-mix(in srgb, var(--border-default) 65%, transparent);
+  --workspace-floating-shadow:0 12px 36px -8px rgba(21, 37, 74, 0.08), 0 0 28px -4px color-mix(in srgb, var(--primary) 14%, transparent);
+  --workspace-floating-radius:var(--radius-full, 9999px);
 }
 
 /* ── DARK THEME — Deep Space Enterprise Dark ──────────────────────── */
@@ -382,6 +404,28 @@ html, body {
   --po-focus-ring:var(--focus-ring);
   --po-shadow-card:var(--shadow-card);
   --po-shadow-elevated:var(--shadow-elevated);
+
+  /* ── PreOne Global Workspace Design Tokens (Dark) ── */
+  --workspace-surface:color-mix(in srgb, var(--bg-card) 82%, transparent);
+  --workspace-surface-elevated:color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+  --workspace-surface-hover:color-mix(in srgb, var(--primary) 15%, var(--bg-card));
+  --workspace-surface-active:color-mix(in srgb, var(--primary) 22%, var(--bg-card));
+  --workspace-border:color-mix(in srgb, var(--border-default) 55%, transparent);
+  --workspace-border-subtle:color-mix(in srgb, var(--border-subtle) 45%, transparent);
+  --workspace-shadow:0 4px 24px -2px rgba(0, 0, 0, 0.35), 0 2px 8px -2px rgba(0, 0, 0, 0.25);
+  --workspace-shadow-dropdown:0 16px 36px -6px rgba(0, 0, 0, 0.45), 0 6px 16px -4px rgba(0, 0, 0, 0.35);
+  --workspace-primary:var(--primary);
+  --workspace-primary-soft:var(--primary-light);
+  --workspace-text:var(--text-primary);
+  --workspace-text-muted:var(--text-muted);
+  --workspace-text-secondary:var(--text-secondary);
+  --workspace-focus:var(--focus-ring);
+
+  /* ── PreOne Shared Floating Curved Surface Tokens (Dark) ── */
+  --workspace-floating-surface:color-mix(in srgb, var(--bg-card) 85%, transparent);
+  --workspace-floating-border:color-mix(in srgb, var(--border-default) 55%, transparent);
+  --workspace-floating-shadow:0 12px 40px -8px rgba(0, 0, 0, 0.5), 0 0 28px -4px color-mix(in srgb, var(--primary) 22%, transparent);
+  --workspace-floating-radius:var(--radius-full, 9999px);
 }
 
 /* ── Base ─────────────────────────────────────────────────────────── */
@@ -2032,6 +2076,391 @@ tr:focus-within .dt-row-actions .kebab {
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-bottom:1px solid color-mix(in srgb,var(--border) 65%,transparent);
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   PREONE GLOBAL FLOATING CURVED SURFACE SYSTEM (Header + Dock)
+   ════════════════════════════════════════════════════════════════════ */
+.workspace-floating-surface {
+  background: var(--workspace-floating-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--workspace-floating-border);
+  border-radius: var(--workspace-floating-radius);
+  box-shadow: var(--workspace-floating-shadow);
+  transition: all var(--motion-normal) var(--ease-standard);
+}
+
+.workspace-header-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 150;
+  padding: 12px 16px 0;
+  transition: padding var(--motion-normal) var(--ease-standard);
+}
+
+.workspace-header {
+  pointer-events: auto;
+  position: relative;
+  width: min(1180px, 100%);
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px 0 20px;
+}
+
+.workspace-header.scrolled {
+  min-height: 58px;
+  box-shadow: var(--workspace-shadow-dropdown);
+  background: var(--workspace-surface-elevated);
+}
+
+.workspace-header-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.workspace-search-mobile-row {
+  display: none;
+}
+
+.workspace-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.workspace-sparkle-anchor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--workspace-primary);
+  text-decoration: none;
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+
+.workspace-sparkle-anchor:hover {
+  background: var(--workspace-surface-hover);
+  border-color: var(--workspace-border-subtle);
+  transform: scale(1.06);
+}
+
+.workspace-sparkle-anchor:focus-visible {
+  outline: none;
+  box-shadow: var(--workspace-focus);
+}
+
+.workspace-search-wrap {
+  flex: 1;
+  max-width: 480px;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.workspace-search-bar {
+  width: 100%;
+  height: 40px;
+  border-radius: var(--radius-full, 9999px);
+  background: color-mix(in srgb, var(--input-background) 80%, transparent);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px 0 16px;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--motion-fast) var(--ease-standard);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.workspace-search-bar:hover {
+  border-color: color-mix(in srgb, var(--workspace-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--input-background) 95%, var(--workspace-primary-soft));
+}
+
+.workspace-search-bar:focus-visible {
+  outline: none;
+  border-color: var(--workspace-primary);
+  box-shadow: var(--workspace-focus);
+}
+
+.workspace-search-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.workspace-search-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--workspace-text-muted);
+  flex: none;
+}
+
+.workspace-search-placeholder {
+  font-size: 13.5px;
+  color: var(--workspace-text-muted);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-search-kbd {
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
+  color: var(--workspace-text-muted);
+  flex: none;
+}
+
+.workspace-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.workspace-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--workspace-text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+
+.workspace-action-btn:hover {
+  background: var(--workspace-surface-hover);
+  color: var(--workspace-text);
+  border-color: var(--workspace-border-subtle);
+}
+
+.workspace-action-btn:active {
+  background: var(--workspace-surface-active);
+  transform: scale(0.97);
+}
+
+.workspace-action-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--workspace-focus);
+}
+
+.workspace-action-btn.active {
+  background: var(--workspace-surface-active);
+  color: var(--workspace-primary);
+  border-color: color-mix(in srgb, var(--workspace-primary) 25%, transparent);
+}
+
+.workspace-action-label {
+  display: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  .workspace-action-label {
+    display: inline-block;
+  }
+}
+
+.workspace-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  color: #fff;
+}
+
+.workspace-badge.badge-primary {
+  background: var(--info);
+}
+
+.workspace-badge.badge-amber {
+  background: var(--warning);
+}
+
+.workspace-header-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--workspace-border);
+  margin: 0 4px;
+  flex: none;
+}
+
+.workspace-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+
+.workspace-profile-btn:hover {
+  background: var(--workspace-surface-hover);
+  border-color: var(--workspace-border-subtle);
+}
+
+.workspace-profile-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--workspace-focus);
+}
+
+.workspace-profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.workspace-profile-name {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--workspace-text);
+  white-space: nowrap;
+}
+
+.workspace-profile-role {
+  font-size: 11px;
+  color: var(--workspace-text-muted);
+  white-space: nowrap;
+}
+
+.workspace-profile-chevron {
+  color: var(--workspace-text-muted);
+  transition: transform var(--motion-fast);
+}
+
+.workspace-profile-btn:hover .workspace-profile-chevron {
+  color: var(--workspace-text);
+}
+
+.workspace-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(350px, calc(100vw - 24px));
+  max-height: 440px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--workspace-shadow-dropdown);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: workspacePopoverIn var(--motion-fast) var(--ease-standard);
+}
+
+@keyframes workspacePopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-search-wrap {
+    max-width: 320px;
+  }
+}
+
+@media (max-width: 767px) {
+  .workspace-header-wrapper {
+    padding: 8px 12px 0;
+  }
+  .workspace-header {
+    min-height: auto;
+    border-radius: 22px;
+    flex-direction: column;
+    padding: 8px 12px 10px;
+    gap: 8px;
+    width: 100%;
+  }
+  .workspace-header-main-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .workspace-search-mobile-row {
+    display: flex;
+    width: 100%;
+  }
+  .workspace-search-wrap {
+    max-width: 100%;
+    min-width: 100%;
+    width: 100%;
+  }
+  .workspace-search-bar {
+    height: 38px;
+    border-radius: 9999px;
+    padding: 0 12px 0 14px;
+  }
+  .workspace-action-label {
+    display: none !important;
+  }
+  .workspace-profile-info,
+  .workspace-profile-chevron {
+    display: none;
+  }
+  .workspace-action-btn {
+    height: 36px;
+    padding: 0 8px;
+  }
+}
 .h-logo{display:flex;align-items:center;gap:10px;flex:none}
 .h-logo .mark{width:34px;height:34px}
 .h-logo .wordmark{display:flex;flex-direction:column;line-height:1.15}
@@ -2111,12 +2540,12 @@ tr:focus-within .dt-row-actions .kebab {
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0 14px;
-  background: color-mix(in srgb, var(--surface-elevated) 95%, transparent);
+  background: var(--workspace-floating-surface);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full, 9999px);
-  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.1), 0 0 28px -4px color-mix(in srgb, var(--primary) 20%, transparent);
+  border: 1px solid var(--workspace-floating-border);
+  border-radius: var(--workspace-floating-radius);
+  box-shadow: var(--workspace-floating-shadow);
   transition: all var(--motion-normal) var(--ease-standard);
 }
 
@@ -2846,7 +3275,7 @@ tr:focus-within .dt-row-actions .kebab {
 @media (max-width:760px){
   .h-breadcrumb,.h-search kbd,.tb-clock,.h-avatar .who{display:none}
   .app-header{padding:0 14px;height:62px;gap:8px}
-  .app-main{padding:calc(var(--header-h, 72px) + 14px) 14px calc(var(--taskbar-h, 64px) + 40px + env(safe-area-inset-bottom, 0px))}
+  .app-main{padding:126px 14px calc(var(--taskbar-h, 64px) + 40px + env(safe-area-inset-bottom, 0px))}
   .app-content{gap:16px}
   .sm-list{columns:1}
   .h-search{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--surface-hover);padding:0}
@@ -2855,7 +3284,7 @@ tr:focus-within .dt-row-actions .kebab {
   .h-icbtn{width:38px;height:38px}
 }
 @media (max-width:380px){
-  .app-main{padding:calc(var(--header-h, 72px) + 10px) 10px calc(var(--taskbar-h, 64px) + 36px + env(safe-area-inset-bottom, 0px))}
+  .app-main{padding:126px 10px calc(var(--taskbar-h, 64px) + 36px + env(safe-area-inset-bottom, 0px))}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}

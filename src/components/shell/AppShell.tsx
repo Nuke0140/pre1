@@ -16,6 +16,7 @@ import { StartMenu } from '@/components/shell/StartMenu'
 import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
+import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
 
 export interface ShellUser {
   name: string
@@ -228,274 +229,35 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
     <>
       <a href="#main" className="skip-link">Skip to main content</a>
       <RouteProgress />
-      {/* ── Header ── */}
-      <header className="app-header">
-        {pathname !== '/app/home' && pathname !== '/app' && (
-          <Link href="/app" className="h-logo" aria-label="PreOne home">
-            <PLogoWordmark />
-          </Link>
-        )}
-        <div className="h-spacer" />
-        <div className="h-search" onClick={() => setSearchModalOpen(true)} style={{ cursor: 'pointer' }}>
-          <Search />
-          <input
-            suppressHydrationWarning
-            ref={headerSearchRef}
-            placeholder="Search students, staff, invoices, classes…"
-            onFocus={(e) => {
-              e.preventDefault()
-              setSearchModalOpen(true)
-            }}
-            readOnly
-            aria-label="Global search"
-            style={{ cursor: 'pointer' }}
-          />
-          <kbd>⌘K</kbd>
-        </div>
-        <div style={{ position: 'relative' }}>
-          <button
-            suppressHydrationWarning
-            ref={bellBtnRef}
-            className="h-icbtn"
-            aria-label="Notifications"
-            onClick={() => {
-              setNotifOpen((v) => !v)
-              if (!notifOpen) loadNotifications()
-            }}
-          >
-            <Bell />
-            {unreadCount > 0 && <span className="cnt">{unreadCount > 99 ? '99+' : unreadCount}</span>}
-          </button>
-
-          {notifOpen && (
-            <div
-              ref={notifRef}
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: 'min(340px, calc(100vw - 20px))',
-                maxWidth: 'calc(100vw - 20px)',
-                maxHeight: 440,
-                backgroundColor: 'var(--bg-card, #ffffff)',
-                border: '1px solid var(--border, #e2e8f0)',
-                borderRadius: 10,
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                zIndex: 100,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderBottom: '1px solid var(--border, #e2e8f0)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Bell size={15} />
-                  <b style={{ fontSize: 13.5 }}>Notifications</b>
-                  {unreadCount > 0 && <span className="badge b-blue" style={{ fontSize: 11 }}>{unreadCount} new</span>}
-                </div>
-                {unreadCount > 0 && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: 11.5, padding: '2px 6px' }}
-                    onClick={markAllRead}
-                  >
-                    Mark all read
-                  </button>
-                )}
-              </div>
-
-              <div style={{ overflowY: 'auto', flex: 1, maxHeight: 340 }}>
-                {notifications.length === 0 ? (
-                  <div style={{ padding: '30px 16px', textAlign: 'center' }} className="txt-muted">
-                    <p style={{ fontSize: 13 }}>No notifications yet</p>
-                  </div>
-                ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => !n.isRead && markRead(n.id)}
-                      style={{
-                        padding: '10px 14px',
-                        borderBottom: '1px solid var(--border, #f1f5f9)',
-                        backgroundColor: n.isRead ? 'transparent' : 'rgba(99, 102, 241, 0.04)',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6 }}>
-                        <span style={{ fontSize: 12.5, fontWeight: n.isRead ? 500 : 600 }}>{n.title}</span>
-                        <span className="badge" style={{ fontSize: 10, flexShrink: 0 }}>{n.category}</span>
-                      </div>
-                      <p className="txt-muted" style={{ fontSize: 12, marginTop: 3, lineHeight: 1.35 }}>{n.body}</p>
-                      <span className="txt-muted" style={{ fontSize: 10.5, marginTop: 4, display: 'block' }}>
-                        {timeAgo(n.createdAt)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div
-                style={{
-                  padding: '8px 14px',
-                  borderTop: '1px solid var(--border, #e2e8f0)',
-                  backgroundColor: 'var(--bg-subtle, #f8fafc)',
-                  textAlign: 'center',
-                }}
-              >
-                <Link
-                  href="/app/settings"
-                  onClick={() => setNotifOpen(false)}
-                  style={{ fontSize: 12, color: 'var(--primary, #6366f1)', textDecoration: 'none', fontWeight: 500 }}
-                >
-                  Manage notification settings →
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-        <div style={{ position: 'relative' }}>
-          <button
-            suppressHydrationWarning
-            ref={attnBtnRef}
-            className="h-icbtn"
-            aria-label="Needs attention"
-            aria-haspopup="dialog"
-            aria-expanded={attnOpen}
-            title={attentionTotal > 0 ? `${attentionTotal} item${attentionTotal === 1 ? '' : 's'} need attention` : 'Needs attention'}
-            onClick={() => setAttnOpen((v) => !v)}
-          >
-            <Inbox />
-            {attentionTotal > 0 && <span className="cnt cnt-amber">{attentionTotal > 99 ? '99+' : attentionTotal}</span>}
-          </button>
-
-          {attnOpen && (
-            <div
-              ref={attnRef}
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: 'min(340px, calc(100vw - 20px))',
-                maxWidth: 'calc(100vw - 20px)',
-                backgroundColor: 'var(--bg-card, #ffffff)',
-                border: '1px solid var(--border, #e2e8f0)',
-                borderRadius: 10,
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                zIndex: 100,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              <div style={{
-                padding: '12px 14px',
-                borderBottom: '1px solid var(--border, #e2e8f0)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Inbox size={15} />
-                  <b style={{ fontSize: 13.5 }}>Needs attention</b>
-                  {attentionTotal > 0 && (
-                    <span style={{
-                      fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
-                      borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
-                    }}>{attentionTotal}</span>
-                  )}
-                </div>
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11.5, padding: '2px 6px' }} onClick={() => setAttnOpen(false)}>
-                  Dismiss
-                </button>
-              </div>
-
-              <div style={{ overflowY: 'auto', flex: 1, maxHeight: 340 }}>
-                {attentionTotal === 0 ? (
-                  <div style={{ padding: '30px 16px', textAlign: 'center' }} className="txt-muted">
-                    <p style={{ fontSize: 13 }}>You're all caught up</p>
-                  </div>
-                ) : (
-                  <>
-                    <Link
-                      href="/app/users?tab=PENDING"
-                      onClick={() => setAttnOpen(false)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
-                        borderBottom: '1px solid var(--border, #f1f5f9)', textDecoration: 'none', color: 'inherit',
-                      }}
-                    >
-                      <span className="tico g-purple" style={{ width: 30, height: 30, borderRadius: 8 }}>
-                        <UserPlus size={14} />
-                      </span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>Pending invitations</span>
-                        <span className="txt-muted" style={{ fontSize: 11, display: 'block' }}>Awaiting enrolment or password setup</span>
-                      </span>
-                      <span style={{
-                          fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
-                          borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
-                        }}>{attention.invited}</span>
-                      <ChevronRight size={14} className="txt-muted" style={{ flexShrink: 0 }} />
-                    </Link>
-                    <Link
-                      href="/app/users?status=SUSPENDED"
-                      onClick={() => setAttnOpen(false)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px',
-                        borderBottom: '1px solid var(--border, #f1f5f9)', textDecoration: 'none', color: 'inherit',
-                      }}
-                    >
-                      <span className="tico g-orange" style={{ width: 30, height: 30, borderRadius: 8 }}>
-                        <Ban size={14} />
-                      </span>
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>Suspended accounts</span>
-                        <span className="txt-muted" style={{ fontSize: 11, display: 'block' }}>Portal access blocked until reactivated</span>
-                      </span>
-                      <span style={{
-                          fontSize: 11, flexShrink: 0, background: 'var(--warning-strong, #d97706)', color: '#fff',
-                          borderRadius: 999, padding: '2px 8px', fontWeight: 700, lineHeight: 1.3,
-                        }}>{attention.suspended}</span>
-                      <ChevronRight size={14} className="txt-muted" style={{ flexShrink: 0 }} />
-                    </Link>
-                  </>
-                )}
-              </div>
-
-              <div style={{
-                padding: '8px 14px',
-                borderTop: '1px solid var(--border, #e2e8f0)',
-                backgroundColor: 'var(--bg-subtle, #f8fafc)',
-                textAlign: 'center',
-              }}>
-                <Link
-                  href="/app/users"
-                  onClick={() => setAttnOpen(false)}
-                  style={{ fontSize: 12, color: 'var(--primary, #6366f1)', textDecoration: 'none', fontWeight: 500 }}
-                >
-                  Open Users &amp; Access →
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-        <button suppressHydrationWarning className="h-avatar" ref={avatarRef} onClick={() => setMenuOpen(true)} aria-label="Open start menu">
-          <span className="avatar sm a-p">{initials}</span>
-          <span className="who">
-            <b>{user.name}</b>
-            <span>{roleLabel}</span>
-          </span>
-        </button>
-      </header>
+      {/* ── Global Workspace Top Bar (Reference Match) ── */}
+      <GlobalWorkspaceHeader
+        user={user}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenSearch={() => setSearchModalOpen(true)}
+        unreadCount={unreadCount}
+        notifOpen={notifOpen}
+        onToggleNotif={() => {
+          setNotifOpen((v) => !v)
+          if (!notifOpen) loadNotifications()
+        }}
+        notifications={notifications}
+        onMarkRead={markRead}
+        onMarkAllRead={markAllRead}
+        bellBtnRef={bellBtnRef}
+        notifRef={notifRef}
+        attentionTotal={attentionTotal}
+        attention={attention}
+        attnOpen={attnOpen}
+        onToggleAttn={() => setAttnOpen((v) => !v)}
+        onDismissAttn={() => setAttnOpen(false)}
+        attnBtnRef={attnBtnRef}
+        attnRef={attnRef}
+        onOpenHelp={() => setShortcutOpen(true)}
+        avatarRef={avatarRef}
+        onOpenProfile={() => setMenuOpen(true)}
+        pathname={pathname}
+      />
 
       {/* ── Content ── */}
       <main id="main" className="app-main relative">
@@ -524,8 +286,6 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
         isOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((v) => !v)}
         triggerRef={startBtnRef}
-        theme={theme}
-        onToggleTheme={toggleTheme}
       />
 
       {/* ── Global Search Command Palette Modal ── */}
