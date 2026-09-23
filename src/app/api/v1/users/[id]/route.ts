@@ -11,8 +11,11 @@ import {
 } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
-import { UserRole } from '@prisma/client'
+import { UserRole, UserStatus } from '@prisma/client'
 import { normalizeRole } from '@/lib/roles'
+import { UserLifecycleService } from '@/lib/users/user-lifecycle-service'
+import { SessionService } from '@/lib/users/session-service'
+import { PermissionCache } from '@/lib/cache/permission-cache'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -133,6 +136,32 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       employeeCode?: string
     }
 
+    // Lifecycle status mutation validation and canonical routing
+    let lifecycleStatusToApply: UserStatus | undefined
+    if (status !== undefined) {
+      const upperStatus = String(status).toUpperCase() as UserStatus
+      if (!['ACTIVE', 'SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(upperStatus)) {
+        return bad(
+          `Invalid status: ${status}. Allowed: ACTIVE, SUSPENDED, LOCKED, DEACTIVATED, ARCHIVED`,
+          'INVALID_STATUS'
+        )
+      }
+
+      if (upperStatus !== member.status) {
+        const validation = UserLifecycleService.validateTransition(
+          member.status as string,
+          upperStatus,
+          member.role,
+          session.role
+        )
+        if (!validation.valid) {
+          if (validation.statusHttp === 403) return forbidden(validation.error!)
+          return bad(validation.error!, validation.code!)
+        }
+        lifecycleStatusToApply = upperStatus
+      }
+    }
+
     // Determine target roles
     let targetRoles: UserRole[] | undefined
     if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
@@ -172,13 +201,14 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     // Run updates in transaction
     const updatedMember = await db.$transaction(async (tx) => {
-      if (fullName || phone !== undefined || password) {
+      if (fullName || phone !== undefined || password || lifecycleStatusToApply) {
         await tx.user.update({
           where: { id: member.userId },
           data: {
             ...(fullName ? { fullName: fullName.trim() } : {}),
             ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
             ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+            ...(lifecycleStatusToApply ? { status: lifecycleStatusToApply, updatedAt: new Date() } : {}),
           },
         })
       }
@@ -188,7 +218,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         data: {
           ...(finalPrimaryRole ? { role: finalPrimaryRole } : {}),
           ...(targetRoles ? { roles: targetRoles } : {}),
-          ...(status ? { status } : {}),
+          ...(lifecycleStatusToApply ? { status: lifecycleStatusToApply } : {}),
           ...(branchId !== undefined ? { branchId: branchId || null } : {}),
         },
         include: {
@@ -248,6 +278,27 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       return updated
     })
 
+    // If lifecycle status changed, invalidate sessions and record canonical lifecycle audit
+    if (lifecycleStatusToApply) {
+      await UserLifecycleService.revokeSessionsIfRestricted(member.userId, lifecycleStatusToApply)
+      await UserLifecycleService.recordLifecycleAudit({
+        tenantId: session.tenantId,
+        branchId: updatedMember.branchId || undefined,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        member: {
+          userId: member.userId,
+          role: member.role,
+          user: { fullName: member.user.fullName },
+        },
+        previousStatus: member.status as string,
+        targetStatus: lifecycleStatusToApply,
+        reason: (body as any)?.reason,
+        req,
+      })
+    }
+
     const newRoles: UserRole[] =
       updatedMember.roles && updatedMember.roles.length > 0
         ? updatedMember.roles
@@ -263,23 +314,36 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       designation: designation !== undefined ? designation : member.user.staffProfile?.designation,
     }
 
-    const meta = getRequestMeta(req)
-    await recordAudit({
-      tenantId: session.tenantId,
-      branchId: updatedMember.branchId || undefined,
-      actorId: session.uid,
-      actorName: session.name,
-      actorRole: session.role,
-      action: 'UPDATE_USER',
-      entity: 'User',
-      entityId: member.userId,
-      module: 'Users',
-      summary: `Updated user ${updatedMember.user.fullName} (roles: [${newRoles.join(', ')}], primary: ${updatedMember.role}, status: ${updatedMember.status})`,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      oldValues,
-      newValues,
-    })
+    const hasProfileOrRoleChanges =
+      Boolean(fullName) ||
+      phone !== undefined ||
+      Boolean(password) ||
+      Boolean(targetRoles) ||
+      branchId !== undefined ||
+      designation !== undefined ||
+      employeeCode !== undefined ||
+      Boolean(classroomId)
+
+    // Only record UPDATE_USER if non-lifecycle profile fields changed or status was unchanged
+    if (hasProfileOrRoleChanges || !lifecycleStatusToApply) {
+      const meta = getRequestMeta(req)
+      await recordAudit({
+        tenantId: session.tenantId,
+        branchId: updatedMember.branchId || undefined,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'UPDATE_USER',
+        entity: 'User',
+        entityId: member.userId,
+        module: 'Users',
+        summary: `Updated user ${updatedMember.user.fullName} (roles: [${newRoles.join(', ')}], primary: ${updatedMember.role}, status: ${updatedMember.status})`,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        oldValues,
+        newValues,
+      })
+    }
 
     return ok({
       id: updatedMember.id,
@@ -297,7 +361,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
   }
 }
 
-/** DELETE /api/v1/users/[id] � deactivate user from school */
+/** DELETE /api/v1/users/[id] — deactivate user from school */
 async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
@@ -311,7 +375,7 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
       return forbidden('Cannot delete school owner account')
     }
 
-    // Soft delete membership
+    // Soft delete membership and sync user deactivation
     await db.tenantUser.update({
       where: { id: member.id },
       data: {
@@ -319,6 +383,15 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
         status: 'INACTIVE',
       },
     })
+    await db.user.update({
+      where: { id: member.userId },
+      data: {
+        status: 'INACTIVE',
+        updatedAt: new Date(),
+      },
+    })
+    await SessionService.revokeAllUserSessions(member.userId)
+    PermissionCache.bumpUserVersion(member.userId)
 
     const meta = getRequestMeta(req)
     await recordAudit({

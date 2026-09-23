@@ -152,6 +152,25 @@ export const POST = withApi(
 
       const membership = user.memberships[0]
 
+      if (membership) {
+        if (membership.status === 'SUSPENDED') {
+          return Errors.business('ACCOUNT_SUSPENDED', 'Your account has been suspended.', 403)
+        }
+        if (membership.status === 'DEACTIVATED' || (membership.status as string) === 'INACTIVE') {
+          return Errors.business('ACCOUNT_DEACTIVATED', 'Your account has been deactivated.', 403)
+        }
+        if (membership.status === 'ARCHIVED') {
+          return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
+        }
+        if (membership.status === 'LOCKED') {
+          return Errors.business(
+            'ACCOUNT_LOCKED',
+            'Account is locked due to security policy. Please contact an administrator.',
+            423
+          )
+        }
+      }
+
       // No school membership -> platform-level staff (client onboarding console)
       if (!membership) {
         const token = await signSession({

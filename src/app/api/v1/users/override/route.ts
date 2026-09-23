@@ -6,6 +6,8 @@ import { requireApi, isResponse, requireCanOverride } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
 import { UserRole, UserStatus } from '@prisma/client'
+import { SessionService } from '@/lib/users/session-service'
+import { PermissionCache } from '@/lib/cache/permission-cache'
 
 export type OverrideAction =
   | 'FORCE_ROLE_ASSIGNMENT'
@@ -177,6 +179,15 @@ export const POST = withApi(async (req: NextRequest) => {
         throw errValidation(`Unsupported override action: ${action}`, 'action')
     }
   })
+
+  // Invalidate sessions if user was transitioned to restricted status or deactivated
+  if (
+    (action === 'FORCE_STATUS_TRANSITION' && status && ['SUSPENDED', 'INACTIVE', 'LOCKED'].includes(status)) ||
+    action === 'EMERGENCY_DEACTIVATE'
+  ) {
+    await SessionService.revokeAllUserSessions(targetMember.userId)
+    PermissionCache.bumpUserVersion(targetMember.userId)
+  }
 
   // 4. Record high-priority OVERRIDE_USED audit log
   const meta = getRequestMeta(req)

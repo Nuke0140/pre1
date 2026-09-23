@@ -6,6 +6,8 @@ import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
+import { SessionService } from '@/lib/users/session-service'
+import { PermissionCache } from '@/lib/cache/permission-cache'
 
 export type BulkAction =
   | 'ACTIVATE'
@@ -462,6 +464,19 @@ export const POST = withApi(async (req: NextRequest) => {
           throw errValidation(`Unsupported bulk action: ${action}`, 'action')
       }
     })
+
+    // Invalidate sessions for users transitioned to restricted states
+    if (
+      action === 'SUSPEND' ||
+      action === 'DEACTIVATE' ||
+      effectiveStatus === 'INACTIVE' ||
+      effectiveStatus === 'SUSPENDED'
+    ) {
+      for (const m of eligibleMembers) {
+        await SessionService.revokeAllUserSessions(m.userId)
+        PermissionCache.bumpUserVersion(m.userId)
+      }
+    }
 
     // 3. Record AuditLog with bulkOperationId and before/after details
     await recordAudit({
