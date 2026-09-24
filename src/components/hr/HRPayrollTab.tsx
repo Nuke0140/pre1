@@ -183,118 +183,75 @@ export function HRPayrollTab({
   return (
     <div className="space-y-6">
       {/* ── 1. Top Payroll Metric Counters ── */}
-      <div
-        className="metric-strip"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-        }}
-      >
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Latest Period
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CreditCard size={15} style={{ color: 'var(--primary)' }} />
+            <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <CreditCard size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-foreground">
             {payrollStats.latestPeriod}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             Most recent payroll run
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Net Payout
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {money(payrollStats.totalNet)}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             Net bank disbursements
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Statutory Remittances
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileSpreadsheet size={15} style={{ color: 'var(--info)' }} />
+            <div className="w-7 h-7 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <FileSpreadsheet size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-foreground">
             {money(payrollStats.totalDeductions)}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             PF (12%) + ESI (0.75%) + PT
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Safety Held Payslips
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: payrollStats.heldCount > 0 ? 'var(--danger-soft)' : 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${payrollStats.heldCount > 0 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}`}>
               {payrollStats.heldCount > 0 ? (
-                <ShieldAlert size={15} style={{ color: 'var(--danger)' }} />
+                <ShieldAlert size={15} />
               ) : (
-                <ShieldCheck size={15} style={{ color: 'var(--success)' }} />
+                <ShieldCheck size={15} />
               )}
             </div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: payrollStats.heldCount > 0 ? 'var(--danger)' : 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div className={`text-2xl font-bold ${payrollStats.heldCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-foreground'}`}>
             {payrollStats.heldCount}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             {payrollStats.heldCount > 0 ? 'Locked pending POSH renewal' : 'All staff compliant'}
           </div>
         </div>

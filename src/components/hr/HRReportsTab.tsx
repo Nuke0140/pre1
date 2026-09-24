@@ -219,25 +219,34 @@ export function HRReportsTab({ branches }: HRReportsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* ── 1. Preschool Report Studio Preset Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      {/* ── 1. Report Selector Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {reportPresets.map((preset) => {
           const Icon = preset.icon
           const isSelected = reportType === preset.id
+
           return (
             <div
               key={preset.id}
+              role="button"
+              tabIndex={0}
               onClick={() => setReportType(preset.id)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setReportType(preset.id)
+                }
+              }}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between shadow-xs ${
                 isSelected
-                  ? 'border-primary bg-primary/5 shadow-xs ring-1 ring-primary/20'
-                  : 'border-border/80 bg-card hover:border-border hover:bg-muted/30'
+                  ? 'border-primary/60 bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/20 shadow-sm'
+                  : 'border-border/80 bg-card hover:border-border hover:bg-card/90'
               }`}
             >
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                    isSelected ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    isSelected ? 'bg-primary text-white' : 'bg-primary/10 text-primary'
                   }`}
                 >
                   <Icon size={15} />
@@ -246,11 +255,13 @@ export function HRReportsTab({ branches }: HRReportsTabProps) {
                   <span className="badge b-primary text-[10px] font-bold px-1.5 py-0">Active</span>
                 )}
               </div>
-              <div className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
-                {preset.title}
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                {preset.subtitle}
+              <div className="space-y-0.5">
+                <div className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                  {preset.title}
+                </div>
+                <div className="text-[11px] text-muted-foreground line-clamp-1">
+                  {preset.subtitle}
+                </div>
               </div>
             </div>
           )

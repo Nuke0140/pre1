@@ -231,34 +231,57 @@ export function HRLeaveTab({
     <div className="space-y-5">
       {/* ── 1. Standard Preschool Leave Quota Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Casual Leave (CL)
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Casual Leave (CL)
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <CalendarDays size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-foreground">12 Days</div>
-          <div className="text-[11px] text-muted-foreground">Monthly preschool entitlement</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Sick Leave (SL)
+          <div className="text-[11px] text-muted-foreground mt-1">Monthly preschool entitlement</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Sick Leave (SL)
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+              <Clock size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-foreground">10 Days</div>
-          <div className="text-[11px] text-muted-foreground">Carry forward up to 5 days</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Earned Leave (EL)
+          <div className="text-[11px] text-muted-foreground mt-1">Carry forward up to 5 days</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Earned Leave (EL)
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <CheckCircle2 size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-foreground">15 Days</div>
-          <div className="text-[11px] text-muted-foreground">Annual vacation leave</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Maternity (ML)
+          <div className="text-[11px] text-muted-foreground mt-1">Annual vacation leave</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Maternity (ML)
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <ShieldAlert size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-foreground">180 Days</div>
-          <div className="text-[11px] text-muted-foreground">Statutory maternity leave</div>
-        </Card>
+          <div className="text-[11px] text-muted-foreground mt-1">Statutory maternity leave</div>
+        </div>
       </div>
 
       {/* ── 2. Applications Table ── */}

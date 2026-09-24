@@ -198,22 +198,22 @@ export function HRAttendanceTab({
   return (
     <div className="space-y-4">
       {/* ── 1. Daily Roll Call Context & Navigation Bar ── */}
-      <div className="p-3.5 rounded-xl border border-border/80 bg-card flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+      <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Date Navigator */}
         <div className="flex items-center gap-2">
           <button
             onClick={handlePrevDay}
-            className="btn btn-ghost btn-sm p-1.5 h-8 w-8 rounded-lg"
+            className="btn btn-ghost btn-sm p-1.5 h-9 w-9 rounded-xl border border-border/70 hover:bg-muted/50"
             title="Previous Day"
           >
             <ChevronLeft size={16} />
           </button>
 
           <div className="flex items-center gap-1.5">
-            <Calendar size={14} className="text-primary shrink-0" />
+            <Calendar size={15} className="text-primary shrink-0" />
             <input
               type="date"
-              className="input text-xs py-1 px-2.5 h-8 font-medium cursor-pointer"
+              className="input text-xs py-1 px-3 h-9 font-medium cursor-pointer rounded-xl bg-background/80 border border-border/80"
               value={date}
               onChange={(e) => onDateChange(e.target.value)}
             />
@@ -221,7 +221,7 @@ export function HRAttendanceTab({
 
           <button
             onClick={handleNextDay}
-            className="btn btn-ghost btn-sm p-1.5 h-8 w-8 rounded-lg"
+            className="btn btn-ghost btn-sm p-1.5 h-9 w-9 rounded-xl border border-border/70 hover:bg-muted/50"
             title="Next Day"
           >
             <ChevronRight size={16} />
@@ -229,8 +229,8 @@ export function HRAttendanceTab({
 
           <button
             onClick={handleToday}
-            className={`btn btn-sm text-xs font-semibold px-2.5 h-8 rounded-lg ${
-              isToday ? 'btn-primary' : 'btn-ghost'
+            className={`btn btn-sm text-xs font-semibold px-3 h-9 rounded-xl ${
+              isToday ? 'btn-primary' : 'btn-ghost border border-border/70'
             }`}
           >
             Today
@@ -261,7 +261,7 @@ export function HRAttendanceTab({
       <div className="flex flex-wrap items-center gap-2">
         {/* Campus Filter */}
         <select
-          className="select text-xs py-1.5 px-2.5 h-8 font-medium"
+          className="select text-xs py-1.5 px-3 h-9 font-medium rounded-xl bg-background/80 border border-border/80"
           value={branchFilter}
           onChange={(e) => onBranchFilterChange(e.target.value)}
         >
@@ -275,7 +275,7 @@ export function HRAttendanceTab({
 
         {/* Status Filter */}
         <select
-          className="select text-xs py-1.5 px-2.5 h-8 font-medium"
+          className="select text-xs py-1.5 px-3 h-9 font-medium rounded-xl bg-background/80 border border-border/80"
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
         >

@@ -173,7 +173,7 @@ export function HREmployeesTab({
     <div className="flex flex-wrap items-center gap-2">
       {/* Branch Selector */}
       <select
-        className="select text-xs py-1.5 px-2.5 h-8 font-medium"
+        className="select text-xs py-1.5 px-3 h-9 font-medium rounded-xl bg-background/80 border border-border/80"
         value={branchFilter}
         onChange={(e) => onBranchFilterChange(e.target.value)}
       >
@@ -187,7 +187,7 @@ export function HREmployeesTab({
 
       {/* Status Filter */}
       <select
-        className="select text-xs py-1.5 px-2.5 h-8 font-medium"
+        className="select text-xs py-1.5 px-3 h-9 font-medium rounded-xl bg-background/80 border border-border/80"
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value)}
       >
@@ -199,7 +199,7 @@ export function HREmployeesTab({
 
       {/* Department Filter */}
       <select
-        className="select text-xs py-1.5 px-2.5 h-8 font-medium"
+        className="select text-xs py-1.5 px-3 h-9 font-medium rounded-xl bg-background/80 border border-border/80"
         value={departmentFilter}
         onChange={(e) => onDepartmentFilterChange(e.target.value)}
       >

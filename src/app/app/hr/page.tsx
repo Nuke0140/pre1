@@ -404,6 +404,9 @@ function HRPageContent() {
         pendingRequestsCount={metrics?.pendingLeaves || 0}
         onOpenOnboard={() => setIsOnboardOpen(true)}
         canWrite={canWrite}
+        canPayroll={canPayroll}
+        canApprove={canApprove}
+        onOpenProcessPayroll={() => setIsProcessPayrollOpen(true)}
       />
 
       {/* ── Tab Workspace ── */}

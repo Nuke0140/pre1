@@ -242,34 +242,57 @@ export function HRRequestsTab({
     <div className="space-y-6">
       {/* ── 1. Summary Counters ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            All Requests
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              All Requests
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <Inbox size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-foreground">{data.stats.total}</div>
-          <div className="text-[11px] text-muted-foreground">Historical staff requests</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Pending Review
+          <div className="text-[11px] text-muted-foreground mt-1">Historical staff requests</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Pending Review
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <AlertCircle size={14} />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-warning">{data.stats.pending}</div>
-          <div className="text-[11px] text-muted-foreground">Require administrator action</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Approved
+          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{data.stats.pending}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">Require administrator action</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Approved
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 size={14} />
+            </div>
           </div>
-          <div className="text-2xl font-bold text-success">{data.stats.approved}</div>
-          <div className="text-[11px] text-muted-foreground">Signed off and active</div>
-        </Card>
-        <Card variant="compact" className="p-3.5 space-y-1">
-          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Declined
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{data.stats.approved}</div>
+          <div className="text-[11px] text-muted-foreground mt-1">Signed off and active</div>
+        </div>
+
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Declined
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 flex items-center justify-center">
+              <XCircle size={14} />
+            </div>
           </div>
           <div className="text-2xl font-bold text-muted-foreground">{data.stats.rejected}</div>
-          <div className="text-[11px] text-muted-foreground">Rejected with notes</div>
-        </Card>
+          <div className="text-[11px] text-muted-foreground mt-1">Rejected with notes</div>
+        </div>
       </div>
 
       {/* ── 2. Segment Filters & Requests Table ── */}

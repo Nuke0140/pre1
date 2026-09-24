@@ -207,114 +207,71 @@ export function HRScheduleTab({ branchFilter }: { branchFilter?: string }) {
   return (
     <div className="space-y-6">
       {/* ── 1. Scheduling Metric Counters ── */}
-      <div
-        className="metric-strip"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-        }}
-      >
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Total Classrooms
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <GraduationCap size={15} style={{ color: 'var(--primary)' }} />
+            <div className="w-7 h-7 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <GraduationCap size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-foreground">
             {data.summary.totalClassrooms}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             Active preschool cohorts
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Assigned Teachers
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+            <div className="w-7 h-7 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {data.summary.assignedClassrooms}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             With dedicated primary teachers
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Unassigned Rooms
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <AlertTriangle size={15} style={{ color: 'var(--warning)' }} />
+            <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+              <AlertTriangle size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: data.summary.unassignedClassrooms > 0 ? 'var(--warning)' : 'var(--text-primary)', lineHeight: 1.1 }}>
+          <div className={`text-2xl font-bold ${data.summary.unassignedClassrooms > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
             {data.summary.unassignedClassrooms}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             Pending educator allocation
           </div>
         </div>
 
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+        <div className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
               Substitute Coverages
             </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Clock size={15} style={{ color: 'var(--info)' }} />
+            <div className="w-7 h-7 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <Clock size={15} />
             </div>
           </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--info)', lineHeight: 1.1 }}>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
             {data.summary.activeCoveragesToday}
           </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
+          <div className="text-[11px] text-muted-foreground mt-1">
             Active coverages today
           </div>
         </div>
