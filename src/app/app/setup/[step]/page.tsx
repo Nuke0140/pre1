@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
-  Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check,
+  Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -40,11 +40,15 @@ const CONFIG_STEP_DOMAIN: Record<string, string> = {
   admission_config: 'ADMISSION',
   student_parent: 'STUDENT_PARENT',
   daily_operations: 'DAILY_OPERATIONS',
+  health_settings: 'HEALTH_SAFETY',
   health_safety: 'HEALTH_SAFETY',
   curriculum: 'CURRICULUM',
   communication: 'COMMUNICATION',
+  templates: 'DOCUMENT_TEMPLATES',
   documents: 'DOCUMENT_TEMPLATES',
   branding: 'BRANDING',
+  mood_environment: 'MOOD_ENVIRONMENT',
+  promotion: 'PROMOTION',
 }
 
 /* ────────────────────────── generic field renderer ────────────────────────── */
@@ -173,14 +177,17 @@ export default function SetupStepPage() {
     switch (def.key) {
       case 'branch': return 'branches'
       case 'programs': return 'programs'
-      case 'infrastructure': return 'infrastructure'
       case 'roles': return 'roles'
-      case 'staff': return 'staff'
       case 'academic_year': return 'years'
+      case 'classroom': return 'classes'
       case 'classes_sections': return 'classes'
+      case 'subject': return 'subjects'
+      case 'fees_setup': return 'fees'
+      case 'fees': return 'fees'
+      case 'infrastructure': return 'infrastructure'
+      case 'staff': return 'staff'
       case 'teacher_assignment': return 'teachers'
       case 'calendar': return 'calendar'
-      case 'fees': return 'fees'
       case 'data_import': return 'import'
       default: return 'unknown'
     }
@@ -216,6 +223,7 @@ export default function SetupStepPage() {
       teachers: '/api/v1/classrooms',
       calendar: '/api/v1/calendar',
       fees: '/api/v1/programs',
+      subjects: '/api/v1/subjects',
     }
     const url = kind === 'config' || kind === 'branding' ? `/api/v1/setup/config/${configDomain}` : urls[kind]
     if (!url) return
@@ -536,6 +544,40 @@ export default function SetupStepPage() {
 
             {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} onAddClass={() => setModal('classroom')} />}
 
+            {kind === 'subjects' && (
+              <>
+                <TableToolbar title="Subjects & Learning Areas" count={list.length} icon={<BookOpen size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={() => setModal('subject')} addLabel="Add Subject" />
+                <p className="helper" style={{ marginBottom: 10 }}>Configure core and activity learning areas (e.g. Literacy, Numeracy, Motor Skills) and map them to programs.</p>
+                {list.length === 0 ? (
+                  <EmptyState icon={<BookOpen size={40} />} title="No subjects configured" message="Add early learning areas and subjects. These link to programs and classroom observations." />
+                ) : (
+                  <div className="dtable-scroll"><table className="dtable">
+                    <thead><tr><th>Subject</th><th>Type</th><th>Programs Mapped</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{list.map((s: any) => (
+                      <tr key={String(s.id)}>
+                        <td><span className="cell-strong">{s.name}</span><span className="cell-sub">{s.code}</span></td>
+                        <td><span className={`badge ${s.type === 'CORE' ? 'b-primary' : s.type === 'OPTIONAL' ? 'b-info' : 'b-neutral'}`}>{s.type}</span></td>
+                        <td>
+                          {s.programSubjects && s.programSubjects.length > 0 ? (
+                            <span className="badge b-success">{s.programSubjects.map((ps: any) => ps.program?.name ?? ps.programId).join(', ')}</span>
+                          ) : (
+                            <span className="badge b-warning">Unmapped</span>
+                          )}
+                        </td>
+                        <td>{String(s.classroomCount ?? 0)}</td>
+                        <td><StatusBadge status={s.active ? 'ACTIVE' : 'INACTIVE'} /></td>
+                        <td>
+                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(s); setEditType('subject'); }} title="Edit subject">
+                            <Edit3 size={13} /> Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table></div>
+                )}
+              </>
+            )}
+
             {kind === 'teachers' && <TeachersSection rooms={list} onDone={refreshAll} />}
 
             {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} onEditStaff={(s) => { setEditItem(s); setEditType('staff'); }} />}
@@ -610,6 +652,7 @@ export default function SetupStepPage() {
       {/* ── MODALS (rendered from parent with real api/toast) ── */}
       {modal === 'branch' && <BranchModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'program' && <ProgramModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+      {modal === 'subject' && <SubjectModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'year' && <YearModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'event' && <EventModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'classroom' && <ClassroomModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
@@ -622,6 +665,9 @@ export default function SetupStepPage() {
       )}
       {editType === 'program' && editItem && (
         <EditProgramModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
+      )}
+      {editType === 'subject' && editItem && (
+        <EditSubjectModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
       )}
       {editType === 'year' && editItem && (
         <EditYearModal item={editItem} onClose={() => { setEditType(null); setEditItem(null); }} onDone={refreshAll} api={api} toast={toast} />
@@ -1499,3 +1545,178 @@ function EditStaffModal({ item, onClose, onDone, api, toast }: { item: Dict; onC
     </Modal>
   )
 }
+
+function SubjectModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const [selectedPrograms, setSelectedPrograms] = useState<string[]>([])
+
+  useEffect(() => {
+    fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
+      if (j.success && Array.isArray(j.data)) setPrograms(j.data)
+    })
+  }, [])
+
+  const toggleProgram = (id: string) => {
+    setSelectedPrograms((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    )
+  }
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      code: fd.code,
+      shortName: fd.shortName || undefined,
+      description: fd.description || undefined,
+      subjectType: fd.subjectType || 'CORE',
+      programIds: selectedPrograms,
+    }
+    const j = await api('/api/v1/subjects', 'POST', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Subject created', String(j.data?.name ?? ''))
+      onClose(); onDone()
+    } else {
+      toast.error('Failed to create subject', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Add Subject / Learning Area" icon={<BookOpen size={22} />} iconClass="ic-blue">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Subject Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Early Literacy & Phonics" /></div>
+          <div className="field"><label>Subject Code <span className="req">*</span></label><input className="input" name="code" required placeholder="LIT" /></div>
+          <div className="field"><label>Short Name</label><input className="input" name="shortName" placeholder="Literacy" /></div>
+          <div className="field"><label>Subject Type <span className="req">*</span></label>
+            <select className="select" name="subjectType" defaultValue="CORE" required>
+              <option value="CORE">CORE — Core Learning Area</option>
+              <option value="OPTIONAL">OPTIONAL — Optional / Elective</option>
+              <option value="ACTIVITY">ACTIVITY — Co-curricular / Activity</option>
+            </select>
+          </div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" placeholder="Foundational language and reading development" /></div>
+
+          {programs.length > 0 && (
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Assign to Programs</label>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                {programs.map((p: any) => (
+                  <label key={String(p.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: 'var(--surface-muted)', padding: '4px 8px', borderRadius: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPrograms.includes(String(p.id))}
+                      onChange={() => toggleProgram(String(p.id))}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Subject</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditSubjectModal({ item, onClose, onDone, api, toast }: { item: Dict; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const initialProgramIds = useMemo(() => {
+    if (Array.isArray(item.programSubjects)) {
+      return item.programSubjects.map((ps: any) => String(ps.programId))
+    }
+    return []
+  }, [item])
+  const [selectedPrograms, setSelectedPrograms] = useState<string[]>(initialProgramIds)
+
+  useEffect(() => {
+    fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
+      if (j.success && Array.isArray(j.data)) setPrograms(j.data)
+    })
+  }, [])
+
+  const toggleProgram = (id: string) => {
+    setSelectedPrograms((prev) =>
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+    )
+  }
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); setBusy(true)
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const payload = {
+      name: fd.name,
+      shortName: fd.shortName || undefined,
+      description: fd.description || undefined,
+      subjectType: fd.subjectType || 'CORE',
+      status: fd.status || 'ACTIVE',
+      programIds: selectedPrograms,
+    }
+    const j = await api(`/api/v1/subjects/${item.id}`, 'PATCH', payload)
+    setBusy(false)
+    if (j.success) {
+      toast.success('Subject updated', String(item.name))
+      onClose(); onDone()
+    } else {
+      toast.error('Failed to update subject', j.error?.message)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Edit Subject — ${item.name}`} icon={<BookOpen size={22} />} iconClass="ic-blue">
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <div className="field"><label>Subject Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
+          <div className="field"><label>Subject Code</label><input className="input" value={String(item.code || '')} disabled /></div>
+          <div className="field"><label>Short Name</label><input className="input" name="shortName" defaultValue={String(item.shortName || '')} /></div>
+          <div className="field"><label>Subject Type <span className="req">*</span></label>
+            <select className="select" name="subjectType" defaultValue={String(item.type || 'CORE')} required>
+              <option value="CORE">CORE — Core Learning Area</option>
+              <option value="OPTIONAL">OPTIONAL — Optional / Elective</option>
+              <option value="ACTIVITY">ACTIVITY — Co-curricular / Activity</option>
+            </select>
+          </div>
+          <div className="field"><label>Status</label>
+            <select className="select" name="status" defaultValue={item.active ? 'ACTIVE' : 'INACTIVE'}>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="INACTIVE">INACTIVE</option>
+            </select>
+          </div>
+          <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" defaultValue={String(item.description || '')} /></div>
+
+          {programs.length > 0 && (
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Assign to Programs</label>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+                {programs.map((p: any) => (
+                  <label key={String(p.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: 'var(--surface-muted)', padding: '4px 8px', borderRadius: 6 }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPrograms.includes(String(p.id))}
+                      onChange={() => toggleProgram(String(p.id))}
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Save Changes</button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+

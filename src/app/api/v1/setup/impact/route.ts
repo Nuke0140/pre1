@@ -138,6 +138,46 @@ async function _POST(req: NextRequest) {
       })
     }
 
+    if (actionType === 'SUBJECT_DEACTIVATION') {
+      const subject = await db.subject.findFirst({
+        where: { id: targetId, tenantId: session.tenantId },
+        include: {
+          classroomMappings: {
+            include: { classroom: { select: { id: true, name: true } } },
+          },
+          programMappings: {
+            include: { program: { select: { id: true, name: true } } },
+          },
+        },
+      })
+      if (!subject) return Errors.notFound('Subject')
+
+      const activeClassrooms = subject.classroomMappings.length
+      const activePrograms = subject.programMappings.length
+      const warnings: string[] = []
+      if (activeClassrooms > 0) {
+        warnings.push(
+          `Subject is actively assigned to ${activeClassrooms} classroom(s): ${subject.classroomMappings.map((m) => m.classroom.name).join(', ')}`
+        )
+      }
+      if (activePrograms > 0) {
+        warnings.push(
+          `Subject is mapped to ${activePrograms} program(s): ${subject.programMappings.map((m) => m.program.name).join(', ')}`
+        )
+      }
+
+      return ok({
+        actionType,
+        targetId,
+        targetName: subject.name,
+        affectedClassrooms: activeClassrooms,
+        affectedPrograms: activePrograms,
+        warnings,
+        requiresConfirmation: activeClassrooms > 0 || activePrograms > 0,
+        canProceed: true,
+      })
+    }
+
     return Errors.validation(`Unknown actionType: ${actionType}`)
   } catch (e) {
     return Errors.system(e)

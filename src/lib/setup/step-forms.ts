@@ -168,4 +168,33 @@ export const CONFIG_FORMS: Record<string, DomainForm> = {
     ],
     defaults: { primaryColor: '#7C3AED', accentColor: '#3B82F6', layout: 'WINDOWS_SHELL' },
   },
+  MOOD_ENVIRONMENT: {
+    intro: 'Child wellbeing framework and classroom environment parameters. Feeds daily care logs and teacher wellbeing alerts.',
+    fields: [
+      { key: 'enabledMoods', label: 'Trackable child moods', type: 'checklist', options: ['HAPPY', 'CALM', 'ENERGETIC', 'SAD', 'CRANKY', 'TIRED', 'SICK'], required: true, full: true },
+      { key: 'environmentFactors', label: 'Classroom environment factors', type: 'checklist', options: ['TEMPERATURE', 'NOISE_LEVEL', 'LIGHTING', 'PLAY_CLEANLINESS'], full: true },
+      { key: 'alertOnSustainedDistress', label: 'Alert head teacher if child remains distressed across 2 checks', type: 'checkbox' },
+      { key: 'notes', label: 'Operating guidance for teachers', type: 'textarea', full: true },
+    ],
+    defaults: {
+      enabledMoods: ['HAPPY', 'CALM', 'ENERGETIC', 'CRANKY', 'TIRED'],
+      environmentFactors: ['TEMPERATURE', 'NOISE_LEVEL', 'PLAY_CLEANLINESS'],
+      alertOnSustainedDistress: true,
+    },
+  },
+  PROMOTION: {
+    intro: 'Academic year-end student promotion rules. Protects immutable historical allocation while setting up next year rosters.',
+    fields: [
+      { key: 'progressionMappingNote', label: 'Progression sequence', type: 'text', full: true, help: 'e.g. Playgroup → Nursery → LKG → UKG' },
+      { key: 'requireTeacherSignOff', label: 'Require primary teacher developmental sign-off before promotion', type: 'checkbox' },
+      { key: 'capacityGuardStrategy', label: 'Capacity full strategy', type: 'select', options: ['STRICT_REJECT', 'WAITLIST_IF_FULL'], required: true },
+      { key: 'preserveUnpaidBalance', label: 'Carry forward unpaid invoices into next session', type: 'checkbox' },
+    ],
+    defaults: {
+      progressionMappingNote: 'Playgroup → Nursery → LKG → UKG',
+      requireTeacherSignOff: true,
+      capacityGuardStrategy: 'WAITLIST_IF_FULL',
+      preserveUnpaidBalance: true,
+    },
+  },
 }

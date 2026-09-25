@@ -39,7 +39,7 @@ async function _GET(req: NextRequest) {
     // Setup Summary — counts of configured master data (read-only snapshot)
     const { db } = await import('@/lib/db')
     const tenantId = session.tenantId
-    const [branches, programs, sessions, classrooms, staff, events, feePlans, students] = await Promise.all([
+    const [branches, programs, sessions, classrooms, staff, events, feePlans, subjects, students] = await Promise.all([
       db.branch.count({ where: { tenantId, deletedAt: null } }),
       db.program.count({ where: { tenantId, deletedAt: null } }),
       db.academicSession.count({ where: { tenantId } }),
@@ -47,6 +47,7 @@ async function _GET(req: NextRequest) {
       db.staffProfile.count({ where: { tenantId, deletedAt: null } }),
       db.calendarEvent.count({ where: { tenantId } }),
       db.feePlan.count({ where: { tenantId, isActive: true } }),
+      db.subject.count({ where: { tenantId, deletedAt: null } }),
       db.student.count({ where: { tenantId, deletedAt: null } }),
     ])
 
@@ -56,7 +57,7 @@ async function _GET(req: NextRequest) {
       summary: {
         school: { name: (await db.tenant.findUnique({ where: { id: tenantId }, select: { name: true, code: true, city: true } })) },
         branches, programs, academicYears: sessions, classes: classrooms,
-        staff, calendarEvents: events, feePlans, students,
+        staff, calendarEvents: events, feePlans, subjects, students,
       },
       status: payload.status,
       progress: payload.progress,

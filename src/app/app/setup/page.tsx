@@ -21,6 +21,7 @@ const ICONS: Record<string, React.ComponentType<{ size?: number | string; classN
   School, Building2, Palette, Blocks, DoorOpen, Clock, ShieldCheck, Users,
   CalendarRange, LayoutGrid, GraduationCap, BookOpen, CalendarDays, IndianRupee,
   ClipboardList, HeartHandshake, Sun, Cross, Megaphone, FileText, Upload,
+  ClipboardCheck, ArrowRight,
 }
 
 interface StepRow {
@@ -37,6 +38,7 @@ interface StepRow {
   completedAt: string | null
   completedByName: string | null
   changedAfterCompletion: boolean
+  driftState?: boolean
   lastCheckedAt: string
   locked: boolean
 }
@@ -398,7 +400,8 @@ export default function SetupPage() {
                 ) : (
                   stepsInPhase.map((s) => {
                     const Icon = ICONS[s.icon] ?? School
-                    const badge = STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING
+                    const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
+                    const badge = isDrifted ? { cls: 'b-warning', label: 'Drifted' } : (STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING)
                     return (
                       <SetupStepTile
                         key={s.key}
@@ -413,9 +416,11 @@ export default function SetupPage() {
                           </span>
                         }
                         helper={
-                          s.status === 'BLOCKED'
-                            ? (s.blockedReason || 'Blocked by prerequisites')
-                            : (s.detail || s.description)
+                          isDrifted
+                            ? 'Configuration drifted — underlying data modified since completion'
+                            : s.status === 'BLOCKED'
+                              ? (s.blockedReason || 'Blocked by prerequisites')
+                              : (s.detail || s.description)
                         }
                       />
                     )

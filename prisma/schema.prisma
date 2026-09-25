@@ -24,6 +24,7 @@ model Tenant {
   email                  String?
   website                String?
   logoUrl                String?
+  principalSignatureUrl String?
   gstNumber              String?
   panNumber              String?
   academicYearStartMonth Int                        @default(4)
@@ -120,6 +121,11 @@ model Tenant {
   inAppNotifications          InAppNotification[]
   notificationDeliveryLogs    NotificationDeliveryLog[]
 
+  // Academic Subject Relations (M00 / M02)
+  subjects                    Subject[]
+  programSubjects             ProgramSubject[]
+  classroomSubjects           ClassroomSubject[]
+
   @@map("tenants")
 }
 
@@ -200,6 +206,7 @@ model User {
   assessedProgresses  StudentProgress[]
   inAppNotifications  InAppNotification[]
   sessions        UserSession[]
+  specialistSubjects ClassroomSubject[] @relation("SubjectSpecialistTeacher")
 
   @@map("users")
 }
@@ -309,6 +316,7 @@ model Classroom {
   materialRequests  MaterialRequest[]
   stockIssues       StockIssue[]
   leaveCoverages    LeaveCoverage[]
+  subjectMappings   ClassroomSubject[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -976,11 +984,71 @@ model Program {
   classrooms     Classroom[]
   applications   AdmissionApplication[]
   curriculums    Curriculum[]
+  subjectMappings ProgramSubject[]
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
   @@map("programs")
+}
+
+/// Academic Subject Master (M00 / M02)
+model Subject {
+  id                String             @id @default(uuid())
+  tenantId          String
+  code              String
+  name              String
+  shortName         String?
+  description       String?
+  subjectType       SubjectType        @default(CORE)
+  status            String             @default("ACTIVE")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  programMappings   ProgramSubject[]
+  classroomMappings ClassroomSubject[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("subjects")
+}
+
+/// Program to Subject Mapping
+model ProgramSubject {
+  id         String   @id @default(uuid())
+  tenantId   String
+  programId  String
+  subjectId  String
+  createdAt  DateTime @default(now())
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, subjectId])
+  @@index([tenantId, programId])
+  @@map("program_subjects")
+}
+
+/// Classroom to Subject Mapping (with Optional Specialist Teacher)
+model ClassroomSubject {
+  id                  String       @id @default(uuid())
+  tenantId            String
+  classroomId         String
+  subjectId           String
+  specialistTeacherId String?
+  createdAt           DateTime     @default(now())
+
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  classroom           Classroom    @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  subject             Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  specialistTeacher   User?        @relation("SubjectSpecialistTeacher", fields: [specialistTeacherId], references: [id], onDelete: SetNull)
+
+  @@unique([classroomId, subjectId])
+  @@index([tenantId, classroomId])
+  @@map("classroom_subjects")
 }
 
 /// Infrastructure tree: Branch → Facility (M00 §6/§10)
@@ -1174,6 +1242,12 @@ enum ProgramType {
   LKG
   UKG
   DAYCARE
+}
+
+enum SubjectType {
+  CORE
+  OPTIONAL
+  ACTIVITY
 }
 
 enum Gender {
@@ -1506,6 +1580,8 @@ enum ConfigDomain {
   CURRICULUM
   BRANDING
   INVENTORY
+  MOOD_ENVIRONMENT
+  PROMOTION
 }
 
 enum ProgressStage {

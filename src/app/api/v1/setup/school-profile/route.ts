@@ -15,7 +15,7 @@ async function _PATCH(req: NextRequest) {
     const body = await req.json()
     const allowed = [
       'name', 'email', 'phone', 'website', 'address', 'city', 'state', 'pincode',
-      'timezone', 'locale', 'logoUrl', 'academicYearStartMonth',
+      'timezone', 'locale', 'logoUrl', 'principalSignatureUrl', 'academicYearStartMonth',
     ] as const
     const data: Record<string, unknown> = {}
     for (const k of allowed) {
@@ -40,6 +40,7 @@ async function _PATCH(req: NextRequest) {
       website: tenant.website, address: tenant.address, city: tenant.city,
       state: tenant.state, pincode: tenant.pincode, timezone: tenant.timezone,
       locale: tenant.locale, logoUrl: tenant.logoUrl,
+      principalSignatureUrl: tenant.principalSignatureUrl,
       academicYearStartMonth: tenant.academicYearStartMonth,
     })
   } catch (e) {
@@ -60,6 +61,7 @@ async function _GET(req: NextRequest) {
       email: tenant.email, phone: tenant.phone, website: tenant.website,
       address: tenant.address, city: tenant.city, state: tenant.state, pincode: tenant.pincode,
       timezone: tenant.timezone, locale: tenant.locale, logoUrl: tenant.logoUrl,
+      principalSignatureUrl: tenant.principalSignatureUrl,
       academicYearStartMonth: tenant.academicYearStartMonth,
     })
   } catch (e) {
