@@ -1423,92 +1423,85 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB: IN-PAGE DAILY SCHEDULE BUILDER & DAILY REPORT */}
+          {/* TAB: IN-PAGE DAILY SCHEDULE BUILDER & DAILY REPORT (2-COLUMN BOX LAYOUT) */}
           {activeTab === 'builder' && (
-            <div className="space-y-6">
-              <div className="glass-panel p-6 space-y-6">
-                {/* Date & Day Selection Bar */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border pb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* LEFT PART BOX: MULTI-ROW TIMETABLE BUILDER */}
+              <div className="lg:col-span-6 glass-panel p-6 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
                   <div>
-                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                      <Clock size={20} className="text-primary" /> Daily Schedule Builder & Operational Report
+                    <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                      <Layers size={18} className="text-indigo-500" /> Multi-Row Timetable Builder
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Select date and day to build, manage, and view the daily classroom activity timetable.
+                      Configure multi-row core subjects & activities for {currentClass?.name}.
                     </p>
                   </div>
-
-                  {/* Target Date & Day Picker */}
-                  <div className="flex flex-wrap items-center gap-3 bg-muted/40 p-2.5 rounded-xl border border-border">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-primary" />
-                      <span className="text-xs font-bold text-foreground">Target Date:</span>
-                      <input
-                        type="date"
-                        className="bg-card border border-border text-xs font-semibold px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="badge b-primary text-xs font-bold px-3 py-1.5 flex items-center gap-1.5">
-                      <Sparkles size={13} />
-                      {getFormattedDayAndDate(selectedDate)}
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-ghost text-xs font-semibold"
-                        onClick={() => setSelectedDate(isoDate())}
-                      >
-                        Today
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-ghost text-xs font-semibold"
-                        onClick={() => {
-                          const tom = new Date()
-                          tom.setDate(tom.getDate() + 1)
-                          setSelectedDate(isoDate(tom))
-                        }}
-                      >
-                        Tomorrow
-                      </button>
-                    </div>
-                  </div>
+                  <span className="badge b-indigo text-xs font-bold px-2.5 py-1">
+                    {scheduleRows.length} {scheduleRows.length === 1 ? 'Row' : 'Rows'}
+                  </span>
                 </div>
 
-                {/* In-Page Schedule Builder Form */}
-                <form onSubmit={handleSaveScheduleBuilder} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <Layers size={16} className="text-indigo-500" /> Multi-Row Timetable Builder ({currentClass?.name})
-                    </h4>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Scheduling for <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong>
+                {/* Target Date & Day Selector Inside Builder Box */}
+                <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-2">
+                  <div className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar size={14} className="text-primary" /> Target Scheduling Date & Day:
+                    </span>
+                    <span className="badge b-primary text-[11px] font-bold">
+                      {getFormattedDayAndDate(selectedDate)}
                     </span>
                   </div>
 
-                  <div className="border border-border rounded-xl overflow-x-auto max-h-[60vh] overflow-y-auto bg-card/30">
-                    <table className="w-full text-left text-xs min-w-[720px]">
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <input
+                      type="date"
+                      className="bg-card border border-border text-xs font-semibold px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer flex-1"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline text-xs font-semibold"
+                      onClick={() => setSelectedDate(isoDate())}
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline text-xs font-semibold"
+                      onClick={() => {
+                        const tom = new Date()
+                        tom.setDate(tom.getDate() + 1)
+                        setSelectedDate(isoDate(tom))
+                      }}
+                    >
+                      Tomorrow
+                    </button>
+                  </div>
+                </div>
+
+                {/* Multi-Row Builder Table */}
+                <form onSubmit={handleSaveScheduleBuilder} className="space-y-4">
+                  <div className="border border-border rounded-xl overflow-x-auto max-h-[50vh] overflow-y-auto bg-card/30">
+                    <table className="w-full text-left text-xs min-w-[580px]">
                       <thead className="bg-muted font-bold text-muted-foreground border-b border-border sticky top-0 z-10">
                         <tr>
-                          <th className="p-3 w-10 text-center">#</th>
-                          <th className="p-3 min-w-[240px]">Subject / Activity Name *</th>
-                          <th className="p-3 w-32">Start Time *</th>
-                          <th className="p-3 w-32">End Time *</th>
-                          <th className="p-3 w-40">Type of Activity *</th>
-                          <th className="p-3 w-24 text-center">Actions</th>
+                          <th className="p-2.5 w-8 text-center">#</th>
+                          <th className="p-2.5 min-w-[180px]">Subject / Activity *</th>
+                          <th className="p-2.5 w-24">Start *</th>
+                          <th className="p-2.5 w-24">End *</th>
+                          <th className="p-2.5 w-28">Type *</th>
+                          <th className="p-2.5 w-16 text-center">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {scheduleRows.map((row, idx) => (
                           <tr key={row.id} className="hover:bg-card/50">
-                            <td className="p-3 font-mono text-muted-foreground text-center">{idx + 1}.</td>
-                            <td className="p-3">
+                            <td className="p-2 font-mono text-muted-foreground text-center">{idx + 1}.</td>
+                            <td className="p-2">
                               <select
-                                className="select select-sm text-xs font-semibold w-full min-w-[200px]"
+                                className="select select-sm text-xs font-semibold w-full"
                                 value={row.subjectName}
                                 onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
                                 required
@@ -1516,7 +1509,7 @@ export default function DailyDiaryPage() {
                                 <option value="">-- Select Subject --</option>
                                 {subjects.map((sub) => (
                                   <option key={sub.id} value={sub.name}>
-                                    {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                                    {sub.name} ({sub.subjectType === 'CORE' ? 'Core' : 'Activity'})
                                   </option>
                                 ))}
                                 <option value="English & Phonics">English & Phonics</option>
@@ -1528,52 +1521,52 @@ export default function DailyDiaryPage() {
                                 <option value="Storytelling & Rhymes">Storytelling & Rhymes</option>
                               </select>
                             </td>
-                            <td className="p-3">
+                            <td className="p-2">
                               <input
                                 type="time"
-                                className="input input-sm text-xs w-full"
+                                className="input input-sm text-xs w-full px-1.5"
                                 value={row.startTime}
                                 onChange={(e) => handleUpdateScheduleRow(idx, 'startTime', e.target.value)}
                                 required
                               />
                             </td>
-                            <td className="p-3">
+                            <td className="p-2">
                               <input
                                 type="time"
-                                className="input input-sm text-xs w-full"
+                                className="input input-sm text-xs w-full px-1.5"
                                 value={row.endTime}
                                 onChange={(e) => handleUpdateScheduleRow(idx, 'endTime', e.target.value)}
                                 required
                               />
                             </td>
-                            <td className="p-3">
+                            <td className="p-2">
                               <select
                                 className="select select-sm text-xs font-medium w-full"
                                 value={row.activityType}
                                 onChange={(e) => handleUpdateScheduleRow(idx, 'activityType', e.target.value)}
                               >
-                                <option value="CORE_SUBJECT">Core Subject</option>
+                                <option value="CORE_SUBJECT">Core</option>
                                 <option value="ACTIVITY">Activity</option>
                               </select>
                             </td>
-                            <td className="p-3 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="p-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
                                 <button
                                   type="button"
                                   className="btn btn-icon btn-icon-xs btn-icon-primary"
                                   onClick={handleAddScheduleRow}
-                                  title="Add Row Below (+)"
+                                  title="Add Row (+)"
                                 >
-                                  <Plus size={14} />
+                                  <Plus size={13} />
                                 </button>
                                 {scheduleRows.length > 1 && (
                                   <button
                                     type="button"
-                                    className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 rounded p-1 border border-rose-200 dark:border-rose-950"
+                                    className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500 hover:bg-rose-500/10 rounded p-1 border border-rose-200 dark:border-rose-950"
                                     onClick={() => handleRemoveScheduleRow(idx)}
                                     title="Remove Row (-)"
                                   >
-                                    <Minus size={14} />
+                                    <Minus size={13} />
                                   </button>
                                 )}
                               </div>
@@ -1595,59 +1588,59 @@ export default function DailyDiaryPage() {
 
                     <button
                       type="submit"
-                      className="btn btn-sm btn-primary"
+                      className="btn btn-sm btn-primary font-semibold"
                       disabled={submittingScheduleBuilder}
                     >
                       {submittingScheduleBuilder ? <RefreshCw className="animate-spin mr-1" size={14} /> : <Save className="mr-1" size={14} />}
-                      Save Schedule for {getFormattedDayAndDate(selectedDate)}
+                      Save Schedule
                     </button>
                   </div>
                 </form>
               </div>
 
-              {/* PERSISTED DAILY RECORD & ACTIVITY REPORT */}
-              <div className="glass-panel p-6 space-y-5">
+              {/* RIGHT PART BOX: DAILY SCHEDULE CHART & REPORT */}
+              <div className="lg:col-span-6 glass-panel p-6 space-y-5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
                   <div>
                     <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                      <FileText size={18} className="text-emerald-500" /> Daily Activity & Timetable Report
+                      <Clock size={18} className="text-primary" /> Schedule Chart & Daily Report
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Persisted operational record for <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong> ({currentClass?.name})
+                      Persisted records for <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong> ({currentClass?.name})
                     </p>
                   </div>
                   {overview && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="badge b-indigo font-bold">{overview.stats.coreSubjectsCount || 0} Core Subjects</span>
-                      <span className="badge b-purple font-bold">{overview.stats.activitiesCount || 0} Activities</span>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="badge b-indigo font-bold">{overview.stats.coreSubjectsCount || 0} Core</span>
+                      <span className="badge b-purple font-bold">{overview.stats.activitiesCount || 0} Act</span>
                     </div>
                   )}
                 </div>
 
                 {!overview || overview.activities.length === 0 ? (
-                  <div className="text-center py-8 border border-dashed border-border rounded-xl bg-card/20">
-                    <Clock className="mx-auto text-muted-foreground/60 mb-2" size={32} />
-                    <p className="text-sm font-semibold text-foreground">No Activity Records Found</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      No schedule entries exist for {getFormattedDayAndDate(selectedDate)}. Build schedule above to generate records.
+                  <div className="text-center py-12 border border-dashed border-border rounded-xl bg-card/20 space-y-2">
+                    <Clock className="mx-auto text-muted-foreground/60" size={34} />
+                    <p className="text-sm font-semibold text-foreground">No Schedule Chart Created Yet</p>
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                      Fill out the Multi-Row Builder on the left for {getFormattedDayAndDate(selectedDate)} and click &ldquo;Save Schedule&rdquo;.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Daily Schedule Progression Chart */}
-                    <div className="p-4 rounded-xl border border-border bg-card/50 space-y-2">
+                    {/* Visual Timeline Progression Chart */}
+                    <div className="p-3.5 rounded-xl border border-border bg-card/50 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
-                        <span>Daily Progression Chart ({getFormattedDayAndDate(selectedDate)})</span>
-                        <span>{overview.activities.length} Total Sessions</span>
+                        <span>Daily Progression Chart ({selectedDate})</span>
+                        <span>{overview.activities.length} Entries</span>
                       </div>
-                      <div className="flex items-center gap-1.5 h-10 w-full bg-muted/60 p-1.5 rounded-lg border border-border overflow-x-auto">
+                      <div className="flex items-center gap-1.5 h-9 w-full bg-muted/60 p-1 rounded-lg border border-border overflow-x-auto">
                         {overview.activities.map((act) => {
                           const isCore = ['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType)
                           const isCompleted = act.status === 'COMPLETED'
                           return (
                             <div
                               key={act.id}
-                              className={`h-full min-w-[95px] flex-1 rounded px-2 flex items-center justify-between text-[11px] font-semibold text-white cursor-pointer shadow-sm hover:opacity-90 ${
+                              className={`h-full min-w-[80px] flex-1 rounded px-2 flex items-center justify-between text-[10px] font-semibold text-white cursor-pointer shadow-sm hover:opacity-90 ${
                                 isCompleted
                                   ? 'bg-emerald-600'
                                   : isCore
@@ -1665,37 +1658,33 @@ export default function DailyDiaryPage() {
                       </div>
                     </div>
 
-                    {/* Detailed Activity Daily Report Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {/* Scheduled Entry Cards List */}
+                    <div className="space-y-2.5 max-h-[48vh] overflow-y-auto pr-1">
                       {overview.activities.map((act, idx) => (
-                        <div key={act.id} className="p-4 rounded-xl border border-border bg-card/40 hover:bg-card/70 transition-all flex flex-col justify-between gap-3">
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold font-mono px-2 py-0.5 rounded bg-muted text-foreground border border-border">
+                        <div key={act.id} className="p-3 rounded-xl border border-border bg-card/40 hover:bg-card/70 transition-all flex items-center justify-between gap-3">
+                          <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-muted text-foreground border border-border">
                                 {act.startTime} – {act.endTime}
                               </span>
                               <span className={`badge text-[9px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
-                                {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core Subject' : act.activityType.replace('_', ' ')}
+                                {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core' : 'Activity'}
                               </span>
                             </div>
-                            <h4 className="font-bold text-foreground text-sm flex items-center gap-1.5 mt-1">
-                              <span className="text-muted-foreground text-xs font-mono">{idx + 1}.</span> {act.title}
+                            <h4 className="font-bold text-foreground text-xs truncate">
+                              <span className="text-muted-foreground font-mono">{idx + 1}.</span> {act.title}
                             </h4>
                             {act.teacherName && (
-                              <p className="text-xs text-muted-foreground">Teacher: <strong className="text-foreground">{act.teacherName}</strong></p>
-                            )}
-                            {act.description && (
-                              <p className="text-xs text-muted-foreground leading-relaxed">{act.description}</p>
-                            )}
-                            {act.actualOutcome && (
-                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Outcome: {act.actualOutcome}</p>
+                              <span className="text-[11px] text-muted-foreground block">
+                                Teacher: <strong className="text-foreground">{act.teacherName}</strong>
+                              </span>
                             )}
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-border pt-2 text-xs">
+                          <div className="flex items-center gap-1.5">
                             {act.status === 'COMPLETED' ? (
                               <span className="badge b-success text-[10px] font-semibold">
-                                <CheckCircle2 size={12} className="mr-1 inline" /> Completed
+                                <CheckCircle2 size={11} className="mr-1 inline" /> Done
                               </span>
                             ) : (
                               <button
@@ -1707,24 +1696,22 @@ export default function DailyDiaryPage() {
                               </button>
                             )}
 
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                className="btn btn-icon btn-icon-xs btn-icon-ghost"
-                                onClick={() => handleOpenEditActivityModal(act)}
-                                title="Edit"
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500 hover:text-rose-600"
-                                onClick={() => handleDeleteActivity(act.id, act.title)}
-                                title="Delete"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-icon-xs btn-icon-ghost"
+                              onClick={() => handleOpenEditActivityModal(act)}
+                              title="Edit"
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                              onClick={() => handleDeleteActivity(act.id, act.title)}
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         </div>
                       ))}
