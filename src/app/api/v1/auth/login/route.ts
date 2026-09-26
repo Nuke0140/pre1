@@ -42,9 +42,11 @@ export const POST = withApi(
       const currentFailures =
         tracker && now - tracker.lastAttempt < ATTEMPT_WINDOW_MS ? tracker.count : 0
 
-      // Find user by email first, then username (UAM-E7, UAM-E13)
-      let user = await db.user.findFirst({
-        where: { email: loginId, deletedAt: null },
+      // Find user by either email or username (UAM-E7, UAM-E13)
+      const user = await db.user.findFirst({
+        where: {
+          OR: [{ email: loginId }, { username: loginId }],
+        },
         include: {
           memberships: {
             include: { tenant: true },
@@ -52,17 +54,6 @@ export const POST = withApi(
           },
         },
       })
-      if (!user) {
-        user = await db.user.findFirst({
-          where: { username: loginId, deletedAt: null },
-          include: {
-            memberships: {
-              include: { tenant: true },
-              where: { deletedAt: null },
-            },
-          },
-        })
-      }
 
       if (!user || user.deletedAt) {
         await audit({

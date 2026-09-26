@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { SessionPayload } from '@/lib/auth'
 import { recordAudit } from '@/lib/audit'
-import { AttendanceStatus, ActivityStatus, ObservationConcern, ObservationStatus } from '@prisma/client'
+import { AttendanceStatus, ActivityStatus, ObservationConcern } from '@prisma/client'
 
 export interface DailyDiaryScope {
   tenantId: string
@@ -25,6 +25,42 @@ export function getScopeFromSession(session: SessionPayload): DailyDiaryScope {
     role,
     isTeacher: isTeacher && !isAdmin, // strict teacher if not admin
     isAdmin,
+  }
+}
+
+function getDayBounds(dateStr: string) {
+  const startOfDay = new Date(`${dateStr}T00:00:00.000Z`)
+  const endOfDay = new Date(`${dateStr}T23:59:59.999Z`)
+  const dateOnly = new Date(dateStr)
+  dateOnly.setUTCHours(0, 0, 0, 0)
+  return { startOfDay, endOfDay, dateOnly }
+}
+
+/** Helper: Assert that a teacher only accesses their assigned classroom */
+async function assertClassroomAccess(session: SessionPayload, classroomId: string) {
+  const tenantId = session.tenantId!
+  const scope = getScopeFromSession(session)
+  if (scope.isAdmin) return
+
+  const classroom = await db.classroom.findFirst({
+    where: { id: classroomId, tenantId },
+    select: { primaryTeacherId: true },
+  })
+
+  if (!classroom) {
+    throw new Error('Classroom not found')
+  }
+
+  if (classroom.primaryTeacherId === session.uid) {
+    return
+  }
+
+  const isMapped = await db.classroomSubject.findFirst({
+    where: { classroomId, specialistTeacherId: session.uid },
+  })
+
+  if (!isMapped) {
+    throw new Error('FORBIDDEN_TEACHER_CLASSROOM_ACCESS: You are only authorized to manage your assigned classroom')
   }
 }
 
@@ -60,7 +96,7 @@ export class DailyDiaryService {
         isActive: true,
         OR: [
           { primaryTeacherId: session.uid },
-          { subjectMappings: { some: { teacherId: session.uid } } },
+          { subjectMappings: { some: { specialistTeacherId: session.uid } } },
         ],
       }
     } else if (scope.branchId) {
@@ -136,12 +172,11 @@ export class DailyDiaryService {
    */
   static async getOverview(session: SessionPayload, classroomId: string, dateStr: string) {
     const tenantId = session.tenantId!
-    const date = new Date(dateStr)
-    date.setUTCHours(0, 0, 0, 0)
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(dateStr)
 
-    const scope = getScopeFromSession(session)
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, classroomId)
 
-    // Check classroom authorization for teacher
     const classroom = await db.classroom.findFirst({
       where: { id: classroomId, tenantId },
       include: {
@@ -153,15 +188,6 @@ export class DailyDiaryService {
 
     if (!classroom) {
       throw new Error('Classroom not found')
-    }
-
-    if (scope.isTeacher && classroom.primaryTeacherId !== session.uid) {
-      const isMapped = await db.classroomSubject.findFirst({
-        where: { classroomId, teacherId: session.uid },
-      })
-      if (!isMapped) {
-        throw new Error('Unauthorized access to classroom')
-      }
     }
 
     // Fetch active students in classroom
@@ -180,7 +206,7 @@ export class DailyDiaryService {
 
     // Fetch attendance on date
     const attendanceRecords = await db.attendance.findMany({
-      where: { classroomId, tenantId, date },
+      where: { classroomId, tenantId, date: dateOnly },
     })
 
     const attendanceMap = new Map(attendanceRecords.map((a) => [a.studentId, a]))
@@ -217,11 +243,6 @@ export class DailyDiaryService {
     })
 
     // Fetch today's activities
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
-
     const activities = await db.classroomActivity.findMany({
       where: {
         classroomId,
@@ -302,8 +323,10 @@ export class DailyDiaryService {
    */
   static async getAttendanceRegister(session: SessionPayload, classroomId: string, dateStr: string) {
     const tenantId = session.tenantId!
-    const date = new Date(dateStr)
-    date.setUTCHours(0, 0, 0, 0)
+    const { dateOnly } = getDayBounds(dateStr)
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, classroomId)
 
     const students = await db.student.findMany({
       where: { currentClassroomId: classroomId, tenantId, status: 'ACTIVE', deletedAt: null },
@@ -319,7 +342,7 @@ export class DailyDiaryService {
     })
 
     const attendanceRows = await db.attendance.findMany({
-      where: { classroomId, tenantId, date },
+      where: { classroomId, tenantId, date: dateOnly },
     })
 
     const attMap = new Map(attendanceRows.map((r) => [r.studentId, r]))
@@ -352,8 +375,10 @@ export class DailyDiaryService {
     records: { studentId: string; status: AttendanceStatus; notes?: string }[]
   ) {
     const tenantId = session.tenantId!
-    const date = new Date(dateStr)
-    date.setUTCHours(0, 0, 0, 0)
+    const { dateOnly } = getDayBounds(dateStr)
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, classroomId)
 
     const classroom = await db.classroom.findUnique({
       where: { id: classroomId },
@@ -372,7 +397,7 @@ export class DailyDiaryService {
           where: {
             studentId_date: {
               studentId: rec.studentId,
-              date,
+              date: dateOnly,
             },
           },
           update: {
@@ -389,7 +414,7 @@ export class DailyDiaryService {
             branchId: classroom.branchId,
             classroomId,
             studentId: rec.studentId,
-            date,
+            date: dateOnly,
             status: rec.status,
             notes: rec.notes || null,
             markedById: session.uid,
@@ -434,8 +459,10 @@ export class DailyDiaryService {
     }
   ) {
     const tenantId = session.tenantId!
-    const date = new Date(data.dateStr)
-    date.setUTCHours(0, 0, 0, 0)
+    const { dateOnly } = getDayBounds(data.dateStr)
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, data.classroomId)
 
     const classroom = await db.classroom.findUnique({
       where: { id: data.classroomId },
@@ -452,7 +479,7 @@ export class DailyDiaryService {
         teacherId: data.teacherId || classroom.primaryTeacherId || session.uid,
         title: data.title,
         activityType: data.activityType || 'ACTIVITY',
-        activityDate: date,
+        activityDate: dateOnly,
         startTime: data.startTime || '09:00',
         endTime: data.endTime || '09:30',
         description: data.description || null,
@@ -489,6 +516,9 @@ export class DailyDiaryService {
 
     if (!existing) throw new Error('Activity not found')
 
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, existing.classroomId)
+
     const updated = await db.classroomActivity.update({
       where: { id: activityId },
       data: {
@@ -519,6 +549,9 @@ export class DailyDiaryService {
     }
   ) {
     const tenantId = session.tenantId!
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, data.classroomId)
 
     const classroom = await db.classroom.findUnique({
       where: { id: data.classroomId },
@@ -558,16 +591,17 @@ export class DailyDiaryService {
     studentId?: string
   ) {
     const tenantId = session.tenantId!
-    const startDate = new Date(startDateStr)
-    startDate.setUTCHours(0, 0, 0, 0)
-    const endDate = new Date(endDateStr)
-    endDate.setUTCHours(23, 59, 59, 999)
+    const { startOfDay } = getDayBounds(startDateStr)
+    const { endOfDay } = getDayBounds(endDateStr)
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, classroomId)
 
     // Attendance History
     const attendanceWhere: any = {
       classroomId,
       tenantId,
-      date: { gte: startDate, lte: endDate },
+      date: { gte: startOfDay, lte: endOfDay },
     }
     if (studentId) attendanceWhere.studentId = studentId
 
@@ -585,7 +619,7 @@ export class DailyDiaryService {
       where: {
         classroomId,
         tenantId,
-        activityDate: { gte: startDate, lte: endDate },
+        activityDate: { gte: startOfDay, lte: endOfDay },
         deletedAt: null,
       },
       include: {
@@ -599,7 +633,7 @@ export class DailyDiaryService {
     const obsWhere: any = {
       classroomId,
       tenantId,
-      observedAt: { gte: startDate, lte: endDate },
+      observedAt: { gte: startOfDay, lte: endOfDay },
     }
     if (studentId) obsWhere.studentId = studentId
 
@@ -646,8 +680,13 @@ export class DailyDiaryService {
    */
   static async getAdminSchoolOverview(session: SessionPayload, dateStr: string, branchId?: string) {
     const tenantId = session.tenantId!
-    const date = new Date(dateStr)
-    date.setUTCHours(0, 0, 0, 0)
+    const scope = getScopeFromSession(session)
+
+    if (!scope.isAdmin) {
+      throw new Error('FORBIDDEN: Admin or Coordinator access required for school overview')
+    }
+
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(dateStr)
 
     const classroomsWhere: any = { tenantId, isActive: true }
     if (branchId) classroomsWhere.branchId = branchId
@@ -664,13 +703,8 @@ export class DailyDiaryService {
     const classroomIds = classrooms.map((c) => c.id)
 
     const attendanceRecords = await db.attendance.findMany({
-      where: { classroomId: { in: classroomIds }, tenantId, date },
+      where: { classroomId: { in: classroomIds }, tenantId, date: dateOnly },
     })
-
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0, 0, 0, 0)
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
 
     const activities = await db.classroomActivity.findMany({
       where: {

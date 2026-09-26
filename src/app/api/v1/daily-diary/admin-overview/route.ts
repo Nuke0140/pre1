@@ -1,13 +1,19 @@
 import { NextRequest } from 'next/server'
 import { withApi } from '@/lib/with-api'
-import { getSession } from '@/lib/auth-server'
+import { requireApi, isResponse } from '@/lib/auth-api'
 import { ok, Errors } from '@/lib/api'
-import { DailyDiaryService } from '@/lib/daily-diary/daily-diary-service'
+import { DailyDiaryService, getScopeFromSession } from '@/lib/daily-diary/daily-diary-service'
 import { isoDate } from '@/lib/format'
 
 async function _GET(req: NextRequest) {
-  const session = await getSession(req)
-  if (!session || !session.tenantId) return Errors.unauthorized('Session required')
+  const session = await requireApi(req, 'attendance:read')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  const scope = getScopeFromSession(session)
+  if (!scope.isAdmin) {
+    return Errors.forbidden('Admin or Coordinator access required')
+  }
 
   const { searchParams } = new URL(req.url)
   const dateStr = searchParams.get('date') || isoDate()
