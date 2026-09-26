@@ -181,7 +181,6 @@ export class DailyDiaryService {
       where: { id: classroomId, tenantId },
       include: {
         primaryTeacher: { select: { id: true, fullName: true, email: true } },
-        branch: { select: { id: true, name: true, code: true } },
         academicSession: { select: { id: true, name: true } },
       },
     })
@@ -189,6 +188,13 @@ export class DailyDiaryService {
     if (!classroom) {
       throw new Error('Classroom not found')
     }
+
+    const branch = classroom.branchId
+      ? await db.branch.findUnique({
+          where: { id: classroom.branchId },
+          select: { id: true, name: true, code: true },
+        })
+      : null
 
     // Fetch active students in classroom
     const students = await db.student.findMany({
@@ -280,7 +286,7 @@ export class DailyDiaryService {
         capacity: classroom.capacity,
         teacherName: classroom.primaryTeacher?.fullName || 'Unassigned',
         teacherId: classroom.primaryTeacherId,
-        branchName: classroom.branch?.name,
+        branchName: branch?.name,
         sessionName: classroom.academicSession?.name,
       },
       date: dateStr,
