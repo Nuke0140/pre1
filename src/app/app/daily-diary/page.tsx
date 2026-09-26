@@ -26,6 +26,8 @@ import {
   Layers,
   Search,
   Check,
+  Edit3,
+  Trash2,
 } from 'lucide-react'
 import { PageHead, Avatar } from '@/components/preone/ui'
 import { DatePicker } from '@/components/preone/forms'
@@ -97,6 +99,8 @@ interface OverviewData {
     halfDay: number
     unmarked: number
     totalActivities: number
+    coreSubjectsCount?: number
+    activitiesCount?: number
     completedActivities: number
     totalObservations: number
   }
@@ -106,14 +110,15 @@ interface OverviewData {
     activityType: string
     startTime: string
     endTime: string
+    teacherId?: string | null
+    teacherName: string
     status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
     description: string | null
     actualOutcome: string | null
-    teacherName: string
   }[]
   observations: {
     id: string
-    studentId: string
+    studentId?: string | null
     studentName: string
     narrative: string
     category: string
@@ -198,6 +203,7 @@ export default function DailyDiaryPage() {
 
   // Modal States
   const [showAddActivityModal, setShowAddActivityModal] = useState(false)
+  const [showEditActivityModal, setShowEditActivityModal] = useState(false)
   const [showObservationModal, setShowObservationModal] = useState(false)
   const [showCompleteActivityModal, setShowCompleteActivityModal] = useState<string | null>(null)
   const [activityNotesInput, setActivityNotesInput] = useState('')
@@ -205,17 +211,22 @@ export default function DailyDiaryPage() {
   // Form Inputs: Add Activity
   const [newActClassroomId, setNewActClassroomId] = useState('')
   const [newActTitle, setNewActTitle] = useState('')
-  const [newActType, setNewActType] = useState('ACTIVITY')
-  const [newActStartTime, setNewActStartTime] = useState('09:30')
+  const [newActType, setNewActType] = useState('CORE_SUBJECT')
+  const [newActStartTime, setNewActStartTime] = useState('09:00')
   const [newActEndTime, setNewActEndTime] = useState('10:00')
   const [newActTeacherId, setNewActTeacherId] = useState('')
   const [newActDesc, setNewActDesc] = useState('')
   const [submittingAct, setSubmittingAct] = useState(false)
 
-  const handleOpenAddActivityModal = (targetClassId?: string) => {
-    setNewActClassroomId(targetClassId || selectedClassroomId || classrooms[0]?.id || '')
-    setShowAddActivityModal(true)
-  }
+  // Form Inputs: Edit Activity
+  const [editActId, setEditActId] = useState('')
+  const [editActTitle, setEditActTitle] = useState('')
+  const [editActType, setEditActType] = useState('CORE_SUBJECT')
+  const [editActStartTime, setEditActStartTime] = useState('09:00')
+  const [editActEndTime, setEditActEndTime] = useState('10:00')
+  const [editActTeacherId, setEditActTeacherId] = useState('')
+  const [editActDesc, setEditActDesc] = useState('')
+  const [submittingEditAct, setSubmittingEditAct] = useState(false)
 
   // Form Inputs: Add Observation
   const [obsStudentId, setObsStudentId] = useState('')
@@ -223,6 +234,22 @@ export default function DailyDiaryPage() {
   const [obsCategory, setObsCategory] = useState('General')
   const [obsConcern, setObsConcern] = useState('NORMAL')
   const [submittingObs, setSubmittingObs] = useState(false)
+
+  const handleOpenAddActivityModal = (targetClassId?: string) => {
+    setNewActClassroomId(targetClassId || selectedClassroomId || classrooms[0]?.id || '')
+    setShowAddActivityModal(true)
+  }
+
+  const handleOpenEditActivityModal = (act: any) => {
+    setEditActId(act.id)
+    setEditActTitle(act.title)
+    setEditActType(act.activityType || 'CORE_SUBJECT')
+    setEditActStartTime(act.startTime || '09:00')
+    setEditActEndTime(act.endTime || '10:00')
+    setEditActTeacherId(act.teacherId || '')
+    setEditActDesc(act.description || '')
+    setShowEditActivityModal(true)
+  }
 
   // Load Context on Mount
   useEffect(() => {
@@ -242,11 +269,12 @@ export default function DailyDiaryPage() {
 
           if (ctx.classrooms.length > 0) {
             setSelectedClassroomId(ctx.classrooms[0].id)
+            setNewActClassroomId(ctx.classrooms[0].id)
           }
         } else {
           toast.error('Error', json.error?.message || 'Failed to initialize Daily Diary')
         }
-      } catch (err: any) {
+      } catch {
         toast.error('Error', 'Failed to load initial context')
       } finally {
         setLoadingContext(false)
@@ -461,6 +489,59 @@ export default function DailyDiaryPage() {
     }
   }
 
+  const handleEditActivitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editActId || !editActTitle.trim()) return
+    try {
+      setSubmittingEditAct(true)
+      const res = await fetch(`/api/v1/daily-diary/activities/${editActId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editActTitle,
+          activityType: editActType,
+          startTime: editActStartTime,
+          endTime: editActEndTime,
+          teacherId: editActTeacherId || undefined,
+          description: editActDesc,
+        }),
+      })
+
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Activity Updated', `"${editActTitle}" updated successfully.`)
+        setShowEditActivityModal(false)
+        loadOverview()
+        if (adminViewMode === 'school') loadAdminOverview()
+      } else {
+        toast.error('Update Failed', json.error?.message)
+      }
+    } catch {
+      toast.error('Error', 'Failed to update activity')
+    } finally {
+      setSubmittingEditAct(false)
+    }
+  }
+
+  const handleDeleteActivity = async (activityId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
+    try {
+      const res = await fetch(`/api/v1/daily-diary/activities/${activityId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Activity Deleted', `"${title}" removed from timetable.`)
+        loadOverview()
+        if (adminViewMode === 'school') loadAdminOverview()
+      } else {
+        toast.error('Failed to Delete', json.error?.message)
+      }
+    } catch {
+      toast.error('Error', 'Failed to delete activity')
+    }
+  }
+
   const handleUpdateActivityStatus = async (activityId: string, status: string, notes?: string) => {
     try {
       const res = await fetch(`/api/v1/daily-diary/activities/${activityId}`, {
@@ -485,14 +566,14 @@ export default function DailyDiaryPage() {
   // Observation Actions
   const handleAddObservation = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!obsStudentId || !obsNarrative.trim() || !selectedClassroomId) return
+    if (!obsNarrative.trim() || !selectedClassroomId) return
     try {
       setSubmittingObs(true)
       const res = await fetch('/api/v1/daily-diary/observations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: obsStudentId,
+          studentId: obsStudentId || undefined,
           classroomId: selectedClassroomId,
           narrative: obsNarrative,
           category: obsCategory,
@@ -502,7 +583,7 @@ export default function DailyDiaryPage() {
 
       const json = await res.json()
       if (json.success) {
-        toast.success('Observation Recorded', 'Student observation saved.')
+        toast.success('Observation Recorded', 'Observation saved successfully.')
         setShowObservationModal(false)
         setObsNarrative('')
         loadOverview()
@@ -663,13 +744,13 @@ export default function DailyDiaryPage() {
               ))}
             </div>
           ) : adminOverview ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
               <div className="glass-panel p-4 border-l-4 border-l-primary">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Classes</span>
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Classes</span>
                 <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalClasses}</div>
               </div>
               <div className="glass-panel p-4 border-l-4 border-l-blue-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Students</span>
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Students</span>
                 <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalStudents}</div>
               </div>
               <div className="glass-panel p-4 border-l-4 border-l-emerald-500">
@@ -684,9 +765,13 @@ export default function DailyDiaryPage() {
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Late</span>
                 <div className="text-2xl font-bold text-amber-600 mt-1">{adminOverview.stats.late}</div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-slate-400">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Unmarked</span>
-                <div className="text-2xl font-bold text-muted-foreground mt-1">{adminOverview.stats.unmarked}</div>
+              <div className="glass-panel p-4 border-l-4 border-l-indigo-500">
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Core Subjects</span>
+                <div className="text-2xl font-bold text-indigo-600 mt-1">{adminOverview.stats.coreSubjectsCount || 0}</div>
+              </div>
+              <div className="glass-panel p-4 border-l-4 border-l-purple-500">
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Activities</span>
+                <div className="text-2xl font-bold text-purple-600 mt-1">{adminOverview.stats.activitiesCount || 0}</div>
               </div>
             </div>
           ) : null}
@@ -742,7 +827,7 @@ export default function DailyDiaryPage() {
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/40">
                     <span className="flex items-center gap-1">
-                      <Clock size={13} className="text-primary" /> Activities: {cls.activitiesCount} ({cls.completedActivities} completed)
+                      <Clock size={13} className="text-primary" /> Core: {cls.coreSubjectsCount || 0} | Act: {cls.nonCoreActivitiesCount || 0}
                     </span>
                     <span className="text-primary font-semibold group-hover:underline flex items-center gap-0.5">
                       Open Diary →
@@ -817,15 +902,15 @@ export default function DailyDiaryPage() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {loadingOverview ? (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {[1, 2, 3, 4, 5].map((n) => (
+                <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
                     <div key={n} className="glass-panel p-4 animate-pulse h-24" />
                   ))}
                 </div>
               ) : overview ? (
                 <>
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
                     <div className="glass-panel p-4 border-l-4 border-l-primary">
                       <span className="text-xs text-muted-foreground font-medium uppercase">Total Students</span>
                       <div className="text-2xl font-bold text-foreground mt-1">{overview.stats.totalStudents}</div>
@@ -846,11 +931,13 @@ export default function DailyDiaryPage() {
                       <span className="text-xs text-muted-foreground font-medium uppercase">Unmarked</span>
                       <div className="text-2xl font-bold text-muted-foreground mt-1">{overview.stats.unmarked}</div>
                     </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-blue-500">
+                    <div className="glass-panel p-4 border-l-4 border-l-indigo-500">
+                      <span className="text-xs text-muted-foreground font-medium uppercase">Core Subjects</span>
+                      <div className="text-2xl font-bold text-indigo-600 mt-1">{overview.stats.coreSubjectsCount || 0}</div>
+                    </div>
+                    <div className="glass-panel p-4 border-l-4 border-l-purple-500">
                       <span className="text-xs text-muted-foreground font-medium uppercase">Activities</span>
-                      <div className="text-2xl font-bold text-blue-600 mt-1">
-                        {overview.stats.completedActivities}/{overview.stats.totalActivities}
-                      </div>
+                      <div className="text-2xl font-bold text-purple-600 mt-1">{overview.stats.activitiesCount || 0}</div>
                     </div>
                   </div>
 
@@ -895,8 +982,8 @@ export default function DailyDiaryPage() {
                                   <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-muted">
                                     {act.startTime} – {act.endTime}
                                   </span>
-                                  <span className="badge b-purple text-[10px] font-semibold uppercase">
-                                    {act.activityType.replace('_', ' ')}
+                                  <span className={`badge text-[10px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
+                                    {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core Subject' : act.activityType.replace('_', ' ')}
                                   </span>
                                 </div>
                                 <h4 className="font-semibold text-foreground text-sm">{act.title}</h4>
@@ -910,11 +997,9 @@ export default function DailyDiaryPage() {
 
                               <div className="flex items-center gap-2">
                                 {act.status === 'COMPLETED' ? (
-                                  <span className="badge b-success text-xs font-semibold flex items-center gap-1">
-                                    <CheckCircle2 size={13} /> Completed
+                                  <span className="badge b-success text-xs font-semibold">
+                                    <CheckCircle2 size={13} className="mr-1 inline" /> Completed
                                   </span>
-                                ) : act.status === 'IN_PROGRESS' ? (
-                                  <span className="badge b-warning text-xs font-semibold">In Progress</span>
                                 ) : (
                                   <button
                                     type="button"
@@ -1112,7 +1197,7 @@ export default function DailyDiaryPage() {
                     <Clock size={20} className="text-primary" /> Today&apos;s Class Timetable
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Schedule and track core teaching activities and classroom events for {selectedDate}.
+                    Schedule and track core subjects and classroom activities chronologically for {selectedDate}.
                   </p>
                 </div>
                 <button
@@ -1129,6 +1214,13 @@ export default function DailyDiaryPage() {
                   <Clock className="mx-auto text-muted-foreground mb-2" size={40} />
                   <h4 className="font-bold text-base text-foreground">No activities scheduled</h4>
                   <p className="text-xs text-muted-foreground mt-1">There are no activities planned for this classroom today.</p>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary mt-3"
+                    onClick={() => handleOpenAddActivityModal()}
+                  >
+                    <Plus size={14} /> Add Activity
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1142,8 +1234,8 @@ export default function DailyDiaryPage() {
                           <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-muted">
                             {act.startTime} – {act.endTime}
                           </span>
-                          <span className="badge b-purple text-xs font-semibold">
-                            {act.activityType.replace('_', ' ')}
+                          <span className={`badge text-xs font-semibold ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
+                            {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core Subject' : act.activityType.replace('_', ' ')}
                           </span>
                           <span className="text-xs text-muted-foreground">
                             Teacher: <strong className="text-foreground">{act.teacherName}</strong>
@@ -1174,10 +1266,19 @@ export default function DailyDiaryPage() {
                             </button>
                             <button
                               type="button"
-                              className="btn btn-sm btn-ghost text-rose-500"
-                              onClick={() => handleUpdateActivityStatus(act.id, 'CANCELLED')}
+                              className="btn btn-sm btn-ghost text-primary"
+                              onClick={() => handleOpenEditActivityModal(act)}
+                              title="Edit Activity"
                             >
-                              Cancel
+                              <Edit3 size={14} /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-ghost text-rose-500"
+                              onClick={() => handleDeleteActivity(act.id, act.title)}
+                              title="Delete Activity"
+                            >
+                              <Trash2 size={14} /> Delete
                             </button>
                           </div>
                         )}
@@ -1332,11 +1433,11 @@ export default function DailyDiaryPage() {
             </div>
 
             <div>
-              <label className="text-xs font-bold text-foreground">Activity Title *</label>
+              <label className="text-xs font-bold text-foreground">Activity / Class Name *</label>
               <input
                 type="text"
                 className="input text-sm mt-1"
-                placeholder="e.g. Drawing & Coloring, Circle Time..."
+                placeholder="e.g. Mathematics, Drawing & Coloring, Story Time..."
                 value={newActTitle}
                 onChange={(e) => setNewActTitle(e.target.value)}
                 required
@@ -1345,17 +1446,18 @@ export default function DailyDiaryPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-foreground">Activity Type</label>
+                <label className="text-xs font-bold text-foreground">Type of Activity *</label>
                 <select
-                  className="select text-xs mt-1"
+                  className="select text-xs mt-1 font-semibold"
                   value={newActType}
                   onChange={(e) => setNewActType(e.target.value)}
                 >
-                  <option value="CORE_TEACHING">Core Teaching</option>
-                  <option value="ACTIVITY">Activity</option>
+                  <option value="CORE_SUBJECT">Core Subject (Math, English, Science...)</option>
+                  <option value="ACTIVITY">Activity (Drawing, Craft, Outdoor...)</option>
                   <option value="OUTDOOR">Outdoor Play</option>
-                  <option value="STORY_TIME">Story Time</option>
+                  <option value="STORY_TIME">Story & Language</option>
                   <option value="RHYMES">Rhymes & Music</option>
+                  <option value="SNACK">Snack / Meal Time</option>
                 </select>
               </div>
               <div>
@@ -1377,30 +1479,32 @@ export default function DailyDiaryPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-bold text-foreground">Start Time</label>
+                <label className="text-xs font-bold text-foreground">Start Time *</label>
                 <input
                   type="time"
                   className="input text-xs mt-1"
                   value={newActStartTime}
                   onChange={(e) => setNewActStartTime(e.target.value)}
+                  required
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-foreground">End Time</label>
+                <label className="text-xs font-bold text-foreground">End Time *</label>
                 <input
                   type="time"
                   className="input text-xs mt-1"
                   value={newActEndTime}
                   onChange={(e) => setNewActEndTime(e.target.value)}
+                  required
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-foreground">Notes / Description</label>
+              <label className="text-xs font-bold text-foreground">Notes / Description (Optional)</label>
               <textarea
                 className="input text-xs mt-1 h-20"
-                placeholder="Details or instructions for the activity..."
+                placeholder="Details or lesson notes for this activity..."
                 value={newActDesc}
                 onChange={(e) => setNewActDesc(e.target.value)}
               />
@@ -1427,23 +1531,127 @@ export default function DailyDiaryPage() {
         </Modal>
       )}
 
+      {/* MODAL: EDIT ACTIVITY */}
+      {showEditActivityModal && (
+        <Modal
+          isOpen={showEditActivityModal}
+          onClose={() => setShowEditActivityModal(false)}
+          title="Edit Classroom Activity"
+        >
+          <form onSubmit={handleEditActivitySubmit} className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-bold text-foreground">Activity / Class Name *</label>
+              <input
+                type="text"
+                className="input text-sm mt-1"
+                value={editActTitle}
+                onChange={(e) => setEditActTitle(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-foreground">Type of Activity *</label>
+                <select
+                  className="select text-xs mt-1 font-semibold"
+                  value={editActType}
+                  onChange={(e) => setEditActType(e.target.value)}
+                >
+                  <option value="CORE_SUBJECT">Core Subject</option>
+                  <option value="ACTIVITY">Activity</option>
+                  <option value="OUTDOOR">Outdoor Play</option>
+                  <option value="STORY_TIME">Story & Language</option>
+                  <option value="RHYMES">Rhymes & Music</option>
+                  <option value="SNACK">Snack / Meal Time</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-foreground">Assigned Teacher</label>
+                <select
+                  className="select text-xs mt-1"
+                  value={editActTeacherId}
+                  onChange={(e) => setEditActTeacherId(e.target.value)}
+                >
+                  <option value="">Default Class Teacher</option>
+                  {context?.teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-foreground">Start Time *</label>
+                <input
+                  type="time"
+                  className="input text-xs mt-1"
+                  value={editActStartTime}
+                  onChange={(e) => setEditActStartTime(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-foreground">End Time *</label>
+                <input
+                  type="time"
+                  className="input text-xs mt-1"
+                  value={editActEndTime}
+                  onChange={(e) => setEditActEndTime(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-foreground">Notes / Description</label>
+              <textarea
+                className="input text-xs mt-1 h-20"
+                value={editActDesc}
+                onChange={(e) => setEditActDesc(e.target.value)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setShowEditActivityModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-sm btn-primary"
+                disabled={submittingEditAct}
+              >
+                {submittingEditAct ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />}
+                Update Activity
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {/* MODAL: RECORD OBSERVATION */}
       {showObservationModal && (
         <Modal
           isOpen={showObservationModal}
           onClose={() => setShowObservationModal(false)}
-          title="Record Child Observation"
+          title="Record Classroom Observation"
         >
           <form onSubmit={handleAddObservation} className="space-y-4 pt-2">
             <div>
-              <label className="text-xs font-bold text-foreground">Select Student *</label>
+              <label className="text-xs font-bold text-foreground">Select Student (Optional)</label>
               <select
                 className="select text-xs mt-1"
                 value={obsStudentId}
                 onChange={(e) => setObsStudentId(e.target.value)}
-                required
               >
-                <option value="">-- Choose Student --</option>
+                <option value="">-- General Class Observation --</option>
                 {attendanceRegister.map((s) => (
                   <option key={s.studentId} value={s.studentId}>
                     {s.name} ({s.admissionNo})
@@ -1485,7 +1693,7 @@ export default function DailyDiaryPage() {
               <label className="text-xs font-bold text-foreground">Observation Details *</label>
               <textarea
                 className="input text-xs mt-1 h-24"
-                placeholder="What did the child do or demonstrate today?..."
+                placeholder="Write your observation details here..."
                 value={obsNarrative}
                 onChange={(e) => setObsNarrative(e.target.value)}
                 required
@@ -1525,7 +1733,7 @@ export default function DailyDiaryPage() {
               <label className="text-xs font-bold text-foreground">Activity Outcome / Execution Notes</label>
               <textarea
                 className="input text-xs mt-1 h-20"
-                placeholder="e.g. Children practiced color recognition actively..."
+                placeholder="e.g. Children practiced counting 1–20 actively..."
                 value={activityNotesInput}
                 onChange={(e) => setActivityNotesInput(e.target.value)}
               />

@@ -36,6 +36,13 @@ function getDayBounds(dateStr: string) {
   return { startOfDay, endOfDay, dateOnly }
 }
 
+/** Convert HH:MM time string to total minutes from midnight for overlap comparison */
+function timeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0
+  const [hours, minutes] = timeStr.split(':').map((n) => parseInt(n, 10) || 0)
+  return hours * 60 + minutes
+}
+
 /** Helper: Assert that a teacher only accesses their assigned classroom */
 async function assertClassroomAccess(session: SessionPayload, classroomId: string) {
   const tenantId = session.tenantId!
@@ -248,7 +255,7 @@ export class DailyDiaryService {
       }
     })
 
-    // Fetch today's activities
+    // Fetch today's activities chronologically sorted by startTime
     const activities = await db.classroomActivity.findMany({
       where: {
         classroomId,
@@ -263,6 +270,10 @@ export class DailyDiaryService {
     })
 
     const completedActivities = activities.filter((a) => a.status === 'COMPLETED').length
+    const coreSubjectsCount = activities.filter((a) =>
+      ['CORE_TEACHING', 'CORE_SUBJECT'].includes(a.activityType || '')
+    ).length
+    const activitiesCount = activities.length - coreSubjectsCount
 
     // Fetch today's observations
     const observations = await db.observation.findMany({
@@ -298,6 +309,8 @@ export class DailyDiaryService {
         halfDay,
         unmarked,
         totalActivities: activities.length,
+        coreSubjectsCount,
+        activitiesCount,
         completedActivities,
         totalObservations: observations.length,
       },
@@ -307,15 +320,16 @@ export class DailyDiaryService {
         activityType: a.activityType || 'ACTIVITY',
         startTime: a.startTime || '09:00',
         endTime: a.endTime || '09:30',
+        teacherId: a.teacherId,
+        teacherName: a.teacher?.fullName || classroom.primaryTeacher?.fullName || 'Teacher',
         status: a.status,
         description: a.description,
         actualOutcome: a.actualOutcome,
-        teacherName: a.teacher?.fullName || classroom.primaryTeacher?.fullName || 'Teacher',
       })),
       observations: observations.map((o) => ({
         id: o.id,
         studentId: o.studentId,
-        studentName: `${o.student.firstName} ${o.student.lastName || ''}`.trim(),
+        studentName: o.student ? `${o.student.firstName} ${o.student.lastName || ''}`.trim() : 'General Class Observation',
         narrative: o.narrative,
         category: o.category || 'General',
         concern: o.concern,
@@ -449,7 +463,7 @@ export class DailyDiaryService {
   }
 
   /**
-   * Create Today's Timetable / Activity Entry
+   * Create Today's Timetable / Activity Entry (With time validation & overlap detection)
    */
   static async createActivity(
     session: SessionPayload,
@@ -465,7 +479,7 @@ export class DailyDiaryService {
     }
   ) {
     const tenantId = session.tenantId!
-    const { dateOnly } = getDayBounds(data.dateStr)
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(data.dateStr)
 
     // Enforce teacher classroom scoping
     await assertClassroomAccess(session, data.classroomId)
@@ -477,6 +491,36 @@ export class DailyDiaryService {
 
     if (!classroom) throw new Error('Classroom not found')
 
+    const startStr = data.startTime || '09:00'
+    const endStr = data.endTime || '09:30'
+    const startMin = timeToMinutes(startStr)
+    const endMin = timeToMinutes(endStr)
+
+    if (endMin <= startMin) {
+      throw new Error('VALIDATION_ERROR: End Time must be after Start Time')
+    }
+
+    // Time Overlap Check with existing active activities for this classroom on the date
+    const existingActivities = await db.classroomActivity.findMany({
+      where: {
+        classroomId: data.classroomId,
+        tenantId,
+        activityDate: { gte: startOfDay, lte: endOfDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+      },
+    })
+
+    for (const ext of existingActivities) {
+      const extStart = timeToMinutes(ext.startTime || '00:00')
+      const extEnd = timeToMinutes(ext.endTime || '23:59')
+      if (startMin < extEnd && extStart < endMin) {
+        throw new Error(
+          `OVERLAP_ERROR: This activity overlaps with "${ext.title}" (${ext.startTime || '00:00'}–${ext.endTime || '23:59'})`
+        )
+      }
+    }
+
     const activity = await db.classroomActivity.create({
       data: {
         tenantId,
@@ -486,8 +530,8 @@ export class DailyDiaryService {
         title: data.title,
         activityType: data.activityType || 'ACTIVITY',
         activityDate: dateOnly,
-        startTime: data.startTime || '09:00',
-        endTime: data.endTime || '09:30',
+        startTime: startStr,
+        endTime: endStr,
         description: data.description || null,
         status: 'PLANNED',
         createdBy: session.uid,
@@ -501,7 +545,7 @@ export class DailyDiaryService {
   }
 
   /**
-   * Update Activity Status / Notes
+   * Update Activity Entry (With time validation & overlap detection)
    */
   static async updateActivity(
     session: SessionPayload,
@@ -510,8 +554,11 @@ export class DailyDiaryService {
       status?: ActivityStatus
       notes?: string
       title?: string
+      activityType?: string
       startTime?: string
       endTime?: string
+      teacherId?: string
+      description?: string
     }
   ) {
     const tenantId = session.tenantId!
@@ -525,15 +572,55 @@ export class DailyDiaryService {
     // Enforce teacher classroom scoping
     await assertClassroomAccess(session, existing.classroomId)
 
+    const newStart = data.startTime || existing.startTime || '09:00'
+    const newEnd = data.endTime || existing.endTime || '09:30'
+    const startMin = timeToMinutes(newStart)
+    const endMin = timeToMinutes(newEnd)
+
+    if (endMin <= startMin) {
+      throw new Error('VALIDATION_ERROR: End Time must be after Start Time')
+    }
+
+    // Overlap validation if updating times
+    if (data.startTime || data.endTime) {
+      const { startOfDay, endOfDay } = getDayBounds(existing.activityDate.toISOString().split('T')[0])
+      const otherActivities = await db.classroomActivity.findMany({
+        where: {
+          classroomId: existing.classroomId,
+          tenantId,
+          id: { not: activityId },
+          activityDate: { gte: startOfDay, lte: endOfDay },
+          status: { not: 'CANCELLED' },
+          deletedAt: null,
+        },
+      })
+
+      for (const ext of otherActivities) {
+        const extStart = timeToMinutes(ext.startTime || '00:00')
+        const extEnd = timeToMinutes(ext.endTime || '23:59')
+        if (startMin < extEnd && extStart < endMin) {
+          throw new Error(
+            `OVERLAP_ERROR: This activity overlaps with "${ext.title}" (${ext.startTime || '00:00'}–${ext.endTime || '23:59'})`
+          )
+        }
+      }
+    }
+
     const updated = await db.classroomActivity.update({
       where: { id: activityId },
       data: {
         ...(data.status ? { status: data.status } : {}),
         ...(data.notes !== undefined ? { actualOutcome: data.notes } : {}),
         ...(data.title ? { title: data.title } : {}),
+        ...(data.activityType ? { activityType: data.activityType } : {}),
         ...(data.startTime ? { startTime: data.startTime } : {}),
         ...(data.endTime ? { endTime: data.endTime } : {}),
+        ...(data.teacherId !== undefined ? { teacherId: data.teacherId } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
         updatedBy: session.uid,
+      },
+      include: {
+        teacher: { select: { id: true, fullName: true } },
       },
     })
 
@@ -541,12 +628,34 @@ export class DailyDiaryService {
   }
 
   /**
-   * Create Observation
+   * Delete Activity Entry
+   */
+  static async deleteActivity(session: SessionPayload, activityId: string) {
+    const tenantId = session.tenantId!
+
+    const existing = await db.classroomActivity.findFirst({
+      where: { id: activityId, tenantId },
+    })
+
+    if (!existing) throw new Error('Activity not found')
+
+    await assertClassroomAccess(session, existing.classroomId)
+
+    await db.classroomActivity.update({
+      where: { id: activityId },
+      data: { deletedAt: new Date(), updatedBy: session.uid },
+    })
+
+    return { success: true, id: activityId }
+  }
+
+  /**
+   * Create Observation (Support General Class or Individual Child)
    */
   static async createObservation(
     session: SessionPayload,
     data: {
-      studentId: string
+      studentId?: string | null
       classroomId: string
       narrative: string
       category?: string
@@ -568,7 +677,7 @@ export class DailyDiaryService {
       data: {
         tenantId,
         academicSessionId: classroom?.academicSessionId,
-        studentId: data.studentId,
+        studentId: data.studentId || undefined,
         classroomId: data.classroomId,
         teacherId: session.uid,
         narrative: data.narrative,
@@ -673,7 +782,7 @@ export class DailyDiaryService {
       observations: observations.map((o) => ({
         id: o.id,
         date: o.observedAt.toISOString().split('T')[0],
-        studentName: `${o.student.firstName} ${o.student.lastName || ''}`.trim(),
+        studentName: o.student ? `${o.student.firstName} ${o.student.lastName || ''}`.trim() : 'General Class Observation',
         narrative: o.narrative,
         category: o.category || 'General',
         concern: o.concern,
@@ -755,6 +864,11 @@ export class DailyDiaryService {
 
     const unmarked = Math.max(0, totalStudents - present - absent - late - halfDay)
 
+    const coreSubjectsCount = activities.filter((a) =>
+      ['CORE_TEACHING', 'CORE_SUBJECT'].includes(a.activityType || '')
+    ).length
+    const activitiesCount = activities.length - coreSubjectsCount
+
     const classSummaries = classrooms.map((c) => {
       const cAtt = attendanceRecords.filter((a) => a.classroomId === c.id)
       const cPres = cAtt.filter((a) => a.status === 'PRESENT').length
@@ -763,6 +877,7 @@ export class DailyDiaryService {
       const cHalf = cAtt.filter((a) => a.status === 'HALF_DAY').length
       const cUnmarked = Math.max(0, c._count.students - cPres - cAbs - cLate - cHalf)
       const cAct = activities.filter((a) => a.classroomId === c.id)
+      const cCore = cAct.filter((a) => ['CORE_TEACHING', 'CORE_SUBJECT'].includes(a.activityType || '')).length
 
       return {
         id: c.id,
@@ -776,6 +891,8 @@ export class DailyDiaryService {
         halfDay: cHalf,
         unmarked: cUnmarked,
         activitiesCount: cAct.length,
+        coreSubjectsCount: cCore,
+        nonCoreActivitiesCount: cAct.length - cCore,
         completedActivities: cAct.filter((a) => a.status === 'COMPLETED').length,
       }
     })
@@ -791,6 +908,8 @@ export class DailyDiaryService {
         halfDay,
         unmarked,
         totalActivities: activities.length,
+        coreSubjectsCount,
+        activitiesCount,
       },
       classes: classSummaries,
       schedule: activities.map((a) => ({
