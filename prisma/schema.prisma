@@ -1685,6 +1685,7 @@ model ClassroomActivity {
   learningGoalId    String?
   teacherId         String?
   title             String
+  activityType      String?         @default("ACTIVITY")
   description       String?
   activityDate      DateTime
   startTime         String?
