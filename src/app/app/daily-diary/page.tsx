@@ -398,7 +398,7 @@ export default function DailyDiaryPage() {
     if (adminViewMode === 'school') {
       loadAdminOverview()
     } else {
-      if (activeTab === 'overview' || activeTab === 'timetable') {
+      if (activeTab === 'overview' || activeTab === 'timetable' || activeTab === 'builder') {
         loadOverview()
       }
       if (activeTab === 'subjects') {
@@ -416,6 +416,26 @@ export default function DailyDiaryPage() {
       }
     }
   }, [selectedClassroomId, selectedDate, activeTab, adminViewMode, selectedBranchId, loadOverview, loadAttendance, loadAdminOverview, loadHistory, fetchSubjects])
+
+  // Sync builder rows whenever classroom overview activities change
+  useEffect(() => {
+    if (overview?.activities && overview.activities.length > 0) {
+      setScheduleRows(
+        overview.activities.map((act) => ({
+          id: act.id,
+          subjectName: act.title,
+          startTime: act.startTime,
+          endTime: act.endTime,
+          activityType: act.activityType || 'CORE_SUBJECT',
+        }))
+      )
+    } else {
+      const initialSub = subjects[0]?.name || ''
+      setScheduleRows([
+        { id: '1', subjectName: initialSub, startTime: '09:00', endTime: '10:00', activityType: 'CORE_SUBJECT' },
+      ])
+    }
+  }, [overview?.activities, selectedClassroomId, selectedDate, subjects])
 
   // Date Navigation Handlers
   const handlePrevDay = () => {
