@@ -102,6 +102,16 @@ const MODULE_META: Record<string, ModuleMeta> = {
     tileSize: 'lg',
     semanticTheme: 'blue',
   },
+  'daily-diary': {
+    description: 'Timetable, activities & attendance',
+    tileSize: 'lg',
+    semanticTheme: 'teal',
+    quickActions: [
+      { label: "Today's Schedule", href: '/app/daily-diary', perm: 'attendance:read' },
+      { label: 'Mark Attendance', href: '/app/daily-diary?tab=attendance', perm: 'attendance:mark' },
+      { label: 'Add Activity', href: '/app/daily-diary?tab=activities', perm: 'academics:write' },
+    ],
+  },
   users: {
     description: 'Manage access & roles',
     tileSize: 'md',
@@ -126,11 +136,6 @@ const MODULE_META: Record<string, ModuleMeta> = {
       { label: 'Record enquiry', href: '/app/admissions', perm: 'admissions:write' },
       { label: 'New application', href: '/app/admissions', perm: 'admissions:write' },
     ],
-  },
-  academics: {
-    description: 'Classes, curriculum & learning',
-    tileSize: 'md',
-    semanticTheme: 'blue',
   },
   students: {
     description: 'Student records & profiles',

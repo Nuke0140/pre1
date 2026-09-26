@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Sparkles,
   Briefcase,
+  CalendarCheck,
 } from 'lucide-react'
 import { PLogoMark } from '@/components/preone/PLogo'
 import { DockStarsAccent } from '@/components/preone/illustrations'
@@ -77,7 +78,7 @@ export function BottomNav({
       nav.find((n) => n.key === 'users') ||
       nav.find((n) => n.key === 'hr')
     const growthItem =
-      nav.find((n) => n.key === 'academics') ||
+      nav.find((n) => n.key === 'daily-diary') ||
       nav.find((n) => n.key === 'reports') ||
       nav.find((n) => n.key === 'attendance')
 
@@ -118,9 +119,9 @@ export function BottomNav({
     if (growthItem) {
       right.push({
         key: growthItem.key,
-        label: 'Growth',
+        label: growthItem.key === 'daily-diary' ? 'Diary' : growthItem.label,
         href: growthItem.href,
-        icon: growthItem.icon || Sparkles,
+        icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
       })
     }
 

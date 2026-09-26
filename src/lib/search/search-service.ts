@@ -691,7 +691,7 @@ export class GlobalSearchService {
         subtitle: sub,
         badge: c.programType,
         badgeVariant: 'purple',
-        actionUrl: `/app/academics`,
+        actionUrl: `/app/daily-diary`,
         metadata: { code: c.code, capacity: c.capacity },
         score: calculateRankScore(c.name, c.code, query, sub),
       }

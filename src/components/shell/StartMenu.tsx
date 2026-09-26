@@ -59,14 +59,16 @@ export function StartMenu({
       const matchDesc = m.description.toLowerCase().includes(q)
       const matchKey = m.key.toLowerCase().includes(q)
 
-      // Keyword aliases (e.g. "fee" -> Fees, "staff" -> Users, HR, "student" -> Students, Academics, Users)
+      // Keyword aliases (e.g. "fee" -> Fees, "staff" -> Users, HR, "student" -> Students, Daily Diary, Admissions)
       const matchAlias =
         (q.includes('fee') && (m.key === 'finance' || m.key === 'home')) ||
         (q.includes('staff') && (m.key === 'users' || m.key === 'hr')) ||
-        (q.includes('teacher') && (m.key === 'users' || m.key === 'hr')) ||
-        (q.includes('student') && (m.key === 'students' || m.key === 'academics' || m.key === 'admissions')) ||
+        (q.includes('teacher') && (m.key === 'users' || m.key === 'hr' || m.key === 'daily-diary')) ||
+        (q.includes('student') && (m.key === 'students' || m.key === 'daily-diary' || m.key === 'admissions')) ||
         (q.includes('bus') && m.key === 'transport') ||
-        (q.includes('book') && (m.key === 'academics' || m.key === 'inventory')) ||
+        (q.includes('diary') && m.key === 'daily-diary') ||
+        (q.includes('activity') && m.key === 'daily-diary') ||
+        (q.includes('timetable') && m.key === 'daily-diary') ||
         (q.includes('bill') && m.key === 'finance')
 
       return matchName || matchDesc || matchKey || matchAlias

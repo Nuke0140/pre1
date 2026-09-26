@@ -24,7 +24,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'hr', label: 'HR & Workforce', href: '/app/hr', icon: Users, grad: 'g-indigo', perm: 'users:read' },
   { key: 'setup', label: 'Setup', href: '/app/setup', icon: Rocket, grad: 'g-violet', perm: 'settings:read' },
   { key: 'admissions', label: 'Admissions', href: '/app/admissions', icon: ClipboardList, grad: 'g-pink', perm: 'admissions:read' },
-  { key: 'academics', label: 'Academics', href: '/app/academics', icon: Sparkles, grad: 'g-purple', perm: 'academics:read' },
   { key: 'students', label: 'Students', href: '/app/students', icon: Users, grad: 'g-blue', perm: 'students:read' },
   { key: 'attendance', label: 'Attendance', href: '/app/attendance', icon: CalendarCheck, grad: 'g-cyan', perm: 'attendance:read' },
   { key: 'operations', label: 'Operations', href: '/app/operations', icon: HeartPulse, grad: 'g-red', perm: 'operations:read' },

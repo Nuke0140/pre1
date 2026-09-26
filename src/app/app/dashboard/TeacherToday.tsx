@@ -98,7 +98,7 @@ export function TeacherToday() {
         sub={`${data.today} · ${data.sections.length} section(s) · ${data.actions.followUpsOpen} follow-ups open${dayClosed ? ' · SCHOOL CLOSED TODAY' : ''}`}
         actions={
           <>
-            <Link className="btn btn-outline" href="/app/academics"><Sparkles size={14} /> Observation {data.actions.observationDue ? '• due' : ''}</Link>
+            <Link className="btn btn-outline" href="/app/daily-diary?tab=observations"><Sparkles size={14} /> Observation {data.actions.observationDue ? '• due' : ''}</Link>
             <Link className="btn btn-primary" href="/app/attendance"><CalendarCheck size={14} /> Attendance</Link>
           </>
         }
