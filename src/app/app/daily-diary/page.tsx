@@ -230,6 +230,10 @@ export default function DailyDiaryPage() {
   const [historyData, setHistoryData] = useState<HistoryData | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
+  // Report & Schedule Filters
+  const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('ALL')
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'ALL' | 'COMPLETED' | 'PENDING'>('ALL')
+
   // Reusable Subjects State
   const [subjects, setSubjects] = useState<SubjectMeta[]>([])
   const [showAddSubjectModal, setShowAddSubjectModal] = useState(false)
@@ -1598,23 +1602,116 @@ export default function DailyDiaryPage() {
                 </form>
               </div>
 
-              {/* RIGHT PART BOX: DAILY SCHEDULE CHART & REPORT */}
-              <div className="lg:col-span-6 glass-panel p-6 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+              {/* RIGHT PART BOX: DAILY SCHEDULE CHART & OPERATIONAL REPORT */}
+              <div className="lg:col-span-6 glass-panel p-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                      <Clock size={18} className="text-primary" /> Schedule Chart & Daily Report
+                      <Clock size={18} className="text-primary" /> Daily Schedule & Execution Report
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Persisted records for <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong> ({currentClass?.name})
+                      Operational report for <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong>
                     </p>
                   </div>
-                  {overview && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="badge b-indigo font-bold">{overview.stats.coreSubjectsCount || 0} Core</span>
-                      <span className="badge b-purple font-bold">{overview.stats.activitiesCount || 0} Act</span>
+
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="badge b-emerald font-bold">
+                      {overview?.activities.filter((a) => a.status === 'COMPLETED').length || 0} Done
+                    </span>
+                    <span className="badge b-amber font-bold">
+                      {(overview?.activities.length || 0) - (overview?.activities.filter((a) => a.status === 'COMPLETED').length || 0)} Pending
+                    </span>
+                  </div>
+                </div>
+
+                {/* Report Filters: Date Filter, Program Filter & Status Filter */}
+                <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-3 text-xs">
+                  {/* Date Filter */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-bold text-muted-foreground flex items-center gap-1">
+                      <Calendar size={14} className="text-primary" /> Date Filter:
+                    </span>
+                    <div className="flex items-center bg-card border border-border rounded-lg px-1.5 py-0.5 gap-0.5">
+                      <button
+                        type="button"
+                        className="btn btn-icon btn-icon-xs btn-icon-ghost"
+                        onClick={handlePrevDay}
+                        title="Previous Day"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <input
+                        type="date"
+                        className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-icon btn-icon-xs btn-icon-ghost"
+                        onClick={handleNextDay}
+                        title="Next Day"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
                     </div>
-                  )}
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline text-[11px] font-semibold"
+                      onClick={() => setSelectedDate(isoDate())}
+                    >
+                      Today
+                    </button>
+                  </div>
+
+                  {/* Program Filter */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-muted-foreground">Program Filter:</span>
+                    <select
+                      className="select select-sm text-xs font-semibold"
+                      value={selectedProgramFilter}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setSelectedProgramFilter(val)
+                        if (val !== 'ALL') {
+                          const matchingClass = classrooms.find((c) => c.programType === val)
+                          if (matchingClass) setSelectedClassroomId(matchingClass.id)
+                        }
+                      }}
+                    >
+                      <option value="ALL">All Programs</option>
+                      <option value="PLAYGROUP">Playgroup</option>
+                      <option value="NURSERY">Nursery</option>
+                      <option value="LKG">LKG / Jr KG</option>
+                      <option value="UKG">UKG / Sr KG</option>
+                      <option value="DAYCARE">Daycare</option>
+                    </select>
+                  </div>
+
+                  {/* Status Filter Tabs (All / Done / Pending) */}
+                  <div className="join border border-border rounded-lg bg-background/60 p-0.5 flex">
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${selectedStatusFilter === 'ALL' ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => setSelectedStatusFilter('ALL')}
+                    >
+                      All ({overview?.activities.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${selectedStatusFilter === 'COMPLETED' ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => setSelectedStatusFilter('COMPLETED')}
+                    >
+                      Done ({overview?.activities.filter((a) => a.status === 'COMPLETED').length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${selectedStatusFilter === 'PENDING' ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => setSelectedStatusFilter('PENDING')}
+                    >
+                      Pending ({(overview?.activities.length || 0) - (overview?.activities.filter((a) => a.status === 'COMPLETED').length || 0)})
+                    </button>
+                  </div>
                 </div>
 
                 {!overview || overview.activities.length === 0 ? (
@@ -1627,94 +1724,94 @@ export default function DailyDiaryPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Visual Timeline Progression Chart */}
-                    <div className="p-3.5 rounded-xl border border-border bg-card/50 space-y-2">
-                      <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase">
-                        <span>Daily Progression Chart ({selectedDate})</span>
-                        <span>{overview.activities.length} Entries</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 h-9 w-full bg-muted/60 p-1 rounded-lg border border-border overflow-x-auto">
-                        {overview.activities.map((act) => {
-                          const isCore = ['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType)
-                          const isCompleted = act.status === 'COMPLETED'
-                          return (
-                            <div
-                              key={act.id}
-                              className={`h-full min-w-[80px] flex-1 rounded px-2 flex items-center justify-between text-[10px] font-semibold text-white cursor-pointer shadow-sm hover:opacity-90 ${
-                                isCompleted
-                                  ? 'bg-emerald-600'
-                                  : isCore
-                                  ? 'bg-indigo-600'
-                                  : 'bg-purple-600'
-                              }`}
-                              title={`${act.startTime} - ${act.endTime}: ${act.title}`}
-                              onClick={() => handleOpenEditActivityModal(act)}
-                            >
-                              <span className="truncate">{act.title}</span>
-                              <span className="text-[9px] opacity-85 font-mono ml-1">{act.startTime}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    {/* Execution Stats Progress Bar */}
+                    {(() => {
+                      const total = overview.activities.length
+                      const done = overview.activities.filter((a) => a.status === 'COMPLETED').length
+                      const pending = total - done
+                      const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
-                    {/* Scheduled Entry Cards List */}
-                    <div className="space-y-2.5 max-h-[48vh] overflow-y-auto pr-1">
-                      {overview.activities.map((act, idx) => (
-                        <div key={act.id} className="p-3 rounded-xl border border-border bg-card/40 hover:bg-card/70 transition-all flex items-center justify-between gap-3">
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-muted text-foreground border border-border">
-                                {act.startTime} – {act.endTime}
-                              </span>
-                              <span className={`badge text-[9px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
-                                {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core' : 'Activity'}
-                              </span>
-                            </div>
-                            <h4 className="font-bold text-foreground text-xs truncate">
-                              <span className="text-muted-foreground font-mono">{idx + 1}.</span> {act.title}
-                            </h4>
-                            {act.teacherName && (
-                              <span className="text-[11px] text-muted-foreground block">
-                                Teacher: <strong className="text-foreground">{act.teacherName}</strong>
-                              </span>
-                            )}
+                      return (
+                        <div className="p-3.5 rounded-xl border border-border bg-card/50 space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                            <span>Daily Completion Status ({getFormattedDayAndDate(selectedDate)})</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">{done} of {total} Done ({pct}%)</span>
                           </div>
-
-                          <div className="flex items-center gap-1.5">
-                            {act.status === 'COMPLETED' ? (
-                              <span className="badge b-success text-[10px] font-semibold">
-                                <CheckCircle2 size={11} className="mr-1 inline" /> Done
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-xs btn-outline"
-                                onClick={() => setShowCompleteActivityModal(act.id)}
-                              >
-                                Mark Done
-                              </button>
-                            )}
-
-                            <button
-                              type="button"
-                              className="btn btn-icon btn-icon-xs btn-icon-ghost"
-                              onClick={() => handleOpenEditActivityModal(act)}
-                              title="Edit"
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
-                              onClick={() => handleDeleteActivity(act.id, act.title)}
-                              title="Delete"
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+                            <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${pct}%` }} />
+                            <div className="h-full bg-amber-400 dark:bg-amber-500/60 transition-all duration-300" style={{ width: `${100 - pct}%` }} />
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">✓ {done} Completed</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">⏳ {pending} Pending / In Progress</span>
                           </div>
                         </div>
-                      ))}
+                      )
+                    })()}
+
+                    {/* Filtered Schedule Entry List */}
+                    <div className="space-y-2.5 max-h-[44vh] overflow-y-auto pr-1">
+                      {overview.activities
+                        .filter((act) => {
+                          if (selectedStatusFilter === 'COMPLETED' && act.status !== 'COMPLETED') return false
+                          if (selectedStatusFilter === 'PENDING' && act.status === 'COMPLETED') return false
+                          return true
+                        })
+                        .map((act, idx) => (
+                          <div key={act.id} className="p-3 rounded-xl border border-border bg-card/40 hover:bg-card/70 transition-all flex items-center justify-between gap-3">
+                            <div className="space-y-1 flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-muted text-foreground border border-border">
+                                  {act.startTime} – {act.endTime}
+                                </span>
+                                <span className={`badge text-[9px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
+                                  {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core' : 'Activity'}
+                                </span>
+                              </div>
+                              <h4 className="font-bold text-foreground text-xs truncate">
+                                <span className="text-muted-foreground font-mono">{idx + 1}.</span> {act.title}
+                              </h4>
+                              {act.teacherName && (
+                                <span className="text-[11px] text-muted-foreground block">
+                                  Teacher: <strong className="text-foreground">{act.teacherName}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              {act.status === 'COMPLETED' ? (
+                                <span className="badge b-success text-[10px] font-semibold">
+                                  <CheckCircle2 size={11} className="mr-1 inline" /> Done
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-xs btn-outline"
+                                  onClick={() => setShowCompleteActivityModal(act.id)}
+                                >
+                                  Mark Done
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                className="btn btn-icon btn-icon-xs btn-icon-ghost"
+                                onClick={() => handleOpenEditActivityModal(act)}
+                                title="Edit"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                                onClick={() => handleDeleteActivity(act.id, act.title)}
+                                title="Delete"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 )}
