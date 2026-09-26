@@ -8,7 +8,7 @@ async function _PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireApi(req, 'academics:write')
+  const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 

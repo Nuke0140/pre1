@@ -203,6 +203,7 @@ export default function DailyDiaryPage() {
   const [activityNotesInput, setActivityNotesInput] = useState('')
 
   // Form Inputs: Add Activity
+  const [newActClassroomId, setNewActClassroomId] = useState('')
   const [newActTitle, setNewActTitle] = useState('')
   const [newActType, setNewActType] = useState('ACTIVITY')
   const [newActStartTime, setNewActStartTime] = useState('09:30')
@@ -210,6 +211,11 @@ export default function DailyDiaryPage() {
   const [newActTeacherId, setNewActTeacherId] = useState('')
   const [newActDesc, setNewActDesc] = useState('')
   const [submittingAct, setSubmittingAct] = useState(false)
+
+  const handleOpenAddActivityModal = (targetClassId?: string) => {
+    setNewActClassroomId(targetClassId || selectedClassroomId || classrooms[0]?.id || '')
+    setShowAddActivityModal(true)
+  }
 
   // Form Inputs: Add Observation
   const [obsStudentId, setObsStudentId] = useState('')
@@ -410,14 +416,23 @@ export default function DailyDiaryPage() {
   // Activity Actions
   const handleAddActivity = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newActTitle.trim() || !selectedClassroomId) return
+    const targetClassroomId = newActClassroomId || selectedClassroomId || classrooms[0]?.id
+    if (!newActTitle.trim()) {
+      toast.error('Validation Error', 'Activity title is required')
+      return
+    }
+    if (!targetClassroomId) {
+      toast.error('Validation Error', 'Please select a classroom')
+      return
+    }
+
     try {
       setSubmittingAct(true)
       const res = await fetch('/api/v1/daily-diary/activities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          classroomId: selectedClassroomId,
+          classroomId: targetClassroomId,
           date: selectedDate,
           title: newActTitle,
           activityType: newActType,
@@ -437,7 +452,7 @@ export default function DailyDiaryPage() {
         loadOverview()
         if (adminViewMode === 'school') loadAdminOverview()
       } else {
-        toast.error('Failed', json.error?.message)
+        toast.error('Failed to Schedule', json.error?.message || 'Failed to create activity')
       }
     } catch {
       toast.error('Error', 'Failed to add activity')
@@ -634,7 +649,7 @@ export default function DailyDiaryPage() {
             <button
               type="button"
               className="btn btn-sm btn-primary"
-              onClick={() => setShowAddActivityModal(true)}
+              onClick={() => handleOpenAddActivityModal()}
             >
               <Plus size={15} /> Schedule Activity
             </button>
@@ -850,7 +865,7 @@ export default function DailyDiaryPage() {
                         <button
                           type="button"
                           className="btn btn-xs btn-outline"
-                          onClick={() => setShowAddActivityModal(true)}
+                          onClick={() => handleOpenAddActivityModal()}
                         >
                           <Plus size={13} /> Add Activity
                         </button>
@@ -863,7 +878,7 @@ export default function DailyDiaryPage() {
                           <button
                             type="button"
                             className="btn btn-xs btn-primary mt-3"
-                            onClick={() => setShowAddActivityModal(true)}
+                            onClick={() => handleOpenAddActivityModal()}
                           >
                             Add Schedule
                           </button>
@@ -1103,7 +1118,7 @@ export default function DailyDiaryPage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
-                  onClick={() => setShowAddActivityModal(true)}
+                  onClick={() => handleOpenAddActivityModal()}
                 >
                   <Plus size={15} /> Add Activity
                 </button>
@@ -1300,6 +1315,22 @@ export default function DailyDiaryPage() {
           title="Schedule Classroom Activity"
         >
           <form onSubmit={handleAddActivity} className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-bold text-foreground">Target Classroom *</label>
+              <select
+                className="select text-xs mt-1"
+                value={newActClassroomId}
+                onChange={(e) => setNewActClassroomId(e.target.value)}
+                required
+              >
+                {classrooms.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.teacherName})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="text-xs font-bold text-foreground">Activity Title *</label>
               <input

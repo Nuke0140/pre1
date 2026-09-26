@@ -6,7 +6,7 @@ import { DailyDiaryService } from '@/lib/daily-diary/daily-diary-service'
 import { isoDate } from '@/lib/format'
 
 async function _POST(req: NextRequest) {
-  const session = await requireApi(req, 'academics:write')
+  const session = await requireApi(req, 'attendance:mark')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
