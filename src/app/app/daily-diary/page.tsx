@@ -1104,45 +1104,8 @@ export default function DailyDiaryPage() {
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {loadingOverview ? (
-                <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                    <div key={n} className="glass-panel p-4 animate-pulse h-24" />
-                  ))}
-                </div>
-              ) : overview ? (
+              {overview && (
                 <>
-                  {/* Summary Cards */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
-                    <div className="glass-panel p-4 border-l-4 border-l-primary">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Total Students</span>
-                      <div className="text-2xl font-bold text-foreground mt-1">{overview.stats.totalStudents}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-emerald-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Present</span>
-                      <div className="text-2xl font-bold text-emerald-600 mt-1">{overview.stats.present}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-rose-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Absent</span>
-                      <div className="text-2xl font-bold text-rose-600 mt-1">{overview.stats.absent}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-amber-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Late</span>
-                      <div className="text-2xl font-bold text-amber-600 mt-1">{overview.stats.late}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-blue-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Unmarked</span>
-                      <div className="text-2xl font-bold text-foreground mt-1">{overview.stats.unmarked}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-indigo-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Core Subjects</span>
-                      <div className="text-2xl font-bold text-indigo-600 mt-1">{overview.stats.coreSubjectsCount || 0}</div>
-                    </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-purple-500">
-                      <span className="text-xs text-muted-foreground font-medium uppercase">Activities</span>
-                      <div className="text-2xl font-bold text-purple-600 mt-1">{overview.stats.activitiesCount || 0}</div>
-                    </div>
-                  </div>
 
                   {/* Today's Activities & Quick Observations Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
