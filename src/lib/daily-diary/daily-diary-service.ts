@@ -155,6 +155,13 @@ export class DailyDiaryService {
       })
     }
 
+    // 5. Fetch reusable subject list for tenant
+    const subjects = await db.subject.findMany({
+      where: { tenantId, status: 'ACTIVE', deletedAt: null },
+      select: { id: true, name: true, code: true, shortName: true, subjectType: true },
+      orderBy: { name: 'asc' },
+    })
+
     return {
       user: {
         id: session.uid,
@@ -179,6 +186,7 @@ export class DailyDiaryService {
         studentCount: c._count.students,
       })),
       teachers,
+      subjects,
     }
   }
 
@@ -568,6 +576,130 @@ export class DailyDiaryService {
     })
 
     return activity
+  }
+
+  /**
+   * Create multiple schedule activity entries at once (Daily Schedule Builder)
+   */
+  static async createActivitiesBatch(
+    session: SessionPayload,
+    data: {
+      classroomId: string
+      dateStr: string
+      activities: {
+        title: string
+        activityType?: string
+        startTime?: string
+        endTime?: string
+        teacherId?: string
+        description?: string
+      }[]
+    }
+  ) {
+    const tenantId = session.tenantId!
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(data.dateStr)
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, data.classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: data.classroomId },
+      select: { academicSessionId: true, primaryTeacherId: true },
+    })
+
+    if (!classroom) throw new Error('Classroom not found')
+
+    const activeSession = await db.academicSession.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+      select: { id: true },
+    })
+
+    const targetSessionId = classroom.academicSessionId || activeSession?.id
+    if (!targetSessionId) {
+      throw new Error('VALIDATION_ERROR: No active academic session found')
+    }
+
+    if (!data.activities || data.activities.length === 0) {
+      throw new Error('VALIDATION_ERROR: At least one activity row is required')
+    }
+
+    // 1. Validate internal time ranges and internal overlaps inside the batch
+    const parsedRows = data.activities.map((item, idx) => {
+      const startStr = item.startTime || '09:00'
+      const endStr = item.endTime || '09:30'
+      const startMin = timeToMinutes(startStr)
+      const endMin = timeToMinutes(endStr)
+
+      if (endMin <= startMin) {
+        throw new Error(`VALIDATION_ERROR: Row ${idx + 1} (${item.title || 'Untitled'}): End Time must be after Start Time`)
+      }
+
+      return { ...item, startStr, endStr, startMin, endMin }
+    })
+
+    for (let i = 0; i < parsedRows.length; i++) {
+      for (let j = i + 1; j < parsedRows.length; j++) {
+        const r1 = parsedRows[i]
+        const r2 = parsedRows[j]
+        if (r1.startMin < r2.endMin && r2.startMin < r1.endMin) {
+          throw new Error(
+            `OVERLAP_ERROR: "${r1.title}" (${r1.startStr}–${r1.endStr}) overlaps with "${r2.title}" (${r2.startStr}–${r2.endStr}) in schedule builder.`
+          )
+        }
+      }
+    }
+
+    // 2. Validate overlaps against existing saved database activities
+    const existingActivities = await db.classroomActivity.findMany({
+      where: {
+        classroomId: data.classroomId,
+        tenantId,
+        activityDate: { gte: startOfDay, lte: endOfDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+      },
+    })
+
+    for (const row of parsedRows) {
+      for (const ext of existingActivities) {
+        const extStart = timeToMinutes(ext.startTime || '00:00')
+        const extEnd = timeToMinutes(ext.endTime || '23:59')
+        if (row.startMin < extEnd && extStart < row.endMin) {
+          throw new Error(
+            `OVERLAP_ERROR: "${row.title}" (${row.startStr}–${row.endStr}) overlaps with existing activity "${ext.title}" (${ext.startTime || '00:00'}–${ext.endTime || '23:59'})`
+          )
+        }
+      }
+    }
+
+    // 3. Create all records in database
+    const createdActivities = await db.$transaction(
+      parsedRows.map((row) => {
+        let targetTeacherId = row.teacherId && row.teacherId.trim() !== '' ? row.teacherId : classroom.primaryTeacherId || session.uid
+
+        return db.classroomActivity.create({
+          data: {
+            tenantId,
+            academicSessionId: targetSessionId,
+            classroomId: data.classroomId,
+            teacherId: targetTeacherId,
+            title: row.title.trim(),
+            activityType: row.activityType || 'CORE_SUBJECT',
+            activityDate: dateOnly,
+            startTime: row.startStr,
+            endTime: row.endStr,
+            description: row.description || null,
+            status: 'PLANNED',
+            createdBy: session.uid,
+          },
+          include: {
+            teacher: { select: { id: true, fullName: true } },
+          },
+        })
+      })
+    )
+
+    return createdActivities
   }
 
   /**

@@ -12,13 +12,27 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { classroomId, date, title, activityType, startTime, endTime, teacherId, description } = body
+    const { classroomId, date, title, activityType, startTime, endTime, teacherId, description, activities } = body
 
-    if (!classroomId || !title) {
-      return Errors.badRequest('classroomId and title are required')
+    if (!classroomId) {
+      return Errors.badRequest('classroomId is required')
     }
 
     const dateStr = date || isoDate()
+
+    if (Array.isArray(activities) && activities.length > 0) {
+      const result = await DailyDiaryService.createActivitiesBatch(session, {
+        classroomId,
+        dateStr,
+        activities,
+      })
+      return ok(result)
+    }
+
+    if (!title) {
+      return Errors.badRequest('title is required')
+    }
+
     const activity = await DailyDiaryService.createActivity(session, {
       classroomId,
       dateStr,

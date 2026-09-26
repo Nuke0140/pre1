@@ -30,7 +30,6 @@ import {
   Trash2,
 } from 'lucide-react'
 import { PageHead, Avatar } from '@/components/preone/ui'
-import { DatePicker } from '@/components/preone/forms'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { isoDate } from '@/lib/format'
@@ -70,12 +69,21 @@ interface TeacherMeta {
   email: string | null
 }
 
+interface SubjectMeta {
+  id: string
+  name: string
+  code: string
+  shortName: string | null
+  subjectType: string
+}
+
 interface ContextData {
   user: UserContext
   academicSession: { id: string; name: string; isCurrent: boolean } | null
   branches: BranchMeta[]
   classrooms: ClassroomMeta[]
   teachers: TeacherMeta[]
+  subjects?: SubjectMeta[]
 }
 
 interface OverviewData {
@@ -169,6 +177,14 @@ interface HistoryData {
   }[]
 }
 
+interface ScheduleRow {
+  id: string
+  subjectName: string
+  startTime: string
+  endTime: string
+  activityType: string
+}
+
 export default function DailyDiaryPage() {
   const toast = useToast()
 
@@ -181,8 +197,8 @@ export default function DailyDiaryPage() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('')
   const [adminViewMode, setAdminViewMode] = useState<'school' | 'class'>('class')
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'timetable' | 'observations' | 'history'>('overview')
+  // Active Tab: overview | subjects | builder | attendance | observations | history
+  const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'builder' | 'attendance' | 'observations' | 'history'>('overview')
 
   // Data States
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -201,24 +217,30 @@ export default function DailyDiaryPage() {
   const [historyData, setHistoryData] = useState<HistoryData | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  // Modal States
-  const [showAddActivityModal, setShowAddActivityModal] = useState(false)
+  // Reusable Subjects State
+  const [subjects, setSubjects] = useState<SubjectMeta[]>([])
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false)
+  const [showEditSubjectModal, setShowEditSubjectModal] = useState<SubjectMeta | null>(null)
+  const [newSubjectName, setNewSubjectName] = useState('')
+  const [newSubjectType, setNewSubjectType] = useState('CORE')
+  const [editSubjectName, setEditSubjectName] = useState('')
+  const [editSubjectType, setEditSubjectType] = useState('CORE')
+  const [submittingSubject, setSubmittingSubject] = useState(false)
+
+  // Daily Schedule Builder State (Multi-Row Table)
+  const [showScheduleBuilderModal, setShowScheduleBuilderModal] = useState(false)
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([
+    { id: '1', subjectName: '', startTime: '09:00', endTime: '10:00', activityType: 'CORE_SUBJECT' },
+  ])
+  const [submittingScheduleBuilder, setSubmittingScheduleBuilder] = useState(false)
+
+  // Single Edit / Complete / Observation Modals
   const [showEditActivityModal, setShowEditActivityModal] = useState(false)
   const [showObservationModal, setShowObservationModal] = useState(false)
   const [showCompleteActivityModal, setShowCompleteActivityModal] = useState<string | null>(null)
   const [activityNotesInput, setActivityNotesInput] = useState('')
 
-  // Form Inputs: Add Activity
-  const [newActClassroomId, setNewActClassroomId] = useState('')
-  const [newActTitle, setNewActTitle] = useState('')
-  const [newActType, setNewActType] = useState('CORE_SUBJECT')
-  const [newActStartTime, setNewActStartTime] = useState('09:00')
-  const [newActEndTime, setNewActEndTime] = useState('10:00')
-  const [newActTeacherId, setNewActTeacherId] = useState('')
-  const [newActDesc, setNewActDesc] = useState('')
-  const [submittingAct, setSubmittingAct] = useState(false)
-
-  // Form Inputs: Edit Activity
+  // Single Edit Activity Inputs
   const [editActId, setEditActId] = useState('')
   const [editActTitle, setEditActTitle] = useState('')
   const [editActType, setEditActType] = useState('CORE_SUBJECT')
@@ -235,53 +257,52 @@ export default function DailyDiaryPage() {
   const [obsConcern, setObsConcern] = useState('NORMAL')
   const [submittingObs, setSubmittingObs] = useState(false)
 
-  const handleOpenAddActivityModal = (targetClassId?: string) => {
-    setNewActClassroomId(targetClassId || selectedClassroomId || classrooms[0]?.id || '')
-    setShowAddActivityModal(true)
-  }
-
-  const handleOpenEditActivityModal = (act: any) => {
-    setEditActId(act.id)
-    setEditActTitle(act.title)
-    setEditActType(act.activityType || 'CORE_SUBJECT')
-    setEditActStartTime(act.startTime || '09:00')
-    setEditActEndTime(act.endTime || '10:00')
-    setEditActTeacherId(act.teacherId || '')
-    setEditActDesc(act.description || '')
-    setShowEditActivityModal(true)
-  }
-
   // Load Context on Mount
-  useEffect(() => {
-    async function fetchContext() {
-      try {
-        setLoadingContext(true)
-        const res = await fetch('/api/v1/daily-diary/context')
-        const json = await res.json()
+  const fetchContext = useCallback(async () => {
+    try {
+      setLoadingContext(true)
+      const res = await fetch('/api/v1/daily-diary/context')
+      const json = await res.json()
 
-        if (json.success && json.data) {
-          const ctx: ContextData = json.data
-          setContext(ctx)
+      if (json.success && json.data) {
+        const ctx: ContextData = json.data
+        setContext(ctx)
 
-          if (ctx.user.isAdmin && !ctx.user.isTeacher) {
-            setAdminViewMode('school')
-          }
-
-          if (ctx.classrooms.length > 0) {
-            setSelectedClassroomId(ctx.classrooms[0].id)
-            setNewActClassroomId(ctx.classrooms[0].id)
-          }
-        } else {
-          toast.error('Error', json.error?.message || 'Failed to initialize Daily Diary')
+        if (ctx.user.isAdmin && !ctx.user.isTeacher) {
+          setAdminViewMode('school')
         }
-      } catch {
-        toast.error('Error', 'Failed to load initial context')
-      } finally {
-        setLoadingContext(false)
+
+        if (ctx.classrooms.length > 0) {
+          setSelectedClassroomId(ctx.classrooms[0].id)
+        }
+        if (ctx.subjects) {
+          setSubjects(ctx.subjects)
+        }
+      } else {
+        toast.error('Error', json.error?.message || 'Failed to initialize Daily Diary')
       }
+    } catch {
+      toast.error('Error', 'Failed to load initial context')
+    } finally {
+      setLoadingContext(false)
     }
-    fetchContext()
+  }, [toast])
+
+  const fetchSubjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/subjects')
+      const json = await res.json()
+      if (json.success && json.data) {
+        setSubjects(json.data)
+      }
+    } catch {
+      // quiet fallback
+    }
   }, [])
+
+  useEffect(() => {
+    fetchContext()
+  }, [fetchContext])
 
   // Load Overview whenever classroomId or selectedDate changes
   const loadOverview = useCallback(async () => {
@@ -300,7 +321,7 @@ export default function DailyDiaryPage() {
     } finally {
       setLoadingOverview(false)
     }
-  }, [selectedClassroomId, selectedDate])
+  }, [selectedClassroomId, selectedDate, toast])
 
   // Load Attendance Register
   const loadAttendance = useCallback(async () => {
@@ -317,7 +338,7 @@ export default function DailyDiaryPage() {
     } finally {
       setLoadingAttendance(false)
     }
-  }, [selectedClassroomId, selectedDate])
+  }, [selectedClassroomId, selectedDate, toast])
 
   // Load Admin School Overview
   const loadAdminOverview = useCallback(async () => {
@@ -335,7 +356,7 @@ export default function DailyDiaryPage() {
     } finally {
       setLoadingAdminOverview(false)
     }
-  }, [selectedDate, selectedBranchId])
+  }, [selectedDate, selectedBranchId, toast])
 
   // Load History Data
   const loadHistory = useCallback(async () => {
@@ -352,7 +373,7 @@ export default function DailyDiaryPage() {
     } finally {
       setLoadingHistory(false)
     }
-  }, [selectedClassroomId, selectedDate])
+  }, [selectedClassroomId, selectedDate, toast])
 
   // Trigger Data Fetching on Selection Changes
   useEffect(() => {
@@ -361,6 +382,9 @@ export default function DailyDiaryPage() {
     } else {
       if (activeTab === 'overview' || activeTab === 'timetable') {
         loadOverview()
+      }
+      if (activeTab === 'subjects') {
+        fetchSubjects()
       }
       if (activeTab === 'attendance') {
         loadAttendance()
@@ -373,7 +397,7 @@ export default function DailyDiaryPage() {
         loadHistory()
       }
     }
-  }, [selectedClassroomId, selectedDate, activeTab, adminViewMode, selectedBranchId, loadOverview, loadAttendance, loadAdminOverview, loadHistory])
+  }, [selectedClassroomId, selectedDate, activeTab, adminViewMode, selectedBranchId, loadOverview, loadAttendance, loadAdminOverview, loadHistory, fetchSubjects])
 
   // Date Navigation Handlers
   const handlePrevDay = () => {
@@ -441,52 +465,201 @@ export default function DailyDiaryPage() {
     }
   }
 
-  // Activity Actions
-  const handleAddActivity = async (e: React.FormEvent) => {
+  // Manage Subjects Actions
+  const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault()
-    const targetClassroomId = newActClassroomId || selectedClassroomId || classrooms[0]?.id
-    if (!newActTitle.trim()) {
-      toast.error('Validation Error', 'Activity title is required')
+    const name = newSubjectName.trim()
+    if (!name) {
+      toast.error('Validation Error', 'Subject name is required')
       return
     }
-    if (!targetClassroomId) {
-      toast.error('Validation Error', 'Please select a classroom')
+
+    // Duplicate Check
+    const exists = subjects.some((s) => s.name.toLowerCase() === name.toLowerCase())
+    if (exists) {
+      toast.error('Duplicate Subject', `"${name}" already exists in your subject list.`)
       return
     }
 
     try {
-      setSubmittingAct(true)
-      const res = await fetch('/api/v1/daily-diary/activities', {
+      setSubmittingSubject(true)
+      const code = name.toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 15) || 'SUB'
+      const res = await fetch('/api/v1/subjects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          classroomId: targetClassroomId,
-          date: selectedDate,
-          title: newActTitle,
-          activityType: newActType,
-          startTime: newActStartTime,
-          endTime: newActEndTime,
-          teacherId: newActTeacherId || undefined,
-          description: newActDesc,
+          name,
+          code: `${code}_${Date.now().toString().slice(-4)}`,
+          subjectType: newSubjectType,
         }),
       })
 
       const json = await res.json()
       if (json.success) {
-        toast.success('Activity Scheduled', `"${newActTitle}" added to today's timetable.`)
-        setShowAddActivityModal(false)
-        setNewActTitle('')
-        setNewActDesc('')
+        toast.success('Subject Created', `"${name}" added to reusable subjects list.`)
+        setShowAddSubjectModal(false)
+        setNewSubjectName('')
+        fetchSubjects()
+      } else {
+        toast.error('Failed to Create Subject', json.error?.message)
+      }
+    } catch {
+      toast.error('Error', 'Could not create subject')
+    } finally {
+      setSubmittingSubject(false)
+    }
+  }
+
+  const handleEditSubjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!showEditSubjectModal || !editSubjectName.trim()) return
+
+    try {
+      setSubmittingSubject(true)
+      const res = await fetch(`/api/v1/subjects/${showEditSubjectModal.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editSubjectName.trim(),
+          subjectType: editSubjectType,
+        }),
+      })
+
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Subject Updated', `Subject renamed to "${editSubjectName.trim()}".`)
+        setShowEditSubjectModal(null)
+        fetchSubjects()
+        loadOverview()
+      } else {
+        toast.error('Update Failed', json.error?.message)
+      }
+    } catch {
+      toast.error('Error', 'Failed to update subject')
+    } finally {
+      setSubmittingSubject(false)
+    }
+  }
+
+  const handleRemoveSubject = async (sub: SubjectMeta) => {
+    if (!confirm(`Remove "${sub.name}" from the subject list? Existing historical daily diary records will still retain this name.`)) return
+    try {
+      const res = await fetch(`/api/v1/subjects/${sub.id}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Subject Removed', `"${sub.name}" removed from subject list.`)
+        fetchSubjects()
+      } else {
+        toast.error('Remove Failed', json.error?.message)
+      }
+    } catch {
+      toast.error('Error', 'Could not remove subject')
+    }
+  }
+
+  // Daily Schedule Builder Actions (Multi-Row Table)
+  const handleOpenScheduleBuilder = (targetClassId?: string) => {
+    if (targetClassId) setSelectedClassroomId(targetClassId)
+    const initialSub = subjects[0]?.name || ''
+    setScheduleRows([
+      { id: '1', subjectName: initialSub, startTime: '09:00', endTime: '10:00', activityType: 'CORE_SUBJECT' },
+    ])
+    setShowScheduleBuilderModal(true)
+  }
+
+  const handleAddScheduleRow = () => {
+    const lastRow = scheduleRows[scheduleRows.length - 1]
+    let nextStart = '10:00'
+    let nextEnd = '11:00'
+    if (lastRow && lastRow.endTime) {
+      nextStart = lastRow.endTime
+      const [h, m] = lastRow.endTime.split(':').map((n) => parseInt(n, 10) || 0)
+      const endH = (h + 1) % 24
+      nextEnd = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    }
+    const initialSub = subjects[0]?.name || ''
+    setScheduleRows((prev) => [
+      ...prev,
+      { id: String(Date.now()), subjectName: initialSub, startTime: nextStart, endTime: nextEnd, activityType: 'CORE_SUBJECT' },
+    ])
+  }
+
+  const handleRemoveScheduleRow = (index: number) => {
+    setScheduleRows((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleUpdateScheduleRow = (index: number, field: keyof ScheduleRow, value: string) => {
+    setScheduleRows((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    )
+  }
+
+  const handleSaveScheduleBuilder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedClassroomId) {
+      toast.error('Validation Error', 'Please select a classroom')
+      return
+    }
+
+    // Validate rows
+    for (let i = 0; i < scheduleRows.length; i++) {
+      const row = scheduleRows[i]
+      if (!row.subjectName.trim()) {
+        toast.error('Validation Error', `Row ${i + 1}: Subject selection is required`)
+        return
+      }
+      if (!row.startTime || !row.endTime) {
+        toast.error('Validation Error', `Row ${i + 1}: Start and End times are required`)
+        return
+      }
+    }
+
+    try {
+      setSubmittingScheduleBuilder(true)
+      const res = await fetch('/api/v1/daily-diary/activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classroomId: selectedClassroomId,
+          date: selectedDate,
+          activities: scheduleRows.map((r) => ({
+            title: r.subjectName.trim(),
+            activityType: r.activityType,
+            startTime: r.startTime,
+            endTime: r.endTime,
+          })),
+        }),
+      })
+
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Schedule Saved', `Added ${scheduleRows.length} activity entries to today's timetable.`)
+        setShowScheduleBuilderModal(false)
+        if (activeTab === 'builder') setActiveTab('overview')
         loadOverview()
         if (adminViewMode === 'school') loadAdminOverview()
       } else {
-        toast.error('Failed to Schedule', json.error?.message || 'Failed to create activity')
+        toast.error('Save Failed', json.error?.message || 'Failed to save schedule builder rows')
       }
     } catch {
-      toast.error('Error', 'Failed to add activity')
+      toast.error('Error', 'Failed to save daily schedule builder')
     } finally {
-      setSubmittingAct(false)
+      setSubmittingScheduleBuilder(false)
     }
+  }
+
+  // Single Edit / Delete / Status Actions
+  const handleOpenEditActivityModal = (act: any) => {
+    setEditActId(act.id)
+    setEditActTitle(act.title)
+    setEditActType(act.activityType || 'CORE_SUBJECT')
+    setEditActStartTime(act.startTime || '09:00')
+    setEditActEndTime(act.endTime || '10:00')
+    setEditActTeacherId(act.teacherId || '')
+    setEditActDesc(act.description || '')
+    setShowEditActivityModal(true)
   }
 
   const handleEditActivitySubmit = async (e: React.FormEvent) => {
@@ -727,13 +900,22 @@ export default function DailyDiaryPage() {
               )}
             </div>
 
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={() => handleOpenAddActivityModal()}
-            >
-              <Plus size={15} /> Schedule Activity
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={() => setActiveTab('subjects')}
+              >
+                <BookOpen size={14} /> Manage Subjects
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => handleOpenScheduleBuilder()}
+              >
+                <Plus size={15} /> Schedule Activity
+              </button>
+            </div>
           </div>
 
           {/* School Overview Summary Stats */}
@@ -750,7 +932,7 @@ export default function DailyDiaryPage() {
                 <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalClasses}</div>
               </div>
               <div className="glass-panel p-4 border-l-4 border-l-blue-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Students</span>
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Students</span>
                 <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalStudents}</div>
               </div>
               <div className="glass-panel p-4 border-l-4 border-l-emerald-500">
@@ -776,77 +958,70 @@ export default function DailyDiaryPage() {
             </div>
           ) : null}
 
-          {/* Classes Grid */}
-          <div className="glass-panel p-6 space-y-4">
-            <h3 className="text-lg font-bold text-foreground flex items-center justify-between">
-              <span>Today&apos;s Classrooms ({adminOverview?.classes?.length || 0})</span>
-              <span className="text-xs text-muted-foreground font-normal">Click any class to monitor & edit detail</span>
-            </h3>
+          {/* Classroom Summaries Table */}
+          {adminOverview && (
+            <div className="glass-panel p-6 space-y-4">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Building2 size={18} className="text-primary" /> Classrooms Daily Overview ({selectedDate})
+              </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {adminOverview?.classes?.map((cls: any) => (
-                <div
-                  key={cls.id}
-                  className="border border-border hover:border-primary rounded-xl p-5 bg-card/50 transition-all cursor-pointer group shadow-sm hover:shadow-md"
-                  onClick={() => {
-                    setSelectedClassroomId(cls.id)
-                    setAdminViewMode('class')
-                    setActiveTab('overview')
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors">
-                        {cls.name}
-                      </h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Teacher: <span className="font-medium text-foreground">{cls.teacherName}</span>
-                      </p>
-                    </div>
-                    <span className="badge b-blue text-xs font-semibold">{cls.programType}</span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 text-center my-4 bg-background/60 p-2.5 rounded-lg border border-border/50 text-xs">
-                    <div>
-                      <div className="text-muted-foreground text-[10px]">Total</div>
-                      <div className="font-bold">{cls.studentCount}</div>
-                    </div>
-                    <div>
-                      <div className="text-emerald-600 text-[10px]">Present</div>
-                      <div className="font-bold text-emerald-600">{cls.present}</div>
-                    </div>
-                    <div>
-                      <div className="text-rose-600 text-[10px]">Absent</div>
-                      <div className="font-bold text-rose-600">{cls.absent}</div>
-                    </div>
-                    <div>
-                      <div className="text-amber-600 text-[10px]">Late</div>
-                      <div className="font-bold text-amber-600">{cls.late}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/40">
-                    <span className="flex items-center gap-1">
-                      <Clock size={13} className="text-primary" /> Core: {cls.coreSubjectsCount || 0} | Act: {cls.nonCoreActivitiesCount || 0}
-                    </span>
-                    <span className="text-primary font-semibold group-hover:underline flex items-center gap-0.5">
-                      Open Diary →
-                    </span>
-                  </div>
-                </div>
-              ))}
+              <div className="border border-border rounded-xl overflow-hidden text-xs">
+                <table className="w-full text-left">
+                  <thead className="bg-muted font-bold text-muted-foreground border-b border-border">
+                    <tr>
+                      <th className="p-3">Classroom</th>
+                      <th className="p-3">Teacher</th>
+                      <th className="p-3 text-center">Students</th>
+                      <th className="p-3 text-center">Present</th>
+                      <th className="p-3 text-center">Absent</th>
+                      <th className="p-3 text-center">Late</th>
+                      <th className="p-3 text-center">Core / Activities</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {adminOverview.classes.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-card/50 transition-colors">
+                        <td className="p-3 font-bold text-foreground">{c.name}</td>
+                        <td className="p-3 text-muted-foreground">{c.teacherName}</td>
+                        <td className="p-3 text-center font-mono">{c.studentCount}</td>
+                        <td className="p-3 text-center font-bold text-emerald-600 font-mono">{c.present}</td>
+                        <td className="p-3 text-center font-bold text-rose-600 font-mono">{c.absent}</td>
+                        <td className="p-3 text-center font-bold text-amber-600 font-mono">{c.late}</td>
+                        <td className="p-3 text-center font-mono">
+                          <span className="text-indigo-600 font-bold">{c.coreSubjectsCount || 0} Core</span> /{' '}
+                          <span className="text-purple-600 font-bold">{c.nonCoreActivitiesCount || 0} Act</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline"
+                            onClick={() => {
+                              setSelectedClassroomId(c.id)
+                              setAdminViewMode('class')
+                              setActiveTab('overview')
+                            }}
+                          >
+                            Open Class
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
-        /* CLASSROOM DIARY VIEW (Teacher & Admin Class Detail) */
+        /* CLASSROOM VIEW (TEACHER OR SELECTED ADMIN CLASS) */
         <div className="space-y-6">
-          {/* Class Selector Bar */}
-          <div className="glass-panel p-4 flex flex-wrap items-center justify-between gap-4">
+          {/* Class Selector Header */}
+          <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-foreground">Classroom:</span>
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Classroom:</span>
               <select
-                className="select select-sm text-sm font-semibold min-w-[200px]"
+                className="select select-sm text-xs font-bold min-w-[200px]"
                 value={selectedClassroomId}
                 onChange={(e) => setSelectedClassroomId(e.target.value)}
               >
@@ -859,7 +1034,7 @@ export default function DailyDiaryPage() {
             </div>
 
             {/* Tab Navigation Buttons */}
-            <div className="flex items-center gap-1 bg-background/60 p-1 border border-border rounded-xl">
+            <div className="flex flex-wrap items-center gap-1 bg-background/60 p-1 border border-border rounded-xl">
               <button
                 type="button"
                 className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-ghost'}`}
@@ -869,17 +1044,24 @@ export default function DailyDiaryPage() {
               </button>
               <button
                 type="button"
+                className={`btn btn-sm ${activeTab === 'subjects' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setActiveTab('subjects')}
+              >
+                <BookOpen size={14} className="mr-1.5" /> Manage Subjects
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${activeTab === 'builder' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => handleOpenScheduleBuilder()}
+              >
+                <Clock size={14} className="mr-1.5" /> Schedule Activity
+              </button>
+              <button
+                type="button"
                 className={`btn btn-sm ${activeTab === 'attendance' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setActiveTab('attendance')}
               >
                 <UserCheck size={14} className="mr-1.5" /> Attendance
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${activeTab === 'timetable' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setActiveTab('timetable')}
-              >
-                <Clock size={14} className="mr-1.5" /> Timetable
               </button>
               <button
                 type="button"
@@ -927,9 +1109,9 @@ export default function DailyDiaryPage() {
                       <span className="text-xs text-muted-foreground font-medium uppercase">Late</span>
                       <div className="text-2xl font-bold text-amber-600 mt-1">{overview.stats.late}</div>
                     </div>
-                    <div className="glass-panel p-4 border-l-4 border-l-slate-400">
+                    <div className="glass-panel p-4 border-l-4 border-l-blue-500">
                       <span className="text-xs text-muted-foreground font-medium uppercase">Unmarked</span>
-                      <div className="text-2xl font-bold text-muted-foreground mt-1">{overview.stats.unmarked}</div>
+                      <div className="text-2xl font-bold text-foreground mt-1">{overview.stats.unmarked}</div>
                     </div>
                     <div className="glass-panel p-4 border-l-4 border-l-indigo-500">
                       <span className="text-xs text-muted-foreground font-medium uppercase">Core Subjects</span>
@@ -952,9 +1134,9 @@ export default function DailyDiaryPage() {
                         <button
                           type="button"
                           className="btn btn-xs btn-outline"
-                          onClick={() => handleOpenAddActivityModal()}
+                          onClick={() => handleOpenScheduleBuilder()}
                         >
-                          <Plus size={13} /> Add Activity
+                          <Plus size={13} /> Schedule Activity
                         </button>
                       </div>
 
@@ -965,9 +1147,9 @@ export default function DailyDiaryPage() {
                           <button
                             type="button"
                             className="btn btn-xs btn-primary mt-3"
-                            onClick={() => handleOpenAddActivityModal()}
+                            onClick={() => handleOpenScheduleBuilder()}
                           >
-                            Add Schedule
+                            <Plus size={13} /> Schedule Activity
                           </button>
                         </div>
                       ) : (
@@ -1065,7 +1247,91 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB 2: ATTENDANCE */}
+          {/* TAB 2: MANAGE SUBJECTS */}
+          {activeTab === 'subjects' && (
+            <div className="glass-panel p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <BookOpen size={20} className="text-primary" /> Reusable Subjects List
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Maintain the reusable subject & activity list that populates the Daily Schedule Builder dropdowns.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={() => {
+                    setNewSubjectName('')
+                    setNewSubjectType('CORE')
+                    setShowAddSubjectModal(true)
+                  }}
+                >
+                  <Plus size={15} /> Add Subject
+                </button>
+              </div>
+
+              {subjects.length === 0 ? (
+                <div className="text-center py-12 border border-dashed border-border rounded-xl">
+                  <BookOpen className="mx-auto text-muted-foreground mb-2" size={40} />
+                  <h4 className="font-bold text-base text-foreground">No subjects created yet</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Create your first subject (e.g. English, Math, Story, Drawing, Music) to populate your schedule builder.</p>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary mt-4"
+                    onClick={() => {
+                      setNewSubjectName('')
+                      setNewSubjectType('CORE')
+                      setShowAddSubjectModal(true)
+                    }}
+                  >
+                    <Plus size={14} /> Add Subject
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {subjects.map((sub) => (
+                    <div key={sub.id} className="p-4 rounded-xl border border-border bg-card/40 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-sm text-foreground">{sub.name}</h4>
+                          <span className={`badge text-[10px] ${sub.subjectType === 'CORE' ? 'b-indigo' : 'b-purple'}`}>
+                            {sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono text-muted-foreground">Code: {sub.code}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-blue-500"
+                          onClick={() => {
+                            setEditSubjectName(sub.name)
+                            setEditSubjectType(sub.subjectType || 'CORE')
+                            setShowEditSubjectModal(sub)
+                          }}
+                          title="Edit Subject"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                          onClick={() => handleRemoveSubject(sub)}
+                          title="Remove Subject"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: ATTENDANCE */}
           {activeTab === 'attendance' && (
             <div className="glass-panel p-6 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
@@ -1127,7 +1393,7 @@ export default function DailyDiaryPage() {
                       </div>
 
                       {/* Status Toggle Buttons */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -1188,7 +1454,7 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB 3: TIMETABLE & ACTIVITIES */}
+          {/* TAB 4: TIMETABLE & ACTIVITIES */}
           {activeTab === 'timetable' && (
             <div className="glass-panel p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-border pb-4">
@@ -1203,9 +1469,9 @@ export default function DailyDiaryPage() {
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
-                  onClick={() => handleOpenAddActivityModal()}
+                  onClick={() => handleOpenScheduleBuilder()}
                 >
-                  <Plus size={15} /> Add Activity
+                  <Plus size={15} /> Schedule Activity
                 </button>
               </div>
 
@@ -1217,9 +1483,9 @@ export default function DailyDiaryPage() {
                   <button
                     type="button"
                     className="btn btn-sm btn-primary mt-3"
-                    onClick={() => handleOpenAddActivityModal()}
+                    onClick={() => handleOpenScheduleBuilder()}
                   >
-                    <Plus size={14} /> Add Activity
+                    <Plus size={14} /> Schedule Activity
                   </button>
                 </div>
               ) : (
@@ -1252,36 +1518,34 @@ export default function DailyDiaryPage() {
 
                       <div className="flex items-center gap-2">
                         {act.status === 'COMPLETED' ? (
-                          <span className="badge b-success text-xs font-semibold py-1 px-3 flex items-center gap-1">
-                            <CheckCircle2 size={14} /> Completed
+                          <span className="badge b-success text-xs font-semibold px-3 py-1">
+                            <CheckCircle2 size={14} className="mr-1 inline" /> Completed
                           </span>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline"
-                              onClick={() => setShowCompleteActivityModal(act.id)}
-                            >
-                              <Check size={14} /> Mark Completed
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-ghost text-primary"
-                              onClick={() => handleOpenEditActivityModal(act)}
-                              title="Edit Activity"
-                            >
-                              <Edit3 size={14} /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-ghost text-rose-500"
-                              onClick={() => handleDeleteActivity(act.id, act.title)}
-                              title="Delete Activity"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline"
+                            onClick={() => setShowCompleteActivityModal(act.id)}
+                          >
+                            Mark Done
+                          </button>
                         )}
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-blue-500"
+                          onClick={() => handleOpenEditActivityModal(act)}
+                          title="Edit Activity"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                          onClick={() => handleDeleteActivity(act.id, act.title)}
+                          title="Delete Activity"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1290,13 +1554,13 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB 4: OBSERVATIONS */}
+          {/* TAB 5: OBSERVATIONS */}
           {activeTab === 'observations' && (
             <div className="glass-panel p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-border pb-4">
                 <div>
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <FileText size={20} className="text-amber-500" /> Child Observations
+                    <FileText size={20} className="text-amber-500" /> Classroom Observations
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Record general classroom notes or individual student observations.
@@ -1336,7 +1600,7 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB 5: HISTORY */}
+          {/* TAB 6: HISTORY */}
           {activeTab === 'history' && (
             <div className="glass-panel p-6 space-y-6">
               <div className="flex items-center justify-between border-b border-border pb-4">
@@ -1408,139 +1672,267 @@ export default function DailyDiaryPage() {
         </div>
       )}
 
-      {/* MODAL: ADD ACTIVITY */}
-      {showAddActivityModal && (
+      {/* MODAL: MANAGE SUBJECTS (ADD) */}
+      {showAddSubjectModal && (
         <Modal
-          isOpen={showAddActivityModal}
-          onClose={() => setShowAddActivityModal(false)}
-          title="Schedule Classroom Activity"
+          isOpen={showAddSubjectModal}
+          onClose={() => setShowAddSubjectModal(false)}
+          title="Add Reusable Subject"
         >
-          <form onSubmit={handleAddActivity} className="space-y-4 pt-2">
+          <form onSubmit={handleAddSubject} className="space-y-4 pt-2">
             <div>
-              <label className="text-xs font-bold text-foreground">Target Classroom *</label>
-              <select
-                className="select text-xs mt-1"
-                value={newActClassroomId}
-                onChange={(e) => setNewActClassroomId(e.target.value)}
-                required
-              >
-                {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.teacherName})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-foreground">Activity / Class Name *</label>
+              <label className="text-xs font-bold text-foreground">Subject Name *</label>
               <input
                 type="text"
                 className="input text-sm mt-1"
-                placeholder="e.g. Mathematics, Drawing & Coloring, Story Time..."
-                value={newActTitle}
-                onChange={(e) => setNewActTitle(e.target.value)}
+                placeholder="e.g. English, Math, Drawing, Story, Music, Outdoor Play..."
+                value={newSubjectName}
+                onChange={(e) => setNewSubjectName(e.target.value)}
                 required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-foreground">Type of Activity *</label>
-                <select
-                  className="select text-xs mt-1 font-semibold"
-                  value={newActType}
-                  onChange={(e) => setNewActType(e.target.value)}
-                >
-                  <option value="CORE_SUBJECT">Core Subject (Math, English, Science...)</option>
-                  <option value="ACTIVITY">Activity (Drawing, Craft, Outdoor...)</option>
-                  <option value="OUTDOOR">Outdoor Play</option>
-                  <option value="STORY_TIME">Story & Language</option>
-                  <option value="RHYMES">Rhymes & Music</option>
-                  <option value="SNACK">Snack / Meal Time</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-foreground">Assigned Teacher</label>
-                <select
-                  className="select text-xs mt-1"
-                  value={newActTeacherId}
-                  onChange={(e) => setNewActTeacherId(e.target.value)}
-                >
-                  <option value="">Default Class Teacher</option>
-                  {context?.teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-foreground">Start Time *</label>
-                <input
-                  type="time"
-                  className="input text-xs mt-1"
-                  value={newActStartTime}
-                  onChange={(e) => setNewActStartTime(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-foreground">End Time *</label>
-                <input
-                  type="time"
-                  className="input text-xs mt-1"
-                  value={newActEndTime}
-                  onChange={(e) => setNewActEndTime(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-
             <div>
-              <label className="text-xs font-bold text-foreground">Notes / Description (Optional)</label>
-              <textarea
-                className="input text-xs mt-1 h-20"
-                placeholder="Details or lesson notes for this activity..."
-                value={newActDesc}
-                onChange={(e) => setNewActDesc(e.target.value)}
-              />
+              <label className="text-xs font-bold text-foreground">Subject Category</label>
+              <select
+                className="select text-xs mt-1 font-semibold"
+                value={newSubjectType}
+                onChange={(e) => setNewSubjectType(e.target.value)}
+              >
+                <option value="CORE">Core Subject (Academic / Learning)</option>
+                <option value="ACTIVITY">Activity (Co-curricular / Co-educational)</option>
+              </select>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
                 className="btn btn-sm btn-ghost"
-                onClick={() => setShowAddActivityModal(false)}
+                onClick={() => setShowAddSubjectModal(false)}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 className="btn btn-sm btn-primary"
-                disabled={submittingAct}
+                disabled={submittingSubject}
               >
-                {submittingAct ? <RefreshCw className="animate-spin" size={14} /> : <Plus size={14} />}
-                Save Activity
+                {submittingSubject ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Subject
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* MODAL: EDIT ACTIVITY */}
+      {/* MODAL: MANAGE SUBJECTS (EDIT) */}
+      {showEditSubjectModal && (
+        <Modal
+          isOpen={!!showEditSubjectModal}
+          onClose={() => setShowEditSubjectModal(null)}
+          title="Edit Subject"
+        >
+          <form onSubmit={handleEditSubjectSubmit} className="space-y-4 pt-2">
+            <div>
+              <label className="text-xs font-bold text-foreground">Subject Name *</label>
+              <input
+                type="text"
+                className="input text-sm mt-1"
+                value={editSubjectName}
+                onChange={(e) => setEditSubjectName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-foreground">Subject Category</label>
+              <select
+                className="select text-xs mt-1 font-semibold"
+                value={editSubjectType}
+                onChange={(e) => setEditSubjectType(e.target.value)}
+              >
+                <option value="CORE">Core Subject</option>
+                <option value="ACTIVITY">Activity</option>
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setShowEditSubjectModal(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn-sm btn-primary"
+                disabled={submittingSubject}
+              >
+                {submittingSubject ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Changes
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: DAILY SCHEDULE BUILDER (MULTI-ROW TABLE FORM) */}
+      {showScheduleBuilderModal && (
+        <Modal
+          isOpen={showScheduleBuilderModal}
+          onClose={() => setShowScheduleBuilderModal(false)}
+          title={`Daily Schedule Builder — ${currentClass?.name || 'Classroom'}`}
+          size="xl"
+        >
+          <form onSubmit={handleSaveScheduleBuilder} className="space-y-6 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border text-xs">
+              <div>
+                <span className="font-semibold text-foreground">Classroom:</span> {currentClass?.name} •{' '}
+                <span className="font-semibold text-foreground">Date:</span> {selectedDate}
+              </div>
+              <div className="text-muted-foreground">
+                Build multi-row activity schedules for today using your reusable subjects list.
+              </div>
+            </div>
+
+            <div className="border border-border rounded-xl overflow-hidden bg-card/30">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted font-bold text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="p-3 w-12">#</th>
+                    <th className="p-3 w-1/3">Subject *</th>
+                    <th className="p-3">Start Time *</th>
+                    <th className="p-3">End Time *</th>
+                    <th className="p-3 w-1/4">Type of Activity *</th>
+                    <th className="p-3 w-20 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {scheduleRows.map((row, idx) => (
+                    <tr key={row.id} className="hover:bg-card/50">
+                      <td className="p-3 font-mono text-muted-foreground">{idx + 1}.</td>
+                      <td className="p-3">
+                        {subjects.length > 0 ? (
+                          <select
+                            className="select select-sm text-xs font-semibold w-full"
+                            value={row.subjectName}
+                            onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
+                            required
+                          >
+                            <option value="">-- Select Subject --</option>
+                            {subjects.map((sub) => (
+                              <option key={sub.id} value={sub.name}>
+                                {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            className="input input-sm text-xs w-full"
+                            placeholder="e.g. Mathematics, Drawing..."
+                            value={row.subjectName}
+                            onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
+                            required
+                          />
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="time"
+                          className="input input-sm text-xs w-full"
+                          value={row.startTime}
+                          onChange={(e) => handleUpdateScheduleRow(idx, 'startTime', e.target.value)}
+                          required
+                        />
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="time"
+                          className="input input-sm text-xs w-full"
+                          value={row.endTime}
+                          onChange={(e) => handleUpdateScheduleRow(idx, 'endTime', e.target.value)}
+                          required
+                        />
+                      </td>
+                      <td className="p-3">
+                        <select
+                          className="select select-sm text-xs font-medium w-full"
+                          value={row.activityType}
+                          onChange={(e) => handleUpdateScheduleRow(idx, 'activityType', e.target.value)}
+                        >
+                          <option value="CORE_SUBJECT">Core Subject</option>
+                          <option value="ACTIVITY">Activity</option>
+                        </select>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            className="btn btn-icon btn-icon-xs btn-icon-primary"
+                            onClick={handleAddScheduleRow}
+                            title="Add Row Below (+)"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          {scheduleRows.length > 1 && (
+                            <button
+                              type="button"
+                              className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                              onClick={() => handleRemoveScheduleRow(idx)}
+                              title="Delete Row"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                onClick={handleAddScheduleRow}
+              >
+                <Plus size={14} /> Add Row
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost"
+                  onClick={() => setShowScheduleBuilderModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-sm btn-primary"
+                  disabled={submittingScheduleBuilder}
+                >
+                  {submittingScheduleBuilder ? <RefreshCw className="animate-spin mr-1" size={14} /> : <Save className="mr-1" size={14} />}
+                  Save Schedule
+                </button>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: EDIT SINGLE ACTIVITY */}
       {showEditActivityModal && (
         <Modal
           isOpen={showEditActivityModal}
           onClose={() => setShowEditActivityModal(false)}
-          title="Edit Classroom Activity"
+          title="Edit Activity Entry"
         >
           <form onSubmit={handleEditActivitySubmit} className="space-y-4 pt-2">
             <div>
-              <label className="text-xs font-bold text-foreground">Activity / Class Name *</label>
+              <label className="text-xs font-bold text-foreground">Activity / Subject Title *</label>
               <input
                 type="text"
                 className="input text-sm mt-1"
@@ -1560,10 +1952,6 @@ export default function DailyDiaryPage() {
                 >
                   <option value="CORE_SUBJECT">Core Subject</option>
                   <option value="ACTIVITY">Activity</option>
-                  <option value="OUTDOOR">Outdoor Play</option>
-                  <option value="STORY_TIME">Story & Language</option>
-                  <option value="RHYMES">Rhymes & Music</option>
-                  <option value="SNACK">Snack / Meal Time</option>
                 </select>
               </div>
               <div>
@@ -1606,16 +1994,7 @@ export default function DailyDiaryPage() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-foreground">Notes / Description</label>
-              <textarea
-                className="input text-xs mt-1 h-20"
-                value={editActDesc}
-                onChange={(e) => setEditActDesc(e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
                 className="btn btn-sm btn-ghost"
@@ -1628,15 +2007,57 @@ export default function DailyDiaryPage() {
                 className="btn btn-sm btn-primary"
                 disabled={submittingEditAct}
               >
-                {submittingEditAct ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />}
-                Update Activity
+                {submittingEditAct ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Changes
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* MODAL: RECORD OBSERVATION */}
+      {/* MODAL: COMPLETE ACTIVITY & NOTES */}
+      {showCompleteActivityModal && (
+        <Modal
+          isOpen={!!showCompleteActivityModal}
+          onClose={() => setShowCompleteActivityModal(null)}
+          title="Mark Activity Completed"
+        >
+          <div className="space-y-4 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Add execution notes or learning outcomes achieved during this session.
+            </p>
+            <textarea
+              className="input text-xs w-full min-h-[100px] p-3"
+              placeholder="e.g. Children practiced number recognition 1 to 20 with flashcards..."
+              value={activityNotesInput}
+              onChange={(e) => setActivityNotesInput(e.target.value)}
+            />
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                className="btn btn-sm btn-ghost"
+                onClick={() => setShowCompleteActivityModal(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() =>
+                  handleUpdateActivityStatus(
+                    showCompleteActivityModal,
+                    'COMPLETED',
+                    activityNotesInput
+                  )
+                }
+              >
+                Save & Mark Completed
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* MODAL: ADD OBSERVATION */}
       {showObservationModal && (
         <Modal
           isOpen={showObservationModal}
@@ -1645,13 +2066,13 @@ export default function DailyDiaryPage() {
         >
           <form onSubmit={handleAddObservation} className="space-y-4 pt-2">
             <div>
-              <label className="text-xs font-bold text-foreground">Select Student (Optional)</label>
+              <label className="text-xs font-bold text-foreground">Target Student (Optional)</label>
               <select
                 className="select text-xs mt-1"
                 value={obsStudentId}
                 onChange={(e) => setObsStudentId(e.target.value)}
               >
-                <option value="">-- General Class Observation --</option>
+                <option value="">General Class Observation (All Students)</option>
                 {attendanceRegister.map((s) => (
                   <option key={s.studentId} value={s.studentId}>
                     {s.name} ({s.admissionNo})
@@ -1669,38 +2090,40 @@ export default function DailyDiaryPage() {
                   onChange={(e) => setObsCategory(e.target.value)}
                 >
                   <option value="General">General</option>
-                  <option value="Learning">Learning & Core</option>
-                  <option value="Behavior">Behavior & Social</option>
-                  <option value="Health">Health & Wellness</option>
-                  <option value="Meal/Nap">Meal & Nap</option>
+                  <option value="Cognitive">Cognitive & Math</option>
+                  <option value="Language">Language & Story</option>
+                  <option value="Motor Skills">Motor Skills & Play</option>
+                  <option value="Social & Emotional">Social & Emotional</option>
+                  <option value="Art & Creative">Art & Creative</option>
                 </select>
               </div>
+
               <div>
                 <label className="text-xs font-bold text-foreground">Concern Level</label>
                 <select
-                  className="select text-xs mt-1"
+                  className="select text-xs mt-1 font-semibold"
                   value={obsConcern}
                   onChange={(e) => setObsConcern(e.target.value)}
                 >
-                  <option value="NORMAL">Normal</option>
-                  <option value="ELEVATED">Elevated</option>
-                  <option value="URGENT">Urgent</option>
+                  <option value="NORMAL">Normal / Positive Progress</option>
+                  <option value="ELEVATED">Attention Needed</option>
+                  <option value="URGENT">Urgent Concern</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-foreground">Observation Details *</label>
+              <label className="text-xs font-bold text-foreground">Observation Narrative *</label>
               <textarea
-                className="input text-xs mt-1 h-24"
-                placeholder="Write your observation details here..."
+                className="input text-xs mt-1 w-full min-h-[100px] p-3"
+                placeholder="Describe what was observed during today's activities..."
                 value={obsNarrative}
                 onChange={(e) => setObsNarrative(e.target.value)}
                 required
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-border">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
                 type="button"
                 className="btn btn-sm btn-ghost"
@@ -1713,51 +2136,10 @@ export default function DailyDiaryPage() {
                 className="btn btn-sm btn-primary"
                 disabled={submittingObs}
               >
-                {submittingObs ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />}
-                Save Observation
+                {submittingObs ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Observation
               </button>
             </div>
           </form>
-        </Modal>
-      )}
-
-      {/* MODAL: COMPLETE ACTIVITY */}
-      {showCompleteActivityModal && (
-        <Modal
-          isOpen={!!showCompleteActivityModal}
-          onClose={() => setShowCompleteActivityModal(null)}
-          title="Mark Activity Completed"
-        >
-          <div className="space-y-4 pt-2">
-            <div>
-              <label className="text-xs font-bold text-foreground">Activity Outcome / Execution Notes</label>
-              <textarea
-                className="input text-xs mt-1 h-20"
-                placeholder="e.g. Children practiced counting 1–20 actively..."
-                value={activityNotesInput}
-                onChange={(e) => setActivityNotesInput(e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-border">
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => setShowCompleteActivityModal(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={() =>
-                  handleUpdateActivityStatus(showCompleteActivityModal, 'COMPLETED', activityNotesInput)
-                }
-              >
-                <CheckCircle2 size={14} /> Confirm Completion
-              </button>
-            </div>
-          </div>
         </Modal>
       )}
     </div>
