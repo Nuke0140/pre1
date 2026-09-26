@@ -1302,7 +1302,7 @@ export default function DailyDiaryPage() {
                     </div>
                   </div>
                 </>
-              ) : null}
+              )}
             </div>
           )}
 
