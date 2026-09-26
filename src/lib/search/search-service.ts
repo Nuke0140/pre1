@@ -752,7 +752,7 @@ export class GlobalSearchService {
         subtitle: sub,
         badge: att.status,
         badgeVariant: att.status === 'PRESENT' ? 'success' : 'danger',
-        actionUrl: `/app/attendance`,
+        actionUrl: `/app/daily-diary?tab=attendance`,
         metadata: { date: d, studentName },
         score: calculateRankScore(title, att.student.admissionNo, query, sub),
       }

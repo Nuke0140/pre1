@@ -25,7 +25,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'setup', label: 'Setup', href: '/app/setup', icon: Rocket, grad: 'g-violet', perm: 'settings:read' },
   { key: 'admissions', label: 'Admissions', href: '/app/admissions', icon: ClipboardList, grad: 'g-pink', perm: 'admissions:read' },
   { key: 'students', label: 'Students', href: '/app/students', icon: Users, grad: 'g-blue', perm: 'students:read' },
-  { key: 'attendance', label: 'Attendance', href: '/app/attendance', icon: CalendarCheck, grad: 'g-cyan', perm: 'attendance:read' },
   { key: 'operations', label: 'Operations', href: '/app/operations', icon: HeartPulse, grad: 'g-red', perm: 'operations:read' },
   { key: 'transport', label: 'Transport', href: '/app/transport', icon: Bus, grad: 'g-orange', perm: 'transport:read' },
   { key: 'inventory', label: 'Inventory', href: '/app/inventory', icon: Package, grad: 'g-emerald', perm: 'inventory:read' },

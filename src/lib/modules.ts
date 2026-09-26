@@ -143,12 +143,6 @@ const MODULE_META: Record<string, ModuleMeta> = {
     semanticTheme: 'green',
     quickActions: [{ label: 'Add student', href: '/app/students', perm: 'students:write' }],
   },
-  attendance: {
-    description: 'Track daily attendance',
-    tileSize: 'md',
-    semanticTheme: 'pink',
-    quickActions: [{ label: 'Mark attendance', href: '/app/attendance', perm: 'attendance:mark' }],
-  },
   operations: {
     description: 'Daily school operations',
     tileSize: 'md',

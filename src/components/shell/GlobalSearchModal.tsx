@@ -114,7 +114,7 @@ const COMMANDS: CommandItem[] = [
   { key: 'users', label: 'Users & Access', hint: 'Jump to module', icon: UserCheck, href: '/app/users' },
   { key: 'students', label: 'Students', hint: 'Jump to module', icon: GraduationCap, href: '/app/students' },
   { key: 'admissions', label: 'Admissions', hint: 'Jump to module', icon: Building, href: '/app/admissions' },
-  { key: 'attendance', label: 'Attendance', hint: 'Jump to module', icon: CalendarCheck, href: '/app/attendance' },
+  { key: 'daily-diary', label: 'Daily Diary & Attendance', hint: 'Jump to module', icon: CalendarCheck, href: '/app/daily-diary' },
   { key: 'finance', label: 'Fees & Finance', hint: 'Jump to module', icon: DollarSign, href: '/app/finance' },
   { key: 'transport', label: 'Transport', hint: 'Jump to module', icon: Truck, href: '/app/transport' },
   { key: 'reports', label: 'Reports & Analytics', hint: 'Jump to module', icon: BarChart3, href: '/app/reports' },

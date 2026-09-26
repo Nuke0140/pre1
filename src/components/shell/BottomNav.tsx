@@ -79,8 +79,7 @@ export function BottomNav({
       nav.find((n) => n.key === 'hr')
     const growthItem =
       nav.find((n) => n.key === 'daily-diary') ||
-      nav.find((n) => n.key === 'reports') ||
-      nav.find((n) => n.key === 'attendance')
+      nav.find((n) => n.key === 'reports')
 
     // Prepare left cluster (Home, Apps)
     const left: ResolvedDockItem[] = [

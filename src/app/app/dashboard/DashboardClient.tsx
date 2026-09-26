@@ -102,7 +102,7 @@ export function DashboardClient({ role, perms, data }: Props) {
       <div className="quick-action-strip">
         <span className="strip-label">Quick Actions:</span>
         {perms.attendance && (
-          <Link href="/app/attendance" className="btn-action">
+          <Link href="/app/daily-diary?tab=attendance" className="btn-action">
             <CalendarCheck size={14} /> Mark Attendance
           </Link>
         )}
@@ -150,7 +150,7 @@ export function DashboardClient({ role, perms, data }: Props) {
                 <CheckCircle2 size={13} style={{ color: 'var(--success)' }} />
                 Target benchmark: ≥85% healthy attendance
               </span>
-              <Link href="/app/attendance" className="btn btn-ghost btn-sm">
+              <Link href="/app/daily-diary?tab=attendance" className="btn btn-ghost btn-sm">
                 Open Daily Register <ArrowRight size={14} />
               </Link>
             </div>
