@@ -28,6 +28,7 @@ import {
   Check,
   Edit3,
   Trash2,
+  Minus,
 } from 'lucide-react'
 import { PageHead, Avatar } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -1782,9 +1783,10 @@ export default function DailyDiaryPage() {
           open={showScheduleBuilderModal}
           onClose={() => setShowScheduleBuilderModal(false)}
           title={`Daily Schedule Builder — ${currentClass?.name || 'Classroom'}`}
-          size="xl"
+          wide
+          maxWidth="920px"
         >
-          <form onSubmit={handleSaveScheduleBuilder} className="space-y-6 pt-2">
+          <form onSubmit={handleSaveScheduleBuilder} className="space-y-4 pt-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-muted/40 border border-border text-xs">
               <div>
                 <span className="font-semibold text-foreground">Classroom:</span> {currentClass?.name} •{' '}
@@ -1795,25 +1797,25 @@ export default function DailyDiaryPage() {
               </div>
             </div>
 
-            <div className="border border-border rounded-xl overflow-hidden bg-card/30">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted font-bold text-muted-foreground border-b border-border">
+            <div className="border border-border rounded-xl overflow-x-auto max-h-[60vh] overflow-y-auto bg-card/30">
+              <table className="w-full text-left text-xs min-w-[720px]">
+                <thead className="bg-muted font-bold text-muted-foreground border-b border-border sticky top-0 z-10">
                   <tr>
-                    <th className="p-3 w-12">#</th>
-                    <th className="p-3 w-1/3">Subject *</th>
-                    <th className="p-3">Start Time *</th>
-                    <th className="p-3">End Time *</th>
-                    <th className="p-3 w-1/4">Type of Activity *</th>
-                    <th className="p-3 w-20 text-center">Actions</th>
+                    <th className="p-3 w-10 text-center">#</th>
+                    <th className="p-3 min-w-[240px]">Subject / Activity Name *</th>
+                    <th className="p-3 w-32">Start Time *</th>
+                    <th className="p-3 w-32">End Time *</th>
+                    <th className="p-3 w-40">Type of Activity *</th>
+                    <th className="p-3 w-24 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {scheduleRows.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-card/50">
-                      <td className="p-3 font-mono text-muted-foreground">{idx + 1}.</td>
+                      <td className="p-3 font-mono text-muted-foreground text-center">{idx + 1}.</td>
                       <td className="p-3">
                         <select
-                          className="select select-sm text-xs font-semibold w-full"
+                          className="select select-sm text-xs font-semibold w-full min-w-[200px]"
                           value={row.subjectName}
                           onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
                           required
@@ -1824,13 +1826,13 @@ export default function DailyDiaryPage() {
                               {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
                             </option>
                           ))}
-                          <option value="English & Phonics">English & Phonics (Default)</option>
-                          <option value="Mathematics & Numbers">Mathematics & Numbers (Default)</option>
-                          <option value="EVS & Environmental Science">EVS & Environmental Science (Default)</option>
-                          <option value="Art & Craft">Art & Craft (Default)</option>
-                          <option value="Physical Activity & Play">Physical Activity & Play (Default)</option>
-                          <option value="Music & Movement">Music & Movement (Default)</option>
-                          <option value="Storytelling & Rhymes">Storytelling & Rhymes (Default)</option>
+                          <option value="English & Phonics">English & Phonics</option>
+                          <option value="Mathematics & Numbers">Mathematics & Numbers</option>
+                          <option value="EVS & Environmental Science">EVS & Environmental Science</option>
+                          <option value="Art & Craft">Art & Craft</option>
+                          <option value="Physical Activity & Play">Physical Activity & Play</option>
+                          <option value="Music & Movement">Music & Movement</option>
+                          <option value="Storytelling & Rhymes">Storytelling & Rhymes</option>
                         </select>
                       </td>
                       <td className="p-3">
@@ -1862,7 +1864,7 @@ export default function DailyDiaryPage() {
                         </select>
                       </td>
                       <td className="p-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
                             className="btn btn-icon btn-icon-xs btn-icon-primary"
@@ -1874,11 +1876,11 @@ export default function DailyDiaryPage() {
                           {scheduleRows.length > 1 && (
                             <button
                               type="button"
-                              className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
+                              className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 rounded p-1 border border-rose-200 dark:border-rose-950"
                               onClick={() => handleRemoveScheduleRow(idx)}
-                              title="Delete Row"
+                              title="Remove Row (-)"
                             >
-                              <Trash2 size={14} />
+                              <Minus size={14} />
                             </button>
                           )}
                         </div>
