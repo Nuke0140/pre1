@@ -1409,42 +1409,53 @@ export default function DailyDiaryPage() {
                   </span>
                 </div>
 
-                {/* Target Date & Day Selector Inside Builder Box */}
-                <div className="p-3 rounded-xl bg-muted/40 border border-border space-y-2">
-                  <div className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-primary" /> Target Scheduling Date & Day:
-                    </span>
-                    <span className="badge b-primary text-[11px] font-bold">
-                      {getFormattedDayAndDate(selectedDate)}
-                    </span>
+                {/* Target Program, Class & Date Selector Inside Builder Box */}
+                <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Program Selection Dropdown */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Building2 size={14} className="text-primary" /> Program / Class:
+                      </label>
+                      <select
+                        className="select select-sm text-xs font-semibold w-full bg-card border-border"
+                        value={selectedClassroomId}
+                        onChange={(e) => setSelectedClassroomId(e.target.value)}
+                      >
+                        {classrooms.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.programType} – {c.name} ({c.teacherName})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Target Date Picker */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Calendar size={14} className="text-primary" /> Target Scheduling Date:
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="date"
+                          className="bg-card border border-border text-xs font-semibold px-2 py-1 rounded-lg focus:outline-none cursor-pointer flex-1"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline text-xs font-semibold"
+                          onClick={() => setSelectedDate(isoDate())}
+                        >
+                          Today
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <input
-                      type="date"
-                      className="bg-card border border-border text-xs font-semibold px-2.5 py-1.5 rounded-lg focus:outline-none cursor-pointer flex-1"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-xs btn-outline text-xs font-semibold"
-                      onClick={() => setSelectedDate(isoDate())}
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-xs btn-outline text-xs font-semibold"
-                      onClick={() => {
-                        const tom = new Date()
-                        tom.setDate(tom.getDate() + 1)
-                        setSelectedDate(isoDate(tom))
-                      }}
-                    >
-                      Tomorrow
-                    </button>
+                  <div className="text-xs font-semibold text-muted-foreground pt-1.5 border-t border-border/60 flex items-center justify-between">
+                    <span>Scheduling Day: <strong className="text-foreground">{getFormattedDayAndDate(selectedDate)}</strong></span>
+                    {currentClass && <span className="badge b-primary text-[10px] font-bold">{currentClass.programType}</span>}
                   </div>
                 </div>
 
