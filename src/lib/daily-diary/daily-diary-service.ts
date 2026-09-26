@@ -36,10 +36,18 @@ function getDayBounds(dateStr: string) {
   return { startOfDay, endOfDay, dateOnly }
 }
 
-/** Convert HH:MM time string to total minutes from midnight for overlap comparison */
+/** Convert HH:MM or HH:MM AM/PM time string to total minutes from midnight for overlap comparison */
 function timeToMinutes(timeStr: string): number {
   if (!timeStr) return 0
-  const [hours, minutes] = timeStr.split(':').map((n) => parseInt(n, 10) || 0)
+  const clean = timeStr.trim().toUpperCase()
+  const isPM = clean.includes('PM')
+  const isAM = clean.includes('AM')
+  const digitsOnly = clean.replace(/[^0-9:]/g, '')
+  const parts = digitsOnly.split(':')
+  let hours = parseInt(parts[0], 10) || 0
+  const minutes = parseInt(parts[1], 10) || 0
+  if (isPM && hours < 12) hours += 12
+  if (isAM && hours === 12) hours = 0
   return hours * 60 + minutes
 }
 
@@ -521,12 +529,30 @@ export class DailyDiaryService {
       }
     }
 
+    const activeSession = await db.academicSession.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+      select: { id: true },
+    })
+
+    const targetSessionId = classroom.academicSessionId || activeSession?.id
+    if (!targetSessionId) {
+      throw new Error('VALIDATION_ERROR: No active academic session found')
+    }
+
+    let targetTeacherId = data.teacherId && data.teacherId.trim() !== '' ? data.teacherId : classroom.primaryTeacherId || session.uid
+    if (targetTeacherId) {
+      const validUser = await db.user.findUnique({ where: { id: targetTeacherId }, select: { id: true } })
+      if (!validUser) targetTeacherId = session.uid
+    } else {
+      targetTeacherId = session.uid
+    }
+
     const activity = await db.classroomActivity.create({
       data: {
         tenantId,
-        academicSessionId: classroom.academicSessionId,
+        academicSessionId: targetSessionId,
         classroomId: data.classroomId,
-        teacherId: data.teacherId || classroom.primaryTeacherId || session.uid,
+        teacherId: targetTeacherId,
         title: data.title,
         activityType: data.activityType || 'ACTIVITY',
         activityDate: dateOnly,
