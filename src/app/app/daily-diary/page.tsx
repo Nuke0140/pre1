@@ -302,7 +302,8 @@ export default function DailyDiaryPage() {
 
   useEffect(() => {
     fetchContext()
-  }, [fetchContext])
+    fetchSubjects()
+  }, [fetchContext, fetchSubjects])
 
   // Load Overview whenever classroomId or selectedDate changes
   const loadOverview = useCallback(async () => {
@@ -1675,7 +1676,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: MANAGE SUBJECTS (ADD) */}
       {showAddSubjectModal && (
         <Modal
-          isOpen={showAddSubjectModal}
+          open={showAddSubjectModal}
           onClose={() => setShowAddSubjectModal(false)}
           title="Add Reusable Subject"
         >
@@ -1727,7 +1728,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: MANAGE SUBJECTS (EDIT) */}
       {showEditSubjectModal && (
         <Modal
-          isOpen={!!showEditSubjectModal}
+          open={!!showEditSubjectModal}
           onClose={() => setShowEditSubjectModal(null)}
           title="Edit Subject"
         >
@@ -1778,7 +1779,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: DAILY SCHEDULE BUILDER (MULTI-ROW TABLE FORM) */}
       {showScheduleBuilderModal && (
         <Modal
-          isOpen={showScheduleBuilderModal}
+          open={showScheduleBuilderModal}
           onClose={() => setShowScheduleBuilderModal(false)}
           title={`Daily Schedule Builder — ${currentClass?.name || 'Classroom'}`}
           size="xl"
@@ -1811,30 +1812,26 @@ export default function DailyDiaryPage() {
                     <tr key={row.id} className="hover:bg-card/50">
                       <td className="p-3 font-mono text-muted-foreground">{idx + 1}.</td>
                       <td className="p-3">
-                        {subjects.length > 0 ? (
-                          <select
-                            className="select select-sm text-xs font-semibold w-full"
-                            value={row.subjectName}
-                            onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
-                            required
-                          >
-                            <option value="">-- Select Subject --</option>
-                            {subjects.map((sub) => (
-                              <option key={sub.id} value={sub.name}>
-                                {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            className="input input-sm text-xs w-full"
-                            placeholder="e.g. Mathematics, Drawing..."
-                            value={row.subjectName}
-                            onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
-                            required
-                          />
-                        )}
+                        <select
+                          className="select select-sm text-xs font-semibold w-full"
+                          value={row.subjectName}
+                          onChange={(e) => handleUpdateScheduleRow(idx, 'subjectName', e.target.value)}
+                          required
+                        >
+                          <option value="">-- Select Subject --</option>
+                          {subjects.map((sub) => (
+                            <option key={sub.id} value={sub.name}>
+                              {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                            </option>
+                          ))}
+                          <option value="English & Phonics">English & Phonics (Default)</option>
+                          <option value="Mathematics & Numbers">Mathematics & Numbers (Default)</option>
+                          <option value="EVS & Environmental Science">EVS & Environmental Science (Default)</option>
+                          <option value="Art & Craft">Art & Craft (Default)</option>
+                          <option value="Physical Activity & Play">Physical Activity & Play (Default)</option>
+                          <option value="Music & Movement">Music & Movement (Default)</option>
+                          <option value="Storytelling & Rhymes">Storytelling & Rhymes (Default)</option>
+                        </select>
                       </td>
                       <td className="p-3">
                         <input
@@ -1926,7 +1923,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: EDIT SINGLE ACTIVITY */}
       {showEditActivityModal && (
         <Modal
-          isOpen={showEditActivityModal}
+          open={showEditActivityModal}
           onClose={() => setShowEditActivityModal(false)}
           title="Edit Activity Entry"
         >
@@ -2017,7 +2014,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: COMPLETE ACTIVITY & NOTES */}
       {showCompleteActivityModal && (
         <Modal
-          isOpen={!!showCompleteActivityModal}
+          open={!!showCompleteActivityModal}
           onClose={() => setShowCompleteActivityModal(null)}
           title="Mark Activity Completed"
         >
@@ -2060,7 +2057,7 @@ export default function DailyDiaryPage() {
       {/* MODAL: ADD OBSERVATION */}
       {showObservationModal && (
         <Modal
-          isOpen={showObservationModal}
+          open={showObservationModal}
           onClose={() => setShowObservationModal(false)}
           title="Record Classroom Observation"
         >
