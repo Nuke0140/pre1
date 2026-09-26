@@ -1127,15 +1127,20 @@ export default function DailyDiaryPage() {
 
                   {/* Today's Activities & Quick Observations Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Schedule / Timetable Widget */}
-                    <div className="lg:col-span-2 glass-panel p-6 space-y-4">
+                    {/* Visual Daily Schedule Chart & Timetable Widget */}
+                    <div className="lg:col-span-2 glass-panel p-6 space-y-5">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                          <Clock size={18} className="text-primary" /> Today&apos;s Schedule & Activities
-                        </h3>
+                        <div>
+                          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                            <Clock size={18} className="text-primary" /> Daily Schedule & Activity Chart
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Visual daily timetable breakdown for {currentClass?.name} ({selectedDate})
+                          </p>
+                        </div>
                         <button
                           type="button"
-                          className="btn btn-xs btn-outline"
+                          className="btn btn-xs btn-primary"
                           onClick={() => handleOpenScheduleBuilder()}
                         >
                           <Plus size={13} /> Schedule Activity
@@ -1143,59 +1148,129 @@ export default function DailyDiaryPage() {
                       </div>
 
                       {overview.activities.length === 0 ? (
-                        <div className="text-center py-8 border border-dashed border-border rounded-xl">
-                          <Clock className="mx-auto text-muted-foreground mb-2" size={32} />
-                          <p className="text-sm font-medium text-muted-foreground">No activities scheduled for today.</p>
+                        <div className="text-center py-10 border border-dashed border-border rounded-xl bg-card/20 space-y-2">
+                          <Clock className="mx-auto text-muted-foreground/60" size={36} />
+                          <p className="text-sm font-semibold text-foreground">No Schedule Chart Created Yet</p>
+                          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                            Build a multi-row daily timetable using your subject list to generate today&apos;s activity chart.
+                          </p>
                           <button
                             type="button"
-                            className="btn btn-xs btn-primary mt-3"
+                            className="btn btn-sm btn-primary mt-2"
                             onClick={() => handleOpenScheduleBuilder()}
                           >
-                            <Plus size={13} /> Schedule Activity
+                            <Plus size={14} /> Schedule Activity Now
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-3">
-                          {overview.activities.map((act) => (
-                            <div
-                              key={act.id}
-                              className="p-4 rounded-xl border border-border bg-card/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                            >
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-muted">
-                                    {act.startTime} – {act.endTime}
-                                  </span>
-                                  <span className={`badge text-[10px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
-                                    {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core Subject' : act.activityType.replace('_', ' ')}
-                                  </span>
-                                </div>
-                                <h4 className="font-semibold text-foreground text-sm">{act.title}</h4>
-                                {act.description && (
-                                  <p className="text-xs text-muted-foreground">{act.description}</p>
-                                )}
-                                {act.actualOutcome && (
-                                  <p className="text-xs text-emerald-600 font-medium">Notes: {act.actualOutcome}</p>
-                                )}
-                              </div>
+                        <div className="space-y-4">
+                          {/* VISUAL TIMELINE BAR CHART */}
+                          <div className="p-4 rounded-xl border border-border bg-card/50 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                              <span>Daily Schedule Progression Chart</span>
+                              <span>{overview.activities.length} Scheduled Entries</span>
+                            </div>
+                            
+                            {/* Horizontal Chart Bar */}
+                            <div className="flex items-center gap-1.5 h-10 w-full bg-muted/60 p-1.5 rounded-lg border border-border overflow-x-auto">
+                              {overview.activities.map((act) => {
+                                const isCore = ['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType)
+                                const isCompleted = act.status === 'COMPLETED'
+                                return (
+                                  <div
+                                    key={act.id}
+                                    className={`h-full min-w-[90px] flex-1 rounded px-2 flex items-center justify-between text-[11px] font-semibold text-white transition-all cursor-pointer shadow-sm hover:opacity-90 ${
+                                      isCompleted
+                                        ? 'bg-emerald-600 dark:bg-emerald-700'
+                                        : isCore
+                                        ? 'bg-indigo-600 dark:bg-indigo-700'
+                                        : 'bg-purple-600 dark:bg-purple-700'
+                                    }`}
+                                    title={`${act.startTime} - ${act.endTime}: ${act.title} (${isCompleted ? 'Completed' : 'Planned'})`}
+                                    onClick={() => handleOpenEditActivityModal(act)}
+                                  >
+                                    <span className="truncate">{act.title}</span>
+                                    <span className="text-[9px] opacity-85 font-mono ml-1">{act.startTime}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
+                              <span>08:00 AM</span>
+                              <span>12:00 PM</span>
+                              <span>04:00 PM</span>
+                            </div>
+                          </div>
 
-                              <div className="flex items-center gap-2">
-                                {act.status === 'COMPLETED' ? (
-                                  <span className="badge b-success text-xs font-semibold">
-                                    <CheckCircle2 size={13} className="mr-1 inline" /> Completed
-                                  </span>
-                                ) : (
+                          {/* TIMETABLE SCHEDULE ROW LIST WITH EDIT/DELETE ACTIONS */}
+                          <div className="space-y-2.5">
+                            {overview.activities.map((act, idx) => (
+                              <div
+                                key={act.id}
+                                className="p-3.5 rounded-xl border border-border bg-card/40 hover:bg-card/70 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                              >
+                                <div className="space-y-1 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold font-mono px-2 py-0.5 rounded bg-muted text-foreground border border-border">
+                                      {act.startTime} – {act.endTime}
+                                    </span>
+                                    <span className={`badge text-[10px] font-semibold uppercase ${['CORE_TEACHING', 'CORE_SUBJECT'].includes(act.activityType) ? 'b-indigo' : 'b-purple'}`}>
+                                      {act.activityType === 'CORE_TEACHING' || act.activityType === 'CORE_SUBJECT' ? 'Core Subject' : act.activityType.replace('_', ' ')}
+                                    </span>
+                                    {act.teacherName && (
+                                      <span className="text-[11px] text-muted-foreground">
+                                        • Teacher: <strong className="text-foreground">{act.teacherName}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h4 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                                    <span className="text-muted-foreground text-xs font-mono">{idx + 1}.</span> {act.title}
+                                  </h4>
+                                  {act.description && (
+                                    <p className="text-xs text-muted-foreground">{act.description}</p>
+                                  )}
+                                  {act.actualOutcome && (
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Notes: {act.actualOutcome}</p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-border">
+                                  {act.status === 'COMPLETED' ? (
+                                    <span className="badge b-success text-xs font-semibold">
+                                      <CheckCircle2 size={13} className="mr-1 inline" /> Completed
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-outline"
+                                      onClick={() => setShowCompleteActivityModal(act.id)}
+                                    >
+                                      Mark Done
+                                    </button>
+                                  )}
+
                                   <button
                                     type="button"
-                                    className="btn btn-xs btn-outline"
-                                    onClick={() => setShowCompleteActivityModal(act.id)}
+                                    className="btn btn-icon btn-icon-xs btn-icon-ghost"
+                                    onClick={() => handleOpenEditActivityModal(act)}
+                                    title="Edit Activity"
                                   >
-                                    Mark Done
+                                    <Edit3 size={13} />
                                   </button>
-                                )}
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500 hover:text-rose-600"
+                                    onClick={() => handleDeleteActivity(act.id, act.title)}
+                                    title="Delete Activity"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
