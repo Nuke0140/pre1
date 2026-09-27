@@ -13,7 +13,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let branchName: string | null = null
   if (session.tenantId) {
     const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
-    tenantName = tenant?.name ?? 'PreOne'
+    if (!tenant) {
+      const cookieStore = await cookies()
+      cookieStore.delete('preone_session')
+      redirect('/')
+    }
+    tenantName = tenant.name
     const branch = session.branchId
       ? await db.branch.findUnique({ where: { id: session.branchId } })
       : null

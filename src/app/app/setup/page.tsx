@@ -145,7 +145,12 @@ export default function SetupPage() {
     try {
       const res = await fetch('/api/v1/setup/status')
       const j = await res.json()
-      if (j.success) setStatus(j.data)
+      if (j.success) {
+        setStatus(j.data)
+      } else if (res.status === 401 || j.error?.code === 'AUTH_001') {
+        document.cookie = 'preone_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+        window.location.href = '/'
+      }
     } catch {
       // ignore network errors on unmount
     }

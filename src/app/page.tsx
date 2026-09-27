@@ -56,7 +56,11 @@ export default function LoginPage() {
     fetch('/api/v1/me')
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (j?.success) router.replace('/app/dashboard')
+        if (j?.success) {
+          router.replace('/app/dashboard')
+        } else {
+          document.cookie = 'preone_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
+        }
       })
       .catch(() => {})
   }, [router])

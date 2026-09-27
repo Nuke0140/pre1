@@ -98,6 +98,11 @@ export class SubjectService {
     data: CreateSubjectInput,
     actor: { id: string; name: string; role?: string }
   ) {
+    const tenantExists = await db.tenant.findUnique({ where: { id: tenantId } })
+    if (!tenantExists) {
+      throw new Error('Tenant not found. Please log out and log in again to refresh your session.')
+    }
+
     const code = data.code.trim().toUpperCase()
     const existing = await db.subject.findUnique({
       where: {

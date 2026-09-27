@@ -67,6 +67,9 @@ async function _POST(req: NextRequest) {
     if (e.message?.includes('already exists')) {
       return Errors.conflict('SUBJECT_EXISTS', e.message)
     }
+    if (e.message?.includes('Tenant not found') || e.message?.includes('session')) {
+      return Errors.unauthorized(e.message)
+    }
     return Errors.system(e)
   }
 }

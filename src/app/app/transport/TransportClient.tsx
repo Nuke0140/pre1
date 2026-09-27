@@ -51,7 +51,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const canWrite = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
   const canOperate = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTIONIST', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
 
-  type TabKey = 'OVERVIEW' | 'TRIPS' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'INCIDENTS'
+  type TabKey = 'OVERVIEW' | 'TRIPS' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'INCIDENTS' | 'SCANNER' | 'AUTHORIZATIONS' | 'SECURITY'
   const [tab, setTab] = useState<TabKey>('OVERVIEW')
 
   const [loading, setLoading] = useState(false)
@@ -61,6 +61,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [assignments, setAssignments] = useState<any[]>([])
   const [trips, setTrips] = useState<any[]>([])
   const [incidents, setIncidents] = useState<any[]>([])
+  const [authorizations, setAuthorizations] = useState<any[]>([])
+  const [securityLogs, setSecurityLogs] = useState<any[]>([])
   const [eligibleStaff, setEligibleStaff] = useState<any[]>([])
   const [availableStudents, setAvailableStudents] = useState<any[]>([])
 
@@ -70,6 +72,12 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [routeFilter, setRouteFilter] = useState<string>('ALL')
   const [studentSearch, setStudentSearch] = useState<string>('')
   const [incidentSeverityFilter, setIncidentSeverityFilter] = useState<string>('ALL')
+
+  // QR Scanner State
+  const [scanInput, setScanInput] = useState('')
+  const [scanResult, setScanResult] = useState<any>(null)
+  const [scanDriverPin, setScanDriverPin] = useState('')
+  const [scanningBusy, setScanningBusy] = useState(false)
 
   // Emergency Safety Callout State
   const [activeSafetyAlert, setActiveSafetyAlert] = useState<{
@@ -98,6 +106,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [delayTripOpen, setDelayTripOpen] = useState<any>(null)
   const [substituteVehicleModal, setSubstituteVehicleModal] = useState<any>(null)
   const [substituteDriverModal, setSubstituteDriverModal] = useState<any>(null)
+  const [addAuthOpen, setAddAuthOpen] = useState(false)
+  const [manualOverrideModal, setManualOverrideModal] = useState<any>(null)
   const [busy, setBusy] = useState(false)
 
   // Drop Verification Form State
@@ -158,6 +168,22 @@ export function TransportClient({ session }: { session: SessionProps }) {
     } catch {}
   }, [])
 
+  const loadAuthorizations = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/transport/authorizations')
+      const json = await res.json()
+      if (json.success) setAuthorizations(json.data)
+    } catch {}
+  }, [])
+
+  const loadSecurityLogs = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/transport/security')
+      const json = await res.json()
+      if (json.success) setSecurityLogs(json.data)
+    } catch {}
+  }, [])
+
   const loadStaff = useCallback(async () => {
     try {
       const res = await fetch('/api/v1/transport/eligible-staff')
@@ -181,9 +207,11 @@ export function TransportClient({ session }: { session: SessionProps }) {
     loadAssignments()
     loadTrips()
     loadIncidents()
+    loadAuthorizations()
+    loadSecurityLogs()
     loadStaff()
     loadStudents()
-  }, [loadDashboard, loadVehicles, loadRoutes, loadAssignments, loadTrips, loadIncidents, loadStaff, loadStudents])
+  }, [loadDashboard, loadVehicles, loadRoutes, loadAssignments, loadTrips, loadIncidents, loadAuthorizations, loadSecurityLogs, loadStaff, loadStudents])
 
   // Helper avatar generator
   const getAvatarInitials = (name: string) => {
@@ -677,6 +705,126 @@ export function TransportClient({ session }: { session: SessionProps }) {
     }
   }
 
+  // QR Scanner Handler
+  const handlePerformScan = async (overridePayload?: string) => {
+    const payload = overridePayload || scanInput
+    if (!payload.trim()) {
+      toast.error('Please enter or scan a QR code payload')
+      return
+    }
+    setScanningBusy(true)
+    try {
+      const res = await fetch('/api/v1/transport/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrPayload: payload.trim(), pin: scanDriverPin }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setScanResult(json.data)
+        if (json.data.valid) {
+          toast.success(json.data.message || 'QR payload verified successfully!')
+        } else {
+          toast.error(json.data.message || 'QR verification failed')
+        }
+      } else {
+        toast.error('Scan request failed', json.error?.message || json.error)
+      }
+    } catch (err: any) {
+      toast.error('Error calling QR scanner', err.message)
+    } finally {
+      setScanningBusy(false)
+    }
+  }
+
+  // Temporary Authorization Handlers
+  const handleCreateAuthorization = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    const fd = new FormData(e.currentTarget)
+    try {
+      const res = await fetch('/api/v1/transport/authorizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: fd.get('studentId'),
+          authorizedPersonName: fd.get('authorizedPersonName'),
+          authorizedPersonPhone: fd.get('authorizedPersonPhone'),
+          relationship: fd.get('relationship'),
+          reason: fd.get('reason'),
+          validFrom: fd.get('validFrom'),
+          validUntil: fd.get('validUntil'),
+          isOneTime: fd.get('isOneTime') === 'true',
+          remarks: fd.get('remarks'),
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Temporary Pickup Authorization created!')
+        setAddAuthOpen(false)
+        loadAuthorizations()
+      } else {
+        toast.error('Failed to create authorization', json.error?.message || json.error)
+      }
+    } catch (err: any) {
+      toast.error('Error creating authorization', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleActionAuthorization = async (authId: string, action: 'APPROVE' | 'REJECT' | 'CANCEL') => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/authorizations/${authId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(json.data.message || `Authorization ${action.toLowerCase()}d!`)
+        loadAuthorizations()
+      } else {
+        toast.error(`Failed to ${action.toLowerCase()} authorization`, json.error?.message || json.error)
+      }
+    } catch (err: any) {
+      toast.error('Error updating authorization', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Manual Override Handler
+  const handleManualOverride = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setBusy(true)
+    const fd = new FormData(e.currentTarget)
+    try {
+      const res = await fetch('/api/v1/transport/security/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: fd.get('studentId'),
+          action: fd.get('action'),
+          reason: fd.get('reason'),
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Manual security override logged successfully!')
+        setManualOverrideModal(null)
+        loadSecurityLogs()
+      } else {
+        toast.error('Failed to record manual override', json.error?.message || json.error)
+      }
+    } catch (err: any) {
+      toast.error('Error recording manual override', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Filtered lists
   const filteredTrips = trips.filter((t) => {
     if (tripTypeFilter !== 'ALL' && t.tripType !== tripTypeFilter) return false
@@ -872,11 +1020,14 @@ export function TransportClient({ session }: { session: SessionProps }) {
         onChange={(k) => setTab(k as TabKey)}
         options={[
           { key: 'OVERVIEW', label: 'Command Center' },
+          { key: 'SCANNER', label: 'QR Scanner 🔍' },
           { key: 'TRIPS', label: `Today's Runs (${trips.length})` },
           { key: 'ROUTES', label: `Routes (${routes.length})` },
           { key: 'VEHICLES', label: `Fleet (${vehicles.length})` },
           { key: 'STUDENTS', label: `Allocations (${assignments.length})` },
-          { key: 'INCIDENTS', label: `Safety & Incidents (${incidents.length})` },
+          { key: 'AUTHORIZATIONS', label: `Temp Pickups (${authorizations.length})` },
+          { key: 'SECURITY', label: `Security Logs (${securityLogs.length})` },
+          { key: 'INCIDENTS', label: `Incidents (${incidents.length})` },
         ]}
       />
 
@@ -1660,6 +1811,498 @@ export function TransportClient({ session }: { session: SessionProps }) {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* TAB: UNIVERSAL QR SCANNER */}
+      {/* ========================================================================= */}
+      {tab === 'SCANNER' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Universal Transport & Child Safety QR Scanner</div>
+                <div className="card-sub">Instant server-side verification for Student, Guardian, Driver, and Temporary Pickup Authorizations</div>
+              </div>
+            </div>
+
+            <div style={{ padding: 16, background: 'var(--c-surface-hover)', borderRadius: 12, marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Scan QR Code payload or enter payload (e.g. STUDENT:st_1, GUARDIAN:g_1, DRIVER:d_1, AUTH:a_1)"
+                  value={scanInput}
+                  onChange={(e) => setScanInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePerformScan()}
+                  style={{ fontSize: 14, padding: '10px 14px' }}
+                />
+                <button className="btn btn-primary" onClick={() => handlePerformScan()} disabled={scanningBusy}>
+                  {scanningBusy ? 'Verifying...' : 'Verify Payload'}
+                </button>
+              </div>
+
+              <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', fontSize: 12 }}>
+                <span style={{ opacity: 0.7 }}>Quick Test Simulations:</span>
+                {availableStudents.length > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      const payload = `STUDENT:${availableStudents[0].id}`
+                      setScanInput(payload)
+                      handlePerformScan(payload)
+                    }}
+                  >
+                    Scan Student ({availableStudents[0].firstName})
+                  </button>
+                )}
+                {authorizations.length > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      const payload = `AUTH:${authorizations[0].id}`
+                      setScanInput(payload)
+                      handlePerformScan(payload)
+                    }}
+                  >
+                    Scan Temp Auth ({authorizations[0].authorizedPersonName})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {scanResult && (
+              <div
+                style={{
+                  padding: 20,
+                  borderRadius: 12,
+                  border: scanResult.valid ? '2px solid var(--success)' : '2px solid var(--danger)',
+                  background: scanResult.valid ? 'rgba(34, 197, 94, 0.04)' : 'rgba(239, 68, 68, 0.04)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className={`badge ${scanResult.valid ? 'b-success' : 'b-danger'}`} style={{ fontSize: 14, padding: '6px 12px' }}>
+                      {scanResult.status}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>{scanResult.message}</span>
+                  </div>
+                  <span className="badge b-neutral">Scan Type: {scanResult.scanType}</span>
+                </div>
+
+                {/* Driver Scan Specific PIN Form */}
+                {scanResult.scanType === 'DRIVER' && (
+                  <div style={{ marginTop: 12, padding: 14, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>Driver Security PIN Verification</div>
+                    <div style={{ display: 'flex', gap: 10, maxWidth: 300 }}>
+                      <input
+                        type="password"
+                        className="input"
+                        placeholder="Enter 4-digit PIN"
+                        value={scanDriverPin}
+                        onChange={(e) => setScanDriverPin(e.target.value)}
+                        maxLength={6}
+                      />
+                      <button className="btn btn-secondary btn-sm" onClick={() => handlePerformScan()}>
+                        Verify PIN
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Student Scan Result Details */}
+                {scanResult.student && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 12 }}>
+                    <div style={{ padding: 14, background: 'var(--c-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--foreground)', opacity: 0.7, marginBottom: 4 }}>Student Identity</div>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>
+                        {scanResult.student.firstName} {scanResult.student.lastName || ''}
+                      </div>
+                      <div style={{ fontSize: 13, opacity: 0.8 }}>Roll / Admission #: {scanResult.student.rollNumber || 'N/A'}</div>
+                      <div style={{ marginTop: 8 }}>
+                        <span className={`badge ${scanResult.transportAssigned ? 'b-success' : 'b-warning'}`}>
+                          {scanResult.transportAssigned ? 'Transport Enrolled' : 'No Active Bus Assignment'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ padding: 14, background: 'var(--c-surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--foreground)', opacity: 0.7, marginBottom: 4 }}>Linked Guardians</div>
+                      {scanResult.guardians && scanResult.guardians.length > 0 ? (
+                        scanResult.guardians.map((g: any) => (
+                          <div key={g.id} style={{ fontSize: 13, marginBottom: 4 }}>
+                            <b>{g.name}</b> ({g.relationship || 'Guardian'}) — 📞 {g.phone || 'No phone'}
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ fontSize: 13, color: 'var(--warning)' }}>No linked guardians registered</div>
+                      )}
+
+                      {scanResult.activeTemporaryAuthorization && (
+                        <div style={{ marginTop: 10, padding: 8, background: 'rgba(234, 179, 8, 0.1)', borderRadius: 6, fontSize: 12 }}>
+                          🚨 <b>Active Temp Pickup Authorization:</b> {scanResult.activeTemporaryAuthorization.authorizedPersonName} (
+                          {scanResult.activeTemporaryAuthorization.relationship})
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Authorization Scan Result Details */}
+                {scanResult.authorization && (
+                  <div style={{ padding: 14, background: 'var(--c-surface)', borderRadius: 8, border: '1px solid var(--border)', marginTop: 12 }}>
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>Temporary Authorized Pickup Person</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>
+                      {scanResult.authorization.authorizedPersonName} ({scanResult.authorization.relationship})
+                    </div>
+                    <div style={{ fontSize: 13 }}>📞 Phone: {scanResult.authorization.authorizedPersonPhone}</div>
+                    <div style={{ fontSize: 13 }}>Reason: {scanResult.authorization.reason || 'N/A'}</div>
+                    {scanResult.authorization.student && (
+                      <div style={{ fontSize: 13, marginTop: 6, padding: 6, background: 'var(--c-surface-hover)', borderRadius: 6 }}>
+                        Child: <b>{scanResult.authorization.student.firstName} {scanResult.authorization.student.lastName || ''}</b>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quick Action Buttons */}
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  {scanResult.student && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setTab('AUTHORIZATIONS')
+                        setAddAuthOpen(true)
+                      }}
+                    >
+                      + Register Temp Authorization for Student
+                    </button>
+                  )}
+                  <button className="btn btn-danger btn-sm" onClick={() => setManualOverrideModal({ studentId: scanResult.student?.id })}>
+                    Trigger Manual Security Override
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: TEMPORARY PICKUP AUTHORIZATIONS */}
+      {/* ========================================================================= */}
+      {tab === 'AUTHORIZATIONS' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Temporary Authorized Pickups</div>
+                <div className="card-sub">Alternate non-parent pickup requests requiring explicit staff verification</div>
+              </div>
+              {(canOperate || normalizeRole(role) === 'PARENT') && (
+                <button className="btn btn-primary btn-sm" onClick={() => setAddAuthOpen(true)}>
+                  <Plus size={14} /> Request Temp Pickup
+                </button>
+              )}
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Authorized Pickup Person</th>
+                    <th>Relationship</th>
+                    <th>Reason</th>
+                    <th>Valid Window</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {authorizations.map((auth) => (
+                    <tr key={auth.id}>
+                      <td>
+                        <b>
+                          {auth.student?.firstName} {auth.student?.lastName || ''}
+                        </b>
+                      </td>
+                      <td>
+                        <div><b>{auth.authorizedPersonName}</b></div>
+                        <div style={{ fontSize: 12, opacity: 0.7 }}>📞 {auth.authorizedPersonPhone}</div>
+                      </td>
+                      <td>{auth.relationship || 'Alternate'}</td>
+                      <td style={{ maxWidth: 180, fontSize: 13 }}>{auth.reason || 'N/A'}</td>
+                      <td style={{ fontSize: 12 }}>
+                        {fmtDate(auth.validFrom)} - {fmtDate(auth.validUntil)}
+                      </td>
+                      <td>
+                        <span className="badge b-neutral">{auth.isOneTime ? 'One-Time' : 'Multiple'}</span>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            auth.status === 'APPROVED'
+                              ? 'b-success'
+                              : auth.status === 'PENDING'
+                              ? 'b-warning'
+                              : auth.status === 'REJECTED'
+                              ? 'b-danger'
+                              : 'b-neutral'
+                          }`}
+                        >
+                          {auth.status}
+                        </span>
+                      </td>
+                      <td>
+                        {auth.status === 'PENDING' && canOperate && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              className="btn btn-success btn-sm"
+                              onClick={() => handleActionAuthorization(auth.id, 'APPROVE')}
+                              disabled={busy}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleActionAuthorization(auth.id, 'REJECT')}
+                              disabled={busy}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                        {auth.status === 'APPROVED' && canOperate && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => handleActionAuthorization(auth.id, 'CANCEL')}
+                            disabled={busy}
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {authorizations.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: 24 }}>
+                        <EmptyState
+                          icon={<ShieldCheck size={32} />}
+                          title="No Temporary Pickup Authorizations"
+                          message="Registered alternate pickup authorizations will be displayed here."
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: TRANSPORT SECURITY & AUDIT LOGS */}
+      {/* ========================================================================= */}
+      {tab === 'SECURITY' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Transport Security & Immutable Audit Trail</div>
+                <div className="card-sub">Real-time log of security checks, PIN attempts, QR scans, and manual overrides</div>
+              </div>
+              {canOperate && (
+                <button className="btn btn-danger btn-sm" onClick={() => setManualOverrideModal({})}>
+                  <AlertTriangle size={14} /> Record Manual Override
+                </button>
+              )}
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Event Type</th>
+                    <th>Actor / Staff</th>
+                    <th>Student / Context</th>
+                    <th>Result</th>
+                    <th>Reason / Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {securityLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td style={{ fontSize: 12 }}>{fmtDate(log.createdAt)}</td>
+                      <td>
+                        <span className="badge b-neutral" style={{ fontSize: 11 }}>
+                          {log.eventType}
+                        </span>
+                      </td>
+                      <td>{log.actorName || 'System'}</td>
+                      <td>{log.student ? `${log.student.firstName} ${log.student.lastName || ''}` : 'N/A'}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            log.result === 'SUCCESS' || log.result === 'VERIFIED'
+                              ? 'b-success'
+                              : log.result === 'FAILED' || log.result === 'BLOCKED'
+                              ? 'b-danger'
+                              : 'b-warning'
+                          }`}
+                        >
+                          {log.result}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 13, maxWidth: 250 }}>{log.reason || 'N/A'}</td>
+                    </tr>
+                  ))}
+                  {securityLogs.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: 24 }}>
+                        <EmptyState
+                          icon={<ShieldCheck size={32} />}
+                          title="Zero Security Alerts"
+                          message="No unauthorized attempts or security infractions logged."
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: CREATE TEMPORARY PICKUP AUTHORIZATION */}
+      {/* ========================================================================= */}
+      <Modal
+        open={addAuthOpen}
+        onClose={() => setAddAuthOpen(false)}
+        title="Register Temporary Pickup Authorization"
+        subtitle="Authorize an alternate non-parent individual for student handover"
+        icon={<UserCheck size={20} />}
+      >
+        <form onSubmit={handleCreateAuthorization}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="Select Student" required>
+              <select name="studentId" className="input" required defaultValue="">
+                <option value="" disabled>
+                  -- Select Student --
+                </option>
+                {availableStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName || ''} ({s.rollNumber || s.id})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Field label="Authorized Person Name" required>
+                <input type="text" name="authorizedPersonName" className="input" placeholder="e.g. Ramesh Kumar (Uncle)" required />
+              </Field>
+              <Field label="Mobile Phone Number" required>
+                <input type="tel" name="authorizedPersonPhone" className="input" placeholder="9876543210" required />
+              </Field>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Field label="Relationship to Student">
+                <input type="text" name="relationship" className="input" placeholder="Uncle / Family Friend / Driver" defaultValue="Family Friend" />
+              </Field>
+              <Field label="Usage Type">
+                <select name="isOneTime" className="input" defaultValue="true">
+                  <option value="true">One-Time Only</option>
+                  <option value="false">Multiple Pickups in Window</option>
+                </select>
+              </Field>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Field label="Valid From" required>
+                <input type="datetime-local" name="validFrom" className="input" required defaultValue={new Date().toISOString().slice(0, 16)} />
+              </Field>
+              <Field label="Valid Until" required>
+                <input type="datetime-local" name="validUntil" className="input" required defaultValue={new Date(Date.now() + 86400000).toISOString().slice(0, 16)} />
+              </Field>
+            </div>
+
+            <Field label="Reason for Alternate Pickup" required>
+              <textarea name="reason" rows={2} className="input" placeholder="Parent travelling / emergency family situation" required />
+            </Field>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setAddAuthOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              Create Authorization
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: MANUAL SECURITY OVERRIDE */}
+      {/* ========================================================================= */}
+      <Modal
+        open={!!manualOverrideModal}
+        onClose={() => setManualOverrideModal(null)}
+        title="Record Manual Transport Security Override"
+        subtitle="Requires mandatory justification logged to audit trail"
+        icon={<AlertTriangle size={20} />}
+      >
+        <form onSubmit={handleManualOverride}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Field label="Select Student" required>
+              <select name="studentId" className="input" required defaultValue={manualOverrideModal?.studentId || ''}>
+                <option value="" disabled>
+                  -- Select Student --
+                </option>
+                {availableStudents.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName || ''} ({s.rollNumber || s.id})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Override Action" required>
+              <select name="action" className="input" defaultValue="MANUAL_PICKUP_RELEASE">
+                <option value="MANUAL_PICKUP_RELEASE">MANUAL_PICKUP_RELEASE — Release student without QR/PIN</option>
+                <option value="MANUAL_BOARDING_CONFIRM">MANUAL_BOARDING_CONFIRM — Confirm student boarding without scanner</option>
+                <option value="MANUAL_DRIVER_BYPASS">MANUAL_DRIVER_BYPASS — Authorize temporary driver bypass</option>
+              </select>
+            </Field>
+
+            <Field label="Detailed Justification / Reason" required>
+              <textarea
+                name="reason"
+                rows={3}
+                className="input"
+                placeholder="Parent phone battery dead; identity verified face-to-face by Receptionist Ramesh..."
+                required
+              />
+            </Field>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setManualOverrideModal(null)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-danger" disabled={busy}>
+              Log & Approve Manual Override
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ========================================================================= */}
       {/* MODAL: SAFE DROP & MULTI-GUARDIAN VERIFICATION */}

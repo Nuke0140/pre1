@@ -413,6 +413,9 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
 
 /** Lazy-init & migration: guarantee SchoolSetup + canonical 17 step rows exist. */
 export async function ensureSetupRows(tenantId: string): Promise<void> {
+  const tenantExists = await db.tenant.findFirst({ where: { id: tenantId, deletedAt: null } })
+  if (!tenantExists) return
+
   await db.schoolSetup.upsert({
     where: { tenantId },
     create: { tenantId, status: 'NOT_STARTED' },

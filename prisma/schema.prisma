@@ -112,6 +112,8 @@ model Tenant {
   studentTransportAssignments StudentTransportAssignment[]
   transportTrips              TransportTrip[]
   transportIncidents          TransportIncident[]
+  pickupAuthorizations        TransportPickupAuthorization[]
+  transportSecurityEvents     TransportSecurityEvent[]
 
   // Reports & Analytics Relations
   savedReports                SavedReport[]
@@ -174,6 +176,8 @@ model Branch {
   studentTransportAssignments StudentTransportAssignment[]
   transportTrips              TransportTrip[]
   transportIncidents          TransportIncident[]
+  pickupAuthorizations        TransportPickupAuthorization[]
+  transportSecurityEvents     TransportSecurityEvent[]
 
   // Reports & Analytics Relations
   savedReports                SavedReport[]
@@ -358,6 +362,8 @@ model Student {
   transportAssignments StudentTransportAssignment[]
   tripManifestItems    TripManifestItem[]
   transportIncidents   TransportIncident[]
+  pickupAuthorizations TransportPickupAuthorization[]
+  transportSecurityEvents TransportSecurityEvent[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -385,6 +391,7 @@ model Guardian {
   user             User?             @relation("GuardianPortalUser", fields: [userId], references: [id])
   studentLinks     StudentGuardian[]
   applications     AdmissionApplication[]
+  pickupAuthorizations TransportPickupAuthorization[]
 
   @@index([tenantId, phone])
   @@map("guardians")
@@ -3315,6 +3322,102 @@ model TransportIncident {
   @@index([tenantId, status])
   @@index([tenantId, severity])
   @@map("transport_incidents")
+}
+
+enum PickupAuthorizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+enum TransportSecurityEventType {
+  QR_SCAN
+  PIN_VERIFICATION_SUCCESS
+  PIN_VERIFICATION_FAILED
+  UNAUTHORIZED_PICKUP_ATTEMPT
+  UNAUTHORIZED_DROP_ATTEMPT
+  UNKNOWN_PERSON_DETECTED
+  AUTHORIZATION_APPROVED
+  AUTHORIZATION_REJECTED
+  DRIVER_LOGIN
+  DRIVER_MISMATCH
+  DUPLICATE_PICKUP_ATTEMPT
+  DUPLICATE_DROP_ATTEMPT
+  ARRIVAL_SUBMITTED
+  ARRIVAL_VERIFIED
+  ARRIVAL_REJECTED
+  MANUAL_OVERRIDE
+}
+
+/// Temporary Authorized Pickup Person (Unknown/Alternate Pickup Workflow)
+model TransportPickupAuthorization {
+  id                 String                    @id @default(uuid())
+  tenantId           String
+  branchId           String?
+  studentId          String
+  guardianId         String?                   // Requesting guardian
+  personName         String
+  phone              String
+  relationship       String
+  reason             String
+  validFrom          DateTime                  @db.Date
+  validUntil         DateTime                  @db.Date
+  isOneTime          Boolean                   @default(true)
+  status             PickupAuthorizationStatus @default(PENDING)
+  approvedById       String?
+  approvedByName     String?
+  approvedAt         DateTime?
+  rejectionReason    String?
+  usedAt             DateTime?
+  usedById           String?
+  usedByName         String?
+  remarks            String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch?                   @relation(fields: [branchId], references: [id])
+  student            Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian           Guardian?                 @relation(fields: [guardianId], references: [id])
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@map("transport_pickup_authorizations")
+}
+
+/// Audit and Security Event Log for Child Transport Safety
+model TransportSecurityEvent {
+  id                 String                     @id @default(uuid())
+  tenantId           String
+  branchId           String?
+  eventType          TransportSecurityEventType
+  studentId          String?
+  driverProfileId    String?
+  vehicleId          String?
+  routeId            String?
+  tripId             String?
+  authorizationId    String?
+  actorId            String
+  actorName          String
+  actorRole          String
+  action             String
+  result             String                     @default("SUCCESS")
+  reason             String?
+  ipAddress          String?
+  userAgent          String?
+  metadata           Json?
+  createdAt          DateTime                   @default(now())
+
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch?                    @relation(fields: [branchId], references: [id])
+  student            Student?                   @relation(fields: [studentId], references: [id])
+
+  @@index([tenantId, eventType])
+  @@index([tenantId, createdAt])
+  @@map("transport_security_events")
 }
 
 /// Saved Custom Report Definition

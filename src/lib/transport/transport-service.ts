@@ -1469,4 +1469,189 @@ export class TransportService {
 
     return profile
   }
+
+  // ── BACKWARD COMPATIBILITY ALIASES ──
+  static async getVehicles(ctx: ScopeContext, filter?: { status?: VehicleStatus; branchId?: string; search?: string }) {
+    return this.listVehicles(ctx, filter)
+  }
+
+  static async getVehicle(ctx: ScopeContext, vehicleId: string) {
+    return db.vehicle.findFirst({
+      where: { id: vehicleId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { routes: true, branch: true },
+    })
+  }
+
+  static async getRoutes(ctx: ScopeContext, filter?: { status?: RouteStatus; branchId?: string }) {
+    return this.listRoutes(ctx, filter)
+  }
+
+  static async getRoute(ctx: ScopeContext, routeId: string) {
+    return db.transportRoute.findFirst({
+      where: { id: routeId, tenantId: ctx.tenantId, deletedAt: null },
+      include: {
+        vehicle: true,
+        stops: { orderBy: { sequence: 'asc' } },
+        driverProfile: { include: { user: true } },
+        assignments: { where: { status: 'ACTIVE' }, include: { student: true } },
+      },
+    })
+  }
+
+  static async getStopsForRoute(ctx: ScopeContext, routeId: string) {
+    return db.routeStop.findMany({
+      where: { routeId, tenantId: ctx.tenantId },
+      orderBy: { sequence: 'asc' },
+    })
+  }
+
+  static async addStopToRoute(
+    ctx: ScopeContext,
+    input: {
+      routeId: string
+      name: string
+      stopOrder?: number
+      pickupTime?: string
+      dropTime?: string
+      landmark?: string
+      address?: string
+    }
+  ) {
+    const route = await db.transportRoute.findFirst({
+      where: { id: input.routeId, tenantId: ctx.tenantId, deletedAt: null },
+    })
+    if (!route) throw new Error('Route not found')
+
+    const count = await db.routeStop.count({ where: { routeId: input.routeId, tenantId: ctx.tenantId } })
+
+    return db.routeStop.create({
+      data: {
+        tenantId: ctx.tenantId,
+        routeId: input.routeId,
+        name: input.name.trim(),
+        sequence: input.stopOrder ?? count + 1,
+        morningPickupTime: input.pickupTime || '07:30 AM',
+        eveningDropTime: input.dropTime || '02:30 PM',
+        landmark: input.landmark || input.address || null,
+      },
+    })
+  }
+
+  static async getStudentAssignments(
+    ctx: ScopeContext,
+    filter?: { routeId?: string; studentId?: string; status?: TransportAssignmentStatus; branchId?: string }
+  ) {
+    return this.listAssignments(ctx, filter)
+  }
+
+  static async assignStudentToRoute(ctx: ScopeContext, input: AssignStudentInput) {
+    return this.assignStudent(ctx, input)
+  }
+
+  static async getStudentAssignmentById(ctx: ScopeContext, assignmentId: string) {
+    return db.studentTransportAssignment.findFirst({
+      where: { id: assignmentId, tenantId: ctx.tenantId, deletedAt: null },
+      include: {
+        student: true,
+        route: true,
+        pickupStop: true,
+        dropStop: true,
+      },
+    })
+  }
+
+  static async updateStudentAssignment(ctx: ScopeContext, assignmentId: string, data: any) {
+    const existing = await db.studentTransportAssignment.findFirst({
+      where: { id: assignmentId, tenantId: ctx.tenantId, deletedAt: null },
+    })
+    if (!existing) throw new Error('Assignment not found')
+
+    return db.studentTransportAssignment.update({
+      where: { id: assignmentId },
+      data: {
+        ...(data.status ? { status: data.status } : {}),
+        ...(data.pickupStopId ? { pickupStopId: data.pickupStopId } : {}),
+        ...(data.dropStopId ? { dropStopId: data.dropStopId } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      },
+    })
+  }
+
+  static async deleteStudentAssignment(ctx: ScopeContext, assignmentId: string) {
+    return this.cancelAssignment(ctx, assignmentId)
+  }
+
+  static async getTrips(
+    ctx: ScopeContext,
+    filter?: { routeId?: string; driverId?: string; status?: TripStatus; date?: Date }
+  ) {
+    const where: any = {
+      tenantId: ctx.tenantId,
+      ...(filter?.routeId ? { routeId: filter.routeId } : {}),
+      ...(filter?.driverId ? { driverProfileId: filter.driverId } : {}),
+      ...(filter?.status ? { status: filter.status } : {}),
+      ...(filter?.date
+        ? {
+            scheduledDate: {
+              gte: new Date(filter.date.setHours(0, 0, 0, 0)),
+              lte: new Date(filter.date.setHours(23, 59, 59, 999)),
+            },
+          }
+        : {}),
+    }
+
+    return db.transportTrip.findMany({
+      where,
+      include: {
+        route: true,
+        vehicle: true,
+        driverProfile: { include: { user: true } },
+        manifest: { include: { student: true, stop: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  static async getTripById(ctx: ScopeContext, tripId: string) {
+    return db.transportTrip.findFirst({
+      where: { id: tripId, tenantId: ctx.tenantId },
+      include: {
+        route: true,
+        vehicle: true,
+        driverProfile: { include: { user: true } },
+        manifest: { include: { student: true, stop: true } },
+      },
+    })
+  }
+
+  static async submitTripArrival(ctx: ScopeContext, tripId: string, studentIds: string[]) {
+    const trip = await db.transportTrip.findFirst({
+      where: { id: tripId, tenantId: ctx.tenantId },
+    })
+    if (!trip) throw new Error('Trip not found')
+
+    if (studentIds.length > 0) {
+      await db.tripManifestItem.updateMany({
+        where: { tripId, studentId: { in: studentIds } },
+        data: { status: 'BOARDED', boardedAt: new Date() },
+      })
+    }
+
+    return db.transportTrip.update({
+      where: { id: tripId },
+      data: { status: 'COMPLETED', actualArrival: new Date() },
+    })
+  }
+
+  static async verifyTripArrival(ctx: ScopeContext, tripId: string, notes?: string) {
+    const trip = await db.transportTrip.findFirst({
+      where: { id: tripId, tenantId: ctx.tenantId },
+    })
+    if (!trip) throw new Error('Trip not found')
+
+    return db.transportTrip.update({
+      where: { id: tripId },
+      data: { notes: notes ? `${trip.notes || ''}\nArrival Verified by ${ctx.actorName}: ${notes}` : trip.notes },
+    })
+  }
 }
