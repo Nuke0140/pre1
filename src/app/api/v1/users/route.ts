@@ -15,6 +15,7 @@ import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } fro
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus } from '@prisma/client'
 import { FamilyUserService } from '@/lib/users/family-user-service'
+import { normalizeFamilyCreateInput } from '@/lib/users/user-validation'
 import { normalizeRole } from '@/lib/roles'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
@@ -451,6 +452,64 @@ export const POST = withApi(async (req: NextRequest) => {
   }
 
   const initialStatus: UserStatus = inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
+
+  const isFamilyFlow =
+    assignedRoles.length === 1 &&
+    (assignedRoles.includes('PARENT') || assignedRoles.includes('GUARDIAN')) &&
+    Boolean(
+      (body as any).childMode ||
+      (body as any).newChild ||
+      (body as any).studentFullName ||
+      (body as any).studentDateOfBirth ||
+      (body as any).childFirstName ||
+      (body as any).studentId ||
+      (body as any).studentAdmissionNo ||
+      (body as any).existingChild ||
+      (body as any).parentGuardianFullName
+    )
+
+  if (isFamilyFlow) {
+    const familyInput = normalizeFamilyCreateInput({
+      ...body,
+      fullName: fullName || (body as any).parentGuardianFullName,
+      email: email || (body as any).parentGuardianEmail,
+      phone: phone || (body as any).parentGuardianPhone,
+      role: finalPrimaryRole,
+      password: effectivePassword,
+      status: initialStatus,
+      branchId: branchId || undefined,
+    })
+
+    const familyResult = await FamilyUserService.createFamilyUser(
+      {
+        tenantId: session.tenantId!,
+        actorId: session.userId,
+        actorName: session.fullName,
+        actorRole: session.role,
+        actorBranchId: session.branchId,
+        reqMeta: getRequestMeta(req),
+      },
+      familyInput
+    )
+
+    return ok(
+      {
+        id: familyResult.user.id,
+        email: familyResult.user.email,
+        fullName: familyResult.user.fullName,
+        username: familyResult.user.username,
+        role: finalPrimaryRole,
+        roles: assignedRoles,
+        status: familyResult.user.status,
+        membershipId: familyResult.membership?.id,
+        guardianId: familyResult.guardian?.id,
+        studentId: familyResult.student?.id,
+        student: familyResult.student,
+        isNewStudent: familyResult.isNewStudent,
+      },
+      { status: 201 }
+    )
+  }
 
   const emailNorm = email.toLowerCase().trim()
   const phoneNorm = phone?.trim() || null

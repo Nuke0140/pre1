@@ -2,11 +2,11 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { AdmissionService } from '@/lib/admissions/admission-service'
+import { WaitingListService } from '@/lib/admissions/waiting-list-service'
 
 /**
- * POST /api/v1/applications/[id]/offer — Generate and persist Admission Offer
- * Resolves child, guardian, school profile, program, and fee quote.
+ * POST /api/v1/admissions/waitlist/[id]/offer
+ * Issue a formal admission seat offer for the waiting list candidate.
  */
 async function _POST(
   req: NextRequest,
@@ -20,29 +20,26 @@ async function _POST(
   const body = await req.json().catch(() => ({}))
 
   try {
-    const validityDays = body.validityDays ? Number(body.validityDays) : 7
-    const terms = body.terms || undefined
-
-    const result = await AdmissionService.generateOffer(
+    const result = await WaitingListService.createSeatOffer(
       {
         tenantId: session.tenantId,
-        branchId: body.branchId || session.branchId || '',
-        academicYearId: body.academicYearId || '',
+        branchId: session.branchId || '',
+        academicYearId: '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       id,
       {
-        validityDays,
-        terms,
-        feePlanId: body.feePlanId || undefined,
+        feePlanId: body.feePlanId,
+        validDays: body.validDays ? parseInt(body.validDays, 10) : undefined,
+        terms: body.terms,
       }
     )
 
-    return ok(result, undefined, 201)
+    return ok(result.entry, { offer: result.offer })
   } catch (e: any) {
-    return Errors.business('OFFER_GENERATION_FAILED', e.message || 'Failed to generate admission offer', 422)
+    return Errors.business('CREATE_OFFER_FAILED', e.message || 'Failed to create seat offer', 422)
   }
 }
 

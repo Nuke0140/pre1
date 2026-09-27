@@ -5,8 +5,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
- * POST /api/v1/applications/[id]/offer — Generate and persist Admission Offer
- * Resolves child, guardian, school profile, program, and fee quote.
+ * POST /api/v1/visits/[id]/cancel — Cancel school visit with reason
  */
 async function _POST(
   req: NextRequest,
@@ -17,32 +16,34 @@ async function _POST(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
-  const body = await req.json().catch(() => ({}))
 
   try {
-    const validityDays = body.validityDays ? Number(body.validityDays) : 7
-    const terms = body.terms || undefined
+    const body = await req.json()
+    const { reason, nextFollowUpAt, branchId, academicYearId } = body
 
-    const result = await AdmissionService.generateOffer(
+    if (!reason?.trim()) {
+      return Errors.validation('Cancellation reason is required')
+    }
+
+    const result = await AdmissionService.cancelSchoolVisit(
       {
         tenantId: session.tenantId,
-        branchId: body.branchId || session.branchId || '',
-        academicYearId: body.academicYearId || '',
+        branchId: branchId || session.branchId || '',
+        academicYearId: academicYearId || '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       id,
       {
-        validityDays,
-        terms,
-        feePlanId: body.feePlanId || undefined,
+        reason: reason.trim(),
+        nextFollowUpAt,
       }
     )
 
-    return ok(result, undefined, 201)
+    return ok(result)
   } catch (e: any) {
-    return Errors.business('OFFER_GENERATION_FAILED', e.message || 'Failed to generate admission offer', 422)
+    return Errors.business('VISIT_CANCEL_FAILED', e.message || 'Failed to cancel visit', 422)
   }
 }
 

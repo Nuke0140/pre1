@@ -2,11 +2,11 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { AdmissionService } from '@/lib/admissions/admission-service'
+import { WaitingListService } from '@/lib/admissions/waiting-list-service'
 
 /**
- * POST /api/v1/applications/[id]/offer — Generate and persist Admission Offer
- * Resolves child, guardian, school profile, program, and fee quote.
+ * POST /api/v1/admissions/waitlist/[id]/parent-response
+ * Record parent response (ACCEPTED or DECLINED).
  */
 async function _POST(
   req: NextRequest,
@@ -19,30 +19,30 @@ async function _POST(
   const { id } = await params
   const body = await req.json().catch(() => ({}))
 
-  try {
-    const validityDays = body.validityDays ? Number(body.validityDays) : 7
-    const terms = body.terms || undefined
+  if (!body.response || !['ACCEPTED', 'DECLINED'].includes(body.response)) {
+    return Errors.business('INVALID_RESPONSE', 'Response must be ACCEPTED or DECLINED', 400)
+  }
 
-    const result = await AdmissionService.generateOffer(
+  try {
+    const updated = await WaitingListService.recordParentResponse(
       {
         tenantId: session.tenantId,
-        branchId: body.branchId || session.branchId || '',
-        academicYearId: body.academicYearId || '',
+        branchId: session.branchId || '',
+        academicYearId: '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       id,
       {
-        validityDays,
-        terms,
-        feePlanId: body.feePlanId || undefined,
+        response: body.response,
+        notes: body.notes,
       }
     )
 
-    return ok(result, undefined, 201)
+    return ok(updated)
   } catch (e: any) {
-    return Errors.business('OFFER_GENERATION_FAILED', e.message || 'Failed to generate admission offer', 422)
+    return Errors.business('RECORD_RESPONSE_FAILED', e.message || 'Failed to record parent response', 422)
   }
 }
 

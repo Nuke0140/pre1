@@ -677,6 +677,8 @@ export class StudentService {
       programType?: ProgramType
       classroomId?: string
       branchId?: string
+      seatNumber?: string
+      username?: string
       academicSessionId?: string
       guardianName: string
       guardianPhone: string
@@ -747,7 +749,7 @@ export class StudentService {
     }
 
     const admissionNo = await this.generateAdmissionNumber(scope.tenantId)
-    const seatNumber = classroom ? await this.generateSeatNumber(scope.tenantId, classroom.id) : null
+    const seatNumber = input.seatNumber || (classroom ? await this.generateSeatNumber(scope.tenantId, classroom.id) : null)
 
     const runInTx = async (tx: Prisma.TransactionClient) => {
       // 1. Create Student
@@ -757,6 +759,7 @@ export class StudentService {
           branchId,
           admissionNo,
           seatNumber,
+          username: input.username || null,
           firstName: input.firstName.trim(),
           lastName: input.lastName?.trim() || null,
           dob: new Date(input.dob),

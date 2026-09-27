@@ -5,8 +5,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
- * POST /api/v1/applications/[id]/offer — Generate and persist Admission Offer
- * Resolves child, guardian, school profile, program, and fee quote.
+ * POST /api/v1/visits/[id]/reschedule — Reschedule school visit non-destructively
  */
 async function _POST(
   req: NextRequest,
@@ -17,32 +16,37 @@ async function _POST(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
-  const body = await req.json().catch(() => ({}))
 
   try {
-    const validityDays = body.validityDays ? Number(body.validityDays) : 7
-    const terms = body.terms || undefined
+    const body = await req.json()
+    const { newScheduledAt, reason, visitorCount, attendees, tourFocus, branchId, academicYearId } = body
 
-    const result = await AdmissionService.generateOffer(
+    if (!newScheduledAt) {
+      return Errors.validation('New scheduled date and time is required')
+    }
+
+    const result = await AdmissionService.rescheduleSchoolVisit(
       {
         tenantId: session.tenantId,
-        branchId: body.branchId || session.branchId || '',
-        academicYearId: body.academicYearId || '',
+        branchId: branchId || session.branchId || '',
+        academicYearId: academicYearId || '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       id,
       {
-        validityDays,
-        terms,
-        feePlanId: body.feePlanId || undefined,
+        newScheduledAt,
+        reason,
+        visitorCount,
+        attendees,
+        tourFocus,
       }
     )
 
-    return ok(result, undefined, 201)
+    return ok(result)
   } catch (e: any) {
-    return Errors.business('OFFER_GENERATION_FAILED', e.message || 'Failed to generate admission offer', 422)
+    return Errors.business('VISIT_RESCHEDULE_FAILED', e.message || 'Failed to reschedule visit', 422)
   }
 }
 

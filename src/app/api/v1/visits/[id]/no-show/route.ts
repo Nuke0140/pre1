@@ -5,8 +5,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
- * POST /api/v1/applications/[id]/offer — Generate and persist Admission Offer
- * Resolves child, guardian, school profile, program, and fee quote.
+ * POST /api/v1/visits/[id]/no-show — Record school visit no-show and schedule recovery follow-up
  */
 async function _POST(
   req: NextRequest,
@@ -17,32 +16,30 @@ async function _POST(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
-  const body = await req.json().catch(() => ({}))
 
   try {
-    const validityDays = body.validityDays ? Number(body.validityDays) : 7
-    const terms = body.terms || undefined
+    const body = await req.json().catch(() => ({}))
+    const { notes, recoveryCallDueAt, branchId, academicYearId } = body
 
-    const result = await AdmissionService.generateOffer(
+    const result = await AdmissionService.recordVisitNoShow(
       {
         tenantId: session.tenantId,
-        branchId: body.branchId || session.branchId || '',
-        academicYearId: body.academicYearId || '',
+        branchId: branchId || session.branchId || '',
+        academicYearId: academicYearId || '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       id,
       {
-        validityDays,
-        terms,
-        feePlanId: body.feePlanId || undefined,
+        notes,
+        recoveryCallDueAt,
       }
     )
 
-    return ok(result, undefined, 201)
+    return ok(result)
   } catch (e: any) {
-    return Errors.business('OFFER_GENERATION_FAILED', e.message || 'Failed to generate admission offer', 422)
+    return Errors.business('VISIT_NO_SHOW_FAILED', e.message || 'Failed to record no-show', 422)
   }
 }
 

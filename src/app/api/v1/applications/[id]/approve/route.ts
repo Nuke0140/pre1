@@ -33,6 +33,26 @@ async function _POST(
       actorRole: session.role,
     }
 
+    const action = body.action || 'APPROVE'
+
+    if (action === 'NEED_MORE_INFORMATION') {
+      const result = await AdmissionService.requestMoreInformation(ctx, id, {
+        reason: body.reason || 'Additional information required',
+        note: body.notes,
+      })
+      return ok(result)
+    }
+
+    if (action === 'WAITLIST') {
+      const result = await AdmissionService.waitlistApplication(ctx, id, body.reason)
+      return ok(result)
+    }
+
+    if (action === 'NOT_PROCEEDING') {
+      const result = await AdmissionService.rejectApplication(ctx, id, body.reason || 'Not proceeding', body.notes)
+      return ok(result)
+    }
+
     if (classroomId) {
       // Legacy or direct enrollment path
       const result = await AdmissionService.completeEnrollment(ctx, id, classroomId)
