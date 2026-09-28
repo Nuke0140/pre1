@@ -4,7 +4,7 @@
  * safe secret redaction, and in-memory health metrics aggregation.
  */
 
-import { AsyncLocalStorage } from 'node:async_hooks'
+import { AsyncLocalStorage } from 'async_hooks'
 import { redactSensitive } from './redaction'
 import { isOperational, PreOneError } from './errors'
 

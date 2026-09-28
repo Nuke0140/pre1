@@ -17,6 +17,7 @@ import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
+import type { BrandingConfig } from '@/lib/branding-types'
 
 export interface ShellUser {
   name: string
@@ -26,7 +27,15 @@ export interface ShellUser {
   branchName: string | null
 }
 
-export function AppShell({ user, children }: { user: ShellUser; children: React.ReactNode }) {
+export function AppShell({
+  user,
+  branding,
+  children,
+}: {
+  user: ShellUser
+  branding?: BrandingConfig
+  children: React.ReactNode
+}) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -232,6 +241,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       {/* ── Global Workspace Top Bar (Reference Match) ── */}
       <GlobalWorkspaceHeader
         user={user}
+        branding={branding}
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenSearch={() => setSearchModalOpen(true)}

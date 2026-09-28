@@ -253,7 +253,7 @@ export function DataTable<T extends { id?: string | number }>({
   // column filters
   const toggleColFilter = useCallback((key: string, value: string) => {
     setColFilters((prev) => {
-      const next = new Map(Object.entries(prev))
+      const next = new Map(Object.entries(prev || {}))
       const set = new Set(next.get(key) || [])
       if (set.has(value)) set.delete(value)
       else set.add(value)
@@ -267,7 +267,7 @@ export function DataTable<T extends { id?: string | number }>({
   const filtered = useMemo(() => {
     let rows = allRows
     const filterDefs = new Map(columns.filter((c) => c.filter).map((c) => [c.key, c.filter!]))
-    const active = Object.entries(colFilters)
+    const active = Object.entries(colFilters || {})
     if (active.length > 0) {
       rows = rows.filter((row) =>
         active.every(([key, values]) => {

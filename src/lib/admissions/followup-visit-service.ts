@@ -70,11 +70,11 @@ export interface VisitStructuredDetail {
 
 export interface ScopeContext {
   tenantId: string
-  branchId?: string
-  academicYearId?: string
-  actorId?: string
-  actorName?: string
-  actorRole?: string
+  branchId?: string | null
+  academicYearId?: string | null
+  actorId?: string | null
+  actorName?: string | null
+  actorRole?: string | null
 }
 
 export class FollowUpVisitService {
@@ -859,7 +859,7 @@ export class FollowUpVisitService {
     const leads = await db.lead.findMany({
       where: { id: { in: leadIds }, deletedAt: null },
     })
-    const leadMap = new Map(leads.map((l) => [l.id, l]))
+    const leadMap = new Map<string, any>(leads.map((l) => [l.id, l]))
 
     const enrichedRecords = allRecords.map((r) => {
       const parsed = this.parseVisitDetail(r.detail)

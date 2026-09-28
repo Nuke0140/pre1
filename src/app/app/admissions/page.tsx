@@ -994,8 +994,18 @@ export default function AdmissionsPage() {
       if (formRes.success) setApplications(formRes.data)
       if (visitRes?.success && visitRes.data) setWorkspaceVisits(visitRes.data)
       if (wlRes?.success && wlRes.data) {
-        setWaitlistEntries(wlRes.data.entries || [])
-        setWaitlistCapacities(wlRes.data.capacities || [])
+        const rawEntries = Array.isArray(wlRes.data)
+          ? wlRes.data
+          : Array.isArray(wlRes.data.entries)
+            ? wlRes.data.entries
+            : []
+        const rawCapacities = Array.isArray(wlRes.meta?.capacitySummaries)
+          ? wlRes.meta.capacitySummaries
+          : Array.isArray(wlRes.data?.capacities)
+            ? wlRes.data.capacities
+            : []
+        setWaitlistEntries(rawEntries)
+        setWaitlistCapacities(rawCapacities)
       }
     } catch (err) {
       console.error('Failed to fetch admissions data:', err)
@@ -2123,7 +2133,7 @@ export default function AdmissionsPage() {
       3: { total: visitsScheduled || enquiries?.filter((e) => e.status === 'QUALIFIED').length || 0, pending: visitsScheduled, attention: 0 },
       4: { total: enquiries?.filter((e) => Boolean(e.childDob)).length || 0, pending: 0, attention: 0 },
       5: { total: applications?.filter((a) => a.status === 'SUBMITTED').length || 0, pending: underReview, attention: 0 },
-      6: { total: applications?.filter((a) => a.documents?.some((d) => !d.verified && d.status !== 'VERIFIED')).length || 0, pending: underReview, attention: 0 },
+      6: { total: applications?.filter((a) => (a.documents || []).some((d) => !d.verified && d.status !== 'VERIFIED')).length || 0, pending: underReview, attention: 0 },
       7: { total: applications?.filter((a) => a.status === 'COUNSELLING').length || 0, pending: 0, attention: 0 },
       8: { total: applications?.filter((a) => ['UNDER_REVIEW', 'WAITLISTED'].includes(a.status)).length || 0, pending: waitlisted, attention: waitlisted },
       9: { total: applications?.filter((a) => a.status === 'OFFER_SENT').length || 0, pending: offersAwaitingParent, attention: offersAwaitingParent },
@@ -2175,9 +2185,10 @@ export default function AdmissionsPage() {
             timestamp: new Date(app.submittedAt).getTime(),
           })
         } else {
+          const docs = app.documents || []
           events.push({
             title: `Application received for ${app.childFirstName}`,
-            detail: `${app.programType} dossier · ${app.documents.filter((d) => d.verified).length}/${app.documents.length} verified`,
+            detail: `${app.programType} dossier · ${docs.filter((d) => d.verified).length}/${docs.length} verified`,
             time: fmtDate(app.submittedAt),
             timestamp: new Date(app.submittedAt).getTime(),
           })
@@ -2881,8 +2892,9 @@ export default function AdmissionsPage() {
                       .filter((a) => ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENTS_PENDING'].includes(a.status))
                       .slice(0, 4)
                       .map((a) => {
-                        const verifiedDocs = a.documents.filter((d) => d.verified || d.status === 'VERIFIED').length
-                        const totalDocs = a.documents.length
+                        const docs = a.documents || []
+                        const verifiedDocs = docs.filter((d) => d.verified || d.status === 'VERIFIED').length
+                        const totalDocs = docs.length
                         return (
                           <div
                             key={a.id}
@@ -3613,8 +3625,9 @@ export default function AdmissionsPage() {
                 {applications && applications.length > 0 ? (
                   applications.map((app) => {
                     const childAge = calculateAgeMonths(app.childDob)
-                    const verifiedDocs = app.documents.filter((d) => d.verified || d.status === 'VERIFIED').length
-                    const totalDocs = app.documents.length
+                    const docs = app.documents || []
+                    const verifiedDocs = docs.filter((d) => d.verified || d.status === 'VERIFIED').length
+                    const totalDocs = docs.length
                     const nextAct = computeNextAction(app)
 
                     return (
@@ -4148,100 +4161,188 @@ export default function AdmissionsPage() {
           F. ADMITTED STUDENTS WORKSPACE (Admissions Completion Ledger)
       ═══════════════════════════════════════════════════════════════════════ */}
       {tab === 'admissions' && (
-        <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-border/80">
-            <h3 className="text-base font-bold text-foreground">
-              Admitted Students Completion Ledger
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Completed admissions with connected Student records, Parent portal accounts, and initial Fee Invoices
-            </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* 1. ELIGIBLE CANDIDATES QUEUE (Candidates ready for Classroom Placement) */}
+          <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-border/80 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-foreground">
+                    Candidates Ready for Classroom Placement
+                  </h3>
+                  <span className="badge b-purple font-bold">
+                    {applications ? applications.filter((a) => ['OFFER_ACCEPTED', 'APPROVED'].includes(a.status) && !a.studentId).length : 0} Candidates
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Approved candidates with accepted offers ready for seat allocation, automatic teacher resolution, and canonical student creation
+                </p>
+              </div>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="dtable" style={{ width: '100%', fontSize: 12.5 }}>
+                <thead>
+                  <tr>
+                    <th>Application ID</th>
+                    <th>Candidate Child</th>
+                    <th>Parent / Contact</th>
+                    <th>Program</th>
+                    <th>Stage & Status</th>
+                    <th>Offer Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {applications && applications.filter((a) => ['OFFER_ACCEPTED', 'APPROVED'].includes(a.status) && !a.studentId).length > 0 ? (
+                    applications
+                      .filter((a) => ['OFFER_ACCEPTED', 'APPROVED'].includes(a.status) && !a.studentId)
+                      .map((app) => (
+                        <tr key={app.id}>
+                          <td>
+                            <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{app.applicationNumber}</span>
+                          </td>
+                          <td>
+                            <strong>{app.childFirstName} {app.childLastName || ''}</strong>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Age: {calculateAgeMonths(app.childDob)} mos</div>
+                          </td>
+                          <td>
+                            <div>{app.parentName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.parentPhone}</div>
+                          </td>
+                          <td>
+                            <span className="badge b-purple">{app.programType}</span>
+                          </td>
+                          <td>
+                            <span className="badge b-amber font-bold">
+                              {app.status === 'OFFER_ACCEPTED' ? '✓ OFFER ACCEPTED' : '✓ APPROVED'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                              <CheckCircle2 size={12} /> Ready for Placement
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm"
+                              onClick={() => openInspector(app.id, 'allocation')}
+                              style={{ padding: '4px 10px', fontSize: 11.5, fontWeight: 700 }}
+                            >
+                              <Building size={12} className="mr-1 inline" /> Place in Classroom
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
+                        No candidates are currently waiting for classroom placement. All approved admissions are placed.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="dtable" style={{ width: '100%', fontSize: 12.5 }}>
-              <thead>
-                <tr>
-                  <th>Application ID</th>
-                  <th>Child / Student</th>
-                  <th>Parent / Guardian</th>
-                  <th>Program</th>
-                  <th>Status</th>
-                  <th>Enrolled On</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {applications && applications.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).length > 0 ? (
-                  applications
-                    .filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status))
-                    .map((app) => (
-                      <tr key={app.id}>
-                        <td>
-                          <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{app.applicationNumber}</span>
-                        </td>
-                        <td>
-                          <strong>{app.childFirstName} {app.childLastName || ''}</strong>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Age: {calculateAgeMonths(app.childDob)} mos</div>
-                        </td>
-                        <td>
-                          <div>{app.parentName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.parentPhone}</div>
-                        </td>
-                        <td>
-                          <span className="badge b-purple">{app.programType}</span>
-                        </td>
-                        <td>
-                          <span className="badge b-success">✓ ENROLLED</span>
-                        </td>
-                        <td>{fmtDate(app.verifiedAt || app.submittedAt)}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => openInspector(app.id, 'timeline')}
-                              style={{ padding: '3px 8px', fontSize: 11.5 }}
-                            >
-                              <History size={12} /> Admission History
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => { window.location.href = `/app/students` }}
-                              style={{ padding: '3px 8px', fontSize: 11.5 }}
-                            >
-                              <GraduationCap size={12} /> Student 360
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => { window.location.href = `/app/users` }}
-                              style={{ padding: '3px 8px', fontSize: 11.5 }}
-                            >
-                              <Users size={12} /> Family
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => { window.location.href = `/app/finance` }}
-                              style={{ padding: '3px 8px', fontSize: 11.5 }}
-                            >
-                              <DollarSign size={12} /> Fees
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                ) : (
+          {/* 2. ADMITTED STUDENTS COMPLETION LEDGER */}
+          <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-border/80">
+              <h3 className="text-base font-bold text-foreground">
+                Classroom Placements & Completed Admissions Ledger
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Completed admissions with connected Student records, Parent portal accounts, and initial Fee Invoices
+              </p>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="dtable" style={{ width: '100%', fontSize: 12.5 }}>
+                <thead>
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                      No admissions have been completed in this session yet.
-                    </td>
+                    <th>Application ID</th>
+                    <th>Child / Student</th>
+                    <th>Parent / Guardian</th>
+                    <th>Program</th>
+                    <th>Status</th>
+                    <th>Enrolled On</th>
+                    <th>Actions</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {applications && applications.filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status)).length > 0 ? (
+                    applications
+                      .filter((a) => ['ENROLLED', 'ADMITTED'].includes(a.status))
+                      .map((app) => (
+                        <tr key={app.id}>
+                          <td>
+                            <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{app.applicationNumber}</span>
+                          </td>
+                          <td>
+                            <strong>{app.childFirstName} {app.childLastName || ''}</strong>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Age: {calculateAgeMonths(app.childDob)} mos</div>
+                          </td>
+                          <td>
+                            <div>{app.parentName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.parentPhone}</div>
+                          </td>
+                          <td>
+                            <span className="badge b-purple">{app.programType}</span>
+                          </td>
+                          <td>
+                            <span className="badge b-success">✓ ENROLLED</span>
+                          </td>
+                          <td>{fmtDate(app.verifiedAt || app.submittedAt)}</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => openInspector(app.id, 'timeline')}
+                                style={{ padding: '3px 8px', fontSize: 11.5 }}
+                              >
+                                <History size={12} /> Admission History
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => { window.location.href = `/app/students` }}
+                                style={{ padding: '3px 8px', fontSize: 11.5 }}
+                              >
+                                <GraduationCap size={12} /> Student 360
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => { window.location.href = `/app/users` }}
+                                style={{ padding: '3px 8px', fontSize: 11.5 }}
+                              >
+                                <Users size={12} /> Family
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => { window.location.href = `/app/finance` }}
+                                style={{ padding: '3px 8px', fontSize: 11.5 }}
+                              >
+                                <DollarSign size={12} /> Fees
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
+                        No admissions have been completed in this session yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -5234,7 +5335,7 @@ export default function AdmissionsPage() {
             <div className="adm-drawer-body">
               {leadInspector.loading ? (
                 <div style={{ padding: 40, textAlign: 'center' }}>
-                  <Skeleton width="100%" height={120} />
+                  <Skeleton w="100%" h={120} />
                 </div>
               ) : leadInspector.tab === 'overview' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

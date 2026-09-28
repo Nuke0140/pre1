@@ -220,10 +220,12 @@ export function useFormDraft(key: string) {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return
-      const obj = JSON.parse(raw) as Record<string, string>
-      for (const [k, v] of Object.entries(obj)) {
-        const el = form.elements.namedItem(k) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
-        if (el && 'value' in el) el.value = v
+      const obj = JSON.parse(raw)
+      if (obj && typeof obj === 'object') {
+        for (const [k, v] of Object.entries(obj as Record<string, string>)) {
+          const el = form.elements.namedItem(k) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
+          if (el && 'value' in el) el.value = v
+        }
       }
     } catch {
       /* ignore corrupt draft */

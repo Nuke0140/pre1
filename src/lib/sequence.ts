@@ -11,6 +11,7 @@ export async function nextNumber(
     | 'receipt'
     | 'lead'
     | 'application'
+    | 'student'
     | 'material_request'
     | 'purchase_request'
     | 'purchase_order'
@@ -28,6 +29,7 @@ export async function nextNumber(
     receipt: 'RCT',
     lead: 'LEAD',
     application: 'ADM',
+    student: 'STU',
     material_request: 'MR',
     purchase_request: 'PR',
     purchase_order: 'PO',
@@ -70,6 +72,13 @@ export async function nextNumber(
     case 'application': {
       const c = await db.admissionApplication.count({
         where: { tenantId, applicationNumber: { startsWith: prefix } },
+      })
+      seq = c + 1
+      break
+    }
+    case 'student': {
+      const c = await db.student.count({
+        where: { tenantId, admissionNo: { startsWith: prefix } },
       })
       seq = c + 1
       break

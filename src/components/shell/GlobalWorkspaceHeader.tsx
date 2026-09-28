@@ -17,6 +17,7 @@ import { enumLabel, timeAgo } from '@/lib/format'
 import type { Role } from '@/lib/auth'
 import { FullscreenButton } from './FullscreenButton'
 import { HelpButton } from './HelpButton'
+import type { BrandingConfig } from '@/lib/branding-types'
 
 export interface GlobalWorkspaceHeaderProps {
   user: {
@@ -52,6 +53,7 @@ export interface GlobalWorkspaceHeaderProps {
   avatarRef: React.RefObject<HTMLButtonElement | null>
   onOpenProfile: () => void
   pathname?: string
+  branding?: BrandingConfig
 }
 
 /**
@@ -65,6 +67,7 @@ export interface GlobalWorkspaceHeaderProps {
  */
 export function GlobalWorkspaceHeader({
   user,
+  branding,
   theme,
   onToggleTheme,
   onOpenSearch,
@@ -154,35 +157,43 @@ export function GlobalWorkspaceHeader({
               aria-label="PreOne OS Home"
               title="PreOne OS Home"
             >
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="transform-gpu transition-transform duration-200 hover:rotate-12"
-                aria-hidden="true"
-              >
-                <path
-                  d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"
-                  fill="url(#workspaceHeaderSparkleGrad)"
+              {branding?.logoUrl ? (
+                <img
+                  src={branding.logoUrl}
+                  alt={user.tenantName || 'School Logo'}
+                  className="h-6 w-6 object-contain rounded drop-shadow-xs transition-transform duration-200 hover:scale-105"
                 />
-                <circle cx="18.5" cy="5.5" r="1.5" fill="#F59E0B" />
-                <circle cx="5.5" cy="18.5" r="1.2" fill="#38BDF8" opacity="0.85" />
-                <defs>
-                  <linearGradient
-                    id="workspaceHeaderSparkleGrad"
-                    x1="2"
-                    y1="2"
-                    x2="22"
-                    y2="22"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#9333EA" />
-                    <stop offset="0.5" stopColor="#7C3AED" />
-                    <stop offset="1" stopColor="#A855F7" />
-                  </linearGradient>
-                </defs>
-              </svg>
+              ) : (
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  className="transform-gpu transition-transform duration-200 hover:rotate-12"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z"
+                    fill="url(#workspaceHeaderSparkleGrad)"
+                  />
+                  <circle cx="18.5" cy="5.5" r="1.5" fill="#F59E0B" />
+                  <circle cx="5.5" cy="18.5" r="1.2" fill="#38BDF8" opacity="0.85" />
+                  <defs>
+                    <linearGradient
+                      id="workspaceHeaderSparkleGrad"
+                      x1="2"
+                      y1="2"
+                      x2="22"
+                      y2="22"
+                      gradientUnits="userSpaceOnUse"
+                    >
+                      <stop stopColor="#9333EA" />
+                      <stop offset="0.5" stopColor="#7C3AED" />
+                      <stop offset="1" stopColor="#A855F7" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              )}
             </Link>
           </div>
 
