@@ -72,6 +72,7 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
       href={m.href}
       className={`module-card group ${className}`.trim()}
       aria-label={m.label}
+      data-module={m.key}
       draggable={false}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -86,8 +87,8 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
         } as React.CSSProperties
       }
     >
-      {/* Top Header: Icon + Category Tint (supports AnimatedModuleIcon) */}
-      <div className="module-card-top">
+      {/* Icon Area: Takes ~80% of usable card space */}
+      <div className="module-card-icon-area module-card-top">
         <AnimatedModuleIcon
           moduleKey={m.key}
           label={m.label}
@@ -99,8 +100,8 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
         />
       </div>
 
-      {/* Main Body: Title only (clean & glanceable) */}
-      <div className="module-card-body">
+      {/* Title Area: ~20% at the bottom, cleanly positioned below the icon */}
+      <div className="module-card-title-area module-card-body">
         <h3 className="module-card-title">{m.label}</h3>
       </div>
 

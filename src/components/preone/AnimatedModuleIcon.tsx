@@ -38,6 +38,7 @@ export function AnimatedModuleIcon({
   })
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   // 1. Initialize and lazy-load Lottie animation
   useEffect(() => {
@@ -56,7 +57,7 @@ export function AnimatedModuleIcon({
         // Check in-memory cache first to eliminate redundant network requests
         let animationData = lottieJsonCache.get(animation!)
         if (!animationData) {
-          const res = await fetch(animation!)
+          const res = await fetch(animation!, { cache: 'no-cache' })
           if (!res.ok) throw new Error(`HTTP ${res.status} loading ${animation}`)
           animationData = await res.json()
           lottieJsonCache.set(animation!, animationData)
@@ -89,21 +90,25 @@ export function AnimatedModuleIcon({
           },
         })
 
+        const syncSvgImageHrefs = () => {
+          if (containerRef.current) {
+            const images = containerRef.current.querySelectorAll('image')
+            images.forEach((img) => {
+              const xlink =
+                img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
+                img.getAttribute('xlink:href')
+              if (xlink && !img.getAttribute('href')) {
+                img.setAttribute('href', xlink)
+              }
+            })
+          }
+        }
+
         const markReady = () => {
           if (!isCancelled) {
-            // Ensure modern SVG 2 'href' is populated on <image> elements (lottie-web only sets xlink:href)
-            if (containerRef.current) {
-              const images = containerRef.current.querySelectorAll('image')
-              images.forEach((img) => {
-                const xlink =
-                  img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
-                  img.getAttribute('xlink:href')
-                if (xlink && !img.getAttribute('href')) {
-                  img.setAttribute('href', xlink)
-                }
-              })
-            }
+            syncSvgImageHrefs()
             anim.goToAndStop(0, true)
+            syncSvgImageHrefs()
             setIsLoaded(true)
           }
         }
@@ -111,6 +116,10 @@ export function AnimatedModuleIcon({
         anim.addEventListener('DOMLoaded', markReady)
         anim.addEventListener('data_ready', markReady)
         anim.addEventListener('loaded_images', markReady)
+        anim.addEventListener('error', (e) => {
+          console.warn(`[AnimatedModuleIcon] Lottie error for ${moduleKey}:`, e)
+          if (!isCancelled) setHasError(true)
+        })
 
         anim.addEventListener('complete', () => {
           isPlayingRef.current = false
@@ -158,41 +167,41 @@ export function AnimatedModuleIcon({
     animRef.current.goToAndPlay(0, true)
   }, [triggerAnimation, isLoaded, onAnimationEnd])
 
+  const isAnimated = Boolean(animation)
   const showLottie = Boolean(animation) && isLoaded && !hasError
 
   return (
     <span
-      className="module-card-icon"
+      className={`module-card-icon ${isAnimated ? 'has-lottie' : 'is-fallback'}`}
       style={{
-        background: theme.iconBg,
+        background: isAnimated ? 'transparent' : theme.iconBg,
         color: theme.iconColor,
-        border: `1px solid ${theme.iconBorder}`,
+        border: isAnimated ? 'none' : `1px solid ${theme.iconBorder}`,
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* 1. Self-contained 3D Raster Artwork (Visible immediately on fetch/cache, perfect fallback) */}
-      {staticArtwork && (
+      {/* 1. Self-contained 3D Raster Artwork (Visible only before Lottie loads, or as fallback) */}
+      {!showLottie && staticArtwork && !imgError && (
         <img
           src={staticArtwork}
           alt={label}
           draggable={false}
+          onError={() => setImgError(true)}
           style={{
             position: 'absolute',
             inset: 0,
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            transform: 'scale(1.22)',
-            opacity: showLottie ? 0 : 1,
-            transition: 'opacity 0.2s ease',
+            transform: 'scale(1.28)',
             pointerEvents: 'none',
           }}
         />
       )}
 
-      {/* 2. Generic Vector Fallback (Only if neither Lottie nor 3D artwork is present) */}
-      {!staticArtwork && (
+      {/* 2. Generic Vector Fallback (Only if neither Lottie nor 3D artwork is present, or if image failed) */}
+      {(!staticArtwork || imgError || hasError) && !showLottie && (
         <span
           style={{
             display: 'flex',
@@ -200,13 +209,13 @@ export function AnimatedModuleIcon({
             justifyContent: 'center',
             width: '100%',
             height: '100%',
-            opacity: showLottie ? 0 : 1,
+            opacity: 1,
             transition: 'opacity 0.2s ease',
-            position: showLottie ? 'absolute' : 'relative',
+            position: 'relative',
             inset: 0,
           }}
         >
-          <FallbackIcon size={39} strokeWidth={2.2} />
+          <FallbackIcon size={30} strokeWidth={2.2} />
         </span>
       )}
 

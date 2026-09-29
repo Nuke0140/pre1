@@ -103,6 +103,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Insights at a glance',
     tileSize: 'lg',
     semanticTheme: 'blue',
+    animation: '/animations/home/dashboard.json',
   },
   'daily-diary': {
     description: 'Timetable, activities & attendance',
@@ -138,6 +139,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Inquiries & enrollments',
     tileSize: 'lg',
     semanticTheme: 'pink',
+    animation: '/animations/home/admissions.json',
     quickActions: [
       { label: 'Record enquiry', href: '/app/admissions', perm: 'admissions:write' },
       { label: 'New application', href: '/app/admissions', perm: 'admissions:write' },
@@ -150,6 +152,27 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     animation: '/animations/home/students.json',
     quickActions: [{ label: 'Add student', href: '/app/students', perm: 'students:write' }],
   },
+  learning: {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
+  },
+  'preo-learning': {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
+  },
+  preo_learning: {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
+  },
   operations: {
     description: 'Daily school operations',
     tileSize: 'md',
@@ -159,6 +182,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Routes & vehicle tracking',
     tileSize: 'lg',
     semanticTheme: 'blue',
+    animation: '/animations/home/transport.json',
     quickActions: [
       { label: "Today's trips", href: '/app/transport?tab=trips', perm: 'transport:trip' },
       { label: 'Assign student', href: '/app/transport?tab=students', perm: 'transport:assign' },
@@ -168,6 +192,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Supplies & assets',
     tileSize: 'lg',
     semanticTheme: 'orange',
+    animation: '/animations/home/inventory.json',
     quickActions: [
       { label: 'Request materials', href: '/app/inventory?tab=requests', perm: 'inventory:request' },
       { label: 'Receive stock', href: '/app/inventory?tab=grn', perm: 'inventory:receive' },
@@ -177,12 +202,31 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Billing & payments',
     tileSize: 'lg',
     semanticTheme: 'green',
+    animation: '/animations/home/fees.json',
+    quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
+  },
+  fees: {
+    description: 'Billing & payments',
+    tileSize: 'lg',
+    semanticTheme: 'green',
+    animation: '/animations/home/fees.json',
     quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
   },
   reports: {
     description: 'Data-driven insights',
     tileSize: 'lg',
     semanticTheme: 'purple',
+    animation: '/animations/home/reports_analytics.json',
+    quickActions: [
+      { label: 'Executive MIS', href: '/app/reports?tab=executive', perm: 'reports:read' },
+      { label: 'Custom Builder', href: '/app/reports?tab=custom', perm: 'reports:custom' },
+    ],
+  },
+  reports_analytics: {
+    description: 'Data-driven insights',
+    tileSize: 'lg',
+    semanticTheme: 'purple',
+    animation: '/animations/home/reports_analytics.json',
     quickActions: [
       { label: 'Executive MIS', href: '/app/reports?tab=executive', perm: 'reports:read' },
       { label: 'Custom Builder', href: '/app/reports?tab=custom', perm: 'reports:custom' },
@@ -192,17 +236,33 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Communicate with your community',
     tileSize: 'md',
     semanticTheme: 'pink',
+    animation: '/animations/home/announcements.json',
+    quickActions: [{ label: 'Send announcement', href: '/app/communication', perm: 'communication:write' }],
+  },
+  announcements: {
+    description: 'Communicate with your community',
+    tileSize: 'md',
+    semanticTheme: 'pink',
+    animation: '/animations/home/announcements.json',
     quickActions: [{ label: 'Send announcement', href: '/app/communication', perm: 'communication:write' }],
   },
   settings: {
     description: 'System preferences',
     tileSize: 'sm',
     semanticTheme: 'blue',
+    animation: '/animations/home/settings.json',
   },
   audit: {
     description: 'Track system activities',
     tileSize: 'sm',
     semanticTheme: 'orange',
+    animation: '/animations/home/audit_logs.json',
+  },
+  audit_logs: {
+    description: 'Track system activities',
+    tileSize: 'sm',
+    semanticTheme: 'orange',
+    animation: '/animations/home/audit_logs.json',
   },
   platform: {
     description: 'Multi-tenant platform console',
