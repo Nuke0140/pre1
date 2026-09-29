@@ -137,6 +137,7 @@ export function AppShell({
   useEffect(() => {
     const t = (localStorage.getItem('preone-theme') as 'light' | 'dark') || 'light'
     document.documentElement.setAttribute('data-theme', t)
+    document.documentElement.classList.toggle('dark', t === 'dark')
     queueMicrotask(() => setTheme(t))
   }, [])
 
@@ -145,6 +146,7 @@ export function AppShell({
       const next = prev === 'light' ? 'dark' : 'light'
       localStorage.setItem('preone-theme', next)
       document.documentElement.setAttribute('data-theme', next)
+      document.documentElement.classList.toggle('dark', next === 'dark')
       return next
     })
   }, [])

@@ -549,12 +549,29 @@ export default function AuditPage() {
 
           {logs?.length === 0 && (
             <EmptyState
-              icon={<ScrollText size={42} />}
+              illustration="documents"
+              eyebrow="Audit Trail"
               title="No audit events matched"
-              message={
+              description={
                 searchQuery || moduleFilter !== 'ALL' || severityFilter !== 'ALL'
-                  ? 'No records match the selected filter criteria. Try adjusting your query.'
-                  : 'As staff interact with PreOne, all authoritative mutations and security events land here.'
+                  ? 'No audit log records match the selected filter criteria. Try clearing or widening your query.'
+                  : 'As staff interact with PreOne OS, all authoritative mutations and security events land here.'
+              }
+              action={
+                searchQuery || moduleFilter !== 'ALL' || severityFilter !== 'ALL'
+                  ? {
+                      label: 'Clear Filters',
+                      onClick: () => {
+                        setSearchQuery('')
+                        setModuleFilter('ALL')
+                        setSeverityFilter('ALL')
+                        setDateFrom('')
+                        setDateTo('')
+                        setPage(1)
+                      },
+                      variant: 'secondary',
+                    }
+                  : undefined
               }
             />
           )}

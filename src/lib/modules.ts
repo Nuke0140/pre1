@@ -16,6 +16,7 @@ export interface ModuleMeta {
   tileSize: TileSize
   semanticTheme?: SemanticTheme
   quickActions?: QuickAction[]
+  animation?: string
 }
 
 export interface SemanticThemeTokens {
@@ -31,6 +32,7 @@ export interface HomeModule extends NavItem {
   tileSize: TileSize
   semanticTheme: SemanticTheme
   quickActions: QuickAction[]
+  animation?: string
 }
 
 export const SEMANTIC_THEME_TOKENS: Record<SemanticTheme, SemanticThemeTokens> = {
@@ -91,7 +93,7 @@ const DEFAULT_META: ModuleMeta = {
   semanticTheme: 'lavender',
 }
 
-const MODULE_META: Record<string, ModuleMeta> = {
+export const MODULE_META: Record<string, ModuleMeta> = {
   home: {
     description: 'Your control center',
     tileSize: 'md',
@@ -106,6 +108,7 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Timetable, activities & attendance',
     tileSize: 'lg',
     semanticTheme: 'teal',
+    animation: '/animations/home/daily_diary.json',
     quickActions: [
       { label: "Today's Schedule", href: '/app/daily-diary', perm: 'attendance:read' },
       { label: 'Mark Attendance', href: '/app/daily-diary?tab=attendance', perm: 'attendance:mark' },
@@ -116,17 +119,20 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Manage access & roles',
     tileSize: 'md',
     semanticTheme: 'teal',
+    animation: '/animations/home/users.json',
     quickActions: [{ label: 'Add user', href: '/app/users', perm: 'users:write' }],
   },
   hr: {
     description: 'Staff, leaves & payroll',
     tileSize: 'md',
     semanticTheme: 'orange',
+    animation: '/animations/home/hr_workforce.json',
   },
   setup: {
     description: 'School configuration',
     tileSize: 'sm',
     semanticTheme: 'lavender',
+    animation: '/animations/home/setup.json',
   },
   admissions: {
     description: 'Inquiries & enrollments',
@@ -141,6 +147,7 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Student records & profiles',
     tileSize: 'lg',
     semanticTheme: 'green',
+    animation: '/animations/home/students.json',
     quickActions: [{ label: 'Add student', href: '/app/students', perm: 'students:write' }],
   },
   operations: {
@@ -214,6 +221,7 @@ export function homeModules(roleOrRoles: Role | Role[]): HomeModule[] {
       description: meta.description,
       tileSize: meta.tileSize,
       semanticTheme: meta.semanticTheme ?? 'lavender',
+      animation: meta.animation,
       quickActions: qas,
     }
   })

@@ -7,7 +7,7 @@ import {
   Activity, Calendar, Building, BookOpen, UserRound, CheckSquare2,
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
 } from 'lucide-react'
-import { PageHead, StatusBadge, Avatar, Segmented, Field, Skeleton } from '@/components/preone/ui'
+import { PageHead, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Avatar, Segmented, Field, Skeleton, EmptyState } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
@@ -326,44 +326,14 @@ export default function StudentsPage() {
       sortValue: (s) => s.name.toLowerCase(),
       export: (s) => s.name,
       render: (s) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Avatar name={s.name} src={s.photoUrl} size="md" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-              {s.name}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: 11.5,
-                  padding: '1px 6px',
-                  borderRadius: 5,
-                  background: 'var(--bg-muted)',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
-                {s.admissionNo}
-              </span>
-              {s.seatNumber && (
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: 11,
-                    padding: '1px 5px',
-                    borderRadius: 4,
-                    background: 'var(--primary-light)',
-                    color: 'var(--primary)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Seat: {s.seatNumber}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        <StudentIdentityChip
+          id={s.id}
+          name={s.name}
+          photoUrl={s.photoUrl}
+          admissionNo={s.admissionNo}
+          classroom={s.classroom?.name}
+          division={s.seatNumber ? `Seat: ${s.seatNumber}` : undefined}
+        />
       ),
     },
     {
@@ -437,21 +407,14 @@ export default function StudentsPage() {
       export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : 'None'),
       render: (s) =>
         s.primaryGuardian ? (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                {s.primaryGuardian.name}
-              </span>
-              <span className="t-caption" style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                ({s.primaryGuardian.relationship.toLowerCase()})
-              </span>
-            </div>
-            <span className="t-data" style={{ color: 'var(--text-secondary)' }}>
-              {s.primaryGuardian.phone}
-            </span>
-          </div>
+          <FamilyIdentityChip
+            name={s.primaryGuardian.name}
+            relationship={s.primaryGuardian.relationship}
+            phone={s.primaryGuardian.phone}
+            isPrimary
+          />
         ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>-</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>
         ),
     },
     {
@@ -470,7 +433,7 @@ export default function StudentsPage() {
           { value: 'GRADUATED', label: 'Graduated' },
         ],
       },
-      render: (s) => <StatusBadge status={s.status} />,
+      render: (s) => <StatusPill status={s.status} />,
     },
     {
       key: 'actions',
@@ -489,10 +452,10 @@ export default function StudentsPage() {
     <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 40 }}>
       {/* 1. Standard PageHead */}
       <PageHead
-        eyebrow="Preschool Enrollment & Operations"
+        eyebrow="STUDENT MANAGEMENT"
         badge={<span className="badge b-primary b-dot">Active Roster</span>}
-        title="Students & Children"
-        sub="Manage enrolled children, classroom allocations, guardians and the complete child journey."
+        title="Students"
+        sub="Manage enrolled children, family relationships and classroom allocations."
         actions={
           <button
             className="btn btn-primary"
@@ -922,8 +885,13 @@ export default function StudentsPage() {
             data={rows}
             loading={loading}
             onRowClick={(s) => router.push(`/app/students/${s.id}`)}
-            emptyTitle="No children found"
-            emptyMessage="No students match the selected campus, session, classroom, or search query."
+            emptyIcon="students"
+            emptyTitle="No students found"
+            emptyMessage="Students enrolled through Admissions or added directly will appear here."
+            emptyAction={{
+              label: '+ Enroll Child',
+              onClick: () => setCreateOpen(true),
+            }}
             paginate
             defaultPageSize={10}
             exportFileName="students-roster.csv"
@@ -1029,11 +997,17 @@ export default function StudentsPage() {
               </div>
             ))
           ) : (
-            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
-              <UserRound size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>No children found</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>No students match the current filter criteria.</div>
-            </div>
+            <EmptyState
+              compact
+              illustration="students"
+              eyebrow="Students"
+              title="No students found"
+              description="No students match the selected campus, classroom, or search query."
+              action={{
+                label: '+ Enroll Child',
+                onClick: () => setCreateOpen(true),
+              }}
+            />
           )}
         </div>
       </div>

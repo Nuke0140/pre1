@@ -339,6 +339,7 @@ export default function BrandingPage() {
       </div>
 
       <PageHead
+        eyebrow="SCHOOL SETUP"
         title="School Brand Identity Center"
         sub="Make PreOne look and feel like your preschool across authentication, staff workspace, parent portal, and documents."
         icon={<Palette size={24} />}
@@ -859,15 +860,17 @@ export default function BrandingPage() {
             <div
               style={{
                 minHeight: 380,
-                background: 'var(--bg-subtle)',
-                borderRadius: 12,
-                border: '1px solid var(--border-default)',
+                background: 'var(--surface-canvas)',
+                borderRadius: 'var(--surface-radius)',
+                border: '1px solid var(--surface-border)',
                 padding: 16,
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 overflow: 'hidden',
+                ['--primary' as any]: primaryColor,
+                ['--accent' as any]: accentColor,
               }}
             >
               {/* TAB 1: LOGIN PREVIEW */}
@@ -876,11 +879,11 @@ export default function BrandingPage() {
                   style={{
                     width: '100%',
                     maxWidth: 320,
-                    background: '#ffffff',
-                    borderRadius: 14,
+                    background: 'var(--surface-card)',
+                    borderRadius: 'var(--surface-radius)',
                     padding: 24,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
-                    border: '1px solid #e5e7eb',
+                    boxShadow: 'var(--elevation-2)',
+                    border: '1px solid var(--surface-border)',
                     textAlign: 'center',
                   }}
                 >
@@ -940,9 +943,10 @@ export default function BrandingPage() {
                   style={{
                     width: '100%',
                     height: 320,
-                    background: '#ffffff',
-                    borderRadius: 12,
-                    border: '1px solid #e5e7eb',
+                    background: 'var(--surface-card)',
+                    borderRadius: 'var(--surface-radius)',
+                    border: '1px solid var(--surface-border)',
+                    boxShadow: 'var(--elevation-1)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
@@ -1024,11 +1028,11 @@ export default function BrandingPage() {
                   style={{
                     width: '100%',
                     maxWidth: 320,
-                    background: '#ffffff',
-                    borderRadius: 16,
-                    border: '1px solid #e5e7eb',
+                    background: 'var(--surface-card)',
+                    borderRadius: 'var(--surface-radius)',
+                    border: '1px solid var(--surface-border)',
                     overflow: 'hidden',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+                    boxShadow: 'var(--elevation-2)',
                   }}
                 >
                   {/* Hero / Banner Header */}
@@ -1111,11 +1115,11 @@ export default function BrandingPage() {
                   style={{
                     width: '100%',
                     maxWidth: 340,
-                    background: '#ffffff',
-                    borderRadius: 10,
-                    border: '1px solid #d1d5db',
+                    background: 'var(--surface-card)',
+                    borderRadius: 'var(--surface-radius)',
+                    border: '1px solid var(--surface-border)',
                     padding: 18,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.05)',
+                    boxShadow: 'var(--elevation-1)',
                   }}
                 >
                   {/* Document Header with School Branding */}

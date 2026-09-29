@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Calendar as CalIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AnimatedCheckmark } from './TactileMotion'
 
 /* ─── Date picker ─────────────────────────────────────────────────── */
 
@@ -251,11 +252,18 @@ export function Wizard({
   onChange?: (idx: number) => void
   children?: React.ReactNode
 }) {
+  const prevCurrentRef = useRef(current)
+  useEffect(() => {
+    prevCurrentRef.current = current
+  }, [current])
+  const prevCurrent = prevCurrentRef.current
+
   return (
     <div className="wizard">
       <ol className="wizard-steps">
         {steps.map((s, i) => {
           const state = i < current ? 'done' : i === current ? 'active' : 'todo'
+          const justCompleted = i < current && i >= prevCurrent
           return (
             <li key={i} className={`wizard-step ${state}`}>
               <button
@@ -265,7 +273,13 @@ export function Wizard({
                 onClick={() => i < current && onChange?.(i)}
                 disabled={i > current}
               >
-                <span className="wizard-dot">{state === 'done' ? '\u2713' : i + 1}</span>
+                <span className="wizard-dot">
+                  {state === 'done' ? (
+                    <AnimatedCheckmark size={14} animate={justCompleted} />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
                 <span className="wizard-labels">
                   <b>{s.title}</b>
                   {s.sub && <span>{s.sub}</span>}

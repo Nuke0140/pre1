@@ -92,6 +92,12 @@ const config: Config = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		fontFamily: {
+  			heading: ['var(--font-heading)', 'Poppins', 'sans-serif'],
+  			body: ['var(--font-body)', 'Nunito', 'sans-serif'],
+  			sans: ['var(--font-body)', 'Nunito', 'sans-serif'],
+  			mono: ['var(--font-mono)', 'monospace'],
+  		},
   		fontSize: {
   			't-display': ['clamp(34px, 5vw, 54px)', { lineHeight: '1.05', letterSpacing: '-0.035em', fontWeight: '800' }],
   			't-h1': ['clamp(26px, 3.4vw, 36px)', { lineHeight: '1.2', letterSpacing: '-0.03em', fontWeight: '800' }],

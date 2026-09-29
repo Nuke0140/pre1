@@ -10,7 +10,7 @@ import {
   MessageCircle, FileSignature, GraduationCap, BarChart3, Filter,
   ArrowUpRight, ArrowDownRight, Layers, Sparkles, User, Info, CheckCircle
 } from 'lucide-react'
-import { PageHead, Segmented, EmptyState, StatusBadge, Skeleton } from '@/components/preone/ui'
+import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton } from '@/components/preone/ui'
 import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
@@ -2225,7 +2225,7 @@ export default function AdmissionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
+            <span className="micro-eyebrow">
               ADMISSIONS & ENROLLMENT
             </span>
             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-primary/10 text-primary border border-primary/20">
@@ -2233,10 +2233,10 @@ export default function AdmissionsPage() {
               M03 Control Plane
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="page-title">
             Admissions
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="page-description">
             Manage enquiries, applications, offers and final admissions from first contact to a bright new beginning.
           </p>
         </div>
@@ -3073,11 +3073,26 @@ export default function AdmissionsPage() {
                           )}
                         </td>
                         <td>
-                          <strong>{e.parentName}</strong>
-                          {e.email && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{e.email}</div>}
+                          <FamilyIdentityChip
+                            name={e.parentName}
+                            email={e.email}
+                            phone={e.phone}
+                          />
                         </td>
-                        <td>{e.phone}</td>
-                        <td>{e.childName || '—'}</td>
+                        <td>
+                          <span className="font-mono text-xs text-slate-600 dark:text-slate-300">{e.phone}</span>
+                        </td>
+                        <td>
+                          {e.childName ? (
+                            <StudentIdentityChip
+                              name={e.childName}
+                              subtext={childAge !== null ? `${childAge} mos` : undefined}
+                              size="sm"
+                            />
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
                         <td>{childAge !== null ? `${childAge} mos` : '—'}</td>
                         <td>
                           <span className="badge b-purple">{e.interestedProgram || 'Unassigned'}</span>
@@ -3094,17 +3109,7 @@ export default function AdmissionsPage() {
                           )}
                         </td>
                         <td>
-                          <span className={`badge ${
-                            e.status === 'NEW' ? 'b-blue' :
-                            e.status === 'CONTACTED' ? 'b-amber' :
-                            e.status === 'QUALIFIED' ? 'b-purple' :
-                            e.status === 'APPLICATION_STARTED' ? 'b-success' :
-                            e.status === 'CONVERTED' ? 'b-success' :
-                            e.status === 'LOST' ? 'b-danger' :
-                            'b-gray'
-                          }`}>
-                            {e.status.replace(/_/g, ' ')}
-                          </span>
+                          <StatusPill status={e.status} />
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(ev) => ev.stopPropagation()}>
@@ -3176,8 +3181,29 @@ export default function AdmissionsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={11} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                      No enquiries found for the selected session and branch.
+                    <td colSpan={11} style={{ padding: 0 }}>
+                      <EmptyState
+                        illustration="enquiries"
+                        eyebrow="Admissions"
+                        title={enquirySearch ? `No enquiries match "${enquirySearch}"` : 'No enquiries yet'}
+                        description={
+                          enquirySearch
+                            ? 'Check for spelling mistakes or clear your search to view all enquiries.'
+                            : 'Your admissions pipeline is ready. Register your first parent enquiry to begin tracking prospective families.'
+                        }
+                        action={
+                          enquirySearch
+                            ? {
+                                label: 'Clear Search',
+                                onClick: () => setEnquirySearch(''),
+                                variant: 'secondary',
+                              }
+                            : {
+                                label: '+ Register First Enquiry',
+                                onClick: () => setEnquiryModal(true),
+                              }
+                        }
+                      />
                     </td>
                   </tr>
                 )}
@@ -3246,9 +3272,29 @@ export default function AdmissionsPage() {
                 )
               })
             ) : (
-              <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-xl">
-                No enquiries found for the selected session and branch.
-              </div>
+              <EmptyState
+                compact
+                illustration="enquiries"
+                eyebrow="Admissions"
+                title={enquirySearch ? `No enquiries match "${enquirySearch}"` : 'No enquiries yet'}
+                description={
+                  enquirySearch
+                    ? 'Check for spelling mistakes or clear your search to view all enquiries.'
+                    : 'Your admissions pipeline is ready. Register your first parent enquiry to begin tracking prospective families.'
+                }
+                action={
+                  enquirySearch
+                    ? {
+                        label: 'Clear Search',
+                        onClick: () => setEnquirySearch(''),
+                        variant: 'secondary',
+                      }
+                    : {
+                        label: '+ Register First Enquiry',
+                        onClick: () => setEnquiryModal(true),
+                      }
+                }
+              />
             )}
           </div>
         </div>
@@ -3636,12 +3682,17 @@ export default function AdmissionsPage() {
                           <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{app.applicationNumber}</span>
                         </td>
                         <td>
-                          <strong>{app.childFirstName} {app.childLastName || ''}</strong>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.childGender}</div>
+                          <StudentIdentityChip
+                            name={`${app.childFirstName} ${app.childLastName || ''}`}
+                            subtext={app.childGender}
+                            size="sm"
+                          />
                         </td>
                         <td>
-                          <div>{app.parentName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{app.parentPhone}</div>
+                          <FamilyIdentityChip
+                            name={app.parentName}
+                            phone={app.parentPhone}
+                          />
                         </td>
                         <td>{childAge !== null ? `${childAge} mos` : '—'}</td>
                         <td>
@@ -3660,7 +3711,7 @@ export default function AdmissionsPage() {
                           </div>
                         </td>
                         <td>
-                          <StatusBadge status={app.status} />
+                          <StatusPill status={app.status} />
                         </td>
                         <td>
                           <span
@@ -3696,8 +3747,18 @@ export default function AdmissionsPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                      No admission applications found for this session.
+                    <td colSpan={10} style={{ padding: 0 }}>
+                      <EmptyState
+                        illustration="applications"
+                        eyebrow="Admissions"
+                        title="No applications yet"
+                        description="Applications will appear here when prospective parents progress from enquiry to formal registration."
+                        action={{
+                          label: 'View Enquiries Pipeline',
+                          onClick: () => setTab('pipeline'),
+                          variant: 'secondary',
+                        }}
+                      />
                     </td>
                   </tr>
                 )}
@@ -3916,28 +3977,19 @@ export default function AdmissionsPage() {
 
                           {/* Application & Child */}
                           <td>
-                            <div className="font-bold text-foreground">
-                              {entry.childFirstName} {entry.childLastName || ''}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <span className="font-mono text-primary font-semibold">
-                                {entry.application?.applicationNumber || 'Application'}
-                              </span>
-                              <span>·</span>
-                              <span>{entry.childGender}</span>
-                              {entry.childDob && (
-                                <>
-                                  <span>·</span>
-                                  <span>{calculateAgeMonths(entry.childDob)}m</span>
-                                </>
-                              )}
-                            </div>
+                            <StudentIdentityChip
+                              name={`${entry.childFirstName} ${entry.childLastName || ''}`}
+                              subtext={entry.application?.applicationNumber || undefined}
+                              size="sm"
+                            />
                           </td>
 
                           {/* Parent & Contact */}
                           <td>
-                            <div className="text-foreground font-medium">{entry.parentName}</div>
-                            <div className="text-[11px] text-muted-foreground font-mono">{entry.parentPhone}</div>
+                            <FamilyIdentityChip
+                              name={entry.parentName}
+                              phone={entry.parentPhone}
+                            />
                           </td>
 
                           {/* Program */}
@@ -3977,39 +4029,36 @@ export default function AdmissionsPage() {
 
                           {/* Status Badge */}
                           <td>
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                                entry.status === 'ACTIVE'
-                                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                                  : entry.status === 'SEAT_AVAILABLE'
-                                  ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 animate-pulse font-extrabold'
-                                  : entry.status === 'OFFER_SENT'
-                                  ? 'bg-purple-500/10 text-purple-600 border-purple-500/20'
-                                  : entry.status === 'PARENT_ACCEPTED'
-                                  ? 'bg-teal-500/10 text-teal-600 border-teal-500/20'
-                                  : entry.status === 'READY_FOR_ADMISSION'
-                                  ? 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
+                            <StatusPill
+                              status={
+                                entry.status === 'SEAT_AVAILABLE'
+                                  ? 'READY'
+                                  : entry.status === 'ACTIVE'
+                                  ? 'WAITLISTED'
                                   : entry.status === 'CONVERTED'
-                                  ? 'bg-emerald-600 text-white font-extrabold border-emerald-600'
-                                  : 'bg-muted text-muted-foreground border-border'
-                              }`}
-                            >
-                              {entry.status === 'ACTIVE'
-                                ? 'In Queue'
-                                : entry.status === 'SEAT_AVAILABLE'
-                                ? 'Seat Available'
-                                : entry.status === 'OFFER_SENT'
-                                ? 'Offer Sent'
-                                : entry.status === 'PARENT_ACCEPTED'
-                                ? 'Parent Accepted'
-                                : entry.status === 'READY_FOR_ADMISSION'
-                                ? 'Ready to Admit'
-                                : entry.status === 'CONVERTED'
-                                ? 'Enrolled'
-                                : entry.status === 'OFFER_DECLINED'
-                                ? 'Declined'
-                                : 'Withdrawn'}
-                            </span>
+                                  ? 'ENROLLED'
+                                  : entry.status === 'OFFER_DECLINED' || entry.status === 'WITHDRAWN'
+                                  ? 'WITHDRAWN'
+                                  : entry.status
+                              }
+                              label={
+                                entry.status === 'ACTIVE'
+                                  ? 'In Queue'
+                                  : entry.status === 'SEAT_AVAILABLE'
+                                  ? 'Seat Available'
+                                  : entry.status === 'OFFER_SENT'
+                                  ? 'Offer Sent'
+                                  : entry.status === 'PARENT_ACCEPTED'
+                                  ? 'Parent Accepted'
+                                  : entry.status === 'READY_FOR_ADMISSION'
+                                  ? 'Ready to Admit'
+                                  : entry.status === 'CONVERTED'
+                                  ? 'Enrolled'
+                                  : entry.status === 'OFFER_DECLINED'
+                                  ? 'Declined'
+                                  : 'Withdrawn'
+                              }
+                            />
                           </td>
 
                           {/* Primary Next Action */}
@@ -4139,14 +4188,14 @@ export default function AdmissionsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={10} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Users size={32} className="text-muted-foreground/40" />
-                          <div className="font-bold text-foreground text-sm">No Waiting List Candidates</div>
-                          <p className="text-xs text-muted-foreground max-w-sm">
-                            There are currently no applicants on the waiting list matching your selected filters. Candidates enter the waiting list when classroom capacity is full or when admission is deferred.
-                          </p>
-                        </div>
+                      <td colSpan={10} style={{ padding: 0 }}>
+                        <EmptyState
+                          illustration="waitinglist"
+                          eyebrow="Admissions"
+                          title="Waiting list is empty"
+                          description="There are currently no applicants on the waiting list. Candidates enter the waiting list when classroom capacity is full or when admission is deferred."
+                          compact
+                        />
                       </td>
                     </tr>
                   )}
@@ -4237,8 +4286,14 @@ export default function AdmissionsPage() {
                       ))
                   ) : (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--text-muted)' }}>
-                        No candidates are currently waiting for classroom placement. All approved admissions are placed.
+                      <td colSpan={7} style={{ padding: '32px 16px' }}>
+                        <EmptyState
+                          illustration="classroom"
+                          eyebrow="Classrooms"
+                          title="No candidates waiting for placement"
+                          description="All approved candidates with accepted offers have already been allocated to classrooms."
+                          compact
+                        />
                       </td>
                     </tr>
                   )}
@@ -4335,8 +4390,14 @@ export default function AdmissionsPage() {
                       ))
                   ) : (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                        No admissions have been completed in this session yet.
+                      <td colSpan={7} style={{ padding: '32px 16px' }}>
+                        <EmptyState
+                          illustration="students"
+                          eyebrow="Admissions Ledger"
+                          title="No completed admissions yet"
+                          description="Once candidates complete their offer acceptance and fee settlement, their enrollment ledger records will appear here."
+                          compact
+                        />
                       </td>
                     </tr>
                   )}

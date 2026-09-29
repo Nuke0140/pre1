@@ -103,3 +103,56 @@ export function evaluateColorContrast(primaryHex: string, accentHex: string): {
     primaryOnWhiteRatio: Math.round(ratio * 10) / 10,
   }
 }
+
+/**
+ * Convert RGB to HSL
+ */
+export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  r /= 255; g /= 255; b /= 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  let h = 0, s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) }
+}
+
+/**
+ * Convert HSL to HEX
+ */
+export function hslToHex(h: number, s: number, l: number): string {
+  s /= 100; l /= 100
+  const a = s * Math.min(l, 1 - l)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+    return Math.round(255 * color).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+/**
+ * Calculates a readable presentation variant of tenant brand color for Dark Mode.
+ * Adjusts perceived lightness by +10% to +15% while keeping the original hue intact.
+ */
+export function getDarkModeAdaptedColor(hexColor: string, targetBoostPercent = 14): string {
+  const rgb = hexToRgb(hexColor)
+  if (!rgb) return hexColor
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b)
+
+  // If already sufficiently bright (> 68% lightness), no boost needed
+  if (hsl.l >= 68) return hexColor
+
+  // Calculate new lightness with +10-15% target boost
+  const targetLightness = Math.min(75, Math.max(55, hsl.l + targetBoostPercent))
+  return hslToHex(hsl.h, hsl.s, targetLightness)
+}

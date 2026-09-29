@@ -323,6 +323,7 @@ export default function SetupPage() {
       <PageHead
         eyebrow="PRESCHOOL SETUP & READINESS"
         title="Preschool Setup & Configuration"
+        sub="Configure foundation, academic structure, daily operations, and business rules."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>

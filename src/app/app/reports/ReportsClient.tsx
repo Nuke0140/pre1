@@ -378,8 +378,9 @@ export default function ReportsClient() {
             columns={columns}
             data={reportData?.data || []}
             loading={loadingReport}
-            emptyTitle="No records found"
-            emptyMessage="No canonical records matched the current scope filters."
+            emptyIcon="reports"
+            emptyTitle="No report records available"
+            emptyMessage="No operational records matched the selected date range and filter criteria. Try widening your date range or adjusting filters."
           />
         </div>
       )}
