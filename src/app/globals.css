@@ -3256,9 +3256,11 @@ tr:focus-within .dt-row-actions .kebab {
   flex: none;
 }
 .dock-item-icon svg,
+.dock-item-icon img,
 .tb-pin svg {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
+  object-fit: contain;
 }
 
 /* Elevated PreOne Orb (Centerpiece) */

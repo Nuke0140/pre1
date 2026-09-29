@@ -32,6 +32,7 @@ interface ResolvedDockItem {
   label: string
   href: string
   icon: React.ComponentType<{ size?: number | string; className?: string }>
+  image?: string
 }
 
 /**
@@ -74,6 +75,8 @@ export function BottomNav({
     const studentsItem =
       nav.find((n) => n.key === 'students') ||
       nav.find((n) => n.key === 'admissions')
+    const learningItem =
+      nav.find((n) => n.key === 'learning' || n.key === 'preo-learning' || n.key === 'preo_learning')
     const staffItem =
       nav.find((n) => n.key === 'users') ||
       nav.find((n) => n.key === 'hr')
@@ -94,10 +97,11 @@ export function BottomNav({
         label: 'Apps',
         href: appsItem.href,
         icon: appsItem.icon || LayoutGrid,
+        image: '/animations/home/dashboard.webp',
       },
     ]
 
-    // Prepare right cluster (Students, Staff, Growth)
+    // Prepare right cluster (Students, Learning, Staff, Growth)
     const right: ResolvedDockItem[] = []
     if (studentsItem) {
       right.push({
@@ -105,6 +109,16 @@ export function BottomNav({
         label: 'Students',
         href: studentsItem.href,
         icon: studentsItem.icon || GraduationCap,
+        image: '/animations/home/students.webp',
+      })
+    }
+    if (learningItem) {
+      right.push({
+        key: learningItem.key,
+        label: 'Learning',
+        href: learningItem.href,
+        icon: learningItem.icon || GraduationCap,
+        image: '/animations/home/preo_learning_mascot.webp',
       })
     }
     if (staffItem) {
@@ -113,6 +127,7 @@ export function BottomNav({
         label: 'Staff',
         href: staffItem.href,
         icon: staffItem.icon || Briefcase,
+        image: '/animations/home/users.webp',
       })
     }
     if (growthItem) {
@@ -121,6 +136,7 @@ export function BottomNav({
         label: growthItem.key === 'daily-diary' ? 'Diary' : growthItem.label,
         href: growthItem.href,
         icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
+        image: '/animations/home/daily_diary.webp',
       })
     }
 
@@ -172,7 +188,15 @@ export function BottomNav({
                   aria-current={active ? 'page' : undefined}
                 >
                   <span className="dock-item-icon">
-                    <Icon size={18} />
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.label}
+                        className="w-5 h-5 object-contain scale-110 drop-shadow-sm pointer-events-none"
+                      />
+                    ) : (
+                      <Icon size={18} />
+                    )}
                   </span>
                   <span className="dock-item-label">{item.label}</span>
                 </Link>
@@ -218,7 +242,15 @@ export function BottomNav({
                   aria-current={active ? 'page' : undefined}
                 >
                   <span className="dock-item-icon">
-                    <Icon size={18} />
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.label}
+                        className="w-5 h-5 object-contain scale-110 drop-shadow-sm pointer-events-none"
+                      />
+                    ) : (
+                      <Icon size={18} />
+                    )}
                   </span>
                   <span className="dock-item-label">{item.label}</span>
                 </Link>
