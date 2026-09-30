@@ -5,7 +5,7 @@ import {
   Search, Filter, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download,
   AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown,
 } from 'lucide-react'
-import { Skeleton, EmptyState, IconButton } from './ui'
+import { Skeleton, EmptyState, IconButton, ZenTableSkeleton } from './ui'
 
 export interface ColumnFilterOption {
   value: string
@@ -253,7 +253,7 @@ export function DataTable<T extends { id?: string | number }>({
   // column filters
   const toggleColFilter = useCallback((key: string, value: string) => {
     setColFilters((prev) => {
-      const next = new Map(Object.entries(prev))
+      const next = new Map(Object.entries(prev || {}))
       const set = new Set(next.get(key) || [])
       if (set.has(value)) set.delete(value)
       else set.add(value)
@@ -267,7 +267,7 @@ export function DataTable<T extends { id?: string | number }>({
   const filtered = useMemo(() => {
     let rows = allRows
     const filterDefs = new Map(columns.filter((c) => c.filter).map((c) => [c.key, c.filter!]))
-    const active = Object.entries(colFilters)
+    const active = Object.entries(colFilters || {})
     if (active.length > 0) {
       rows = rows.filter((row) =>
         active.every(([key, values]) => {
@@ -557,7 +557,7 @@ export function DataTable<T extends { id?: string | number }>({
                   </th>
                 )
               })}
-              {rowActions && <th style={{ width: 42 }} aria-label="Row actions" />}
+              {rowActions && <th style={{ width: 88, textAlign: 'right' }} aria-label="Row actions" />}
             </tr>
           </thead>
           <tbody>
@@ -597,38 +597,61 @@ export function DataTable<T extends { id?: string | number }>({
                         : highlightText(cellText(col, row), localSearch)}
                     </td>
                   ))}
-                  {rowActions && (
-                    <td className="dt-row-actions" onClick={(e) => e.stopPropagation()}>
-                      <span className="menu-anchor">
-                        <IconButton
-                          icon={<MoreVertical size={15} />}
-                          label="Row actions"
-                          onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: String(rid) })}
-                          variant="ghost"
-                          size="sm"
-                          className="dt-icon-btn kebab"
-                          aria-haspopup="menu"
-                          aria-expanded={menu?.kind === 'kebab' && menu.rowId === String(rid)}
-                        />
-                        {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === String(rid) && (
-                          <div className="menu" role="menu" style={{ right: 0 }}>
-                            {(rowActions(row) || []).map((act, i) => (
-                              <button
-                                key={i}
-                                className={`menu-item${act.danger ? ' menu-danger' : ''}${act.disabled ? ' menu-disabled' : ''}`}
-                                role="menuitem"
-                                disabled={act.disabled}
-                                onClick={() => { setMenu(null); act.onClick() }}
-                              >
-                                {act.icon}
-                                {act.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </span>
-                    </td>
-                  )}
+                  {rowActions && (() => {
+                    const acts = rowActions(row) || []
+                    const primaryActs = acts.slice(0, 2)
+                    const overflowActs = acts.length > 2 ? acts.slice(2) : []
+                    return (
+                      <td className="dt-row-actions" onClick={(e) => e.stopPropagation()}>
+                        <div className="dt-quick-actions justify-end" style={{ gap: 4 }}>
+                          {primaryActs.map((act, i) => (
+                            <IconButton
+                              key={i}
+                              icon={act.icon || <Eye size={14} />}
+                              label={act.label}
+                              title={act.label}
+                              onClick={act.onClick}
+                              variant="ghost"
+                              size="sm"
+                              className={`dt-icon-btn ${act.danger ? 'text-rose-600' : ''}`}
+                              disabled={act.disabled}
+                            />
+                          ))}
+                          {overflowActs.length > 0 && (
+                            <span className="menu-anchor">
+                              <IconButton
+                                icon={<MoreVertical size={15} />}
+                                label="More actions"
+                                title="More actions"
+                                onClick={() => toggleMenu(rid === undefined ? null : { kind: 'kebab', rowId: String(rid) })}
+                                variant="ghost"
+                                size="sm"
+                                className="dt-icon-btn kebab"
+                                aria-haspopup="menu"
+                                aria-expanded={menu?.kind === 'kebab' && menu.rowId === String(rid)}
+                              />
+                              {menu?.kind === 'kebab' && rid !== undefined && menu.rowId === String(rid) && (
+                                <div className="menu" role="menu" style={{ right: 0 }}>
+                                  {overflowActs.map((act, i) => (
+                                    <button
+                                      key={i}
+                                      className={`menu-item${act.danger ? ' menu-danger' : ''}${act.disabled ? ' menu-disabled' : ''}`}
+                                      role="menuitem"
+                                      disabled={act.disabled}
+                                      onClick={() => { setMenu(null); act.onClick() }}
+                                    >
+                                      {act.icon}
+                                      {act.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    )
+                  })()}
                 </tr>
               )
             })}
@@ -734,11 +757,10 @@ export function DataTable<T extends { id?: string | number }>({
         </div>
 
         {loading && (
-          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} h={38} />
-            ))}
-          </div>
+          <ZenTableSkeleton
+            rows={5}
+            columns={visibleCols.length + (rowSelection ? 1 : 0) + (rowActions ? 1 : 0)}
+          />
         )}
 
         {!loading && error && (
@@ -751,15 +773,25 @@ export function DataTable<T extends { id?: string | number }>({
 
         {!loading && !error && data && data.length === 0 && (
           <EmptyState
-            icon={emptyIcon || <Filter size={36} />}
-            title={emptyTitle || 'No matching records found'}
-            message={emptyMessage || 'Try adjusting your filters, search terms, or role selection.'}
-            action={emptyAction}
+            illustration={emptyIcon || (localSearch ? 'search' : 'filter')}
+            title={emptyTitle || (localSearch ? `No results for "${localSearch}"` : 'No matching records found')}
+            description={emptyMessage || (localSearch ? 'Check for typos or try clearing your search query.' : 'Try adjusting your filters, search terms, or role selection.')}
+            action={
+              emptyAction ||
+              (localSearch ? {
+                label: 'Clear Search',
+                onClick: () => {
+                  setLocalSearch('')
+                  onSearch?.('')
+                },
+                variant: 'secondary' as const,
+              } : undefined)
+            }
           />
         )}
       </div>
 
-      {(pagination || paginate) && (
+      {(pagination || paginate) && data && data.length > 0 && (
         <div className="dtable-foot">
           <span className="t-caption">
             {rangeLabel}

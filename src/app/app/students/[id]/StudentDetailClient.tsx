@@ -1175,7 +1175,7 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Link
-                href={`/app/attendance?classroomId=${academic?.classroom?.id || ''}`}
+                href={`/app/daily-diary?tab=attendance&classroomId=${academic?.classroom?.id || ''}`}
                 className="btn btn-secondary btn-sm"
                 style={{ gap: 6 }}
               >
@@ -1429,8 +1429,8 @@ export function StudentDetailClient({ profile }: Props) {
               <div className="card-title" style={{ fontSize: 17 }}>Learning Observations & Milestones</div>
               <div className="card-sub">Developmental milestones recorded by early childhood educators</div>
             </div>
-            <Link href="/app/academics" className="btn btn-secondary btn-sm" style={{ gap: 6 }}>
-              <ExternalLink size={13} /> Open Academics & Planner
+            <Link href="/app/daily-diary?tab=observations" className="btn btn-secondary btn-sm" style={{ gap: 6 }}>
+              <ExternalLink size={13} /> Open Daily Diary Observations
             </Link>
           </div>
 

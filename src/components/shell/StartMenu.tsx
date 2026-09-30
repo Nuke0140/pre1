@@ -59,14 +59,16 @@ export function StartMenu({
       const matchDesc = m.description.toLowerCase().includes(q)
       const matchKey = m.key.toLowerCase().includes(q)
 
-      // Keyword aliases (e.g. "fee" -> Fees, "staff" -> Users, HR, "student" -> Students, Academics, Users)
+      // Keyword aliases (e.g. "fee" -> Fees, "staff" -> Users, HR, "student" -> Students, Daily Diary, Admissions)
       const matchAlias =
         (q.includes('fee') && (m.key === 'finance' || m.key === 'home')) ||
         (q.includes('staff') && (m.key === 'users' || m.key === 'hr')) ||
-        (q.includes('teacher') && (m.key === 'users' || m.key === 'hr')) ||
-        (q.includes('student') && (m.key === 'students' || m.key === 'academics' || m.key === 'admissions')) ||
+        (q.includes('teacher') && (m.key === 'users' || m.key === 'hr' || m.key === 'daily-diary')) ||
+        (q.includes('student') && (m.key === 'students' || m.key === 'daily-diary' || m.key === 'admissions')) ||
         (q.includes('bus') && m.key === 'transport') ||
-        (q.includes('book') && (m.key === 'academics' || m.key === 'inventory')) ||
+        (q.includes('diary') && m.key === 'daily-diary') ||
+        (q.includes('activity') && m.key === 'daily-diary') ||
+        (q.includes('timetable') && m.key === 'daily-diary') ||
         (q.includes('bill') && m.key === 'finance')
 
       return matchName || matchDesc || matchKey || matchAlias
@@ -198,6 +200,7 @@ export function StartMenu({
           {pinnedModules.map((m) => {
             const Icon = m.icon
             const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
+            const imageSrc = m.animation ? m.animation.replace(/\.json$/, '.webp') : null
             return (
               <Link
                 key={`pinned-${m.key}`}
@@ -209,12 +212,28 @@ export function StartMenu({
                 <span
                   className="tico"
                   style={{
-                    backgroundColor: theme.iconBg,
+                    backgroundColor: imageSrc ? 'transparent' : theme.iconBg,
                     color: theme.iconColor,
-                    borderColor: theme.iconBorder,
+                    borderColor: imageSrc ? 'transparent' : theme.iconBorder,
+                    overflow: 'hidden',
+                    position: 'relative',
                   }}
                 >
-                  <Icon size={22} />
+                  {imageSrc ? (
+                    <img
+                      src={imageSrc}
+                      alt={m.label}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        transform: 'scale(1.22)',
+                        pointerEvents: 'none',
+                      }}
+                    />
+                  ) : (
+                    <Icon size={22} />
+                  )}
                 </span>
                 <span className="sm-tile-label">{m.label}</span>
               </Link>
@@ -241,6 +260,7 @@ export function StartMenu({
               {filteredModules.map((m) => {
                 const Icon = m.icon
                 const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
+                const imageSrc = m.animation ? m.animation.replace(/\.json$/, '.webp') : null
                 return (
                   <Link
                     key={`all-${m.key}`}
@@ -252,11 +272,27 @@ export function StartMenu({
                     <span
                       className="sm-list-icon"
                       style={{
-                        backgroundColor: theme.iconBg,
+                        backgroundColor: imageSrc ? 'transparent' : theme.iconBg,
                         color: theme.iconColor,
+                        overflow: 'hidden',
+                        position: 'relative',
                       }}
                     >
-                      <Icon size={15} />
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={m.label}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            transform: 'scale(1.22)',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      ) : (
+                        <Icon size={15} />
+                      )}
                     </span>
                     <span className="sm-list-text">{m.label}</span>
                   </Link>

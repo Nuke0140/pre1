@@ -238,6 +238,7 @@ export default function SetupStepPage() {
     }
   }, [kind, configDomain])
 
+
   useEffect(() => { Promise.resolve().then(loadStatus); Promise.resolve().then(loadBody) }, [loadStatus, loadBody])
 
   const refreshAll = useCallback(() => { loadStatus(); loadBody() }, [loadStatus, loadBody])
@@ -279,7 +280,7 @@ export default function SetupStepPage() {
       const fresh = await fetch('/api/v1/setup/status').then((r) => r.json())
       if (fresh.success) {
         const next = fresh.data.nextStepKey as string | null
-        if (thenNav && next) router.push(`/app/setup/${next}`)
+        if (thenNav && next) router.push(next === 'branding' ? '/app/setup/branding' : `/app/setup/${next}`)
         else if (thenNav) router.push('/app/setup')
         else loadStatus()
       }

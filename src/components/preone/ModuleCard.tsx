@@ -1,9 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { HomeModule } from '@/lib/modules'
 import { SEMANTIC_THEME_TOKENS } from '@/lib/modules'
+import { AnimatedModuleIcon } from './AnimatedModuleIcon'
 
 interface ModuleCardProps {
   module: HomeModule
@@ -15,20 +17,69 @@ interface ModuleCardProps {
  *
  * Minimalist Fluent Metro tile layout:
  * - Rounded card surface with soft elevation and subtle borders
- * - Semantic theme icon container with preschool-friendly pastel tones
+ * - Semantic theme icon container with animated Lottie or pastel icon
  * - Crisp module title (clean, no subheadings or Launch action clutter)
  * - Non-intrusive subtle background watermark motif
  */
 export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
-  const Icon = m.icon
+  const router = useRouter()
   const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
+
+  const [isHovered, setIsHovered] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
+  const [isTapped, setIsTapped] = useState(false)
+  const isTouchRef = useRef(false)
+  const hasNavigatedRef = useRef(false)
+
+  // Desktop hover triggers
+  const handleMouseEnter = () => setIsHovered(true)
+  const handleMouseLeave = () => setIsHovered(false)
+
+  // Keyboard accessibility triggers
+  const handleFocus = () => setIsFocused(true)
+  const handleBlur = () => setIsFocused(false)
+
+  // Touch tap triggers
+  const handleTouchStart = () => {
+    isTouchRef.current = true
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // If interaction occurred on touch and an animation is configured, play before routing
+    if (isTouchRef.current && m.animation && !hasNavigatedRef.current) {
+      e.preventDefault()
+      setIsTapped(true)
+
+      // Safeguard timeout to ensure navigation occurs after ~500ms animation if event didn't fire
+      setTimeout(() => {
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true
+          router.push(m.href)
+        }
+      }, 520)
+    }
+  }
+
+  const handleAnimationEnd = () => {
+    if (isTapped && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true
+      router.push(m.href)
+    }
+  }
 
   return (
     <Link
       href={m.href}
       className={`module-card group ${className}`.trim()}
       aria-label={m.label}
+      data-module={m.key}
       draggable={false}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onTouchStart={handleTouchStart}
+      onClick={handleClick}
       style={
         {
           '--card-hover-border': theme.hoverBorder,
@@ -36,22 +87,21 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
         } as React.CSSProperties
       }
     >
-      {/* Top Header: Icon + Category Tint */}
-      <div className="module-card-top">
-        <span
-          className="module-card-icon"
-          style={{
-            background: theme.iconBg,
-            color: theme.iconColor,
-            border: `1px solid ${theme.iconBorder}`,
-          }}
-        >
-          <Icon size={35} strokeWidth={2.2} />
-        </span>
+      {/* Icon Area: Takes ~80% of usable card space */}
+      <div className="module-card-icon-area module-card-top">
+        <AnimatedModuleIcon
+          moduleKey={m.key}
+          label={m.label}
+          icon={m.icon}
+          animation={m.animation}
+          theme={theme}
+          triggerAnimation={isHovered || isFocused || isTapped}
+          onAnimationEnd={handleAnimationEnd}
+        />
       </div>
 
-      {/* Main Body: Title only (clean & glanceable) */}
-      <div className="module-card-body">
+      {/* Title Area: ~20% at the bottom, cleanly positioned below the icon */}
+      <div className="module-card-title-area module-card-body">
         <h3 className="module-card-title">{m.label}</h3>
       </div>
 

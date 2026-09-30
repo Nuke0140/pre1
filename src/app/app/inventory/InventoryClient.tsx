@@ -1025,10 +1025,18 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           <div className="card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 12 }}>Consumption by Destination</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-              {analytics?.byDestination?.map((d: any) => (
+              {(Array.isArray(analytics?.byDestination)
+                ? analytics.byDestination
+                : analytics?.byDestination && typeof analytics.byDestination === 'object'
+                  ? Object.entries(analytics.byDestination).map(([destinationType, d]: [string, any]) => ({
+                      destinationType,
+                      totalValueCents: d.totalValueCents ?? Math.round((d.value || 0) * 100),
+                    }))
+                  : []
+              ).map((d: any) => (
                 <div key={d.destinationType} style={{ padding: 12, background: 'var(--bg-subtle)', borderRadius: 6 }}>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{d.destinationType}</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: 4 }}>{inr(d.totalValueCents)}</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: 4 }}>{inr(d.totalValueCents || 0)}</div>
                 </div>
               ))}
             </div>
@@ -1044,15 +1052,15 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 </tr>
               </thead>
               <tbody>
-                {analytics?.byClassroom?.length === 0 ? (
+                {(!Array.isArray(analytics?.byClassroom) || analytics.byClassroom.length === 0) ? (
                   <tr>
                     <td colSpan={2} style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>No classroom consumption recorded yet.</td>
                   </tr>
                 ) : (
-                  analytics?.byClassroom?.map((c: any) => (
+                  analytics.byClassroom.map((c: any) => (
                     <tr key={c.classroomId}>
-                      <td style={{ fontWeight: 600 }}>{c.classroomName}</td>
-                      <td style={{ fontWeight: 700 }}>{inr(c.totalValueCents)}</td>
+                      <td style={{ fontWeight: 600 }}>{c.classroomName || c.name || c.classroomId}</td>
+                      <td style={{ fontWeight: 700 }}>{inr(c.totalValueCents || 0)}</td>
                     </tr>
                   ))
                 )}

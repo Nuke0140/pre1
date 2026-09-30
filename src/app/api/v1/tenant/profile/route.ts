@@ -50,7 +50,14 @@ async function _GET(req: NextRequest) {
       gstNumber: tenant.gstNumber,
       currency: brandData.currency || 'INR',
       timezone: tenant.timezone,
-      themeColor: brandData.themeColor || '#7C3AED',
+      themeColor: (brandData.primaryColor as string) || brandData.themeColor || '#7C3AED',
+      branding: {
+        primaryColor: (brandData.primaryColor as string) || '#7C3AED',
+        accentColor: (brandData.accentColor as string) || '#3B82F6',
+        layout: brandData.layout === 'CLASSIC_SIDEBAR' ? 'CLASSIC_SIDEBAR' : 'WINDOWS_SHELL',
+        bannerUrl: (brandData.bannerUrl as string) || null,
+        logoUrl: tenant.logoUrl || null,
+      },
       status: tenant.status,
       subscriptionPlan: tenant.subscriptionPlan,
       counts: {

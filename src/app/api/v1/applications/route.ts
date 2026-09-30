@@ -124,6 +124,13 @@ export const POST = withApi(async (req: NextRequest) => {
     leadId,
     notes,
     isDuplicateConfirmed,
+    childFullName,
+    bloodGroup,
+    emergencyContact,
+    relationship,
+    medicalNotes,
+    meetingNotes,
+    additionalGuardians,
   } = body
 
   const app = await AdmissionService.submitApplication(
@@ -150,6 +157,13 @@ export const POST = withApi(async (req: NextRequest) => {
       previousSchool,
       notes,
       isDuplicateConfirmed: !!isDuplicateConfirmed,
+      childFullName,
+      bloodGroup,
+      emergencyContact,
+      relationship,
+      medicalNotes,
+      meetingNotes,
+      additionalGuardians,
     }
   )
 

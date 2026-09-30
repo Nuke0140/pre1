@@ -25,7 +25,7 @@ import {
   ArrowRight,
   RotateCcw,
 } from 'lucide-react'
-import { PageHead } from '@/components/preone/ui'
+import { PageHead, EmptyState } from '@/components/preone/ui'
 import type { SearchCategory, SearchResultItem, GlobalSearchResponse } from '@/lib/search/search-service'
 
 const CATEGORY_ICONS: Record<SearchCategory, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -309,28 +309,26 @@ export default function SearchPageClient() {
         )}
 
         {!loading && !inputQuery.trim() && (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <Search size={40} style={{ color: 'var(--foreground-muted)', margin: '0 auto 14px' }} />
-            <h3 style={{ fontSize: 17, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>
-              Enter a search query
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--foreground-muted)', maxWidth: 420, margin: '0 auto' }}>
-              Search students by name or admission number, parents by contact info, invoices, classroom schedules,
-              and settings.
-            </p>
-          </div>
+          <EmptyState
+            illustration="search"
+            eyebrow="Global Search"
+            title="Search unified preschool records"
+            description="Find students, parents, fee invoices, admissions applications, and operational configurations instantly across PreOne."
+          />
         )}
 
         {!loading && inputQuery.trim() && results.length === 0 && (
-          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-            <RotateCcw size={36} style={{ color: 'var(--foreground-muted)', margin: '0 auto 14px' }} />
-            <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>
-              No matching records found
-            </h3>
-            <p style={{ fontSize: 13, color: 'var(--foreground-muted)', maxWidth: 440, margin: '0 auto' }}>
-              No records match “<strong>{inputQuery}</strong>” within your authorized role scope and selected category.
-            </p>
-          </div>
+          <EmptyState
+            illustration="search"
+            eyebrow="Search Results"
+            title={`No records match "${inputQuery}"`}
+            description="No records matched your search query within your authorized role scope and selected category. Try checking spelling, using fewer keywords, or searching across all categories."
+            action={{
+              label: 'Clear Search',
+              onClick: () => setInputQuery(''),
+              variant: 'secondary',
+            }}
+          />
         )}
 
         {!loading && results.length > 0 && (

@@ -691,7 +691,7 @@ export class GlobalSearchService {
         subtitle: sub,
         badge: c.programType,
         badgeVariant: 'purple',
-        actionUrl: `/app/academics`,
+        actionUrl: `/app/daily-diary`,
         metadata: { code: c.code, capacity: c.capacity },
         score: calculateRankScore(c.name, c.code, query, sub),
       }
@@ -752,7 +752,7 @@ export class GlobalSearchService {
         subtitle: sub,
         badge: att.status,
         badgeVariant: att.status === 'PRESENT' ? 'success' : 'danger',
-        actionUrl: `/app/attendance`,
+        actionUrl: `/app/daily-diary?tab=attendance`,
         metadata: { date: d, studentName },
         score: calculateRankScore(title, att.student.admissionNo, query, sub),
       }

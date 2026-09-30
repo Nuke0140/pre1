@@ -6,8 +6,11 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 
 /** GET /api/v1/fee-plans — fee structures per program */
 async function _GET(req: NextRequest) {
-  const session = await requireApi(req, 'finance:read')
-  if (isResponse(session)) return session
+  let session = await requireApi(req, 'finance:read')
+  if (isResponse(session)) {
+    session = await requireApi(req, 'admissions:read')
+    if (isResponse(session)) return session
+  }
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {

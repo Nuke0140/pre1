@@ -33,7 +33,7 @@ import {
   Check,
   X,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
+import { PageHead, StatusBadge, StatusPill, StudentIdentityChip, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
@@ -692,10 +692,10 @@ export default function FinancePage() {
   return (
     <>
       <PageHead
-        eyebrow="Financial Operations & Fee Engine"
+        eyebrow="FINANCE"
         badge={<span className="badge b-primary b-dot">Reconciled Live</span>}
-        title="Fees & Finance Control Center"
-        sub="Enterprise preschool billing, fee structures, receipts, reconciliations, and payment gateway engine."
+        title="Finance"
+        sub="Track fees, invoices, receipts and outstanding balances."
         actions={
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" onClick={() => exportCsv('invoices')} disabled={busy}>
@@ -942,16 +942,19 @@ export default function FinancePage() {
                       </span>
                       <span className="cell-sub">{i.title}</span>
                     </td>
-                    <td className="cell-strong" onClick={() => openDetail(i.id)}>
-                      {i.studentName}
-                      <span className="cell-sub">{i.admissionNo}</span>
+                    <td onClick={() => openDetail(i.id)}>
+                      <StudentIdentityChip
+                        name={i.studentName}
+                        admissionNo={i.admissionNo}
+                        size="sm"
+                      />
                     </td>
                     <td onClick={() => openDetail(i.id)}>{i.feePayer || '—'}</td>
                     <td onClick={() => openDetail(i.id)}>{fmtDate(i.dueDate)}</td>
-                    <td style={{ textAlign: 'right' }} onClick={() => openDetail(i.id)}>
+                    <td style={{ textAlign: 'right' }} className="tabular-nums" onClick={() => openDetail(i.id)}>
                       {inr(i.totalCents)}
                     </td>
-                    <td style={{ textAlign: 'right', color: 'var(--success)', fontWeight: 600 }} onClick={() => openDetail(i.id)}>
+                    <td style={{ textAlign: 'right', color: 'var(--success)', fontWeight: 600 }} className="tabular-nums" onClick={() => openDetail(i.id)}>
                       {inr(i.paidCents)}
                     </td>
                     <td
@@ -960,12 +963,13 @@ export default function FinancePage() {
                         fontWeight: 700,
                         color: i.balanceCents > 0 ? 'var(--danger)' : 'var(--success)',
                       }}
+                      className="tabular-nums"
                       onClick={() => openDetail(i.id)}
                     >
                       {inr(i.balanceCents)}
                     </td>
                     <td onClick={() => openDetail(i.id)}>
-                      <StatusBadge status={i.status} />
+                      <StatusPill status={i.status} />
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
