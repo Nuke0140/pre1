@@ -3182,7 +3182,14 @@ export class InventoryService {
       // By Classroom
       if (meta?.classroomId) {
         if (!byClassroom[classroomId]) {
-          byClassroom[classroomId] = { classroomId, name: `Classroom ${classroomId}`, count: 0, value: 0, totalValueCents: 0 }
+          byClassroom[classroomId] = {
+            classroomId,
+            name: `Classroom ${classroomId}`,
+            classroomName: `Classroom ${classroomId}`,
+            count: 0,
+            value: 0,
+            totalValueCents: 0,
+          }
         }
         byClassroom[classroomId].count += qty
         byClassroom[classroomId].value += lineVal
@@ -3219,7 +3226,12 @@ export class InventoryService {
       period: { from, to },
       totalMovements: movements.length,
       byClassroom: Object.values(byClassroom),
-      byDestination,
+      byDestination: Object.entries(byDestination).map(([destinationType, val]) => ({
+        destinationType,
+        count: val.count,
+        value: val.value,
+        totalValueCents: Math.round(val.value * 100),
+      })),
       byCategory: Object.values(byCategory),
       topItems: Object.values(byItem).sort((a, b) => b.count - a.count).slice(0, 15),
     }
