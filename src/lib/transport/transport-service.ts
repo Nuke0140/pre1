@@ -2069,7 +2069,6 @@ export class TransportService {
         data: {
           tenantId,
           name: '2026-2027 Academic Year',
-          code: 'AY-2026',
           startDate: new Date('2026-04-01'),
           endDate: new Date('2027-03-31'),
           status: 'ACTIVE',

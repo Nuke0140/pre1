@@ -3165,7 +3165,7 @@ export class InventoryService {
     })
 
     // Grouping by Classroom, Destination, Category, and Item
-    const byClassroom: Record<string, { classroomId: string; name: string; count: number; value: number; totalValueCents: number }> = {}
+    const byClassroom: Record<string, { classroomId: string; name: string; classroomName?: string; count: number; value: number; totalValueCents: number }> = {}
     const byDestination: Record<string, { count: number; value: number }> = {}
     const byCategory: Record<string, { name: string; count: number; value: number }> = {}
     const byItem: Record<string, { name: string; sku: string; count: number; unit: string }> = {}

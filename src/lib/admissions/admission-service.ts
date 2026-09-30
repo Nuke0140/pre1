@@ -2610,7 +2610,6 @@ export class AdmissionService {
               status: dupApp.existingApplication.status,
             }
           }
-          }
         }
       }
 
