@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
 import { AppShell } from '@/components/shell/AppShell'

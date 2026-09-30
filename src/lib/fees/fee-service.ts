@@ -275,7 +275,7 @@ export class FeeService {
         type: 'InvoiceOverdue',
         tenantId,
         invoiceId: inv.id,
-        studentId: inv.studentId,
+        studentId: inv.studentId || '',
         invoiceNumber: inv.invoiceNumber,
         balanceCents: inv.balanceCents,
       })
@@ -1089,11 +1089,11 @@ export class FeeService {
         email: receipt.tenant.email,
         gstNumber: receipt.tenant.gstNumber,
       },
-      student: {
+      student: student ? {
         name: `${student.firstName} ${student.lastName || ''}`.trim(),
         admissionNo: student.admissionNo,
         classroom: student.currentClassroom?.name || 'Unassigned',
-      },
+      } : { name: 'N/A', admissionNo: 'N/A', classroom: 'N/A' },
       payment: {
         paymentNumber: payment.paymentNumber,
         method: payment.method,
@@ -1420,7 +1420,7 @@ export class FeeService {
         include: { student: true },
       })
       if (inv) {
-        studentName = `${inv.student.firstName} ${inv.student.lastName || ''}`.trim()
+        studentName = inv.student ? `${inv.student.firstName} ${inv.student.lastName || ''}`.trim() : ''
         invoiceNumber = inv.invoiceNumber
         totalRupees = (inv.totalCents / 100).toFixed(2)
       }
@@ -1605,8 +1605,8 @@ export class FeeService {
 
     const rows = invoices.map((i) => [
       i.invoiceNumber,
-      `"${i.student.firstName} ${i.student.lastName || ''}".trim()`,
-      i.student.admissionNo,
+      i.student ? `"${i.student.firstName} ${i.student.lastName || ''}".trim()` : '',
+      i.student?.admissionNo || '',
       i.issueDate.toISOString().slice(0, 10),
       i.dueDate.toISOString().slice(0, 10),
       (i.subtotalCents / 100).toFixed(2),
@@ -1649,8 +1649,8 @@ export class FeeService {
       p.paymentNumber,
       p.receipt?.receiptNumber || '',
       p.invoice?.invoiceNumber || '',
-      `"${p.student.firstName} ${p.student.lastName || ''}".trim()`,
-      p.student.admissionNo,
+      p.student ? `"${p.student.firstName} ${p.student.lastName || ''}".trim()` : '',
+      p.student?.admissionNo || '',
       (p.amountCents / 100).toFixed(2),
       p.method,
       p.status,

@@ -313,7 +313,7 @@ where: { status: 'ACTIVE' },
 
         const data = staff.map((s) => ({
           employeeCode: s.employeeCode,
-          fullName: s.user?.name || s.user?.fullName || '—',
+          fullName: (s.user as any)?.name || s.user?.fullName || '—',
           designation: s.designation || 'Staff',
           department: s.department || 'General',
           employmentType: s.employmentType || 'REGULAR',

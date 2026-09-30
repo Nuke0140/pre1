@@ -3066,6 +3066,9 @@ enum TransportTripType {
 }
 
 enum TransportAssignmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
   ACTIVE
   SUSPENDED
   CANCELLED
@@ -3086,6 +3089,8 @@ enum TripStatus {
 enum ManifestItemStatus {
   EXPECTED
   BOARDED
+  ARRIVAL_SUBMITTED
+  ARRIVAL_VERIFIED
   DROPPED
   ABSENT
   MISSED
@@ -3204,6 +3209,7 @@ model StudentTransportAssignment {
   branchId           String?
   academicSessionId  String
   studentId          String
+  requestedByGuardianId String?
   routeId            String
   pickupStopId       String
   dropStopId         String
@@ -3362,6 +3368,7 @@ model TransportPickupAuthorization {
   personName         String
   phone              String
   relationship       String
+  actionType         String                    @default("PICKUP")
   reason             String
   validFrom          DateTime                  @db.Date
   validUntil         DateTime                  @db.Date

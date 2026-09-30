@@ -811,7 +811,7 @@ export default function DailyDiaryPage() {
   if (loadingContext) {
     return (
       <div className="space-y-6">
-        <PageHead title="Daily Diary" subtitle="Loading daily classroom activities..." />
+        <PageHead title="Daily Diary" sub="Loading daily classroom activities..." />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="glass-panel p-6 animate-pulse h-28" />

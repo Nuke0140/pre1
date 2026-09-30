@@ -791,7 +791,7 @@ export class UserCsvEngine {
           },
           row.data as any
         )
-        if (res.isAlreadyLinked) {
+        if ((res as any).isAlreadyLinked) {
           skippedCount++
         } else if (res.isNewStudent) {
           createdCount++

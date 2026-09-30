@@ -888,7 +888,7 @@ export class AdmissionService {
           hasSibling: existingChildren.length > 0,
           existingChildren,
           applicableDiscountPercent: existingChildren.length > 0
-            ? (Number(admCfg.siblingDiscountPercent) > 0 ? Number(admCfg.siblingDiscountPercent) : 10)
+            ? (Number((admCfg as any)?.siblingDiscountPercent) > 0 ? Number((admCfg as any)?.siblingDiscountPercent) : 10)
             : 0,
         },
         isReadyForApproval,
@@ -1740,7 +1740,7 @@ export class AdmissionService {
     })
 
     const admConfig = await getAdmissionConfig(scope.tenantId)
-    const policy = (admConfig.allocationPolicy as string) || 'SYSTEM_AUTO_ALLOCATE'
+    const policy = ((admConfig as any)?.allocationPolicy as string) || 'SYSTEM_AUTO_ALLOCATE'
 
     const divisionStats = classrooms.map((cls) => {
       const activeCount = cls.allocations.length
@@ -1928,10 +1928,10 @@ export class AdmissionService {
             duplicateMatch = { id: dup.id, leadNumber: dup.leadNumber, parentName: dup.parentName, status: dup.status }
           }
         } else {
-          const dupApp = await this.checkDuplicateApplication(scope.tenantId, scope.academicYearId, phone, childName)
-          if (dupApp) {
+          const dupApp = await this.checkDuplicateApplication(scope.tenantId, scope.academicYearId || '', childName, new Date(), phone)
+          if (dupApp.isDuplicate && dupApp.existingApplication) {
             isDuplicate = true
-            duplicateMatch = { id: dupApp.id, applicationNumber: dupApp.applicationNumber, parentName: dupApp.parentName, status: dupApp.status }
+            duplicateMatch = { id: dupApp.existingApplication.id, applicationNumber: dupApp.existingApplication.applicationNumber, parentName: dupApp.existingApplication.childName, status: dupApp.existingApplication.status }
           }
         }
       }

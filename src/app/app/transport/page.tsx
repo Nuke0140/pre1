@@ -13,5 +13,5 @@ export default async function TransportPage() {
     redirect('/login')
   }
 
-  return <TransportClient session={session} />
+  return <TransportClient session={session as any} />
 }

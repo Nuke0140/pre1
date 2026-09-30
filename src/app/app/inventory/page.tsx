@@ -13,5 +13,5 @@ export default async function InventoryPage() {
     redirect('/login')
   }
 
-  return <InventoryClient session={session} />
+  return <InventoryClient session={session as any} />
 }

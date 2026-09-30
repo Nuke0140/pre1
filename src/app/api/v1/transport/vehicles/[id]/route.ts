@@ -70,14 +70,15 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
   const { id } = await params
 
   try {
-    const deleted = await TransportService.deleteVehicle(
+    const deleted = await TransportService.updateVehicle(
       {
         tenantId: session.tenantId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
-      id
+      id,
+      { status: 'DECOMMISSIONED' } as any
     )
 
     return ok({ success: true, vehicle: deleted })

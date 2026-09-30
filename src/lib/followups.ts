@@ -94,7 +94,7 @@ export async function raiseFollowUp(input: RaiseFollowUpInput) {
       classroomId: input.classroomId ?? undefined,
       branchId: input.branchId ?? undefined,
       academicSessionId: input.academicSessionId ?? undefined,
-      responsibleRole: input.responsibleRole ?? RESPONSIBLE_ROLE[input.severity] ?? 'TEACHER',
+      responsibleRole: (input.responsibleRole ?? RESPONSIBLE_ROLE[input.severity] ?? 'TEACHER') as any,
       dueAt: input.dueAt ?? undefined,
       status: 'OPEN',
       createdById: input.actorId ?? undefined,

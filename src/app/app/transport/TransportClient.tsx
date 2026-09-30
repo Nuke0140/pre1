@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Bus,
   ShieldCheck,
@@ -28,6 +29,8 @@ import {
   ListOrdered,
   X,
   UserPlus,
+  Zap,
+  QrCode,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Segmented, Field } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -47,12 +50,27 @@ interface SessionProps {
 
 export function TransportClient({ session }: { session: SessionProps }) {
   const toast = useToast()
+  const searchParams = useSearchParams()
   const role = session.role
   const canWrite = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
   const canOperate = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTIONIST', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
 
-  type TabKey = 'OVERVIEW' | 'TRIPS' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'INCIDENTS' | 'SCANNER' | 'AUTHORIZATIONS' | 'SECURITY'
+  type TabKey =
+    | 'OVERVIEW'
+    | 'PARENT'
+    | 'DRIVER'
+    | 'TEACHER'
+    | 'TRIPS'
+    | 'ROUTES'
+    | 'VEHICLES'
+    | 'STUDENTS'
+    | 'AUTHORIZATIONS'
+    | 'SECURITY'
+    | 'INCIDENTS'
+    | 'SCANNER'
+    | 'SEED'
   const [tab, setTab] = useState<TabKey>('OVERVIEW')
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('')
 
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<any>(null)
@@ -66,6 +84,17 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [eligibleStaff, setEligibleStaff] = useState<any[]>([])
   const [availableStudents, setAvailableStudents] = useState<any[]>([])
 
+  // New Role-Specific States
+  const [myChildren, setMyChildren] = useState<any[]>([])
+  const [teacherData, setTeacherData] = useState<any>({ students: [], pendingArrivals: [], pendingAuthorizations: [] })
+  const [routeSelectionModal, setRouteSelectionModal] = useState<any>(null)
+  const [driverQrModal, setDriverQrModal] = useState<any>(null)
+  const [showVisualQr, setShowVisualQr] = useState<string | null>(null)
+  const [seedResult, setSeedResult] = useState<any>(null)
+  const [driverArrivedStudents, setDriverArrivedStudents] = useState<string[]>([])
+  const [teacherVerifiedStudents, setTeacherVerifiedStudents] = useState<string[]>([])
+
+
   // Filter States
   const [tripTypeFilter, setTripTypeFilter] = useState<'ALL' | 'MORNING' | 'EVENING'>('ALL')
   const [tripStatusFilter, setTripStatusFilter] = useState<'ALL' | 'IN_PROGRESS' | 'COMPLETED' | 'DELAYED'>('ALL')
@@ -78,6 +107,14 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [scanResult, setScanResult] = useState<any>(null)
   const [scanDriverPin, setScanDriverPin] = useState('')
   const [scanningBusy, setScanningBusy] = useState(false)
+  const [scanActionMode, setScanActionMode] = useState<'REGISTERED_PICKUP' | 'UNKNOWN_REQUEST' | 'NONE'>('NONE')
+  const [scanPersonName, setScanPersonName] = useState('')
+  const [scanPersonPhone, setScanPersonPhone] = useState('')
+  const [scanPersonRelation, setScanPersonRelation] = useState('Relative')
+  const [scanGateNotes, setScanGateNotes] = useState('')
+  const [scanSubmitting, setScanSubmitting] = useState(false)
+  const [cameraActive, setCameraActive] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   // Emergency Safety Callout State
   const [activeSafetyAlert, setActiveSafetyAlert] = useState<{
@@ -200,6 +237,22 @@ export function TransportClient({ session }: { session: SessionProps }) {
     } catch {}
   }, [])
 
+  const loadMyChildren = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/transport/my-children')
+      const json = await res.json()
+      if (json.success) setMyChildren(json.data || [])
+    } catch {}
+  }, [])
+
+  const loadTeacherData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/transport/teacher/students')
+      const json = await res.json()
+      if (json.success) setTeacherData(json.data || { students: [], pendingArrivals: [], pendingAuthorizations: [] })
+    } catch {}
+  }, [])
+
   useEffect(() => {
     loadDashboard()
     loadVehicles()
@@ -211,7 +264,369 @@ export function TransportClient({ session }: { session: SessionProps }) {
     loadSecurityLogs()
     loadStaff()
     loadStudents()
-  }, [loadDashboard, loadVehicles, loadRoutes, loadAssignments, loadTrips, loadIncidents, loadAuthorizations, loadSecurityLogs, loadStaff, loadStudents])
+    loadMyChildren()
+    loadTeacherData()
+  }, [
+    loadDashboard,
+    loadVehicles,
+    loadRoutes,
+    loadAssignments,
+    loadTrips,
+    loadIncidents,
+    loadAuthorizations,
+    loadSecurityLogs,
+    loadStaff,
+    loadStudents,
+    loadMyChildren,
+    loadTeacherData,
+  ])
+
+  // Action Handlers for Transport Workflow
+  const handleSeedDemoData = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/v1/transport/seed', { method: 'POST' })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Transport master & demo data seeded successfully!')
+        setSeedResult(json.data)
+        loadDashboard()
+        loadRoutes()
+        loadVehicles()
+        loadAssignments()
+        loadTrips()
+        loadMyChildren()
+        loadTeacherData()
+        setTab('SEED')
+      } else {
+        toast.error(json.error?.message || 'Failed to seed demo data')
+      }
+    } catch {
+      toast.error('Error seeding demo data')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleParentSubmitRouteSelection = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!routeSelectionModal) return
+    const fd = new FormData(e.currentTarget)
+    const routeId = fd.get('routeId') as string
+    const pickupStopId = fd.get('pickupStopId') as string
+    const dropStopId = fd.get('dropStopId') as string
+
+    if (!routeId || !pickupStopId || !dropStopId) {
+      toast.error('Please select a route, pickup stop, and drop stop')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const res = await fetch('/api/v1/transport/selection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: routeSelectionModal.studentId,
+          routeId,
+          pickupStopId,
+          dropStopId,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(`Transport route selected for ${routeSelectionModal.fullName}`)
+        setRouteSelectionModal(null)
+        loadMyChildren()
+        loadAssignments()
+      } else {
+        toast.error(json.error?.message || 'Failed to submit route selection')
+      }
+    } catch {
+      toast.error('Failed to submit route selection')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleApproveAuth = async (authId: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/authorizations/${authId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ remarks: 'Approved by Parent/Staff' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Pickup authorization approved!')
+        loadAuthorizations()
+        loadMyChildren()
+        loadTeacherData()
+      } else {
+        toast.error(json.error?.message || 'Failed to approve authorization')
+      }
+    } catch {
+      toast.error('Failed to approve authorization')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleRejectAuth = async (authId: string) => {
+    const reason = prompt('Please enter reason for rejection:', 'Unauthorized person')
+    if (!reason) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/authorizations/${authId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rejectionReason: reason }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Pickup authorization rejected')
+        loadAuthorizations()
+        loadMyChildren()
+        loadTeacherData()
+      } else {
+        toast.error(json.error?.message || 'Failed to reject authorization')
+      }
+    } catch {
+      toast.error('Failed to reject authorization')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleCompleteHandover = async (authId: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/authorizations/${authId}/complete`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Handover completed successfully!')
+        loadAuthorizations()
+        loadSecurityLogs()
+        loadMyChildren()
+        loadTeacherData()
+      } else {
+        toast.error(json.error?.message || 'ACCESS DENIED: Handover blocked')
+      }
+    } catch {
+      toast.error('Handover completion failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handlePerformScan = async (overridePayload?: string) => {
+    const payloadToScan = overridePayload || scanInput
+    if (!payloadToScan || !payloadToScan.trim()) {
+      toast.error('Please enter or scan a valid QR token payload')
+      return
+    }
+    setScanningBusy(true)
+    try {
+      const res = await fetch('/api/v1/transport/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qrPayload: payloadToScan.trim(),
+          pin: scanDriverPin || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setScanResult(json.data)
+        if (json.data?.valid) {
+          toast.success(json.data.message || 'QR Payload Verified!')
+        } else {
+          toast.warning(json.data?.message || 'QR Verification failed or invalid')
+        }
+      } else {
+        toast.error(json.error?.message || 'QR Scan failed')
+      }
+    } catch (err: any) {
+      toast.error('Error scanning QR payload', err.message)
+    } finally {
+      setScanningBusy(false)
+    }
+  }
+
+  const handleConfirmRegisteredPickup = async (studentId: string) => {
+    setScanSubmitting(true)
+    try {
+      const res = await fetch('/api/v1/transport/registered-guardian/pickup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId, notes: scanGateNotes || 'Verified Registered Guardian Handover at School Gate' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(json.data?.message || 'Registered Guardian Pickup Logged Successfully! ✅')
+        setScanActionMode('NONE')
+        loadAuthorizations()
+        loadSecurityLogs()
+      } else {
+        toast.error(json.error?.message || 'Pickup Verification Failed')
+      }
+    } catch {
+      toast.error('Failed to log pickup')
+    } finally {
+      setScanSubmitting(false)
+    }
+  }
+
+  const handleSubmitUnknownPersonRequest = async (studentId: string) => {
+    if (!scanPersonName.trim() || !scanPersonPhone.trim()) {
+      toast.error('Please enter Person Name and Contact Phone Number')
+      return
+    }
+    setScanSubmitting(true)
+    try {
+      const res = await fetch('/api/v1/transport/unknown-person/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId,
+          personName: scanPersonName.trim(),
+          contactNumber: scanPersonPhone.trim(),
+          relationship: scanPersonRelation.trim(),
+          remarks: scanGateNotes.trim() || 'Gate Pickup Approval Request',
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Instant Pickup Request Submitted! Urgent notification sent to Parent & Teacher for approval 📲')
+        setScanActionMode('NONE')
+        setScanPersonName('')
+        setScanPersonPhone('')
+        setScanGateNotes('')
+        loadAuthorizations()
+        loadSecurityLogs()
+      } else {
+        toast.error(json.error?.message || 'Failed to submit pickup request')
+      }
+    } catch {
+      toast.error('Failed to submit approval request')
+    } finally {
+      setScanSubmitting(false)
+    }
+  }
+
+  const startCameraScan = async () => {
+    try {
+      setCameraActive(true)
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+      toast.info('Mobile camera active! Point camera at QR Code')
+    } catch {
+      toast.error('Unable to open mobile camera. Check browser camera permissions.')
+      setCameraActive(false)
+    }
+  }
+
+  const stopCameraScan = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach((track) => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
+  }
+
+  useEffect(() => {
+    const scanParam = searchParams.get('scan') || searchParams.get('token')
+    if (scanParam) {
+      setTab('SCANNER')
+      setScanInput(scanParam)
+      handlePerformScan(scanParam)
+    }
+  }, [searchParams])
+
+  const handleGenerateDriverQr = async (routeId: string, vehicleId: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/v1/transport/qr/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ routeId, vehicleId }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setDriverQrModal(json.data)
+      } else {
+        toast.error(json.error?.message || 'Failed to generate Driver QR')
+      }
+    } catch {
+      toast.error('Failed to generate Driver QR')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDriverSubmitArrival = async (tripId: string, studentIds: string[]) => {
+    if (studentIds.length === 0) {
+      toast.error('Please select at least one arrived student')
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/trips/${tripId}/arrival`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(`Arrival reported for ${studentIds.length} student(s)! Class Teacher notified.`)
+        loadTrips()
+        loadDashboard()
+        loadTeacherData()
+      } else {
+        toast.error(json.error?.message || 'Failed to submit arrival')
+      }
+    } catch {
+      toast.error('Failed to submit arrival')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleTeacherVerifyArrival = async (tripId: string, studentIds: string[]) => {
+    if (studentIds.length === 0) {
+      toast.error('Please select at least one student to verify')
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/trips/${tripId}/verify-arrival`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds, notes: 'Safe arrival verified by Class Teacher' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(`Safe arrival verified for ${studentIds.length} student(s)! Parent notified.`)
+        loadTeacherData()
+        loadTrips()
+        loadDashboard()
+      } else {
+        toast.error(json.error?.message || 'Failed to verify arrival')
+      }
+    } catch {
+      toast.error('Failed to verify arrival')
+    } finally {
+      setBusy(false)
+    }
+  }
+
 
   // Helper avatar generator
   const getAvatarInitials = (name: string) => {
@@ -705,37 +1120,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
     }
   }
 
-  // QR Scanner Handler
-  const handlePerformScan = async (overridePayload?: string) => {
-    const payload = overridePayload || scanInput
-    if (!payload.trim()) {
-      toast.error('Please enter or scan a QR code payload')
-      return
-    }
-    setScanningBusy(true)
-    try {
-      const res = await fetch('/api/v1/transport/scan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qrPayload: payload.trim(), pin: scanDriverPin }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setScanResult(json.data)
-        if (json.data.valid) {
-          toast.success(json.data.message || 'QR payload verified successfully!')
-        } else {
-          toast.error(json.data.message || 'QR verification failed')
-        }
-      } else {
-        toast.error('Scan request failed', json.error?.message || json.error)
-      }
-    } catch (err: any) {
-      toast.error('Error calling QR scanner', err.message)
-    } finally {
-      setScanningBusy(false)
-    }
-  }
+
 
   // Temporary Authorization Handlers
   const handleCreateAuthorization = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -858,8 +1243,11 @@ export function TransportClient({ session }: { session: SessionProps }) {
         sub="Fleet management, daily transit runs, student manifest verification, authorized multi-guardian drop safety, and real-time operations escalation"
         actions={
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost" onClick={() => { loadDashboard(); loadTrips(); loadVehicles(); loadRoutes(); loadIncidents(); }} disabled={loading}>
+            <button className="btn btn-ghost" onClick={() => { loadDashboard(); loadTrips(); loadVehicles(); loadRoutes(); loadIncidents(); loadMyChildren(); loadTeacherData(); }} disabled={loading}>
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+            <button className="btn btn-secondary" onClick={handleSeedDemoData} disabled={busy} title="Seed test data & generate test QR code">
+              <Zap size={14} /> Seed Test Data & QR
             </button>
             {canOperate && (
               <button className="btn btn-secondary" onClick={() => setStartTripOpen(true)}>
@@ -1020,6 +1408,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
         onChange={(k) => setTab(k as TabKey)}
         options={[
           { key: 'OVERVIEW', label: 'Command Center' },
+          { key: 'PARENT', label: `My Children 👨‍👩‍👧‍👦 (${myChildren.length})` },
+          { key: 'DRIVER', label: 'Driver Hub 🚌' },
+          { key: 'TEACHER', label: `Teacher Verification 👩‍🏫 (${teacherData?.pendingArrivals?.length || 0})` },
           { key: 'SCANNER', label: 'QR Scanner 🔍' },
           { key: 'TRIPS', label: `Today's Runs (${trips.length})` },
           { key: 'ROUTES', label: `Routes (${routes.length})` },
@@ -1027,9 +1418,391 @@ export function TransportClient({ session }: { session: SessionProps }) {
           { key: 'STUDENTS', label: `Allocations (${assignments.length})` },
           { key: 'AUTHORIZATIONS', label: `Temp Pickups (${authorizations.length})` },
           { key: 'SECURITY', label: `Security Logs (${securityLogs.length})` },
-          { key: 'INCIDENTS', label: `Incidents (${incidents.length})` },
+          { key: 'SEED', label: 'Demo Seed & Test ⚡' },
         ]}
       />
+
+      {/* ========================================================================= */}
+      {/* TAB: PARENT — MY CHILDREN & TRANSPORT */}
+      {/* ========================================================================= */}
+      {tab === 'PARENT' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card-head" style={{ marginBottom: 16 }}>
+            <div>
+              <div className="card-title" style={{ fontSize: 18 }}>Parent Transport Portal — My Children</div>
+              <div className="card-sub">Independent transport status, route selection, and pickup authorization for each linked child</div>
+            </div>
+          </div>
+
+          {myChildren.length === 0 ? (
+            <div className="card" style={{ padding: 30, textAlign: 'center' }}>
+              <Users size={40} style={{ color: 'var(--muted)', marginBottom: 12 }} />
+              <h3>No Linked Children Found for Parent Account</h3>
+              <p style={{ color: 'var(--muted)', fontSize: 14, maxWidth: 500, margin: '8px auto 20px' }}>
+                If you are testing as a parent, click below to seed demo master data with Rahul Patil and 3 linked children (Aarav, Siya, Ved).
+              </p>
+              <button className="btn btn-primary" onClick={handleSeedDemoData} disabled={busy}>
+                <Zap size={14} /> Seed Demo Parent & Children Data
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
+              {myChildren.map((child: any) => (
+                <div key={child.studentId} className="card" style={{ padding: 20, borderTop: '4px solid var(--primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16 }}>
+                      {getAvatarInitials(child.fullName)}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 17, fontWeight: 700 }}>{child.fullName}</div>
+                      <div style={{ fontSize: 13, color: 'var(--muted)' }}>Class: <b>{child.className}</b> • Adm: #{child.admissionNo}</div>
+                    </div>
+                  </div>
+
+                  {child.assignment ? (
+                    <div style={{ background: 'var(--c-surface-hover)', padding: 14, borderRadius: 10, marginBottom: 14 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>ASSIGNED ROUTE</span>
+                        <StatusBadge status={child.assignment.status} />
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>{child.assignment.routeName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                        📍 Pickup: <b>{child.assignment.pickupStop}</b> ({child.assignment.pickupTime})
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                        🏁 Drop: <b>{child.assignment.dropStop}</b> ({child.assignment.dropTime})
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ marginTop: 10, width: '100%', justifyContent: 'center' }}
+                        onClick={() => setRouteSelectionModal(child)}
+                      >
+                        <Edit3 size={13} /> Change Route / Stop
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: 14, borderRadius: 10, marginBottom: 14, border: '1px dashed var(--warning)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning-dark)' }}>No Route Assigned Yet</div>
+                      <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>Select a preschool transport route for {child.firstName}.</p>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '100%', justifyContent: 'center' }}
+                        onClick={() => setRouteSelectionModal(child)}
+                      >
+                        <Plus size={13} /> Select Transport Route
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Today's Live Transport Status */}
+                  <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: 8 }}>
+                      Today's Transport Status
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <span className={`badge ${child.todayStatus.status === 'BOARDED' || child.todayStatus.status === 'DROPPED' ? 'b-success' : 'b-info'}`}>
+                        Morning: {child.todayStatus.status}
+                      </span>
+                      <span className={`badge ${child.todayStatus.status === 'ARRIVAL_VERIFIED' ? 'b-success' : child.todayStatus.status === 'ARRIVAL_SUBMITTED' ? 'b-warning' : 'b-neutral'}`}>
+                        Arrival: {child.todayStatus.status === 'ARRIVAL_VERIFIED' ? 'Verified by Teacher' : child.todayStatus.status === 'ARRIVAL_SUBMITTED' ? 'Reported by Driver' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pending Authorizations Alerts */}
+                  {child.pendingAuthorizations && child.pendingAuthorizations.length > 0 && (
+                    <div style={{ marginTop: 14, padding: 12, background: 'rgba(239, 68, 68, 0.08)', borderRadius: 8, border: '1px solid var(--danger)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <AlertTriangle size={15} /> Pending Pickup Approval Request
+                      </div>
+                      {child.pendingAuthorizations.map((auth: any) => (
+                        <div key={auth.id} style={{ marginTop: 8, fontSize: 12 }}>
+                          <div>Person: <b>{auth.personName}</b> ({auth.relationship}, {auth.phone})</div>
+                          <div>Action: <b>{auth.actionType}</b> • Reason: {auth.reason}</div>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                            <button className="btn btn-success btn-sm" onClick={() => handleApproveAuth(auth.id)} disabled={busy}>
+                              Approve Request
+                            </button>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleRejectAuth(auth.id)} disabled={busy}>
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: DRIVER — HUB & BUS OPERATIONS */}
+      {/* ========================================================================= */}
+      {tab === 'DRIVER' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.02) 100%)', border: '1px solid var(--primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Driver Operational Console
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, marginTop: 2 }}>Assigned Vehicle: BUS-01 (Tata Starbus)</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>Route: <b>Route 001 — Kothrud Express</b> (Driver: Suresh Patil)</div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-primary" onClick={() => handleGenerateDriverQr(routes[0]?.id || 'r1', vehicles[0]?.id || 'v1')}>
+                  <QrCode size={15} /> Display Driver Transport QR
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Today's Route Roster & Bus Arrival Submission</div>
+                <div className="card-sub">Select arrived students and submit arrival to notify Class Teachers</div>
+              </div>
+            </div>
+
+            {trips.length > 0 && trips[0]?.manifest ? (
+              <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                  {trips[0].manifest.map((m: any) => {
+                    const isChecked = driverArrivedStudents.includes(m.studentId)
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setDriverArrivedStudents((prev) =>
+                            prev.includes(m.studentId) ? prev.filter((id) => id !== m.studentId) : [...prev, m.studentId]
+                          )
+                        }}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: 8,
+                          background: isChecked ? 'rgba(34, 197, 94, 0.08)' : 'var(--c-surface-hover)',
+                          border: isChecked ? '1px solid var(--success)' : '1px solid var(--border)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ width: 18, height: 18 }} />
+                          <div>
+                            <div style={{ fontSize: 15, fontWeight: 700 }}>
+                              {m.student.firstName} {m.student.lastName}
+                            </div>
+                            <div style={{ fontSize: 12, color: 'var(--muted)' }}>Stop: {m.stop?.name || 'Assigned Stop'}</div>
+                          </div>
+                        </div>
+                        <StatusBadge status={m.status} />
+                      </div>
+                    )
+                  })}
+                </div>
+                <button
+                  className="btn btn-success"
+                  onClick={() => handleDriverSubmitArrival(trips[0].id, driverArrivedStudents)}
+                  disabled={busy || driverArrivedStudents.length === 0}
+                >
+                  <CheckCircle2 size={15} /> Submit Bus Arrival ({driverArrivedStudents.length} Students)
+                </button>
+              </div>
+            ) : (
+              <EmptyState title="No active trip found" message="Dispatch a trip to view today's student roster" icon={<Bus size={32} />} />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: TEACHER — CLASS ARRIVAL VERIFICATION */}
+      {/* ========================================================================= */}
+      {tab === 'TEACHER' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card-head" style={{ marginBottom: 16 }}>
+            <div>
+              <div className="card-title" style={{ fontSize: 18 }}>Class Teacher Transport Verification (Nursery A)</div>
+              <div className="card-sub">Verify student arrivals reported by bus drivers & review pickup authorization requests</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 20 }}>
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <div className="card-title">Pending Arrival Verification</div>
+                  <div className="card-sub">Students reported arrived by bus driver awaiting teacher verification</div>
+                </div>
+              </div>
+
+              {teacherData?.pendingArrivals && teacherData.pendingArrivals.length > 0 ? (
+                <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+                    {teacherData.pendingArrivals.map((m: any) => {
+                      const isChecked = teacherVerifiedStudents.includes(m.studentId)
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => {
+                            setTeacherVerifiedStudents((prev) =>
+                              prev.includes(m.studentId) ? prev.filter((id) => id !== m.studentId) : [...prev, m.studentId]
+                            )
+                          }}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: 8,
+                            background: isChecked ? 'rgba(34, 197, 94, 0.08)' : 'var(--c-surface-hover)',
+                            border: isChecked ? '1px solid var(--success)' : '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <input type="checkbox" checked={isChecked} onChange={() => {}} style={{ width: 18, height: 18 }} />
+                            <div>
+                              <div style={{ fontSize: 15, fontWeight: 700 }}>
+                                {m.student.firstName} {m.student.lastName}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Route: {m.trip?.route?.name || 'Bus Run'}</div>
+                            </div>
+                          </div>
+                          <span className="badge b-warning">Reported by Driver</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button
+                    className="btn btn-success"
+                    onClick={() => handleTeacherVerifyArrival(teacherData.pendingArrivals[0]?.tripId, teacherVerifiedStudents)}
+                    disabled={busy || teacherVerifiedStudents.length === 0}
+                  >
+                    <ShieldCheck size={15} /> Verify Safe Arrival ({teacherVerifiedStudents.length} Students)
+                  </button>
+                </div>
+              ) : (
+                <EmptyState title="No pending arrival verifications" message="All bus arrivals have been verified by Class Teacher" icon={<ShieldCheck size={32} />} />
+              )}
+            </div>
+
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <div className="card-title">Pickup Requests for Class Students</div>
+                  <div className="card-sub">Temporary & unknown person pickup requests</div>
+                </div>
+              </div>
+
+              {teacherData?.pendingAuthorizations && teacherData.pendingAuthorizations.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {teacherData.pendingAuthorizations.map((auth: any) => (
+                    <div key={auth.id} style={{ padding: 12, borderRadius: 8, background: 'var(--c-surface-hover)', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>Student: {auth.student.firstName} {auth.student.lastName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                        Person: <b>{auth.personName}</b> ({auth.relationship}, {auth.phone})
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>Reason: {auth.reason}</div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button className="btn btn-success btn-sm" onClick={() => handleApproveAuth(auth.id)} disabled={busy}>
+                          Approve
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleRejectAuth(auth.id)} disabled={busy}>
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No pending pickup requests" message="All pickup requests for class students are up to date" icon={<UserCheck size={32} />} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: SEED — DEMO DATA & SCENARIO TEST RUNNER */}
+      {/* ========================================================================= */}
+      {tab === 'SEED' && (
+        <div style={{ marginTop: 16 }}>
+          <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)', border: '1px solid var(--warning)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--warning-dark)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Master Seed Data & Scenario Testing Harness
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>PreOne Demo Transport Master Setup</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Populates Tenant, Driver Suresh Patil, Bus BUS-01, Route 001 (Kothrud), Parent Rahul Patil, 3 Children (Aarav, Siya, Ved), and Class Teacher Priya Teacher.
+                </div>
+              </div>
+              <button className="btn btn-primary" onClick={handleSeedDemoData} disabled={busy}>
+                <Zap size={15} /> {seedResult ? 'Re-Seed Master Demo Data' : 'Seed Master Demo Data'}
+              </button>
+            </div>
+          </div>
+
+          {seedResult && (
+            <div className="card" style={{ padding: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CheckCircle2 size={18} /> Demo Master Data Active
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, fontSize: 13 }}>
+                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                  🚍 <b>Bus:</b> {seedResult.vehicle.regNo}
+                </div>
+                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                  🗺️ <b>Route:</b> {seedResult.route.name} ({seedResult.route.stopsCount} Stops)
+                </div>
+                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                  👨‍✈️ <b>Driver:</b> {seedResult.driver.name} ({seedResult.driver.username})
+                </div>
+                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                  👨‍👩‍👧‍👦 <b>Parent:</b> {seedResult.parent.name} ({seedResult.parent.childrenCount} Children)
+                </div>
+                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
+                  👩‍🏫 <b>Teacher:</b> {seedResult.teacher.name} ({seedResult.teacher.className})
+                </div>
+              </div>
+
+              <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Generated Secure Driver Test QR Token:</div>
+                <div style={{ padding: 12, background: '#000', color: '#00ff88', fontFamily: 'monospace', borderRadius: 8, fontSize: 12, wordBreak: 'break-all' }}>
+                  {seedResult.testQrToken}
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      const token = seedResult.testQrToken
+                      setScanInput(token)
+                      setTab('SCANNER')
+                      handlePerformScan(token)
+                    }}
+                  >
+                    Load Token into QR Scanner 🔍
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setTab('PARENT')}>
+                    Go to Parent Portal 👨‍👩‍👧‍👦
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setTab('TEACHER')}>
+                    Go to Teacher View 👩‍🏫
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB 1: OVERVIEW — COMMAND CENTER */}
@@ -1826,7 +2599,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
             </div>
 
             <div style={{ padding: 16, background: 'var(--c-surface-hover)', borderRadius: 12, marginBottom: 20 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <input
                   type="text"
                   className="input"
@@ -1834,12 +2607,30 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handlePerformScan()}
-                  style={{ fontSize: 14, padding: '10px 14px' }}
+                  style={{ fontSize: 14, padding: '10px 14px', flex: 1, minWidth: 280 }}
                 />
                 <button className="btn btn-primary" onClick={() => handlePerformScan()} disabled={scanningBusy}>
                   {scanningBusy ? 'Verifying...' : 'Verify Payload'}
                 </button>
+                {!cameraActive ? (
+                  <button className="btn btn-secondary" onClick={startCameraScan}>
+                    📷 Open Mobile Camera Scanner
+                  </button>
+                ) : (
+                  <button className="btn btn-danger" onClick={stopCameraScan}>
+                    ⏹ Stop Camera Scanner
+                  </button>
+                )}
               </div>
+
+              {cameraActive && (
+                <div style={{ marginTop: 14, textAlign: 'center', padding: 10, background: '#000', borderRadius: 12 }}>
+                  <video ref={videoRef} style={{ width: '100%', maxHeight: 260, borderRadius: 8, objectFit: 'cover' }} muted playsInline />
+                  <div style={{ fontSize: 12, color: '#00ff88', marginTop: 8 }}>
+                    Point mobile camera directly at QR Code image
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', fontSize: 12 }}>
                 <span style={{ opacity: 0.7 }}>Quick Test Simulations:</span>
@@ -1865,6 +2656,15 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     }}
                   >
                     Scan Temp Auth ({authorizations[0].authorizedPersonName})
+                  </button>
+                )}
+                {scanInput && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowVisualQr(scanInput)}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    📱 View Visual QR Code Image
                   </button>
                 )}
               </div>
@@ -1939,11 +2739,116 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
                       {scanResult.activeTemporaryAuthorization && (
                         <div style={{ marginTop: 10, padding: 8, background: 'rgba(234, 179, 8, 0.1)', borderRadius: 6, fontSize: 12 }}>
-                          🚨 <b>Active Temp Pickup Authorization:</b> {scanResult.activeTemporaryAuthorization.authorizedPersonName} (
-                          {scanResult.activeTemporaryAuthorization.relationship})
+                          🚨 <b>Active Temp Pickup Authorization:</b> {scanResult.activeTemporaryAuthorization.authorizedPersonName} ({scanResult.activeTemporaryAuthorization.relationship})
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Interactive Gate Pickup & Action Form */}
+                {scanResult.student && (
+                  <div style={{ marginTop: 16, padding: 16, background: 'var(--c-surface-hover)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      📋 Gate Pickup & Handover Action Form
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <button
+                        className={`btn btn-sm ${scanActionMode === 'REGISTERED_PICKUP' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setScanActionMode(scanActionMode === 'REGISTERED_PICKUP' ? 'NONE' : 'REGISTERED_PICKUP')}
+                      >
+                        ✅ Confirm Registered Guardian Handover
+                      </button>
+                      <button
+                        className={`btn btn-sm ${scanActionMode === 'UNKNOWN_REQUEST' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setScanActionMode(scanActionMode === 'UNKNOWN_REQUEST' ? 'NONE' : 'UNKNOWN_REQUEST')}
+                      >
+                        🚨 Alternate / Unknown Person Pickup Request
+                      </button>
+                    </div>
+
+                    {scanActionMode === 'REGISTERED_PICKUP' && (
+                      <div style={{ padding: 12, background: 'var(--c-surface)', borderRadius: 8, marginTop: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Confirm Handover to Registered Guardian</div>
+                        <input
+                          type="text"
+                          className="input"
+                          placeholder="Gate / Handover notes (optional)..."
+                          value={scanGateNotes}
+                          onChange={(e) => setScanGateNotes(e.target.value)}
+                          style={{ fontSize: 13, marginBottom: 10 }}
+                        />
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleConfirmRegisteredPickup(scanResult.student.id)}
+                          disabled={scanSubmitting}
+                        >
+                          {scanSubmitting ? 'Logging Pickup...' : 'Complete & Log Registered Guardian Pickup ✅'}
+                        </button>
+                      </div>
+                    )}
+
+                    {scanActionMode === 'UNKNOWN_REQUEST' && (
+                      <div style={{ padding: 12, background: 'var(--c-surface)', borderRadius: 8, marginTop: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Submit Instant Parent/Teacher Approval Request</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                          <div>
+                            <label style={{ fontSize: 11, opacity: 0.7 }}>Person Full Name *</label>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="e.g. Ramesh Sharma"
+                              value={scanPersonName}
+                              onChange={(e) => setScanPersonName(e.target.value)}
+                              style={{ fontSize: 13 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, opacity: 0.7 }}>Contact Phone Number *</label>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="e.g. +919876543210"
+                              value={scanPersonPhone}
+                              onChange={(e) => setScanPersonPhone(e.target.value)}
+                              style={{ fontSize: 13 }}
+                            />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                          <div>
+                            <label style={{ fontSize: 11, opacity: 0.7 }}>Relationship to Student</label>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="e.g. Uncle / Neighbor / Driver"
+                              value={scanPersonRelation}
+                              onChange={(e) => setScanPersonRelation(e.target.value)}
+                              style={{ fontSize: 13 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 11, opacity: 0.7 }}>Reason / Remarks</label>
+                            <input
+                              type="text"
+                              className="input"
+                              placeholder="e.g. Emergency family visit"
+                              value={scanGateNotes}
+                              onChange={(e) => setScanGateNotes(e.target.value)}
+                              style={{ fontSize: 13 }}
+                            />
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-warning btn-sm"
+                          onClick={() => handleSubmitUnknownPersonRequest(scanResult.student.id)}
+                          disabled={scanSubmitting}
+                        >
+                          {scanSubmitting ? 'Sending Request...' : 'Send Urgent Approval Request to Parent & Teacher 📲'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -2927,6 +3832,106 @@ export function TransportClient({ session }: { session: SessionProps }) {
           </form>
         )}
       </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: PARENT ROUTE SELECTION */}
+      {/* ========================================================================= */}
+      <Modal open={!!routeSelectionModal} onClose={() => setRouteSelectionModal(null)} title={`Select Transport Route for ${routeSelectionModal?.fullName}`} subtitle="Choose a route and pickup/drop stop for this child" icon={<Bus size={20} />}>
+        {routeSelectionModal && (
+          <form onSubmit={handleParentSubmitRouteSelection}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field label="Child" required>
+                <input type="text" className="input" value={`${routeSelectionModal.fullName} (${routeSelectionModal.className})`} disabled />
+              </Field>
+              <Field label="Available Preschool Transport Route" required>
+                <select name="routeId" className="input" defaultValue={routes[0]?.id || ''} required onChange={(e) => {
+                  const r = routes.find(rt => rt.id === e.target.value)
+                  if (r) setSelectedRouteId(r.id)
+                }}>
+                  {routes.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name} ({r.code}) — {r.description || 'Active'}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Pickup Stop" required>
+                <select name="pickupStopId" className="input" required>
+                  {(routes.find(r => r.id === selectedRouteId)?.stops || routes[0]?.stops || []).map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.name} (Pickup: {s.morningPickupTime})</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Drop Stop" required>
+                <select name="dropStopId" className="input" required>
+                  {(routes.find(r => r.id === selectedRouteId)?.stops || routes[0]?.stops || []).map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.name} (Drop: {s.eveningDropTime})</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setRouteSelectionModal(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={busy}>Submit Route Selection Request</button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: DRIVER QR DISPLAY */}
+      {/* ========================================================================= */}
+      <Modal open={!!driverQrModal} onClose={() => setDriverQrModal(null)} title="Driver Transport QR Code" subtitle="Present this QR code to Parents and Guardians for transport pickup/drop verification" icon={<QrCode size={20} />}>
+        {driverQrModal && (
+          <div style={{ textAlign: 'center', padding: 10 }}>
+            <div style={{ padding: 16, background: '#fff', borderRadius: 16, display: 'inline-block', border: '3px solid var(--primary)', marginBottom: 14 }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(driverQrModal.token)}`}
+                alt="Driver QR Code"
+                style={{ width: 180, height: 180, borderRadius: 8, display: 'block' }}
+              />
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Route: {routes.find(r => r.id === driverQrModal.routeId)?.name || 'Route 001'}</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Vehicle: BUS-01 • Driver: Suresh Patil</div>
+            <div style={{ margin: '14px 0', padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              Token: {driverQrModal.token}
+            </div>
+            <button className="btn btn-secondary" onClick={() => {
+              setScanInput(driverQrModal.token)
+              setDriverQrModal(null)
+              setTab('SCANNER')
+            }}>
+              Test Scan in Scanner 🔍
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: VISUAL QR CODE IMAGE VIEWER */}
+      {/* ========================================================================= */}
+      <Modal open={!!showVisualQr} onClose={() => setShowVisualQr(null)} title="Visual QR Code Graphic" subtitle="Scan this QR Code graphic with a mobile phone camera or physical QR scanner" icon={<QrCode size={20} />}>
+        {showVisualQr && (
+          <div style={{ textAlign: 'center', padding: 10 }}>
+            <div style={{ padding: 16, background: '#fff', borderRadius: 16, display: 'inline-block', border: '3px solid var(--primary)', marginBottom: 14 }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+                  showVisualQr.startsWith('http')
+                    ? showVisualQr
+                    : `${typeof window !== 'undefined' ? window.location.origin : ''}/app/transport?scan=${encodeURIComponent(showVisualQr)}`
+                )}`}
+                alt="Visual QR Code"
+                style={{ width: 220, height: 220, borderRadius: 8, display: 'block' }}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
+              Point any mobile camera at this screen to open app & verify form instantly
+            </div>
+            <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+              Token: {showVisualQr}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
+

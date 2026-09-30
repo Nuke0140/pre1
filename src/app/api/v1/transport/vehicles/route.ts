@@ -23,7 +23,7 @@ async function _GET(req: NextRequest) {
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
-    }, { status })
+    }, { status: status as any })
 
     return ok(vehicles)
   } catch (e: any) {

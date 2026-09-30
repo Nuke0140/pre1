@@ -24,6 +24,90 @@ async function _POST(req: NextRequest) {
 
     const tenantId = session.tenantId
 
+    const context = {
+      tenantId,
+      branchId: session.branchId || undefined,
+      actorId: session.uid,
+      actorName: session.name,
+      actorRole: session.role,
+    }
+
+    // 0. Handle TRPQR_ Secure Driver Transport QR Token
+    if (qrPayload.trim().startsWith('TRPQR_')) {
+      try {
+        const encoded = qrPayload.trim().substring(6)
+        const decoded = Buffer.from(encoded, 'base64').toString('utf8')
+        const [tokenTenantId, routeId, vehicleId, driverId, timestampStr] = decoded.split(':')
+
+        if (tokenTenantId !== tenantId) {
+          await TransportSecurityService.logSecurityEvent(context, {
+            eventType: 'UNAUTHORIZED_ACCESS',
+            result: 'BLOCKED',
+            reason: `Cross-tenant QR scan attempt (Token Tenant: ${tokenTenantId}, User Tenant: ${tenantId})`,
+          })
+          return ok({
+            valid: false,
+            scanType: 'TRANSPORT_QR',
+            status: 'TENANT_MISMATCH',
+            message: 'Cross-tenant QR scan blocked',
+          })
+        }
+
+        const route = await db.transportRoute.findFirst({
+          where: { id: routeId, tenantId, deletedAt: null },
+          include: {
+            vehicle: true,
+            driverProfile: { include: { user: { select: { fullName: true, phone: true } } } },
+            stops: { orderBy: { sequence: 'asc' } },
+          },
+        })
+
+        if (!route) {
+          return ok({
+            valid: false,
+            scanType: 'TRANSPORT_QR',
+            status: 'INVALID_ROUTE',
+            message: 'Route not found or inactive',
+          })
+        }
+
+        await TransportSecurityService.logSecurityEvent(context, {
+          eventType: 'QR_SCAN',
+          routeId: route.id,
+          vehicleId: route.vehicleId ?? undefined,
+          action: 'Driver Transport QR Scanned',
+          result: 'SUCCESS',
+          reason: `Driver QR scanned successfully for route ${route.name}`,
+        })
+
+        return ok({
+          valid: true,
+          scanType: 'TRANSPORT_QR',
+          status: 'VERIFIED',
+          route: {
+            id: route.id,
+            name: route.name,
+            code: route.code,
+            stops: route.stops,
+          },
+          vehicle: route.vehicle,
+          driver: route.driverProfile?.user,
+          availableActions: [
+            { key: 'REGISTERED_GUARDIAN', label: '1. Parent / Registered Guardian' },
+            { key: 'UNKNOWN_PERSON', label: '2. Unknown / Unregistered Person' },
+          ],
+          message: 'Transport QR scanned successfully. Please select your identity workflow.',
+        })
+      } catch (err: any) {
+        return ok({
+          valid: false,
+          scanType: 'TRANSPORT_QR',
+          status: 'MALFORMED',
+          message: 'Malformed transport QR token',
+        })
+      }
+    }
+
     // Parse payload: could be string like "STUDENT:cm123", "GUARDIAN:cm456", "DRIVER:cm789", "AUTH:cm111" or JSON string
     let parsedType = ''
     let parsedId = ''
@@ -45,14 +129,6 @@ async function _POST(req: NextRequest) {
     } catch {
       parsedType = 'UNKNOWN'
       parsedId = qrPayload.trim()
-    }
-
-    const context = {
-      tenantId,
-      branchId: session.branchId || undefined,
-      actorId: session.uid,
-      actorName: session.name,
-      actorRole: session.role,
     }
 
     // 1. Handle Driver QR Scan & PIN Verification
@@ -194,6 +270,7 @@ async function _POST(req: NextRequest) {
       if (!guardian) {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          action: 'GUARDIAN_QR_SCAN',
           result: 'FAILED',
           reason: 'Guardian not found in tenant',
         })
@@ -241,7 +318,8 @@ async function _POST(req: NextRequest) {
 
     if (!student) {
       await TransportSecurityService.logSecurityEvent(context, {
-        eventType: 'UNAUTHORIZED_ACCESS',
+        eventType: 'QR_SCAN',
+        action: 'STUDENT_QR_SCAN',
         studentId: studentIdToVerify,
         result: 'FAILED',
         reason: 'Student not found in tenant',

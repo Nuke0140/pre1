@@ -1,4 +1,4 @@
-﻿import { db } from './db'
+import { db } from './db'
 import { audit } from './audit'
 
 export type JobType = 'BULK_INVOICE' | 'BULK_RECEIPT' | 'PAYMENT_EXPORT' | 'DATA_EXPORT'
@@ -186,8 +186,8 @@ async function processJob(jobId: string) {
         const exportData = payments.map((p) => ({
           paymentNumber: p.paymentNumber,
           date: p.paymentDate.toISOString().slice(0, 10),
-          student: `${p.student.firstName} ${p.student.lastName || ''}`.trim(),
-          admissionNo: p.student.admissionNo,
+          student: p.student ? `${p.student.firstName} ${p.student.lastName || ''}`.trim() : 'N/A',
+          admissionNo: p.student?.admissionNo || 'N/A',
           amountRupees: (p.amountCents / 100).toFixed(2),
           method: p.method,
           status: p.status,

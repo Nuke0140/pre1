@@ -40,7 +40,7 @@ async function _GET(req: NextRequest) {
         actorName: session.name,
         actorRole: session.role,
       },
-      { eventType, studentId, driverId, limit: Number(limitStr) }
+      { eventType: eventType as any, studentId, driverId, limit: Number(limitStr) }
     )
 
     return ok(logs)

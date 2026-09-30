@@ -427,7 +427,7 @@ export class DailyDiaryService {
 
     // Process each student record inside transaction
     const saved = await db.$transaction(async (tx) => {
-      const results = []
+      const results: any[] = []
       for (const rec of records) {
         const item = await tx.attendance.upsert({
           where: {
@@ -472,7 +472,7 @@ export class DailyDiaryService {
         entityId: classroomId,
         summary: `Admin ${session.name} updated attendance for class ${classroom.name} on ${dateStr}`,
         details: { classroomId, date: dateStr, count: records.length },
-      })
+      } as any)
     }
 
     return { success: true, count: saved.length }
@@ -835,7 +835,7 @@ export class DailyDiaryService {
       data: {
         tenantId,
         academicSessionId: classroom?.academicSessionId,
-        studentId: data.studentId || undefined,
+        studentId: data.studentId || '',
         classroomId: data.classroomId,
         teacherId: session.uid,
         narrative: data.narrative,

@@ -540,7 +540,7 @@ export async function syncSetup(
             completedAt: row.completedAt ?? new Date(),
             completedById: row.completedById ?? actor?.id ?? 'system',
             completedByName: row.completedByName ?? actor?.name ?? 'system (auto-evaluated)',
-            dataSnapshot: ev.snapshot,
+            dataSnapshot: ev.snapshot as any,
             lastCheckedAt: new Date(),
             changedAfterCompletion: false,
           },
@@ -553,7 +553,7 @@ export async function syncSetup(
           await db.schoolSetupStep.update({
             where: { id: row.id },
             data: {
-              dataSnapshot: ev.snapshot,
+              dataSnapshot: ev.snapshot as any,
               changedAfterCompletion: changed ? true : row.changedAfterCompletion,
               lastCheckedAt: new Date(),
             },
@@ -702,7 +702,7 @@ export async function completeStep(
       completedAt: new Date(),
       completedById: actor.id,
       completedByName: actor.name,
-      dataSnapshot: ev.snapshot,
+      dataSnapshot: ev.snapshot as any,
       changedAfterCompletion: false,
       lastCheckedAt: new Date(),
     },

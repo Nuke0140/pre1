@@ -1624,34 +1624,726 @@ export class TransportService {
     })
   }
 
+  /**
+   * Submit Bus Arrival (Driver operation)
+   */
   static async submitTripArrival(ctx: ScopeContext, tripId: string, studentIds: string[]) {
     const trip = await db.transportTrip.findFirst({
       where: { id: tripId, tenantId: ctx.tenantId },
+      include: { route: true, vehicle: true },
     })
     if (!trip) throw new Error('Trip not found')
 
     if (studentIds.length > 0) {
       await db.tripManifestItem.updateMany({
         where: { tripId, studentId: { in: studentIds } },
-        data: { status: 'BOARDED', boardedAt: new Date() },
+        data: { status: 'ARRIVAL_SUBMITTED', boardedAt: new Date() },
+      })
+
+      // Fetch students and notify their class teachers
+      const students = await db.student.findMany({
+        where: { id: { in: studentIds }, tenantId: ctx.tenantId },
+        include: {
+          currentClassroom: {
+            select: { primaryTeacherId: true },
+          },
+        },
+      })
+
+      for (const student of students) {
+        const teacherUserId = student.currentClassroom?.primaryTeacherId
+        if (teacherUserId) {
+          await db.inAppNotification.create({
+            data: {
+              tenantId: ctx.tenantId,
+              userId: teacherUserId,
+              title: `Transport Arrival Reported: ${student.firstName} ${student.lastName || ''}`,
+              body: `Bus ${trip.vehicle.registrationNumber} on ${trip.route.name} reported arrival for ${student.firstName}. Please verify arrival.`,
+              category: 'TRANSPORT',
+              severity: 'INFO',
+              linkUrl: '/app/transport?tab=TEACHER',
+              metadata: { tripId, studentId: student.id },
+            },
+          })
+        }
+      }
+
+      await db.transportSecurityEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          branchId: ctx.branchId ?? undefined,
+          eventType: 'ARRIVAL_SUBMITTED',
+          tripId: trip.id,
+          vehicleId: trip.vehicleId,
+          routeId: trip.routeId,
+          driverProfileId: trip.driverProfileId,
+          actorId: ctx.actorId || 'system',
+          actorName: ctx.actorName || 'Driver',
+          actorRole: ctx.actorRole || 'DRIVER',
+          action: 'Driver Submitted Student Arrival',
+          result: 'SUCCESS',
+          reason: `Driver reported arrival for ${studentIds.length} student(s) on ${trip.route.name}`,
+        },
       })
     }
 
     return db.transportTrip.update({
       where: { id: tripId },
-      data: { status: 'COMPLETED', actualArrival: new Date() },
+      data: { status: 'COMPLETED', actualEndTime: new Date() },
     })
   }
 
-  static async verifyTripArrival(ctx: ScopeContext, tripId: string, notes?: string) {
+  /**
+   * Verify Student Arrival (Class Teacher operation)
+   */
+  static async verifyTripArrival(ctx: ScopeContext, tripId: string, studentIds: string[], notes?: string) {
     const trip = await db.transportTrip.findFirst({
       where: { id: tripId, tenantId: ctx.tenantId },
+      include: { route: true, vehicle: true },
     })
     if (!trip) throw new Error('Trip not found')
+
+    if (studentIds.length > 0) {
+      await db.tripManifestItem.updateMany({
+        where: { tripId, studentId: { in: studentIds } },
+        data: { status: 'ARRIVAL_VERIFIED', droppedAt: new Date() },
+      })
+
+      // Fetch students and notify parents
+      const students = await db.student.findMany({
+        where: { id: { in: studentIds }, tenantId: ctx.tenantId },
+        include: {
+          guardians: {
+            include: { guardian: { select: { userId: true, fullName: true } } },
+          },
+        },
+      })
+
+      for (const student of students) {
+        for (const link of student.guardians) {
+          if (link.guardian?.userId) {
+            await db.inAppNotification.create({
+              data: {
+                tenantId: ctx.tenantId,
+                userId: link.guardian.userId,
+                title: `Safe Arrival Verified: ${student.firstName}`,
+                body: `${student.firstName} ${student.lastName || ''}'s arrival at preschool has been verified by Class Teacher ${ctx.actorName}.`,
+                category: 'TRANSPORT',
+                severity: 'INFO',
+                linkUrl: '/app/transport',
+                metadata: { tripId, studentId: student.id },
+              },
+            })
+          }
+        }
+      }
+
+      await db.transportSecurityEvent.create({
+        data: {
+          tenantId: ctx.tenantId,
+          branchId: ctx.branchId ?? undefined,
+          eventType: 'ARRIVAL_VERIFIED',
+          tripId: trip.id,
+          vehicleId: trip.vehicleId,
+          routeId: trip.routeId,
+          actorId: ctx.actorId || 'system',
+          actorName: ctx.actorName || 'Teacher',
+          actorRole: ctx.actorRole || 'TEACHER',
+          action: 'Class Teacher Verified Student Arrival',
+          result: 'SUCCESS',
+          reason: `Teacher ${ctx.actorName} verified arrival for ${studentIds.length} student(s)`,
+        },
+      })
+    }
 
     return db.transportTrip.update({
       where: { id: tripId },
       data: { notes: notes ? `${trip.notes || ''}\nArrival Verified by ${ctx.actorName}: ${notes}` : trip.notes },
     })
+  }
+
+  /**
+   * Create Parent Route Selection / Request
+   */
+  static async createParentRouteSelection(
+    ctx: ScopeContext,
+    input: {
+      studentId: string
+      routeId: string
+      pickupStopId: string
+      dropStopId: string
+      tripType?: TransportTripType
+    }
+  ) {
+    if (!ctx.actorId) throw new Error('Authentication required')
+
+    // Find guardian linked to student
+    const guardian = await db.guardian.findFirst({
+      where: { userId: ctx.actorId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { studentLinks: { where: { studentId: input.studentId } } },
+    })
+
+    if (!guardian || guardian.studentLinks.length === 0) {
+      const isAdmin = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(ctx.actorRole?.toUpperCase() || '')
+      if (!isAdmin) {
+        throw new Error('You are not authorized to select transport route for this student')
+      }
+    }
+
+    // Verify route and stops
+    const route = await db.transportRoute.findFirst({
+      where: { id: input.routeId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { stops: true },
+    })
+    if (!route) throw new Error('Transport route not found')
+
+    const pickupStop = route.stops.find((s) => s.id === input.pickupStopId)
+    const dropStop = route.stops.find((s) => s.id === input.dropStopId)
+    if (!pickupStop || !dropStop) throw new Error('Selected pickup or drop stop does not belong to this route')
+
+    // Find active academic session
+    const session = await db.academicSession.findFirst({
+      where: { tenantId: ctx.tenantId, status: 'ACTIVE' },
+    })
+    const academicSessionId = session?.id || ctx.academicSessionId || 'default-session'
+
+    // Upsert student transport assignment with PENDING or ACTIVE status
+    const existing = await db.studentTransportAssignment.findFirst({
+      where: { tenantId: ctx.tenantId, studentId: input.studentId, deletedAt: null },
+    })
+
+    let assignment
+    if (existing) {
+      assignment = await db.studentTransportAssignment.update({
+        where: { id: existing.id },
+        data: {
+          routeId: input.routeId,
+          pickupStopId: input.pickupStopId,
+          dropStopId: input.dropStopId,
+          tripType: input.tripType || 'TWO_WAY',
+          requestedByGuardianId: guardian?.id,
+          status: 'PENDING',
+        },
+        include: { route: true, pickupStop: true, dropStop: true, student: true },
+      })
+    } else {
+      assignment = await db.studentTransportAssignment.create({
+        data: {
+          tenantId: ctx.tenantId,
+          branchId: ctx.branchId || null,
+          academicSessionId,
+          studentId: input.studentId,
+          routeId: input.routeId,
+          pickupStopId: input.pickupStopId,
+          dropStopId: input.dropStopId,
+          tripType: input.tripType || 'TWO_WAY',
+          requestedByGuardianId: guardian?.id,
+          status: 'PENDING',
+        },
+        include: { route: true, pickupStop: true, dropStop: true, student: true },
+      })
+    }
+
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'PARENT_ROUTE_SELECTION_SUBMITTED',
+      entity: 'StudentTransportAssignment',
+      entityId: assignment.id,
+      module: 'TRANSPORT',
+      summary: `Parent selected route ${route.name} for student ${assignment.student.firstName}`,
+    })
+
+    return assignment
+  }
+
+  /**
+   * Fetch All Linked Children and Transport Details for Parent
+   */
+  static async getMyChildrenTransport(ctx: ScopeContext) {
+    if (!ctx.actorId) return []
+
+    const guardian = await db.guardian.findFirst({
+      where: { userId: ctx.actorId, tenantId: ctx.tenantId, deletedAt: null },
+      include: {
+        studentLinks: {
+          include: {
+            student: {
+              include: {
+                currentClassroom: { select: { id: true, name: true, code: true } },
+                transportAssignments: {
+                  where: { deletedAt: null },
+                  include: {
+                    route: { select: { id: true, code: true, name: true, description: true } },
+                    pickupStop: { select: { id: true, name: true, morningPickupTime: true } },
+                    dropStop: { select: { id: true, name: true, eveningDropTime: true } },
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!guardian) return []
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const children: any[] = []
+
+    for (const link of guardian.studentLinks) {
+      const s = link.student
+      const assignment = s.transportAssignments[0] || null
+
+      // Fetch today's manifest status for this child
+      const manifestItem = await db.tripManifestItem.findFirst({
+        where: {
+          studentId: s.id,
+          trip: { tenantId: ctx.tenantId, tripDate: { gte: today, lt: tomorrow } },
+        },
+        include: { trip: true, stop: true },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      // Fetch pending pickup/drop authorizations for this child
+      const pendingAuthorizations = await db.transportPickupAuthorization.findMany({
+        where: { tenantId: ctx.tenantId, studentId: s.id, status: 'PENDING' },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      children.push({
+        studentId: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName,
+        fullName: `${s.firstName} ${s.lastName || ''}`,
+        admissionNo: s.admissionNo,
+        photoUrl: s.photoUrl,
+        className: s.currentClassroom?.name || 'Unassigned',
+        assignment: assignment
+          ? {
+              id: assignment.id,
+              status: assignment.status,
+              tripType: assignment.tripType,
+              routeName: assignment.route.name,
+              routeCode: assignment.route.code,
+              pickupStop: assignment.pickupStop.name,
+              pickupTime: assignment.pickupStop.morningPickupTime,
+              dropStop: assignment.dropStop.name,
+              dropTime: assignment.dropStop.eveningDropTime,
+            }
+          : null,
+        todayStatus: manifestItem
+          ? {
+              status: manifestItem.status,
+              boardedAt: manifestItem.boardedAt,
+              droppedAt: manifestItem.droppedAt,
+              tripType: manifestItem.trip.tripType,
+            }
+          : { status: 'EXPECTED', boardedAt: null, droppedAt: null },
+        pendingAuthorizations,
+      })
+    }
+
+    return children
+  }
+
+  /**
+   * Fetch Class Transport Details for Class Teacher
+   */
+  static async getTeacherClassTransport(ctx: ScopeContext) {
+    if (!ctx.actorId) return { students: [], pendingArrivals: [], pendingAuthorizations: [] }
+
+    const teacherUser = await db.user.findFirst({
+      where: { id: ctx.actorId },
+      include: { taughtClasses: true },
+    })
+
+    const classroomIds = teacherUser ? teacherUser.taughtClasses.map((c) => c.id) : []
+
+    const students = await db.student.findMany({
+      where: { tenantId: ctx.tenantId, currentClassroomId: { in: classroomIds }, deletedAt: null },
+      include: {
+        currentClassroom: { select: { id: true, name: true } },
+        transportAssignments: {
+          where: { status: 'ACTIVE', deletedAt: null },
+          include: {
+            route: { select: { id: true, name: true, code: true } },
+            pickupStop: { select: { id: true, name: true } },
+            dropStop: { select: { id: true, name: true } },
+          },
+        },
+      },
+    })
+
+    const studentIds = students.map((s) => s.id)
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Fetch today's manifest items for class students
+    const manifestItems = await db.tripManifestItem.findMany({
+      where: {
+        studentId: { in: studentIds },
+        trip: { tenantId: ctx.tenantId, tripDate: { gte: today, lt: tomorrow } },
+      },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true, photoUrl: true } },
+        trip: { select: { id: true, tripType: true, route: { select: { name: true } } } },
+        stop: { select: { name: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    // Fetch pending authorization requests for class students
+    const pendingAuthorizations = await db.transportPickupAuthorization.findMany({
+      where: { tenantId: ctx.tenantId, studentId: { in: studentIds }, status: 'PENDING' },
+      include: {
+        student: { select: { id: true, firstName: true, lastName: true } },
+        guardian: { select: { fullName: true, phone: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return {
+      students: students.map((s) => ({
+        studentId: s.id,
+        fullName: `${s.firstName} ${s.lastName || ''}`,
+        className: s.currentClassroom?.name,
+        assignment: s.transportAssignments[0] || null,
+      })),
+      todayManifest: manifestItems,
+      pendingArrivals: manifestItems.filter((m) => m.status === 'ARRIVAL_SUBMITTED'),
+      pendingAuthorizations,
+    }
+  }
+
+  /**
+   * Generate Secure Driver Transport QR Token
+   */
+  static async generateDriverQRToken(ctx: ScopeContext, params: { routeId: string; vehicleId: string }) {
+    const crypto = await import('crypto')
+    const timestamp = Date.now()
+    const nonce = crypto.randomBytes(8).toString('hex')
+    const rawPayload = `${ctx.tenantId}:${params.routeId}:${params.vehicleId}:${ctx.actorId}:${timestamp}:${nonce}`
+    const token = `TRPQR_${Buffer.from(rawPayload).toString('base64')}`
+
+    return {
+      token,
+      qrPayload: token,
+      tenantId: ctx.tenantId,
+      routeId: params.routeId,
+      vehicleId: params.vehicleId,
+      timestamp,
+    }
+  }
+
+  /**
+   * Seed Transport Demo Master & Test Data
+   */
+  static async seedTransportDemoData(ctx: ScopeContext) {
+    const tenantId = ctx.tenantId
+
+    // 1. Branch & Session
+    let branch = await db.branch.findFirst({ where: { tenantId } })
+    if (!branch) {
+      branch = await db.branch.create({
+        data: { tenantId, name: 'Main Campus', code: 'MAIN' },
+      })
+    }
+
+    let session = await db.academicSession.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+    })
+    if (!session) {
+      session = await db.academicSession.create({
+        data: {
+          tenantId,
+          name: '2026-2027 Academic Year',
+          code: 'AY-2026',
+          startDate: new Date('2026-04-01'),
+          endDate: new Date('2027-03-31'),
+          status: 'ACTIVE',
+        },
+      })
+    }
+
+    // 2. Find or create demo Vehicle (BUS-01)
+    let vehicle = await db.vehicle.findFirst({
+      where: { tenantId, registrationNumber: 'BUS-01', deletedAt: null },
+    })
+    if (!vehicle) {
+      vehicle = await db.vehicle.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          registrationNumber: 'BUS-01',
+          vehicleType: 'BUS',
+          capacity: 25,
+          makeModel: 'Tata Starbus Preschool Edition',
+          notes: 'GPS Enabled & CCTV Monitored',
+          status: 'ACTIVE',
+        },
+      })
+    }
+
+    // 3. Find or create Driver user & StaffProfile (Suresh Patil)
+    let driverUser = await db.user.findFirst({
+      where: { email: 'driver.suresh@preone.demo' },
+    })
+    if (!driverUser) {
+      driverUser = await db.user.create({
+        data: {
+          email: 'driver.suresh@preone.demo',
+          username: 'suresh.driver',
+          fullName: 'Suresh Patil',
+          phone: '+91 9876543210',
+          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
+          memberships: { create: { tenantId, role: 'DRIVER', status: 'ACTIVE' } },
+        },
+      })
+    }
+
+    let driverProfile = await db.staffProfile.findFirst({
+      where: { userId: driverUser.id, tenantId },
+    })
+    if (!driverProfile) {
+      driverProfile = await db.staffProfile.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          userId: driverUser.id,
+          employeeCode: 'DRV-001',
+          designation: 'Transport Driver',
+          department: 'Transport',
+          joiningDate: new Date('2024-01-01'),
+        },
+      })
+    }
+
+    // 4. Find or create Route 001 — Kothrud Route
+    let route = await db.transportRoute.findFirst({
+      where: { tenantId, code: 'ROUTE001', deletedAt: null },
+      include: { stops: true },
+    })
+
+    if (!route) {
+      route = await db.transportRoute.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          code: 'ROUTE001',
+          name: 'Route 001 — Kothrud Express',
+          description: 'Serves Kothrud, Karve Nagar & Deccan areas',
+          vehicleId: vehicle.id,
+          driverProfileId: driverProfile.id,
+          status: 'ACTIVE',
+          stops: {
+            create: [
+              { tenantId, name: 'Stop 1 — Kothrud', landmark: 'Kothrud Stand', sequence: 1, morningPickupTime: '08:00', eveningDropTime: '15:30' },
+              { tenantId, name: 'Stop 2 — Karve Nagar', landmark: 'Karve Statue', sequence: 2, morningPickupTime: '08:15', eveningDropTime: '15:15' },
+              { tenantId, name: 'Stop 3 — Deccan', landmark: 'Deccan Gymkhana', sequence: 3, morningPickupTime: '08:30', eveningDropTime: '15:00' },
+              { tenantId, name: 'Stop 4 — Preschool', landmark: 'Main Gate', sequence: 4, morningPickupTime: '08:45', eveningDropTime: '14:45' },
+            ],
+          },
+        },
+        include: { stops: true },
+      })
+    }
+
+    // 5. Create Classroom & Teacher (Nursery A, Priya Teacher)
+    let classroom = await db.classroom.findFirst({
+      where: { tenantId, code: 'NUR-A' },
+    })
+    if (!classroom) {
+      classroom = await db.classroom.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          academicSessionId: session.id,
+          name: 'Nursery A',
+          code: 'NUR-A',
+          programType: 'NURSERY',
+        },
+      })
+    }
+
+    let teacherUser = await db.user.findFirst({
+      where: { email: 'priya.teacher@preone.demo' },
+    })
+    if (!teacherUser) {
+      teacherUser = await db.user.create({
+        data: {
+          email: 'priya.teacher@preone.demo',
+          username: 'priya.teacher',
+          fullName: 'Priya Teacher',
+          phone: '+91 9123456789',
+          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
+          memberships: { create: { tenantId, role: 'TEACHER', status: 'ACTIVE' } },
+        },
+      })
+    }
+
+    await db.classroom.update({
+      where: { id: classroom.id },
+      data: { primaryTeacherId: teacherUser.id },
+    })
+
+    // 6. Find or create Parent User & Guardian (Rahul Patil) with 3 Children (Aarav, Siya, Ved)
+    let parentUser = await db.user.findFirst({
+      where: { email: 'rahul.patil@preone.demo' },
+    })
+    if (!parentUser) {
+      parentUser = await db.user.create({
+        data: {
+          email: 'rahul.patil@preone.demo',
+          username: 'rahul.patil',
+          fullName: 'Rahul Patil',
+          phone: '+91 9988776655',
+          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
+          memberships: { create: { tenantId, role: 'PARENT', status: 'ACTIVE' } },
+        },
+      })
+    }
+
+    let guardian = await db.guardian.findFirst({
+      where: { userId: parentUser.id, tenantId },
+    })
+    if (!guardian) {
+      guardian = await db.guardian.create({
+        data: {
+          tenantId,
+          userId: parentUser.id,
+          fullName: 'Rahul Patil',
+          phone: '+91 9988776655',
+          email: 'rahul.patil@preone.demo',
+          relationship: 'FATHER',
+          pickupPin: '1234',
+        },
+      })
+    }
+
+    // Create 3 Students
+    const childrenData = [
+      { firstName: 'Aarav', lastName: 'Patil', admissionNo: 'STU-001', stopIdx: 0 },
+      { firstName: 'Siya', lastName: 'Patil', admissionNo: 'STU-002', stopIdx: 1 },
+      { firstName: 'Ved', lastName: 'Patil', admissionNo: 'STU-003', stopIdx: 2 },
+    ]
+
+    const createdStudents: any[] = []
+    const stops = route.stops.sort((a, b) => a.sequence - b.sequence)
+
+    for (const child of childrenData) {
+      let student = await db.student.findFirst({
+        where: { tenantId, admissionNo: child.admissionNo, deletedAt: null },
+      })
+
+      if (!student) {
+        student = await db.student.create({
+          data: {
+            tenantId,
+            branchId: branch.id,
+            currentClassroomId: classroom.id,
+            firstName: child.firstName,
+            lastName: child.lastName,
+            admissionNo: child.admissionNo,
+            dob: new Date('2021-05-15'),
+            gender: 'MALE',
+            status: 'ACTIVE',
+            guardians: {
+              create: {
+                guardianId: guardian.id,
+                relationship: 'FATHER',
+                isPrimary: true,
+                canPickup: true,
+              },
+            },
+          },
+        })
+      }
+
+      createdStudents.push(student)
+
+      // Create transport assignment for student
+      const stop = stops[child.stopIdx] || stops[0]
+      const existingAssign = await db.studentTransportAssignment.findFirst({
+        where: { tenantId, studentId: student.id, deletedAt: null },
+      })
+
+      if (!existingAssign) {
+        await db.studentTransportAssignment.create({
+          data: {
+            tenantId,
+            branchId: branch.id,
+            academicSessionId: session.id,
+            studentId: student.id,
+            routeId: route.id,
+            pickupStopId: stop.id,
+            dropStopId: stop.id,
+            tripType: 'TWO_WAY',
+            requestedByGuardianId: guardian.id,
+            status: 'ACTIVE',
+          },
+        })
+      }
+    }
+
+    // 7. Create Today's Morning Operational Trip
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    let trip = await db.transportTrip.findFirst({
+      where: { tenantId, routeId: route.id, tripDate: today, tripType: 'MORNING' },
+    })
+
+    if (!trip) {
+      trip = await db.transportTrip.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          routeId: route.id,
+          vehicleId: vehicle.id,
+          driverProfileId: driverProfile.id,
+          tripDate: today,
+          tripType: 'MORNING',
+          status: 'IN_PROGRESS',
+          scheduledStartTime: '08:00',
+          actualStartTime: new Date(),
+          manifest: {
+            create: createdStudents.map((st, idx) => ({
+              studentId: st.id,
+              stopId: stops[idx]?.id || stops[0].id,
+              status: idx === 0 ? 'BOARDED' : 'EXPECTED',
+              boardedAt: idx === 0 ? new Date() : null,
+            })),
+          },
+        },
+      })
+    }
+
+    // 8. Create Driver QR Token
+    const qrObj = await this.generateDriverQRToken(ctx, { routeId: route.id, vehicleId: vehicle.id })
+
+    return {
+      success: true,
+      message: 'Transport demo master data seeded successfully',
+      tenantId,
+      vehicle: { id: vehicle.id, regNo: vehicle.registrationNumber },
+      route: { id: route.id, code: route.code, name: route.name, stopsCount: stops.length },
+      driver: { id: driverProfile.id, name: 'Suresh Patil', username: 'suresh.driver' },
+      parent: { id: guardian.id, name: 'Rahul Patil', username: 'rahul.patil', childrenCount: createdStudents.length },
+      teacher: { id: 'tch-01', name: 'Priya Teacher', username: 'priya.teacher', className: 'Nursery A' },
+      todayTripId: trip.id,
+      testQrToken: qrObj.token,
+    }
   }
 }

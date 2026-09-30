@@ -713,14 +713,14 @@ export class StudentService {
 
 
     // Branch Resolution
-    let branchId = input.branchId || scope.branchId
+    let branchId: string | null | undefined = input.branchId || scope.branchId
     if (!branchId) {
       const defaultBranch = await db.branch.findFirst({ where: { tenantId: scope.tenantId, isMain: true } })
-      branchId = defaultBranch?.id
+      branchId = defaultBranch?.id || null
     }
     if (!branchId) {
       const anyBranch = await db.branch.findFirst({ where: { tenantId: scope.tenantId } })
-      branchId = anyBranch?.id
+      branchId = anyBranch?.id || null
     }
     if (!branchId) throw new Error('Branch context is required')
 
@@ -1449,7 +1449,7 @@ export class StudentService {
     })
     if (!student) throw new Error('Student not found')
 
-    if (newStatus === 'WITHDRAWN') {
+    if ((newStatus as string) === 'WITHDRAWN') {
       return this.withdrawStudent(ctx, studentId, { reason: reason || 'Status changed to WITHDRAWN' })
     }
 

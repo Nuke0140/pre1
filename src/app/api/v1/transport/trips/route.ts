@@ -43,7 +43,7 @@ async function _GET(req: NextRequest) {
       }
     }
 
-    const trips = await TransportService.getTrips(context, { routeId, driverId, status, date })
+    const trips = await TransportService.getTrips(context, { routeId, driverId, status: status as any, date })
 
     const filtered = scope.isDriver && scope.allowedRouteIds !== null
       ? trips.filter((t: any) => scope.allowedRouteIds?.includes(t.routeId))
@@ -93,7 +93,7 @@ async function _POST(req: NextRequest) {
       driverId: driverId || session.uid,
       tripType,
       date: date ? new Date(date) : new Date(),
-    })
+    } as any)
 
     return ok({ trip }, undefined, 201)
   } catch (e: any) {
