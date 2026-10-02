@@ -1656,14 +1656,14 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <Package size={22} />
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: searchQuery || categoryFilter !== 'ALL' ? 4 : 14 }}>
                           {searchQuery || categoryFilter !== 'ALL' ? 'No Matching Items' : 'No Inventory Items Yet'}
                         </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                          {searchQuery || categoryFilter !== 'ALL'
-                            ? 'Try adjusting your search terms or category filter.'
-                            : 'Add preschool curriculum packs, uniform sets, and teaching supplies to begin tracking.'}
-                        </p>
+                        {(searchQuery || categoryFilter !== 'ALL') && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
+                            Try adjusting your search terms or category filter.
+                          </p>
+                        )}
                         {canManageStock && (
                           <button className="btn btn-sm btn-primary" onClick={() => setItemModalOpen(true)}>
                             <Plus size={14} /> Add Inventory Item
@@ -1967,14 +1967,14 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                           <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                             <GraduationCap size={22} />
                           </div>
-                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: distSearch ? 4 : 14 }}>
                             {distSearch ? 'No Matching Distributions' : 'No Distributions Recorded'}
                           </div>
-                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                            {distSearch
-                              ? 'No distribution records match your current filter query.'
-                              : 'Issue learning supplies and stationery to classrooms, or allocate kits to enrolled students.'}
-                          </p>
+                          {distSearch && (
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
+                              No distribution records match your current filter query.
+                            </p>
+                          )}
                           {!isTeacher && canManageStock && (
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button className="btn btn-sm btn-primary" onClick={() => setClassroomDistModalOpen(true)}>
@@ -2191,14 +2191,14 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <Warehouse size={22} />
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: storeSearch ? 4 : 14 }}>
                           {storeSearch ? 'No Matching Stock Balances' : 'No Active Store Stock'}
                         </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                          {storeSearch
-                            ? 'No stock records match the specified query.'
-                            : 'Receive goods through Purchase Orders and GRN, or perform physical count reconciliation.'}
-                        </p>
+                        {storeSearch && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
+                            No stock records match the specified query.
+                          </p>
+                        )}
                         {canManageStock && (
                           <div style={{ display: 'flex', gap: 8 }}>
                             <button className="btn btn-sm btn-primary" onClick={() => setTransferModalOpen(true)}>
@@ -2319,14 +2319,14 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(20, 184, 166, 0.1)', color: 'var(--secondary, #14b8a6)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <ShoppingCart size={22} />
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: poSearch ? 4 : 14 }}>
                           {poSearch ? 'No Matching Purchase Orders' : 'No Purchase Orders Yet'}
                         </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                          {poSearch
-                            ? 'No purchase orders match your search parameters.'
-                            : 'Create formal purchase orders to procure materials, kits, and uniforms from registered vendors.'}
-                        </p>
+                        {poSearch && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
+                            No purchase orders match your search parameters.
+                          </p>
+                        )}
                         {canProcure && (
                           <button className="btn btn-sm btn-primary" onClick={() => setPoModalOpen(true)}>
                             <Plus size={14} /> Create Purchase Order
@@ -2450,14 +2450,14 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--info, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <Truck size={22} />
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: grnSearch ? 4 : 14 }}>
                           {grnSearch ? 'No Matching Goods Receipts' : 'No Goods Receipts Recorded'}
                         </div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                          {grnSearch
-                            ? 'No GRN records match your search criteria.'
-                            : 'Inward shipments are recorded against approved Purchase Orders to increment physical stock.'}
-                        </p>
+                        {grnSearch && (
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
+                            No GRN records match your search criteria.
+                          </p>
+                        )}
                         {canProcure && (
                           <button className="btn btn-sm btn-outline" onClick={() => setActiveTab('PROCUREMENT')}>
                             <ShoppingCart size={14} /> View Purchase Orders
@@ -3157,9 +3157,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: 'var(--danger, #ef4444)' }}>{inr(reconciliation?.vendorPayableBalanceCents || 0)}</div>
                 </div>
               </div>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                Upon GRN receipt confirmation, PreOne automatically generates corresponding VENDOR_BILL invoices in the Finance module for bookkeeping.
-              </p>
+              
             </div>
           )}
         </div>
@@ -3562,7 +3560,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={classroomDistModalOpen}
         onClose={() => setClassroomDistModalOpen(false)}
         title="Classroom Bulk Distribution"
-        subtitle="Distribute stationery, activity kits, workbooks and supplies to an authorized classroom"
         icon={<GraduationCap size={20} />}
         iconClass="ic-blue"
         wide
@@ -3717,7 +3714,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={studentDistModalOpen}
         onClose={() => setStudentDistModalOpen(false)}
         title="Individual Student Distribution"
-        subtitle="Issue uniform sets, books, personal kits, and student materials to an enrolled child"
         icon={<User size={20} />}
         iconClass="ic-purple"
         wide
@@ -3865,7 +3861,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={deptDistModalOpen}
         onClose={() => setDeptDistModalOpen(false)}
         title="Department & Operations Issue"
-        subtitle="Allocate supplies to kitchen, infirmary, sanitization or administrative staff"
         icon={<Building2 size={20} />}
         iconClass="ic-orange"
         wide
@@ -3970,7 +3965,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         title="Request Materials & Supplies"
-        subtitle="1-step simple requisition for preschool classroom activities and supplies"
         icon={<Sparkles size={20} />}
         iconClass="ic-purple"
         wide
@@ -4089,7 +4083,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={itemModalOpen}
         onClose={() => setItemModalOpen(false)}
         title="Add Inventory Item"
-        subtitle="Catalog preschool learning kits, consumables, stationery and assets"
         icon={<Package size={20} />}
         iconClass="ic-blue"
         wide
@@ -4201,7 +4194,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={poModalOpen}
         onClose={() => setPoModalOpen(false)}
         title="Create Purchase Order"
-        subtitle="Procure goods from approved vendor with automated tax and bill reconciliation"
         icon={<ShoppingCart size={20} />}
         iconClass="ic-green"
         wide
@@ -4442,7 +4434,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={adjustModalOpen}
         onClose={() => setAdjustModalOpen(false)}
         title="Physical Count & Stock Adjustment"
-        subtitle="Reconcile verified physical inventory counts against system balances with full audit trace"
         icon={<Boxes size={20} />}
         iconClass="ic-yellow"
         wide
@@ -4501,7 +4492,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={returnModalOpen}
         onClose={() => setReturnModalOpen(false)}
         title="Return Materials to Store"
-        subtitle="Accept unused, damaged or expired supplies returned from classrooms or departments"
         icon={<RotateCcw size={20} />}
         iconClass="ic-purple"
         wide
@@ -4557,7 +4547,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={transferModalOpen}
         onClose={() => setTransferModalOpen(false)}
         title="Inter-Store Stock Transfer"
-        subtitle="Transfer materials atomically between central stores, classroom cupboards and pantry"
         icon={<ArrowLeftRight size={20} />}
         iconClass="ic-blue"
         wide
@@ -4614,7 +4603,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={locationModalOpen}
         onClose={() => setLocationModalOpen(false)}
         title="Add Store Location"
-        subtitle="Register physical storage areas such as main store, cupboards, kitchen or first aid bays"
         icon={<MapPin size={20} />}
         iconClass="ic-blue"
       >
@@ -4652,7 +4640,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={vendorModalOpen}
         onClose={() => setVendorModalOpen(false)}
         title="Register Approved Vendor"
-        subtitle="Add educational supply, grocery, or maintenance partner with tax IDs and payment terms"
         icon={<Building2 size={20} />}
         iconClass="ic-green"
         wide
@@ -4713,7 +4700,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={categoryModalOpen}
         onClose={() => setCategoryModalOpen(false)}
         title="Add Inventory Category"
-        subtitle="Organize materials into clear educational or operational classifications"
         icon={<Tag size={20} />}
         iconClass="ic-blue"
       >
@@ -4740,7 +4726,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={unitModalOpen}
         onClose={() => setUnitModalOpen(false)}
         title="Add Measurement Unit"
-        subtitle="Define units of measure for accurate tracking and issuance"
         icon={<Layers size={20} />}
         iconClass="ic-purple"
       >
