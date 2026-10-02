@@ -1007,80 +1007,80 @@ export default function FeesPage() {
         >
           <form onSubmit={handleCreateStructure} className="space-y-4 max-h-[80vh] overflow-y-auto p-1">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Structure Name *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Structure Name *</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Nursery Annual Fee Structure 2026-27"
                 value={structForm.name}
                 onChange={(e) => setStructForm({ ...structForm, name: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Academic Session</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Academic Session</label>
                 <select
                   value={structForm.academicSessionId}
                   onChange={(e) => setStructForm({ ...structForm, academicSessionId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">Current Academic Year</option>
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Current Academic Year</option>
                   {academicSessions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{s.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Target Classroom / Program</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Classroom / Program</label>
                 <select
                   value={structForm.classroomId}
                   onChange={(e) => setStructForm({ ...structForm, classroomId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">All Classrooms / All Programs</option>
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Classrooms / All Programs</option>
                   {classrooms.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{c.name}</option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Activation Status</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Activation Status</label>
               <select
                 value={structForm.status}
                 onChange={(e) => setStructForm({ ...structForm, status: e.target.value as any })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="ACTIVE">ACTIVE (Automatically applies to all eligible class students)</option>
-                <option value="DRAFT">DRAFT (Save for later configuration)</option>
+                <option value="ACTIVE" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">ACTIVE (Automatically applies to all eligible class students)</option>
+                <option value="DRAFT" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">DRAFT (Save for later configuration)</option>
               </select>
             </div>
 
             {/* Configured Fee Items List */}
-            <div className="border-t pt-4 space-y-3">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3">
               <div className="flex justify-between items-center">
-                <h4 className="text-sm font-semibold text-slate-900">Fee Items & Frequency</h4>
+                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Fee Items & Frequency</h4>
                 <button
                   type="button"
                   onClick={addStructItem}
-                  className="text-xs text-indigo-600 font-semibold hover:underline flex items-center gap-1"
+                  className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1"
                 >
                   <Plus className="size-3" /> Add Fee Item
                 </button>
               </div>
 
               {structForm.items.map((item, idx) => (
-                <div key={idx} className="p-3 border rounded-lg bg-slate-50 space-y-2 text-xs">
+                <div key={idx} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800/80 space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-slate-700">Item #{idx + 1}</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">Item #{idx + 1}</span>
                     {structForm.items.length > 1 && (
                       <button
                         type="button"
                         onClick={() => removeStructItem(idx)}
-                        className="text-rose-600 hover:text-rose-800 text-xs font-medium"
+                        className="text-rose-600 dark:text-rose-400 hover:text-rose-800 text-xs font-medium"
                       >
                         Remove
                       </button>
@@ -1088,7 +1088,7 @@ export default function FeesPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Item Name</label>
+                      <label className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Item Name</label>
                       <input
                         type="text"
                         required
@@ -1099,11 +1099,11 @@ export default function FeesPage() {
                           updated[idx].name = e.target.value
                           setStructForm({ ...structForm, items: updated })
                         }}
-                        className="w-full px-2 py-1.5 border rounded text-xs bg-white"
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Fee Type</label>
+                      <label className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Fee Type</label>
                       <select
                         value={item.feeType}
                         onChange={(e) => {
@@ -1115,17 +1115,17 @@ export default function FeesPage() {
                           }
                           setStructForm({ ...structForm, items: updated })
                         }}
-                        className="w-full px-2 py-1.5 border rounded text-xs bg-white"
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                       >
-                        <option value="REGULAR">Regular Fee</option>
-                        <option value="REFUNDABLE_DEPOSIT">Refundable Deposit</option>
+                        <option value="REGULAR" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Regular Fee</option>
+                        <option value="REFUNDABLE_DEPOSIT" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Refundable Deposit</option>
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Amount (₹)</label>
+                      <label className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Amount (₹)</label>
                       <input
                         type="number"
                         required
@@ -1136,11 +1136,11 @@ export default function FeesPage() {
                           updated[idx].amountRupees = parseFloat(e.target.value) || 0
                           setStructForm({ ...structForm, items: updated })
                         }}
-                        className="w-full px-2 py-1.5 border rounded text-xs bg-white"
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Payment Frequency</label>
+                      <label className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">Payment Frequency</label>
                       <select
                         value={item.frequency}
                         onChange={(e) => {
@@ -1148,13 +1148,13 @@ export default function FeesPage() {
                           updated[idx].frequency = e.target.value as any
                           setStructForm({ ...structForm, items: updated })
                         }}
-                        className="w-full px-2 py-1.5 border rounded text-xs bg-white"
+                        className="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
                       >
-                        <option value="ONE_TIME">One Time</option>
-                        <option value="MONTHLY">Monthly</option>
-                        <option value="QUARTERLY">Quarterly</option>
-                        <option value="HALF_YEARLY">Half-Yearly</option>
-                        <option value="ANNUALLY">Yearly</option>
+                        <option value="ONE_TIME" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">One Time</option>
+                        <option value="MONTHLY" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Monthly</option>
+                        <option value="QUARTERLY" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Quarterly</option>
+                        <option value="HALF_YEARLY" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Half-Yearly</option>
+                        <option value="ANNUALLY" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Yearly</option>
                       </select>
                     </div>
                   </div>
@@ -1162,11 +1162,11 @@ export default function FeesPage() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setShowStructureModal(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
               >
                 Cancel
               </button>
@@ -1190,16 +1190,16 @@ export default function FeesPage() {
         >
           <form onSubmit={handleRecordPayment} className="space-y-4 p-1">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Select Student *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Select Student *</label>
               <select
                 required
                 value={paymentForm.studentId}
                 onChange={(e) => setPaymentForm({ ...paymentForm, studentId: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="">-- Choose Student --</option>
+                <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">-- Choose Student --</option>
                 {students.map((s) => (
-                  <option key={s.id} value={s.id}>
+                  <option key={s.id} value={s.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">
                     {s.name} ({s.admissionNo})
                   </option>
                 ))}
@@ -1208,21 +1208,21 @@ export default function FeesPage() {
 
             {paymentForm.studentId && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Fee Item / Installment *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Select Fee Item / Installment *</label>
                 <input
                   type="text"
                   required
                   placeholder="Enter Fee Schedule ID or Item Reference"
                   value={paymentForm.feeScheduleId}
                   onChange={(e) => setPaymentForm({ ...paymentForm, feeScheduleId: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Amount (₹) *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Payment Amount (₹) *</label>
                 <input
                   type="number"
                   required
@@ -1230,43 +1230,43 @@ export default function FeesPage() {
                   placeholder="e.g. 3000"
                   value={paymentForm.amountRupees}
                   onChange={(e) => setPaymentForm({ ...paymentForm, amountRupees: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                <span className="text-[10px] text-slate-500">Supports partial payment</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">Supports partial payment</span>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Method *</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Payment Method *</label>
                 <select
                   value={paymentForm.method}
                   onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value as any })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="CASH">CASH</option>
-                  <option value="UPI">UPI</option>
-                  <option value="BANK_TRANSFER">BANK TRANSFER</option>
-                  <option value="CARD">CARD</option>
-                  <option value="CHEQUE">CHEQUE</option>
+                  <option value="CASH" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">CASH</option>
+                  <option value="UPI" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">UPI</option>
+                  <option value="BANK_TRANSFER" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">BANK TRANSFER</option>
+                  <option value="CARD" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">CARD</option>
+                  <option value="CHEQUE" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">CHEQUE</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Transaction Ref / Reference Number</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Transaction Ref / Reference Number</label>
               <input
                 type="text"
                 placeholder="e.g. UPI-129381928"
                 value={paymentForm.transactionRef}
                 onChange={(e) => setPaymentForm({ ...paymentForm, transactionRef: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setShowPaymentModal(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
               >
                 Cancel
               </button>
@@ -1289,13 +1289,13 @@ export default function FeesPage() {
           onClose={() => setShowRefundModal(false)}
         >
           <form onSubmit={handleProcessRefund} className="space-y-4 p-1">
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-1">
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs space-y-1">
               <div>Student: <span className="font-semibold">{selectedDeposit.studentName}</span> ({selectedDeposit.admissionNo})</div>
-              <div>Available Refundable Balance: <span className="font-bold text-amber-900">{inr(parseFloat(selectedDeposit.remainingRupees) * 100)}</span></div>
+              <div>Available Refundable Balance: <span className="font-bold text-amber-900 dark:text-amber-200">{inr(parseFloat(selectedDeposit.remainingRupees) * 100)}</span></div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Refund Amount (₹) *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Refund Amount (₹) *</label>
               <input
                 type="number"
                 required
@@ -1303,41 +1303,41 @@ export default function FeesPage() {
                 max={selectedDeposit.remainingRupees}
                 value={refundForm.amountRupees}
                 onChange={(e) => setRefundForm({ ...refundForm, amountRupees: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Refund Mode</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Refund Mode</label>
               <select
                 value={refundForm.refundMode}
                 onChange={(e) => setRefundForm({ ...refundForm, refundMode: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="BANK_TRANSFER">BANK TRANSFER</option>
-                <option value="UPI">UPI</option>
-                <option value="CHEQUE">CHEQUE</option>
-                <option value="CASH">CASH</option>
+                <option value="BANK_TRANSFER" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">BANK TRANSFER</option>
+                <option value="UPI" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">UPI</option>
+                <option value="CHEQUE" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">CHEQUE</option>
+                <option value="CASH" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">CASH</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Reason for Refund *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Reason for Refund *</label>
               <textarea
                 required
                 rows={2}
                 placeholder="e.g. Student course completion refund"
                 value={refundForm.reason}
                 onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setShowRefundModal(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
               >
                 Cancel
               </button>
@@ -1360,13 +1360,13 @@ export default function FeesPage() {
           onClose={() => setShowAdjustModal(false)}
         >
           <form onSubmit={handleAdjustDeposit} className="space-y-4 p-1">
-            <div className="p-3 bg-slate-50 border rounded-lg text-xs space-y-1">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs space-y-1">
               <div>Student: <span className="font-semibold">{selectedDeposit.studentName}</span></div>
               <div>Available Held Deposit: <span className="font-bold">{inr(parseFloat(selectedDeposit.remainingRupees) * 100)}</span></div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Adjustment Amount (₹) *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Adjustment Amount (₹) *</label>
               <input
                 type="number"
                 required
@@ -1375,27 +1375,27 @@ export default function FeesPage() {
                 placeholder="e.g. 1000 for damages / unreturned books"
                 value={adjustForm.adjustmentAmountRupees}
                 onChange={(e) => setAdjustForm({ ...adjustForm, adjustmentAmountRupees: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Adjustment Reason & Audit Note *</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Adjustment Reason & Audit Note *</label>
               <textarea
                 required
                 rows={2}
                 placeholder="e.g. Deduction for damaged library kit"
                 value={adjustForm.reason}
                 onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setShowAdjustModal(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
               >
                 Cancel
               </button>
