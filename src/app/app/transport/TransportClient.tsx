@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState, useRef } from 'react'
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import {
@@ -34,6 +34,7 @@ import {
   UserPlus,
   Zap,
   QrCode,
+  Eye,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Segmented, Field } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -47,33 +48,148 @@ interface SessionProps {
   email: string
   name: string
   role: Role
+  roles?: Role[]
   tenantId: string | null
   branchId: string | null
+}
+
+function WizardStepBar({ currentStep, totalSteps, steps }: { currentStep: number; totalSteps: number; steps: string[] }) {
+  return (
+    <div style={{ marginBottom: 18, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-default, #e2e8f0)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary, #7c3aed)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Step {currentStep} of {totalSteps}: {steps[currentStep - 1]}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)' }}>
+          {Math.round((currentStep / totalSteps) * 100)}% Complete
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, height: 5, background: 'var(--border-default, #cbd5e1)', borderRadius: 9999, overflow: 'hidden' }}>
+        {steps.map((_, idx) => (
+          <div
+            key={idx}
+            style={{
+              flex: 1,
+              height: '100%',
+              background: idx + 1 <= currentStep ? 'var(--primary, #7c3aed)' : 'transparent',
+              transition: 'background 0.2s ease',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function TransportClient({ session }: { session: SessionProps }) {
   const toast = useToast()
   const searchParams = useSearchParams()
-  const role = session.role
-  const canWrite = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
-  const canOperate = ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'RECEPTIONIST', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
 
-  type TabKey =
-    | 'OVERVIEW'
-    | 'PARENT'
-    | 'DRIVER'
-    | 'TEACHER'
-    | 'TRIPS'
-    | 'ROUTES'
-    | 'VEHICLES'
-    | 'STUDENTS'
-    | 'AUTHORIZATIONS'
-    | 'SECURITY'
-    | 'INCIDENTS'
-    | 'SCANNER'
-    | 'SEED'
-  const [tab, setTab] = useState<TabKey>('OVERVIEW')
+  const effectiveRoles = useMemo(() => {
+    const list = [session.role, ...(session.roles || [])].filter(Boolean)
+    return Array.from(new Set(list)).map(normalizeRole)
+  }, [session.role, session.roles])
+
+  const isAdmin = effectiveRoles.some((r) => ['PLATFORM_ADMIN', 'OWNER', 'PRINCIPAL', 'COORDINATOR'].includes(r))
+  const isDriver = effectiveRoles.some((r) => ['DRIVER', 'ATTENDANT'].includes(r))
+  const isTeacher = effectiveRoles.some((r) => ['TEACHER'].includes(r))
+  const isParent = effectiveRoles.some((r) => ['PARENT', 'GUARDIAN'].includes(r))
+  const isSecurity = effectiveRoles.some((r) => ['RECEPTIONIST', 'STAFF', 'ACCOUNTS'].includes(r))
+
+  const canWrite = isAdmin
+  const canOperate = isAdmin || isSecurity
+
+  type AdminDestKey = 'HOME' | 'TRIPS' | 'STUDENTS_ROUTES' | 'SAFETY' | 'FLEET_SETTINGS'
+  type LegacyTabKey = 'OVERVIEW' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'AUTHORIZATIONS' | 'SECURITY' | 'INCIDENTS' | 'SCANNER' | 'SEED'
+  type NonAdminDestKey = 'PARENT' | 'DRIVER' | 'TEACHER'
+  type TabKey = AdminDestKey | LegacyTabKey | NonAdminDestKey
+
+  const defaultTab = useMemo<TabKey>(() => {
+    if (isAdmin) return 'HOME'
+    if (isParent) return 'PARENT'
+    if (isDriver) return 'DRIVER'
+    if (isTeacher) return 'TEACHER'
+    if (isSecurity) return 'SCANNER'
+    return 'HOME'
+  }, [isAdmin, isParent, isDriver, isTeacher, isSecurity])
+
+  const [tab, setTab] = useState<TabKey>(defaultTab)
+  const [parentPreviewStudent, setParentPreviewStudent] = useState<any>(null)
   const [selectedRouteId, setSelectedRouteId] = useState<string>('')
+
+  // 5-Group Destination Sub-Tabs
+  const [childrenRoutesSubTab, setChildrenRoutesSubTab] = useState<'allocations' | 'routes'>('allocations')
+  const [safetySubTab, setSafetySubTab] = useState<'authorizations' | 'incidents' | 'security_logs'>('authorizations')
+  const [fleetSettingsSubTab, setFleetSettingsSubTab] = useState<'vehicles' | 'scanner' | 'seed'>('vehicles')
+
+  // Guided Multi-Step Wizard States
+  const [assignStudentStep, setAssignStudentStep] = useState(1)
+  const [assignStudentChildId, setAssignStudentChildId] = useState('')
+  const [assignStudentRouteId, setAssignStudentRouteId] = useState('')
+  const [assignStudentPickupStopId, setAssignStudentPickupStopId] = useState('')
+  const [assignStudentDropStopId, setAssignStudentDropStopId] = useState('')
+  const [assignStudentTripType, setAssignStudentTripType] = useState('ROUND_TRIP')
+  const [assignStudentMonthlyFee, setAssignStudentMonthlyFee] = useState(2500)
+  const [assignStudentGenerateInvoice, setAssignStudentGenerateInvoice] = useState(true)
+
+  const [startTripStep, setStartTripStep] = useState(1)
+  const [startTripRouteId, setStartTripRouteId] = useState('')
+  const [startTripType, setStartTripType] = useState<'MORNING' | 'EVENING'>('MORNING')
+
+  const [addAuthStep, setAddAuthStep] = useState(1)
+  const [addAuthStudentId, setAddAuthStudentId] = useState('')
+  const [addAuthPersonName, setAddAuthPersonName] = useState('')
+  const [addAuthPersonPhone, setAddAuthPersonPhone] = useState('')
+  const [addAuthRelationship, setAddAuthRelationship] = useState('Family Friend')
+  const [addAuthIsOneTime, setAddAuthIsOneTime] = useState(true)
+  const [addAuthValidFrom, setAddAuthValidFrom] = useState(new Date().toISOString().slice(0, 16))
+  const [addAuthValidUntil, setAddAuthValidUntil] = useState(new Date(Date.now() + 86400000).toISOString().slice(0, 16))
+  const [addAuthReason, setAddAuthReason] = useState('')
+
+  const [addVehicleStep, setAddVehicleStep] = useState(1)
+  const [addVehicleRegNumber, setAddVehicleRegNumber] = useState('')
+  const [addVehicleType, setAddVehicleType] = useState('BUS')
+  const [addVehicleMakeModel, setAddVehicleMakeModel] = useState('')
+  const [addVehicleCapacity, setAddVehicleCapacity] = useState(20)
+  const [addVehicleNotes, setAddVehicleNotes] = useState('Speed governor installed, fire extinguisher checked')
+
+  const handleSelectTab = (target: TabKey) => {
+    if (isAdmin) {
+      if (target === 'OVERVIEW' || target === 'HOME') {
+        setTab('HOME')
+      } else if (target === 'TRIPS') {
+        setTab('TRIPS')
+      } else if (target === 'STUDENTS' || target === 'STUDENTS_ROUTES') {
+        setTab('STUDENTS_ROUTES')
+        setChildrenRoutesSubTab('allocations')
+      } else if (target === 'ROUTES') {
+        setTab('STUDENTS_ROUTES')
+        setChildrenRoutesSubTab('routes')
+      } else if (target === 'AUTHORIZATIONS' || target === 'SAFETY') {
+        setTab('SAFETY')
+        setSafetySubTab('authorizations')
+      } else if (target === 'INCIDENTS') {
+        setTab('SAFETY')
+        setSafetySubTab('incidents')
+      } else if (target === 'SECURITY') {
+        setTab('SAFETY')
+        setSafetySubTab('security_logs')
+      } else if (target === 'VEHICLES' || target === 'FLEET_SETTINGS') {
+        setTab('FLEET_SETTINGS')
+        setFleetSettingsSubTab('vehicles')
+      } else if (target === 'SCANNER') {
+        setTab('FLEET_SETTINGS')
+        setFleetSettingsSubTab('scanner')
+      } else if (target === 'SEED') {
+        setTab('FLEET_SETTINGS')
+        setFleetSettingsSubTab('seed')
+      } else {
+        setTab(target)
+      }
+    } else {
+      setTab(target)
+    }
+  }
 
   const [loading, setLoading] = useState(false)
   const [metrics, setMetrics] = useState<any>(null)
@@ -257,19 +373,34 @@ export function TransportClient({ session }: { session: SessionProps }) {
   }, [])
 
   useEffect(() => {
-    loadDashboard()
-    loadVehicles()
-    loadRoutes()
-    loadAssignments()
-    loadTrips()
-    loadIncidents()
-    loadAuthorizations()
-    loadSecurityLogs()
-    loadStaff()
-    loadStudents()
-    loadMyChildren()
-    loadTeacherData()
+    if (isAdmin || isDriver || isSecurity) {
+      loadDashboard()
+      loadTrips()
+      loadRoutes()
+    }
+    if (isAdmin) {
+      loadVehicles()
+      loadAssignments()
+      loadIncidents()
+      loadStaff()
+      loadStudents()
+    }
+    if (isAdmin || isSecurity) {
+      loadAuthorizations()
+      loadSecurityLogs()
+    }
+    if (isTeacher) {
+      loadTeacherData()
+    }
+    if (isParent) {
+      loadMyChildren()
+    }
   }, [
+    isAdmin,
+    isDriver,
+    isTeacher,
+    isParent,
+    isSecurity,
     loadDashboard,
     loadVehicles,
     loadRoutes,
@@ -643,22 +774,31 @@ export function TransportClient({ session }: { session: SessionProps }) {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
+    const registrationNumber = (fd.get('registrationNumber') as string) || addVehicleRegNumber
+    const capacity = fd.get('capacity') !== null && fd.get('capacity') !== '' ? Number(fd.get('capacity')) : addVehicleCapacity
+    const makeModel = (fd.get('makeModel') as string) || addVehicleMakeModel
+    const vehicleType = (fd.get('vehicleType') as string) || addVehicleType
+    const notes = (fd.get('notes') as string) || addVehicleNotes
+
     try {
       const res = await fetch('/api/v1/transport/vehicles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          registrationNumber: fd.get('registrationNumber'),
-          capacity: Number(fd.get('capacity')),
-          makeModel: fd.get('makeModel'),
-          vehicleType: fd.get('vehicleType'),
-          notes: fd.get('notes'),
+          registrationNumber,
+          capacity,
+          makeModel,
+          vehicleType,
+          notes,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('Vehicle registered successfully')
         setAddVehicleOpen(false)
+        setAddVehicleStep(1)
+        setAddVehicleRegNumber('')
+        setAddVehicleMakeModel('')
         loadVehicles()
         loadDashboard()
       } else {
@@ -802,19 +942,22 @@ export function TransportClient({ session }: { session: SessionProps }) {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
+    const routeId = (fd.get('routeId') as string) || startTripRouteId
+    const tripType = (fd.get('tripType') as string) || startTripType
     try {
       const res = await fetch('/api/v1/transport/trips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          routeId: fd.get('routeId'),
-          tripType: fd.get('tripType'),
+          routeId,
+          tripType,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('Trip dispatched with live student manifest!')
         setStartTripOpen(false)
+        setStartTripStep(1)
         loadTrips()
         loadDashboard()
         setTab('TRIPS')
@@ -988,29 +1131,34 @@ export function TransportClient({ session }: { session: SessionProps }) {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
-    const routeId = fd.get('routeId') as string
-    const selectedRoute = routes.find((r) => r.id === routeId)
-    const pickupStopId = fd.get('pickupStopId') as string
-    const dropStopId = fd.get('dropStopId') as string
+    const studentId = (fd.get('studentId') as string) || assignStudentChildId
+    const routeId = (fd.get('routeId') as string) || assignStudentRouteId
+    const pickupStopId = (fd.get('pickupStopId') as string) || assignStudentPickupStopId
+    const dropStopId = (fd.get('dropStopId') as string) || assignStudentDropStopId
+    const tripType = (fd.get('tripType') as string) || assignStudentTripType
+    const monthlyFee = fd.get('monthlyFee') !== null && fd.get('monthlyFee') !== '' ? Number(fd.get('monthlyFee')) : assignStudentMonthlyFee
+    const generateFeeInvoice = fd.get('generateFeeInvoice') !== null ? fd.get('generateFeeInvoice') === 'on' : assignStudentGenerateInvoice
 
     try {
       const res = await fetch('/api/v1/transport/assignments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: fd.get('studentId'),
+          studentId,
           routeId,
           pickupStopId,
           dropStopId,
-          tripType: fd.get('tripType'),
-          monthlyFeeCents: Number(fd.get('monthlyFee')) * 100,
-          generateFeeInvoice: fd.get('generateFeeInvoice') === 'on',
+          tripType,
+          monthlyFeeCents: monthlyFee * 100,
+          generateFeeInvoice,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('Student assigned to transport!')
         setAssignStudentOpen(false)
+        setAssignStudentStep(1)
+        setAssignStudentChildId('')
         loadAssignments()
         loadRoutes()
         loadDashboard()
@@ -1130,26 +1278,41 @@ export function TransportClient({ session }: { session: SessionProps }) {
     e.preventDefault()
     setBusy(true)
     const fd = new FormData(e.currentTarget)
+    const studentId = (fd.get('studentId') as string) || addAuthStudentId
+    const authorizedPersonName = (fd.get('authorizedPersonName') as string) || addAuthPersonName
+    const authorizedPersonPhone = (fd.get('authorizedPersonPhone') as string) || addAuthPersonPhone
+    const relationship = (fd.get('relationship') as string) || addAuthRelationship
+    const reason = (fd.get('reason') as string) || addAuthReason
+    const validFrom = (fd.get('validFrom') as string) || addAuthValidFrom
+    const validUntil = (fd.get('validUntil') as string) || addAuthValidUntil
+    const isOneTime = fd.get('isOneTime') !== null ? fd.get('isOneTime') === 'true' : addAuthIsOneTime
+    const remarks = (fd.get('remarks') as string) || undefined
+
     try {
       const res = await fetch('/api/v1/transport/authorizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: fd.get('studentId'),
-          authorizedPersonName: fd.get('authorizedPersonName'),
-          authorizedPersonPhone: fd.get('authorizedPersonPhone'),
-          relationship: fd.get('relationship'),
-          reason: fd.get('reason'),
-          validFrom: fd.get('validFrom'),
-          validUntil: fd.get('validUntil'),
-          isOneTime: fd.get('isOneTime') === 'true',
-          remarks: fd.get('remarks'),
+          studentId,
+          authorizedPersonName,
+          authorizedPersonPhone,
+          relationship,
+          reason,
+          validFrom,
+          validUntil,
+          isOneTime,
+          remarks,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('Temporary Pickup Authorization created!')
         setAddAuthOpen(false)
+        setAddAuthStep(1)
+        setAddAuthStudentId('')
+        setAddAuthPersonName('')
+        setAddAuthPersonPhone('')
+        setAddAuthReason('')
         loadAuthorizations()
       } else {
         toast.error('Failed to create authorization', json.error?.message || json.error)
@@ -1239,16 +1402,94 @@ export function TransportClient({ session }: { session: SessionProps }) {
   // Check if any open critical incidents exist
   const criticalIncidents = incidents.filter((i) => (i.severity === 'CRITICAL' || i.severity === 'HIGH') && i.status !== 'RESOLVED')
 
+  const allowedTabs = useMemo(() => {
+    const list: { key: TabKey; label: string; icon: any; badge?: number }[] = []
+    if (isAdmin) {
+      list.push({ key: 'HOME', label: '1. Home', icon: LayoutDashboard })
+      list.push({ key: 'TRIPS', label: "2. Today's Trips", icon: Clock, badge: trips.length > 0 ? trips.length : undefined })
+      list.push({ key: 'STUDENTS_ROUTES', label: '3. Children & Routes', icon: Users, badge: assignments.length > 0 ? assignments.length : undefined })
+      list.push({
+        key: 'SAFETY',
+        label: '4. Safety & Approvals',
+        icon: ShieldCheck,
+        badge: (authorizations.filter((a: any) => a.status === 'PENDING').length + criticalIncidents.length) || undefined,
+      })
+      list.push({ key: 'FLEET_SETTINGS', label: '5. Fleet & Settings', icon: Truck, badge: vehicles.length > 0 ? vehicles.length : undefined })
+    }
+    if (isParent) {
+      list.push({ key: 'PARENT', label: "My Child's Transport", icon: Users, badge: myChildren.length > 0 ? myChildren.length : undefined })
+    }
+    if (isDriver) {
+      list.push({ key: 'DRIVER', label: 'My Trip', icon: Bus })
+      list.push({ key: 'SCANNER', label: 'Gate QR Scanner', icon: QrCode })
+    }
+    if (isTeacher) {
+      list.push({ key: 'TEACHER', label: 'Arrivals to Verify', icon: GraduationCap, badge: teacherData?.pendingArrivals?.length > 0 ? teacherData.pendingArrivals.length : undefined })
+    }
+    if (isSecurity && !isAdmin) {
+      list.push({ key: 'SCANNER', label: 'QR/PIN Scanner', icon: QrCode })
+      list.push({
+        key: 'AUTHORIZATIONS',
+        label: 'Temp Pickups',
+        icon: ShieldCheck,
+        badge: authorizations.filter((a: any) => a.status === 'PENDING').length || undefined,
+      })
+      list.push({ key: 'SECURITY', label: 'Security Audit', icon: ShieldAlert })
+    }
+    return list
+  }, [
+    isAdmin,
+    isParent,
+    isDriver,
+    isTeacher,
+    isSecurity,
+    trips.length,
+    assignments.length,
+    authorizations,
+    criticalIncidents.length,
+    vehicles.length,
+    myChildren.length,
+    teacherData?.pendingArrivals?.length,
+  ])
+
+  // Enforce role-based workspace tab redirect if current tab is unauthorized
+  useEffect(() => {
+    if (allowedTabs.length > 0 && !allowedTabs.some((t) => t.key === tab)) {
+      if (isAdmin) {
+        if (tab === 'OVERVIEW') setTab('HOME')
+        else if (tab === 'STUDENTS' || tab === 'ROUTES') setTab('STUDENTS_ROUTES')
+        else if (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY') setTab('SAFETY')
+        else if (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED') setTab('FLEET_SETTINGS')
+        else setTab(allowedTabs[0].key)
+      } else {
+        setTab(allowedTabs[0].key)
+      }
+    }
+  }, [allowedTabs, tab, isAdmin])
+
   const handleRefreshAll = () => {
-    loadDashboard()
-    loadTrips()
-    loadVehicles()
-    loadRoutes()
-    loadIncidents()
-    loadMyChildren()
-    loadTeacherData()
-    loadAuthorizations()
-    loadSecurityLogs()
+    if (isAdmin || isDriver || isSecurity) {
+      loadDashboard()
+      loadTrips()
+      loadRoutes()
+    }
+    if (isAdmin) {
+      loadVehicles()
+      loadAssignments()
+      loadIncidents()
+      loadStaff()
+      loadStudents()
+    }
+    if (isAdmin || isSecurity) {
+      loadAuthorizations()
+      loadSecurityLogs()
+    }
+    if (isTeacher) {
+      loadTeacherData()
+    }
+    if (isParent) {
+      loadMyChildren()
+    }
   }
 
   return (
@@ -1277,19 +1518,98 @@ export function TransportClient({ session }: { session: SessionProps }) {
         sub="Fleet management, daily transit runs, student manifest verification, authorized multi-guardian drop safety, and real-time operations escalation"
         actions={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {(tab === 'OVERVIEW' || tab === 'TRIPS') && canOperate && (
-              <button className="btn btn-primary" onClick={() => setStartTripOpen(true)}>
+            {(tab === 'HOME' || tab === 'OVERVIEW' || tab === 'TRIPS') && canOperate && (
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setStartTripStep(1)
+                  setStartTripOpen(true)
+                }}
+              >
                 <Clock size={15} /> Dispatch Trip
               </button>
             )}
+            {(tab === 'STUDENTS_ROUTES' || tab === 'STUDENTS') && canWrite && (
+              <>
+                {childrenRoutesSubTab === 'allocations' ? (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setAssignStudentStep(1)
+                      setAssignStudentOpen(true)
+                    }}
+                  >
+                    <UserPlus size={15} /> Allocate Seat
+                  </button>
+                ) : (
+                  <button className="btn btn-primary" onClick={() => setAddRouteOpen(true)}>
+                    <Plus size={15} /> Add Route
+                  </button>
+                )}
+              </>
+            )}
+            {(tab === 'SAFETY' || tab === 'AUTHORIZATIONS') && (
+              <>
+                {safetySubTab === 'authorizations' && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setAddAuthStep(1)
+                      setAddAuthOpen(true)
+                    }}
+                  >
+                    <Plus size={15} /> Request Temp Pickup
+                  </button>
+                )}
+                {safetySubTab === 'incidents' && canOperate && (
+                  <button className="btn btn-danger" onClick={() => setReportIncidentOpen(true)}>
+                    <AlertOctagon size={15} /> Report Incident
+                  </button>
+                )}
+                {safetySubTab === 'security_logs' && canOperate && (
+                  <button className="btn btn-danger" onClick={() => setManualOverrideModal({})}>
+                    <AlertTriangle size={15} /> Record Override
+                  </button>
+                )}
+              </>
+            )}
+            {(tab === 'FLEET_SETTINGS' || tab === 'VEHICLES') && (
+              <>
+                {fleetSettingsSubTab === 'vehicles' && canWrite && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setAddVehicleStep(1)
+                      setAddVehicleOpen(true)
+                    }}
+                  >
+                    <Plus size={15} /> Register Vehicle
+                  </button>
+                )}
+                {fleetSettingsSubTab === 'scanner' && (
+                  <button className="btn btn-primary" onClick={cameraActive ? stopCameraScan : startCameraScan}>
+                    <QrCode size={15} /> {cameraActive ? 'Stop Camera' : 'Camera Scanner'}
+                  </button>
+                )}
+              </>
+            )}
             {tab === 'PARENT' && (
-              <button className="btn btn-primary" onClick={() => setAddAuthOpen(true)}>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setAddAuthStep(1)
+                  setAddAuthOpen(true)
+                }}
+              >
                 <Plus size={15} /> Request Alternate Pickup
               </button>
             )}
             {tab === 'DRIVER' && (
-              <button className="btn btn-primary" onClick={() => setTab('SCANNER')}>
-                <QrCode size={15} /> Bus Check-In QR
+              <button
+                className="btn btn-primary"
+                onClick={() => handleGenerateDriverQr(routes[0]?.id || 'r1', vehicles[0]?.id || 'v1')}
+              >
+                <QrCode size={15} /> Display Bus QR
               </button>
             )}
             {tab === 'TEACHER' && (
@@ -1297,44 +1617,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 <CheckCircle2 size={15} /> Verify Arrivals
               </button>
             )}
-            {tab === 'ROUTES' && canWrite && (
-              <button className="btn btn-primary" onClick={() => setAddRouteOpen(true)}>
-                <Plus size={15} /> Add Route
-              </button>
-            )}
-            {tab === 'VEHICLES' && canWrite && (
-              <button className="btn btn-primary" onClick={() => setAddVehicleOpen(true)}>
-                <Plus size={15} /> Register Vehicle
-              </button>
-            )}
-            {tab === 'STUDENTS' && canWrite && (
-              <button className="btn btn-primary" onClick={() => setAssignStudentOpen(true)}>
-                <UserPlus size={15} /> Allocate Seat
-              </button>
-            )}
-            {tab === 'AUTHORIZATIONS' && (
-              <button className="btn btn-primary" onClick={() => setAddAuthOpen(true)}>
-                <Plus size={15} /> Request Authorization
-              </button>
-            )}
-            {tab === 'SECURITY' && canOperate && (
-              <button className="btn btn-danger" onClick={() => setManualOverrideModal({})}>
-                <AlertTriangle size={15} /> Record Override
-              </button>
-            )}
-            {tab === 'INCIDENTS' && canOperate && (
-              <button className="btn btn-danger" onClick={() => setReportIncidentOpen(true)}>
-                <AlertOctagon size={15} /> Report Incident
-              </button>
-            )}
             {tab === 'SCANNER' && (
               <button className="btn btn-primary" onClick={cameraActive ? stopCameraScan : startCameraScan}>
                 <QrCode size={15} /> {cameraActive ? 'Stop Camera Scanner' : 'Open Camera Scanner'}
-              </button>
-            )}
-            {tab === 'SEED' && (
-              <button className="btn btn-primary" onClick={handleSeedDemoData} disabled={busy}>
-                <Zap size={15} /> Seed Demo Data & QR
               </button>
             )}
             <button className="btn btn-outline" onClick={handleRefreshAll} disabled={loading} title="Reload live data">
@@ -1412,7 +1697,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
         </div>
       )}
 
-      {/* 12 CANONICAL WORKSPACE HORIZONTAL METRO NAVIGATION */}
+      {/* 5-DESTINATION SIMPLIFIED HORIZONTAL METRO NAVIGATION */}
       <nav
         aria-label="Transport Workspaces"
         style={{
@@ -1428,28 +1713,19 @@ export function TransportClient({ session }: { session: SessionProps }) {
           marginBottom: 20,
         }}
       >
-        {[
-          { key: 'OVERVIEW', label: '1. Command Center', icon: LayoutDashboard },
-          { key: 'PARENT', label: '2. Parent Portal', icon: Users, badge: myChildren.length > 0 ? myChildren.length : undefined },
-          { key: 'DRIVER', label: '3. Driver Hub', icon: Bus },
-          { key: 'TEACHER', label: '4. Teacher Verification', icon: GraduationCap, badge: teacherData?.pendingArrivals?.length > 0 ? teacherData.pendingArrivals.length : undefined },
-          { key: 'TRIPS', label: "5. Daily Runs", icon: Clock, badge: trips.length > 0 ? trips.length : undefined },
-          { key: 'ROUTES', label: '6. Routes & Stops', icon: MapPin, badge: routes.length > 0 ? routes.length : undefined },
-          { key: 'VEHICLES', label: '7. Fleet Vehicles', icon: Truck, badge: vehicles.length > 0 ? vehicles.length : undefined },
-          { key: 'STUDENTS', label: '8. Allocations', icon: UserCheck, badge: assignments.length > 0 ? assignments.length : undefined },
-          { key: 'AUTHORIZATIONS', label: '9. Temp Pickups', icon: ShieldCheck, badge: authorizations.filter((a: any) => a.status === 'PENDING').length || (authorizations.length > 0 ? authorizations.length : undefined) },
-          { key: 'SECURITY', label: '10. Security Audit', icon: ShieldAlert },
-          { key: 'INCIDENTS', label: '11. Safety Incidents', icon: AlertTriangle, badge: criticalIncidents.length > 0 ? criticalIncidents.length : (incidents.length > 0 ? incidents.length : undefined) },
-          { key: 'SCANNER', label: '12. QR Scanner', icon: QrCode },
-          { key: 'SEED', label: 'Demo Seed & Test', icon: Zap },
-        ].map((t) => {
-          const isActive = tab === t.key
+        {allowedTabs.map((t) => {
+          const isActive =
+            tab === t.key ||
+            (t.key === 'HOME' && tab === 'OVERVIEW') ||
+            (t.key === 'STUDENTS_ROUTES' && (tab === 'STUDENTS' || tab === 'ROUTES')) ||
+            (t.key === 'SAFETY' && (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY')) ||
+            (t.key === 'FLEET_SETTINGS' && (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED'))
           const Icon = t.icon
           return (
             <button
               key={t.key}
               type="button"
-              onClick={() => setTab(t.key as TabKey)}
+              onClick={() => handleSelectTab(t.key)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1803,7 +2079,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* TAB: SEED — DEMO DATA & SCENARIO TEST RUNNER */}
       {/* ========================================================================= */}
-      {tab === 'SEED' && (
+      {((tab === 'FLEET_SETTINGS' && fleetSettingsSubTab === 'seed') || (!isAdmin && tab === 'SEED')) && (
         <div style={{ marginTop: 16 }}>
           <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)', border: '1px solid var(--warning)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
@@ -1876,10 +2152,191 @@ export function TransportClient({ session }: { session: SessionProps }) {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: OVERVIEW — COMMAND CENTER */}
+      {/* DESTINATION 1: HOME / OVERVIEW — OPERATIONAL COMMAND CENTER */}
       {/* ========================================================================= */}
-      {tab === 'OVERVIEW' && (
+      {(tab === 'HOME' || tab === 'OVERVIEW') && (
         <div style={{ marginTop: 16 }}>
+          {/* ACTION-ORIENTED OPERATIONS BANNER */}
+          <div
+            style={{
+              background: 'var(--surface-card, #ffffff)',
+              borderRadius: 16,
+              border: '1px solid var(--border-default, #e2e8f0)',
+              padding: '18px 22px',
+              marginBottom: 20,
+              boxShadow: 'var(--elevation-1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    background: 'var(--preone-primary-soft, #f3eeff)',
+                    color: 'var(--primary, #7c3aed)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary, #7c3aed)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Today's Operational Command Center
+                  </div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--foreground)' }}>
+                    {trips.length > 0
+                      ? `${trips.filter((t) => t.status === 'IN_PROGRESS').length} Active Bus Run(s) • ${metrics?.childrenBoarded ?? 0} Children in Transit`
+                      : "No Morning or Evening Bus Runs Dispatched Yet"}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {canOperate && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      setStartTripStep(1)
+                      setStartTripOpen(true)
+                    }}
+                  >
+                    <Plus size={14} /> Dispatch Run
+                  </button>
+                )}
+                {canWrite && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setAssignStudentStep(1)
+                      setAssignStudentOpen(true)
+                    }}
+                  >
+                    <UserPlus size={14} /> Allocate Seat
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Priority Alert Strips inside Banner */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              {/* 1. Urgent Gate Approvals */}
+              {authorizations.filter((a: any) => a.status === 'PENDING').length > 0 ? (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <ShieldAlert size={18} style={{ color: 'var(--warning-dark, #b45309)' }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                        {authorizations.filter((a: any) => a.status === 'PENDING').length} Pending Pickup Approval(s)
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                        Non-parent pickup awaiting principal authorization
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: 12, padding: '4px 10px' }}
+                    onClick={() => {
+                      handleSelectTab('SAFETY')
+                      setSafetySubTab('authorizations')
+                    }}
+                  >
+                    Review
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(16, 185, 129, 0.06)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <CheckCircle2 size={18} style={{ color: 'var(--success, #10b981)' }} />
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    All gate pickup authorizations are verified and up-to-date
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Fleet & Safety Status */}
+              {criticalIncidents.length > 0 ? (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <AlertOctagon size={18} style={{ color: 'var(--danger, #ef4444)' }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger, #ef4444)' }}>
+                        {criticalIncidents.length} Critical Safety Incident(s)
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                        Requires immediate supervisor attention
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    style={{ fontSize: 12, padding: '4px 10px' }}
+                    onClick={() => {
+                      handleSelectTab('SAFETY')
+                      setSafetySubTab('incidents')
+                    }}
+                  >
+                    Inspect
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    background: 'var(--c-surface-hover, rgba(0,0,0,0.02))',
+                    border: '1px solid var(--border-default, #e2e8f0)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}
+                >
+                  <ShieldCheck size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    Fleet readiness: {vehicles.filter((v) => v.status === 'ACTIVE').length}/{vehicles.length} buses operational
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Fluent Metro KPI Tiles */}
           <div
             style={{
@@ -2597,10 +3054,26 @@ export function TransportClient({ session }: { session: SessionProps }) {
       )}
 
       {/* ========================================================================= */}
+      {/* DESTINATION 3: CHILDREN & ROUTES SUB-NAV */}
+      {/* ========================================================================= */}
+      {tab === 'STUDENTS_ROUTES' && (
+        <div style={{ marginTop: 16, marginBottom: 16 }}>
+          <Segmented
+            options={[
+              { key: 'allocations', label: `Child Allocations (${assignments.length})` },
+              { key: 'routes', label: `Bus Routes & Stops (${routes.length})` },
+            ]}
+            value={childrenRoutesSubTab}
+            onChange={(k) => setChildrenRoutesSubTab(k as any)}
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* TAB 3: ROUTES & STOPS */}
       {/* ========================================================================= */}
-      {tab === 'ROUTES' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'STUDENTS_ROUTES' && childrenRoutesSubTab === 'routes') || (!isAdmin && tab === 'ROUTES')) && (
+        <div style={{ marginTop: tab === 'STUDENTS_ROUTES' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -2686,10 +3159,27 @@ export function TransportClient({ session }: { session: SessionProps }) {
       )}
 
       {/* ========================================================================= */}
+      {/* DESTINATION 5: FLEET & SETTINGS SUB-NAV */}
+      {/* ========================================================================= */}
+      {tab === 'FLEET_SETTINGS' && (
+        <div style={{ marginTop: 16, marginBottom: 16 }}>
+          <Segmented
+            options={[
+              { key: 'vehicles', label: `Fleet Vehicles (${vehicles.length})` },
+              { key: 'scanner', label: 'Gate QR / PIN Scanner' },
+              { key: 'seed', label: 'Demo Data Harness' },
+            ]}
+            value={fleetSettingsSubTab}
+            onChange={(k) => setFleetSettingsSubTab(k as any)}
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* TAB 4: FLEET (VEHICLES) */}
       {/* ========================================================================= */}
-      {tab === 'VEHICLES' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'FLEET_SETTINGS' && fleetSettingsSubTab === 'vehicles') || (!isAdmin && tab === 'VEHICLES')) && (
+        <div style={{ marginTop: tab === 'FLEET_SETTINGS' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -2772,8 +3262,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* TAB 5: STUDENT ALLOCATIONS */}
       {/* ========================================================================= */}
-      {tab === 'STUDENTS' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'STUDENTS_ROUTES' && childrenRoutesSubTab === 'allocations') || (!isAdmin && tab === 'STUDENTS')) && (
+        <div style={{ marginTop: tab === 'STUDENTS_ROUTES' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -2860,16 +3350,27 @@ export function TransportClient({ session }: { session: SessionProps }) {
                         <td><span className={`badge ${a.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>{a.status}</span></td>
                         {canWrite && (
                           <td style={{ textAlign: 'right' }}>
-                            {a.status === 'ACTIVE' && (
+                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
                               <button
-                                className="btn btn-ghost btn-sm"
-                                style={{ color: 'var(--danger)' }}
-                                onClick={() => setCancelAssignmentModal(a)}
-                                title="Discontinue Transport Service"
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setParentPreviewStudent(a)}
+                                title="Admin Audit: Preview what parent sees for this child"
                               >
-                                <UserX size={13} /> Cancel
+                                <Eye size={13} /> Parent Preview
                               </button>
-                            )}
+                              {a.status === 'ACTIVE' && (
+                                <button
+                                  type="button"
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: 'var(--danger)' }}
+                                  onClick={() => setCancelAssignmentModal(a)}
+                                  title="Discontinue Transport Service"
+                                >
+                                  <UserX size={13} /> Cancel
+                                </button>
+                              )}
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -2890,10 +3391,27 @@ export function TransportClient({ session }: { session: SessionProps }) {
       )}
 
       {/* ========================================================================= */}
+      {/* DESTINATION 4: SAFETY & APPROVALS SUB-NAV */}
+      {/* ========================================================================= */}
+      {tab === 'SAFETY' && (
+        <div style={{ marginTop: 16, marginBottom: 16 }}>
+          <Segmented
+            options={[
+              { key: 'authorizations', label: `Temp Pickups (${authorizations.filter((a: any) => a.status === 'PENDING').length || authorizations.length})` },
+              { key: 'incidents', label: `Safety Incidents (${incidents.filter((i: any) => i.status !== 'RESOLVED').length || incidents.length})` },
+              { key: 'security_logs', label: `Security Audit Trail (${securityLogs.length})` },
+            ]}
+            value={safetySubTab}
+            onChange={(k) => setSafetySubTab(k as any)}
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* TAB 6: SAFETY & INCIDENTS */}
       {/* ========================================================================= */}
-      {tab === 'INCIDENTS' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'SAFETY' && safetySubTab === 'incidents') || (!isAdmin && tab === 'INCIDENTS')) && (
+        <div style={{ marginTop: tab === 'SAFETY' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -2981,8 +3499,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* TAB: UNIVERSAL QR SCANNER */}
       {/* ========================================================================= */}
-      {tab === 'SCANNER' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'FLEET_SETTINGS' && fleetSettingsSubTab === 'scanner') || (!isAdmin && tab === 'SCANNER')) && (
+        <div style={{ marginTop: tab === 'FLEET_SETTINGS' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -3288,15 +3806,15 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* TAB: TEMPORARY PICKUP AUTHORIZATIONS */}
       {/* ========================================================================= */}
-      {tab === 'AUTHORIZATIONS' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'SAFETY' && safetySubTab === 'authorizations') || (!isAdmin && tab === 'AUTHORIZATIONS')) && (
+        <div style={{ marginTop: tab === 'SAFETY' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
                 <div className="card-title">Temporary Authorized Pickups</div>
                 <div className="card-sub">Alternate non-parent pickup requests requiring explicit staff verification</div>
               </div>
-              {(canOperate || normalizeRole(role) === 'PARENT') && (
+              {(canOperate || isParent) && (
                 <button className="btn btn-primary btn-sm" onClick={() => setAddAuthOpen(true)}>
                   <Plus size={14} /> Request Temp Pickup
                 </button>
@@ -3404,8 +3922,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* TAB: TRANSPORT SECURITY & AUDIT LOGS */}
       {/* ========================================================================= */}
-      {tab === 'SECURITY' && (
-        <div style={{ marginTop: 16 }}>
+      {((tab === 'SAFETY' && safetySubTab === 'security_logs') || (!isAdmin && tab === 'SECURITY')) && (
+        <div style={{ marginTop: tab === 'SAFETY' ? 0 : 16 }}>
           <div className="card">
             <div className="card-head">
               <div>
@@ -3481,68 +3999,199 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       <Modal
         open={addAuthOpen}
-        onClose={() => setAddAuthOpen(false)}
+        onClose={() => {
+          setAddAuthOpen(false)
+          setAddAuthStep(1)
+        }}
         title="Register Temporary Pickup Authorization"
-        subtitle="Authorize an alternate non-parent individual for student handover"
+        subtitle="3-step guided flow: Child & Window → Authorized Adult → Review & Security"
         icon={<UserCheck size={20} />}
       >
         <form onSubmit={handleCreateAuthorization}>
+          <WizardStepBar
+            currentStep={addAuthStep}
+            totalSteps={3}
+            steps={['Child & Window', 'Authorized Adult', 'Review & Security']}
+          />
+
+          {/* Hidden inputs to guarantee FormData compatibility */}
+          <input type="hidden" name="studentId" value={addAuthStudentId} />
+          <input type="hidden" name="authorizedPersonName" value={addAuthPersonName} />
+          <input type="hidden" name="authorizedPersonPhone" value={addAuthPersonPhone} />
+          <input type="hidden" name="relationship" value={addAuthRelationship} />
+          <input type="hidden" name="isOneTime" value={addAuthIsOneTime ? 'true' : 'false'} />
+          <input type="hidden" name="validFrom" value={addAuthValidFrom} />
+          <input type="hidden" name="validUntil" value={addAuthValidUntil} />
+          <input type="hidden" name="reason" value={addAuthReason} />
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Select Student" required>
-              <select name="studentId" className="input" required defaultValue="">
-                <option value="" disabled>
-                  -- Select Student --
-                </option>
-                {availableStudents.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.firstName} {s.lastName || ''} ({s.rollNumber || s.id})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* STEP 1: Child & Window */}
+            {addAuthStep === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Step 1: Select Student" required helper="Select enrolled child requiring non-parent pickup">
+                  <select
+                    className="input"
+                    required
+                    value={addAuthStudentId}
+                    onChange={(e) => setAddAuthStudentId(e.target.value)}
+                  >
+                    <option value="">-- Choose Student --</option>
+                    {availableStudents.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName || ''} ({s.admissionNo || s.id})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Authorized Person Name" required>
-                <input type="text" name="authorizedPersonName" className="input" placeholder="e.g. Ramesh Kumar (Uncle)" required />
-              </Field>
-              <Field label="Mobile Phone Number" required>
-                <input type="tel" name="authorizedPersonPhone" className="input" placeholder="9876543210" required />
-              </Field>
-            </div>
+                <Field label="Usage Type" required>
+                  <select
+                    className="input"
+                    value={addAuthIsOneTime ? 'true' : 'false'}
+                    onChange={(e) => setAddAuthIsOneTime(e.target.value === 'true')}
+                  >
+                    <option value="true">One-Time Only (Single Pickup)</option>
+                    <option value="false">Multiple Pickups within Validity Window</option>
+                  </select>
+                </Field>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Relationship to Student">
-                <input type="text" name="relationship" className="input" placeholder="Uncle / Family Friend / Driver" defaultValue="Family Friend" />
-              </Field>
-              <Field label="Usage Type">
-                <select name="isOneTime" className="input" defaultValue="true">
-                  <option value="true">One-Time Only</option>
-                  <option value="false">Multiple Pickups in Window</option>
-                </select>
-              </Field>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Field label="Valid From" required>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      required
+                      value={addAuthValidFrom}
+                      onChange={(e) => setAddAuthValidFrom(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Valid Until" required>
+                    <input
+                      type="datetime-local"
+                      className="input"
+                      required
+                      value={addAuthValidUntil}
+                      onChange={(e) => setAddAuthValidUntil(e.target.value)}
+                    />
+                  </Field>
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Valid From" required>
-                <input type="datetime-local" name="validFrom" className="input" required defaultValue={new Date().toISOString().slice(0, 16)} />
-              </Field>
-              <Field label="Valid Until" required>
-                <input type="datetime-local" name="validUntil" className="input" required defaultValue={new Date(Date.now() + 86400000).toISOString().slice(0, 16)} />
-              </Field>
-            </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAddAuthOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!addAuthStudentId}
+                    onClick={() => setAddAuthStep(2)}
+                  >
+                    Next: Authorized Adult →
+                  </button>
+                </div>
+              </div>
+            )}
 
-            <Field label="Reason for Alternate Pickup" required>
-              <textarea name="reason" rows={2} className="input" placeholder="Parent travelling / emergency family situation" required />
-            </Field>
-          </div>
+            {/* STEP 2: Authorized Adult */}
+            {addAuthStep === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Authorized Person Full Name" required helper="Must match government photo ID presented at gate">
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. Ramesh Kumar (Uncle)"
+                    required
+                    value={addAuthPersonName}
+                    onChange={(e) => setAddAuthPersonName(e.target.value)}
+                  />
+                </Field>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setAddAuthOpen(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              Create Authorization
-            </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Field label="Mobile Phone Number" required helper="OTP/PIN notification recipient">
+                    <input
+                      type="tel"
+                      className="input"
+                      placeholder="9876543210"
+                      required
+                      value={addAuthPersonPhone}
+                      onChange={(e) => setAddAuthPersonPhone(e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Relationship to Student" required>
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Uncle / Family Friend / Driver"
+                      value={addAuthRelationship}
+                      onChange={(e) => setAddAuthRelationship(e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAddAuthStep(1)}>
+                    ← Back to Window
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!addAuthPersonName.trim() || !addAuthPersonPhone.trim()}
+                    onClick={() => setAddAuthStep(3)}
+                  >
+                    Next: Review & Reason →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Reason & Security Review */}
+            {addAuthStep === 3 && (() => {
+              const child = availableStudents.find((s) => s.id === addAuthStudentId)
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <Field label="Reason for Alternate Pickup" required helper="Mandatory justification logged in child audit trail">
+                    <textarea
+                      rows={2}
+                      className="input"
+                      placeholder="e.g. Parent travelling for work / emergency family arrangement"
+                      required
+                      value={addAuthReason}
+                      onChange={(e) => setAddAuthReason(e.target.value)}
+                    />
+                  </Field>
+
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                      <span className="t-caption">Child</span>
+                      <span style={{ fontWeight: 700 }}>{child?.firstName} {child?.lastName || ''}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                      <span className="t-caption">Authorized Adult</span>
+                      <span><b>{addAuthPersonName}</b> ({addAuthRelationship}, {addAuthPersonPhone})</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="t-caption">Validity</span>
+                      <span>{fmtDate(addAuthValidFrom)} - {fmtDate(addAuthValidUntil)} ({addAuthIsOneTime ? 'One-Time' : 'Window'})</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    <ShieldAlert size={16} style={{ color: 'var(--warning-dark, #b45309)', flexShrink: 0, marginTop: 2 }} />
+                    <span>Zero unverified child release policy: A secure 4-digit PIN or digital QR code will be generated and required at pickup.</span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setAddAuthStep(2)}>
+                      ← Back to Adult Details
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={busy || !addAuthReason.trim()}>
+                      {busy ? 'Creating...' : 'Confirm & Authorize Pickup'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </form>
       </Modal>
@@ -3730,27 +4379,220 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* MODAL: DISPATCH TRIP */}
       {/* ========================================================================= */}
-      <Modal open={startTripOpen} onClose={() => setStartTripOpen(false)} title="Dispatch Daily Trip" subtitle="Dynamic manifest populated from active seat allocations" icon={<Clock size={20} />}>
+      <Modal
+        open={startTripOpen}
+        onClose={() => {
+          setStartTripOpen(false)
+          setStartTripStep(1)
+        }}
+        title="Dispatch Daily Trip"
+        subtitle="4-step guided flow: Route & Run → Readiness → Manifest Preview → Confirm Dispatch"
+        icon={<Clock size={20} />}
+      >
         <form onSubmit={handleStartTrip}>
+          <WizardStepBar
+            currentStep={startTripStep}
+            totalSteps={4}
+            steps={['Route & Run', 'Fleet Readiness', 'Manifest Preview', 'Confirm Dispatch']}
+          />
+
+          {/* Hidden inputs for form data compatibility */}
+          <input type="hidden" name="routeId" value={startTripRouteId} />
+          <input type="hidden" name="tripType" value={startTripType} />
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Select Route" required>
-              <select name="routeId" className="input" required>
-                <option value="">-- Choose Route --</option>
-                {routes.filter((r) => r.status === 'ACTIVE').map((r) => (
-                  <option key={r.id} value={r.id}>{r.name} ({r.code}) · {r.activeStudentsCount} riders</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Trip Run" required>
-              <select name="tripType" className="input" defaultValue="MORNING">
-                <option value="MORNING">Morning Pickup Run (Home to Campus)</option>
-                <option value="EVENING">Evening Drop Run (Campus to Home)</option>
-              </select>
-            </Field>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setStartTripOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Dispatch Run</button>
+            {/* STEP 1: Route & Run */}
+            {startTripStep === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Step 1: Select Operational Route" required helper="Select an active bus route configured with stops and vehicles">
+                  <select
+                    className="input"
+                    required
+                    value={startTripRouteId}
+                    onChange={(e) => setStartTripRouteId(e.target.value)}
+                  >
+                    <option value="">-- Choose Route --</option>
+                    {routes.filter((r) => r.status === 'ACTIVE').map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.code}) · {r.activeStudentsCount} active riders
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Trip Run" required>
+                  <select
+                    className="input"
+                    value={startTripType}
+                    onChange={(e) => setStartTripType(e.target.value as any)}
+                  >
+                    <option value="MORNING">Morning Pickup Run (Home to Campus)</option>
+                    <option value="EVENING">Evening Drop Run (Campus to Home)</option>
+                  </select>
+                </Field>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setStartTripOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!startTripRouteId}
+                    onClick={() => setStartTripStep(2)}
+                  >
+                    Next: Fleet Readiness →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Fleet Readiness */}
+            {startTripStep === 2 && (() => {
+              const r = routes.find((rt) => rt.id === startTripRouteId)
+              const bus = r?.vehicle
+              const driver = r?.driverProfile?.user
+              const isMaintenance = bus?.status === 'MAINTENANCE'
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                    <div>
+                      <div className="t-caption">Designated Vehicle</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>{bus?.registrationNumber || 'Unassigned Bus'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{bus?.makeModel || 'Standard'} (Cap: {bus?.capacity || '—'})</div>
+                      <div style={{ marginTop: 6 }}>
+                        <span className={`badge ${isMaintenance ? 'b-danger' : 'b-success'}`}>
+                          {isMaintenance ? 'MAINTENANCE BLOCKED' : 'FLEET ACTIVE'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="t-caption">Designated Driver</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>{driver?.fullName || 'Assigned Driver'}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Attendant: {r?.attendantProfile?.user?.fullName || 'Campus Staff'}</div>
+                      <div style={{ marginTop: 6 }}>
+                        <span className="badge b-primary">DRIVER CERTIFIED</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <CheckCircle2 size={14} style={{ color: 'var(--success, #10b981)' }} />
+                      <span>Speed governor and GPS readiness checks confirmed.</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <CheckCircle2 size={14} style={{ color: 'var(--success, #10b981)' }} />
+                      <span>Pre-trip safety inspection logged.</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setStartTripStep(1)}>
+                      ← Back to Route
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={isMaintenance}
+                      onClick={() => setStartTripStep(3)}
+                    >
+                      Next: Manifest Preview →
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* STEP 3: Manifest Preview */}
+            {startTripStep === 3 && (() => {
+              const r = routes.find((rt) => rt.id === startTripRouteId)
+              const riders = assignments.filter((a) => a.routeId === startTripRouteId && a.status === 'ACTIVE')
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--preone-primary-soft, #f3eeff)', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary, #7c3aed)' }}>Allocated Passengers</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{riders.length} Children</div>
+                    </div>
+                    <span className="badge b-purple">
+                      {startTripType === 'MORNING' ? 'Pickup Run' : 'Drop Run'}
+                    </span>
+                  </div>
+
+                  <div className="t-caption">Ordered Stops on this Run:</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                    {(r?.stops || []).map((s: any) => (
+                      <div key={s.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                        <span><b>{s.sequence}. {s.name}</b></span>
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {startTripType === 'MORNING' ? s.morningPickupTime : s.eveningDropTime}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setStartTripStep(2)}>
+                      ← Back to Readiness
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => setStartTripStep(4)}
+                    >
+                      Next: Confirm Dispatch →
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* STEP 4: Confirm Dispatch */}
+            {startTripStep === 4 && (() => {
+              const r = routes.find((rt) => rt.id === startTripRouteId)
+              const riders = assignments.filter((a) => a.routeId === startTripRouteId && a.status === 'ACTIVE')
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Route</span>
+                      <span style={{ fontWeight: 700 }}>{r?.name} ({r?.code})</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Run Type</span>
+                      <span style={{ fontWeight: 700 }}>{startTripType === 'MORNING' ? 'Morning Pickup (Home → School)' : 'Evening Drop (School → Home)'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Bus & Driver</span>
+                      <span>{r?.vehicle?.registrationNumber} • {r?.driverProfile?.user?.fullName}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span className="t-caption">Active Passenger Count</span>
+                      <span style={{ fontWeight: 800, color: 'var(--primary, #7c3aed)' }}>{riders.length} Students</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    <ShieldCheck size={16} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                    <span>Real-time boarding roster and parent transit notifications will be activated immediately.</span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setStartTripStep(3)}>
+                      ← Back to Manifest
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={busy}>
+                      {busy ? 'Dispatching...' : 'Confirm & Dispatch Run'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </form>
       </Modal>
@@ -3873,79 +4715,287 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* MODAL: ASSIGN STUDENT TO ROUTE */}
       {/* ========================================================================= */}
-      <Modal open={assignStudentOpen} onClose={() => setAssignStudentOpen(false)} title="Allocate Student Transport Seat" subtitle="Capacity guarded assignment & finance invoice generation" icon={<UserPlus size={20} />}>
+      <Modal
+        open={assignStudentOpen}
+        onClose={() => {
+          setAssignStudentOpen(false)
+          setAssignStudentStep(1)
+        }}
+        title="Allocate Student Transport Seat"
+        subtitle="4-step guided flow: Child → Route & Bus → Stops & Fee → Review & Confirm"
+        icon={<UserPlus size={20} />}
+      >
         <form onSubmit={handleAssignStudent}>
+          <WizardStepBar
+            currentStep={assignStudentStep}
+            totalSteps={4}
+            steps={['Child Selection', 'Route & Vehicle', 'Stops & Fee', 'Review & Confirm']}
+          />
+
+          {/* Hidden inputs to guarantee FormData compatibility */}
+          <input type="hidden" name="studentId" value={assignStudentChildId} />
+          <input type="hidden" name="routeId" value={assignStudentRouteId} />
+          <input type="hidden" name="pickupStopId" value={assignStudentPickupStopId} />
+          <input type="hidden" name="dropStopId" value={assignStudentDropStopId} />
+          <input type="hidden" name="tripType" value={assignStudentTripType} />
+          <input type="hidden" name="monthlyFee" value={assignStudentMonthlyFee} />
+          {assignStudentGenerateInvoice && <input type="hidden" name="generateFeeInvoice" value="on" />}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Select Enrolled Student" required>
-              <select name="studentId" className="input" required>
-                <option value="">-- Choose Student --</option>
-                {availableStudents.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.firstName} {s.lastName || ''} ({s.admissionNo} · {s.classroomName || 'Classroom'})
-                  </option>
-                ))}
-              </select>
-            </Field>
+            {/* STEP 1: Select Child */}
+            {assignStudentStep === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Step 1: Select Enrolled Preschool Child" required helper="Only students currently active in preschool classes are listed">
+                  <select
+                    className="input"
+                    required
+                    value={assignStudentChildId}
+                    onChange={(e) => setAssignStudentChildId(e.target.value)}
+                  >
+                    <option value="">-- Choose Child --</option>
+                    {availableStudents.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName || ''} ({s.admissionNo} · {s.classroomName || 'Classroom'})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-            <Field label="Select Route" required>
-              <select
-                name="routeId"
-                className="input"
-                required
-                onChange={(e) => {
-                  const r = routes.find((rt) => rt.id === e.target.value)
-                  // triggers stop dropdown re-render
-                }}
-              >
-                <option value="">-- Choose Route --</option>
-                {routes.filter((r) => r.status === 'ACTIVE').map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.code}) · {r.availableCapacity} seats free of {r.vehicle?.capacity}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                {assignStudentChildId && (() => {
+                  const sel = availableStudents.find((s) => s.id === assignStudentChildId)
+                  if (!sel) return null
+                  return (
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--preone-primary-soft, #f3eeff)', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary, #7c3aed)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                        {getAvatarInitials(`${sel.firstName} ${sel.lastName || ''}`)}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
+                          {sel.firstName} {sel.lastName || ''}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                          Admission: <b>{sel.admissionNo}</b> • Classroom: <b>{sel.classroomName || 'Assigned'}</b>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Pickup Stop" required>
-                <select name="pickupStopId" className="input" required>
-                  <option value="">-- Pickup Stop --</option>
-                  {routes.flatMap((r) => r.stops).map((s: any) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.morningPickupTime})</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Drop Stop" required>
-                <select name="dropStopId" className="input" required>
-                  <option value="">-- Drop Stop --</option>
-                  {routes.flatMap((r) => r.stops).map((s: any) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.eveningDropTime})</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAssignStudentOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!assignStudentChildId}
+                    onClick={() => setAssignStudentStep(2)}
+                  >
+                    Next: Route & Bus →
+                  </button>
+                </div>
+              </div>
+            )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Trip Operational Run">
-                <select name="tripType" className="input" defaultValue="TWO_WAY">
-                  <option value="TWO_WAY">Two-Way (Pickup & Drop)</option>
-                  <option value="MORNING_ONLY">Morning Only</option>
-                  <option value="EVENING_ONLY">Evening Only</option>
-                </select>
-              </Field>
-              <Field label="Monthly Fee (₹)">
-                <input type="number" name="monthlyFee" defaultValue={2500} min={0} className="input" />
-              </Field>
-            </div>
+            {/* STEP 2: Select Route & Bus */}
+            {assignStudentStep === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Step 2: Select Daily Bus Route" required helper="Capacity guarded: routes with 0 available seats cannot be overbooked">
+                  <select
+                    className="input"
+                    required
+                    value={assignStudentRouteId}
+                    onChange={(e) => {
+                      const rId = e.target.value
+                      setAssignStudentRouteId(rId)
+                      const r = routes.find((rt) => rt.id === rId)
+                      if (r && r.stops && r.stops.length > 0) {
+                        setAssignStudentPickupStopId(r.stops[0].id)
+                        setAssignStudentDropStopId(r.stops[r.stops.length - 1].id)
+                      }
+                    }}
+                  >
+                    <option value="">-- Choose Route --</option>
+                    {routes.filter((r) => r.status === 'ACTIVE').map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.code}) · {r.availableCapacity} seats free of {r.vehicle?.capacity || '—'}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
-              <input type="checkbox" name="generateFeeInvoice" defaultChecked />
-              <span>Automatically generate Finance Invoice under <b>TRANSPORT</b> Fee Head</span>
-            </label>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setAssignStudentOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Allocate Seat</button>
+                {assignStudentRouteId && (() => {
+                  const r = routes.find((rt) => rt.id === assignStudentRouteId)
+                  if (!r) return null
+                  return (
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13 }}>
+                      <div>
+                        <div className="t-caption">Assigned Vehicle</div>
+                        <div style={{ fontWeight: 700, marginTop: 2 }}>{r.vehicle?.registrationNumber || 'Standard Bus'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Cap: {r.vehicle?.capacity} ({r.availableCapacity} free)</div>
+                      </div>
+                      <div>
+                        <div className="t-caption">Designated Driver</div>
+                        <div style={{ fontWeight: 700, marginTop: 2 }}>{r.driverProfile?.user?.fullName || 'Assigned Driver'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Stops: {r.stops?.length || 0} configured</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAssignStudentStep(1)}>
+                    ← Back to Child
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!assignStudentRouteId}
+                    onClick={() => setAssignStudentStep(3)}
+                  >
+                    Next: Stops & Fee →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Pickup & Drop Stops + Fee */}
+            {assignStudentStep === 3 && (() => {
+              const selectedRoute = routes.find((r) => r.id === assignStudentRouteId)
+              const availableStops = selectedRoute?.stops || []
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <Field label="Pickup Stop (Morning)" required>
+                      <select
+                        className="input"
+                        required
+                        value={assignStudentPickupStopId}
+                        onChange={(e) => setAssignStudentPickupStopId(e.target.value)}
+                      >
+                        <option value="">-- Choose Pickup Stop --</option>
+                        {availableStops.map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            {s.sequence}. {s.name} ({s.morningPickupTime})
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Drop Stop (Evening)" required>
+                      <select
+                        className="input"
+                        required
+                        value={assignStudentDropStopId}
+                        onChange={(e) => setAssignStudentDropStopId(e.target.value)}
+                      >
+                        <option value="">-- Choose Drop Stop --</option>
+                        {availableStops.map((s: any) => (
+                          <option key={s.id} value={s.id}>
+                            {s.sequence}. {s.name} ({s.eveningDropTime})
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <Field label="Trip Operational Run">
+                      <select
+                        className="input"
+                        value={assignStudentTripType}
+                        onChange={(e) => setAssignStudentTripType(e.target.value)}
+                      >
+                        <option value="TWO_WAY">Two-Way (Pickup & Drop)</option>
+                        <option value="MORNING_ONLY">Morning Only</option>
+                        <option value="EVENING_ONLY">Evening Only</option>
+                      </select>
+                    </Field>
+                    <Field label="Monthly Fee (₹)">
+                      <input
+                        type="number"
+                        min={0}
+                        className="input"
+                        value={assignStudentMonthlyFee}
+                        onChange={(e) => setAssignStudentMonthlyFee(Number(e.target.value))}
+                      />
+                    </Field>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+                    <input
+                      type="checkbox"
+                      checked={assignStudentGenerateInvoice}
+                      onChange={(e) => setAssignStudentGenerateInvoice(e.target.checked)}
+                    />
+                    <span>Automatically generate Finance Invoice under <b>TRANSPORT</b> Fee Head</span>
+                  </label>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setAssignStudentStep(2)}>
+                      ← Back to Route
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={!assignStudentPickupStopId || !assignStudentDropStopId}
+                      onClick={() => setAssignStudentStep(4)}
+                    >
+                      Review Allocation →
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* STEP 4: Review & Confirm */}
+            {assignStudentStep === 4 && (() => {
+              const child = availableStudents.find((s) => s.id === assignStudentChildId)
+              const route = routes.find((r) => r.id === assignStudentRouteId)
+              const pickupStop = route?.stops?.find((s: any) => s.id === assignStudentPickupStopId)
+              const dropStop = route?.stops?.find((s: any) => s.id === assignStudentDropStopId)
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Student</span>
+                      <span style={{ fontWeight: 700 }}>{child?.firstName} {child?.lastName || ''} ({child?.admissionNo})</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Route & Bus</span>
+                      <span style={{ fontWeight: 700 }}>{route?.name} • {route?.vehicle?.registrationNumber || 'Bus'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Pickup Stop</span>
+                      <span><b>{pickupStop?.name}</b> ({pickupStop?.morningPickupTime})</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                      <span className="t-caption">Drop Stop</span>
+                      <span><b>{dropStop?.name}</b> ({dropStop?.eveningDropTime})</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="t-caption">Monthly Transport Fee</span>
+                      <span style={{ fontWeight: 800, color: 'var(--primary, #7c3aed)', fontSize: 15 }}>₹{assignStudentMonthlyFee} / mo</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                    <CheckCircle2 size={15} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                    <span>Parent timeline will be updated and QR token assigned upon confirmation.</span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                    <button type="button" className="btn btn-ghost" onClick={() => setAssignStudentStep(3)}>
+                      ← Back to Stops
+                    </button>
+                    <button type="submit" className="btn btn-primary" disabled={busy}>
+                      {busy ? 'Allocating...' : 'Confirm & Allocate Seat'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </form>
       </Modal>
@@ -3975,34 +5025,161 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* MODAL: ADD VEHICLE */}
       {/* ========================================================================= */}
-      <Modal open={addVehicleOpen} onClose={() => setAddVehicleOpen(false)} title="Register Vehicle" subtitle="Fleet registration, capacity, and type" icon={<Bus size={20} />}>
+      <Modal
+        open={addVehicleOpen}
+        onClose={() => {
+          setAddVehicleOpen(false)
+          setAddVehicleStep(1)
+        }}
+        title="Register Vehicle"
+        subtitle="3-step guided flow: Vehicle Identity → Safety Specs → Review & Register"
+        icon={<Bus size={20} />}
+      >
         <form onSubmit={handleCreateVehicle}>
+          <WizardStepBar
+            currentStep={addVehicleStep}
+            totalSteps={3}
+            steps={['Vehicle Identity', 'Capacity & Specs', 'Review & Register']}
+          />
+
+          {/* Hidden inputs to guarantee FormData compatibility */}
+          <input type="hidden" name="registrationNumber" value={addVehicleRegNumber} />
+          <input type="hidden" name="vehicleType" value={addVehicleType} />
+          <input type="hidden" name="capacity" value={addVehicleCapacity} />
+          <input type="hidden" name="makeModel" value={addVehicleMakeModel} />
+          <input type="hidden" name="notes" value={addVehicleNotes} />
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Field label="Registration Number" required helper="e.g. MH-12-AB-1234">
-              <input type="text" name="registrationNumber" className="input" placeholder="MH-12-AB-1234" required />
-            </Field>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Field label="Capacity (Seats)" required>
-                <input type="number" name="capacity" defaultValue={20} min={1} className="input" required />
-              </Field>
-              <Field label="Vehicle Type">
-                <select name="vehicleType" className="input" defaultValue="BUS">
-                  <option value="BUS">School Bus</option>
-                  <option value="MINI_BUS">Mini Bus</option>
-                  <option value="VAN">Van</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Make & Model">
-              <input type="text" name="makeModel" className="input" placeholder="Force Traveller / Eicher Starline" />
-            </Field>
-            <Field label="Compliance & Safety Notes">
-              <input type="text" name="notes" className="input" placeholder="Speed governor installed, fire extinguisher checked" />
-            </Field>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setAddVehicleOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>Register Vehicle</button>
+            {/* STEP 1: Vehicle Identity */}
+            {addVehicleStep === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <Field label="Registration Number" required helper="Must match RTO registration document (e.g. MH-12-AB-1234)">
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="MH-12-AB-1234"
+                    required
+                    value={addVehicleRegNumber}
+                    onChange={(e) => setAddVehicleRegNumber(e.target.value.toUpperCase())}
+                  />
+                </Field>
+
+                <Field label="Vehicle Type" required>
+                  <select
+                    className="input"
+                    value={addVehicleType}
+                    onChange={(e) => setAddVehicleType(e.target.value)}
+                  >
+                    <option value="BUS">School Bus (Standard Yellow Bus)</option>
+                    <option value="MINI_BUS">Mini Bus (Force Traveller / 15-20 Seater)</option>
+                    <option value="VAN">Van / Multi-Utility Vehicle</option>
+                  </select>
+                </Field>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAddVehicleOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!addVehicleRegNumber.trim()}
+                    onClick={() => setAddVehicleStep(2)}
+                  >
+                    Next: Capacity & Specs →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Capacity & Safety Specs */}
+            {addVehicleStep === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <Field label="Seating Capacity (Seats)" required helper="Governs route seat allocation limit">
+                    <input
+                      type="number"
+                      min={1}
+                      className="input"
+                      required
+                      value={addVehicleCapacity}
+                      onChange={(e) => setAddVehicleCapacity(Number(e.target.value))}
+                    />
+                  </Field>
+                  <Field label="Make & Model">
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="e.g. Force Traveller / Eicher Starline"
+                      value={addVehicleMakeModel}
+                      onChange={(e) => setAddVehicleMakeModel(e.target.value)}
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Compliance & Safety Notes" helper="Safety equipment and regulatory approvals">
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Speed governor installed, fire extinguisher checked"
+                    value={addVehicleNotes}
+                    onChange={(e) => setAddVehicleNotes(e.target.value)}
+                  />
+                </Field>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAddVehicleStep(1)}>
+                    ← Back to Identity
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!addVehicleCapacity || addVehicleCapacity < 1}
+                    onClick={() => setAddVehicleStep(3)}
+                  >
+                    Next: Review & Register →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: Review & Register */}
+            {addVehicleStep === 3 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                    <span className="t-caption">Registration</span>
+                    <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{addVehicleRegNumber}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                    <span className="t-caption">Type & Model</span>
+                    <span>{addVehicleType} • {addVehicleMakeModel || 'Standard'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                    <span className="t-caption">Capacity</span>
+                    <span><b>{addVehicleCapacity}</b> Passenger Seats</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="t-caption">Notes</span>
+                    <span style={{ fontStyle: 'italic', fontSize: 12 }}>{addVehicleNotes}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                  <span>Vehicle will immediately be available for route assignment and dispatch rosters.</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 16 }}>
+                  <button type="button" className="btn btn-ghost" onClick={() => setAddVehicleStep(2)}>
+                    ← Back to Specs
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={busy}>
+                    {busy ? 'Registering...' : 'Confirm & Register Vehicle'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </form>
       </Modal>
@@ -4320,6 +5497,99 @@ export function TransportClient({ session }: { session: SessionProps }) {
             </div>
             <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8, fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all' }}>
               Token: {showVisualQr}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: ADMIN AUDIT READ-ONLY PARENT VIEW PREVIEW */}
+      {/* ========================================================================= */}
+      <Modal
+        open={!!parentPreviewStudent}
+        onClose={() => setParentPreviewStudent(null)}
+        title="Parent View Audit Simulation"
+        subtitle="Read-only preview of what parents and authorized guardians see for this student"
+        icon={<Eye size={20} />}
+      >
+        {parentPreviewStudent && (
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 12px',
+                borderRadius: 8,
+                background: 'var(--preone-primary-soft, #f3eeff)',
+                color: 'var(--preone-primary, #7c3aed)',
+                border: '1px solid rgba(124, 58, 237, 0.2)',
+                fontSize: 12,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              <ShieldCheck size={16} />
+              <span>ADMIN AUDIT PREVIEW · READ-ONLY (NO GUARDIAN ACCESS)</span>
+            </div>
+
+            <div className="card" style={{ padding: 20, borderTop: '4px solid var(--primary)', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: 16,
+                  }}
+                >
+                  {getAvatarInitials(`${parentPreviewStudent.student.firstName} ${parentPreviewStudent.student.lastName || ''}`)}
+                </div>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 700 }}>
+                    {parentPreviewStudent.student.firstName} {parentPreviewStudent.student.lastName || ''}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                    Class: <b>{parentPreviewStudent.student.currentClassroom?.name || 'Classroom'}</b> • Adm: #{parentPreviewStudent.student.admissionNo}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--c-surface-hover)', padding: 14, borderRadius: 10, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>ASSIGNED ROUTE</span>
+                  <StatusBadge status={parentPreviewStudent.status} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{parentPreviewStudent.route.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  📍 Pickup: <b>{parentPreviewStudent.pickupStop?.name}</b> ({parentPreviewStudent.pickupStop?.morningPickupTime})
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                  🏁 Drop: <b>{parentPreviewStudent.dropStop?.name}</b> ({parentPreviewStudent.dropStop?.eveningDropTime})
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)', marginBottom: 8 }}>
+                  Today's Transport Status
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span className="badge b-success">Active on Route</span>
+                  <span className="badge b-neutral">Seat Reserved</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button type="button" className="btn btn-outline" onClick={() => setParentPreviewStudent(null)}>
+                Close Preview
+              </button>
             </div>
           </div>
         )}

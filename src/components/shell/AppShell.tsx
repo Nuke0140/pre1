@@ -235,7 +235,7 @@ export function AppShell({
   const filteredTiles = q ? nav.filter((n) => n.label.toLowerCase().includes(q)) : nav
 
   const roleLabel = enumLabel(user.role)
-  const initials = user.name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
+  const initials = (user.name || user.email || 'User').split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
   const attentionTotal = attention.invited + attention.suspended
 
   return (
