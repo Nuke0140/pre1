@@ -11,6 +11,7 @@ import {
 import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
+import { RecordInspector } from '@/components/preone/RecordInspector'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
@@ -100,6 +101,7 @@ export default function StudentsPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [enrollClassroomId, setEnrollClassroomId] = useState('')
+  const [inspectingStudent, setInspectingStudent] = useState<StudentRow | null>(null)
 
   // Enroll form enhancements (date picker, mask, draft autosave)
   const formRef = useRef<HTMLFormElement>(null)
@@ -1014,7 +1016,7 @@ export default function StudentsPage() {
             columns={columns}
             data={rows}
             loading={loading}
-            onRowClick={(s) => router.push(`/app/students/${s.id}`)}
+            onRowClick={(s) => setInspectingStudent(s)}
             emptyIcon={<Users size={36} className="text-purple-500" />}
             emptyTitle={activeFiltersCount > 0 ? "No students found" : "No students yet"}
             emptyMessage={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
@@ -1046,6 +1048,11 @@ export default function StudentsPage() {
             selectedKeys={selected}
             onSelectionChange={setSelected}
             rowActions={(s) => [
+              {
+                label: 'Quick Inspect',
+                icon: <Eye size={15} />,
+                onClick: () => setInspectingStudent(s),
+              },
               {
                 label: 'View 360° Profile',
                 icon: <UserRound size={15} />,
@@ -1089,7 +1096,7 @@ export default function StudentsPage() {
               return (
                 <div
                   key={s.id}
-                  onClick={() => router.push(`/app/students/${s.id}`)}
+                  onClick={() => setInspectingStudent(s)}
                   className="bg-white dark:bg-slate-800/95 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] transition-all"
                 >
                   {/* Top Row: Avatar + Name + Admission No + Status */}
@@ -1535,6 +1542,19 @@ export default function StudentsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Side-Peek Inspector Drawer */}
+      <RecordInspector
+        open={Boolean(inspectingStudent)}
+        onClose={() => setInspectingStudent(null)}
+        type="student"
+        recordId={inspectingStudent?.id}
+        initialData={inspectingStudent}
+        onEdit={(s) => {
+          setInspectingStudent(null)
+          router.push(`/app/students/${s.id}?edit=true`)
+        }}
+      />
     </div>
   )
 }

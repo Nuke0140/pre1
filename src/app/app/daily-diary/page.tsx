@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { PageHead, Avatar } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
+import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
 import { isoDate, enumLabel } from '@/lib/format'
 
@@ -221,6 +222,16 @@ export default function DailyDiaryPage() {
   const [attendanceRegister, setAttendanceRegister] = useState<AttendanceStudent[]>([])
   const [loadingAttendance, setLoadingAttendance] = useState(false)
   const [savingAttendance, setSavingAttendance] = useState(false)
+  const [fastRollCallOpen, setFastRollCallOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.get('fastRollCall') === 'true' || sp.get('rollCall') === 'true') {
+        setFastRollCallOpen(true)
+      }
+    }
+  }, [])
 
   // Admin School Overview State
   const [adminOverview, setAdminOverview] = useState<any>(null)
@@ -2268,6 +2279,14 @@ export default function DailyDiaryPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
+                    className="btn btn-sm btn-primary flex items-center gap-1.5 shadow-sm font-bold"
+                    onClick={() => setFastRollCallOpen(true)}
+                    title="Launch touch-friendly Fast Roll Call workspace"
+                  >
+                    <Sparkles size={15} /> Fast Roll Call
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-sm btn-outline"
                     onClick={handleMarkAllPresent}
                   >
@@ -2275,7 +2294,7 @@ export default function DailyDiaryPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-sm btn-primary"
+                    className="btn btn-sm btn-secondary"
                     onClick={handleSaveAttendance}
                     disabled={savingAttendance}
                   >
@@ -2372,6 +2391,7 @@ export default function DailyDiaryPage() {
                   ))}
                 </div>
               )}
+
             </div>
           )}
 
@@ -3060,6 +3080,21 @@ export default function DailyDiaryPage() {
           </form>
         </Modal>
       )}
+
+      {/* Fast Roll Call Touch & Accessibility Attendance Workspace */}
+      <FastRollCall
+        open={fastRollCallOpen}
+        onClose={() => setFastRollCallOpen(false)}
+        classroomId={selectedClassroomId || currentClass?.id || ''}
+        classroomName={currentClass?.name || 'Classroom'}
+        academicSessionName={context?.academicSession?.name}
+        teacherName={currentClass?.teacherName}
+        initialDate={selectedDate}
+        onAttendanceSaved={() => {
+          loadAttendance()
+          loadOverview()
+        }}
+      />
     </div>
   )
 }

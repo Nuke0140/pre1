@@ -20,6 +20,7 @@ async function _POST(
     const approved = await InventoryService.approvePurchaseRequest(
       session.tenantId,
       id,
+      undefined,
       {
         id: session.uid,
         name: session.name,

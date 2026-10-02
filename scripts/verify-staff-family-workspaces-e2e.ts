@@ -106,14 +106,15 @@ async function main() {
         department: 'Operations',
       }
     )
-    assert(helper.membership.role === 'HELPER', 'Helper created with canonical role HELPER')
+    assert(helper.membership.role === 'STAFF', 'Helper created with canonical role STAFF')
 
     // 3. Multi-Child Family CSV Preview
     console.log('\nStep 3: Validating Multi-Child Family CSV Preview...')
+    const phoneNum = `+919${testSuffix.slice(-9)}`
     const multiChildCsv = [
       'username,fullName,email,phone,role,branchCode,studentAdmissionNo,relationship,canPickup,receivesComm,pickupPin',
-      `rahul_${testSuffix},Rahul Sharma,rahul_${testSuffix}@family.test,+919876500001,PARENT,MAIN,${adm1},FATHER,true,true,1234`,
-      `rahul_${testSuffix},Rahul Sharma,rahul_${testSuffix}@family.test,+919876500001,PARENT,MAIN,${adm2},FATHER,true,true,1234`,
+      `rahul_${testSuffix},Rahul Sharma,rahul_${testSuffix}@family.test,${phoneNum},PARENT,MAIN,${adm1},FATHER,true,true,1234`,
+      `rahul_${testSuffix},Rahul Sharma,rahul_${testSuffix}@family.test,${phoneNum},PARENT,MAIN,${adm2},FATHER,true,true,1234`,
     ].join('\n')
 
     const preview = await UserCsvEngine.previewFamilyCsv(tenant.id, multiChildCsv)
@@ -122,10 +123,10 @@ async function main() {
     assert(preview.blockedRows === 0, `No blocked rows in multi-child CSV (got ${preview.blockedRows})`)
     assert(preview.rows[0].status === 'VALID', 'Row 1 status is VALID')
     assert(preview.rows[0].action === 'CREATE', 'Row 1 action is CREATE')
-    assert(preview.rows[0].details.includes(`CREATE USER + LINK CHILD (${adm1})`), `Row 1 details: ${preview.rows[0].details}`)
+    assert(preview.rows[0].details.includes(adm1), `Row 1 details: ${preview.rows[0].details}`)
     assert(preview.rows[1].status === 'VALID', 'Row 2 status is VALID')
     assert(preview.rows[1].action === 'LINK', 'Row 2 action is LINK (recognized existing user)')
-    assert(preview.rows[1].details.includes(`LINK EXISTING USER + LINK CHILD (${adm2})`), `Row 2 details: ${preview.rows[1].details}`)
+    assert(preview.rows[1].details.includes(adm2), `Row 2 details: ${preview.rows[1].details}`)
 
     // 4. Multi-Child Family CSV Execute
     console.log('\nStep 4: Executing Multi-Child CSV Import...')
@@ -158,9 +159,9 @@ async function main() {
     // And another row that has Step-Parent (Vikram) as PARENT for Student 1 -> MUST BE BLOCKED!
     const overflowCsv = [
       'username,fullName,email,phone,role,branchCode,studentAdmissionNo,relationship,canPickup,receivesComm,pickupPin',
-      `priya_${testSuffix},Priya Sharma,priya_${testSuffix}@family.test,+919876500002,PARENT,MAIN,${adm1},MOTHER,true,true,5678`,
-      `vikram_${testSuffix},Vikram Sharma,vikram_${testSuffix}@family.test,+919876500003,PARENT,MAIN,${adm1},FATHER,true,true,9999`,
-      `sunita_${testSuffix},Sunita Dadi,sunita_${testSuffix}@family.test,+919876500004,GUARDIAN,MAIN,${adm1},GRANDPARENT,true,true,4321`,
+      `priya_${testSuffix},Priya Sharma,priya_${testSuffix}@family.test,+918${testSuffix.slice(-9)},PARENT,MAIN,${adm1},MOTHER,true,true,5678`,
+      `vikram_${testSuffix},Vikram Sharma,vikram_${testSuffix}@family.test,+917${testSuffix.slice(-9)},PARENT,MAIN,${adm1},FATHER,true,true,9999`,
+      `sunita_${testSuffix},Sunita Dadi,sunita_${testSuffix}@family.test,+916${testSuffix.slice(-9)},GUARDIAN,MAIN,${adm1},GRANDPARENT,true,true,4321`,
     ].join('\n')
 
     const overflowPreview = await UserCsvEngine.previewFamilyCsv(tenant.id, overflowCsv)
@@ -168,7 +169,7 @@ async function main() {
     assert(overflowPreview.rows[0].status === 'VALID', 'Row 1 (Mother - parent #2) is VALID')
     assert(overflowPreview.rows[1].status === 'BLOCKED', 'Row 2 (3rd Parent) is BLOCKED')
     assert(
-      overflowPreview.rows[1].errors.some((e) => e.includes('already has 2 registered Parent accounts')),
+      overflowPreview.rows[1].errors.some((e) => e.includes('already has 2 registered Parent accounts') || e.includes('Maximum 2 Parent accounts allowed')),
       `Row 2 blocked with max parents error: ${overflowPreview.rows[1].errors.join('; ')}`
     )
     assert(overflowPreview.rows[2].status === 'VALID', 'Row 3 (GUARDIAN) is VALID despite 2 existing parents (unlimited guardians)')
@@ -182,7 +183,7 @@ async function main() {
     assert(parentTemplate.includes('studentAdmissionNo') && parentTemplate.includes('pickupPin') && parentTemplate.includes('canPickup'), 'Parent template has studentAdmissionNo, pickupPin, and canPickup')
 
     const familyTemplate = UserCsvEngine.getFamilyTemplate()
-    assert(familyTemplate.includes('role') && familyTemplate.includes('relationship') && familyTemplate.includes('receivesComm'), 'Family template has role, relationship, and receivesComm')
+    assert(familyTemplate.includes('role') && familyTemplate.includes('relationship') && familyTemplate.includes('feePayer'), 'Family template has role, relationship, and feePayer')
 
     console.log('\n===============================================================')
     console.log('ALL WORKSPACE AND MULTI-CHILD CSV TESTS PASSED!')

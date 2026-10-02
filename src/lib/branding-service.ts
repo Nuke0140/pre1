@@ -61,6 +61,7 @@ export async function getEffectiveBranding(tenantId: string): Promise<BrandingCo
     logoUrl,
     schoolName: tenant?.name || 'PreOne Preschool',
     schoolCode: tenant?.code || '',
+    footerGlow: (brandData.footerGlow as any) || null,
   }
 }
 

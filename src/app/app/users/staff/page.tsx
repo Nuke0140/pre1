@@ -15,6 +15,7 @@ import { useToast } from '@/components/preone/Toast'
 import { AddStaffModal } from '@/components/users/AddStaffModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
+import { RecordInspector } from '@/components/preone'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import {
@@ -105,6 +106,22 @@ export default function StaffUsersPage() {
   useEffect(() => {
     fetchStaff()
   }, [fetchStaff])
+
+  // Support deep links from search & inspector: ?editUser=... or ?user=...
+  useEffect(() => {
+    if (typeof window !== 'undefined' && users.length > 0) {
+      const sp = new URLSearchParams(window.location.search)
+      const editUserId = sp.get('editUser')
+      const viewUserId = sp.get('user')
+      if (editUserId && !editingUser) {
+        const found = users.find((u) => u.userId === editUserId || u.id === editUserId)
+        if (found) setEditingUser(found)
+      } else if (viewUserId && !viewingUser) {
+        const found = users.find((u) => u.userId === viewUserId || u.id === viewUserId)
+        if (found) setViewingUser(found)
+      }
+    }
+  }, [users, editingUser, viewingUser])
 
   // KPIs
   const kpis = useMemo(() => {
@@ -439,6 +456,7 @@ export default function StaffUsersPage() {
           columns={columns}
           data={users}
           loading={loading}
+          onRowClick={(u) => setViewingUser(u)}
           showToolbar={false}
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle="No staff members found"
@@ -475,7 +493,7 @@ export default function StaffUsersPage() {
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Modals & Inspectors */}
       <AddStaffModal
         open={addStaffOpen}
         onClose={() => setAddStaffOpen(false)}
@@ -491,10 +509,13 @@ export default function StaffUsersPage() {
         onSuccess={fetchStaff}
       />
 
-      <User360Drawer
+      {/* Side-Peek Inspector Drawer */}
+      <RecordInspector
         open={Boolean(viewingUser)}
         onClose={() => setViewingUser(null)}
-        user={viewingUser}
+        type="staff"
+        recordId={viewingUser?.userId || viewingUser?.id}
+        initialData={viewingUser}
         onEdit={(u) => setEditingUser(u)}
       />
 

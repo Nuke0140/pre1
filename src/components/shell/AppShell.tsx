@@ -17,6 +17,7 @@ import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
+import { getStoredShellGlowConfig, applyShellGlowToDom } from '@/lib/theme/shell-glow'
 import type { BrandingConfig } from '@/lib/branding-types'
 
 export interface ShellUser {
@@ -139,6 +140,7 @@ export function AppShell({
     document.documentElement.setAttribute('data-theme', t)
     document.documentElement.classList.toggle('dark', t === 'dark')
     queueMicrotask(() => setTheme(t))
+    applyShellGlowToDom(getStoredShellGlowConfig())
   }, [])
 
   const toggleTheme = useCallback(() => {
@@ -304,6 +306,7 @@ export function AppShell({
       <GlobalSearchModal
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
+        user={user}
       />
 
       {/* ── Keyboard shortcut cheat sheet (? key) ── */}

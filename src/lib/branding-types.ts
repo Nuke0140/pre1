@@ -11,6 +11,7 @@ export interface BrandingConfig {
   logoUrl: string | null
   schoolName?: string
   schoolCode?: string
+  footerGlow?: any
 }
 
 export const PREONE_BRANDING_DEFAULTS: BrandingConfig = {

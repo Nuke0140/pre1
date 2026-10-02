@@ -102,6 +102,7 @@ export function GlobalWorkspaceHeader({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+
   // OS detection for keyboard shortcut rendering
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
@@ -226,6 +227,7 @@ export function GlobalWorkspaceHeader({
           )}
           <span className="workspace-action-label">Theme</span>
         </button>
+
 
         {/* 4. Inbox (Needs Attention) Action & Popover */}
         <div style={{ position: 'relative' }}>

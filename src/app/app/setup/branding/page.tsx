@@ -16,6 +16,16 @@ import {
   evaluateColorContrast,
   type BrandingConfig
 } from '@/lib/branding-types'
+import {
+  PREONE_THEME_PRESETS,
+  DEFAULT_SHELL_GLOW_CONFIG,
+  getStoredShellGlowConfig,
+  saveShellGlowConfig,
+  applyShellGlowToDom,
+  type ShellGlowConfig,
+  type GlowIntensity,
+  type GlowStyle,
+} from '@/lib/theme/shell-glow'
 
 export default function BrandingPage() {
   const toast = useToast()
@@ -42,6 +52,7 @@ export default function BrandingPage() {
   const [layout, setLayout] = useState<'WINDOWS_SHELL' | 'CLASSIC_SIDEBAR'>('WINDOWS_SHELL')
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
   const [isBannerCustom, setIsBannerCustom] = useState(false)
+  const [glowConfig, setGlowConfig] = useState<ShellGlowConfig>(DEFAULT_SHELL_GLOW_CONFIG)
 
   // File Upload Refs
   const logoFileInputRef = useRef<HTMLInputElement | null>(null)
@@ -69,12 +80,24 @@ export default function BrandingPage() {
         setLayout(d.layout || 'WINDOWS_SHELL')
         setBannerUrl(d.bannerUrl || null)
         setIsBannerCustom(Boolean(d.bannerUrl))
+
+        if (d.footerGlow) {
+          setGlowConfig(d.footerGlow)
+          applyShellGlowToDom(d.footerGlow, d.primaryColor, d.accentColor)
+        } else {
+          const stored = getStoredShellGlowConfig()
+          setGlowConfig(stored)
+          applyShellGlowToDom(stored, d.primaryColor, d.accentColor)
+        }
+
         setInitialData(d)
       } else {
         // Fallback to defaults
         setPrimaryColor(PREONE_BRANDING_DEFAULTS.primaryColor)
         setAccentColor(PREONE_BRANDING_DEFAULTS.accentColor)
         setLayout('WINDOWS_SHELL')
+        const stored = getStoredShellGlowConfig()
+        setGlowConfig(stored)
       }
     } catch (e: any) {
       toast.error('Failed to load branding', e.message)
@@ -237,6 +260,7 @@ export default function BrandingPage() {
         layout,
         bannerUrl: isBannerCustom ? bannerUrl : null,
         logoUrl: logoUrl || null,
+        footerGlow: glowConfig,
       }
 
       const res = await fetch('/api/v1/setup/config/BRANDING', {
@@ -250,6 +274,9 @@ export default function BrandingPage() {
         throw new Error(json.error?.message || 'Could not save branding configuration.')
       }
 
+      // Synchronize client-side glow config
+      await saveShellGlowConfig(glowConfig)
+
       // Mark setup step complete if in setup context
       await fetch('/api/v1/setup/steps/branding', {
         method: 'POST',
@@ -257,7 +284,7 @@ export default function BrandingPage() {
         body: JSON.stringify({ action: 'complete' }),
       }).catch(() => {})
 
-      toast.success('Branding updated successfully', 'School visual identity has been saved and applied.')
+      toast.success('Branding updated successfully', 'School visual identity and footer glow have been saved.')
       setInitialData({
         ...payload,
         schoolName,
@@ -295,9 +322,11 @@ export default function BrandingPage() {
       setLayout('WINDOWS_SHELL')
       setBannerUrl(null)
       setIsBannerCustom(false)
+      setGlowConfig(DEFAULT_SHELL_GLOW_CONFIG)
+      await saveShellGlowConfig(DEFAULT_SHELL_GLOW_CONFIG)
 
       setResetModalOpen(false)
-      toast.success('Theme reset to defaults', 'Colors, layout, and banner were reset. School logo is preserved.')
+      toast.success('Theme reset to defaults', 'Colors, layout, banner, and footer glow were reset. School logo is preserved.')
       router.refresh()
     } catch (e: any) {
       toast.error('Reset failed', e.message)
@@ -342,7 +371,6 @@ export default function BrandingPage() {
         eyebrow="SCHOOL SETUP"
         title="School Brand Identity Center"
         sub="Make PreOne look and feel like your preschool across authentication, staff workspace, parent portal, and documents."
-        icon={<Palette size={24} />}
       />
 
       {/* ── Branding Status Card (Section 37) ── */}
@@ -505,14 +533,16 @@ export default function BrandingPage() {
             </div>
           </div>
 
-          {/* ── 2. Brand Colors ── */}
+          {/* ── 2. Brand Colors & Floating Footer Dock Glow ── */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
-                2. Brand Colors
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Palette size={16} /> 2. Brand Colors &amp; Footer Glow
+                </h3>
+              </div>
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                Primary color applies to navigation and major buttons; accent color applies to highlights and badges.
+                Primary color applies to navigation and major buttons; accent color applies to highlights, badges, and the floating footer dock glow.
               </p>
             </div>
 
@@ -532,10 +562,57 @@ export default function BrandingPage() {
                   color: 'var(--text-primary)',
                 }}
               >
-                <AlertTriangle size={16} style={{ color: '#d97706', shrink: 0 }} />
+                <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0 }} />
                 <span>{contrastAssessment.warningMessage}</span>
               </div>
             )}
+
+            {/* Quick Theme Presets */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
+                Preset Color Palettes
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+                {PREONE_THEME_PRESETS.map((p) => {
+                  const isSelected =
+                    primaryColor.toUpperCase() === p.primary.toUpperCase() &&
+                    accentColor.toUpperCase() === p.accent.toUpperCase()
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setPrimaryColor(p.primary)
+                        setIsPrimaryCustom(true)
+                        setAccentColor(p.accent)
+                        setIsAccentCustom(true)
+                        applyShellGlowToDom(glowConfig, p.primary, p.accent)
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '7px 10px',
+                        borderRadius: 8,
+                        border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                        background: isSelected ? 'var(--surface-hover)' : 'var(--card)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <span style={{ width: 14, height: 14, borderRadius: '50%', background: p.primary, border: '1px solid rgba(255,255,255,0.4)' }} />
+                        <span style={{ width: 11, height: 11, borderRadius: '50%', background: p.accent, marginLeft: -5, border: '1px solid rgba(255,255,255,0.4)' }} />
+                      </div>
+                      <span style={{ fontSize: 11.5, fontWeight: isSelected ? 700 : 500, color: 'var(--text-primary)' }}>
+                        {p.name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
               {/* Primary Color Control */}
@@ -553,6 +630,7 @@ export default function BrandingPage() {
                     onClick={() => {
                       setIsPrimaryCustom(false)
                       setPrimaryColor(PREONE_BRANDING_DEFAULTS.primaryColor)
+                      applyShellGlowToDom(glowConfig, PREONE_BRANDING_DEFAULTS.primaryColor, accentColor)
                     }}
                   >
                     {!isPrimaryCustom && '✓ '}PreOne Default
@@ -573,8 +651,10 @@ export default function BrandingPage() {
                     type="color"
                     value={isPrimaryValid ? primaryColor : PREONE_BRANDING_DEFAULTS.primaryColor}
                     onChange={(e) => {
-                      setPrimaryColor(e.target.value.toUpperCase())
+                      const val = e.target.value.toUpperCase()
+                      setPrimaryColor(val)
                       setIsPrimaryCustom(true)
+                      applyShellGlowToDom(glowConfig, val, accentColor)
                     }}
                     style={{ width: 40, height: 38, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }}
                   />
@@ -583,8 +663,10 @@ export default function BrandingPage() {
                     value={primaryColor}
                     maxLength={7}
                     onChange={(e) => {
-                      setPrimaryColor(e.target.value.trim().toUpperCase())
+                      const val = e.target.value.trim().toUpperCase()
+                      setPrimaryColor(val)
                       setIsPrimaryCustom(true)
+                      if (isValidHexColor(val)) applyShellGlowToDom(glowConfig, val, accentColor)
                     }}
                     placeholder="#7C3AED"
                   />
@@ -611,6 +693,7 @@ export default function BrandingPage() {
                     onClick={() => {
                       setIsAccentCustom(false)
                       setAccentColor(PREONE_BRANDING_DEFAULTS.accentColor)
+                      applyShellGlowToDom(glowConfig, primaryColor, PREONE_BRANDING_DEFAULTS.accentColor)
                     }}
                   >
                     {!isAccentCustom && '✓ '}PreOne Default
@@ -631,8 +714,10 @@ export default function BrandingPage() {
                     type="color"
                     value={isAccentValid ? accentColor : PREONE_BRANDING_DEFAULTS.accentColor}
                     onChange={(e) => {
-                      setAccentColor(e.target.value.toUpperCase())
+                      const val = e.target.value.toUpperCase()
+                      setAccentColor(val)
                       setIsAccentCustom(true)
+                      applyShellGlowToDom(glowConfig, primaryColor, val)
                     }}
                     style={{ width: 40, height: 38, border: 'none', borderRadius: 8, cursor: 'pointer', padding: 0 }}
                   />
@@ -641,8 +726,10 @@ export default function BrandingPage() {
                     value={accentColor}
                     maxLength={7}
                     onChange={(e) => {
-                      setAccentColor(e.target.value.trim().toUpperCase())
+                      const val = e.target.value.trim().toUpperCase()
+                      setAccentColor(val)
                       setIsAccentCustom(true)
+                      if (isValidHexColor(val)) applyShellGlowToDom(glowConfig, primaryColor, val)
                     }}
                     placeholder="#3B82F6"
                   />
@@ -652,6 +739,164 @@ export default function BrandingPage() {
                     Invalid HEX (e.g. #3B82F6)
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* ── Sub-feature: Floating Footer Dock Glow & Atmosphere (Edit Footer) ── */}
+            <div
+              style={{
+                marginTop: 20,
+                paddingTop: 16,
+                borderTop: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                <div>
+                  <h4 style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={15} style={{ color: 'var(--primary)' }} />
+                    Floating Footer Dock Glow &amp; Atmosphere
+                  </h4>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
+                    Configure the ambient outer glow and 1px gradient accent border on the floating bottom navigation dock.
+                  </p>
+                </div>
+
+                {/* Footer Glow Toggle */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...glowConfig, enabled: !glowConfig.enabled, applyTo: 'footer' as const }
+                    setGlowConfig(next)
+                    applyShellGlowToDom(next, primaryColor, accentColor)
+                  }}
+                  className={`btn btn-sm ${glowConfig.enabled ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ fontSize: 11.5, padding: '3px 12px', borderRadius: 999 }}
+                >
+                  {glowConfig.enabled ? 'Footer Glow: ON' : 'Footer Glow: OFF'}
+                </button>
+              </div>
+
+              {glowConfig.enabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 12 }}>
+                  {/* Glow Intensity */}
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
+                      Glow Intensity
+                    </label>
+                    <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
+                      {(['subtle', 'balanced', 'prominent'] as GlowIntensity[]).map((lvl) => (
+                        <button
+                          key={lvl}
+                          type="button"
+                          onClick={() => {
+                            const next = { ...glowConfig, intensity: lvl, applyTo: 'footer' as const }
+                            setGlowConfig(next)
+                            applyShellGlowToDom(next, primaryColor, accentColor)
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '4px 6px',
+                            fontSize: 11,
+                            fontWeight: glowConfig.intensity === lvl ? 700 : 500,
+                            borderRadius: 6,
+                            background: glowConfig.intensity === lvl ? 'var(--card)' : 'transparent',
+                            color: glowConfig.intensity === lvl ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Glow Style */}
+                  <div>
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
+                      Glow Style
+                    </label>
+                    <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
+                      {(
+                        [
+                          { id: 'soft', label: 'Soft Aura' },
+                          { id: 'gradient', label: 'Gradient Line' },
+                          { id: 'edge-highlight', label: 'Edge Highlight' },
+                        ] as { id: GlowStyle; label: string }[]
+                      ).map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            const next = { ...glowConfig, style: s.id, applyTo: 'footer' as const }
+                            setGlowConfig(next)
+                            applyShellGlowToDom(next, primaryColor, accentColor)
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '4px 6px',
+                            fontSize: 11,
+                            fontWeight: glowConfig.style === s.id ? 700 : 500,
+                            borderRadius: 6,
+                            background: glowConfig.style === s.id ? 'var(--card)' : 'transparent',
+                            color: glowConfig.style === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Interactive Mini Dock Mock within this section */}
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  background: 'var(--bg-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <div
+                  className="taskbar preone-dock"
+                  style={{
+                    height: 38,
+                    width: '100%',
+                    maxWidth: 290,
+                    borderRadius: 9999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 12px',
+                    position: 'relative',
+                  }}
+                >
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Home</span>
+                  <div className="dock-orb-container" style={{ margin: '0 4px' }}>
+                    <div
+                      className="dock-orb"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        transform: 'translateY(-4px)',
+                        boxShadow: glowConfig.enabled
+                          ? `0 4px 14px -2px color-mix(in srgb, ${primaryColor} 50%, transparent)`
+                          : 'none',
+                      }}
+                    >
+                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: primaryColor }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Settings</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1008,14 +1253,40 @@ export default function BrandingPage() {
                     </div>
                   </div>
 
-                  {/* Windows Shell Taskbar */}
+                  {/* PreOne Windows Shell Floating Dock with Glow */}
                   {layout === 'WINDOWS_SHELL' && (
-                    <div style={{ height: 32, background: '#1f2937', display: 'flex', alignItems: 'center', padding: '0 8px', gap: 6 }}>
-                      <button type="button" style={{ background: primaryColor, color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>
-                        Start
-                      </button>
-                      <div style={{ background: '#374151', height: 22, padding: '0 8px', borderRadius: 4, color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center' }}>
-                        Students 360
+                    <div style={{ padding: '4px 12px 8px', display: 'flex', justifyContent: 'center', background: '#f3f4f6' }}>
+                      <div
+                        className="taskbar preone-dock"
+                        style={{
+                          height: 34,
+                          width: '100%',
+                          maxWidth: 240,
+                          borderRadius: 9999,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0 10px',
+                          position: 'relative',
+                        }}
+                      >
+                        <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Home</span>
+                        <div className="dock-orb-container" style={{ margin: '0 2px' }}>
+                          <div
+                            className="dock-orb"
+                            style={{
+                              width: 28,
+                              height: 28,
+                              transform: 'translateY(-3px)',
+                              boxShadow: glowConfig.enabled
+                                ? `0 3px 12px -2px color-mix(in srgb, ${primaryColor} 50%, transparent)`
+                                : 'none',
+                            }}
+                          >
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: primaryColor }} />
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 9.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Students</span>
                       </div>
                     </div>
                   )}
@@ -1239,7 +1510,7 @@ export default function BrandingPage() {
               gap: 8,
             }}
           >
-            <CheckCircle2 size={16} style={{ color: 'var(--success)', shrink: 0 }} />
+            <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
             <span><strong>Your school logo and legal profile will NOT be removed.</strong></span>
           </div>
 

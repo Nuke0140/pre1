@@ -35,16 +35,17 @@ async function _GET(req: NextRequest) {
           },
         },
         location: {
-          select: { id: true, name: true, code: true, type: true },
+          select: { id: true, name: true, code: true, locationType: true },
         },
         branch: { select: { id: true, name: true } },
       },
       orderBy: [{ item: { name: 'asc' } }, { location: { name: 'asc' } }],
     })
 
-    const mapped = stocks.map((s) => ({
+    const mapped = stocks.map((s: any) => ({
       ...s,
       item: s.item ? { ...s.item, code: s.item.sku } : null,
+      location: s.location ? { ...s.location, type: s.location.locationType } : null,
     }))
 
     return ok(mapped)

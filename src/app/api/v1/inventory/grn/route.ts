@@ -19,7 +19,6 @@ async function _GET(req: NextRequest) {
     const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : undefined
 
     const result = await InventoryService.listGoodsReceipts(session.tenantId, {
-      branchId,
       purchaseOrderId,
       vendorId,
       page,

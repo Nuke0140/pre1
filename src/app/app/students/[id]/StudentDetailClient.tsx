@@ -148,6 +148,16 @@ export function StudentDetailClient({ profile }: Props) {
     loadHistory()
   }, [loadHistory])
 
+  // Auto-open student edit modal if navigated with ?edit=true
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.get('edit') === 'true') {
+        setEditStudentOpen(true)
+      }
+    }
+  }, [])
+
   // Photo processing: converts selected file to compressed JPEG data URL
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

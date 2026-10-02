@@ -61,17 +61,23 @@ html, body {
   --surface-border:rgba(226, 232, 240, 0.70);
   --surface-radius:18px;
 
-  /* ── 4-Level Centralized Elevation Scale ── */
-  --elevation-0:none;
-  --elevation-1:0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 10px 24px -4px rgba(15, 23, 42, 0.06);
-  --elevation-2:0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 12px 28px -4px rgba(15, 23, 42, 0.08);
-  --elevation-3:0 8px 16px -2px rgba(15, 23, 42, 0.06), 0 24px 48px -8px rgba(15, 23, 42, 0.12);
+  /* ── Apple × Linear Surface Highlights (Specular Top Rim) ───── */
+  --surface-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --surface-highlight-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.40);
+  --surface-highlight-dialog: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 
-  --surface-shadow:var(--elevation-1);
-  --surface-header-bg:rgba(255, 255, 255, 0.85);
-  --surface-header-blur:12px;
-  --surface-header-border:1px solid var(--surface-border);
-  --brand-ambient-wash:radial-gradient(ellipse at top left, color-mix(in srgb, var(--primary, #7C3AED) 8%, transparent), transparent 70%);
+  /* ── 4-Level Centralized Elevation Scale (Apple × Linear Spec) ── */
+  --elevation-0: none;
+  --elevation-1: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 8px 24px -4px rgba(15, 23, 42, 0.06);
+  --elevation-2: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 14px 28px -4px rgba(15, 23, 42, 0.08);
+  --elevation-3: 0 12px 24px -4px rgba(15, 23, 42, 0.08), 0 28px 56px -8px rgba(15, 23, 42, 0.14);
+  --elevation-4: 0 20px 32px -4px rgba(15, 23, 42, 0.12), 0 36px 72px -12px rgba(15, 23, 42, 0.20);
+
+  --surface-shadow: var(--elevation-1);
+  --surface-header-bg: rgba(255, 255, 255, 0.85);
+  --surface-header-blur: 14px;
+  --surface-header-border: 1px solid var(--surface-border);
+  --brand-ambient-wash: radial-gradient(ellipse at top left, color-mix(in srgb, var(--primary, #7C3AED) 8%, transparent), transparent 70%);
 
   /* Legacy & Workspace Surface Aliases */
   --bg-page:var(--surface-canvas);
@@ -114,6 +120,42 @@ html, body {
   --danger-soft:#FDE8E8;
   --info:#3B82F6;
   --info-soft:#EAF2FE;
+
+  /* ── 2b. Pastel Semantic Accent System (Apple × Linear Specification) ── */
+  --badge-success-bg: #ECFDF3;
+  --badge-success-text: #067647;
+  --badge-success-border: #A6F4C5;
+  --badge-success-dot: #12B76A;
+
+  --badge-danger-bg: #FEF2F2;
+  --badge-danger-text: #B91C1C;
+  --badge-danger-border: #FECACA;
+  --badge-danger-dot: #F04438;
+
+  --badge-warning-bg: #FFF7E6;
+  --badge-warning-text: #B45309;
+  --badge-warning-border: #FED7AA;
+  --badge-warning-dot: #F79009;
+
+  --badge-info-bg: #EEF2FF;
+  --badge-info-text: #4338CA;
+  --badge-info-border: #C7D2FE;
+  --badge-info-dot: #6366F1;
+
+  --badge-neutral-bg: #F1F5F9;
+  --badge-neutral-text: #475569;
+  --badge-neutral-border: #CBD5E1;
+  --badge-neutral-dot: #94A3B8;
+
+  --badge-primary-bg: var(--primary-light, #F3EEFF);
+  --badge-primary-text: var(--primary, #7C3AED);
+  --badge-primary-border: color-mix(in srgb, var(--primary) 22%, transparent);
+  --badge-primary-dot: var(--primary, #7C3AED);
+
+  --badge-pink-bg: #FDF2F8;
+  --badge-pink-text: #BE185D;
+  --badge-pink-border: #FBCFE8;
+  --badge-pink-dot: #EC4899;
 
   /* ── 3. Semantic Text Tokens ─────────────────────────────────── */
   --text-primary:#1E293B;
@@ -178,11 +220,21 @@ html, body {
   --input-border:var(--border-default);
   --input-border-focus:var(--primary);
 
-  /* ── 9. Motion ───────────────────────────────────────────────── */
-  --motion-fast:120ms; --motion-normal:180ms; --motion-slow:260ms;
+  /* ── 9. Apple × Linear Spring Motion System (Section 5) ──────── */
+  --ease-spring:cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth:cubic-bezier(0.16, 1, 0.3, 1);
   --ease-tactile:cubic-bezier(0.2, 0, 0, 1);
-  --ease-standard:cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard:cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit:cubic-bezier(0.4, 0, 1, 1);
+
+  --duration-fast:150ms;
+  --duration-normal:200ms;
+  --duration-panel:280ms;
+  --duration-dialog:240ms;
+
+  --motion-fast:var(--duration-fast);
+  --motion-normal:var(--duration-normal);
+  --motion-slow:var(--duration-panel);
 
   /* ── 10. Focus Ring & Accessibility ──────────────────────────── */
   --focus-ring:0 0 0 3px color-mix(in srgb,var(--primary) 28%,transparent);
@@ -313,6 +365,19 @@ html, body {
   --workspace-floating-border:var(--surface-border);
   --workspace-floating-shadow:var(--elevation-2);
   --workspace-floating-radius:var(--radius-full, 9999px);
+
+  /* ── 17. PreOne Global Shell Glow & Gradient Border Tokens ── */
+  --shell-glow-enabled: 1;
+  --shell-glow-primary: var(--primary);
+  --shell-glow-secondary: var(--accent, #38bdf8);
+  --shell-glow-opacity: 0.16;
+  --shell-glow-hover-opacity: 0.28;
+  --shell-glow-border-opacity: 0.70;
+  --shell-glow-hover-border-opacity: 0.95;
+  --shell-glow-blur: 14px;
+  --shell-glow-spread: 1px;
+  --shell-border-width: 1px;
+  --shell-glow-angle: 135deg;
 }
 
 /* ── DARK THEME — Midnight Slate Architecture ──────────────────────── */
@@ -332,11 +397,17 @@ html, body {
   --surface-border:rgba(148,163,184,.14);
   --surface-radius:18px;
 
-  /* ── 4-Level Centralized Elevation Scale (Midnight Slate) ── */
-  --elevation-0:none;
-  --elevation-1:0 1px 3px 0 rgba(0,0,0,.25), 0 8px 24px -4px rgba(0,0,0,.18);
-  --elevation-2:0 4px 6px -1px rgba(0,0,0,.28), 0 12px 28px -4px rgba(0,0,0,.25);
-  --elevation-3:0 8px 16px -2px rgba(0,0,0,.35), 0 24px 48px -8px rgba(0,0,0,.40);
+  /* ── Apple × Linear Dark Specular Rim ────────────────────────── */
+  --surface-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --surface-highlight-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --surface-highlight-dialog: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+  /* ── 4-Level Centralized Elevation Scale (Midnight Slate Dark) ── */
+  --elevation-0: none;
+  --elevation-1: 0 1px 3px 0 rgba(0, 0, 0, 0.25), 0 8px 24px -4px rgba(0, 0, 0, 0.20);
+  --elevation-2: 0 4px 8px -1px rgba(0, 0, 0, 0.30), 0 14px 30px -4px rgba(0, 0, 0, 0.28);
+  --elevation-3: 0 12px 28px -4px rgba(0, 0, 0, 0.45), 0 32px 64px -8px rgba(0, 0, 0, 0.50);
+  --elevation-4: 0 20px 40px -4px rgba(0, 0, 0, 0.55), 0 44px 80px -12px rgba(0, 0, 0, 0.65);
 
   --surface-shadow:var(--elevation-1);
   --surface-header-bg:rgba(15,23,42,0.78);
@@ -379,6 +450,42 @@ html, body {
   --danger-soft:rgba(239,68,68,.16);
   --info:#60A5FA;
   --info-soft:rgba(96,165,250,.16);
+
+  /* ── Pastel Semantic Dark Palette (Apple × Linear Specification) ── */
+  --badge-success-bg: rgba(6, 118, 71, 0.16);
+  --badge-success-text: #34D399;
+  --badge-success-border: rgba(52, 211, 153, 0.25);
+  --badge-success-dot: #34D399;
+
+  --badge-danger-bg: rgba(185, 28, 28, 0.16);
+  --badge-danger-text: #F87171;
+  --badge-danger-border: rgba(248, 113, 113, 0.25);
+  --badge-danger-dot: #F87171;
+
+  --badge-warning-bg: rgba(180, 83, 9, 0.16);
+  --badge-warning-text: #FBBF24;
+  --badge-warning-border: rgba(251, 191, 36, 0.25);
+  --badge-warning-dot: #FBBF24;
+
+  --badge-info-bg: rgba(67, 56, 202, 0.16);
+  --badge-info-text: #818CF8;
+  --badge-info-border: rgba(129, 140, 248, 0.25);
+  --badge-info-dot: #818CF8;
+
+  --badge-neutral-bg: rgba(71, 85, 105, 0.22);
+  --badge-neutral-text: #94A3B8;
+  --badge-neutral-border: rgba(148, 163, 184, 0.20);
+  --badge-neutral-dot: #94A3B8;
+
+  --badge-primary-bg: color-mix(in srgb, var(--primary) 18%, transparent);
+  --badge-primary-text: color-mix(in srgb, var(--primary) 85%, #FFFFFF 15%);
+  --badge-primary-border: color-mix(in srgb, var(--primary) 30%, transparent);
+  --badge-primary-dot: color-mix(in srgb, var(--primary) 85%, #FFFFFF 15%);
+
+  --badge-pink-bg: rgba(190, 24, 93, 0.16);
+  --badge-pink-text: #F472B6;
+  --badge-pink-border: rgba(244, 114, 182, 0.25);
+  --badge-pink-dot: #F472B6;
 
   /* ── 3. Typography Hierarchy (Never Pure White Everywhere) ──────── */
   --text-primary:#F8FAFC;
@@ -499,6 +606,12 @@ html, body {
   --workspace-floating-border:var(--surface-border);
   --workspace-floating-shadow:var(--elevation-2);
   --workspace-floating-radius:var(--radius-full, 9999px);
+  --shell-glow-opacity: 0.24;
+  --shell-glow-hover-opacity: 0.38;
+  --shell-glow-border-opacity: 0.80;
+  --shell-glow-hover-border-opacity: 1.0;
+  --shell-glow-blur: 16px;
+  --shell-glow-spread: 1px;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────── */
@@ -540,6 +653,8 @@ h1,h2,h3,h4,h5,h6{
 .font-body{font-family:var(--font-body)!important}
 .font-tabular,
 .tabular-nums,
+.numeric,
+[data-numeric="true"],
 .amount,
 .currency,
 .cell-amount,
@@ -755,11 +870,16 @@ body.dark {
   width:100%;height:40px;padding:0 14px;border-radius:var(--radius-md);
   background:var(--input-background);border:1px solid var(--border-default);
   font-family:var(--font-sans);font-size:14px;color:var(--text-primary);
-  transition:border-color var(--motion-fast),box-shadow var(--motion-fast);
+  box-shadow:inset 0 1px 1px rgba(0, 0, 0, 0.03);
+  transition:border-color var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard);
 }
 .textarea{height:auto;padding:10px 14px;resize:vertical;min-height:88px;line-height:1.6}
 .input::placeholder,.textarea::placeholder{color:var(--text-muted)}
-.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--primary);box-shadow:var(--focus-ring)}
+.input:focus,.select:focus,.textarea:focus{
+  outline:none;
+  border-color:var(--primary);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent), inset 0 1px 1px rgba(0, 0, 0, 0.02);
+}
 .select{
   appearance:none;cursor:pointer;padding-right:36px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -786,16 +906,17 @@ body.dark {
    ════════════════════════════════════════════════════════════════════ */
 .card{
   background:var(--surface-card);border:1px solid var(--surface-border);
-  border-radius:var(--surface-radius);padding:var(--space-5);box-shadow:var(--surface-shadow);
-  transition:transform 160ms var(--ease-standard),box-shadow 160ms var(--ease-standard),border-color 160ms var(--ease-standard);
+  border-radius:var(--surface-radius);padding:var(--space-5);
+  box-shadow:var(--surface-shadow), var(--surface-highlight);
+  transition:transform var(--duration-fast) var(--ease-spring),box-shadow var(--duration-normal) var(--ease-spring),border-color var(--duration-fast) var(--ease-spring);
   position:relative;
 }
-.card-hover:hover,.card-interactive:hover{
-  transform:translateY(-2px);box-shadow:var(--shadow-elevated);
-  border-color:color-mix(in srgb,var(--primary) 32%,var(--border-default));
+.card-hover:hover,.card-interactive:hover,.card[role="button"]:hover,a.card:hover{
+  transform:translateY(-2px);box-shadow:var(--shadow-elevated), var(--surface-highlight);
+  border-color:color-mix(in srgb,var(--primary) 28%,var(--border-default));
 }
-.card-interactive{cursor:pointer}
-.card-interactive:active{transform:translateY(0) scale(0.995)}
+.card-interactive,.card[role="button"],a.card{cursor:pointer}
+.card-interactive:active,.card[role="button"]:active,a.card:active{transform:translateY(0) scale(0.995)}
 .card-nav{
   cursor:pointer;
   border-radius:var(--radius-2xl);
@@ -870,17 +991,21 @@ body.dark {
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}
 .kpi{
   background:var(--bg-card);border:1px solid var(--border-default);border-radius:var(--radius-xl);
-  padding:20px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:10px;
-  transition:transform 160ms var(--ease-standard),box-shadow 160ms var(--ease-standard),border-color 160ms var(--ease-standard);
+  padding:20px;box-shadow:var(--surface-shadow), var(--surface-highlight);display:flex;flex-direction:column;gap:10px;
+  transition:transform var(--duration-normal) var(--ease-spring),box-shadow var(--duration-normal) var(--ease-spring),border-color var(--duration-normal) var(--ease-spring);
   position:relative;overflow:hidden;
 }
 .kpi:hover{
-  transform:translateY(-2px);box-shadow:var(--shadow-elevated);
-  border-color:color-mix(in srgb,var(--primary) 32%,var(--border-default));
+  border-color:color-mix(in srgb,var(--primary) 24%,var(--border-default));
+}
+.kpi.clickable:hover,.kpi[role="button"]:hover,.kpi-interactive:hover,a.kpi:hover{
+  transform:translateY(-2px);box-shadow:var(--shadow-elevated), var(--surface-highlight);
+  border-color:color-mix(in srgb,var(--primary) 38%,var(--border-default));
+  cursor:pointer;
 }
 .kpi-top{display:flex;align-items:center;justify-content:space-between}
-.kpi-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;transition:transform 160ms ease}
-.kpi:hover .kpi-ic{transform:scale(1.05)}
+.kpi-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:none;transition:transform var(--duration-fast) var(--ease-spring)}
+.kpi.clickable:hover .kpi-ic,.kpi[role="button"]:hover .kpi-ic,.kpi-interactive:hover .kpi-ic,a.kpi:hover .kpi-ic{transform:scale(1.05)}
 .kpi-ic svg{width:20px;height:20px}
 .kpi-label{font-family:var(--font-heading);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted)}
 .kpi-value{font-family:var(--font-body);font-size:26px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;font-feature-settings:"tnum";line-height:1.15;color:var(--text-primary)}
@@ -1288,49 +1413,49 @@ button:focus:not(:focus-visible) {
 /* SUCCESS / ACTIVE / APPROVED / COMPLETED / PAID */
 .status-pill-success,
 .b-success {
-  background: #ECFDF5;
-  color: #047857;
-  border-color: rgba(167, 243, 208, 0.80);
+  background: var(--badge-success-bg);
+  color: var(--badge-success-text);
+  border-color: var(--badge-success-border);
 }
 .status-pill-success .status-dot,
 .b-success .status-dot {
-  background-color: #10B981;
+  background-color: var(--badge-success-dot);
 }
 
 /* PENDING / UNDER REVIEW / IN REVIEW / ACTION NEEDED */
 .status-pill-pending,
 .b-warning {
-  background: #FFFBEB;
-  color: #B45309;
-  border-color: rgba(253, 230, 138, 0.80);
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-text);
+  border-color: var(--badge-warning-border);
 }
 .status-pill-pending .status-dot,
 .b-warning .status-dot {
-  background-color: #F59E0B;
+  background-color: var(--badge-warning-dot);
 }
 
 /* WAITLISTED / WAITING / QUEUED */
 .status-pill-waiting {
-  background: #F5F3FF;
-  color: #6D28D9;
-  border-color: rgba(221, 214, 254, 0.80);
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
+  border-color: var(--badge-primary-border);
 }
 .status-pill-waiting .status-dot {
-  background-color: #8B5CF6;
+  background-color: var(--badge-primary-dot);
 }
 
 /* URGENT / ATTENTION / ERROR / OVERDUE / REJECTED / ABSENT */
 .status-pill-urgent,
 .status-pill-danger,
 .b-danger {
-  background: #FFF1F2;
-  color: #BE123C;
-  border-color: rgba(254, 205, 211, 0.80);
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-text);
+  border-color: var(--badge-danger-border);
 }
 .status-pill-urgent .status-dot,
 .status-pill-danger .status-dot,
 .b-danger .status-dot {
-  background-color: #F43F5E;
+  background-color: var(--badge-danger-dot);
 }
 .status-pill-urgent:hover,
 .status-pill-danger:hover,
@@ -1341,61 +1466,61 @@ button:focus:not(:focus-visible) {
 /* WARNING / CORRECTION / PARTIALLY */
 .status-pill-warning,
 .b-orange {
-  background: #FFF7ED;
-  color: #C2410C;
-  border-color: rgba(254, 215, 170, 0.80);
+  background: var(--badge-warning-bg);
+  color: var(--badge-warning-text);
+  border-color: var(--badge-warning-border);
 }
 .status-pill-warning .status-dot,
 .b-orange .status-dot {
-  background-color: #F97316;
+  background-color: var(--badge-warning-dot);
 }
 
 /* INFO / ISSUED / ORDERED / TRANSFERRED */
 .status-pill-info,
 .b-info {
-  background: #EFF6FF;
-  color: #1D4ED8;
-  border-color: rgba(191, 219, 254, 0.80);
+  background: var(--badge-info-bg);
+  color: var(--badge-info-text);
+  border-color: var(--badge-info-border);
 }
 .status-pill-info .status-dot,
 .b-info .status-dot {
-  background-color: #3B82F6;
+  background-color: var(--badge-info-dot);
 }
 
 /* NEUTRAL / DRAFT / INACTIVE / ARCHIVED */
 .status-pill-neutral,
 .b-neutral {
-  background: #F8FAFC;
-  color: #475569;
-  border-color: rgba(226, 232, 240, 0.80);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-text);
+  border-color: var(--badge-neutral-border);
 }
 .status-pill-neutral .status-dot,
 .b-neutral .status-dot {
-  background-color: #94A3B8;
+  background-color: var(--badge-neutral-dot);
 }
 
 /* PRIMARY / GRADUATED / VERIFIED */
 .status-pill-primary,
 .b-primary {
-  background: var(--primary-light, #EEF2FF);
-  color: var(--primary, #4F46E5);
-  border-color: rgba(199, 210, 254, 0.80);
+  background: var(--badge-primary-bg);
+  color: var(--badge-primary-text);
+  border-color: var(--badge-primary-border);
 }
 .status-pill-primary .status-dot,
 .b-primary .status-dot {
-  background-color: var(--primary, #4F46E5);
+  background-color: var(--badge-primary-dot);
 }
 
 /* PINK / EVENT / CELEBRATION */
 .status-pill-pink,
 .b-pink {
-  background: #FDF2F8;
-  color: #BE185D;
-  border-color: rgba(251, 207, 232, 0.80);
+  background: var(--badge-pink-bg);
+  color: var(--badge-pink-text);
+  border-color: var(--badge-pink-border);
 }
 .status-pill-pink .status-dot,
 .b-pink .status-dot {
-  background-color: #EC4899;
+  background-color: var(--badge-pink-dot);
 }
 
 /* Legacy .b-dot compatibility */
@@ -1412,143 +1537,6 @@ button:focus:not(:focus-visible) {
   width: 13px;
   height: 13px;
   flex: none;
-}
-
-/* Dark mode semantic equivalents with subtle alpha tints */
-/* Dark mode semantic equivalents with subtle alpha tints */
-[data-theme="dark"] .status-pill-success,
-.dark .status-pill-success,
-[data-theme="dark"] .b-success,
-.dark .b-success {
-  background: rgba(16, 185, 129, 0.14);
-  color: #34D399;
-  border-color: rgba(16, 185, 129, 0.28);
-}
-[data-theme="dark"] .status-pill-success .status-dot,
-.dark .status-pill-success .status-dot,
-[data-theme="dark"] .b-success .status-dot,
-.dark .b-success .status-dot {
-  background-color: #34D399;
-}
-
-[data-theme="dark"] .status-pill-pending,
-.dark .status-pill-pending,
-[data-theme="dark"] .b-warning,
-.dark .b-warning {
-  background: rgba(245, 158, 11, 0.14);
-  color: #FBBF24;
-  border-color: rgba(245, 158, 11, 0.28);
-}
-[data-theme="dark"] .status-pill-pending .status-dot,
-.dark .status-pill-pending .status-dot,
-[data-theme="dark"] .b-warning .status-dot,
-.dark .b-warning .status-dot {
-  background-color: #FBBF24;
-}
-
-[data-theme="dark"] .status-pill-waiting,
-.dark .status-pill-waiting {
-  background: rgba(139, 92, 246, 0.14);
-  color: #A78BFA;
-  border-color: rgba(139, 92, 246, 0.28);
-}
-[data-theme="dark"] .status-pill-waiting .status-dot,
-.dark .status-pill-waiting .status-dot {
-  background-color: #A78BFA;
-}
-
-[data-theme="dark"] .status-pill-urgent,
-.dark .status-pill-urgent,
-[data-theme="dark"] .status-pill-danger,
-.dark .status-pill-danger,
-[data-theme="dark"] .b-danger,
-.dark .b-danger {
-  background: rgba(244, 63, 94, 0.14);
-  color: #FB7185;
-  border-color: rgba(244, 63, 94, 0.28);
-}
-[data-theme="dark"] .status-pill-urgent .status-dot,
-.dark .status-pill-urgent .status-dot,
-[data-theme="dark"] .status-pill-danger .status-dot,
-.dark .status-pill-danger .status-dot,
-[data-theme="dark"] .b-danger .status-dot,
-.dark .b-danger .status-dot {
-  background-color: #FB7185;
-}
-
-[data-theme="dark"] .status-pill-warning,
-.dark .status-pill-warning,
-[data-theme="dark"] .b-orange,
-.dark .b-orange {
-  background: rgba(249, 115, 22, 0.14);
-  color: #FB923C;
-  border-color: rgba(249, 115, 22, 0.28);
-}
-[data-theme="dark"] .status-pill-warning .status-dot,
-.dark .status-pill-warning .status-dot,
-[data-theme="dark"] .b-orange .status-dot,
-.dark .b-orange .status-dot {
-  background-color: #FB923C;
-}
-
-[data-theme="dark"] .status-pill-info,
-.dark .status-pill-info,
-[data-theme="dark"] .b-info,
-.dark .b-info {
-  background: rgba(59, 130, 246, 0.14);
-  color: #60A5FA;
-  border-color: rgba(59, 130, 246, 0.28);
-}
-[data-theme="dark"] .status-pill-info .status-dot,
-.dark .status-pill-info .status-dot,
-[data-theme="dark"] .b-info .status-dot,
-.dark .b-info .status-dot {
-  background-color: #60A5FA;
-}
-
-[data-theme="dark"] .status-pill-neutral,
-.dark .status-pill-neutral,
-[data-theme="dark"] .b-neutral,
-.dark .b-neutral {
-  background: rgba(148, 163, 184, 0.10);
-  color: #94A3B8;
-  border-color: rgba(148, 163, 184, 0.20);
-}
-[data-theme="dark"] .status-pill-neutral .status-dot,
-.dark .status-pill-neutral .status-dot,
-[data-theme="dark"] .b-neutral .status-dot,
-.dark .b-neutral .status-dot {
-  background-color: #64748B;
-}
-
-[data-theme="dark"] .status-pill-primary,
-.dark .status-pill-primary,
-[data-theme="dark"] .b-primary,
-.dark .b-primary {
-  background: rgba(99, 102, 241, 0.16);
-  color: #A5B4FC;
-  border-color: rgba(99, 102, 241, 0.32);
-}
-[data-theme="dark"] .status-pill-primary .status-dot,
-.dark .status-pill-primary .status-dot,
-[data-theme="dark"] .b-primary .status-dot,
-.dark .b-primary .status-dot {
-  background-color: #A5B4FC;
-}
-
-[data-theme="dark"] .status-pill-pink,
-.dark .status-pill-pink,
-[data-theme="dark"] .b-pink,
-.dark .b-pink {
-  background: rgba(236, 72, 153, 0.14);
-  color: #F472B6;
-  border-color: rgba(236, 72, 153, 0.28);
-}
-[data-theme="dark"] .status-pill-pink .status-dot,
-.dark .status-pill-pink .status-dot,
-[data-theme="dark"] .b-pink .status-dot,
-.dark .b-pink .status-dot {
-  background-color: #F472B6;
 }
 
 /* Reduced motion accessibility */
@@ -2466,8 +2454,8 @@ tr:focus-within .dt-row-actions .kebab {
 .ovl-backdrop{position:fixed;inset:0;background:var(--bg-overlay);backdrop-filter:blur(4px);animation:fade-in var(--motion-fast) var(--ease-standard)}
 .modal{
   position:relative;width:min(560px,100vw - 32px);max-height:min(88vh,780px);display:flex;flex-direction:column;
-  background:var(--surface-card);border:1px solid var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--elevation-3);
-  animation:pop-in var(--motion-normal) var(--ease-standard);
+  background:var(--surface-card);border:1px solid var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--elevation-3), var(--surface-highlight-dialog);
+  animation:pop-in var(--duration-dialog) var(--ease-spring);
   overflow:hidden;
 }
 .modal-wide{width:min(720px,100vw - 32px)}
@@ -2634,8 +2622,8 @@ tr:focus-within .dt-row-actions .kebab {
 .ovl-drawer{align-items:stretch;justify-content:flex-end;padding:0}
 .drawer{
   position:relative;width:min(520px,100vw);height:100%;display:flex;flex-direction:column;
-  background:var(--bg-elevated);border-left:1px solid var(--border-default);box-shadow:var(--shadow-modal);
-  animation:drawer-in var(--motion-normal) var(--ease-standard);
+  background:var(--bg-elevated);border-left:1px solid var(--border-default);box-shadow:var(--elevation-3), var(--surface-highlight-dialog);
+  animation:drawer-in var(--duration-panel) var(--ease-spring);
 }
 .drawer:focus{outline:none}
 .drawer:focus-visible{outline:none;box-shadow:var(--focus-ring)}
@@ -2654,7 +2642,7 @@ tr:focus-within .dt-row-actions .kebab {
     width:100%;max-width:100vw;height:94vh;
     border-radius:var(--radius-2xl) var(--radius-2xl) 0 0;
     border-left:none;border-top:1px solid var(--border-default);
-    animation:drawer-sheet var(--motion-normal) var(--ease-standard);
+    animation:drawer-sheet var(--duration-panel) var(--ease-spring);
   }
   @keyframes drawer-sheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
   .drawer-head{padding:18px 18px 0}
@@ -2705,13 +2693,120 @@ tr:focus-within .dt-row-actions .kebab {
    PREONE GLOBAL FLOATING CURVED SURFACE SYSTEM (Header + Dock)
    ════════════════════════════════════════════════════════════════════ */
 .workspace-floating-surface {
+  position: relative;
   background: var(--workspace-floating-surface);
-  backdrop-filter: blur(var(--surface-header-blur, 12px));
-  -webkit-backdrop-filter: blur(var(--surface-header-blur, 12px));
+  backdrop-filter: blur(var(--surface-header-blur, 14px));
+  -webkit-backdrop-filter: blur(var(--surface-header-blur, 14px));
   border: 1px solid var(--workspace-floating-border);
   border-radius: var(--workspace-floating-radius);
   box-shadow: var(--workspace-floating-shadow);
-  transition: all var(--motion-normal) var(--ease-standard);
+  transition: box-shadow var(--motion-normal) var(--ease-standard),
+              border-color var(--motion-normal) var(--ease-standard),
+              background var(--motion-normal) var(--ease-standard),
+              transform var(--motion-normal) var(--ease-standard);
+}
+
+/* Explicitly guarantee workspace-header has NO glowing border overlay */
+.workspace-header::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* 1px Refined Gradient Border overlay — Floating Footer Dock only */
+.taskbar.preone-dock::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: var(--shell-border-width, 1px);
+  background: linear-gradient(
+    var(--shell-glow-angle, 135deg),
+    color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-border-opacity, 0.7) * 100%), transparent) 0%,
+    color-mix(in srgb, var(--shell-glow-secondary) calc(var(--shell-glow-border-opacity, 0.7) * 60%), transparent) 50%,
+    color-mix(in srgb, var(--workspace-floating-border) 40%, transparent) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: var(--shell-glow-enabled, 1);
+  transition: opacity var(--motion-normal) var(--ease-standard),
+              background var(--motion-normal) var(--ease-standard);
+  z-index: 1;
+}
+
+/* Hover and Focus-Within interactive boost on Floating Footer Dock */
+.taskbar.preone-dock:hover::after,
+.taskbar.preone-dock:focus-within::after {
+  background: linear-gradient(
+    var(--shell-glow-angle, 135deg),
+    color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-hover-border-opacity, 0.95) * 100%), transparent) 0%,
+    color-mix(in srgb, var(--shell-glow-secondary) calc(var(--shell-glow-hover-border-opacity, 0.95) * 80%), transparent) 50%,
+    color-mix(in srgb, var(--workspace-floating-border) 60%, transparent) 100%
+  );
+}
+
+/* Dynamic Ambient Glow Box-Shadow — Floating Footer Dock only */
+[data-shell-glow="on"] .taskbar.preone-dock,
+:root:not([data-shell-glow="off"]) .taskbar.preone-dock {
+  box-shadow: 
+    var(--workspace-floating-shadow),
+    0 0 var(--shell-glow-blur, 14px) var(--shell-glow-spread, 1px) color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-opacity, 0.16) * 100%), transparent),
+    0 8px 24px -4px color-mix(in srgb, var(--shell-glow-secondary) calc(var(--shell-glow-opacity, 0.16) * 65%), transparent);
+}
+
+[data-shell-glow="on"] .taskbar.preone-dock:hover,
+[data-shell-glow="on"] .taskbar.preone-dock:focus-within,
+:root:not([data-shell-glow="off"]) .taskbar.preone-dock:hover,
+:root:not([data-shell-glow="off"]) .taskbar.preone-dock:focus-within {
+  box-shadow: 
+    var(--workspace-floating-shadow),
+    0 0 calc(var(--shell-glow-blur, 14px) * 1.3) calc(var(--shell-glow-spread, 1px) + 1px) color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-hover-opacity, 0.28) * 100%), transparent),
+    0 10px 28px -4px color-mix(in srgb, var(--shell-glow-secondary) calc(var(--shell-glow-hover-opacity, 0.28) * 75%), transparent);
+}
+
+/* Master Kill Switch: Glow Off */
+[data-shell-glow="off"] .taskbar.preone-dock::after {
+  opacity: 0 !important;
+}
+[data-shell-glow="off"] .taskbar.preone-dock {
+  box-shadow: var(--workspace-floating-shadow) !important;
+}
+
+/* Style Variation 1: Soft (Whisper diffuse halo, minimal border stroke) */
+[data-shell-glow-style="soft"] .taskbar.preone-dock::after {
+  opacity: calc(var(--shell-glow-enabled, 1) * 0.45);
+}
+[data-shell-glow-style="soft"] .taskbar.preone-dock {
+  box-shadow: 
+    var(--workspace-floating-shadow),
+    0 0 calc(var(--shell-glow-blur, 14px) * 1.4) 2px color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-opacity, 0.16) * 90%), transparent);
+}
+
+/* Style Variation 2: Edge Highlight (Crisp contour, minimal diffuse glow) */
+[data-shell-glow-style="edge-highlight"] .taskbar.preone-dock::after {
+  padding: 1.5px;
+  background: linear-gradient(
+    var(--shell-glow-angle, 135deg),
+    var(--shell-glow-primary) 0%,
+    var(--shell-glow-secondary) 60%,
+    transparent 100%
+  );
+}
+[data-shell-glow-style="edge-highlight"] .taskbar.preone-dock {
+  box-shadow: 
+    var(--workspace-floating-shadow),
+    0 0 6px 0px color-mix(in srgb, var(--shell-glow-primary) calc(var(--shell-glow-opacity, 0.16) * 80%), transparent);
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .workspace-floating-surface,
+  .taskbar.preone-dock::after,
+  .dock-orb {
+    transition: none !important;
+  }
 }
 
 .workspace-header-wrapper {
@@ -3285,8 +3380,8 @@ tr:focus-within .dt-row-actions .kebab {
   align-items: center;
   justify-content: center;
   transform: translateY(-8px);
-  box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--primary) 40%, transparent),
-              0 0 24px -2px color-mix(in srgb, var(--info) 25%, transparent),
+  box-shadow: 0 6px 20px -4px color-mix(in srgb, var(--shell-glow-primary, var(--primary)) 40%, transparent),
+              0 0 24px -2px color-mix(in srgb, var(--shell-glow-secondary, var(--info)) 25%, transparent),
               0 0 0 3px color-mix(in srgb, var(--surface-elevated) 90%, transparent);
   transition: all var(--motion-normal) var(--ease-standard);
   flex: none;
@@ -3294,8 +3389,8 @@ tr:focus-within .dt-row-actions .kebab {
 .dock-orb:hover,
 .tb-start:hover {
   transform: translateY(-11px) scale(1.04);
-  box-shadow: 0 8px 26px -4px color-mix(in srgb, var(--primary) 50%, transparent),
-              0 0 28px 0px color-mix(in srgb, var(--info) 35%, transparent);
+  box-shadow: 0 8px 28px -4px color-mix(in srgb, var(--shell-glow-primary, var(--primary)) 55%, transparent),
+              0 0 28px 0px color-mix(in srgb, var(--shell-glow-secondary, var(--info)) 35%, transparent);
 }
 .dock-orb.on,
 .dock-orb.active,

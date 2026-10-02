@@ -21,7 +21,6 @@ async function _GET(req: NextRequest) {
     const result = await InventoryService.listPurchaseRequests(session.tenantId, {
       branchId,
       status,
-      requestedById,
       page,
       pageSize,
     })

@@ -25,15 +25,17 @@ async function _GET(req: NextRequest) {
       },
       include: {
         item: { select: { id: true, sku: true, name: true, unit: { select: { symbol: true } } } },
-        location: { select: { id: true, name: true, code: true } },
+        fromLocation: { select: { id: true, name: true, code: true } },
+        toLocation: { select: { id: true, name: true, code: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
 
-    const mapped = movements.map((m) => ({
+    const mapped = movements.map((m: any) => ({
       ...m,
       item: m.item ? { ...m.item, code: m.item.sku } : null,
+      location: m.toLocation || m.fromLocation || null,
     }))
 
     return ok(mapped)

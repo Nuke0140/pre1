@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, X, LogOut } from 'lucide-react'
+import { Search, X, LogOut, Sparkles } from 'lucide-react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 import { StartMenuIllustration } from '@/components/preone'
@@ -312,18 +312,30 @@ export function StartMenu({
             <span>{user.email}</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm sm-logout-btn"
-          onClick={() => {
-            onClose()
-            onLogout()
-          }}
-          aria-label="Sign out"
-        >
-          <LogOut size={14} aria-hidden="true" />
-          <span>Sign out</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Link
+            href="/app/settings?tab=preferences"
+            onClick={onClose}
+            className="btn btn-ghost btn-sm sm-logout-btn"
+            title="Appearance & Glow Preferences"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          >
+            <Sparkles size={14} aria-hidden="true" style={{ color: 'var(--primary)' }} />
+            <span>Theme &amp; Glow</span>
+          </Link>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm sm-logout-btn"
+            onClick={() => {
+              onClose()
+              onLogout()
+            }}
+            aria-label="Sign out"
+          >
+            <LogOut size={14} aria-hidden="true" />
+            <span>Sign out</span>
+          </button>
+        </div>
       </div>
     </div>
   )
