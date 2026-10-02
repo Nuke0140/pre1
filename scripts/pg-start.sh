@@ -4,9 +4,15 @@
 set -e
 BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PGDATA="$BASE/db/pgdata"
-BIN="$BASE/node_modules/@embedded-postgres/linux-x64/native/bin"
-LIB="$BASE/node_modules/@embedded-postgres/linux-x64/native/lib"
-export LD_LIBRARY_PATH="$LIB:$LD_LIBRARY_PATH"
+if [ -d "$BASE/node_modules/@embedded-postgres/linux-x64/native/bin" ]; then
+  BIN="$BASE/node_modules/@embedded-postgres/linux-x64/native/bin"
+  LIB="$BASE/node_modules/@embedded-postgres/linux-x64/native/lib"
+  export LD_LIBRARY_PATH="$LIB:$LD_LIBRARY_PATH"
+elif [ -d "/usr/lib/postgresql/18/bin" ]; then
+  BIN="/usr/lib/postgresql/18/bin"
+else
+  BIN="$(dirname "$(which pg_ctl)")"
+fi
 export DATABASE_URL="postgresql://preone:preone@127.0.0.1:54329/preone"
 
 # already running?
@@ -39,7 +45,7 @@ if [ -f "$PGDATA/postgresql.conf" ] && ! grep -q "PreOne enforced settings" "$PG
 
 # ── PreOne enforced settings (sandbox resets this file) ──
 port = 54329
-listen_addresses = '127.0.0.1'
+listen_addresses = '*'
 unix_socket_directories = '/tmp'
 CONF
 fi

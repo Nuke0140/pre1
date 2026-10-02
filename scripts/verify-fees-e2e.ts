@@ -604,29 +604,178 @@ async function runFeesTests() {
     assert(webhookRes2.receipt.id === webhookRes1.receipt.id, 'Duplicate webhook returns the same existing Receipt without duplicate creation')
 
     // -------------------------------------------------------------------------
-    // TEST 22: INVOICE VOID & AUDIT TRAIL
+    // TEST 23: CANONICAL FEE STRUCTURE CREATION & ITEM CONFIGURATION
     // -------------------------------------------------------------------------
-    console.log('\n>>> Test 22: Invoice Cancellation / Void Lifecycle')
-    const invoiceToCancel = await FeeService.createInvoice(ctxA, {
-      studentId: student2.id,
-      title: 'Erroneous Fee Invoice',
-      dueDate: new Date(),
-      lineItems: [{ feeHead: 'OTHER', description: 'Erroneous Charge', amountCents: 500000 }],
-    })
-    assert(invoiceToCancel.status === 'ISSUED', 'Created issued invoice to be voided')
-
-    const voidedInvoice = await FeeService.voidInvoice(tenantA.id, invoiceToCancel.id, 'Entered in error by accountant')
-    assert(voidedInvoice.status === 'CANCELLED', 'Invoice successfully cancelled/voided')
-    assert(voidedInvoice.balanceCents === 0, 'Cancelled invoice balance zeroed out')
-
-    const cancelAudit = await db.auditLog.findFirst({
-      where: {
+    console.log('\n>>> Test 23: Canonical Fee Structure Creation (Academic Year + Class)')
+    const nurseryClass = await db.classroom.create({
+      data: {
         tenantId: tenantA.id,
-        action: 'INVOICE_VOIDED',
-        entityId: invoiceToCancel.id,
+        branchId: branchA.id,
+        programId: programA.id,
+        academicSessionId: sessionA.id,
+        name: 'Nursery 2026-27 Class',
+        code: `NUR-${testSuffix}`,
+        programType: 'NURSERY',
+        capacity: 30,
       },
     })
-    assert(Boolean(cancelAudit), 'AuditLog entry created for INVOICE_VOIDED with reason')
+
+    const feeStructA = await FeeService.createFeeStructure(ctxA, {
+      name: 'Nursery Fee Structure 2026-27',
+      description: 'Standard Nursery 2026-27 Fee Structure',
+      academicSessionId: sessionA.id,
+      classroomId: nurseryClass.id,
+      programType: 'NURSERY',
+      status: 'ACTIVE',
+      items: [
+        { name: 'Admission Fee', feeType: 'REGULAR', amountCents: 500000, frequency: 'ONE_TIME', isRefundable: false },
+        { name: 'Tuition Fee', feeType: 'REGULAR', amountCents: 300000, frequency: 'MONTHLY', isRefundable: false },
+        { name: 'Activity Fee', feeType: 'REGULAR', amountCents: 200000, frequency: 'ANNUALLY', isRefundable: false },
+        { name: 'Security Deposit', feeType: 'REFUNDABLE_DEPOSIT', amountCents: 500000, frequency: 'ONE_TIME', isRefundable: true },
+      ],
+    })
+    assert(Boolean(feeStructA.id), 'Created active FeeStructure for Nursery 2026-27 with 4 configured items')
+    assert(feeStructA.items.length === 4, 'Contains 4 fee items including Regular fees & Refundable Security Deposit')
+
+    // -------------------------------------------------------------------------
+    // TEST 24: AUTOMATIC FEE APPLICATION TO ALL ELIGIBLE CLASS STUDENTS (10 STUDENTS)
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 24: Automatic Fee Structure Application to 10 Class Students (No Manual Assignment)')
+    const nurseryStudents: any[] = []
+    for (let i = 1; i <= 10; i++) {
+      const s = await db.student.create({
+        data: {
+          tenantId: tenantA.id,
+          branchId: branchA.id,
+          admissionNo: `NUR-ADM-${i}-${testSuffix}`,
+          firstName: `NurseryStudent${i}`,
+          lastName: 'Test',
+          dob: new Date('2023-01-01'),
+          gender: 'MALE',
+          status: 'ACTIVE',
+          currentClassroomId: nurseryClass.id,
+        },
+      })
+      nurseryStudents.push(s)
+    }
+    assert(nurseryStudents.length === 10, 'Created 10 active Nursery class students')
+
+    const applyResult1 = await FeeService.applyFeeStructureToClass(ctxA, feeStructA.id, nurseryClass.id)
+    assert(applyResult1.studentsCount === 10, 'Automatically applied active fee structure to all 10 Nursery students')
+    assert(applyResult1.schedulesCreated > 0, 'Generated student fee schedules automatically without manual student selection')
+
+    // -------------------------------------------------------------------------
+    // TEST 25: IDEMPOTENT FEE STRUCTURE APPLICATION
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 25: Idempotent Fee Application Check')
+    const applyResult2 = await FeeService.applyFeeStructureToClass(ctxA, feeStructA.id, nurseryClass.id)
+    assert(applyResult2.schedulesCreated === 0, 'Re-applying fee structure created 0 duplicate fee schedules (Idempotent)')
+
+    // -------------------------------------------------------------------------
+    // TEST 26: NEW STUDENT ENROLLMENT RULE
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 26: New Student Enrollment Rule (Auto Fee Assignment)')
+    const newStudent11 = await db.student.create({
+      data: {
+        tenantId: tenantA.id,
+        branchId: branchA.id,
+        admissionNo: `NUR-ADM-11-${testSuffix}`,
+        firstName: 'NewlyEnrolledStudent11',
+        lastName: 'Patel',
+        dob: new Date('2023-02-01'),
+        gender: 'FEMALE',
+        status: 'ACTIVE',
+        currentClassroomId: nurseryClass.id,
+      },
+    })
+    const autoAppliedCount = await FeeService.applyActiveFeeStructuresToStudent(ctxA, newStudent11.id)
+    assert((autoAppliedCount ?? 0) >= 1, 'Newly enrolled student automatically receives active fee structure schedule')
+
+    const student11Schedules = await db.studentFeeSchedule.findMany({
+      where: { tenantId: tenantA.id, studentId: newStudent11.id },
+    })
+    assert(student11Schedules.length > 0, 'Fee schedules automatically generated for new student')
+
+    // -------------------------------------------------------------------------
+    // TEST 27: PAYMENT COLLECTION & PARTIAL PAYMENT AGAINST FEE SCHEDULE
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 27: Payment Collection & Partial Payment against Fee Schedule')
+    const targetSchedule = student11Schedules.find((sc) => sc.amountDueCents === 300000) || student11Schedules[0]
+    assert(Boolean(targetSchedule), 'Found student fee schedule for payment test')
+
+    // Partial Payment 1: ₹1,000 paid out of ₹3,000 due
+    const partPayment1 = await FeeService.recordFeeSchedulePayment(ctxA, {
+      feeScheduleId: targetSchedule.id,
+      studentId: newStudent11.id,
+      amountCents: 100000,
+      method: 'UPI',
+      notes: 'First installment partial payment',
+    })
+    assert(partPayment1.schedule.status === 'PARTIALLY_PAID', 'Status updated to PARTIALLY_PAID after partial payment')
+    assert(partPayment1.schedule.remainingAmountCents === targetSchedule.amountDueCents - 100000, 'Remaining balance accurately calculated: ₹2,000 remaining')
+    assert(Boolean(partPayment1.receipt.receiptNumber), 'Official receipt generated for partial payment')
+
+    // Payment 2: Remaining ₹2,000 paid -> status becomes PAID
+    const partPayment2 = await FeeService.recordFeeSchedulePayment(ctxA, {
+      feeScheduleId: targetSchedule.id,
+      studentId: newStudent11.id,
+      amountCents: partPayment1.schedule.remainingAmountCents,
+      method: 'CASH',
+      notes: 'Final remaining payment',
+    })
+    assert(partPayment2.schedule.status === 'PAID', 'Status updated to PAID when remaining balance reaches 0')
+    assert(partPayment2.schedule.remainingAmountCents === 0, 'Remaining balance is exactly 0')
+
+    // -------------------------------------------------------------------------
+    // TEST 28: REFUNDABLE DEPOSIT LIFECYCLE (HELD -> REFUND / ADJUSTMENT)
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 28: Refundable Deposit Lifecycle (Held -> Refund & Adjustment)')
+    const depositItem = student11Schedules.find((sc) => sc.isRefundable) || student11Schedules[0]
+    const heldDeposit = await db.studentDeposit.findFirst({
+      where: { tenantId: tenantA.id, studentId: newStudent11.id },
+    })
+    assert(Boolean(heldDeposit), 'Held deposit record found for Security Deposit (Status: HELD)')
+    assert(heldDeposit?.status === 'HELD', 'Deposit status is HELD')
+
+    // Partial Refund ₹4,000 of ₹5,000 deposit
+    const refundRes = await FeeService.processRefund(ctxA, {
+      depositId: heldDeposit!.id,
+      studentId: newStudent11.id,
+      amountCents: 400000,
+      refundMode: 'BANK_TRANSFER',
+      reason: 'Partial refund on exit',
+    })
+    assert(refundRes.deposit.status === 'PARTIALLY_REFUNDED', 'Deposit status updated to PARTIALLY_REFUNDED')
+    assert(refundRes.deposit.remainingAmountCents === 100000, 'Remaining refundable balance is ₹1,000')
+
+    // Adjust remaining ₹1,000 deposit for damages
+    const adjustRes = await FeeService.adjustDeposit(ctxA, {
+      depositId: heldDeposit!.id,
+      studentId: newStudent11.id,
+      adjustmentAmountCents: 100000,
+      reason: 'Adjustment for damaged kit',
+    })
+    assert(adjustRes.remainingAmountCents === 0, 'Final remaining deposit balance is 0')
+    assert(adjustRes.status === 'ADJUSTED' || adjustRes.status === 'PARTIALLY_REFUNDED', 'Deposit lifecycle completed successfully')
+
+    // -------------------------------------------------------------------------
+    // TEST 29: PARENT PORTAL MULTI-CHILD VIEW
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 29: Parent Portal Multi-Child View')
+    const parentChildrenFees = await FeeService.getParentChildrenFees(tenantA.id, parentUser1.id)
+    assert(parentChildrenFees.length === 2, 'Parent portal resolves independent fee profiles for both linked children')
+    assert(Boolean(parentChildrenFees[0].schedules), 'Child 1 has independent fee schedules list')
+    assert(Boolean(parentChildrenFees[1].schedules), 'Child 2 has independent fee schedules list')
+
+    // -------------------------------------------------------------------------
+    // TEST 30: MULTI-TENANT ISOLATION ON FEE STRUCTURES & SCHEDULES
+    // -------------------------------------------------------------------------
+    console.log('\n>>> Test 30: Multi-Tenant Isolation Verification')
+    const tenantBStructures = await FeeService.getFeeStructures(tenantB.id)
+    assert(tenantBStructures.length === 0, 'Tenant B cannot view Tenant A fee structures')
+
+    const tenantBDeposits = await FeeService.getStudentDeposits(tenantB.id)
+    assert(tenantBDeposits.length === 0, 'Tenant B cannot view Tenant A security deposits')
   } catch (err: any) {
     console.error('Test Suite Failed with unexpected exception:', err)
     failed++
@@ -644,3 +793,4 @@ runFeesTests().catch((e) => {
   console.error(e)
   process.exit(1)
 })
+

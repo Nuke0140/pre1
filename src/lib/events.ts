@@ -65,3 +65,16 @@ export async function emit(e: DomainEvent): Promise<void> {
     }
   }
 }
+
+// Auto-apply active fee structures when a student is created or allocated to a class
+onDomainEvent(async (e) => {
+  if (e.type === 'StudentCreated' || e.type === 'StudentAllocated') {
+    try {
+      const { FeeService } = await import('@/lib/fees/fee-service')
+      await FeeService.applyActiveFeeStructuresToStudent({ tenantId: e.tenantId }, e.studentId)
+    } catch (err) {
+      console.error(`[events] Failed to apply fee structure for student ${e.studentId}:`, err)
+    }
+  }
+})
+
