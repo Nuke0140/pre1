@@ -346,7 +346,16 @@ export default function SetupPage() {
               </button>
             )}
             {nextStep && (
-              <a className="btn btn-primary" href={nextStep.key === 'branding' ? '/app/setup/branding' : `/app/setup/${nextStep.key}`}>
+              <a
+                className="btn btn-primary"
+                href={
+                  nextStep.key === 'branding'
+                    ? '/app/setup/branding'
+                    : nextStep.key === 'templates'
+                    ? '/app/setup/templates'
+                    : `/app/setup/${nextStep.key}`
+                }
+              >
                 <PlayCircle size={14} /> Step Guide ({nextStep.label}) <ChevronRight size={14} />
               </a>
             )}
@@ -411,7 +420,13 @@ export default function SetupPage() {
                     return (
                       <SetupStepTile
                         key={s.key}
-                        href={s.key === 'branding' ? '/app/setup/branding' : `/app/setup/${s.key}`}
+                        href={
+                          s.key === 'branding'
+                            ? '/app/setup/branding'
+                            : s.key === 'templates'
+                            ? '/app/setup/templates'
+                            : `/app/setup/${s.key}`
+                        }
                         name={s.label}
                         status={s.status}
                         icon={<Icon size={16} />}
