@@ -29,6 +29,7 @@ import {
   HelpCircle,
   DollarSign,
   UserCheck,
+  Download,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -508,6 +509,38 @@ export default function FeesPage() {
     }))
   }
 
+  // Export Payment Transactions to CSV
+  const handleExportPaymentsCSV = () => {
+    if (!payments.length) {
+      toast.error('No payment transactions to export.')
+      return
+    }
+
+    const headers = ['Payment #', 'Receipt #', 'Student Name', 'Admission No', 'Payment Date', 'Method', 'Amount (INR)', 'Status']
+    const rows = payments.map((p) => [
+      `"${(p.paymentNumber || '').replace(/"/g, '""')}"`,
+      `"${(p.receiptNumber || '').replace(/"/g, '""')}"`,
+      `"${(p.studentName || '').replace(/"/g, '""')}"`,
+      `"${(p.admissionNo || '').replace(/"/g, '""')}"`,
+      `"${fmtDate(p.paymentDate)}"`,
+      `"${(p.method || '').replace(/"/g, '""')}"`,
+      `"${p.amountRupees || 0}"`,
+      `"${(p.status || '').replace(/"/g, '""')}"`,
+    ])
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `payment_transactions_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success('Payment transactions exported to CSV successfully!')
+  }
+
   // Calculate Metrics Aggregates
   const totalStructuresCount = structures.length
   const activeStructuresCount = structures.filter((s) => s.status === 'ACTIVE').length
@@ -974,11 +1007,22 @@ export default function FeesPage() {
       {/* TAB 3: PAYMENTS & RECEIPTS */}
       {activeTab === 'PAYMENTS' && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <Receipt className="size-5 text-purple-600" /> Recorded Payments & Official Receipts
-            </h3>
-            <span className="text-xs text-slate-500">Every payment transaction is linked to a unique official receipt</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                <Receipt className="size-5 text-purple-600" /> Recorded Payments & Official Receipts
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">Every payment transaction is linked to a unique official receipt</p>
+            </div>
+            {payments.length > 0 && (
+              <button
+                type="button"
+                onClick={handleExportPaymentsCSV}
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-sm"
+              >
+                <Download className="size-4 text-emerald-600" /> Download CSV / Excel
+              </button>
+            )}
           </div>
 
           {!payments.length ? (
