@@ -191,6 +191,32 @@ export default function FeesPage() {
     notes: '',
   })
 
+  const [studentSchedules, setStudentSchedules] = useState<any[]>([])
+  const [loadingStudentSchedules, setLoadingStudentSchedules] = useState(false)
+
+  // Fetch Fee Schedules for Selected Student in Payment Modal
+  useEffect(() => {
+    if (!paymentForm.studentId) {
+      setStudentSchedules([])
+      return
+    }
+    async function fetchStudentSchedules() {
+      setLoadingStudentSchedules(true)
+      try {
+        const res = await fetch(`/api/v1/students/${paymentForm.studentId}/fees/schedule`)
+        if (res.ok) {
+          const d = await res.json()
+          setStudentSchedules(d.data || d || [])
+        }
+      } catch (e) {
+        setStudentSchedules([])
+      } finally {
+        setLoadingStudentSchedules(false)
+      }
+    }
+    fetchStudentSchedules()
+  }, [paymentForm.studentId])
+
   const [refundForm, setRefundForm] = useState({
     depositId: '',
     studentId: '',
@@ -1209,14 +1235,45 @@ export default function FeesPage() {
             {paymentForm.studentId && (
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Select Fee Item / Installment *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Enter Fee Schedule ID or Item Reference"
-                  value={paymentForm.feeScheduleId}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, feeScheduleId: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                {loadingStudentSchedules ? (
+                  <div className="text-xs text-indigo-600 dark:text-indigo-400 font-medium py-2 animate-pulse">Loading student fee schedules...</div>
+                ) : (
+                  <select
+                    required
+                    value={paymentForm.feeScheduleId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value
+                      const found = studentSchedules.find((sc) => sc.id === selectedId)
+                      setPaymentForm({
+                        ...paymentForm,
+                        feeScheduleId: selectedId,
+                        amountRupees: found?.remainingRupees ? found.remainingRupees : paymentForm.amountRupees,
+                      })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">
+                      -- Select Due Installment --
+                    </option>
+                    {studentSchedules
+                      .filter((sc) => sc.status !== 'PAID' && sc.status !== 'CANCELLED')
+                      .map((sc) => (
+                        <option key={sc.id} value={sc.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">
+                          {sc.itemName} ({sc.period || 'One Time'}) — Due: ₹{sc.amountDueRupees} | Remaining: ₹{sc.remainingRupees} [{sc.status}]
+                        </option>
+                      ))}
+                    {studentSchedules.length > 0 && studentSchedules.every((sc) => sc.status === 'PAID') && (
+                      <option disabled value="" className="text-slate-500 dark:text-slate-400">
+                        (All fee schedules for this student are fully PAID)
+                      </option>
+                    )}
+                    {studentSchedules.length === 0 && (
+                      <option disabled value="" className="text-slate-500 dark:text-slate-400">
+                        (No fee schedule found — please activate Fee Structure for student class)
+                      </option>
+                    )}
+                  </select>
+                )}
               </div>
             )}
 
