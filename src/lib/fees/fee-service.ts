@@ -345,6 +345,81 @@ export class FeeService {
   /**
    * 2. FEE STRUCTURES / PLANS
    */
+  static async getFeeStructures(
+    tenantId: string,
+    filters?: {
+      academicSessionId?: string
+      classroomId?: string
+      programId?: string
+      programType?: ProgramType
+      status?: FeeStructureStatus
+    }
+  ) {
+    return db.feeStructure.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        ...(filters?.academicSessionId ? { academicSessionId: filters.academicSessionId } : {}),
+        ...(filters?.classroomId ? { classroomId: filters.classroomId } : {}),
+        ...(filters?.programId ? { programId: filters.programId } : {}),
+        ...(filters?.programType ? { programType: filters.programType } : {}),
+        ...(filters?.status ? { status: filters.status } : {}),
+      },
+      include: {
+        items: true,
+        academicSession: { select: { id: true, name: true } },
+        classroom: { select: { id: true, name: true } },
+        program: { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
+
+  static async createFeeStructure(
+    ctx: ScopeContext,
+    input: CreateFeeStructureInput
+  ) {
+    const { name, description, academicSessionId, programId, classroomId, programType, effectiveFrom, effectiveTo, status, items } = input
+
+    const structure = await db.feeStructure.create({
+      data: {
+        tenantId: ctx.tenantId,
+        branchId: ctx.branchId || null,
+        name: name.trim(),
+        description: description?.trim() || null,
+        academicSessionId: academicSessionId || null,
+        programId: programId || null,
+        classroomId: classroomId || null,
+        programType: programType || null,
+        effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : null,
+        effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
+        status: status || 'DRAFT',
+        createdById: ctx.actorId || null,
+        items: {
+          create: (items || []).map((i, idx) => ({
+            tenantId: ctx.tenantId,
+            feeHeadId: i.feeHeadId || null,
+            name: i.name.trim(),
+            description: i.description?.trim() || null,
+            feeType: i.feeType || 'REGULAR',
+            amountCents: Math.round(i.amountCents),
+            currency: i.currency || 'INR',
+            frequency: i.frequency || 'ONE_TIME',
+            dueRule: i.dueRule || null,
+            dueDate: i.dueDate ? new Date(i.dueDate) : null,
+            lateFeeApplicable: i.lateFeeApplicable || false,
+            lateFeeAmountCents: i.lateFeeAmountCents ? Math.round(i.lateFeeAmountCents) : 0,
+            isRefundable: i.isRefundable || false,
+            sortOrder: i.sortOrder ?? idx,
+          })),
+        },
+      },
+      include: { items: true },
+    })
+
+    return structure
+  }
+
   static async getFeePlans(tenantId: string, programType?: ProgramType) {
     return db.feePlan.findMany({
       where: {

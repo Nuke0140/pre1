@@ -150,6 +150,7 @@ export function GlobalWorkspaceHeader({
           <div className="workspace-header-left">
             <Link
               href="/app/home"
+              prefetch={true}
               className="workspace-sparkle-anchor"
               aria-label="PreOne OS Home"
               title="PreOne OS Home"

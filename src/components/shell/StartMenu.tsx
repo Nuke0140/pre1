@@ -202,6 +202,7 @@ export function StartMenu({
               <Link
                 key={`pinned-${m.key}`}
                 href={m.href}
+                prefetch={true}
                 className="sm-tile"
                 role="menuitem"
                 onClick={onClose}
@@ -245,6 +246,7 @@ export function StartMenu({
                   <Link
                     key={`all-${m.key}`}
                     href={m.href}
+                    prefetch={true}
                     className="nav-item"
                     role="menuitem"
                     onClick={onClose}
