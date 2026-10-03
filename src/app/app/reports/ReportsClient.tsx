@@ -213,9 +213,6 @@ export default function ReportsClient() {
   // Hub Search
   const [hubSearch, setHubSearch] = useState('')
 
-  // Executive Overview KPIs
-  const [kpis, setKpis] = useState<any[]>([])
-  const [loadingKpis, setLoadingKpis] = useState(false)
 
   // Report Dataset & UI state
   const [reportData, setReportData] = useState<any>(null)
@@ -281,24 +278,6 @@ export default function ReportsClient() {
       .catch(() => {})
   }, [])
 
-  // Load Executive KPIs
-  const loadKpis = useCallback(async () => {
-    try {
-      setLoadingKpis(true)
-      const res = await fetch('/api/v1/reports/dashboard').then((r) => r.json())
-      if (res.success) {
-        setKpis(res.kpis || [])
-      }
-    } catch {
-      // safe fallback
-    } finally {
-      setLoadingKpis(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadKpis()
-  }, [loadKpis])
 
   // Active Group Config
   const currentGroupConfig = useMemo(() => {
@@ -664,7 +643,6 @@ export default function ReportsClient() {
         {/* Page Head */}
         <PageHead
           title="Reports & Analytics"
-          sub="Authoritative operational reporting, school metrics, and exports for preschool management"
           actions={
             <button
               className="btn btn-outline"
@@ -680,43 +658,8 @@ export default function ReportsClient() {
           }
         />
 
-        {/* Live Executive KPI Strip */}
-        <div style={{ marginTop: 20, marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-              Operational Pulse
-            </h3>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={loadKpis}
-              disabled={loadingKpis}
-              style={{ fontSize: 12 }}
-            >
-              <RefreshCw size={12} className={loadingKpis ? 'spin' : ''} style={{ marginRight: 4 }} /> Refresh
-            </button>
-          </div>
-
-          <div
-            className="metric-strip"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 12,
-            }}
-          >
-            {kpis.slice(0, 4).map((k) => (
-              <div key={k.key} className="metric-cell" style={{ padding: '14px 18px', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <div className="metric-cell-label" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{k.label}</div>
-                <div className="metric-cell-value" style={{ fontSize: 22, fontWeight: 750, color: 'var(--text)', marginTop: 4 }}>
-                  {k.value} {k.unit && <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)' }}>{k.unit}</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Hub Search Field */}
-        <div style={{ marginBottom: 24, maxWidth: 500 }}>
+        <div style={{ marginTop: 24, marginBottom: 24, maxWidth: 500 }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)' }} />
             <input
