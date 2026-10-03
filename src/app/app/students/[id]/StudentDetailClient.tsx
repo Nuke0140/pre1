@@ -10,7 +10,7 @@ import {
   FileText, CreditCard, ChevronRight, Edit3, Camera, Trash2,
   AlertTriangle, Upload, UserPlus, ArrowRightLeft, GraduationCap,
   ExternalLink, Check, X, AlertCircle, RefreshCw, ArrowLeft,
-  Calendar, CheckCircle, Clock, Eye, Lock
+  Calendar, CheckCircle, Clock, Eye, Lock, Download
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -132,6 +132,44 @@ export function StudentDetailClient({ profile }: Props) {
       // silently fallback
     }
   }, [student?.id])
+
+  // Document Library state
+  const [studentDocuments, setStudentDocuments] = useState<any[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
+
+  const loadStudentDocuments = useCallback(async () => {
+    if (!student?.id) return
+    try {
+      setLoadingDocs(true)
+      const res = await fetch(`/api/v1/documents/profile?entityType=STUDENT&entityId=${student.id}`).then((r) => r.json())
+      if (res.success) {
+        setStudentDocuments(res.data || [])
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setLoadingDocs(false)
+    }
+  }, [student?.id])
+
+  useEffect(() => {
+    loadStudentDocuments()
+  }, [loadStudentDocuments])
+
+  const handleDeleteDocument = async (docId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" from this student's profile?`)) return
+    try {
+      const res = await fetch(`/api/v1/documents/profile?id=${docId}`, { method: 'DELETE' }).then((r) => r.json())
+      if (res.success) {
+        toast.success('Document Deleted', 'Document removed from profile')
+        loadStudentDocuments()
+      } else {
+        toast.error('Delete Failed', res.error || 'Could not delete document')
+      }
+    } catch {
+      toast.error('Network Error', 'Failed to delete document')
+    }
+  }
 
   useEffect(() => {
     Promise.all([
@@ -631,6 +669,7 @@ export function StudentDetailClient({ profile }: Props) {
             { key: 'fees', label: `Fees (${finance?.invoices?.length || 0})` },
             { key: 'observations', label: `Observations (${academics?.observations?.length || 0})` },
             { key: 'timeline', label: 'Timeline' },
+            { key: 'documents', label: `Documents (${studentDocuments?.length || 0})` },
             { key: 'audit', label: `Audit (${audit?.length || 0})` },
           ]}
         />
@@ -1310,6 +1349,115 @@ export function StudentDetailClient({ profile }: Props) {
               <p className="text-xs text-slate-400 py-3">No activity timeline events recorded yet.</p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── TAB: DOCUMENTS LIBRARY ── */}
+      {tab === 'documents' && (
+        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">Student Document Library</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Official identity cards, certificates, forms, and report cards generated for this student.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadStudentDocuments}
+                className="btn btn-ghost btn-sm"
+                title="Refresh Documents"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <RefreshCw size={13} className={loadingDocs ? 'animate-spin' : ''} /> Refresh
+              </button>
+              <Link
+                href="/app/reports"
+                className="btn btn-outline btn-sm text-xs font-semibold text-purple-700 dark:text-purple-300"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <FileText size={13} /> Bulk Generator
+              </Link>
+            </div>
+          </div>
+
+          {loadingDocs ? (
+            <div className="p-8 text-center text-xs text-slate-400">
+              <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-purple-600" />
+              Loading student documents...
+            </div>
+          ) : studentDocuments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {studentDocuments.map((doc: any) => (
+                <div
+                  key={doc.id}
+                  className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-purple-300 dark:hover:border-purple-800/60 bg-slate-50/50 dark:bg-slate-800/40 transition-all flex flex-col justify-between space-y-3 group"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+                        {doc.documentType?.replace(/_/g, ' ') || 'DOCUMENT'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {Math.round(doc.fileSizeBytes / 1024)} KB
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                      {doc.title}
+                    </h4>
+
+                    <p className="text-[11px] text-slate-400">
+                      Generated {fmtDate(doc.createdAt)} {doc.job?.title ? `• Job: ${doc.job.title}` : ''}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-xs">
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                      >
+                        <Eye size={13} /> View
+                      </a>
+                      <a
+                        href={doc.fileUrl}
+                        download
+                        className="inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300 hover:underline"
+                      >
+                        <Download size={13} /> Download
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Delete document"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-xl bg-slate-50 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-800 space-y-2">
+              <FileText size={28} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No generated documents on file</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Documents generated via the Bulk Document Generation engine or Template Studio will automatically appear here.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/app/reports"
+                  className="btn btn-outline btn-sm text-xs"
+                >
+                  Go to Document Generation Jobs
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

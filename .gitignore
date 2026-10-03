@@ -55,4 +55,7 @@ server.log
 /skills/
 
 # Database runtime data
-db/pgdata*
+db/pgdata*
+
+# Uploads and generated documents
+public/uploads/

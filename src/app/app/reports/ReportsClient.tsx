@@ -12,6 +12,7 @@ import { PageHead, Segmented, KpiTile, EmptyState, Field, StatusBadge } from '@/
 import { Modal } from '@/components/preone/Modal'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { useToast } from '@/components/preone/Toast'
+import { BulkDocumentJobsClient } from '@/components/reports/BulkDocumentJobsClient'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXACTLY EIGHT CANONICAL REPORT GROUPS (MANDATORY PRODUCT SCOPE)
@@ -209,6 +210,7 @@ export default function ReportsClient() {
   // Navigation State: null = Landing Page Hub; string = Detail Report Group
   const [activeGroup, setActiveGroup] = useState<ReportGroupId | null>(null)
   const [subTab, setSubTab] = useState<string>('')
+  const [showBulkJobs, setShowBulkJobs] = useState(false)
 
   // Hub Search
   const [hubSearch, setHubSearch] = useState('')
@@ -635,6 +637,13 @@ export default function ReportsClient() {
   }, [startDate, endDate, selectedBranch, selectedClassroom, selectedStatus, searchQuery, branches, classrooms])
 
   // ───────────────────────────────────────────────────────────────────────────
+  // VIEW: BULK DOCUMENT GENERATION JOBS
+  // ───────────────────────────────────────────────────────────────────────────
+  if (showBulkJobs) {
+    return <BulkDocumentJobsClient onBackToReports={() => setShowBulkJobs(false)} />
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
   // VIEW 1: LANDING PAGE HUB (EXACTLY EIGHT CANONICAL REPORT GROUPS)
   // ───────────────────────────────────────────────────────────────────────────
   if (!activeGroup) {
@@ -644,17 +653,27 @@ export default function ReportsClient() {
         <PageHead
           title="Reports & Analytics"
           actions={
-            <button
-              className="btn btn-outline"
-              onClick={() => {
-                setCustomModalOpen(true)
-                loadSavedReports()
-              }}
-              title="Create custom report projection"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <Sliders size={14} /> Custom Builder
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowBulkJobs(true)}
+                title="Create and manage bulk document generation jobs"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <FileText size={14} /> Document Jobs
+              </button>
+              <button
+                className="btn btn-outline"
+                onClick={() => {
+                  setCustomModalOpen(true)
+                  loadSavedReports()
+                }}
+                title="Create custom report projection"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Sliders size={14} /> Custom Builder
+              </button>
+            </div>
           }
         />
 
