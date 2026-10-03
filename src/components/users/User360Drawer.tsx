@@ -7,6 +7,7 @@ import {
   FileText, Download, Trash2, Eye, RefreshCw
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
+import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { Avatar, StatusBadge } from '@/components/preone/ui'
 import { UserRecord, ROLE_BADGE } from './types'
 import { normalizeRole } from '@/lib/roles'
@@ -24,6 +25,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'RELATIONSHIPS' | 'SECURITY' | 'DOCUMENTS'>('OVERVIEW')
   const [staffDocuments, setStaffDocuments] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<any>(null)
 
   const loadDocuments = React.useCallback(async () => {
     if (!user) return
@@ -355,18 +357,17 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
                         className="btn btn-ghost btn-xs text-indigo-600"
                         title="View PDF"
                       >
                         <Eye size={12} />
-                      </a>
+                      </button>
                       <a
-                        href={doc.fileUrl}
-                        download
+                        href={`/api/v1/documents/${doc.id}/download`}
+                        download={doc.fileName || `${doc.title}.pdf`}
                         className="btn btn-ghost btn-xs text-gray-600"
                         title="Download PDF"
                       >
@@ -389,6 +390,18 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 <FileText size={20} className="mx-auto mb-1 text-gray-300" />
                 <p>No generated documents on file for this staff member.</p>
               </div>
+            )}
+
+            {previewDoc && (
+              <PdfViewerModal
+                open={!!previewDoc}
+                onClose={() => setPreviewDoc(null)}
+                documentId={previewDoc.id}
+                title={previewDoc.title}
+                documentType={previewDoc.documentType}
+                fileSizeBytes={previewDoc.fileSizeBytes}
+                fileName={previewDoc.fileName}
+              />
             )}
           </div>
         )}

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
+import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 
@@ -136,6 +137,7 @@ export function StudentDetailClient({ profile }: Props) {
   // Document Library state
   const [studentDocuments, setStudentDocuments] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<any>(null)
 
   const loadStudentDocuments = useCallback(async () => {
     if (!student?.id) return
@@ -1414,18 +1416,19 @@ export function StudentDetailClient({ profile }: Props) {
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 dark:border-slate-800/60 text-xs">
                     <div className="flex items-center gap-2">
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
                         className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                        title="View PDF Preview"
                       >
                         <Eye size={13} /> View
-                      </a>
+                      </button>
                       <a
-                        href={doc.fileUrl}
-                        download
+                        href={`/api/v1/documents/${doc.id}/download`}
+                        download={doc.fileName || `${doc.title}.pdf`}
                         className="inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300 hover:underline"
+                        title="Download official PDF"
                       >
                         <Download size={13} /> Download
                       </a>
@@ -1457,6 +1460,18 @@ export function StudentDetailClient({ profile }: Props) {
                 </Link>
               </div>
             </div>
+          )}
+
+          {previewDoc && (
+            <PdfViewerModal
+              open={!!previewDoc}
+              onClose={() => setPreviewDoc(null)}
+              documentId={previewDoc.id}
+              title={previewDoc.title}
+              documentType={previewDoc.documentType}
+              fileSizeBytes={previewDoc.fileSizeBytes}
+              fileName={previewDoc.fileName}
+            />
           )}
         </div>
       )}

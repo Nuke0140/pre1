@@ -419,33 +419,65 @@ export class BulkDocumentService {
 
             const fileUrl = `/uploads/documents/${job.tenantId}/${job.id}/${docName}`
 
-            // 3. Register or reuse GeneratedProfileDocument
-            const profileDoc = await db.generatedProfileDocument.create({
-              data: {
+            // 3. Register or reuse GeneratedProfileDocument (Idempotent)
+            let profileDoc = await db.generatedProfileDocument.findFirst({
+              where: {
                 tenantId: job.tenantId,
-                branchId: job.branchId,
+                jobId: job.id,
                 entityType: item.entityType,
                 studentId: item.entityType === 'STUDENT' ? item.entityId : null,
                 staffProfileId: item.entityType === 'STAFF' ? item.entityId : null,
-                jobId: job.id,
-                templateId: job.templateId,
-                templateVersion: job.templateVersion,
-                documentType: job.documentType,
-                title: `${job.templateName} (${item.identifier})`,
-                fileName: docName,
-                fileUrl,
-                fileSizeBytes: pdfResult.sizeBytes,
-                mimeType: 'application/pdf',
-                metadata: {
-                  jobTitle: job.title,
-                  identifier: item.identifier,
-                  entityName: item.entityName,
-                  renderedAt: new Date().toISOString(),
-                },
-                createdById: job.createdById,
-                createdByName: job.createdByName,
+                deletedAt: null,
               },
             })
+
+            if (profileDoc) {
+              profileDoc = await db.generatedProfileDocument.update({
+                where: { id: profileDoc.id },
+                data: {
+                  templateVersion: job.templateVersion,
+                  documentType: job.documentType,
+                  title: `${job.templateName} (${item.identifier})`,
+                  fileName: docName,
+                  fileUrl,
+                  fileSizeBytes: pdfResult.sizeBytes,
+                  mimeType: 'application/pdf',
+                  metadata: {
+                    jobTitle: job.title,
+                    identifier: item.identifier,
+                    entityName: item.entityName,
+                    renderedAt: new Date().toISOString(),
+                  },
+                },
+              })
+            } else {
+              profileDoc = await db.generatedProfileDocument.create({
+                data: {
+                  tenantId: job.tenantId,
+                  branchId: job.branchId,
+                  entityType: item.entityType,
+                  studentId: item.entityType === 'STUDENT' ? item.entityId : null,
+                  staffProfileId: item.entityType === 'STAFF' ? item.entityId : null,
+                  jobId: job.id,
+                  templateId: job.templateId,
+                  templateVersion: job.templateVersion,
+                  documentType: job.documentType,
+                  title: `${job.templateName} (${item.identifier})`,
+                  fileName: docName,
+                  fileUrl,
+                  fileSizeBytes: pdfResult.sizeBytes,
+                  mimeType: 'application/pdf',
+                  metadata: {
+                    jobTitle: job.title,
+                    identifier: item.identifier,
+                    entityName: item.entityName,
+                    renderedAt: new Date().toISOString(),
+                  },
+                  createdById: job.createdById,
+                  createdByName: job.createdByName,
+                },
+              })
+            }
 
             // 4. Update item status to SUCCESS
             await db.bulkDocumentJobItem.update({
@@ -717,4 +749,115 @@ export class BulkDocumentService {
 
     return { success: true }
   }
+
+  /**
+   * Get an authorized document for viewing or downloading.
+   * Enforces multi-tenant isolation, role permissions, and guardian child linking.
+   */
+  static async getDocumentForAccess(
+    tenantId: string,
+    documentId: string,
+    session: any
+  ) {
+    const doc = await db.generatedProfileDocument.findFirst({
+      where: {
+        id: documentId,
+        deletedAt: null,
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            guardians: {
+              where: { guardian: { deletedAt: null } },
+              select: {
+                guardian: {
+                  select: { userId: true },
+                },
+              },
+            },
+          },
+        },
+        staffProfile: {
+          select: {
+            id: true,
+            userId: true,
+            user: { select: { fullName: true, email: true } },
+          },
+        },
+      },
+    })
+
+    if (!doc) {
+      throw new Error('Document not found')
+    }
+
+    // Tenant check
+    if (session.role !== 'PLATFORM_ADMIN' && doc.tenantId !== tenantId) {
+      throw new Error('Unauthorized cross-tenant access')
+    }
+
+    // Authorization check
+    const roles: string[] = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isOwnerOrAdmin = session.role === 'PLATFORM_ADMIN' || session.role === 'OWNER' || session.role === 'PRINCIPAL'
+    let authorized = isOwnerOrAdmin
+
+    if (!authorized) {
+      if (doc.entityType === 'STUDENT') {
+        const canReadStudents = roles.some((r: string) =>
+          ['COORDINATOR', 'TEACHER', 'ACCOUNTS', 'RECEPTIONIST'].includes(r)
+        )
+        if (canReadStudents) {
+          authorized = true
+        } else {
+          // Check guardian linking
+          const isLinkedGuardian = doc.student?.guardians.some(
+            (g) => g.guardian?.userId === session.uid
+          )
+          if (isLinkedGuardian) {
+            authorized = true
+          }
+        }
+      } else if (doc.entityType === 'STAFF') {
+        const canReadStaff = roles.some((r: string) =>
+          ['COORDINATOR', 'ACCOUNTS'].includes(r)
+        )
+        if (canReadStaff) {
+          authorized = true
+        } else if (doc.staffProfile?.userId === session.uid) {
+          // Own staff profile document
+          authorized = true
+        }
+      }
+    }
+
+    if (!authorized) {
+      throw new Error('You do not have permission to access this document')
+    }
+
+    // Resolve file on disk
+    let relativePath = doc.fileUrl
+    if (relativePath.startsWith('/')) {
+      relativePath = relativePath.slice(1)
+    }
+    const absPath = path.join(process.cwd(), 'public', relativePath)
+
+    if (!fs.existsSync(absPath)) {
+      throw new Error('Document file is missing from storage')
+    }
+
+    const fileBuffer = await fs.promises.readFile(absPath)
+
+    return {
+      doc,
+      absPath,
+      fileBuffer,
+      fileName: doc.fileName || `${doc.title}.pdf`,
+      mimeType: doc.mimeType || 'application/pdf',
+      fileSizeBytes: doc.fileSizeBytes || fileBuffer.length,
+    }
+  }
 }
+
