@@ -170,26 +170,7 @@ export const GET = withApi(async (req: NextRequest) => {
   const tabDriverP = countByRole('DRIVER')
   const tabPendingP = db.tenantUser.count({ where: { ...baseWhere, status: 'PENDING' } })
 
-  const [
-    total,
-    members,
-    activeCount,
-    pendingCount,
-    suspendedCount,
-    inactiveCount,
-    tabAll,
-    tabStaff,
-    tabTeacher,
-    tabParent,
-    tabGuardian,
-    tabPrincipal,
-    tabCoordinator,
-    tabAccounts,
-    tabReceptionist,
-    tabAttendant,
-    tabDriver,
-    tabPending,
-  ] = await Promise.all([
+  const [total, members, countsGrouped] = await Promise.all([
     db.tenantUser.count({ where }),
     db.tenantUser.findMany({
       where,
@@ -218,51 +199,35 @@ export const GET = withApi(async (req: NextRequest) => {
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    db.tenantUser.count({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        status: 'ACTIVE',
-        ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      },
+    db.tenantUser.groupBy({
+      by: ['role', 'status'],
+      where: baseWhere,
+      _count: { _all: true },
     }),
-    db.tenantUser.count({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        status: 'PENDING',
-        ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      },
-    }),
-    db.tenantUser.count({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        status: 'SUSPENDED',
-        ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      },
-    }),
-    db.tenantUser.count({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        status: 'INACTIVE',
-        ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      },
-    }),
-    tabAllP,
-    tabStaffP,
-    tabTeacherP,
-    tabParentP,
-    tabGuardianP,
-    tabPrincipalP,
-    tabCoordinatorP,
-    tabAccountsP,
-    tabReceptionistP,
-    tabAttendantP,
-    tabDriverP,
-    tabPendingP,
   ])
+
+  let activeCount = 0
+  let pendingCount = 0
+  let suspendedCount = 0
+  let inactiveCount = 0
+  let tabAll = 0
+  let tabStaff = 0
+  let tabPending = 0
+  const roleCounts: Record<string, number> = {}
+
+  for (const g of countsGrouped) {
+    const count = g._count._all
+    tabAll += count
+    if (g.status === 'ACTIVE') activeCount += count
+    else if (g.status === 'PENDING') pendingCount += count
+    else if (g.status === 'SUSPENDED') suspendedCount += count
+    else if (g.status === 'INACTIVE') inactiveCount += count
+
+    if (g.status === 'PENDING') tabPending += count
+    if (!['PARENT', 'GUARDIAN'].includes(g.role)) tabStaff += count
+
+    roleCounts[g.role] = (roleCounts[g.role] || 0) + count
+  }
 
   return ok(
     members.map((m) => {
@@ -331,15 +296,15 @@ export const GET = withApi(async (req: NextRequest) => {
       tabs: {
         ALL: tabAll,
         STAFF: tabStaff,
-        TEACHER: tabTeacher,
-        PARENT: tabParent,
-        GUARDIAN: tabGuardian,
-        PRINCIPAL: tabPrincipal,
-        COORDINATOR: tabCoordinator,
-        ACCOUNTS: tabAccounts,
-        RECEPTIONIST: tabReceptionist,
-        ATTENDANT: tabAttendant,
-        DRIVER: tabDriver,
+        TEACHER: roleCounts['TEACHER'] || 0,
+        PARENT: roleCounts['PARENT'] || 0,
+        GUARDIAN: roleCounts['GUARDIAN'] || 0,
+        PRINCIPAL: roleCounts['PRINCIPAL'] || 0,
+        COORDINATOR: roleCounts['COORDINATOR'] || 0,
+        ACCOUNTS: roleCounts['ACCOUNTS'] || 0,
+        RECEPTIONIST: roleCounts['RECEPTIONIST'] || 0,
+        ATTENDANT: roleCounts['ATTENDANT'] || 0,
+        DRIVER: roleCounts['DRIVER'] || 0,
         PENDING: tabPending,
       },
     }
