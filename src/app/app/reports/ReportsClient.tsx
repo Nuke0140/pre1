@@ -639,7 +639,7 @@ export default function ReportsClient() {
   // ───────────────────────────────────────────────────────────────────────────
   if (!activeGroup) {
     return (
-      <div className="page-container" style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 60 }}>
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-28">
         {/* Page Head */}
         <PageHead
           title="Reports & Analytics"
@@ -659,22 +659,21 @@ export default function ReportsClient() {
         />
 
         {/* Hub Search Field */}
-        <div style={{ marginTop: 24, marginBottom: 24, maxWidth: 500 }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={16} style={{ position: 'absolute', left: 12, color: 'var(--text-muted)' }} />
+        <div className="w-full sm:max-w-md">
+          <div className="relative flex items-center">
+            <Search size={16} className="absolute left-3.5 text-slate-400 dark:text-slate-500 pointer-events-none" />
             <input
               type="text"
-              className="input"
+              className="input w-full pl-10 pr-9 h-11 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 shadow-2xs focus:ring-2 focus:ring-primary/20 transition-all"
               placeholder="Find a report (e.g. fees, attendance, admissions, staff)..."
               value={hubSearch}
               onChange={(e) => setHubSearch(e.target.value)}
-              style={{ width: '100%', paddingLeft: 38, height: 42, fontSize: 14 }}
             />
             {hubSearch && (
               <button
-                className="btn btn-ghost btn-sm"
+                type="button"
+                className="btn btn-ghost btn-sm absolute right-2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                 onClick={() => setHubSearch('')}
-                style={{ position: 'absolute', right: 8, padding: 4 }}
               >
                 <X size={14} />
               </button>
@@ -683,89 +682,40 @@ export default function ReportsClient() {
         </div>
 
         {/* The Eight Canonical Report Cards Grid */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))',
-            gap: 16,
-          }}
-        >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {filteredHubCards.map((g) => {
             const Icon = g.icon
             return (
               <div
                 key={g.id}
-                className="card card-interactive"
+                className="card card-interactive flex flex-col justify-between p-5 cursor-pointer border border-slate-200/80 dark:border-slate-800/80 rounded-2xl transition-all duration-200 hover:shadow-md hover:border-indigo-400/50 bg-white/95 dark:bg-slate-900/90 backdrop-blur-xs group"
                 onClick={() => {
                   setActiveGroup(g.id)
                   setSubTab(g.subReports[0]?.id || '')
                   handleResetFilters()
                 }}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  padding: 20,
-                  cursor: 'pointer',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-lg)',
-                  transition: 'all 0.15s ease',
-                  background: 'var(--surface)',
-                }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 12,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--surface-subtle, #F1F5F9)',
-                        color: 'var(--primary, #4338CA)',
-                      }}
-                    >
+                  <div className="flex items-center justify-between mb-3.5">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
                       <Icon size={20} />
                     </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 650,
-                        padding: '3px 8px',
-                        borderRadius: 10,
-                        background: 'var(--surface-subtle)',
-                        color: 'var(--text-muted)',
-                      }}
-                    >
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                       {g.category}
                     </span>
                   </div>
 
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px 0', color: 'var(--text)' }}>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {g.title}
                   </h3>
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed m-0">
                     {g.plainDescription}
                   </p>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: 20,
-                    paddingTop: 14,
-                    borderTop: '1px solid var(--border-subtle, #F1F5F9)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: 'var(--primary, #4338CA)',
-                  }}
-                >
+                <div className="mt-5 pt-3.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400">
                   <span>Open report</span>
-                  <ChevronRight size={16} />
+                  <ChevronRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
             )
@@ -773,7 +723,7 @@ export default function ReportsClient() {
         </div>
 
         {filteredHubCards.length === 0 && (
-          <div className="card" style={{ marginTop: 20 }}>
+          <div className="card mt-5">
             <EmptyState
               icon={<Search size={32} />}
               title="No report groups match your search"
@@ -797,9 +747,9 @@ export default function ReportsClient() {
   // VIEW 2: INDIVIDUAL REPORT PAGE (STRUCTURED FOR NON-TECHNICAL USERS)
   // ───────────────────────────────────────────────────────────────────────────
   return (
-    <div className="page-container" style={{ maxWidth: 1240, margin: '0 auto', paddingBottom: 60 }}>
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 pb-28">
       {/* Top Breadcrumb & Header */}
-      <div style={{ marginBottom: 16 }}>
+      <div className="mb-2">
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => {
@@ -816,7 +766,7 @@ export default function ReportsClient() {
         title={currentGroupConfig?.title || 'Report Details'}
         sub={currentGroupConfig?.plainDescription}
         actions={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               className="btn btn-outline btn-sm"
               onClick={() => handleExport('CSV')}
@@ -847,7 +797,7 @@ export default function ReportsClient() {
 
       {/* Sub-Reports Switcher (If multiple canonical sub-views exist) */}
       {currentGroupConfig && currentGroupConfig.subReports.length > 1 && (
-        <div style={{ marginTop: 16, marginBottom: 20 }}>
+        <div className="overflow-x-auto pb-1 mt-3 mb-4">
           <Segmented
             options={currentGroupConfig.subReports.map((sr) => ({ key: sr.id, label: sr.label }))}
             value={subTab}
@@ -986,16 +936,7 @@ export default function ReportsClient() {
 
         {/* Expandable Advanced Filters Box */}
         {showAdvancedFilters && (
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 12,
-              borderTop: '1px solid var(--border-subtle, #F1F5F9)',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 12,
-            }}
-          >
+          <div className="mt-2.5 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {/* Branch Selector */}
             {currentGroupConfig?.supportsBranch && (
               <div>
@@ -1186,21 +1127,11 @@ export default function ReportsClient() {
 
         {/* Pagination Bar */}
         {reportData && reportData.totalPages > 1 && (
-          <div
-            style={{
-              padding: '12px 16px',
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: 12,
-              color: 'var(--text-muted)',
-            }}
-          >
+          <div className="p-3 sm:px-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-slate-500">
             <div>
               Showing page <strong>{page}</strong> of <strong>{reportData.totalPages}</strong> ({reportData.total} total items)
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="flex gap-2">
               <button
                 className="btn btn-outline btn-sm"
                 onClick={() => setPage(Math.max(1, page - 1))}
@@ -1239,7 +1170,7 @@ export default function ReportsClient() {
         subtitle="Create ad-hoc projections from verified domain models"
         size="xl"
       >
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20 }}>
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-5">
           {/* Controls */}
           <div>
             <Field label="1. Select Canonical Source">
