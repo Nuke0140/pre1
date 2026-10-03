@@ -18,11 +18,10 @@ export function RouteProgress() {
     setPct(0)
 
     timers.current.push(
-      window.setTimeout(() => setPct(30), 50),
-      window.setTimeout(() => setPct(65), 180),
-      window.setTimeout(() => setPct(88), 400),
-      window.setTimeout(() => setPct(100), 650),
-      window.setTimeout(() => { setVisible(false); setPct(0) }, 850),
+      window.setTimeout(() => setPct(40), 20),
+      window.setTimeout(() => setPct(85), 60),
+      window.setTimeout(() => setPct(100), 120),
+      window.setTimeout(() => { setVisible(false); setPct(0) }, 180),
     )
     /* eslint-enable react-hooks/set-state-in-effect */
 

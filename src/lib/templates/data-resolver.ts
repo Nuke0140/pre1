@@ -268,8 +268,8 @@ export class TemplateDataResolver {
         // Classroom details
         if (student.currentClassroom) {
           context['classroom.name'] = student.currentClassroom.name
-          context['classroom.program'] = student.currentClassroom.program || 'Preschool Foundation'
-          context['classroom.roomNumber'] = student.currentClassroom.roomNumber || 'Room 101'
+          context['classroom.program'] = (student.currentClassroom as any).program || student.currentClassroom.programType || 'Preschool Foundation'
+          context['classroom.roomNumber'] = (student.currentClassroom as any).roomNumber || student.currentClassroom.code || 'Room 101'
           if (student.currentClassroom.primaryTeacher) {
             context['classroom.primaryTeacher'] = student.currentClassroom.primaryTeacher.fullName
           }

@@ -182,6 +182,7 @@ export function BottomNav({
                 <Link
                   key={item.key}
                   href={item.href}
+                  prefetch={true}
                   className={`dock-item${active ? ' active' : ''}`}
                   title={item.label}
                   aria-label={item.label}
@@ -236,6 +237,7 @@ export function BottomNav({
                 <Link
                   key={item.key}
                   href={item.href}
+                  prefetch={true}
                   className={`dock-item${active ? ' active' : ''}`}
                   title={item.label}
                   aria-label={item.label}

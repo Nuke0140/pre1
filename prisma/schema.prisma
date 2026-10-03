@@ -47,6 +47,10 @@ model Tenant {
   facilities             Facility[]
   feeHeads               FeeHead[]
   feePlans               FeePlan[]
+  feeStructures          FeeStructure[]
+  studentFeeSchedules    StudentFeeSchedule[]
+  studentDeposits        StudentDeposit[]
+  refunds                Refund[]
   followUps              FollowUp[]
   guardians              Guardian[]
   invoices               Invoice[]
@@ -270,6 +274,8 @@ model AcademicSession {
   attendances     Attendance[]
   calendarEvents  CalendarEvent[]
   classrooms      Classroom[]
+  feeStructures   FeeStructure[]
+  feeSchedules    StudentFeeSchedule[]
   invoices        Invoice[]
   observations    Observation[]
   allocations     StudentAllocation[]
@@ -315,6 +321,8 @@ model Classroom {
   followUps         FollowUp[]
   observations      Observation[]
   allocations       StudentAllocation[]
+  feeStructures     FeeStructure[]
+  feeSchedules      StudentFeeSchedule[]
   students          Student[]           @relation("StudentCurrentClassroom")
   activities        ClassroomActivity[]
   materialRequests  MaterialRequest[]
@@ -352,6 +360,9 @@ model Student {
   invoices           Invoice[]
   observations       Observation[]
   payments           Payment[]
+  feeSchedules       StudentFeeSchedule[]
+  deposits           StudentDeposit[]
+  refunds            Refund[]
   allocations        StudentAllocation[]
   guardians          StudentGuardian[]
   currentClassroom   Classroom?          @relation("StudentCurrentClassroom", fields: [currentClassroomId], references: [id])
@@ -575,6 +586,7 @@ model FeeHead {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   planItems   FeePlanItem[]
+  feeItems    FeeItem[]
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])
@@ -669,6 +681,7 @@ model Payment {
   id             String        @id @default(uuid())
   tenantId       String
   invoiceId      String?
+  feeScheduleId  String?
   studentId      String?
   vendorId       String?
   paymentNumber  String
@@ -682,6 +695,7 @@ model Payment {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   invoice        Invoice?      @relation(fields: [invoiceId], references: [id])
+  feeSchedule    StudentFeeSchedule? @relation(fields: [feeScheduleId], references: [id])
   student        Student?      @relation(fields: [studentId], references: [id])
   vendor         Vendor?       @relation(fields: [vendorId], references: [id])
   tenant         Tenant        @relation(fields: [tenantId], references: [id])
@@ -690,6 +704,7 @@ model Payment {
   @@unique([tenantId, paymentNumber])
   @@index([tenantId, status])
   @@index([studentId])
+  @@index([feeScheduleId])
   @@index([vendorId])
   @@map("payments")
 }
@@ -707,6 +722,187 @@ model Receipt {
   @@unique([tenantId, receiptNumber])
   @@map("receipts")
 }
+
+// =========================================================================
+// PREONE CANONICAL FEE STRUCTURE, SCHEDULE, DEPOSIT & REFUND ENGINE
+// =========================================================================
+
+enum FeeStructureStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum FeeType {
+  REGULAR
+  REFUNDABLE_DEPOSIT
+}
+
+enum FeeScheduleStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum DepositStatus {
+  HELD
+  REFUNDED
+  PARTIALLY_REFUNDED
+  ADJUSTED
+}
+
+model FeeStructure {
+  id                String             @id @default(uuid())
+  tenantId          String
+  branchId          String?
+  academicSessionId String?
+  programId         String?
+  classroomId       String?
+  programType       ProgramType?
+  name              String
+  description       String?
+  status            FeeStructureStatus @default(DRAFT)
+  effectiveFrom     DateTime?
+  effectiveTo       DateTime?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicSession   AcademicSession?   @relation(fields: [academicSessionId], references: [id])
+  classroom         Classroom?         @relation(fields: [classroomId], references: [id])
+  program           Program?           @relation(fields: [programId], references: [id])
+  items             FeeItem[]
+  schedules         StudentFeeSchedule[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, academicSessionId, classroomId])
+  @@map("fee_structures")
+}
+
+model FeeItem {
+  id                 String               @id @default(uuid())
+  tenantId           String
+  feeStructureId     String
+  feeHeadId          String?
+  name               String
+  description        String?
+  feeType            FeeType              @default(REGULAR)
+  amountCents        Int
+  currency           String               @default("INR")
+  frequency          FeeFrequency         @default(ONE_TIME)
+  dueRule            String?
+  dueDate            DateTime?
+  lateFeeApplicable  Boolean              @default(false)
+  lateFeeAmountCents Int                  @default(0)
+  isRefundable       Boolean              @default(false)
+  sortOrder          Int                  @default(0)
+  status             String               @default("ACTIVE")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  feeStructure       FeeStructure         @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  feeHead            FeeHead?             @relation(fields: [feeHeadId], references: [id], onDelete: SetNull)
+  schedules          StudentFeeSchedule[]
+  deposits           StudentDeposit[]
+
+  @@index([feeStructureId])
+  @@map("fee_items")
+}
+
+model StudentFeeSchedule {
+  id                   String            @id @default(uuid())
+  tenantId             String
+  studentId            String
+  enrollmentId         String?
+  classroomId          String?
+  feeStructureId       String
+  feeItemId            String
+  academicSessionId    String?
+  period               String
+  amountDueCents       Int
+  amountPaidCents      Int               @default(0)
+  remainingAmountCents Int
+  dueDate              DateTime
+  status               FeeScheduleStatus @default(PENDING)
+  feeType              FeeType           @default(REGULAR)
+  isRefundable         Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student              Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom            Classroom?        @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  feeStructure         FeeStructure      @relation(fields: [feeStructureId], references: [id], onDelete: Cascade)
+  feeItem              FeeItem           @relation(fields: [feeItemId], references: [id], onDelete: Cascade)
+  academicSession      AcademicSession?  @relation(fields: [academicSessionId], references: [id], onDelete: SetNull)
+  payments             Payment[]
+  deposits             StudentDeposit[]
+  refunds              Refund[]
+
+  @@unique([studentId, feeItemId, period])
+  @@index([tenantId, status])
+  @@index([tenantId, studentId])
+  @@index([dueDate])
+  @@map("student_fee_schedules")
+}
+
+model StudentDeposit {
+  id                   String              @id @default(uuid())
+  tenantId             String
+  studentId            String
+  feeScheduleId        String?
+  feeItemId            String?
+  name                 String              @default("Security Deposit")
+  totalAmountCents     Int
+  refundedAmountCents  Int                 @default(0)
+  adjustedAmountCents  Int                 @default(0)
+  remainingAmountCents Int
+  status               DepositStatus       @default(HELD)
+  notes                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  tenant               Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student              Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeSchedule          StudentFeeSchedule? @relation(fields: [feeScheduleId], references: [id], onDelete: SetNull)
+  feeItem              FeeItem?            @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
+  refunds              Refund[]
+
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@map("student_deposits")
+}
+
+model Refund {
+  id             String              @id @default(uuid())
+  tenantId       String
+  studentId      String
+  depositId      String?
+  feeScheduleId  String?
+  amountCents    Int
+  refundDate     DateTime            @default(now())
+  refundMode     PaymentMethod       @default(BANK_TRANSFER)
+  reference      String?
+  reason         String
+  approvedById   String?
+  processedById  String?
+  createdAt      DateTime            @default(now())
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student        Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  deposit        StudentDeposit?     @relation(fields: [depositId], references: [id], onDelete: SetNull)
+  feeSchedule    StudentFeeSchedule? @relation(fields: [feeScheduleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, studentId])
+  @@map("refunds")
+}
+
 
 model Announcement {
   id          String             @id @default(uuid())
@@ -992,6 +1188,7 @@ model Program {
   applications   AdmissionApplication[]
   curriculums    Curriculum[]
   subjectMappings ProgramSubject[]
+  feeStructures  FeeStructure[]
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])

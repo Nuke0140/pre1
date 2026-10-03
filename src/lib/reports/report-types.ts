@@ -77,6 +77,8 @@ export interface QueryOptions {
   academicSessionId?: string | null
   classroomId?: string | null
   studentId?: string | null
+  search?: string
+  status?: string
 }
 
 export interface ReportDefinition {

@@ -70,6 +70,7 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
   return (
     <Link
       href={m.href}
+      prefetch={true}
       className={`module-card group ${className}`.trim()}
       aria-label={m.label}
       data-module={m.key}
