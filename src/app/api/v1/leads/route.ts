@@ -84,6 +84,12 @@ async function _POST(req: NextRequest) {
       branchId,
       academicYearId,
       assignedToId,
+      childGender,
+      previousSchool,
+      relationship,
+      parentPhotoUrl,
+      enquiryDate,
+      overrideDuplicate,
     } = body
 
     const result = await AdmissionService.createEnquiry(
@@ -105,6 +111,12 @@ async function _POST(req: NextRequest) {
         source,
         notes,
         assignedToId,
+        childGender,
+        previousSchool,
+        relationship,
+        parentPhotoUrl,
+        enquiryDate,
+        overrideDuplicate,
       }
     )
 

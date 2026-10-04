@@ -33,8 +33,11 @@ async function _POST(
         actorRole: session.role,
       },
       id,
-      validityDays,
-      terms
+      {
+        validityDays,
+        terms,
+        feePlanId: body.feePlanId || undefined,
+      }
     )
 
     return ok(result, undefined, 201)

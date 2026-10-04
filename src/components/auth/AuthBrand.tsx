@@ -5,23 +5,35 @@ export interface AuthBrandProps {
   tagline?: string
   logoSize?: number
   className?: string
+  logoUrl?: string | null
+  schoolName?: string
 }
 
 /**
  * Reusable AuthBrand component.
- * Displays the authentic PreOne brand mark with generous breathing room
- * without boxing it into a tiny icon square.
+ * Displays the school's configured logo if available, or falls back to
+ * the authentic PreOne brand mark with generous breathing room.
  */
 export function AuthBrand({
   tagline = 'Nurturing Little Futures',
   logoSize = 62,
   className = '',
+  logoUrl,
+  schoolName,
 }: AuthBrandProps) {
   return (
     <div className={`auth-brand text-center mb-6 relative z-10 ${className}`}>
       {/* Product Brand Anchor with generous breathing room */}
       <div className="flex justify-center mb-3.5 transition-transform duration-300 hover:scale-105">
-        <PLogoMark size={logoSize} />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={schoolName || 'School Logo'}
+            className="h-16 max-h-16 max-w-[220px] object-contain rounded-lg drop-shadow-sm"
+          />
+        ) : (
+          <PLogoMark size={logoSize} />
+        )}
       </div>
 
       {/* Brand Tagline Badge */}

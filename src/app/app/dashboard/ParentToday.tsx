@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Baby, AlertTriangle, Wallet, Sparkles, CalendarCheck } from 'lucide-react'
+import { Baby, AlertTriangle, Wallet, Sparkles, CalendarCheck, FileText, Eye, Download } from 'lucide-react'
 import { PageHead, Skeleton, Avatar, EmptyState, StatusBadge } from '@/components/preone/ui'
+import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { inr, timeAgo } from '@/lib/format'
 
 interface ChildData {
@@ -22,10 +23,20 @@ interface ChildData {
 
 export function ParentToday() {
   const [data, setData] = useState<{ today: string; children: ChildData[] } | null>(null)
+  const [documents, setDocuments] = useState<any[]>([])
+  const [previewDoc, setPreviewDoc] = useState<any>(null)
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/v1/parent/today').then((r) => r.json())
-    if (r.success) setData(r.data)
+    try {
+      const [rToday, rDocs] = await Promise.all([
+        fetch('/api/v1/parent/today').then((r) => r.json()),
+        fetch('/api/v1/parent/documents').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+      ])
+      if (rToday.success) setData(rToday.data)
+      if (rDocs.success) setDocuments(rDocs.data || [])
+    } catch {
+      // Non-blocking
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -155,8 +166,82 @@ export function ParentToday() {
               )}
             </div>
           </div>
+
+          {/* OFFICIAL REPORTS & DOCUMENTS */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <b style={{ fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'center' }}>
+                <FileText size={13} className="text-purple-600" /> Official Reports & Documents
+              </b>
+              <span className="badge b-purple" style={{ fontSize: 10.5 }}>
+                {documents.filter((d) => d.studentId === c.id).length} available
+              </span>
+            </div>
+
+            {documents.filter((d) => d.studentId === c.id).length === 0 ? (
+              <p className="t-caption" style={{ marginTop: 4 }}>
+                Official report cards, certificates, and ID cards issued by the school will appear here.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10, marginTop: 8 }}>
+                {documents
+                  .filter((d) => d.studentId === c.id)
+                  .map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex flex-col justify-between space-y-2"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+                            {doc.documentType?.replace(/_/g, ' ') || 'REPORT'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {Math.round(doc.fileSizeBytes / 1024)} KB
+                          </span>
+                        </div>
+                        <div className="text-xs font-semibold text-slate-900 dark:text-white line-clamp-1" title={doc.title}>
+                          {doc.title}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc(doc)}
+                          className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400 hover:underline cursor-pointer"
+                          title="View PDF"
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <a
+                          href={`/api/v1/documents/${doc.id}/download`}
+                          download={doc.fileName || `${doc.title}.pdf`}
+                          className="inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300 hover:underline ml-auto"
+                          title="Download PDF"
+                        >
+                          <Download size={12} /> Download
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       ))}
+
+      {previewDoc && (
+        <PdfViewerModal
+          open={!!previewDoc}
+          onClose={() => setPreviewDoc(null)}
+          documentId={previewDoc.id}
+          title={previewDoc.title}
+          documentType={previewDoc.documentType}
+          fileSizeBytes={previewDoc.fileSizeBytes}
+          fileName={previewDoc.fileName}
+        />
+      )}
     </>
   )
 }

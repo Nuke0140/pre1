@@ -189,3 +189,32 @@ export async function validateAndRecord(
   await db.schoolSetup.update({ where: { tenantId }, data })
   return result
 }
+
+/** Execute the Go-Live transition once all checks pass */
+export async function goLive(
+  tenantId: string,
+  actor: { id: string; name: string }
+): Promise<{ ok: boolean; message: string }> {
+  const result = await validateAndRecord(tenantId, 'GO_LIVE_CHECK', actor)
+  if (!result || result.overall === 'BLOCKED') {
+    return { ok: false, message: 'Cannot go live: critical setup checks are blocked. Please resolve blocked findings.' }
+  }
+
+  await db.schoolSetup.update({
+    where: { tenantId },
+    data: {
+      status: 'LIVE',
+      goLiveAt: new Date(),
+    },
+  })
+
+  await db.tenant.update({
+    where: { id: tenantId },
+    data: {
+      status: 'ACTIVE',
+    },
+  })
+
+  return { ok: true, message: 'School setup completed and school is now live!' }
+}
+

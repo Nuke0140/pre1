@@ -62,6 +62,7 @@ import {
   resolveTokens,
   getDefaultSampleData,
 } from '@/lib/templates/field-registry'
+import { TestTemplateModal } from '@/components/templates/TestTemplateModal'
 
 // 1mm = 3.7795275591 px at 96 DPI
 const MM_TO_PX = 3.78
@@ -102,6 +103,9 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
 
   // Publish Modal
   const [publishModalOpen, setPublishModalOpen] = useState(false)
+
+  // Test Template Modal
+  const [testModalOpen, setTestModalOpen] = useState(false)
 
   // Canvas Refs & Dragging
   const canvasRef = useRef<HTMLDivElement | null>(null)
@@ -865,8 +869,23 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
           </button>
         </div>
 
-        {/* Right: Save Draft & Publish */}
+        {/* Right: Test, Save Draft & Publish */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            style={{
+              background: '#7C3AED25',
+              color: '#E9D5FF',
+              border: '1px solid #A855F780',
+              fontWeight: 600,
+            }}
+            onClick={() => setTestModalOpen(true)}
+            title="Test Template with Live Records, Data Mapping & PDF Generation"
+          >
+            <Sparkles size={14} /> Test Template
+          </button>
+
           <button
             type="button"
             className="btn btn-sm btn-secondary"
@@ -1939,6 +1958,22 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* ── TEST TEMPLATE MODAL ── */}
+      {testModalOpen && definition && (
+        <TestTemplateModal
+          open={testModalOpen}
+          onClose={() => setTestModalOpen(false)}
+          templateId={templateId}
+          templateName={templateName}
+          documentType={templateType}
+          initialDefinition={definition}
+          isPublished={definition.status === 'PUBLISHED'}
+          publishedVersion={definition.version}
+          currentDraftVersion={definition.version}
+          onSetDefaultSuccess={loadTemplate}
+        />
       )}
     </div>
   )

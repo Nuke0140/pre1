@@ -18,6 +18,7 @@ async function _GET(req: NextRequest) {
   const curriculumId = searchParams.get('curriculumId') || undefined
   const learningGoalId = searchParams.get('learningGoalId') || undefined
   const status = (searchParams.get('status') as ActivityStatus) || undefined
+  const activityType = searchParams.get('activityType') || undefined
   const dateFrom = searchParams.get('dateFrom') || undefined
   const dateTo = searchParams.get('dateTo') || undefined
   const teacherId = searchParams.get('teacherId') || undefined
@@ -33,7 +34,7 @@ async function _GET(req: NextRequest) {
         actorName: session.name,
         actorRole: session.role,
       },
-      { classroomId, curriculumId, learningGoalId, status, dateFrom, dateTo, teacherId }
+      { classroomId, curriculumId, learningGoalId, status, activityType, dateFrom, dateTo, teacherId }
     )
 
     return ok(list)
@@ -55,6 +56,7 @@ async function _POST(req: NextRequest) {
     const {
       classroomId,
       title,
+      activityType,
       activityDate,
       curriculumId,
       learningGoalId,
@@ -85,6 +87,7 @@ async function _POST(req: NextRequest) {
       {
         classroomId,
         title,
+        activityType,
         activityDate,
         curriculumId,
         learningGoalId,

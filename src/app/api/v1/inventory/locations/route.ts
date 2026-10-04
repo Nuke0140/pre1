@@ -17,7 +17,7 @@ async function _GET(req: NextRequest) {
     const type = searchParams.get('type') as any || undefined
     const isActive = searchParams.get('isActive') !== null ? searchParams.get('isActive') === 'true' : undefined
 
-    const locations = await InventoryService.listLocations(session.tenantId, { branchId, search, type, isActive })
+    const locations = await InventoryService.listLocations(session.tenantId, { branchId, search, isActive })
     return ok(locations)
   } catch (err: any) {
     return bad(err.message, 'LOCATIONS_FETCH_FAILED')

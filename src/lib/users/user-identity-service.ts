@@ -104,7 +104,8 @@ export class UserIdentityService {
     }
 
     // Determine password hash
-    const rawPassword = opts.password || `PreOne@${Math.random().toString(36).slice(-8)}`
+    const isGeneratedPassword = !opts.password || opts.password.trim().length < 8
+    const rawPassword = isGeneratedPassword ? `PreOne@${Math.random().toString(36).slice(-8)}` : opts.password!.trim()
     const passwordHash = await this.hashPassword(rawPassword)
 
     if (!user) {
@@ -116,6 +117,7 @@ export class UserIdentityService {
           fullName: opts.fullName.trim(),
           avatarUrl: opts.avatarUrl?.trim() || null,
           passwordHash,
+          mustChangePassword: isGeneratedPassword,
           status: initialStatus,
         },
       })

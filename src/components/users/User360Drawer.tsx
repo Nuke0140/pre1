@@ -3,9 +3,11 @@
 import React, { useState } from 'react'
 import {
   User, Mail, Phone, Building, Briefcase, Baby, Shield, KeyRound,
-  Lock, CheckCircle2, XCircle, Clock, Calendar, Edit3, ShieldAlert
+  Lock, CheckCircle2, XCircle, Clock, Calendar, Edit3, ShieldAlert,
+  FileText, Download, Trash2, Eye, RefreshCw
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
+import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { Avatar, StatusBadge } from '@/components/preone/ui'
 import { UserRecord, ROLE_BADGE } from './types'
 import { normalizeRole } from '@/lib/roles'
@@ -20,7 +22,44 @@ interface User360DrawerProps {
 }
 
 export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: User360DrawerProps) {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'RELATIONSHIPS' | 'SECURITY'>('OVERVIEW')
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'RELATIONSHIPS' | 'SECURITY' | 'DOCUMENTS'>('OVERVIEW')
+  const [staffDocuments, setStaffDocuments] = useState<any[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<any>(null)
+
+  const loadDocuments = React.useCallback(async () => {
+    if (!user) return
+    const entityId = user.staffProfileId || user.userId || user.id
+    try {
+      setLoadingDocs(true)
+      const res = await fetch(`/api/v1/documents/profile?entityType=STAFF&entityId=${entityId}`).then((r) => r.json())
+      if (res.success) {
+        setStaffDocuments(res.data || [])
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setLoadingDocs(false)
+    }
+  }, [user])
+
+  React.useEffect(() => {
+    if (open && activeTab === 'DOCUMENTS') {
+      loadDocuments()
+    }
+  }, [open, activeTab, loadDocuments])
+
+  const handleDeleteDoc = async (docId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
+    try {
+      const res = await fetch(`/api/v1/documents/profile?id=${docId}`, { method: 'DELETE' }).then((r) => r.json())
+      if (res.success) {
+        loadDocuments()
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
 
   if (!user) return null
 
@@ -113,6 +152,17 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
             }`}
           >
             RBAC & Roles
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('DOCUMENTS')}
+            className={`pb-2 transition-colors ${
+              activeTab === 'DOCUMENTS'
+                ? 'border-b-2 border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Documents ({staffDocuments.length})
           </button>
         </div>
 
@@ -271,6 +321,88 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                   : 'Role-based workforce scoping: Enforces branch isolation and module authorization.'}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* TAB 4: DOCUMENTS LIBRARY */}
+        {activeTab === 'DOCUMENTS' && (
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-gray-800">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Staff Generated Documents</span>
+              <button
+                type="button"
+                onClick={loadDocuments}
+                className="btn btn-ghost btn-xs text-indigo-600 flex items-center gap-1"
+              >
+                <RefreshCw size={11} className={loadingDocs ? 'animate-spin' : ''} /> Refresh
+              </button>
+            </div>
+
+            {loadingDocs ? (
+              <div className="p-6 text-center text-gray-400">Loading documents...</div>
+            ) : staffDocuments.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {staffDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 flex items-center justify-between"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                        <FileText size={13} className="text-indigo-600" />
+                        <span>{doc.title}</span>
+                      </div>
+                      <div className="text-[11px] text-gray-400">
+                        {fmtDate(doc.createdAt)} • {Math.round(doc.fileSizeBytes / 1024)} KB
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewDoc(doc)}
+                        className="btn btn-ghost btn-xs text-indigo-600"
+                        title="View PDF"
+                      >
+                        <Eye size={12} />
+                      </button>
+                      <a
+                        href={`/api/v1/documents/${doc.id}/download`}
+                        download={doc.fileName || `${doc.title}.pdf`}
+                        className="btn btn-ghost btn-xs text-gray-600"
+                        title="Download PDF"
+                      >
+                        <Download size={12} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDoc(doc.id, doc.title)}
+                        className="btn btn-ghost btn-xs text-rose-600"
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center rounded-lg border border-dashed border-gray-200 dark:border-gray-700 text-gray-400">
+                <FileText size={20} className="mx-auto mb-1 text-gray-300" />
+                <p>No generated documents on file for this staff member.</p>
+              </div>
+            )}
+
+            {previewDoc && (
+              <PdfViewerModal
+                open={!!previewDoc}
+                onClose={() => setPreviewDoc(null)}
+                documentId={previewDoc.id}
+                title={previewDoc.title}
+                documentType={previewDoc.documentType}
+                fileSizeBytes={previewDoc.fileSizeBytes}
+                fileName={previewDoc.fileName}
+              />
+            )}
           </div>
         )}
 

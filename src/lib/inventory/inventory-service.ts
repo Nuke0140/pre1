@@ -610,7 +610,8 @@ export class InventoryService {
     data: {
       categoryId: string
       unitId: string
-      sku: string
+      sku?: string
+      code?: string
       name: string
       description?: string
       itemType?: any
@@ -622,6 +623,8 @@ export class InventoryService {
       isAsset?: boolean
       minimumStock?: number
       reorderLevel?: number
+      reorderPoint?: number
+      costPriceCents?: number
       maximumStock?: number
       defaultVendorId?: string
     },
@@ -666,6 +669,7 @@ export class InventoryService {
     const itemTypeMap: Record<string, string> = {
       STATIONERY: 'LEARNING_MATERIAL',
       LEARNING_KIT: 'LEARNING_MATERIAL',
+      KIT: 'STUDENT_SUPPLY',
       CLEANING: 'HYGIENE_SUPPLY',
       KITCHEN_PANTRY: 'FOOD_SUPPLY',
       UNIFORM: 'STUDENT_SUPPLY',
@@ -2132,7 +2136,8 @@ export class InventoryService {
     data: {
       branchId: string
       academicSessionId?: string
-      locationId: string
+      locationId?: string
+      fromLocationId?: string
       destinationType?: any
       destinationId?: string
       classroomId?: string
@@ -2210,6 +2215,9 @@ export class InventoryService {
         }
       }
 
+      let destType = (data.destinationType as string) || (data.classroomId ? 'CLASSROOM' : data.studentId ? 'STUDENT' : 'OPERATIONS')
+      if (destType === 'DEPARTMENT') destType = 'OPERATIONS'
+
       // Create StockIssue record
       const newIssue = await tx.stockIssue.create({
         data: {
@@ -2219,7 +2227,7 @@ export class InventoryService {
           issueNumber,
           materialRequestId: data.materialRequestId || null,
           locationId,
-          destinationType: data.destinationType || (data.classroomId ? 'CLASSROOM' : 'OPERATIONS'),
+          destinationType: destType as any,
           destinationId: data.destinationId || data.classroomId || null,
           classroomId: data.classroomId || null,
           studentId: data.studentId || null,
@@ -2388,6 +2396,7 @@ export class InventoryService {
     params?: {
       branchId?: string
       classroomId?: string
+      studentId?: string
       destinationType?: any
       search?: string
       page?: number
@@ -2402,6 +2411,7 @@ export class InventoryService {
       tenantId,
       ...(params?.branchId ? { branchId: params.branchId } : {}),
       ...(params?.classroomId ? { classroomId: params.classroomId } : {}),
+      ...(params?.studentId ? { studentId: params.studentId } : {}),
       ...(params?.destinationType ? { destinationType: params.destinationType } : {}),
       ...(params?.search
         ? {
@@ -2409,6 +2419,8 @@ export class InventoryService {
               { issueNumber: { contains: params.search, mode: 'insensitive' } },
               { recipientName: { contains: params.search, mode: 'insensitive' } },
               { notes: { contains: params.search, mode: 'insensitive' } },
+              { student: { firstName: { contains: params.search, mode: 'insensitive' } } },
+              { student: { lastName: { contains: params.search, mode: 'insensitive' } } },
             ],
           }
         : {}),
@@ -2419,9 +2431,10 @@ export class InventoryService {
       db.stockIssue.findMany({
         where,
         include: {
-          items: { include: { item: { select: { id: true, name: true, sku: true } } } },
-          location: { select: { id: true, name: true } },
+          items: { include: { item: { select: { id: true, name: true, sku: true, unit: { select: { symbol: true } } } } } },
+          location: { select: { id: true, name: true, code: true } },
           classroom: { select: { id: true, name: true, code: true } },
+          student: { select: { id: true, firstName: true, lastName: true, admissionNo: true } },
           branch: { select: { id: true, name: true, code: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -2458,6 +2471,7 @@ export class InventoryService {
         quantity: number
         condition: 'GOOD' | 'DAMAGED' | 'EXPIRED'
         reason?: string
+        batchNumber?: string
       }>
     },
     actor: ActorContext
@@ -3165,7 +3179,7 @@ export class InventoryService {
     })
 
     // Grouping by Classroom, Destination, Category, and Item
-    const byClassroom: Record<string, { classroomId: string; name: string; count: number; value: number; totalValueCents: number }> = {}
+    const byClassroom: Record<string, { classroomId: string; name: string; classroomName?: string; count: number; value: number; totalValueCents: number }> = {}
     const byDestination: Record<string, { count: number; value: number }> = {}
     const byCategory: Record<string, { name: string; count: number; value: number }> = {}
     const byItem: Record<string, { name: string; sku: string; count: number; unit: string }> = {}
@@ -3182,7 +3196,14 @@ export class InventoryService {
       // By Classroom
       if (meta?.classroomId) {
         if (!byClassroom[classroomId]) {
-          byClassroom[classroomId] = { classroomId, name: `Classroom ${classroomId}`, count: 0, value: 0, totalValueCents: 0 }
+          byClassroom[classroomId] = {
+            classroomId,
+            name: `Classroom ${classroomId}`,
+            classroomName: `Classroom ${classroomId}`,
+            count: 0,
+            value: 0,
+            totalValueCents: 0,
+          }
         }
         byClassroom[classroomId].count += qty
         byClassroom[classroomId].value += lineVal
@@ -3219,7 +3240,12 @@ export class InventoryService {
       period: { from, to },
       totalMovements: movements.length,
       byClassroom: Object.values(byClassroom),
-      byDestination,
+      byDestination: Object.entries(byDestination).map(([destinationType, val]) => ({
+        destinationType,
+        count: val.count,
+        value: val.value,
+        totalValueCents: Math.round(val.value * 100),
+      })),
       byCategory: Object.values(byCategory),
       topItems: Object.values(byItem).sort((a, b) => b.count - a.count).slice(0, 15),
     }

@@ -62,7 +62,21 @@ async function _PATCH(
 
   try {
     const body = await req.json()
-    const { firstName, lastName, dob, gender, bloodGroup, address, photoUrl, seatNumber, generateSeatNumber } = body
+    const {
+      firstName,
+      lastName,
+      dob,
+      gender,
+      bloodGroup,
+      allergies,
+      medicalAlerts,
+      dietaryRestrictions,
+      emergencyMedicalInstructions,
+      address,
+      photoUrl,
+      seatNumber,
+      generateSeatNumber,
+    } = body
 
     const updated = await StudentService.updateStudent(
       {
@@ -79,6 +93,10 @@ async function _PATCH(
         dob,
         gender,
         bloodGroup,
+        allergies,
+        medicalAlerts,
+        dietaryRestrictions,
+        emergencyMedicalInstructions,
         address,
         photoUrl,
         seatNumber,

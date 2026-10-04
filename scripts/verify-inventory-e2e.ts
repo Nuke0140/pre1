@@ -490,7 +490,7 @@ async function runInventoryTests() {
     // 18. Check PO Status Transitioned to FULLY_RECEIVED / RECEIVED
     const poAfterGrn2 = await db.purchaseOrder.findUnique({ where: { id: po.id } })
     assert(
-      poAfterGrn2?.status === 'FULLY_RECEIVED' || poAfterGrn2?.status === 'RECEIVED',
+      (poAfterGrn2?.status as any) === 'FULLY_RECEIVED' || (poAfterGrn2?.status as any) === 'RECEIVED',
       'Test 18: PO status transitioned to FULLY_RECEIVED upon 100% fulfillment'
     )
 
@@ -525,7 +525,7 @@ async function runInventoryTests() {
       },
       { id: adminUserA.id, name: adminUserA.fullName, role: adminUserA.role }
     )
-    assert(issue1.issueNumber.startsWith('ISS-') && issue1.status === 'COMPLETED', 'Test 20: Successfully issued stock to classroom')
+    assert(Boolean(issue1?.issueNumber?.startsWith('ISS-') && issue1?.status === 'COMPLETED'), 'Test 20: Successfully issued stock to classroom')
 
     // 21. Check Central Store Stock Reduced Atomically
     const stockPaintsAfterIssue = await db.inventoryStock.findFirst({
@@ -544,7 +544,7 @@ async function runInventoryTests() {
       include: { items: true },
     })
     const isMRFulfilled = mrAfterIssue?.items.every((it) => Number(it.issuedQuantity) >= Number(it.requestedQuantity))
-    assert(isMRFulfilled && mrAfterIssue?.status === 'FULFILLED', 'Test 22: Material Request status transitioned to FULFILLED')
+    assert(Boolean(isMRFulfilled && mrAfterIssue?.status === 'FULFILLED'), 'Test 22: Material Request status transitioned to FULFILLED')
 
     // 23. Prevent Negative Stock (Issuing more than available)
     let negIssueFailed = false
@@ -578,7 +578,7 @@ async function runInventoryTests() {
       tenantA.id,
       {
         branchId: branchA1.id,
-        stockIssueId: issue1.id,
+        stockIssueId: issue1?.id,
         destinationLocationId: storeMain.id,
         notes: 'Unopened extra crayons returned after activity',
         items: [

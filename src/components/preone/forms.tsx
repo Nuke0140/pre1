@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Calendar as CalIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { AnimatedCheckmark } from './TactileMotion'
 
 /* ─── Date picker ─────────────────────────────────────────────────── */
 
@@ -220,10 +221,12 @@ export function useFormDraft(key: string) {
     try {
       const raw = localStorage.getItem(key)
       if (!raw) return
-      const obj = JSON.parse(raw) as Record<string, string>
-      for (const [k, v] of Object.entries(obj)) {
-        const el = form.elements.namedItem(k) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
-        if (el && 'value' in el) el.value = v
+      const obj = JSON.parse(raw)
+      if (obj && typeof obj === 'object') {
+        for (const [k, v] of Object.entries(obj as Record<string, string>)) {
+          const el = form.elements.namedItem(k) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null
+          if (el && 'value' in el) el.value = v
+        }
       }
     } catch {
       /* ignore corrupt draft */
@@ -249,11 +252,18 @@ export function Wizard({
   onChange?: (idx: number) => void
   children?: React.ReactNode
 }) {
+  const prevCurrentRef = useRef(current)
+  useEffect(() => {
+    prevCurrentRef.current = current
+  }, [current])
+  const prevCurrent = prevCurrentRef.current
+
   return (
     <div className="wizard">
       <ol className="wizard-steps">
         {steps.map((s, i) => {
           const state = i < current ? 'done' : i === current ? 'active' : 'todo'
+          const justCompleted = i < current && i >= prevCurrent
           return (
             <li key={i} className={`wizard-step ${state}`}>
               <button
@@ -263,7 +273,13 @@ export function Wizard({
                 onClick={() => i < current && onChange?.(i)}
                 disabled={i > current}
               >
-                <span className="wizard-dot">{state === 'done' ? '\u2713' : i + 1}</span>
+                <span className="wizard-dot">
+                  {state === 'done' ? (
+                    <AnimatedCheckmark size={14} animate={justCompleted} />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
                 <span className="wizard-labels">
                   <b>{s.title}</b>
                   {s.sub && <span>{s.sub}</span>}

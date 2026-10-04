@@ -412,16 +412,26 @@ export const POST = withApi(async (req: NextRequest) => {
               })
             }
 
-            // Sync User status if status changed
+            // Sync User status if status changed and no other active memberships
             if (effectiveStatus) {
-              await tx.user.update({
-                where: { id: m.userId },
-                data: {
-                  status: effectiveStatus,
-                  ...(effectiveStatus === 'INACTIVE' ? { deletedAt: new Date() } : { deletedAt: null }),
-                  updatedAt: new Date(),
+              const otherActive = await tx.tenantUser.count({
+                where: {
+                  userId: m.userId,
+                  id: { not: m.id },
+                  status: 'ACTIVE',
+                  deletedAt: null,
                 },
               })
+              if (otherActive === 0 || effectiveStatus === 'ACTIVE' || session.role === 'PLATFORM_ADMIN') {
+                await tx.user.update({
+                  where: { id: m.userId },
+                  data: {
+                    status: effectiveStatus,
+                    ...(effectiveStatus === 'INACTIVE' ? { deletedAt: new Date() } : { deletedAt: null }),
+                    updatedAt: new Date(),
+                  },
+                })
+              }
             }
 
             // Update or create StaffProfile for designation/department/branch
@@ -465,7 +475,7 @@ export const POST = withApi(async (req: NextRequest) => {
       }
     })
 
-    // Invalidate sessions for users transitioned to restricted states
+    // Invalidate sessions for users transitioned to restricted states (scoped to tenant)
     if (
       action === 'SUSPEND' ||
       action === 'DEACTIVATE' ||
@@ -473,7 +483,7 @@ export const POST = withApi(async (req: NextRequest) => {
       effectiveStatus === 'SUSPENDED'
     ) {
       for (const m of eligibleMembers) {
-        await SessionService.revokeAllUserSessions(m.userId)
+        await SessionService.revokeAllUserSessions(m.userId, undefined, session.tenantId)
         PermissionCache.bumpUserVersion(m.userId)
       }
     }

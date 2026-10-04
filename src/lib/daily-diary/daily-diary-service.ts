@@ -238,7 +238,7 @@ export class DailyDiaryService {
       where: { classroomId, tenantId, date: dateOnly },
     })
 
-    const attendanceMap = new Map(attendanceRecords.map((a) => [a.studentId, a]))
+    const attendanceMap = new Map<string, any>(attendanceRecords.map((a) => [a.studentId, a]))
 
     let present = 0
     let absent = 0
@@ -381,7 +381,7 @@ export class DailyDiaryService {
       where: { classroomId, tenantId, date: dateOnly },
     })
 
-    const attMap = new Map(attendanceRows.map((r) => [r.studentId, r]))
+    const attMap = new Map<string, any>(attendanceRows.map((r) => [r.studentId, r]))
 
     return students.map((s) => {
       const att = attMap.get(s.id)
@@ -468,11 +468,11 @@ export class DailyDiaryService {
         tenantId,
         actorId: session.uid,
         action: 'ATTENDANCE_BATCH_SAVE',
-        entityType: 'ATTENDANCE',
+        entity: 'ATTENDANCE',
         entityId: classroomId,
         summary: `Admin ${session.name} updated attendance for class ${classroom.name} on ${dateStr}`,
-        details: { classroomId, date: dateStr, count: records.length },
-      } as any)
+        newValues: { classroomId, date: dateStr, count: records.length },
+      })
     }
 
     return { success: true, count: saved.length }

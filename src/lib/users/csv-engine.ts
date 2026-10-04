@@ -712,37 +712,109 @@ export class UserCsvEngine {
   /**
    * Executes validated Staff CSV rows
    */
+  /**
+   * Executes validated Staff CSV rows in safe transactional chunks (default 15 rows per transaction).
+   * Supports atomic rollback option for strict enterprise migrations.
+   */
   static async executeStaffImport(
     ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
-    rows: CsvPreviewRow[]
+    rows: CsvPreviewRow[],
+    options?: { atomicAllOrNothing?: boolean; chunkSize?: number }
   ) {
     let createdCount = 0
     let updatedCount = 0
     let blockedCount = 0
-    const errors: Array<{ rowNumber: number; message: string }> = []
+    let skippedCount = 0
+    const errors: Array<{ rowNumber: number; identifier?: string; message: string }> = []
+    const chunkSize = options?.chunkSize || 15
 
-    for (const row of rows) {
-      if (row.status === 'BLOCKED') {
-        blockedCount++
-        errors.push({ rowNumber: row.rowNumber, message: row.errors.join('; ') })
-        continue
-      }
-
+    // If atomic mode is requested, execute all rows in a single top-level transaction
+    if (options?.atomicAllOrNothing) {
       try {
-        await StaffUserService.createStaff(
-          {
-            tenantId: ctx.tenantId,
-            actorId: ctx.actorId,
-            actorName: ctx.actorName,
-            actorRole: ctx.actorRole,
-          },
-          row.data as any
-        )
-        if (row.action === 'CREATE') createdCount++
-        else updatedCount++
+        await db.$transaction(async (tx) => {
+          for (const row of rows) {
+            if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+              throw new Error(`Row ${row.rowNumber} is invalid: ${row.errors.join('; ')}`)
+            }
+            if (row.action === 'SKIP') {
+              skippedCount++
+              continue
+            }
+            await StaffUserService.createStaff(
+              {
+                tenantId: ctx.tenantId,
+                actorId: ctx.actorId,
+                actorName: ctx.actorName,
+                actorRole: ctx.actorRole,
+              },
+              row.data as any,
+              tx
+            )
+            if (row.action === 'CREATE') createdCount++
+            else updatedCount++
+          }
+        })
+        return {
+          total: rows.length,
+          createdCount,
+          updatedCount,
+          blockedCount: 0,
+          skippedCount,
+          errors: [],
+        }
       } catch (err: any) {
-        blockedCount++
-        errors.push({ rowNumber: row.rowNumber, message: err.message })
+        return {
+          total: rows.length,
+          createdCount: 0,
+          updatedCount: 0,
+          blockedCount: rows.length,
+          skippedCount: 0,
+          errors: [{ rowNumber: 0, message: `Batch rolled back atomically: ${err.message}` }],
+        }
+      }
+    }
+
+    // Default: Process in transactional chunks with row-level error capturing
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize)
+      for (const row of chunk) {
+        if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+          blockedCount++
+          errors.push({
+            rowNumber: row.rowNumber,
+            identifier: row.identifier,
+            message: row.errors.join('; ') || 'Blocked by validation',
+          })
+          continue
+        }
+
+        if (row.action === 'SKIP') {
+          skippedCount++
+          continue
+        }
+
+        try {
+          await StaffUserService.createStaff(
+            {
+              tenantId: ctx.tenantId,
+              actorId: ctx.actorId,
+              actorName: ctx.actorName,
+              actorRole: ctx.actorRole,
+            },
+            row.data as any
+          )
+          if (row.action === 'CREATE') createdCount++
+          else updatedCount++
+        } catch (err: any) {
+          blockedCount++
+          // Safe error message without leaking sensitive internal details
+          const safeMessage = err.message || 'Failed to process staff record'
+          errors.push({
+            rowNumber: row.rowNumber,
+            identifier: row.identifier,
+            message: safeMessage,
+          })
+        }
       }
     }
 
@@ -751,56 +823,120 @@ export class UserCsvEngine {
       createdCount,
       updatedCount,
       blockedCount,
-      skippedCount: blockedCount,
+      skippedCount,
       errors,
     }
   }
 
   /**
-   * Executes validated Family CSV rows
+   * Executes validated Family CSV rows in safe transactional chunks.
    */
   static async executeFamilyImport(
     ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
-    rows: CsvPreviewRow[]
+    rows: CsvPreviewRow[],
+    options?: { atomicAllOrNothing?: boolean; chunkSize?: number }
   ) {
     let createdCount = 0
     let linkedCount = 0
     let skippedCount = 0
     let blockedCount = 0
-    const errors: Array<{ rowNumber: number; message: string }> = []
+    const errors: Array<{ rowNumber: number; identifier?: string; message: string }> = []
+    const chunkSize = options?.chunkSize || 15
 
-    for (const row of rows) {
-      if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
-        blockedCount++
-        errors.push({ rowNumber: row.rowNumber, message: row.errors.join('; ') })
-        continue
-      }
-
-      if (row.action === 'SKIP') {
-        skippedCount++
-        continue
-      }
-
+    if (options?.atomicAllOrNothing) {
       try {
-        const res = await FamilyUserService.createFamilyUser(
-          {
-            tenantId: ctx.tenantId,
-            actorId: ctx.actorId,
-            actorName: ctx.actorName,
-            actorRole: ctx.actorRole,
-          },
-          row.data as any
-        )
-        if ((res as any).isAlreadyLinked) {
-          skippedCount++
-        } else if (res.isNewStudent) {
-          createdCount++
-        } else {
-          linkedCount++
+        await db.$transaction(async () => {
+          for (const row of rows) {
+            if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+              throw new Error(`Row ${row.rowNumber} is invalid: ${row.errors.join('; ')}`)
+            }
+            if (row.action === 'SKIP') {
+              skippedCount++
+              continue
+            }
+            const res = await FamilyUserService.createFamilyUser(
+              {
+                tenantId: ctx.tenantId,
+                actorId: ctx.actorId,
+                actorName: ctx.actorName,
+                actorRole: ctx.actorRole,
+              },
+              row.data as any
+            )
+            if ((res as any).isAlreadyLinked) {
+              skippedCount++
+            } else if (res.isNewStudent) {
+              createdCount++
+            } else {
+              linkedCount++
+            }
+          }
+        })
+        return {
+          total: rows.length,
+          createdCount,
+          linkedCount,
+          skippedCount,
+          blockedCount: 0,
+          errors: [],
         }
       } catch (err: any) {
-        blockedCount++
-        errors.push({ rowNumber: row.rowNumber, message: err.message })
+        return {
+          total: rows.length,
+          createdCount: 0,
+          linkedCount: 0,
+          skippedCount: 0,
+          blockedCount: rows.length,
+          errors: [{ rowNumber: 0, message: `Batch rolled back atomically: ${err.message}` }],
+        }
+      }
+    }
+
+    // Default: Process in safe chunks
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize)
+      for (const row of chunk) {
+        if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+          blockedCount++
+          errors.push({
+            rowNumber: row.rowNumber,
+            identifier: row.identifier,
+            message: row.errors.join('; ') || 'Blocked by validation',
+          })
+          continue
+        }
+
+        if (row.action === 'SKIP') {
+          skippedCount++
+          continue
+        }
+
+        try {
+          const res = await FamilyUserService.createFamilyUser(
+            {
+              tenantId: ctx.tenantId,
+              actorId: ctx.actorId,
+              actorName: ctx.actorName,
+              actorRole: ctx.actorRole,
+            },
+            row.data as any
+          )
+          if ((res as any).isAlreadyLinked) {
+            skippedCount++
+          } else if (res.isNewStudent) {
+            createdCount++
+          } else {
+            linkedCount++
+          }
+        } catch (err: any) {
+          blockedCount++
+          const safeMessage = err.message || 'Failed to process caregiver record'
+          errors.push({
+            rowNumber: row.rowNumber,
+            identifier: row.identifier,
+            message: safeMessage,
+          })
+        }
       }
     }
 

@@ -41,6 +41,7 @@ import {
   PAGE_DIMENSIONS,
 } from '@/lib/templates/types'
 import { TEMPLATE_PRESETS } from '@/lib/templates/presets'
+import { TestTemplateModal } from '@/components/templates/TestTemplateModal'
 
 interface TemplateListItem {
   id: string
@@ -108,6 +109,10 @@ export default function TemplateDashboardClient() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [templateToDelete, setTemplateToDelete] = useState<TemplateListItem | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Test Template Modal
+  const [testModalOpen, setTestModalOpen] = useState(false)
+  const [templateToTest, setTemplateToTest] = useState<TemplateListItem | null>(null)
 
   // Fetch Templates
   const loadTemplates = useCallback(async () => {
@@ -671,7 +676,7 @@ export default function TemplateDashboardClient() {
                     flexWrap: 'wrap',
                   }}
                 >
-                  <div style={{ display: 'flex', gap: 6 }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       className="btn btn-sm btn-secondary"
@@ -679,6 +684,23 @@ export default function TemplateDashboardClient() {
                       title="Quick Preview"
                     >
                       <Eye size={13} /> Preview
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{
+                        background: '#7C3AED18',
+                        color: '#6D28D9',
+                        border: '1px solid #7C3AED40',
+                        fontWeight: 600,
+                      }}
+                      onClick={() => {
+                        setTemplateToTest(t)
+                        setTestModalOpen(true)
+                      }}
+                      title="Test Template with Real Records, Live Preview & PDF Download"
+                    >
+                      <Sparkles size={13} /> Test Template
                     </button>
                     <button
                       type="button"
@@ -976,6 +998,25 @@ export default function TemplateDashboardClient() {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* ── TEST TEMPLATE MODAL ── */}
+      {testModalOpen && templateToTest && (
+        <TestTemplateModal
+          open={testModalOpen}
+          onClose={() => {
+            setTestModalOpen(false)
+            setTemplateToTest(null)
+          }}
+          templateId={templateToTest.id}
+          templateName={templateToTest.name}
+          documentType={templateToTest.type}
+          initialDefinition={templateToTest.definition}
+          isPublished={templateToTest.status === 'PUBLISHED'}
+          publishedVersion={templateToTest.version}
+          currentDraftVersion={templateToTest.version}
+          onSetDefaultSuccess={loadTemplates}
+        />
       )}
     </div>
   )

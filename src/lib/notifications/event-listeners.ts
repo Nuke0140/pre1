@@ -46,7 +46,7 @@ export function registerNotificationListeners() {
               status: e.status,
               date: e.date,
             },
-            linkUrl: `/app/attendance`,
+            linkUrl: `/app/daily-diary?tab=attendance`,
             skipTimelineEntry: true, // already recorded on timeline if needed
           })
           break

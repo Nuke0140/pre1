@@ -149,16 +149,20 @@ export const POST = withApi(async (req: NextRequest) => {
       }
 
       case 'FORCE_PASSWORD_RESET': {
-        if (!password || password.length < 6) {
-          throw errValidation('Password must be at least 6 characters', 'password')
+        if (!password || password.length < 8) {
+          throw errValidation('Password must be at least 8 characters', 'password')
         }
 
         const passwordHash = await bcrypt.hash(password, 10)
         await tx.user.update({
           where: { id: targetMember.userId },
-          data: { passwordHash, updatedAt: new Date() },
+          data: {
+            passwordHash,
+            mustChangePassword: true,
+            updatedAt: new Date(),
+          },
         })
-        newValues = { passwordReset: true }
+        newValues = { passwordReset: true, mustChangePassword: true }
         break
       }
 
@@ -167,10 +171,20 @@ export const POST = withApi(async (req: NextRequest) => {
           where: { id: targetMember.id },
           data: { status: 'INACTIVE', deletedAt: new Date() },
         })
-        await tx.user.update({
-          where: { id: targetMember.userId },
-          data: { status: 'INACTIVE', updatedAt: new Date() },
+        const otherActive = await tx.tenantUser.count({
+          where: {
+            userId: targetMember.userId,
+            id: { not: targetMember.id },
+            status: 'ACTIVE',
+            deletedAt: null,
+          },
         })
+        if (otherActive === 0 || session.role === 'PLATFORM_ADMIN') {
+          await tx.user.update({
+            where: { id: targetMember.userId },
+            data: { status: 'INACTIVE', updatedAt: new Date() },
+          })
+        }
         newValues = { status: 'INACTIVE', deactivated: true }
         break
       }
@@ -185,7 +199,7 @@ export const POST = withApi(async (req: NextRequest) => {
     (action === 'FORCE_STATUS_TRANSITION' && status && ['SUSPENDED', 'INACTIVE', 'LOCKED'].includes(status)) ||
     action === 'EMERGENCY_DEACTIVATE'
   ) {
-    await SessionService.revokeAllUserSessions(targetMember.userId)
+    await SessionService.revokeAllUserSessions(targetMember.userId, undefined, session.tenantId)
     PermissionCache.bumpUserVersion(targetMember.userId)
   }
 

@@ -15,8 +15,21 @@ export default function ErrorPage({
   const referenceId = error.digest || error.traceId || 'PRE-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
   useEffect(() => {
-    // Log client error trace reference
-  }, [error])
+    console.error('Error boundary caught error:', error)
+    try {
+      fetch('/api/v1/system/client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: error?.message,
+          stack: error?.stack,
+          digest: error?.digest,
+          referenceId,
+          url: typeof window !== 'undefined' ? window.location.href : '',
+        }),
+      }).catch(() => {})
+    } catch {}
+  }, [error, referenceId])
 
   const copyTrace = () => {
     if (typeof navigator !== 'undefined') {
@@ -39,6 +52,17 @@ export default function ErrorPage({
         <p className="text-sm text-slate-600 mb-6 leading-relaxed">
           An error occurred while loading this page. School operations and data are safe. Please try refreshing or sharing the reference code below with support.
         </p>
+
+        {error?.message && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl mb-4 text-left font-mono break-words">
+            <div><strong>Error:</strong> {error.message}</div>
+            {error.stack && (
+              <pre className="mt-2 text-[10px] whitespace-pre-wrap opacity-75 max-h-48 overflow-y-auto">
+                {error.stack}
+              </pre>
+            )}
+          </div>
+        )}
 
         <div className="bg-slate-100/80 rounded-xl p-3 mb-6 border border-slate-200/80 flex items-center justify-between">
           <div className="text-left">

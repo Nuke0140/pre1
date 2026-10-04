@@ -59,6 +59,8 @@ export interface FamilyCreateInput {
     branchId?: string
     classroomId?: string
     seatNumber?: string
+    photoUrl?: string
+    address?: string
     academicSessionId?: string
   }
   permissions: {
@@ -66,6 +68,118 @@ export interface FamilyCreateInput {
     pickupPin?: string | null
     receivesCommunication?: boolean
     isFeePayer?: boolean
+  }
+  confirmDuplicate?: boolean
+}
+
+/**
+ * Normalizes input from both canonical fields and unified creation aliases:
+ * parentGuardian* and student*
+ */
+export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
+  const fullName = (body.fullName || body.parentGuardianFullName || '').trim()
+  const email = (body.email || body.parentGuardianEmail || '').trim().toLowerCase()
+  const phone = (body.phone || body.parentGuardianPhone || '').trim()
+  const avatarUrl = body.avatarUrl || body.parentGuardianPhoto || null
+  const rawRole = (body.role || body.parentGuardianRole || 'PARENT').toUpperCase()
+  const role: 'PARENT' | 'GUARDIAN' = rawRole === 'GUARDIAN' ? 'GUARDIAN' : 'PARENT'
+  const gender = body.gender || body.parentGuardianGender || null
+  const username = body.username || body.parentGuardianUsername || undefined
+  const password = body.password || undefined
+  const relationship = (body.relationship || body.relationToChild || (role === 'PARENT' ? 'FATHER' : 'GUARDIAN')) as Relationship
+  const isPrimaryContact =
+    body.isPrimary !== undefined
+      ? Boolean(body.isPrimary)
+      : body.isPrimaryContact !== undefined
+      ? Boolean(body.isPrimaryContact)
+      : true
+
+  const hasNewChildSignals =
+    body.childMode === 'CREATE' ||
+    Boolean(body.newChild) ||
+    Boolean(body.studentFullName) ||
+    Boolean(body.studentDateOfBirth) ||
+    Boolean(body.childFirstName)
+
+  const childMode: 'CREATE' | 'EXISTING' = hasNewChildSignals ? 'CREATE' : 'EXISTING'
+
+  let newChild = body.newChild
+  if (childMode === 'CREATE') {
+    const studentFullName = (body.studentFullName || '').trim()
+    const names = studentFullName ? studentFullName.split(' ') : []
+    const firstName = (body.childFirstName || body.firstName || newChild?.firstName || (names.length > 0 ? names[0] : '')).trim()
+    const lastName = (
+      body.childLastName ||
+      body.lastName ||
+      newChild?.lastName ||
+      (names.length > 1 ? names.slice(1).join(' ') : undefined)
+    )?.trim() || undefined
+    const dob = body.studentDateOfBirth || body.childDOB || body.dob || newChild?.dob || ''
+    const studentGender = (body.studentGender || body.childGender || body.gender || newChild?.gender || 'MALE') as Gender
+    const bloodGroup = (body.studentBloodGroup || body.childBloodGroup || body.bloodGroup || newChild?.bloodGroup || undefined) as BloodGroup | undefined
+    const branchId = body.studentBranch || body.childBranchId || body.branchId || newChild?.branchId || undefined
+    const classroomId = body.studentClass || body.childClassroomId || body.classroomId || newChild?.classroomId || undefined
+    const seatNumber = body.studentSeatNumber || body.childSeatNumber || body.seatNumber || newChild?.seatNumber || undefined
+    const admissionNo = body.childAdmissionNo || body.admissionNo || newChild?.admissionNo || undefined
+    const programType = body.programType || newChild?.programType || undefined
+    const photoUrl = body.studentPhoto || body.photoUrl || newChild?.photoUrl || undefined
+    const childUsername = body.studentUsername || body.username || newChild?.username || undefined
+
+    newChild = {
+      firstName,
+      lastName,
+      dob,
+      gender: studentGender,
+      bloodGroup,
+      branchId,
+      classroomId,
+      seatNumber,
+      admissionNo,
+      programType,
+      photoUrl,
+      username: childUsername,
+    }
+  }
+
+  const existingChild =
+    body.existingChild ||
+    (body.studentId || body.studentAdmissionNo
+      ? { studentId: body.studentId, admissionNo: body.studentAdmissionNo }
+      : undefined)
+
+  const permissions = {
+    canPickup: body.canPickup !== false && body.permissions?.canPickup !== false,
+    pickupPin: body.pickupPin?.trim() || body.permissions?.pickupPin?.trim() || null,
+    receivesCommunication:
+      body.receivesComm !== false &&
+      body.receivesCommunication !== false &&
+      body.permissions?.receivesCommunication !== false,
+    isFeePayer:
+      body.isFeePayer !== undefined
+        ? Boolean(body.isFeePayer)
+        : body.permissions?.isFeePayer !== undefined
+        ? Boolean(body.permissions.isFeePayer)
+        : role === 'PARENT',
+  }
+
+  return {
+    avatarUrl,
+    role,
+    fullName,
+    email,
+    phone,
+    gender,
+    username,
+    password,
+    status: body.status || 'ACTIVE',
+    relationship,
+    isPrimaryContact,
+    childMode,
+    existingChild,
+    additionalChildren: body.additionalChildren,
+    newChild,
+    permissions,
+    confirmDuplicate: body.confirmDuplicate,
   }
 }
 

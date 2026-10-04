@@ -53,7 +53,7 @@ async function _GET(req: NextRequest) {
     const assignments = await TransportService.listAssignments(context, {
       routeId,
       studentId,
-      status,
+      status: status as any,
     })
 
     // Extra filtering for parent role if multiple linked students exist
@@ -79,7 +79,7 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}))
-    const { studentId, routeId, pickupStopId, dropStopId, transportType, startDate, endDate, notes } = body
+    const { studentId, routeId, pickupStopId, dropStopId, transportType, tripType, startDate, endDate, notes } = body
 
     if (!studentId || !routeId) {
       return Errors.validation('studentId and routeId are required')
@@ -98,10 +98,9 @@ async function _POST(req: NextRequest) {
         routeId,
         pickupStopId,
         dropStopId,
-        transportType,
+        tripType: (tripType || transportType) as any,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
-        notes,
       }
     )
 

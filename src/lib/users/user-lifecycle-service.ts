@@ -150,10 +150,21 @@ export class UserLifecycleService {
 
   /**
    * Immediately invalidates active sessions and permission cache for restricted lifecycle states.
+   * If tenantId is provided and the user has other active memberships, only sessions for that tenant are revoked.
+   * If isGlobal is true (or user has no other memberships), all user sessions are revoked.
    */
-  static async revokeSessionsIfRestricted(userId: string, targetStatus: UserStatus): Promise<void> {
+  static async revokeSessionsIfRestricted(
+    userId: string,
+    targetStatus: UserStatus,
+    tenantId?: string | null,
+    isGlobal: boolean = false
+  ): Promise<void> {
     if (['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
-      await SessionService.revokeAllUserSessions(userId)
+      if (isGlobal || !tenantId) {
+        await SessionService.revokeAllUserSessions(userId)
+      } else {
+        await SessionService.revokeAllUserSessions(userId, undefined, tenantId)
+      }
       PermissionCache.bumpUserVersion(userId)
     }
   }
@@ -216,7 +227,8 @@ export class UserLifecycleService {
 
   /**
    * Canonical execution entry point for user lifecycle status transitions.
-   * Atomically validates, persists status to both TenantUser and User, revokes sessions, and records audit.
+   * Atomically validates, persists status to TenantUser (and User if global/single-tenant),
+   * revokes sessions appropriately, and records audit.
    */
   static async transitionUserStatus(params: TransitionStatusParams): Promise<TransitionExecutionResult> {
     const { member, actorSession, action, reason, req, tx: externalTx } = params
@@ -257,25 +269,54 @@ export class UserLifecycleService {
       }
     }
 
+    const isPlatformAdmin = actorSession.role === 'PLATFORM_ADMIN'
+
     // Persist in transaction
     const executeInTx = async (tx: Prisma.TransactionClient) => {
+      // 1. Always update the tenant membership status
       const tu = await tx.tenantUser.update({
         where: { id: member.id },
         data: { status: targetStatus },
       })
 
-      await tx.user.update({
-        where: { id: member.userId },
-        data: { status: targetStatus, updatedAt: new Date() },
+      // 2. Check if user has other active memberships in other schools/roles
+      const otherActiveMemberships = await tx.tenantUser.count({
+        where: {
+          userId: member.userId,
+          id: { not: member.id },
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
       })
 
-      return tu
+      // 3. Update global User.status if:
+      // - The actor is PLATFORM_ADMIN (explicit platform-wide control), OR
+      // - The targetStatus is ACTIVE / unlocking, OR
+      // - The user has NO other active memberships in other tenants
+      const shouldUpdateGlobalUser =
+        isPlatformAdmin ||
+        targetStatus === 'ACTIVE' ||
+        otherActiveMemberships === 0
+
+      if (shouldUpdateGlobalUser) {
+        await tx.user.update({
+          where: { id: member.userId },
+          data: { status: targetStatus, updatedAt: new Date() },
+        })
+      }
+
+      return { tu, isGlobal: shouldUpdateGlobalUser && otherActiveMemberships === 0 }
     }
 
-    const updatedMember = externalTx ? await executeInTx(externalTx) : await db.$transaction(executeInTx)
+    const { tu: updatedMember, isGlobal } = externalTx ? await executeInTx(externalTx) : await db.$transaction(executeInTx)
 
-    // Revoke sessions for restricted lifecycle states
-    await this.revokeSessionsIfRestricted(member.userId, targetStatus)
+    // Revoke sessions for restricted lifecycle states (tenant-scoped unless global lockout)
+    await this.revokeSessionsIfRestricted(
+      member.userId,
+      targetStatus,
+      actorSession.tenantId,
+      isGlobal || isPlatformAdmin
+    )
 
     // Record canonical audit event
     await this.recordLifecycleAudit({

@@ -290,6 +290,22 @@ export class AcademicService {
 
     if (!input.name || !input.name.trim()) throw new Error('Curriculum name is required')
 
+    // Idempotent check: if an active curriculum with this name already exists with areas, return it
+    const existing = await db.curriculum.findFirst({
+      where: {
+        tenantId: scope.tenantId,
+        name: input.name.trim(),
+        deletedAt: null,
+        status: 'ACTIVE',
+      },
+      include: {
+        learningAreas: true,
+      },
+    })
+    if (existing && existing.learningAreas.length > 0) {
+      return this.getCurriculum(ctx, existing.id)
+    }
+
     let resolvedProgramType = input.programType
     if (input.programId) {
       const prog = await db.program.findFirst({
@@ -317,7 +333,7 @@ export class AcademicService {
         },
       })
 
-      // Seed preschool-friendly developmental areas if requested
+      // Seed preschool-friendly developmental areas if requested (6 Canonical Domains, 18 Milestone Goals)
       if (input.seedDefaultAreas !== false) {
         const defaultAreas = [
           {
@@ -368,6 +384,16 @@ export class AcademicService {
               'Engages imaginatively in role-play and dress-up activities',
               'Explores painting, clay, and sensory textures with curiosity',
               'Participates enthusiastically in rhythm, dance, and circle time songs',
+            ],
+          },
+          {
+            name: 'Understanding the World',
+            description: 'Nature curiosity, living things, community roles, and scientific discovery',
+            displayOrder: 6,
+            goals: [
+              'Explores natural materials and describes simple observations',
+              'Shows curiosity about living things, animals, and plant lifecycles',
+              'Recognizes community helpers, family traditions, and daily routines',
             ],
           },
         ]
@@ -668,6 +694,7 @@ export class AcademicService {
       curriculumId?: string
       learningGoalId?: string
       status?: ActivityStatus
+      activityType?: string
       dateFrom?: Date | string
       dateTo?: Date | string
       teacherId?: string
@@ -694,6 +721,7 @@ export class AcademicService {
         ...(filters?.curriculumId ? { curriculumId: filters.curriculumId } : {}),
         ...(filters?.learningGoalId ? { learningGoalId: filters.learningGoalId } : {}),
         ...(filters?.status ? { status: filters.status } : {}),
+        ...(filters?.activityType ? { activityType: filters.activityType } : {}),
         ...(filters?.teacherId ? { teacherId: filters.teacherId } : {}),
         ...(filters?.dateFrom || filters?.dateTo
           ? {
@@ -728,6 +756,7 @@ export class AcademicService {
     input: {
       classroomId: string
       title: string
+      activityType?: string
       activityDate: Date | string
       curriculumId?: string
       learningGoalId?: string
@@ -774,12 +803,13 @@ export class AcademicService {
         learningGoalId: input.learningGoalId || null,
         teacherId: input.teacherId || classroom.primaryTeacherId || ctx.actorId,
         title: input.title.trim(),
+        activityType: input.activityType || 'ACTIVITY',
         description: input.description || null,
         activityDate: new Date(input.activityDate),
         startTime: input.startTime || null,
         endTime: input.endTime || null,
         durationMinutes: input.durationMinutes || 30,
-        materials: input.materials || null,
+        materials: Array.isArray(input.materials) ? input.materials.join(', ') : (input.materials || null),
         instructions: input.instructions || null,
         expectedOutcome: input.expectedOutcome || null,
         status: 'PLANNED',
@@ -801,6 +831,31 @@ export class AcademicService {
       entity: 'ClassroomActivity',
       entityId: activity.id,
       summary: `Activity "${activity.title}" scheduled for ${activity.classroom.name} on ${new Date(input.activityDate).toLocaleDateString()}`,
+    })
+
+    return activity
+  }
+
+  /**
+   * Get single activity by ID
+   */
+  static async getActivity(ctx: ScopeContext, activityId: string) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+
+    const activity = await db.classroomActivity.findFirst({
+      where: { id: activityId, tenantId: scope.tenantId, deletedAt: null },
+      include: {
+        classroom: { select: { id: true, name: true, code: true, programType: true } },
+        curriculum: { select: { id: true, name: true } },
+        learningGoal: {
+          select: {
+            id: true,
+            name: true,
+            learningArea: { select: { id: true, name: true } },
+          },
+        },
+        teacher: { select: { id: true, fullName: true, email: true } },
+      },
     })
 
     return activity
@@ -1195,9 +1250,9 @@ export class AcademicService {
     })
     if (!student) throw new Error('Student not found')
 
-    // Find curriculum mapped to child's program
+    // Find curriculum mapped to child's program, or fallback to any active curriculum for tenant
     const programType = student.currentClassroom?.programType || 'NURSERY'
-    const curriculum = await db.curriculum.findFirst({
+    let curriculum = await db.curriculum.findFirst({
       where: {
         tenantId: scope.tenantId,
         programType,
@@ -1217,6 +1272,28 @@ export class AcademicService {
         },
       },
     })
+
+    if (!curriculum) {
+      curriculum = await db.curriculum.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        include: {
+          learningAreas: {
+            where: { deletedAt: null },
+            orderBy: { displayOrder: 'asc' },
+            include: {
+              goals: {
+                where: { deletedAt: null },
+                orderBy: { displayOrder: 'asc' },
+              },
+            },
+          },
+        },
+      })
+    }
 
     // Fetch progress records specifically for this academic session
     const progressRecords = await db.studentProgress.findMany({
@@ -1485,8 +1562,210 @@ export class AcademicService {
         teacher: classroom.primaryTeacher?.fullName || 'Unassigned',
         enrolledCount: allocations.length,
       },
-      academicSession: scope.session.name,
+      academicSession: scope.session?.name || 'Academic Session',
       students: studentsProgress,
     }
+  }
+
+  // =========================================================================
+  // 9. REUSABLE LEARNING CONTENT PROGRESS (COURSES, POEMS & STORIES)
+  // =========================================================================
+
+  /**
+   * Get student progress for a specific learning activity or list of activities
+   */
+  static async getActivityProgress(
+    ctx: ScopeContext,
+    studentId: string,
+    activityIds?: string[]
+  ) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+
+    // Authorization validation for student
+    const student = await db.student.findFirst({
+      where: { id: studentId, tenantId: scope.tenantId, deletedAt: null },
+      include: {
+        guardians: { include: { guardian: true } },
+        currentClassroom: true,
+      },
+    })
+    if (!student) throw new Error('Student not found')
+
+    // Parents / Guardians can only access their linked child
+    if (ctx.actorRole === 'PARENT' || ctx.actorRole === 'GUARDIAN') {
+      const isLinked = student.guardians.some((g) => g.guardian.userId === ctx.actorId)
+      if (!isLinked) throw new Error('Unauthorized: You can only view learning progress for your linked child')
+    }
+
+    // Teachers can only access students in their assigned classroom
+    if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
+      if (student.currentClassroom && student.currentClassroom.primaryTeacherId !== ctx.actorId) {
+        throw new Error('Unauthorized: You are only authorized to view students in your assigned classroom')
+      }
+    }
+
+    const records = await db.activityProgress.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        studentId,
+        ...(activityIds && activityIds.length > 0 ? { activityId: { in: activityIds } } : {}),
+      },
+    })
+
+    return records
+  }
+
+  /**
+   * Record or update student progress on a learning activity (idempotent, safe concurrency)
+   */
+  static async recordActivityProgress(
+    ctx: ScopeContext,
+    input: {
+      activityId: string
+      studentId: string
+      playbackPositionSecs?: number
+      progressPercentage?: number
+      status?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
+    }
+  ) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
+
+    if (!input.activityId) throw new Error('Activity ID is required')
+    if (!input.studentId) throw new Error('Student ID is required')
+
+    // Verify activity exists in tenant
+    const activity = await db.classroomActivity.findFirst({
+      where: { id: input.activityId, tenantId: scope.tenantId, deletedAt: null },
+      include: { learningGoal: { include: { learningArea: true } } },
+    })
+    if (!activity) throw new Error('Learning activity not found')
+
+    // Verify student exists in tenant
+    const student = await db.student.findFirst({
+      where: { id: input.studentId, tenantId: scope.tenantId, deletedAt: null },
+      include: {
+        guardians: { include: { guardian: true } },
+        currentClassroom: true,
+      },
+    })
+    if (!student) throw new Error('Student not found')
+
+    // Parents / Guardians can only record for their linked child
+    if (ctx.actorRole === 'PARENT' || ctx.actorRole === 'GUARDIAN') {
+      const isLinked = student.guardians.some((g) => g.guardian.userId === ctx.actorId)
+      if (!isLinked) throw new Error('Unauthorized: You can only update learning progress for your linked child')
+    }
+
+    // Teachers can only record for students in their assigned classroom
+    if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
+      if (student.currentClassroom && student.currentClassroom.primaryTeacherId !== ctx.actorId) {
+        throw new Error('Unauthorized: You can only update learning progress for your assigned classroom')
+      }
+    }
+
+    // Normalize and constrain progress values
+    const playbackSecs = Math.max(0, Math.round(input.playbackPositionSecs || 0))
+    let pct = Math.min(100, Math.max(0, Math.round(input.progressPercentage || 0)))
+    let status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' = input.status || (pct >= 90 ? 'COMPLETED' : pct > 0 ? 'IN_PROGRESS' : 'NOT_STARTED')
+
+    if (status === 'COMPLETED' && pct < 100) {
+      pct = 100
+    }
+
+    const now = new Date()
+
+    const result = await db.$transaction(async (tx) => {
+      const existing = await tx.activityProgress.findUnique({
+        where: {
+          tenantId_activityId_studentId: {
+            tenantId: scope.tenantId,
+            activityId: input.activityId,
+            studentId: input.studentId,
+          },
+        },
+      })
+
+      // Completion timestamp rules: keep original completion timestamp or set now if completing
+      const completedAt = status === 'COMPLETED'
+        ? (existing?.completedAt || now)
+        : null
+
+      // Progress percentage should be monotonic unless reset
+      const effectivePct = existing && existing.status === 'COMPLETED' && status !== 'COMPLETED'
+        ? pct
+        : existing
+        ? Math.max(existing.progressPercentage, pct)
+        : pct
+
+      const progress = await tx.activityProgress.upsert({
+        where: {
+          tenantId_activityId_studentId: {
+            tenantId: scope.tenantId,
+            activityId: input.activityId,
+            studentId: input.studentId,
+          },
+        },
+        create: {
+          tenantId: scope.tenantId,
+          activityId: input.activityId,
+          studentId: input.studentId,
+          status,
+          progressPercentage: pct,
+          playbackPositionSecs: playbackSecs,
+          lastAccessedAt: now,
+          completedAt,
+        },
+        update: {
+          status: status === 'COMPLETED' ? 'COMPLETED' : (existing?.status === 'COMPLETED' ? 'COMPLETED' : status),
+          progressPercentage: effectivePct,
+          playbackPositionSecs: playbackSecs,
+          lastAccessedAt: now,
+          completedAt,
+        },
+      })
+
+      // If linked to a canonical learningGoal and achieved completion, update milestone to ACHIEVED/DEVELOPING
+      if (activity.learningGoalId && status === 'COMPLETED') {
+        let validAssessorId: string | null = null
+        if (ctx.actorId) {
+          const userExists = await tx.user.findUnique({
+            where: { id: ctx.actorId },
+            select: { id: true },
+          })
+          if (userExists) validAssessorId = userExists.id
+        }
+
+        await tx.studentProgress.upsert({
+          where: {
+            tenantId_academicSessionId_studentId_learningGoalId: {
+              tenantId: scope.tenantId,
+              academicSessionId: scope.academicSessionId,
+              studentId: input.studentId,
+              learningGoalId: activity.learningGoalId,
+            },
+          },
+          create: {
+            tenantId: scope.tenantId,
+            academicSessionId: scope.academicSessionId,
+            studentId: input.studentId,
+            learningGoalId: activity.learningGoalId,
+            stage: 'ACHIEVED',
+            notes: `Completed learning activity "${activity.title}" in PreO Learning`,
+            assessedBy: validAssessorId,
+            assessedAt: now,
+          },
+          update: {
+            stage: 'ACHIEVED',
+            notes: `Completed learning activity "${activity.title}" in PreO Learning`,
+            ...(validAssessorId ? { assessedBy: validAssessorId } : {}),
+            assessedAt: now,
+          },
+        })
+      }
+
+      return progress
+    })
+
+    return result
   }
 }

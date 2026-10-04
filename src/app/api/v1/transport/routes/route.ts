@@ -28,7 +28,7 @@ async function _GET(req: NextRequest) {
 
     const scope = await TransportSecurityService.getRoleScopingFilter(context)
 
-    const routes = await TransportService.getRoutes(context, { status })
+    const routes = await TransportService.getRoutes(context, { status: status as any })
 
     // Scope driver view to assigned routes only
     const filtered = scope.isDriver && scope.allowedRouteIds !== null

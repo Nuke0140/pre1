@@ -41,7 +41,8 @@ async function _POST(req: NextRequest) {
 
         if (tokenTenantId !== tenantId) {
           await TransportSecurityService.logSecurityEvent(context, {
-            eventType: 'UNAUTHORIZED_ACCESS',
+            eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+            action: 'QR_SCAN',
             result: 'BLOCKED',
             reason: `Cross-tenant QR scan attempt (Token Tenant: ${tokenTenantId}, User Tenant: ${tenantId})`,
           })
@@ -140,7 +141,8 @@ async function _POST(req: NextRequest) {
 
       if (!driverObj) {
         await TransportSecurityService.logSecurityEvent(context, {
-          eventType: 'UNAUTHORIZED_ACCESS',
+          eventType: 'DRIVER_MISMATCH',
+          action: 'DRIVER_SCAN',
           driverProfileId: parsedId,
           result: 'FAILED',
           reason: 'Driver not found in tenant',
@@ -167,7 +169,18 @@ async function _POST(req: NextRequest) {
 
       // Fetch driver vehicle and route assignment
       const driverVehicle = await db.vehicle.findFirst({
-        where: { tenantId, driverId: driverObj.id, status: 'ACTIVE', deletedAt: null },
+        where: {
+          tenantId,
+          status: 'ACTIVE',
+          deletedAt: null,
+          routes: {
+            some: {
+              status: 'ACTIVE',
+              deletedAt: null,
+              driverProfile: { userId: driverObj.id },
+            },
+          },
+        },
         include: { routes: { where: { status: 'ACTIVE', deletedAt: null } } },
       })
 
@@ -194,6 +207,7 @@ async function _POST(req: NextRequest) {
       if (!auth) {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          action: 'AUTH_SCAN',
           result: 'FAILED',
           reason: 'Authorization record not found',
         })
@@ -209,6 +223,7 @@ async function _POST(req: NextRequest) {
       if (auth.status !== 'APPROVED') {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          action: 'AUTH_SCAN',
           studentId: auth.studentId,
           result: 'BLOCKED',
           reason: `Authorization status is ${auth.status}`,
@@ -225,6 +240,7 @@ async function _POST(req: NextRequest) {
       if (now < auth.validFrom || now > auth.validUntil) {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          action: 'AUTH_SCAN',
           studentId: auth.studentId,
           result: 'REJECTED',
           reason: 'Authorization window expired or not started',
@@ -257,7 +273,7 @@ async function _POST(req: NextRequest) {
         where: { id: parsedId, tenantId, deletedAt: null },
         include: {
           user: { select: { fullName: true, phone: true, email: true } },
-          students: {
+          studentLinks: {
             include: {
               student: {
                 select: { id: true, firstName: true, lastName: true, admissionNo: true, photoUrl: true },
@@ -282,7 +298,7 @@ async function _POST(req: NextRequest) {
         })
       }
 
-      const linkedStudents = guardian.students.map((s) => s.student)
+      const linkedStudents = guardian.studentLinks.map((s) => s.student)
 
       return ok({
         valid: true,

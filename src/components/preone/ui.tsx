@@ -65,7 +65,7 @@ export function IconButton({
   return (
     <button
       type={type}
-      className={`btn-icon btn-icon-${size} btn-icon-${variant}${danger ? ' btn-icon-danger' : ''} ${className}`.trim()}
+      className={`btn-icon btn-icon-${size} btn-icon-${variant}${danger ? ' btn-icon-danger' : ''} transition-all duration-150 active:scale-[0.96] disabled:active:scale-100 ${className}`.trim()}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -76,110 +76,206 @@ export function IconButton({
     </button>
   )
 }
+export type SemanticStatusVariant =
+  | 'success'
+  | 'pending'
+  | 'waiting'
+  | 'urgent'
+  | 'warning'
+  | 'info'
+  | 'neutral'
+  | 'primary'
+  | 'pink'
 
-const STATUS_BADGE: Record<string, { cls: string; dot?: boolean }> = {
-  // students
-  ACTIVE: { cls: 'b-success', dot: true },
-  INACTIVE: { cls: 'b-neutral' },
-  TRANSFERRED: { cls: 'b-info' },
-  GRADUATED: { cls: 'b-primary' },
-  ARCHIVED: { cls: 'b-neutral' },
-  // leads
-  NEW: { cls: 'b-info', dot: true },
-  CONTACTED: { cls: 'b-primary' },
-  QUALIFIED: { cls: 'b-warning' },
-  NURTURE: { cls: 'b-neutral' },
-  APPLICATION_STARTED: { cls: 'b-orange' },
-  CONVERTED: { cls: 'b-success' },
-  LOST: { cls: 'b-danger' },
-  DUPLICATE: { cls: 'b-neutral' },
-  // applications
-  SUBMITTED: { cls: 'b-info', dot: true },
-  DOCUMENT_PENDING: { cls: 'b-warning' },
-  VERIFIED: { cls: 'b-primary' },
-  UNDER_REVIEW: { cls: 'b-warning' },
-  APPROVED: { cls: 'b-success' },
-  REJECTED: { cls: 'b-danger' },
-  WAITLISTED: { cls: 'b-orange' },
-  ENROLLED: { cls: 'b-success', dot: true },
-  WITHDRAWN: { cls: 'b-neutral' },
-  // invoices
-  DRAFT: { cls: 'b-neutral' },
-  ISSUED: { cls: 'b-info' },
-  PARTIALLY_PAID: { cls: 'b-warning' },
-  PAID: { cls: 'b-success', dot: true },
-  OVERDUE: { cls: 'b-danger', dot: true },
-  CANCELLED: { cls: 'b-neutral' },
-  WRITTEN_OFF: { cls: 'b-neutral' },
-  // attendance
-  PRESENT: { cls: 'b-success' },
-  ABSENT: { cls: 'b-danger' },
-  LATE: { cls: 'b-warning' },
-  HALF_DAY: { cls: 'b-info' },
-  LEAVE: { cls: 'b-neutral' },
-  // announcements
-  GENERAL: { cls: 'b-neutral' },
-  HOLIDAY: { cls: 'b-success' },
-  EMERGENCY: { cls: 'b-danger' },
-  EVENT: { cls: 'b-pink' },
-  ACHIEVEMENT: { cls: 'b-orange' },
-  IMPORTANT: { cls: 'b-warning' },
-  FEE_REMINDER: { cls: 'b-info' },
-  ACADEMIC: { cls: 'b-primary' },
-  // observations
-  PUBLISHED: { cls: 'b-success' },
-  // inventory
-  PENDING: { cls: 'b-warning', dot: true },
-  PARTIALLY_FULFILLED: { cls: 'b-orange' },
-  FULFILLED: { cls: 'b-success' },
-  ORDERED: { cls: 'b-info' },
-  PARTIALLY_RECEIVED: { cls: 'b-orange' },
-  RECEIVED: { cls: 'b-success' },
-  FINALIZED: { cls: 'b-success' },
-  COMPLETED: { cls: 'b-success' },
-  RETURNED: { cls: 'b-info' },
-  CONSUMABLE: { cls: 'b-primary' },
-  ASSET: { cls: 'b-info' },
-  STATIONERY: { cls: 'b-pink' },
-  LEARNING_KIT: { cls: 'b-warning' },
-  UNIFORM: { cls: 'b-orange' },
-  FIRST_AID: { cls: 'b-danger' },
-  CLEANING: { cls: 'b-neutral' },
-  KITCHEN_PANTRY: { cls: 'b-warning' },
-  EVENT_PROP: { cls: 'b-pink' },
-  OTHER: { cls: 'b-neutral' },
+export interface StatusPillConfig {
+  variant: SemanticStatusVariant
+  cls: string
+  dot?: boolean
+  pulse?: boolean
+  label?: string
 }
 
-export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const cfg = STATUS_BADGE[status] || { cls: 'b-neutral' }
+export const STATUS_SEMANTIC_MAP: Record<string, StatusPillConfig> = {
+  // students
+  ACTIVE: { variant: 'success', cls: 'status-pill-success', dot: true },
+  INACTIVE: { variant: 'neutral', cls: 'status-pill-neutral' },
+  TRANSFERRED: { variant: 'info', cls: 'status-pill-info' },
+  GRADUATED: { variant: 'primary', cls: 'status-pill-primary' },
+  ARCHIVED: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // leads
+  NEW: { variant: 'info', cls: 'status-pill-info', dot: true },
+  CONTACTED: { variant: 'primary', cls: 'status-pill-primary' },
+  QUALIFIED: { variant: 'pending', cls: 'status-pill-pending' },
+  NURTURE: { variant: 'neutral', cls: 'status-pill-neutral' },
+  APPLICATION_STARTED: { variant: 'warning', cls: 'status-pill-warning' },
+  CONVERTED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  LOST: { variant: 'urgent', cls: 'status-pill-urgent' },
+  DUPLICATE: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // applications
+  SUBMITTED: { variant: 'info', cls: 'status-pill-info', dot: true },
+  DOCUMENT_PENDING: { variant: 'pending', cls: 'status-pill-pending', dot: true, pulse: true },
+  VERIFIED: { variant: 'primary', cls: 'status-pill-primary' },
+  UNDER_REVIEW: { variant: 'pending', cls: 'status-pill-pending', dot: true, pulse: true },
+  APPROVED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  REJECTED: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+  WAITLISTED: { variant: 'waiting', cls: 'status-pill-waiting', dot: true },
+  ENROLLED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  WITHDRAWN: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // invoices & finance
+  DRAFT: { variant: 'neutral', cls: 'status-pill-neutral' },
+  ISSUED: { variant: 'info', cls: 'status-pill-info' },
+  PARTIALLY_PAID: { variant: 'warning', cls: 'status-pill-warning', dot: true },
+  PAID: { variant: 'success', cls: 'status-pill-success', dot: true },
+  OVERDUE: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+  CANCELLED: { variant: 'neutral', cls: 'status-pill-neutral' },
+  WRITTEN_OFF: { variant: 'neutral', cls: 'status-pill-neutral' },
+  REFUNDED: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // attendance
+  PRESENT: { variant: 'success', cls: 'status-pill-success', dot: true },
+  ABSENT: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+  LATE: { variant: 'warning', cls: 'status-pill-warning', dot: true },
+  HALF_DAY: { variant: 'info', cls: 'status-pill-info' },
+  LEAVE: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // announcements & notices
+  GENERAL: { variant: 'neutral', cls: 'status-pill-neutral' },
+  HOLIDAY: { variant: 'success', cls: 'status-pill-success' },
+  EMERGENCY: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+  EVENT: { variant: 'pink', cls: 'status-pill-pink' },
+  ACHIEVEMENT: { variant: 'warning', cls: 'status-pill-warning' },
+  IMPORTANT: { variant: 'pending', cls: 'status-pill-pending', dot: true },
+  FEE_REMINDER: { variant: 'info', cls: 'status-pill-info' },
+  ACADEMIC: { variant: 'primary', cls: 'status-pill-primary' },
+  // observations
+  PUBLISHED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  // inventory & procurement
+  PENDING: { variant: 'pending', cls: 'status-pill-pending', dot: true, pulse: true },
+  PARTIALLY_FULFILLED: { variant: 'warning', cls: 'status-pill-warning' },
+  FULFILLED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  ORDERED: { variant: 'info', cls: 'status-pill-info' },
+  PARTIALLY_RECEIVED: { variant: 'warning', cls: 'status-pill-warning' },
+  RECEIVED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  FINALIZED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  COMPLETED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  RETURNED: { variant: 'info', cls: 'status-pill-info' },
+  CONSUMABLE: { variant: 'primary', cls: 'status-pill-primary' },
+  ASSET: { variant: 'info', cls: 'status-pill-info' },
+  STATIONERY: { variant: 'pink', cls: 'status-pill-pink' },
+  LEARNING_KIT: { variant: 'pending', cls: 'status-pill-pending' },
+  UNIFORM: { variant: 'warning', cls: 'status-pill-warning' },
+  FIRST_AID: { variant: 'urgent', cls: 'status-pill-urgent' },
+  CLEANING: { variant: 'neutral', cls: 'status-pill-neutral' },
+  KITCHEN_PANTRY: { variant: 'pending', cls: 'status-pill-pending' },
+  EVENT_PROP: { variant: 'pink', cls: 'status-pill-pink' },
+  OTHER: { variant: 'neutral', cls: 'status-pill-neutral' },
+  // Setup & health
+  COMPLETE: { variant: 'success', cls: 'status-pill-success', dot: true },
+  READY: { variant: 'success', cls: 'status-pill-success', dot: true },
+  CONFIGURED: { variant: 'success', cls: 'status-pill-success', dot: true },
+  IN_PROGRESS: { variant: 'pending', cls: 'status-pill-pending', dot: true, pulse: true },
+  NOT_STARTED: { variant: 'neutral', cls: 'status-pill-neutral' },
+  OPTIONAL: { variant: 'neutral', cls: 'status-pill-neutral' },
+  ERROR: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+  BLOCKED: { variant: 'urgent', cls: 'status-pill-urgent', dot: true },
+}
+
+// Backwards compatibility alias for code expecting STATUS_BADGE
+export const STATUS_BADGE: Record<string, { cls: string; dot?: boolean }> = Object.fromEntries(
+  Object.entries(STATUS_SEMANTIC_MAP).map(([key, val]) => [key, { cls: val.cls, dot: val.dot }])
+)
+
+export interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
+  status?: string
+  variant?: SemanticStatusVariant
+  label?: string
+  dot?: boolean
+  pulse?: boolean
+  size?: 'sm' | 'md'
+  icon?: React.ReactNode
+  className?: string
+}
+
+/**
+ * PreOne OS Global Dual-Tone Semantic Status Pill.
+ * Features soft semantic background, accessible semantic text, subtle border,
+ * status dot, optional live pulse, and calm hover micro-interactions.
+ */
+export function StatusPill({
+  status,
+  variant: propVariant,
+  label,
+  dot: propDot,
+  pulse: propPulse,
+  size = 'md',
+  icon,
+  className = '',
+  children,
+  ...rest
+}: StatusPillProps) {
+  const normStatus = status ? status.toUpperCase().replace(/\s+/g, '_') : ''
+  const config = (normStatus && STATUS_SEMANTIC_MAP[normStatus]) || {
+    variant: propVariant || 'neutral',
+    cls: `status-pill-${propVariant || 'neutral'}`,
+    dot: propDot !== undefined ? propDot : false,
+    pulse: propPulse !== undefined ? propPulse : false,
+  }
+
+  const effectiveVariant = propVariant || config.variant || 'neutral'
+  const variantClass = `status-pill-${effectiveVariant}`
+  const showDot = propDot !== undefined ? propDot : (config.dot ?? true)
+  const isPulsing = propPulse !== undefined ? propPulse : (config.pulse ?? false)
+  const displayText = label || children || (status ? enumLabel(status) : '')
+
   return (
-    <span className={`badge ${cfg.cls}${cfg.dot ? ' b-dot' : ''}`}>
-      {label || enumLabel(status)}
+    <span
+      className={`status-pill ${variantClass} ${size === 'sm' ? 'status-pill-sm' : ''} ${className}`.trim()}
+      {...rest}
+    >
+      {icon ? (
+        <span className="shrink-0">{icon}</span>
+      ) : showDot ? (
+        <span
+          className={`status-dot ${isPulsing ? 'status-dot-pulse' : ''}`}
+          aria-hidden="true"
+        />
+      ) : null}
+      <span>{displayText}</span>
     </span>
   )
 }
 
-export function EmptyState({
-  icon, title, message, action, why, kicker,
+/**
+ * Backwards-compatible StatusBadge across PreOne OS modules.
+ * Seamlessly renders the Dual-Tone Semantic Status Pill design.
+ */
+export function StatusBadge({
+  status,
+  label,
+  dot,
+  pulse,
+  size,
+  className,
 }: {
-  icon: React.ReactNode
-  title: string
-  message: string
-  action?: React.ReactNode
-  why?: string
-  kicker?: string
+  status: string
+  label?: string
+  dot?: boolean
+  pulse?: boolean
+  size?: 'sm' | 'md'
+  className?: string
 }) {
-  const isIllustration = React.isValidElement(icon) && (Boolean((icon.props as any)?.size) || (icon.props as any)?.role === 'img')
   return (
-    <div className="empty">
-      <div className={`empty-art ${isIllustration ? 'empty-illustration' : ''}`}>{icon}</div>
-      {kicker && <div className="empty-kicker">{kicker}</div>}
-      <div className="empty-what">{title}</div>
-      <p className="empty-why">{why || message}</p>
-      {action && <div className="empty-next">{action}</div>}
-    </div>
+    <StatusPill
+      status={status}
+      label={label}
+      dot={dot}
+      pulse={pulse}
+      size={size}
+      className={className}
+    />
   )
 }
+
+export * from './EmptyState'
+export * from './KpiMetricCard'
 
 export function Card({
   children,
@@ -191,17 +287,19 @@ export function Card({
   ...props
 }: {
   children: React.ReactNode
-  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info' | 'nav'
+  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info' | 'nav' | 'subtle' | 'elevated'
   className?: string
   onClick?: () => void
   style?: React.CSSProperties
   as?: React.ElementType
   [key: string]: any
 }) {
+  const isInteractive = Boolean(onClick) || variant === 'interactive' || variant === 'nav'
   const varClass = variant !== 'default' ? `card-${variant}` : ''
+  const interactiveClass = isInteractive ? 'card-interactive' : ''
   return (
     <Component
-      className={`card ${varClass} ${className}`.trim()}
+      className={`card ${varClass} ${interactiveClass} ${className}`.trim()}
       style={style}
       onClick={onClick}
       {...(onClick && Component === 'div' ? { role: 'button', tabIndex: 0 } : {})}
@@ -254,7 +352,7 @@ export function KpiTile({
       </div>
       <div>
         <div className="kpi-label">{label}</div>
-        <div className="kpi-value">
+        <div className="kpi-value font-mono font-bold tabular-nums">
           {value}
           {unit && <span className="unit">{unit}</span>}
         </div>
@@ -264,20 +362,103 @@ export function KpiTile({
   )
 }
 
+export function MicroEyebrow({
+  children,
+  className = '',
+  as: Component = 'div',
+  style,
+}: {
+  children: React.ReactNode
+  className?: string
+  as?: React.ElementType
+  style?: React.CSSProperties
+}) {
+  return (
+    <Component className={`micro-eyebrow ${className}`.trim()} style={style}>
+      {children}
+    </Component>
+  )
+}
+
+export function TabularNumber({
+  children,
+  className = '',
+  as: Component = 'span',
+  style,
+}: {
+  children: React.ReactNode
+  className?: string
+  as?: React.ElementType
+  style?: React.CSSProperties
+}) {
+  return (
+    <Component className={`font-tabular tabular-nums ${className}`.trim()} style={style}>
+      {children}
+    </Component>
+  )
+}
+
+export function DataValue({
+  value,
+  label,
+  meta,
+  className = '',
+}: {
+  value: React.ReactNode
+  label?: string
+  meta?: string
+  className?: string
+}) {
+  return (
+    <div className={`data-value-wrap ${className}`.trim()}>
+      {label && <div className="micro-eyebrow">{label}</div>}
+      <div className="font-tabular font-semibold text-foreground text-sm">{value}</div>
+      {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
+    </div>
+  )
+}
+
+export function SectionHeader({
+  title,
+  eyebrow,
+  description,
+  actions,
+  className = '',
+}: {
+  title: React.ReactNode
+  eyebrow?: string
+  description?: string
+  actions?: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={`section-header ${className}`.trim()}>
+      <div>
+        {eyebrow && <div className="micro-eyebrow">{eyebrow}</div>}
+        <h2 className="section-title">{title}</h2>
+        {description && <p className="section-description">{description}</p>}
+      </div>
+      {actions && <div className="section-actions">{actions}</div>}
+    </div>
+  )
+}
+
 export function PageHead({
-  title, sub, actions, eyebrow, badge, backHref,
+  title, sub, description, actions, eyebrow, badge, backHref,
 }: {
   title: React.ReactNode
   sub?: string
+  description?: string
   actions?: React.ReactNode
   eyebrow?: string
   badge?: React.ReactNode
   backHref?: string
 }) {
+  const desc = description || sub
   return (
     <div className="page-head">
       <div>
-        {eyebrow && <div className="page-eyebrow">{eyebrow}</div>}
+        {eyebrow && <div className="page-eyebrow micro-eyebrow">{eyebrow}</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {backHref && (
             <Link
@@ -302,17 +483,19 @@ export function PageHead({
               <ChevronLeft size={18} />
             </Link>
           )}
-          <h1 className="t-h1" style={{ margin: 0 }}>
+          <h1 className="page-title" style={{ margin: 0 }}>
             {title}
             {badge && <span className="page-head-badge">{badge}</span>}
           </h1>
         </div>
-        {sub && <div className="sub">{sub}</div>}
+        {desc && <p className="page-description sub">{desc}</p>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}
     </div>
   )
 }
+
+export const PageHeader = PageHead
 
 export function Segmented({
   options, value, onChange,
@@ -372,4 +555,8 @@ export function Field({
 }
 
 export * from './Typography'
+export * from './ZenTable'
+export * from './TactileMotion'
+export * from './Skeletons'
+
 

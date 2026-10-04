@@ -32,17 +32,18 @@ import {
 } from 'lucide-react'
 import { PageHead, Avatar } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
+import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
-import { isoDate } from '@/lib/format'
+import { isoDate, enumLabel } from '@/lib/format'
 
 function getFormattedDayAndDate(dateStr: string) {
   if (!dateStr) return ''
   const d = new Date(`${dateStr}T00:00:00Z`)
   return d.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'short',
+    weekday: 'short',
     day: 'numeric',
+    month: 'short',
+    year: 'numeric',
     timeZone: 'UTC',
   })
 }
@@ -210,8 +211,8 @@ export default function DailyDiaryPage() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('')
   const [adminViewMode, setAdminViewMode] = useState<'school' | 'class'>('class')
 
-  // Active Tab: overview | subjects | builder | attendance | observations | history
-  const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'builder' | 'attendance' | 'observations' | 'history'>('overview')
+  // Active Tab: overview | subjects | builder | attendance | observations | history | timetable
+  const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'builder' | 'attendance' | 'observations' | 'history' | 'timetable'>('overview')
 
   // Data States
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -221,10 +222,21 @@ export default function DailyDiaryPage() {
   const [attendanceRegister, setAttendanceRegister] = useState<AttendanceStudent[]>([])
   const [loadingAttendance, setLoadingAttendance] = useState(false)
   const [savingAttendance, setSavingAttendance] = useState(false)
+  const [fastRollCallOpen, setFastRollCallOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.get('fastRollCall') === 'true' || sp.get('rollCall') === 'true') {
+        setFastRollCallOpen(true)
+      }
+    }
+  }, [])
 
   // Admin School Overview State
   const [adminOverview, setAdminOverview] = useState<any>(null)
   const [loadingAdminOverview, setLoadingAdminOverview] = useState(false)
+  const [schoolOverviewSearch, setSchoolOverviewSearch] = useState('')
 
   // History State
   const [historyData, setHistoryData] = useState<HistoryData | null>(null)
@@ -826,85 +838,133 @@ export default function DailyDiaryPage() {
   const classrooms = context?.classrooms || []
   const currentClass = classrooms.find((c) => c.id === selectedClassroomId) || classrooms[0]
 
+  const totalSchoolStudents = adminOverview?.stats?.totalStudents || 0
+  const presentCount = adminOverview?.stats?.present || 0
+  const absentCount = adminOverview?.stats?.absent || 0
+  const lateCount = adminOverview?.stats?.late || 0
+
+  const presentPercent = totalSchoolStudents > 0 ? Math.round((presentCount / totalSchoolStudents) * 100) : 0
+  const absentPercent = totalSchoolStudents > 0 ? Math.round((absentCount / totalSchoolStudents) * 100) : 0
+  const latePercent = totalSchoolStudents > 0 ? Math.round((lateCount / totalSchoolStudents) * 100) : 0
+
+  const filteredClasses = (adminOverview?.classes || []).filter((c: any) => {
+    if (!schoolOverviewSearch.trim()) return true
+    const q = schoolOverviewSearch.toLowerCase()
+    return (
+      c.name?.toLowerCase().includes(q) ||
+      c.teacherName?.toLowerCase().includes(q) ||
+      c.programType?.toLowerCase().includes(q) ||
+      c.code?.toLowerCase().includes(q)
+    )
+  })
+
   return (
     <div className="space-y-6 pb-12">
-      {/* HEADER BAR */}
-      <div className="glass-panel p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* ── PREONE PAGE HEADER ── */}
+      <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
+          {/* Eyebrow & Academic Session Badge */}
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <CalendarCheck className="text-emerald-500" size={26} />
-              Daily Diary
-            </h1>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+              ACADEMICS • M04
+            </span>
             {context?.academicSession && (
-              <span className="badge b-emerald text-xs font-semibold">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40">
                 {context.academicSession.name}
               </span>
             )}
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
+
+          {/* Main Title */}
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white mt-1 flex items-center gap-2.5">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 shadow-2xs">
+              <CalendarCheck size={20} className="stroke-[2.2]" />
+            </span>
+            Daily Diary
+          </h1>
+
+          {/* Secondary Description */}
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             {user?.isTeacher ? (
               <>
-                Teacher: <strong className="text-foreground">{user.name}</strong> • Class:{' '}
-                <strong className="text-foreground">{currentClass?.name || 'Unassigned'}</strong>
+                Teacher: <strong className="text-slate-800 dark:text-slate-200">{user.name}</strong> • Class:{' '}
+                <strong className="text-slate-800 dark:text-slate-200">{currentClass?.name || 'Unassigned'}</strong>
               </>
             ) : (
-              <>
-                School-wide Daily Activity & Operational Command Center
-              </>
+              <>School-wide Daily Activity & Operational Command Center</>
             )}
           </p>
         </div>
 
-        {/* DATE & SCOPE NAVIGATOR */}
+        {/* Header Right Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Admin Mode Switcher */}
+          {/* Admin Mode Switcher: School Overview vs Class View */}
           {user?.isAdmin && (
-            <div className="join border border-border rounded-lg bg-background/50 p-1 flex">
+            <div className="inline-flex p-1 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 rounded-xl shadow-2xs">
               <button
                 type="button"
-                className={`btn btn-xs ${adminViewMode === 'school' ? 'btn-primary' : 'btn-ghost'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all ${
+                  adminViewMode === 'school'
+                    ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
+                }`}
                 onClick={() => setAdminViewMode('school')}
               >
-                <Building2 size={13} className="mr-1" /> School Overview
+                <Building2 size={13} /> School Overview
               </button>
               <button
                 type="button"
-                className={`btn btn-xs ${adminViewMode === 'class' ? 'btn-primary' : 'btn-ghost'}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all ${
+                  adminViewMode === 'class'
+                    ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'
+                }`}
                 onClick={() => setAdminViewMode('class')}
               >
-                <Users size={13} className="mr-1" /> Class View
+                <Users size={13} /> Class View
               </button>
             </div>
           )}
 
-          {/* Date Picker with Prev/Next */}
-          <div className="flex items-center bg-card border border-border rounded-lg px-2 py-1 gap-1">
+          {/* Compact Date Navigation: [←] [📅 Date] [→] [Today] */}
+          <div className="inline-flex items-center bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-1 shadow-xs">
             <button
               type="button"
-              className="btn btn-icon btn-icon-sm btn-icon-ghost"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               onClick={handlePrevDay}
               title="Previous Day"
+              aria-label="Previous Day"
             >
               <ChevronLeft size={16} />
             </button>
-            <input
-              type="date"
-              className="bg-transparent text-xs font-medium text-foreground focus:outline-none cursor-pointer"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+
+            <label className="relative flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <Calendar size={13} className="text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 select-none">
+                {getFormattedDayAndDate(selectedDate)}
+              </span>
+              <input
+                type="date"
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                aria-label="Select date"
+              />
+            </label>
+
             <button
               type="button"
-              className="btn btn-icon btn-icon-sm btn-icon-ghost"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               onClick={handleNextDay}
               title="Next Day"
+              aria-label="Next Day"
             >
               <ChevronRight size={16} />
             </button>
+
             <button
               type="button"
-              className="btn btn-xs btn-ghost text-xs text-primary font-semibold ml-1"
+              className="ml-1 px-2.5 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors"
               onClick={() => setSelectedDate(isoDate())}
             >
               Today
@@ -913,42 +973,47 @@ export default function DailyDiaryPage() {
         </div>
       </div>
 
-      {/* ADMIN SCHOOL OVERVIEW VIEW */}
+      {/* ── ADMIN SCHOOL OVERVIEW WORKSPACE ── */}
       {adminViewMode === 'school' && user?.isAdmin ? (
         <div className="space-y-6">
-          {/* Filters Bar */}
-          <div className="glass-panel p-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
+          {/* Branch & Actions Bar */}
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
               {context?.branches && context.branches.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-muted-foreground">Branch:</span>
-                  <select
-                    className="select select-sm text-xs"
-                    value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
-                  >
-                    <option value="">All Branches</option>
-                    {context.branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">Branch:</span>
+                  <div className="relative w-full sm:w-72">
+                    <select
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 shadow-2xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 cursor-pointer appearance-none pr-8"
+                      value={selectedBranchId}
+                      onChange={(e) => setSelectedBranchId(e.target.value)}
+                    >
+                      <option value="">🏫 All Branches</option>
+                      {context.branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.code})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">
+                      ▾
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
               <button
                 type="button"
-                className="btn btn-sm btn-outline"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xs transition-colors"
                 onClick={() => setActiveTab('subjects')}
               >
-                <BookOpen size={14} /> Manage Subjects
+                <BookOpen size={14} className="text-purple-600 dark:text-purple-400" /> Manage Subjects
               </button>
               <button
                 type="button"
-                className="btn btn-sm btn-primary"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-2xs hover:shadow-xs transition-all"
                 onClick={() => handleOpenScheduleBuilder()}
               >
                 <Plus size={15} /> Schedule Activity
@@ -956,97 +1021,484 @@ export default function DailyDiaryPage() {
             </div>
           </div>
 
-          {/* School Overview Summary Stats */}
+          {/* School Overview KPI Metric Rail (7 Cards) */}
           {loadingAdminOverview ? (
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="glass-panel p-4 animate-pulse h-20" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3.5">
+              {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <div key={n} className="bg-white/80 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse h-28" />
               ))}
             </div>
           ) : adminOverview ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
-              <div className="glass-panel p-4 border-l-4 border-l-primary">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Classes</span>
-                <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalClasses}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3.5">
+              {/* 1. Classes */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-300">
+                    <Building2 size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                    {adminOverview.stats.totalClasses}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Classes
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    Across all programs
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-blue-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Total Students</span>
-                <div className="text-2xl font-bold text-foreground mt-1">{adminOverview.stats.totalStudents}</div>
+
+              {/* 2. Total Students */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                    <Users size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                    {adminOverview.stats.totalStudents}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Total Students
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    Enrolled learners
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-emerald-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Present</span>
-                <div className="text-2xl font-bold text-emerald-600 mt-1">{adminOverview.stats.present}</div>
+
+              {/* 3. Present */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+                    <CheckCircle2 size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
+                    {presentCount}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Present
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    {presentPercent}% attendance
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-rose-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Absent</span>
-                <div className="text-2xl font-bold text-rose-600 mt-1">{adminOverview.stats.absent}</div>
+
+              {/* 4. Absent (Calm zero styling) */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    absentCount > 0
+                      ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  }`}>
+                    <XCircle size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
+                    absentCount > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-300'
+                  }`}>
+                    {absentCount}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Absent
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    {absentPercent}% absent
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-amber-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Late</span>
-                <div className="text-2xl font-bold text-amber-600 mt-1">{adminOverview.stats.late}</div>
+
+              {/* 5. Late (Calm zero styling) */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    lateCount > 0
+                      ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  }`}>
+                    <Clock size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${
+                    lateCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300'
+                  }`}>
+                    {lateCount}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Late
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    {latePercent}% late
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-indigo-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Core Subjects</span>
-                <div className="text-2xl font-bold text-indigo-600 mt-1">{adminOverview.stats.coreSubjectsCount || 0}</div>
+
+              {/* 6. Core Subjects */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
+                    <BookOpen size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-indigo-600 dark:text-indigo-400">
+                    {adminOverview.stats.coreSubjectsCount || 0}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Core Subjects
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    Recorded today
+                  </div>
+                </div>
               </div>
-              <div className="glass-panel p-4 border-l-4 border-l-purple-500">
-                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Activities</span>
-                <div className="text-2xl font-bold text-purple-600 mt-1">{adminOverview.stats.activitiesCount || 0}</div>
+
+              {/* 7. Activities */}
+              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-300">
+                    <Sparkles size={16} />
+                  </span>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-pink-600 dark:text-pink-400">
+                    {adminOverview.stats.activitiesCount || 0}
+                  </div>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Activities
+                  </div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+                    Recorded today
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
 
-          {/* Classroom Summaries Table */}
+          {/* ── CLASSROOMS WORKSPACE CARD (TABLE & RESPONSIVE MOBILE CARDS) ── */}
           {adminOverview && (
-            <div className="glass-panel p-6 space-y-4">
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Building2 size={18} className="text-primary" /> Classrooms Daily Overview ({selectedDate})
-              </h3>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+              {/* Workspace Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300">
+                      <Building2 size={16} />
+                    </span>
+                    Classrooms Daily Overview
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    View attendance, activities and teaching plans for all classrooms at a glance • {getFormattedDayAndDate(selectedDate)}
+                  </p>
+                </div>
 
-              <div className="border border-border rounded-xl overflow-hidden text-xs">
-                <table className="w-full text-left">
-                  <thead className="bg-muted font-bold text-muted-foreground border-b border-border">
+                {/* Table Search Input */}
+                <div className="relative w-full sm:w-72">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    className="w-full bg-slate-50/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all shadow-2xs"
+                    placeholder="Search class, teacher, program..."
+                    value={schoolOverviewSearch}
+                    onChange={(e) => setSchoolOverviewSearch(e.target.value)}
+                  />
+                  {schoolOverviewSearch && (
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-full"
+                      onClick={() => setSchoolOverviewSearch('')}
+                      aria-label="Clear search"
+                    >
+                      <XCircle size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Desktop & Tablet Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <tr>
-                      <th className="p-3">Classroom</th>
-                      <th className="p-3">Teacher</th>
-                      <th className="p-3 text-center">Students</th>
-                      <th className="p-3 text-center">Present</th>
-                      <th className="p-3 text-center">Absent</th>
-                      <th className="p-3 text-center">Late</th>
-                      <th className="p-3 text-center">Core / Activities</th>
-                      <th className="p-3 text-right">Actions</th>
+                      <th className="py-3.5 px-4 min-w-[200px]">Classroom</th>
+                      <th className="py-3.5 px-4 min-w-[170px]">Teacher</th>
+                      <th className="py-3.5 px-4 text-center w-28">Students</th>
+                      <th className="py-3.5 px-4 text-center w-28">Present</th>
+                      <th className="py-3.5 px-4 text-center w-28">Absent</th>
+                      <th className="py-3.5 px-4 text-center w-28">Late</th>
+                      <th className="py-3.5 px-4 text-center min-w-[170px]">Core / Activities</th>
+                      <th className="py-3.5 px-4 text-right min-w-[120px]">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
-                    {adminOverview.classes.map((c: any) => (
-                      <tr key={c.id} className="hover:bg-card/50 transition-colors">
-                        <td className="p-3 font-bold text-foreground">{c.name}</td>
-                        <td className="p-3 text-muted-foreground">{c.teacherName}</td>
-                        <td className="p-3 text-center font-mono">{c.studentCount}</td>
-                        <td className="p-3 text-center font-bold text-emerald-600 font-mono">{c.present}</td>
-                        <td className="p-3 text-center font-bold text-rose-600 font-mono">{c.absent}</td>
-                        <td className="p-3 text-center font-bold text-amber-600 font-mono">{c.late}</td>
-                        <td className="p-3 text-center font-mono">
-                          <span className="text-indigo-600 font-bold">{c.coreSubjectsCount || 0} Core</span> /{' '}
-                          <span className="text-purple-600 font-bold">{c.nonCoreActivitiesCount || 0} Act</span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            type="button"
-                            className="btn btn-xs btn-outline"
-                            onClick={() => {
-                              setSelectedClassroomId(c.id)
-                              setAdminViewMode('class')
-                              setActiveTab('overview')
-                            }}
-                          >
-                            Open Class
-                          </button>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
+                    {filteredClasses.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                          No classrooms found matching &quot;{schoolOverviewSearch}&quot;
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredClasses.map((c: any) => (
+                        <tr
+                          key={c.id}
+                          className="hover:bg-purple-50/25 dark:hover:bg-purple-950/20 transition-colors group"
+                        >
+                          {/* Classroom Identity */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                                <Building2 size={16} />
+                              </div>
+                              <div>
+                                <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                                  {c.name}
+                                </div>
+                                {c.programType && (
+                                  <div className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                                    {enumLabel(c.programType)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Teacher Identity */}
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={c.teacherName} size="sm" />
+                              <div>
+                                <div className="font-semibold text-slate-800 dark:text-slate-200">
+                                  {c.teacherName || 'Unassigned'}
+                                </div>
+                                <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                                  Class Teacher
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Students Number */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex flex-col items-center">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 font-mono text-sm">
+                                {c.studentCount}
+                              </span>
+                              <span className="text-[10px] text-slate-400">students</span>
+                            </div>
+                          </td>
+
+                          {/* Present Mini-Card */}
+                          <td className="py-3.5 px-4 text-center">
+                            {c.present > 0 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/40 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                {c.present}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400 border border-slate-200/60 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800/60 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                                0
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Absent Mini-Card (Calm zero) */}
+                          <td className="py-3.5 px-4 text-center">
+                            {c.absent > 0 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200/70 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/40 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                {c.absent}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400 border border-slate-200/60 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800/60 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                                0
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Late Mini-Card (Calm zero) */}
+                          <td className="py-3.5 px-4 text-center">
+                            {c.late > 0 ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/70 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/40 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                {c.late}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-50 text-slate-400 border border-slate-200/60 dark:bg-slate-800/40 dark:text-slate-500 dark:border-slate-800/60 font-mono">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 shrink-0" />
+                                0
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Core / Activities */}
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex items-center justify-center gap-2 text-xs font-mono">
+                              <span className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400">
+                                <BookOpen size={12} className="stroke-[2.5]" />
+                                {c.coreSubjectsCount || 0} Core
+                              </span>
+                              <span className="text-slate-300 dark:text-slate-700">|</span>
+                              <span className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400">
+                                <Sparkles size={12} className="stroke-[2.5]" />
+                                {c.nonCoreActivitiesCount || 0} Act
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Actions: [ Open Class → ] */}
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              type="button"
+                              className="group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-purple-600 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-purple-50/60 dark:hover:bg-purple-950/40 transition-all shadow-2xs"
+                              onClick={() => {
+                                setSelectedClassroomId(c.id)
+                                setAdminViewMode('class')
+                                setActiveTab('overview')
+                              }}
+                            >
+                              Open Class
+                              <ChevronRight size={13} className="text-slate-400 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-transform" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Responsive Cards View (< 768px) */}
+              <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/60 p-3 space-y-3">
+                {filteredClasses.length === 0 ? (
+                  <div className="py-10 text-center text-slate-400 text-xs">
+                    No classrooms found matching &quot;{schoolOverviewSearch}&quot;
+                  </div>
+                ) : (
+                  filteredClasses.map((c: any) => (
+                    <div
+                      key={c.id}
+                      className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 rounded-2xl p-4 space-y-3"
+                    >
+                      {/* Card Top: Class info & Open Arrow */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                            <Building2 size={16} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight">
+                              {c.name}
+                            </h4>
+                            {c.programType && (
+                              <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-100/60 dark:bg-purple-950/60 px-1.5 py-0.5 rounded-md mt-0.5 inline-block">
+                                {enumLabel(c.programType)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="p-1.5 text-slate-400 hover:text-purple-600 rounded-lg transition-colors"
+                          onClick={() => {
+                            setSelectedClassroomId(c.id)
+                            setAdminViewMode('class')
+                            setActiveTab('overview')
+                          }}
+                          aria-label={`Open ${c.name}`}
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+
+                      {/* Teacher & Total Students */}
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={c.teacherName} size="sm" />
+                          <div>
+                            <div className="font-semibold text-slate-800 dark:text-slate-200">
+                              {c.teacherName || 'Unassigned'}
+                            </div>
+                            <div className="text-[10px] text-slate-400">Class Teacher</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-slate-800 dark:text-slate-200 font-mono text-sm">
+                            {c.studentCount}
+                          </div>
+                          <div className="text-[10px] text-slate-400">Students</div>
+                        </div>
+                      </div>
+
+                      {/* Attendance Mini-cards in 3 columns */}
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <div className={`p-2 rounded-xl text-center border ${
+                          c.present > 0
+                            ? 'bg-emerald-50/80 border-emerald-200/70 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800/50 dark:text-emerald-300'
+                            : 'bg-slate-100/70 border-slate-200/60 text-slate-500 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-400'
+                        }`}>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider">Present</div>
+                          <div className="text-base font-extrabold font-mono mt-0.5">{c.present}</div>
+                        </div>
+
+                        <div className={`p-2 rounded-xl text-center border ${
+                          c.absent > 0
+                            ? 'bg-rose-50/80 border-rose-200/70 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800/50 dark:text-rose-300'
+                            : 'bg-slate-100/70 border-slate-200/60 text-slate-500 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-400'
+                        }`}>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider">Absent</div>
+                          <div className="text-base font-extrabold font-mono mt-0.5">{c.absent}</div>
+                        </div>
+
+                        <div className={`p-2 rounded-xl text-center border ${
+                          c.late > 0
+                            ? 'bg-amber-50/80 border-amber-200/70 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300'
+                            : 'bg-slate-100/70 border-slate-200/60 text-slate-500 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-400'
+                        }`}>
+                          <div className="text-[10px] font-semibold uppercase tracking-wider">Late</div>
+                          <div className="text-base font-extrabold font-mono mt-0.5">{c.late}</div>
+                        </div>
+                      </div>
+
+                      {/* Core / Activities & Open Button */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                          <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                            {c.coreSubjectsCount || 0} Core
+                          </span>
+                          <span>·</span>
+                          <span className="font-semibold text-purple-600 dark:text-purple-400">
+                            {c.nonCoreActivitiesCount || 0} Activities
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-purple-600 hover:border-purple-300 transition-all shadow-2xs"
+                          onClick={() => {
+                            setSelectedClassroomId(c.id)
+                            setAdminViewMode('class')
+                            setActiveTab('overview')
+                          }}
+                        >
+                          Open Class
+                          <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1827,6 +2279,14 @@ export default function DailyDiaryPage() {
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
+                    className="btn btn-sm btn-primary flex items-center gap-1.5 shadow-sm font-bold"
+                    onClick={() => setFastRollCallOpen(true)}
+                    title="Launch touch-friendly Fast Roll Call workspace"
+                  >
+                    <Sparkles size={15} /> Fast Roll Call
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-sm btn-outline"
                     onClick={handleMarkAllPresent}
                   >
@@ -1834,7 +2294,7 @@ export default function DailyDiaryPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-sm btn-primary"
+                    className="btn btn-sm btn-secondary"
                     onClick={handleSaveAttendance}
                     disabled={savingAttendance}
                   >
@@ -1931,6 +2391,7 @@ export default function DailyDiaryPage() {
                   ))}
                 </div>
               )}
+
             </div>
           )}
 
@@ -2619,6 +3080,21 @@ export default function DailyDiaryPage() {
           </form>
         </Modal>
       )}
+
+      {/* Fast Roll Call Touch & Accessibility Attendance Workspace */}
+      <FastRollCall
+        open={fastRollCallOpen}
+        onClose={() => setFastRollCallOpen(false)}
+        classroomId={selectedClassroomId || currentClass?.id || ''}
+        classroomName={currentClass?.name || 'Classroom'}
+        academicSessionName={context?.academicSession?.name}
+        teacherName={currentClass?.teacherName}
+        initialDate={selectedDate}
+        onAttendanceSaved={() => {
+          loadAttendance()
+          loadOverview()
+        }}
+      />
     </div>
   )
 }

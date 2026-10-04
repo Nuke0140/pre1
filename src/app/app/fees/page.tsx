@@ -680,15 +680,15 @@ export default function FeesPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeChild.deposits.map((d) => (
-                    <div key={d.id} className="p-4 border rounded-xl bg-amber-50/50 border-amber-200 space-y-2">
+                    <div key={d.id} className="p-4 border rounded-2xl bg-amber-50/50 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-900/40 space-y-2 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)]">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold text-amber-900">{d.name}</span>
+                        <span className="font-semibold text-amber-900 dark:text-amber-200">{d.name}</span>
                         <StatusBadge status={d.status} />
                       </div>
-                      <div className="text-sm text-slate-700 space-y-1">
-                        <div>Total Deposit: <span className="font-semibold">{inr(parseFloat(d.totalRupees) * 100)}</span></div>
-                        <div>Refunded: <span className="font-semibold text-emerald-600">{inr(parseFloat(d.refundedRupees) * 100)}</span></div>
-                        <div>Remaining Held Balance: <span className="font-semibold text-amber-800">{inr(parseFloat(d.remainingRupees) * 100)}</span></div>
+                      <div className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                        <div>Total Deposit: <span className="font-mono font-bold tabular-nums text-slate-900 dark:text-white">{inr(parseFloat(d.totalRupees) * 100)}</span></div>
+                        <div>Refunded: <span className="font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{inr(parseFloat(d.refundedRupees) * 100)}</span></div>
+                        <div>Remaining Held Balance: <span className="font-mono font-bold tabular-nums text-amber-800 dark:text-amber-300">{inr(parseFloat(d.remainingRupees) * 100)}</span></div>
                       </div>
                     </div>
                   ))}
@@ -697,9 +697,9 @@ export default function FeesPage() {
             )}
 
             {/* Payment History */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                <Receipt className="size-5 text-emerald-600" /> Payment Receipts History
+            <div className="bg-white/96 dark:bg-slate-900/96 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-4 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)]">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Receipt className="size-5 text-emerald-600 dark:text-emerald-400" /> Payment Receipts History
               </h3>
 
               {!activeChild.payments.length ? (
@@ -709,10 +709,10 @@ export default function FeesPage() {
                   message="No recorded payments found for this student."
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
                   <table className="w-full text-left text-sm">
                     <thead>
-                      <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
+                      <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-semibold text-xs">
                         <th className="p-3">Payment #</th>
                         <th className="p-3">Receipt #</th>
                         <th className="p-3">Date</th>
@@ -721,14 +721,14 @@ export default function FeesPage() {
                         <th className="p-3">Status</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                       {activeChild.payments.map((p) => (
-                        <tr key={p.id} className="border-b hover:bg-slate-50">
-                          <td className="p-3 font-mono font-medium text-slate-800">{p.paymentNumber}</td>
-                          <td className="p-3 font-mono text-emerald-700 font-semibold">{p.receiptNumber || 'N/A'}</td>
-                          <td className="p-3 text-slate-600">{fmtDate(p.paymentDate)}</td>
-                          <td className="p-3 text-slate-600">{p.method}</td>
-                          <td className="p-3 font-semibold text-emerald-700">{inr(parseFloat(p.amountRupees) * 100)}</td>
+                        <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="p-3 font-mono font-medium text-slate-800 dark:text-slate-200 tabular-nums">{p.paymentNumber}</td>
+                          <td className="p-3 font-mono text-emerald-700 dark:text-emerald-400 font-semibold tabular-nums">{p.receiptNumber || 'N/A'}</td>
+                          <td className="p-3 text-slate-600 dark:text-slate-400">{fmtDate(p.paymentDate)}</td>
+                          <td className="p-3 text-slate-600 dark:text-slate-400">{p.method}</td>
+                          <td className="p-3 font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">{inr(parseFloat(p.amountRupees) * 100)}</td>
                           <td className="p-3">
                             <StatusBadge status={p.status} />
                           </td>
@@ -804,7 +804,7 @@ export default function FeesPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200 space-x-6">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
         {[
           { key: 'STRUCTURES', label: 'Fee Structures & Activation', icon: Layers },
           { key: 'DEPOSITS', label: 'Refundable Security Deposits', icon: ShieldCheck },
@@ -816,10 +816,10 @@ export default function FeesPage() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key as any)}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition ${
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 ${
                 isActive
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               <Icon className="size-4" />
@@ -833,8 +833,8 @@ export default function FeesPage() {
       {activeTab === 'STRUCTURES' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold text-slate-900">Configured Fee Structures</h3>
-            <span className="text-xs text-slate-500">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Configured Fee Structures</h3>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               Activating a structure automatically applies it to all eligible class students
             </span>
           </div>
@@ -847,7 +847,7 @@ export default function FeesPage() {
               action={
                 <button
                   onClick={() => setShowStructureModal(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all duration-150 active:scale-[0.98]"
                 >
                   Create Fee Structure
                 </button>
@@ -856,46 +856,46 @@ export default function FeesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {structures.map((st) => (
-                <div key={st.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4 hover:border-indigo-200 transition">
+                <div key={st.id} className="premium-card p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-bold text-slate-900 text-base">{st.name}</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Academic Session: <span className="font-medium text-slate-700">{st.academicSession?.name || 'AY 2026-27'}</span>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-base">{st.name}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Academic Session: <span className="font-medium text-slate-700 dark:text-slate-300">{st.academicSession?.name || 'AY 2026-27'}</span>
                       </p>
                     </div>
                     <StatusBadge status={st.status} />
                   </div>
 
-                  {st.description && <p className="text-xs text-slate-600">{st.description}</p>}
+                  {st.description && <p className="text-xs text-slate-600 dark:text-slate-300">{st.description}</p>}
 
                   {/* Fee Items Table */}
-                  <div className="bg-slate-50 rounded-lg p-3 space-y-2 text-xs">
-                    <div className="font-semibold text-slate-700 uppercase tracking-wider text-[10px]">Configured Fee Items</div>
+                  <div className="bg-slate-50 dark:bg-slate-950/50 rounded-xl p-3 space-y-2 text-xs border border-slate-100 dark:border-slate-800/60">
+                    <div className="font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-[10px]">Configured Fee Items</div>
                     {st.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-200 last:border-0">
+                      <div key={idx} className="flex justify-between items-center py-1 border-b border-slate-200/80 dark:border-slate-800/60 last:border-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-slate-900">{item.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">({enumLabel(item.frequency)})</span>
+                          <span className="font-medium text-slate-900 dark:text-slate-100">{item.name}</span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">({enumLabel(item.frequency)})</span>
                           {item.feeType === 'REFUNDABLE_DEPOSIT' && (
-                            <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-medium">
+                            <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] px-1.5 py-0.5 rounded font-medium">
                               Refundable
                             </span>
                           )}
                         </div>
-                        <span className="font-bold text-slate-800">{inr(item.amountCents)}</span>
+                        <span className="font-mono font-bold tabular-nums text-slate-800 dark:text-slate-200">{inr(item.amountCents)}</span>
                       </div>
                     ))}
                   </div>
 
                   <div className="flex justify-between items-center pt-2">
-                    <span className="text-xs text-slate-500">
-                      Total Annual Amount: <span className="font-bold text-slate-900">{inr(st.items.reduce((s, i) => s + i.amountCents, 0))}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Total Annual Amount: <span className="font-mono font-bold tabular-nums text-slate-900 dark:text-white">{inr(st.items.reduce((s, i) => s + i.amountCents, 0))}</span>
                     </span>
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleApplyStructure(st.id)}
-                        className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                        className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all duration-150 active:scale-[0.98]"
                       >
                         <Sparkles className="size-3.5" /> Activate & Apply to Class
                       </button>
@@ -910,12 +910,12 @@ export default function FeesPage() {
 
       {/* TAB 2: REFUNDABLE DEPOSITS */}
       {activeTab === 'DEPOSITS' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div className="premium-card p-5 space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <ShieldCheck className="size-5 text-amber-600" /> Refundable Security Deposits
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <ShieldCheck className="size-5 text-amber-600 dark:text-amber-400" /> Refundable Security Deposits
             </h3>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               Manage security deposits, process full/partial refunds, or approved adjustments
             </span>
           </div>
@@ -927,10 +927,10 @@ export default function FeesPage() {
               message="Refundable security deposits will appear here once recorded for enrolled students."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
                 <thead>
-                  <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
+                  <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
                     <th className="p-3">Student Name</th>
                     <th className="p-3">Admission No</th>
                     <th className="p-3">Deposit Name</th>
@@ -942,16 +942,16 @@ export default function FeesPage() {
                     <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {deposits.map((d) => (
-                    <tr key={d.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-semibold text-slate-900">{d.studentName}</td>
-                      <td className="p-3 text-slate-600 font-mono">{d.admissionNo}</td>
-                      <td className="p-3 text-slate-700">{d.name}</td>
-                      <td className="p-3 font-medium">{inr(parseFloat(d.totalRupees) * 100)}</td>
-                      <td className="p-3 text-emerald-600 font-medium">{inr(parseFloat(d.refundedRupees) * 100)}</td>
-                      <td className="p-3 text-amber-600 font-medium">{inr(parseFloat(d.adjustedRupees) * 100)}</td>
-                      <td className="p-3 font-bold text-amber-900">{inr(parseFloat(d.remainingRupees) * 100)}</td>
+                    <tr key={d.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="p-3 font-semibold text-slate-900 dark:text-white">{d.studentName}</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-xs">{d.admissionNo}</td>
+                      <td className="p-3 text-slate-700 dark:text-slate-300">{d.name}</td>
+                      <td className="p-3 font-mono tabular-nums font-medium text-slate-900 dark:text-slate-200">{inr(parseFloat(d.totalRupees) * 100)}</td>
+                      <td className="p-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">{inr(parseFloat(d.refundedRupees) * 100)}</td>
+                      <td className="p-3 font-mono tabular-nums text-amber-600 dark:text-amber-400 font-medium">{inr(parseFloat(d.adjustedRupees) * 100)}</td>
+                      <td className="p-3 font-mono tabular-nums font-bold text-amber-900 dark:text-amber-300">{inr(parseFloat(d.remainingRupees) * 100)}</td>
                       <td className="p-3">
                         <StatusBadge status={d.status} />
                       </td>
@@ -972,7 +972,7 @@ export default function FeesPage() {
                                   })
                                   setShowRefundModal(true)
                                 }}
-                                className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-semibold"
+                                className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-semibold transition-all duration-150 active:scale-[0.98]"
                               >
                                 Refund
                               </button>
@@ -987,7 +987,7 @@ export default function FeesPage() {
                                   })
                                   setShowAdjustModal(true)
                                 }}
-                                className="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded text-xs font-semibold"
+                                className="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-300 dark:hover:bg-amber-900/50 rounded-lg text-xs font-semibold transition-all duration-150 active:scale-[0.98]"
                               >
                                 Adjust
                               </button>
@@ -1006,21 +1006,21 @@ export default function FeesPage() {
 
       {/* TAB 3: PAYMENTS & RECEIPTS */}
       {activeTab === 'PAYMENTS' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+        <div className="premium-card p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
-                <Receipt className="size-5 text-purple-600" /> Recorded Payments & Official Receipts
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <Receipt className="size-5 text-purple-600 dark:text-purple-400" /> Recorded Payments & Official Receipts
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">Every payment transaction is linked to a unique official receipt</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Every payment transaction is linked to a unique official receipt</p>
             </div>
             {payments.length > 0 && (
               <button
                 type="button"
                 onClick={handleExportPaymentsCSV}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer shadow-sm"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 rounded-xl transition-all duration-150 active:scale-[0.98] cursor-pointer shadow-xs"
               >
-                <Download className="size-4 text-emerald-600" /> Download CSV / Excel
+                <Download className="size-4 text-emerald-600 dark:text-emerald-400" /> Download CSV / Excel
               </button>
             )}
           </div>
@@ -1032,10 +1032,10 @@ export default function FeesPage() {
               message="Payments recorded against fee schedules will appear here."
             />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
                 <thead>
-                  <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
+                  <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
                     <th className="p-3">Payment #</th>
                     <th className="p-3">Receipt #</th>
                     <th className="p-3">Student Name</th>
@@ -1046,16 +1046,16 @@ export default function FeesPage() {
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {payments.map((p) => (
-                    <tr key={p.id} className="border-b hover:bg-slate-50">
-                      <td className="p-3 font-mono font-medium text-slate-800">{p.paymentNumber}</td>
-                      <td className="p-3 font-mono text-emerald-700 font-bold">{p.receiptNumber || 'N/A'}</td>
-                      <td className="p-3 font-medium text-slate-900">{p.studentName}</td>
-                      <td className="p-3 text-slate-600 font-mono">{p.admissionNo}</td>
-                      <td className="p-3 text-slate-600">{fmtDate(p.paymentDate)}</td>
-                      <td className="p-3 text-slate-600">{p.method}</td>
-                      <td className="p-3 font-bold text-emerald-700">{inr(parseFloat(p.amountRupees) * 100)}</td>
+                    <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="p-3 font-mono font-medium text-slate-800 dark:text-slate-200">{p.paymentNumber}</td>
+                      <td className="p-3 font-mono text-emerald-700 dark:text-emerald-400 font-bold">{p.receiptNumber || 'N/A'}</td>
+                      <td className="p-3 font-medium text-slate-900 dark:text-white">{p.studentName}</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-xs">{p.admissionNo}</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-400">{fmtDate(p.paymentDate)}</td>
+                      <td className="p-3 text-slate-600 dark:text-slate-400">{p.method}</td>
+                      <td className="p-3 font-mono font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{inr(parseFloat(p.amountRupees) * 100)}</td>
                       <td className="p-3">
                         <StatusBadge status={p.status} />
                       </td>

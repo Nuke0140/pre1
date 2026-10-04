@@ -15,7 +15,8 @@ async function _GET(req: NextRequest) {
     const branchId = searchParams.get('branchId') || session.branchId || undefined
     const destinationType = searchParams.get('destinationType') as any || undefined
     const classroomId = searchParams.get('classroomId') || undefined
-    const materialRequestId = searchParams.get('materialRequestId') || undefined
+    const studentId = searchParams.get('studentId') || undefined
+    const search = searchParams.get('search') || undefined
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : undefined
     const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : undefined
 
@@ -23,7 +24,8 @@ async function _GET(req: NextRequest) {
       branchId,
       destinationType,
       classroomId,
-      materialRequestId,
+      studentId,
+      search,
       page,
       pageSize,
     })

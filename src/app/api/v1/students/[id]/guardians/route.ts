@@ -25,6 +25,7 @@ async function _POST(
       fullName,
       phone,
       email,
+      occupation,
       relationship,
       isPrimary,
       canPickup,
@@ -37,8 +38,8 @@ async function _POST(
       return Errors.validation('action and either guardianId or phone are required')
     }
 
-    if (!['LINK', 'UPDATE', 'UNLINK'].includes(action)) {
-      return Errors.validation('action must be one of LINK, UPDATE, UNLINK')
+    if (!['LINK', 'UPDATE', 'UNLINK', 'INVITE'].includes(action)) {
+      return Errors.validation('action must be one of LINK, UPDATE, UNLINK, INVITE')
     }
 
     const updated = await StudentService.manageGuardians(
@@ -56,6 +57,7 @@ async function _POST(
         fullName,
         phone,
         email,
+        occupation,
         relationship,
         isPrimary,
         canPickup,
@@ -73,3 +75,32 @@ async function _POST(
 }
 
 export const POST = withApi(_POST)
+
+export const PATCH = withApi(async function (
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const body = await req.json().catch(() => ({}))
+  body.action = body.action || 'UPDATE'
+  const newReq = new NextRequest(req.url, {
+    method: 'POST',
+    headers: req.headers,
+    body: JSON.stringify(body),
+  })
+  return _POST(newReq, ctx)
+})
+
+export const DELETE = withApi(async function (
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const { searchParams } = new URL(req.url)
+  const guardianId = searchParams.get('guardianId')
+  const newReq = new NextRequest(req.url, {
+    method: 'POST',
+    headers: req.headers,
+    body: JSON.stringify({ action: 'UNLINK', guardianId }),
+  })
+  return _POST(newReq, ctx)
+})
+

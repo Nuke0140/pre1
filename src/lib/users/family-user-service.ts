@@ -196,13 +196,16 @@ export class FamilyUserService {
             programType: childData.programType,
             classroomId: childData.classroomId,
             branchId: childData.branchId,
+            seatNumber: childData.seatNumber,
+            photoUrl: childData.photoUrl,
+            username: childUsername,
             guardianName: input.fullName.trim(),
             guardianPhone: input.phone.trim(),
             guardianEmail: input.email.trim(),
             guardianRelationship: mappedRel,
             canPickup: perms.canPickup,
             isFeePayer: perms.isFeePayer,
-            confirmDuplicate: true,
+            confirmDuplicate: input.confirmDuplicate ?? false,
           },
           tx
         )
@@ -229,14 +232,14 @@ export class FamilyUserService {
           })
         }
 
-        const createdGuardian =
+        let createdGuardian =
           studentLink?.guardian ||
           (await tx.guardian.findFirst({
             where: { tenantId: ctx.tenantId, phone: input.phone.trim() },
           }))
 
         if (createdGuardian) {
-          await tx.guardian.update({
+          createdGuardian = await tx.guardian.update({
             where: { id: createdGuardian.id },
             data: {
               userId: user.id,

@@ -16,13 +16,14 @@ export function WorkspaceBackground() {
       className="workspace-bg absolute inset-0 overflow-hidden pointer-events-none select-none z-0"
       aria-hidden="true"
     >
-      {/* ── Layer 1: Ambient Base Glows ── */}
-      {/* Top Center Lavender Wash */}
-      <div className="absolute -top-36 left-1/2 -translate-x-1/2 w-[64rem] h-[34rem] bg-gradient-to-b from-purple-400/12 via-indigo-300/8 to-transparent dark:from-purple-600/12 dark:via-indigo-900/8 rounded-full blur-3xl transform-gpu" />
-      {/* Upper-Right Soft Cyan/Sky Glow */}
-      <div className="absolute top-10 -right-20 w-[36rem] h-[36rem] bg-cyan-300/12 dark:bg-cyan-600/8 rounded-full blur-3xl transform-gpu" />
-      {/* Lower-Left Gentle Rose/Peach Accent */}
-      <div className="absolute bottom-20 -left-20 w-[32rem] h-[32rem] bg-rose-200/12 dark:bg-rose-900/8 rounded-full blur-3xl transform-gpu" />
+      {/* ── Layer 1: Ambient Brand Radial Wash ── */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'var(--brand-ambient-wash)',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
 
       {/* ── Layer 2: Subtle Micro-Dot Matrix Canvas ── */}
       <div

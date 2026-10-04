@@ -21,6 +21,7 @@ export interface SessionPayload {
   branchId?: string | null
   role: Role // Canonical primary role
   roles?: Role[] // All assigned roles
+  mustChangePassword?: boolean
 }
 
 // ── RBAC — permission bundles per role (PRD §7 + API Catalog §5.3) ──

@@ -29,6 +29,7 @@ import {
 import { PageHead, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
+import { ThemeGlowSettings } from '@/components/shell/ThemeGlowSettings'
 
 interface SchoolProfile {
   id: string
@@ -155,6 +156,15 @@ export default function SettingsControlCenter() {
 
   useEffect(() => {
     loadData()
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get('tab')
+      if (tabParam) setActiveTab(tabParam)
+      if (params.get('changePassword') === 'true' || params.get('mustChangePassword') === 'true') {
+        setActiveTab('security')
+        setPasswordModalOpen(true)
+      }
+    }
   }, [loadData])
 
   // Tab change with unsaved protection
@@ -1283,7 +1293,18 @@ export default function SettingsControlCenter() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
             <div className="form-group">
               <label>Theme Mode</label>
-              <select className="input" value={themePref} onChange={(e) => setThemePref(e.target.value)}>
+              <select
+                className="input"
+                value={themePref}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setThemePref(val)
+                  if (typeof document !== 'undefined') {
+                    if (val === 'DARK') document.documentElement.setAttribute('data-theme', 'dark')
+                    else if (val === 'LIGHT') document.documentElement.setAttribute('data-theme', 'light')
+                  }
+                }}
+              >
                 <option value="LIGHT">Light Theme</option>
                 <option value="DARK">Dark Theme</option>
                 <option value="SYSTEM">Follow System Preference</option>
@@ -1296,6 +1317,11 @@ export default function SettingsControlCenter() {
                 <option value="COMPACT">Compact (Higher Data Density)</option>
               </select>
             </div>
+          </div>
+
+          {/* DEDICATED PREONE SHELL GLOW & PALETTE ACCENTS */}
+          <div className="pt-6 border-t border-[var(--border-subtle)]">
+            <ThemeGlowSettings />
           </div>
         </div>
       )}

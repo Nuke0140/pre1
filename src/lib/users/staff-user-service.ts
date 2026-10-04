@@ -43,7 +43,7 @@ export class StaffUserService {
   /**
    * Authoritative Flow 1: Create or Invite a Staff Member
    */
-  static async createStaff(ctx: StaffContext, input: StaffCreateInput) {
+  static async createStaff(ctx: StaffContext, input: StaffCreateInput, externalTx?: any) {
     if (!ctx.tenantId) throw new Error('Tenant identifier is required')
 
     // 1. Validation
@@ -105,7 +105,7 @@ export class StaffUserService {
     }
 
     // 4. Atomic transaction
-    const result = await db.$transaction(async (tx) => {
+    const executeLogic = async (tx: any) => {
       // Step A: Create or resolve User identity
       const { user } = await UserIdentityService.resolveOrCreateUser(tx, {
         fullName: input.fullName,
@@ -194,7 +194,9 @@ export class StaffUserService {
         staffProfile,
         classroom: assignedClassroom,
       }
-    })
+    }
+
+    const result = externalTx ? await executeLogic(externalTx) : await db.$transaction(executeLogic)
 
     // 5. Emit audit log
     await recordAudit({

@@ -6,10 +6,12 @@ import {
   Plus, ChevronRight, Users, GraduationCap, ArrowRightLeft, UserX,
   Activity, Calendar, Building, BookOpen, UserRound, CheckSquare2,
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
+  SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight
 } from 'lucide-react'
-import { PageHead, StatusBadge, Avatar, Segmented, Field, Skeleton } from '@/components/preone/ui'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState } from '@/components/preone/ui'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
+import { RecordInspector } from '@/components/preone/RecordInspector'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
@@ -28,6 +30,7 @@ interface StudentRow {
   branchName?: string | null
   academicSessionName?: string | null
   primaryGuardian: { name: string; phone: string; relationship: string } | null
+  attendance?: { rate: number; totalTracked: number }
 }
 
 interface Classroom {
@@ -52,6 +55,7 @@ interface ContextOption {
   name: string
   isCurrent?: boolean
   isMain?: boolean
+  programType?: string
 }
 
 // Helper: Calculate child age in human-readable preschool format
@@ -76,6 +80,7 @@ export default function StudentsPage() {
   const toast = useToast()
   const [rows, setRows] = useState<StudentRow[] | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Filters & Context State
   const [q, setQ] = useState('')
@@ -84,6 +89,7 @@ export default function StudentsPage() {
   const [programFilter, setProgramFilter] = useState('ALL')
   const [classFilter, setClassFilter] = useState('ALL')
   const [statusFilter, setStatusFilter] = useState('ACTIVE')
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
   // Master Dropdown data
   const [branches, setBranches] = useState<ContextOption[]>([])
@@ -95,6 +101,7 @@ export default function StudentsPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [enrollClassroomId, setEnrollClassroomId] = useState('')
+  const [inspectingStudent, setInspectingStudent] = useState<StudentRow | null>(null)
 
   // Enroll form enhancements (date picker, mask, draft autosave)
   const formRef = useRef<HTMLFormElement>(null)
@@ -240,6 +247,7 @@ export default function StudentsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const params = new URLSearchParams()
       if (q) params.set('q', q)
@@ -259,6 +267,7 @@ export default function StudentsPage() {
       if (cJson.success) setClassrooms(cJson.data)
     } catch (err: any) {
       console.error('Failed to load students:', err)
+      setLoadError(err.message || 'Unable to load students')
       toast.error('Failed to load students', err.message)
     } finally {
       setLoading(false)
@@ -318,6 +327,27 @@ export default function StudentsPage() {
     return sessions.find((s) => s.id === sessionFilter || s.isCurrent)
   }, [sessions, sessionFilter])
 
+  // Calculate active filter count for responsive badge
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (branchFilter !== 'ALL') count++
+    if (sessionFilter !== 'ALL') count++
+    if (programFilter !== 'ALL') count++
+    if (classFilter !== 'ALL') count++
+    if (statusFilter !== 'ALL') count++
+    if (q.trim()) count++
+    return count
+  }, [branchFilter, sessionFilter, programFilter, classFilter, statusFilter, q])
+
+  const clearAllFilters = () => {
+    setQ('')
+    setBranchFilter('ALL')
+    setSessionFilter('ALL')
+    setProgramFilter('ALL')
+    setClassFilter('ALL')
+    setStatusFilter('ALL')
+  }
+
   const columns: Column<StudentRow>[] = [
     {
       key: 'name',
@@ -326,39 +356,19 @@ export default function StudentsPage() {
       sortValue: (s) => s.name.toLowerCase(),
       export: (s) => s.name,
       render: (s) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="flex items-center gap-3">
           <Avatar name={s.name} src={s.photoUrl} size="md" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 14.5, fontWeight: 650, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-900 dark:text-white text-sm hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               {s.name}
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono, monospace)',
-                  fontSize: 11.5,
-                  padding: '1px 6px',
-                  borderRadius: 5,
-                  background: 'var(--bg-muted)',
-                  color: 'var(--text-secondary)',
-                  border: '1px solid var(--border-default)',
-                }}
-              >
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
                 {s.admissionNo}
               </span>
               {s.seatNumber && (
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono, monospace)',
-                    fontSize: 11,
-                    padding: '1px 5px',
-                    borderRadius: 4,
-                    background: 'var(--primary-light)',
-                    color: 'var(--primary)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Seat: {s.seatNumber}
+                <span className="font-mono text-[11px] px-1.5 py-0.2 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200/50">
+                  {s.seatNumber}
                 </span>
               )}
             </div>
@@ -374,42 +384,21 @@ export default function StudentsPage() {
       export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : 'Unassigned',
       render: (s) =>
         s.classroom ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
                 {s.classroom.name}
               </span>
-              <span
-                style={{
-                  fontSize: 10.5,
-                  padding: '1px 6px',
-                  borderRadius: 4,
-                  fontWeight: 600,
-                  background: 'var(--primary-light)',
-                  color: 'var(--primary)',
-                }}
-              >
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40">
                 {enumLabel(s.classroom.programType)}
               </span>
             </div>
-            <span className="t-caption" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
               {s.classroom.teacher ? `Educator: ${s.classroom.teacher}` : 'No primary teacher'}
             </span>
           </div>
         ) : (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '2px 8px',
-              borderRadius: 6,
-              fontSize: 11.5,
-              fontWeight: 500,
-              background: 'var(--warning-soft)',
-              color: 'var(--warning)',
-              border: '1px solid var(--warning-soft)',
-            }}
-          >
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
             Unassigned
           </span>
         ),
@@ -421,11 +410,11 @@ export default function StudentsPage() {
       sortValue: (s) => new Date(s.dob).getTime(),
       export: (s) => `${fmtDate(s.dob)} (${formatAge(s.dob)})`,
       render: (s) => (
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span className="t-body-sm" style={{ fontWeight: 550, color: 'var(--text-primary)' }}>
+        <div className="flex flex-col">
+          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {formatAge(s.dob)}
           </span>
-          <span className="t-caption" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             {fmtDate(s.dob)}
           </span>
         </div>
@@ -437,22 +426,48 @@ export default function StudentsPage() {
       export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : 'None'),
       render: (s) =>
         s.primaryGuardian ? (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className="t-body-sm" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                {s.primaryGuardian.name}
-              </span>
-              <span className="t-caption" style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                ({s.primaryGuardian.relationship.toLowerCase()})
-              </span>
-            </div>
-            <span className="t-data" style={{ color: 'var(--text-secondary)' }}>
-              {s.primaryGuardian.phone}
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-slate-900 dark:text-white">
+              {s.primaryGuardian.name}
             </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {enumLabel(s.primaryGuardian.relationship)} · Primary
+            </span>
+            {s.primaryGuardian.phone && (
+              <span className="text-[11px] font-mono text-slate-400 mt-0.5">
+                {s.primaryGuardian.phone}
+              </span>
+            )}
           </div>
         ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>-</span>
+          <span className="text-slate-400 text-sm">—</span>
         ),
+    },
+    {
+      key: 'attendance',
+      header: 'Attendance',
+      sortable: true,
+      sortValue: (s) => s.attendance?.rate ?? 100,
+      render: (s) => {
+        const rate = s.attendance?.rate ?? 100
+        const isGood = rate >= 85
+        const isWarning = rate >= 70 && rate < 85
+        const dotBg = isGood ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : 'bg-rose-500'
+        return (
+          <div className="flex flex-col gap-1 w-20">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${dotBg} shrink-0`} />
+              <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{rate}%</span>
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${dotBg}`}
+                style={{ width: `${Math.min(100, Math.max(0, rate))}%` }}
+              />
+            </div>
+          </div>
+        )
+      },
     },
     {
       key: 'status',
@@ -470,313 +485,313 @@ export default function StudentsPage() {
           { value: 'GRADUATED', label: 'Graduated' },
         ],
       },
-      render: (s) => <StatusBadge status={s.status} />,
+      render: (s) => <StatusPill status={s.status} size="sm" />,
     },
     {
       key: 'actions',
       header: '',
-      width: 44,
+      width: 52,
       hideable: false,
-      render: () => (
-        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
-          <ChevronRight size={17} />
-        </div>
+      render: (s) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/app/students/${s.id}`)
+          }}
+          className="min-h-[44px] min-w-[44px] p-2 rounded-xl text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 inline-flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+          title="View Student 360° Profile"
+          aria-label={`View Student 360° Profile for ${s.name}`}
+        >
+          <Eye size={17} />
+        </button>
       ),
     },
   ]
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 40 }}>
-      {/* 1. Standard PageHead */}
-      <PageHead
-        eyebrow="Preschool Enrollment & Operations"
-        badge={<span className="badge b-primary b-dot">Active Roster</span>}
-        title="Students & Children"
-        sub="Manage enrolled children, classroom allocations, guardians and the complete child journey."
-        actions={
+    <div className="space-y-4 sm:space-y-5 pb-20 max-w-[1460px] mx-auto px-3 sm:px-5 lg:px-6">
+      {/* ── 1. COMPACT HERO STRIP ── */}
+      <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          {/* Eyebrow & Session Pill */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+              STUDENTS • M02
+            </span>
+            {currentSessionObj?.name && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/40">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {currentSessionObj.name}
+              </span>
+            )}
+            <span className="text-[11px] text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
+              Student Control Plane
+            </span>
+          </div>
+
+          {/* Title */}
+          <h1 className="text-2xl sm:text-[28px] lg:text-[32px] font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 shadow-2xs">
+              <GraduationCap size={18} />
+            </span>
+            <span>Students & Child Records</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
+            Manage children, classroom placement, guardians, attendance and day-to-day preschool information.
+          </p>
+        </div>
+
+        {/* Action Controls: Refresh + Primary CTA */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
           <button
-            className="btn btn-primary"
-            style={{
-              height: 44,
-              padding: '0 18px',
-              borderRadius: 11,
-              fontWeight: 600,
-              fontSize: 14,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 2px 8px rgba(91, 61, 245, 0.25)',
-            }}
-            onClick={() => setCreateOpen(true)}
+            type="button"
+            onClick={() => { load(); loadStats(); }}
+            title="Refresh list"
+            className="p-2 sm:p-2.5 min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+            aria-label="Refresh student list"
           >
-            <Plus size={17} /> Enroll Child
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-        }
-      />
-
-      {/* 2. Unified 6-Metric Student Health Strip */}
-      <div
-        className="metric-strip"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: 12,
-          marginBottom: 18,
-        }}
-      >
-        {/* Metric 1: Total Enrolled */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Total Enrolled
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={15} style={{ color: 'var(--primary)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-            {stats ? stats.totalStudents : 0}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Registered identities</div>
-        </div>
-
-        {/* Metric 2: Active Children */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Active Children
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <GraduationCap size={15} style={{ color: 'var(--success)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
-            {stats ? stats.activeStudents : 0}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Currently attending</div>
-        </div>
-
-        {/* Metric 3: New Admissions */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              New Admissions
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--info-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Activity size={15} style={{ color: 'var(--info)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-            {stats ? stats.recentAdmissions30d : 0}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Last 30 days</div>
-        </div>
-
-        {/* Metric 4: Avg Attendance */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Avg Attendance
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Calendar size={15} style={{ color: 'var(--primary)' }} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>
-              {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : '—'}
-            </span>
-          </div>
-          <div style={{ width: '100%', background: 'var(--bg-muted)', height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${Math.min(100, Math.max(0, stats?.averageAttendanceRate || 0))}%`,
-                background: 'var(--primary)',
-                height: '100%',
-                borderRadius: 2,
-              }}
-            />
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Live calculation</div>
-        </div>
-
-        {/* Metric 5: Transferred */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Transferred
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--warning-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowRightLeft size={15} style={{ color: 'var(--warning)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-            {stats ? stats.transferredStudents : 0}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Branch transfers</div>
-        </div>
-
-        {/* Metric 6: Withdrawn */}
-        <div
-          className="metric-cell"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border-default)',
-            borderRadius: 16,
-            padding: '14px 16px',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '0.04em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-              Withdrawn
-            </span>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--danger-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserX size={15} style={{ color: 'var(--danger)' }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-            {stats ? stats.withdrawnStudents : 0}
-          </div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>Non-destructive exit</div>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] flex-1 sm:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+          >
+            <Plus size={16} />
+            <span>Enroll Child</span>
+          </button>
         </div>
       </div>
 
-      {/* 3. School Context Bar */}
-      <div
-        className="school-context-bar"
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 14,
-          padding: '10px 16px',
-          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
-          display: 'flex',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        {/* Session Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
-          <Calendar size={15} style={{ color: 'var(--primary)' }} />
-          <span style={{ fontWeight: 600 }}>Session:</span>
+      {/* ── OPTIONAL ERROR BANNER ── */}
+      {loadError && (!rows || rows.length === 0) && (
+        <div className="bg-white/95 dark:bg-slate-900/90 border border-rose-200/80 dark:border-rose-900/50 rounded-2xl p-6 sm:p-8 text-center space-y-3 shadow-xs">
+          <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+            <AlertCircle size={24} />
+          </div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">Unable to load students</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+            Please refresh and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => { setLoadError(null); load(); loadStats(); }}
+            className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl bg-primary text-white text-xs font-semibold shadow-sm hover:bg-primary-hover transition-colors"
+          >
+            <RefreshCw size={14} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── 2. COMPACT SMARTER KPI CARDS (RESPONSIVE AUTO-GRID) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Metric 1: Students */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Students
+            </span>
+            <div className="w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+              <Users size={13} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
+              {stats ? stats.totalStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">Across all classes</div>
+          </div>
+        </div>
+
+        {/* Metric 2: Active */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Active
+            </span>
+            <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+              <GraduationCap size={13} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
+              {stats ? stats.activeStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">Currently enrolled</div>
+          </div>
+        </div>
+
+        {/* Metric 3: New Admissions */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              New Admissions
+            </span>
+            <div className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
+              <Activity size={13} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
+              {stats ? stats.recentAdmissions30d : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">Last 30 days</div>
+          </div>
+        </div>
+
+        {/* Metric 4: Attendance Rate with mini progress */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Attendance Rate
+            </span>
+            <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+              <Calendar size={13} />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-mono font-bold tabular-nums text-indigo-600 dark:text-indigo-400 leading-none">
+              {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : '—')}
+            </div>
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+              <div
+                className="bg-indigo-600 h-full rounded-full transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, stats?.averageAttendanceRate || 0))}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Transferred (Zero visually quiet) */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Transferred
+            </span>
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${stats?.transferredStudents ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+              <ArrowRightLeft size={13} />
+            </div>
+          </div>
+          <div>
+            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+              {stats ? stats.transferredStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">Branch transfers</div>
+          </div>
+        </div>
+
+        {/* Metric 6: Withdrawn (Zero visually quiet) */}
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+          <div className="flex items-center justify-between gap-1 mb-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+              Withdrawn
+            </span>
+            <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${stats?.withdrawnStudents ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+              <UserX size={13} />
+            </div>
+          </div>
+          <div>
+            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.withdrawnStudents ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
+              {stats ? stats.withdrawnStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">Archived records</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3. SEARCH & FILTER WORKSPACE ── */}
+      <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
+        {/* ROW 1: Large prominent search field */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              className="w-full h-11 pl-11 pr-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all shadow-2xs"
+              placeholder="Search students, admission no., guardian, phone..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label="Search students"
+            />
+            {q && (
+              <button
+                type="button"
+                onClick={() => setQ('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                aria-label="Clear search query"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((prev) => !prev)}
+            className="md:hidden flex items-center gap-1.5 h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0"
+            aria-label="Toggle filters"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[10px] flex items-center justify-center font-bold">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* ROW 2: Desktop Filter Dropdowns */}
+        <div className="hidden md:grid grid-cols-4 gap-2.5">
           <select
-            className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
+            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+            aria-label="Filter by Campus"
+          >
+            <option value="ALL">All Campuses</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} {b.isMain ? '★' : ''}</option>
+            ))}
+          </select>
+
+          <select
+            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             value={sessionFilter}
             onChange={(e) => setSessionFilter(e.target.value)}
+            aria-label="Filter by Academic Session"
           >
             <option value="ALL">All Academic Sessions</option>
             {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} {s.isCurrent ? '★ (Current)' : ''}
-              </option>
+              <option key={s.id} value={s.id}>{s.name} {s.isCurrent ? '★ (Current)' : ''}</option>
             ))}
           </select>
-          {currentSessionObj?.isCurrent && sessionFilter !== 'ALL' && (
-            <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: 'var(--primary-light)', color: 'var(--primary)' }}>
-              ★ Current
-            </span>
-          )}
-        </div>
 
-        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
-
-        {/* Campus / Branch */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
-          <Building size={15} style={{ color: 'var(--text-secondary)' }} />
-          <span style={{ fontWeight: 600 }}>Campus:</span>
           <select
-            className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
-            value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-          >
-            <option value="ALL">All Branches</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} {b.isMain ? '(Main Campus)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
-
-        {/* Program */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
-          <BookOpen size={15} style={{ color: 'var(--text-secondary)' }} />
-          <span style={{ fontWeight: 600 }}>Program:</span>
-          <select
-            className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
+            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             value={programFilter}
             onChange={(e) => setProgramFilter(e.target.value)}
+            aria-label="Filter by Program"
           >
             <option value="ALL">All Programs</option>
             {programs.map((p) => (
               <option key={p.id} value={p.programType || p.id}>{p.name}</option>
             ))}
           </select>
-        </div>
 
-        <div style={{ width: 1, height: 22, background: 'var(--border-default)' }} />
-
-        {/* Lifecycle Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)' }}>
-          <span style={{ fontWeight: 600 }}>Status:</span>
           <select
-            className="select"
-            style={{ height: 34, fontSize: 13, padding: '0 28px 0 10px', borderRadius: 8, borderColor: 'var(--border-default)' }}
+            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by Lifecycle Status"
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active Only</option>
@@ -787,150 +802,257 @@ export default function StudentsPage() {
           </select>
         </div>
 
-        {/* Spin Refresh button */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+        {/* Mobile Filter Drawer / Collapsible */}
+        {mobileFiltersOpen && (
+          <div className="md:hidden grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Campus</label>
+              <select
+                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
+                value={branchFilter}
+                onChange={(e) => setBranchFilter(e.target.value)}
+              >
+                <option value="ALL">All Campuses</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Session</label>
+              <select
+                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
+                value={sessionFilter}
+                onChange={(e) => setSessionFilter(e.target.value)}
+              >
+                <option value="ALL">All Sessions</option>
+                {sessions.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Program</label>
+              <select
+                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
+                value={programFilter}
+                onChange={(e) => setProgramFilter(e.target.value)}
+              >
+                <option value="ALL">All Programs</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.programType || p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Status</label>
+              <select
+                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active Only</option>
+                <option value="TRANSFERRED">Transferred</option>
+                <option value="WITHDRAWN">Withdrawn</option>
+                <option value="SUSPENDED">Suspended</option>
+                <option value="GRADUATED">Graduated</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* ROW 3: Compact Metro Chips for Classroom Quick-Switch */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-none flex items-center gap-1.5 pb-0.5">
           <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => { load(); loadStats(); }}
-            title="Refresh list"
-            style={{ height: 34, width: 34, padding: 0, borderRadius: 8, color: 'var(--text-secondary)' }}
+            onClick={() => setClassFilter('ALL')}
+            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
+              classFilter === 'ALL'
+                ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
+            }`}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            All Classrooms
           </button>
+          {classrooms.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setClassFilter(c.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap flex items-center gap-1.5 transition-all ${
+                classFilter === c.id
+                  ? 'bg-purple-600 text-white font-semibold shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
+              }`}
+            >
+              <span>{c.name}</span>
+              <span className={`text-[10px] px-1 rounded ${classFilter === c.id ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                {enumLabel(c.programType)}
+              </span>
+            </button>
+          ))}
         </div>
-      </div>
 
-      {/* 4. Classroom Roster Quick-Switch Navigation */}
-      <div style={{ marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-        <Segmented
-          options={[
-            { key: 'ALL', label: 'All Classrooms' },
-            ...classrooms.map((c) => ({
-              key: c.id,
-              label: `${c.name} (${enumLabel(c.programType)})`,
-            })),
-          ]}
-          value={classFilter}
-          onChange={setClassFilter}
-        />
-      </div>
-
-      {/* 5. Prominent Search Bar */}
-      <div style={{ position: 'relative', marginBottom: 16 }}>
-        <Search
-          size={18}
-          style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
-        />
-        <input
-          type="text"
-          className="input"
-          style={{
-            height: 46,
-            paddingLeft: 42,
-            paddingRight: 40,
-            borderRadius: 12,
-            fontSize: 14,
-            borderColor: 'var(--border-default)',
-            background: 'var(--surface)',
-            boxShadow: '0 1px 3px rgba(21, 37, 74, 0.03)',
-          }}
-          placeholder="Search child, admission ID or guardian phone..."
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        {q && (
-          <button
-            onClick={() => setQ('')}
-            style={{
-              position: 'absolute',
-              right: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: 4,
-            }}
-          >
-            <X size={15} />
-          </button>
+        {/* ROW 4: Active Filter Chips */}
+        {activeFiltersCount > 0 && (
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap text-xs">
+            <span className="text-slate-400 font-medium">Active Filters:</span>
+            {q && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
+                Search: &ldquo;{q}&rdquo;
+                <button onClick={() => setQ('')} className="hover:text-purple-900 dark:hover:text-white" aria-label="Remove search filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {branchFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                Campus: {branches.find(b => b.id === branchFilter)?.name || branchFilter}
+                <button onClick={() => setBranchFilter('ALL')} className="hover:text-slate-900" aria-label="Remove campus filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {sessionFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                Session: {sessions.find(s => s.id === sessionFilter)?.name || sessionFilter}
+                <button onClick={() => setSessionFilter('ALL')} className="hover:text-slate-900" aria-label="Remove session filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {programFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                Program: {enumLabel(programFilter)}
+                <button onClick={() => setProgramFilter('ALL')} className="hover:text-slate-900" aria-label="Remove program filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {classFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                Class: {classrooms.find(c => c.id === classFilter)?.name || classFilter}
+                <button onClick={() => setClassFilter('ALL')} className="hover:text-slate-900" aria-label="Remove classroom filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            {statusFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                Status: {enumLabel(statusFilter)}
+                <button onClick={() => setStatusFilter('ALL')} className="hover:text-slate-900" aria-label="Remove status filter">
+                  <X size={12} />
+                </button>
+              </span>
+            )}
+            <button
+              onClick={clearAllFilters}
+              className="text-purple-600 dark:text-purple-400 hover:underline font-semibold ml-auto text-xs"
+            >
+              Clear all filters
+            </button>
+          </div>
         )}
       </div>
 
-      {/* 6. Contextual Bulk Action Floating / Docked Toolbar */}
+      {/* ── 4. CONTEXTUAL BULK ACTIONS TOOLBAR ── */}
       {selected.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 18px',
-            background: 'var(--primary-light)',
-            border: '1px solid var(--primary-light)',
-            borderRadius: 12,
-            marginBottom: 16,
-            color: 'var(--primary)',
-            boxShadow: '0 2px 8px rgba(91, 61, 245, 0.12)',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, fontWeight: 600 }}>
-            <CheckSquare2 size={16} />
+        <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-purple-900 dark:text-purple-200 shadow-xs animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <CheckSquare2 size={16} className="text-purple-600 dark:text-purple-400" />
             <span>{selected.length} child{selected.length === 1 ? '' : 'ren'} selected</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="flex items-center gap-2">
             <button
-              className="btn btn-secondary btn-sm"
-              style={{ background: 'var(--surface)', borderColor: 'var(--primary-light)', color: 'var(--primary)', height: 32, fontSize: 12.5 }}
               onClick={() => openBulkClass()}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-1.5 transition-colors"
             >
-              <ArrowRightLeft size={13} /> Assign Class
+              <ArrowRightLeft size={13} />
+              <span>Assign Class</span>
             </button>
             <button
-              className="btn btn-secondary btn-sm"
-              style={{ background: 'var(--surface)', borderColor: 'var(--primary-light)', color: 'var(--primary)', height: 32, fontSize: 12.5 }}
               onClick={() => setBulkStatusOpen(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 flex items-center gap-1.5 transition-colors"
             >
-              <CheckSquare2 size={13} /> Change Status
+              <CheckSquare2 size={13} />
+              <span>Change Status</span>
             </button>
             <button
-              className="btn btn-ghost btn-sm"
-              style={{ height: 32, fontSize: 12.5, color: 'var(--text-secondary)' }}
               onClick={() => setSelected([])}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
             >
-              Clear Selection
+              Cancel
             </button>
           </div>
         </div>
       )}
 
-      {/* 7. Student Directory Workspace */}
-      <div
-        style={{
-          background: 'var(--surface)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 16,
-          boxShadow: '0 1px 3px rgba(21, 37, 74, 0.04)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Desktop Table View */}
-        <div className="hidden-mobile">
+      {/* ── 5. STUDENT DIRECTORY WORKSPACE CARD ── */}
+      <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+        {/* Workspace Header Strip */}
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-100/80 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-800/40 shadow-2xs">
+              <Users size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Students
+                </h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-purple-100/70 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/50">
+                  {rows ? rows.length : (stats?.totalStudents ?? 0)}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                View and manage all student records across your preschool.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Table View (≥ 768px) */}
+        <div className="hidden md:block">
           <DataTable
             columns={columns}
             data={rows}
             loading={loading}
-            onRowClick={(s) => router.push(`/app/students/${s.id}`)}
-            emptyTitle="No children found"
-            emptyMessage="No students match the selected campus, session, classroom, or search query."
+            onRowClick={(s) => setInspectingStudent(s)}
+            emptyIcon={<Users size={36} className="text-purple-500" />}
+            emptyTitle={activeFiltersCount > 0 ? "No students found" : "No students yet"}
+            emptyMessage={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
+            emptyAction={
+              activeFiltersCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors"
+                >
+                  Clear Filters
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="bg-primary hover:bg-primary-hover text-white px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold shadow-sm"
+                >
+                  + Enroll Child
+                </button>
+              )
+            }
             paginate
             defaultPageSize={10}
+            showExport
             exportFileName="students-roster.csv"
+            showColumnsMenu
             rowSelection
             selectedKeys={selected}
             onSelectionChange={setSelected}
             rowActions={(s) => [
+              {
+                label: 'Quick Inspect',
+                icon: <Eye size={15} />,
+                onClick: () => setInspectingStudent(s),
+              },
               {
                 label: 'View 360° Profile',
                 icon: <UserRound size={15} />,
@@ -944,101 +1066,146 @@ export default function StudentsPage() {
             ]}
             footer={
               rows ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                  <span>Total Shown: <b>{rows.length}</b></span>
+                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                  <span>Total Shown: <b className="text-slate-800 dark:text-slate-200">{rows.length}</b></span>
                   <span>·</span>
-                  <span>Active: <b style={{ color: 'var(--success)' }}>{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
+                  <span>Active: <b className="text-emerald-600 dark:text-emerald-400">{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
                   <span>·</span>
-                  <span>Transferred: <b>{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
+                  <span>Transferred: <b className="text-amber-600 dark:text-amber-400">{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
                   <span>·</span>
-                  <span>Withdrawn: <b>{rows.filter((r) => r.status === 'WITHDRAWN').length}</b></span>
+                  <span>Withdrawn: <b className="text-rose-600 dark:text-rose-400">{rows.filter((r) => r.status === 'WITHDRAWN').length}</b></span>
                   <span>·</span>
-                  <span>Unassigned: <b>{rows.filter((r) => !r.classroom).length}</b></span>
+                  <span>Unassigned: <b className="text-slate-600 dark:text-slate-300">{rows.filter((r) => !r.classroom).length}</b></span>
                 </div>
               ) : null
             }
           />
         </div>
 
-        {/* Mobile View: High-Fidelity Child Cards (<768px) */}
-        <div className="visible-mobile" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {/* Mobile View: High-Fidelity Child Cards (< 768px) */}
+        <div className="md:hidden p-3.5 space-y-3">
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Skeleton h={90} />
-              <Skeleton h={90} />
-              <Skeleton h={90} />
+            <div className="space-y-3">
+              <Skeleton h={140} />
+              <Skeleton h={140} />
+              <Skeleton h={140} />
             </div>
           ) : rows && rows.length > 0 ? (
-            rows.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => router.push(`/app/students/${s.id}`)}
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: 14,
-                  padding: 14,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
-                  boxShadow: '0 1px 2px rgba(21, 37, 74, 0.03)',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <Avatar name={s.name} src={s.photoUrl} size="md" />
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{s.name}</div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 3 }}>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--bg-muted)', padding: '1px 5px', borderRadius: 4, color: 'var(--text-secondary)' }}>
-                          {s.admissionNo}
-                        </span>
-                        {s.seatNumber && (
-                          <span style={{ fontFamily: 'monospace', fontSize: 11, background: 'var(--primary-light)', color: 'var(--primary)', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>
-                            {s.seatNumber}
+            rows.map((s) => {
+              const rate = s.attendance?.rate ?? 100
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => setInspectingStudent(s)}
+                  className="bg-white dark:bg-slate-800/95 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] transition-all"
+                >
+                  {/* Top Row: Avatar + Name + Admission No + Status */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={s.name} src={s.photoUrl} size="md" />
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">
+                          {s.name}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.2 rounded font-medium">
+                            {s.admissionNo}
                           </span>
-                        )}
+                          {s.seatNumber && (
+                            <span className="font-mono text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded font-semibold border border-purple-200/50">
+                              {s.seatNumber}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <StatusBadge status={s.status} size="sm" />
+                  </div>
+
+                  {/* Classroom & Teacher */}
+                  <div className="text-xs space-y-0.5">
+                    <div className="font-bold text-slate-800 dark:text-slate-200">
+                      {s.classroom?.name || 'Unassigned Classroom'}
+                    </div>
+                    <div className="text-slate-500 dark:text-slate-400">
+                      {s.classroom?.teacher || 'No primary educator'}
+                    </div>
+                  </div>
+
+                  {/* Guardian */}
+                  <div className="text-xs space-y-0.5">
+                    <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Guardian
+                    </div>
+                    <div className="font-medium text-slate-800 dark:text-slate-200">
+                      {s.primaryGuardian ? `${s.primaryGuardian.name} · ${enumLabel(s.primaryGuardian.relationship)}` : 'No guardian recorded'}
+                    </div>
+                    {s.primaryGuardian?.phone && (
+                      <div className="text-slate-500 font-mono text-[11px]">
+                        {s.primaryGuardian.phone}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Attendance & Age Grid */}
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-100 dark:border-slate-700/60">
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Age</div>
+                      <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                        {formatAge(s.dob)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Attendance</div>
+                      <div className="font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${rate >= 85 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                        <span>{rate}%</span>
                       </div>
                     </div>
                   </div>
-                  <StatusBadge status={s.status} />
-                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12.5, borderTop: '1px solid var(--bg-muted)', paddingTop: 10 }}>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Classroom</div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.classroom?.name || 'Unassigned'}</div>
-                    {s.classroom && <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{enumLabel(s.classroom.programType)}</div>}
-                  </div>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', fontWeight: 600 }}>Guardian</div>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{s.primaryGuardian?.name || '-'}</div>
-                    {s.primaryGuardian?.phone && <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{s.primaryGuardian.phone}</div>}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--bg-muted)', paddingTop: 8 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    Born: {fmtDate(s.dob)} ({formatAge(s.dob)})
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--primary)', fontSize: 12.5, fontWeight: 600 }}>
-                    Profile <ChevronRight size={14} />
+                  {/* View Profile Action Link */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/app/students/${s.id}`)
+                      }}
+                      className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center gap-1 min-h-[44px] px-2 focus:outline-none focus:ring-2 focus:ring-purple-500/30 rounded-lg"
+                      aria-label={`View profile for ${s.name}`}
+                    >
+                      <span>View Profile</span>
+                      <ArrowRight size={13} />
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))
+              )
+            })
           ) : (
-            <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
-              <UserRound size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>No children found</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>No students match the current filter criteria.</div>
-            </div>
+            <EmptyState
+              compact
+              illustration="students"
+              eyebrow="Students"
+              title={activeFiltersCount > 0 ? "No students found" : "No students yet"}
+              description={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
+              action={
+                activeFiltersCount > 0
+                  ? {
+                      label: 'Clear Filters',
+                      onClick: clearAllFilters,
+                    }
+                  : {
+                      label: '+ Enroll Child',
+                      onClick: () => setCreateOpen(true),
+                    }
+              }
+            />
           )}
         </div>
       </div>
 
-      {/* 8. Enroll Child Modal */}
+      {/* ── 6. ENROLL CHILD MODAL ── */}
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
@@ -1049,31 +1216,50 @@ export default function StudentsPage() {
       >
         <form id="create-student" onSubmit={onCreate} onInput={onDraftChange} ref={formRef}>
           <EnterNav>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Section A: Child Demographic Information */}
+            <div className="space-y-5">
+              {/* Section 1: Child Identity */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
-                  1. Child Information
+                <div className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3 flex items-center gap-1.5">
+                  <Sparkles size={14} />
+                  <span>1. Child Demographics & Identity</span>
                 </div>
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>First Name <span className="req">*</span></label>
-                    <input className="input" name="firstName" required placeholder="e.g. Aarav" />
-                  </div>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Last Name</label>
-                    <input className="input" name="lastName" placeholder="e.g. Sharma" />
-                  </div>
-                  <div className="field">
-                    <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      <span>Date of Birth <span className="req">*</span></span>
-                      {dob && <span style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 12 }}>Age: {formatAge(dob)}</span>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      First Name <span className="text-rose-500">*</span>
                     </label>
-                    <DatePicker name="dob" value={dob} onChange={setDob} placeholder="Select date of birth" />
+                    <input
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="firstName"
+                      required
+                      placeholder="e.g. Aarav"
+                    />
                   </div>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Gender <span className="req">*</span></label>
-                    <select className="select" name="gender" required defaultValue="MALE">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Last Name</label>
+                    <input
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="lastName"
+                      placeholder="e.g. Patil"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      <span>Date of Birth <span className="text-rose-500">*</span></span>
+                      {dob && <span className="text-purple-600 font-bold text-xs">Age: {formatAge(dob)}</span>}
+                    </label>
+                    <DatePicker name="dob" value={dob} onChange={setDob} placeholder="Select birth date" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Gender <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="gender"
+                      required
+                      defaultValue="MALE"
+                    >
                       <option value="MALE">Male</option>
                       <option value="FEMALE">Female</option>
                       <option value="OTHER">Other</option>
@@ -1082,130 +1268,162 @@ export default function StudentsPage() {
                 </div>
               </div>
 
-              {/* Section B: Classroom & Program Placement */}
-              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
-                  2. Classroom Placement & Capacity
+              {/* Section 2: Classroom & Capacity */}
+              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800">
+                <div className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3 flex items-center gap-1.5">
+                  <School size={14} />
+                  <span>2. Classroom Placement & Seating</span>
                 </div>
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                  <div className="field" style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Classroom / Section</label>
-                    <select
-                      className="select"
-                      name="classroomId"
-                      value={enrollClassroomId}
-                      onChange={(e) => setEnrollClassroomId(e.target.value)}
-                    >
-                      <option value="">- Unassigned -</option>
-                      {classrooms.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Cap: ${c.capacity}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedEnrollClass && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          padding: '10px 14px',
-                          borderRadius: 8,
-                          background: 'var(--bg-subtle)',
-                          border: '1px solid var(--border-default)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: 12.5,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <School size={15} style={{ color: 'var(--primary)' }} />
-                          <span><b>{selectedEnrollClass.name}</b> ({enumLabel(selectedEnrollClass.programType)})</span>
-                        </div>
-                        <span style={{ color: 'var(--text-secondary)' }}>
-                          Capacity: <b>{selectedEnrollClass.capacity || 20} seats</b>
-                        </span>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Classroom / Section</label>
+                  <select
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    name="classroomId"
+                    value={enrollClassroomId}
+                    onChange={(e) => setEnrollClassroomId(e.target.value)}
+                  >
+                    <option value="">- Unassigned -</option>
+                    {classrooms.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Capacity: ${c.capacity} seats` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedEnrollClass && (
+                    <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/40 flex items-center justify-between text-xs text-purple-900 dark:text-purple-200">
+                      <div className="flex items-center gap-2">
+                        <School size={15} className="text-purple-600" />
+                        <span><b>{selectedEnrollClass.name}</b> ({enumLabel(selectedEnrollClass.programType)})</span>
                       </div>
-                    )}
-                  </div>
+                      <span>Room Capacity: <b>{selectedEnrollClass.capacity || 20} seats</b></span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Section C: Family & Guardian Information */}
-              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
-                  3. Parent / Guardian Details
+              {/* Section 3: Guardian Details */}
+              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800">
+                <div className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3 flex items-center gap-1.5">
+                  <Users size={14} />
+                  <span>3. Parent / Primary Guardian</span>
                 </div>
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Name <span className="req">*</span></label>
-                    <input className="input" name="guardianName" required placeholder="e.g. Priya Sharma" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Guardian Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="guardianName"
+                      required
+                      placeholder="e.g. Priya Patil"
+                    />
                   </div>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Relationship <span className="req">*</span></label>
-                    <select className="select" name="guardianRelationship" defaultValue="MOTHER">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Relationship <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="guardianRelationship"
+                      defaultValue="MOTHER"
+                    >
                       <option value="MOTHER">Mother</option>
                       <option value="FATHER">Father</option>
                       <option value="GRANDPARENT">Grandparent</option>
                       <option value="LEGAL_GUARDIAN">Legal Guardian</option>
                     </select>
                   </div>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Phone <span className="req">*</span></label>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Guardian Phone <span className="text-rose-500">*</span>
+                    </label>
                     <MaskedInput name="guardianPhone" mask="phone" required />
                   </div>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Guardian Email</label>
-                    <input className="input" name="guardianEmail" type="email" placeholder="priya@example.com" />
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Guardian Email</label>
+                    <input
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="guardianEmail"
+                      type="email"
+                      placeholder="e.g. priya@example.com"
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Section D: Health & Home Address */}
-              <div style={{ borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--primary)', marginBottom: 12 }}>
-                  4. Health & Home Address
+              {/* Section 4: Health & Residence */}
+              <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800">
+                <div className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-3 flex items-center gap-1.5">
+                  <Activity size={14} />
+                  <span>4. Health & Residence</span>
                 </div>
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-                  <div className="field">
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Blood Group</label>
-                    <select className="select" name="bloodGroup" defaultValue="">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Blood Group</label>
+                    <select
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="bloodGroup"
+                      defaultValue=""
+                    >
                       <option value="">- Unknown / Not recorded -</option>
                       {['A_POSITIVE','A_NEGATIVE','B_POSITIVE','B_NEGATIVE','AB_POSITIVE','AB_NEGATIVE','O_POSITIVE','O_NEGATIVE'].map((b) => (
                         <option key={b} value={b}>{b.replace('_POSITIVE','+').replace('_NEGATIVE','-')}</option>
                       ))}
                     </select>
                   </div>
-                  <div className="field" style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Residential Address</label>
-                    <input className="input" name="address" placeholder="Flat 402, Green Valley Apartments, Pune" />
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Residential Address</label>
+                    <input
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      name="address"
+                      placeholder="Flat 402, Green Valley Apartments, Pune"
+                    />
                   </div>
                 </div>
               </div>
             </div>
           </EnterNav>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 24, borderTop: '1px solid var(--border-default)', paddingTop: 16 }}>
-            <span style={{ fontSize: 12, color: draftSaved ? 'var(--success)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              {draftSaved ? <><CheckCircle2 size={13} /> Draft autosaved</> : 'Autosaves as you type'}
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              {draftSaved ? (
+                <>
+                  <CheckCircle2 size={13} className="text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Draft autosaved</span>
+                </>
+              ) : (
+                'Autosaves as you type'
+              )}
             </span>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setCreateOpen(false)}>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                onClick={() => setCreateOpen(false)}
+              >
                 Cancel
               </button>
               <button
                 type="submit"
-                className={`btn btn-primary ${saving ? 'is-loading' : ''}`}
                 disabled={saving}
-                style={{ height: 42, padding: '0 20px', borderRadius: 9, fontWeight: 600 }}
+                className="bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-xl font-semibold text-sm shadow-sm flex items-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
               >
-                {saving ? 'Admitting...' : 'Complete Enrollment'}
+                {saving ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Admitting...</span>
+                  </>
+                ) : (
+                  <span>Complete Enrollment</span>
+                )}
               </button>
             </div>
           </div>
         </form>
       </Modal>
 
-      {/* 9. Bulk Assign Classroom Modal */}
+      {/* ── 7. BULK ASSIGN CLASSROOM MODAL ── */}
       <Modal
         open={bulkClassOpen}
         onClose={() => setBulkClassOpen(false)}
@@ -1213,61 +1431,51 @@ export default function StudentsPage() {
         subtitle={`Move ${selected.length} child${selected.length === 1 ? '' : 'ren'} to a new section`}
         icon={<ArrowRightLeft size={22} />}
       >
-        <form onSubmit={applyBulkClass}>
-          <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
-            <Field label="Destination class / section" required helper="Classroom capacity is strictly enforced on the server.">
-              <select
-                className="select"
-                value={bulkNewClass}
-                onChange={(e) => setBulkNewClass(e.target.value)}
-                required
-              >
-                <option value="">- Select classroom -</option>
-                {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Capacity: ${c.capacity}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
+        <form onSubmit={applyBulkClass} className="space-y-4">
+          <Field label="Destination class / section" required helper="Classroom capacity is strictly enforced on the server.">
+            <select
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={bulkNewClass}
+              onChange={(e) => setBulkNewClass(e.target.value)}
+              required
+            >
+              <option value="">- Select classroom -</option>
+              {classrooms.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({enumLabel(c.programType)}) {c.capacity ? `· Capacity: ${c.capacity} seats` : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-            {selectedBulkClass && (
-              <div
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  background: 'var(--primary-light)',
-                  border: '1px solid var(--primary-light)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: 12.5,
-                  color: 'var(--primary)',
-                }}
-              >
-                <span>Moving to <b>{selectedBulkClass.name}</b></span>
-                <span>Capacity: <b>{selectedBulkClass.capacity || 20} seats</b></span>
-              </div>
-            )}
+          {selectedBulkClass && (
+            <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 flex items-center justify-between text-xs text-purple-900 dark:text-purple-200">
+              <span>Moving to <b>{selectedBulkClass.name}</b></span>
+              <span>Capacity: <b>{selectedBulkClass.capacity || 20} seats</b></span>
+            </div>
+          )}
 
-            <Field label="Reason (for audit trail)">
-              <input
-                className="input"
-                value={bulkReason}
-                onChange={(e) => setBulkReason(e.target.value)}
-                placeholder="e.g. Sibling placement, cohort regrouping, teacher request"
-              />
-            </Field>
-          </div>
+          <Field label="Reason (for audit trail)">
+            <input
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              placeholder="e.g. Sibling placement, cohort regrouping, teacher request"
+            />
+          </Field>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setBulkClassOpen(false)}>
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <button
+              type="button"
+              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              onClick={() => setBulkClassOpen(false)}
+            >
               Cancel
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`}
               disabled={bulkAssigning || !bulkNewClass || selected.length === 0}
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50"
             >
               {bulkAssigning ? 'Moving...' : `Assign ${selected.length} child${selected.length === 1 ? '' : 'ren'}`}
             </button>
@@ -1275,76 +1483,78 @@ export default function StudentsPage() {
         </form>
       </Modal>
 
-      {/* 10. Bulk Change Status Modal */}
+      {/* ── 8. BULK CHANGE STATUS MODAL ── */}
       <Modal
         open={bulkStatusOpen}
         onClose={() => setBulkStatusOpen(false)}
         title="Update Student Lifecycle Status"
-        subtitle={`Update ${selected.length} child${selected.length === 1 ? '' : 'ren'} status`}
+        subtitle={`Update status for ${selected.length} selected child${selected.length === 1 ? '' : 'ren'}`}
         icon={<CheckSquare2 size={22} />}
       >
-        <form onSubmit={applyBulkStatus}>
-          <div className="form-grid" style={{ gridTemplateColumns: '1fr', gap: 14 }}>
-            <Field label="New lifecycle status" required>
-              <select
-                className="select"
-                value={bulkNewStatus}
-                onChange={(e) => setBulkNewStatus(e.target.value)}
-                required
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="TRANSFERRED">Transferred</option>
-                <option value="WITHDRAWN">Withdrawn</option>
-                <option value="SUSPENDED">Suspended</option>
-                <option value="GRADUATED">Graduated</option>
-              </select>
-            </Field>
-            <Field label="Reason for change" required helper="Required for administrative compliance and immutable audit trail.">
-              <input
-                className="input"
-                value={bulkReason}
-                onChange={(e) => setBulkReason(e.target.value)}
-                required
-                placeholder="Why is this status being applied?"
-              />
-            </Field>
-          </div>
+        <form onSubmit={applyBulkStatus} className="space-y-4">
+          <Field label="New lifecycle status" required>
+            <select
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={bulkNewStatus}
+              onChange={(e) => setBulkNewStatus(e.target.value)}
+              required
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="TRANSFERRED">Transferred</option>
+              <option value="WITHDRAWN">Withdrawn</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="GRADUATED">Graduated</option>
+            </select>
+          </Field>
+          <Field label="Reason for change" required helper="Required for administrative compliance and immutable audit trail.">
+            <input
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              required
+              placeholder="Why is this status being applied?"
+            />
+          </Field>
 
           {bulkNewStatus === 'WITHDRAWN' && (
-            <div
-              style={{
-                marginTop: 14,
-                padding: '10px 14px',
-                borderRadius: 8,
-                background: 'var(--danger-soft)',
-                border: '1px solid var(--danger-soft)',
-                color: 'var(--danger)',
-                fontSize: 12.5,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
-            >
-              <AlertCircle size={16} />
-              <span>Withdrawal is non-destructive. Students with pending fees may require settlement before withdrawal.</span>
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle size={15} />
+              <span>Withdrawal is non-destructive. Financial and academic records are preserved.</span>
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 22 }}>
-            <button type="button" className="btn btn-ghost" onClick={() => setBulkStatusOpen(false)}>
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <button
+              type="button"
+              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              onClick={() => setBulkStatusOpen(false)}
+            >
               Cancel
             </button>
             <button
               type="submit"
-              className={`btn btn-primary ${bulkAssigning ? 'is-loading' : ''}`}
               disabled={bulkAssigning || selected.length === 0}
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50"
             >
               {bulkAssigning ? 'Updating...' : `Update ${selected.length} child${selected.length === 1 ? '' : 'ren'}`}
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* Side-Peek Inspector Drawer */}
+      <RecordInspector
+        open={Boolean(inspectingStudent)}
+        onClose={() => setInspectingStudent(null)}
+        type="student"
+        recordId={inspectingStudent?.id}
+        initialData={inspectingStudent}
+        onEdit={(s) => {
+          setInspectingStudent(null)
+          router.push(`/app/students/${s.id}?edit=true`)
+        }}
+      />
     </div>
   )
 }

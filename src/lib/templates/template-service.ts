@@ -563,19 +563,27 @@ export class TemplateService {
             { key: 'amount', label: 'Amount', widthPercent: 40, align: 'right' },
           ]
 
-          return `<div class="tmpl-element tmpl-table" ${styleAttr}>
-            <table style="width: 100%; border-collapse: collapse; font-size: 8pt;">
-              <thead>
-                <tr style="background: #f8fafc; border-bottom: 1.5px solid #cbd5e1;">
+          const dynamicRows = Array.isArray(dataContext['table.rows']) ? dataContext['table.rows'] : null
+
+          let bodyRowsHtml = ''
+          if (dynamicRows && dynamicRows.length > 0) {
+            bodyRowsHtml = dynamicRows
+              .map(
+                (row: any) => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
                   ${cols
                     .map(
-                      (c) =>
-                        `<th style="padding: 4px 6px; text-align: ${c.align}; width: ${c.widthPercent}%; font-weight: 600; color: #334155;">${c.label}</th>`
+                      (c: any) =>
+                        `<td style="padding: 4px 6px; text-align: ${c.align}; font-weight: ${
+                          c.key === 'rating' || c.key === 'grade' || c.key === 'amount' ? '600' : 'normal'
+                        }; color: #334155;">${row[c.key] ?? row[c.key.toLowerCase()] ?? ''}</td>`
                     )
                     .join('')}
-                </tr>
-              </thead>
-              <tbody>
+                </tr>`
+              )
+              .join('')
+          } else {
+            bodyRowsHtml = `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
                   <td style="padding: 4px 6px; text-align: left;">Term 1 Tuition & Learning Curriculum</td>
                   <td style="padding: 4px 6px; text-align: left;">Term 1</td>
@@ -590,7 +598,23 @@ export class TemplateService {
                   <td style="padding: 4px 6px; text-align: left;">Activity Kit, Phonics Readers & Art Supplies</td>
                   <td style="padding: 4px 6px; text-align: left;">Annual</td>
                   <td style="padding: 4px 6px; text-align: right; font-weight: 600;">₹2,000.00</td>
+                </tr>`
+          }
+
+          return `<div class="tmpl-element tmpl-table" ${styleAttr}>
+            <table style="width: 100%; border-collapse: collapse; font-size: 8pt;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 1.5px solid #cbd5e1;">
+                  ${cols
+                    .map(
+                      (c: any) =>
+                        `<th style="padding: 4px 6px; text-align: ${c.align}; width: ${c.widthPercent}%; font-weight: 600; color: #334155;">${c.label}</th>`
+                    )
+                    .join('')}
                 </tr>
+              </thead>
+              <tbody>
+                ${bodyRowsHtml}
               </tbody>
             </table>
           </div>`

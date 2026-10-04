@@ -21,8 +21,10 @@ export interface TransportSecurityContext {
 export interface CreatePickupAuthInput {
   studentId: string
   guardianId?: string
-  personName: string
-  phone: string
+  personName?: string
+  authorizedPersonName?: string
+  phone?: string
+  authorizedPersonPhone?: string
   relationship: string
   reason: string
   validFrom: Date | string
@@ -647,14 +649,16 @@ export class TransportSecurityService {
    */
   static async getSecurityLogs(
     ctx: TransportSecurityContext,
-    filter?: { eventType?: TransportSecurityEventType; studentId?: string; limit?: number }
+    filter?: { eventType?: TransportSecurityEventType; studentId?: string; driverId?: string; driverProfileId?: string; limit?: number }
   ) {
     const limit = filter?.limit ?? 50
+    const driverId = filter?.driverProfileId || filter?.driverId
     return db.transportSecurityEvent.findMany({
       where: {
         tenantId: ctx.tenantId,
         ...(filter?.eventType ? { eventType: filter.eventType } : {}),
         ...(filter?.studentId ? { studentId: filter.studentId } : {}),
+        ...(driverId ? { driverProfileId: driverId } : {}),
       },
       include: {
         student: { select: { id: true, firstName: true, lastName: true, admissionNo: true } },

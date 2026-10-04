@@ -5,6 +5,38 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { AcademicService } from '@/lib/academics/academic-service'
 
 /**
+ * GET /api/v1/academics/activities/[id] — Retrieve single activity detail
+ */
+async function _GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await requireApi(req, 'academics:read')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+
+  const { id } = await params
+
+  try {
+    const activity = await AcademicService.getActivity(
+      {
+        tenantId: session.tenantId,
+        branchId: session.branchId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      id
+    )
+
+    if (!activity) return Errors.notFound('Activity')
+    return ok(activity)
+  } catch (e: any) {
+    return Errors.notFound('Activity')
+  }
+}
+
+/**
  * PATCH /api/v1/academics/activities/[id] — Update activity status or details
  */
 async function _PATCH(
@@ -37,4 +69,5 @@ async function _PATCH(
   }
 }
 
+export const GET = withApi(_GET)
 export const PATCH = withApi(_PATCH)

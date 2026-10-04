@@ -17,6 +17,8 @@ import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
+import { getStoredShellGlowConfig, applyShellGlowToDom } from '@/lib/theme/shell-glow'
+import type { BrandingConfig } from '@/lib/branding-types'
 
 export interface ShellUser {
   name: string
@@ -26,7 +28,15 @@ export interface ShellUser {
   branchName: string | null
 }
 
-export function AppShell({ user, children }: { user: ShellUser; children: React.ReactNode }) {
+export function AppShell({
+  user,
+  branding,
+  children,
+}: {
+  user: ShellUser
+  branding?: BrandingConfig
+  children: React.ReactNode
+}) {
   const router = useRouter()
   const pathname = usePathname()
 
@@ -128,7 +138,9 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   useEffect(() => {
     const t = (localStorage.getItem('preone-theme') as 'light' | 'dark') || 'light'
     document.documentElement.setAttribute('data-theme', t)
+    document.documentElement.classList.toggle('dark', t === 'dark')
     queueMicrotask(() => setTheme(t))
+    applyShellGlowToDom(getStoredShellGlowConfig())
   }, [])
 
   const toggleTheme = useCallback(() => {
@@ -136,6 +148,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       const next = prev === 'light' ? 'dark' : 'light'
       localStorage.setItem('preone-theme', next)
       document.documentElement.setAttribute('data-theme', next)
+      document.documentElement.classList.toggle('dark', next === 'dark')
       return next
     })
   }, [])
@@ -222,7 +235,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
   const filteredTiles = q ? nav.filter((n) => n.label.toLowerCase().includes(q)) : nav
 
   const roleLabel = enumLabel(user.role)
-  const initials = user.name.split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
+  const initials = (user.name || user.email || 'User').split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
   const attentionTotal = attention.invited + attention.suspended
 
   return (
@@ -232,6 +245,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       {/* ── Global Workspace Top Bar (Reference Match) ── */}
       <GlobalWorkspaceHeader
         user={user}
+        branding={branding}
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenSearch={() => setSearchModalOpen(true)}
@@ -292,6 +306,7 @@ export function AppShell({ user, children }: { user: ShellUser; children: React.
       <GlobalSearchModal
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
+        user={user}
       />
 
       {/* ── Keyboard shortcut cheat sheet (? key) ── */}

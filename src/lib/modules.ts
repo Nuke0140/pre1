@@ -16,6 +16,7 @@ export interface ModuleMeta {
   tileSize: TileSize
   semanticTheme?: SemanticTheme
   quickActions?: QuickAction[]
+  animation?: string
 }
 
 export interface SemanticThemeTokens {
@@ -31,6 +32,7 @@ export interface HomeModule extends NavItem {
   tileSize: TileSize
   semanticTheme: SemanticTheme
   quickActions: QuickAction[]
+  animation?: string
 }
 
 export const SEMANTIC_THEME_TOKENS: Record<SemanticTheme, SemanticThemeTokens> = {
@@ -91,7 +93,7 @@ const DEFAULT_META: ModuleMeta = {
   semanticTheme: 'lavender',
 }
 
-const MODULE_META: Record<string, ModuleMeta> = {
+export const MODULE_META: Record<string, ModuleMeta> = {
   home: {
     description: 'Your control center',
     tileSize: 'md',
@@ -101,48 +103,75 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Insights at a glance',
     tileSize: 'lg',
     semanticTheme: 'blue',
+    animation: '/animations/home/dashboard.json',
+  },
+  'daily-diary': {
+    description: 'Timetable, activities & attendance',
+    tileSize: 'lg',
+    semanticTheme: 'teal',
+    animation: '/animations/home/daily_diary.json',
+    quickActions: [
+      { label: "Today's Schedule", href: '/app/daily-diary', perm: 'attendance:read' },
+      { label: 'Mark Attendance', href: '/app/daily-diary?tab=attendance', perm: 'attendance:mark' },
+      { label: 'Add Activity', href: '/app/daily-diary?tab=activities', perm: 'academics:write' },
+    ],
   },
   users: {
     description: 'Manage access & roles',
     tileSize: 'md',
     semanticTheme: 'teal',
+    animation: '/animations/home/users.json',
     quickActions: [{ label: 'Add user', href: '/app/users', perm: 'users:write' }],
   },
   hr: {
     description: 'Staff, leaves & payroll',
     tileSize: 'md',
     semanticTheme: 'orange',
+    animation: '/animations/home/hr_workforce.json',
   },
   setup: {
     description: 'School configuration',
     tileSize: 'sm',
     semanticTheme: 'lavender',
+    animation: '/animations/home/setup.json',
   },
   admissions: {
     description: 'Inquiries & enrollments',
     tileSize: 'lg',
     semanticTheme: 'pink',
+    animation: '/animations/home/admissions.json',
     quickActions: [
       { label: 'Record enquiry', href: '/app/admissions', perm: 'admissions:write' },
       { label: 'New application', href: '/app/admissions', perm: 'admissions:write' },
     ],
   },
-  academics: {
-    description: 'Classes, curriculum & learning',
-    tileSize: 'md',
-    semanticTheme: 'blue',
-  },
   students: {
     description: 'Student records & profiles',
     tileSize: 'lg',
     semanticTheme: 'green',
+    animation: '/animations/home/students.json',
     quickActions: [{ label: 'Add student', href: '/app/students', perm: 'students:write' }],
   },
-  attendance: {
-    description: 'Track daily attendance',
-    tileSize: 'md',
-    semanticTheme: 'pink',
-    quickActions: [{ label: 'Mark attendance', href: '/app/attendance', perm: 'attendance:mark' }],
+  learning: {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
+  },
+  'preo-learning': {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
+  },
+  preo_learning: {
+    description: 'Early childhood curriculum & activities',
+    tileSize: 'lg',
+    semanticTheme: 'lavender',
+    animation: '/animations/home/preo_learning_mascot.json',
+    quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
   },
   operations: {
     description: 'Daily school operations',
@@ -153,6 +182,7 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Routes & vehicle tracking',
     tileSize: 'lg',
     semanticTheme: 'blue',
+    animation: '/animations/home/transport.json',
     quickActions: [
       { label: "Today's trips", href: '/app/transport?tab=trips', perm: 'transport:trip' },
       { label: 'Assign student', href: '/app/transport?tab=students', perm: 'transport:assign' },
@@ -162,6 +192,7 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Supplies & assets',
     tileSize: 'lg',
     semanticTheme: 'orange',
+    animation: '/animations/home/inventory.json',
     quickActions: [
       { label: 'Request materials', href: '/app/inventory?tab=requests', perm: 'inventory:request' },
       { label: 'Receive stock', href: '/app/inventory?tab=grn', perm: 'inventory:receive' },
@@ -171,12 +202,31 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Billing & payments',
     tileSize: 'lg',
     semanticTheme: 'green',
+    animation: '/animations/home/fees.json',
+    quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
+  },
+  fees: {
+    description: 'Billing & payments',
+    tileSize: 'lg',
+    semanticTheme: 'green',
+    animation: '/animations/home/fees.json',
     quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
   },
   reports: {
     description: 'Data-driven insights',
     tileSize: 'lg',
     semanticTheme: 'purple',
+    animation: '/animations/home/reports_analytics.json',
+    quickActions: [
+      { label: 'Executive MIS', href: '/app/reports?tab=executive', perm: 'reports:read' },
+      { label: 'Custom Builder', href: '/app/reports?tab=custom', perm: 'reports:custom' },
+    ],
+  },
+  reports_analytics: {
+    description: 'Data-driven insights',
+    tileSize: 'lg',
+    semanticTheme: 'purple',
+    animation: '/animations/home/reports_analytics.json',
     quickActions: [
       { label: 'Executive MIS', href: '/app/reports?tab=executive', perm: 'reports:read' },
       { label: 'Custom Builder', href: '/app/reports?tab=custom', perm: 'reports:custom' },
@@ -186,17 +236,33 @@ const MODULE_META: Record<string, ModuleMeta> = {
     description: 'Communicate with your community',
     tileSize: 'md',
     semanticTheme: 'pink',
+    animation: '/animations/home/announcements.json',
+    quickActions: [{ label: 'Send announcement', href: '/app/communication', perm: 'communication:write' }],
+  },
+  announcements: {
+    description: 'Communicate with your community',
+    tileSize: 'md',
+    semanticTheme: 'pink',
+    animation: '/animations/home/announcements.json',
     quickActions: [{ label: 'Send announcement', href: '/app/communication', perm: 'communication:write' }],
   },
   settings: {
     description: 'System preferences',
     tileSize: 'sm',
     semanticTheme: 'blue',
+    animation: '/animations/home/settings.json',
   },
   audit: {
     description: 'Track system activities',
     tileSize: 'sm',
     semanticTheme: 'orange',
+    animation: '/animations/home/audit_logs.json',
+  },
+  audit_logs: {
+    description: 'Track system activities',
+    tileSize: 'sm',
+    semanticTheme: 'orange',
+    animation: '/animations/home/audit_logs.json',
   },
   platform: {
     description: 'Multi-tenant platform console',
@@ -215,6 +281,7 @@ export function homeModules(roleOrRoles: Role | Role[]): HomeModule[] {
       description: meta.description,
       tileSize: meta.tileSize,
       semanticTheme: meta.semanticTheme ?? 'lavender',
+      animation: meta.animation,
       quickActions: qas,
     }
   })

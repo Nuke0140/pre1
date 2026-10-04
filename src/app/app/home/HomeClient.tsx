@@ -2,11 +2,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react'
 import type { Role } from '@/lib/auth'
+import type { BrandingConfig } from '@/lib/branding-types'
 import { homeModules, type HomeModule } from '@/lib/modules'
 import { ModuleCard, PLogoWordmark } from '@/components/preone'
 
 export interface HomeClientProps {
   role: Role
+  branding?: BrandingConfig
   user?: {
     name: string
     role: Role
@@ -14,7 +16,7 @@ export interface HomeClientProps {
   }
 }
 
-export function HomeClient({ role, user }: HomeClientProps) {
+export function HomeClient({ role, branding, user }: HomeClientProps) {
   const [greeting, setGreeting] = useState('Welcome back')
 
   useEffect(() => {
@@ -36,7 +38,17 @@ export function HomeClient({ role, user }: HomeClientProps) {
       {/* ── Centered PreOne Brand Logo & Preschool Workspace Context ── */}
       <section className="home-center-hero" aria-label="PreOne Home">
         <div className="home-center-brand">
-          <PLogoWordmark subtitle="Preschool OS" />
+          {branding?.logoUrl ? (
+            <div className="flex flex-col items-center gap-2">
+              <img
+                src={branding.logoUrl}
+                alt={user?.tenantName || 'School Logo'}
+                className="h-16 max-h-16 max-w-[260px] object-contain drop-shadow-sm rounded-lg"
+              />
+            </div>
+          ) : (
+            <PLogoWordmark subtitle="Preschool OS" />
+          )}
         </div>
 
         {user && (

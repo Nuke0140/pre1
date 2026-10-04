@@ -34,9 +34,67 @@ export class ReportQueryEngine {
 
     // Scoped execution by reportId
     switch (reportId) {
+      // 1. EXECUTIVE
+      case 'exec-overview': {
+        const whereStudent: any = { tenantId, status: 'ACTIVE', deletedAt: null }
+        if (options.branchId || branchId) whereStudent.branchId = options.branchId || branchId
+        const studentCount = await db.student.count({ where: whereStudent })
+
+        const whereStaff: any = { tenantId, deletedAt: null }
+        if (options.branchId || branchId) whereStaff.branchId = options.branchId || branchId
+        const staffCount = await db.staffProfile.count({ where: whereStaff })
+
+        const todayStr = new Date().toISOString().slice(0, 10)
+        const whereAtt: any = { tenantId, date: new Date(todayStr), status: 'PRESENT' }
+        if (options.branchId || branchId) whereAtt.branchId = options.branchId || branchId
+        const attCount = await db.attendance.count({ where: whereAtt })
+
+        const whereInvoice: any = { tenantId, status: { not: 'CANCELLED' } }
+        if (options.branchId || branchId) whereInvoice.branchId = options.branchId || branchId
+        const invoiceAgg = await db.invoice.aggregate({
+          where: whereInvoice,
+          _sum: { totalCents: true, paidCents: true, balanceCents: true },
+        })
+        const collectedCents = invoiceAgg._sum.paidCents || 0
+        const outstandingCents = invoiceAgg._sum.balanceCents || 0
+
+        const whereRoute: any = { tenantId, status: 'ACTIVE' }
+        if (options.branchId || branchId) whereRoute.branchId = options.branchId || branchId
+        const routeCount = await db.transportRoute.count({ where: whereRoute })
+
+        const whereStock: any = { tenantId, quantity: { lte: 5 } }
+        if (options.branchId || branchId) whereStock.branchId = options.branchId || branchId
+        const lowStockCount = await db.inventoryStock.count({ where: whereStock })
+
+        const rows = [
+          { metric: 'Enrolled Students', category: 'Enrollment', value: `${studentCount} Students`, target: '100% Capacity', status: 'ON_TRACK' },
+          { metric: 'Today Attendance', category: 'Operations', value: `${attCount} Present`, target: '95%', status: attCount > 0 ? 'ON_TRACK' : 'NEEDS_ATTENTION' },
+          { metric: 'Active Workforce', category: 'Staffing', value: `${staffCount} Staff`, target: 'Full Staffing', status: 'ON_TRACK' },
+          { metric: 'Fee Collections', category: 'Finance', value: inr(collectedCents), target: inr(invoiceAgg._sum.totalCents || 0), status: 'ON_TRACK' },
+          { metric: 'Pending Dues', category: 'Finance', value: inr(outstandingCents), target: '₹0', status: outstandingCents > 0 ? 'NEEDS_ATTENTION' : 'ON_TRACK' },
+          { metric: 'Active Bus Routes', category: 'Transport', value: `${routeCount} Routes`, target: '100% Operational', status: 'ON_TRACK' },
+          { metric: 'Low Stock Alerts', category: 'Inventory', value: `${lowStockCount} Items`, target: '0 Low Stock', status: lowStockCount > 0 ? 'NEEDS_ATTENTION' : 'ON_TRACK' },
+        ]
+
+        return {
+          reportId,
+          title: reportDef.title,
+          domain: reportDef.domain,
+          freshness: reportDef.freshness,
+          total: rows.length,
+          page: 1,
+          pageSize,
+          totalPages: 1,
+          columns: reportDef.columns,
+          data: rows,
+        }
+      }
+
+      // 2. STUDENTS
       case 'students-strength': {
         const where: any = { tenantId, deletedAt: null }
         if (options.branchId || branchId) where.branchId = options.branchId || branchId
+        if (options.status) where.status = options.status
         if (isParent) {
           where.guardians = { some: { guardian: { userId: actorId } } }
         }
@@ -47,6 +105,13 @@ export class ReportQueryEngine {
         }
         if (options.classroomId) {
           where.allocations = { some: { classroomId: options.classroomId } }
+        }
+        if (options.search) {
+          where.OR = [
+            { firstName: { contains: options.search, mode: 'insensitive' } },
+            { lastName: { contains: options.search, mode: 'insensitive' } },
+            { admissionNo: { contains: options.search, mode: 'insensitive' } },
+          ]
         }
 
         const total = await db.student.count({ where })
@@ -88,6 +153,285 @@ export class ReportQueryEngine {
         }
       }
 
+      // 3. ADMISSIONS
+      case 'admissions-funnel': {
+        const where: any = { tenantId, deletedAt: null }
+        if (options.branchId || branchId) where.branchId = options.branchId || branchId
+        if (options.status) where.status = options.status
+        if (options.search) {
+          where.OR = [
+            { leadNumber: { contains: options.search, mode: 'insensitive' } },
+            { parentName: { contains: options.search, mode: 'insensitive' } },
+            { childName: { contains: options.search, mode: 'insensitive' } },
+          ]
+        }
+        if (options.startDate && options.endDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          const e = new Date(options.endDate)
+          e.setHours(23, 59, 59, 999)
+          where.createdAt = { gte: s, lte: e }
+        }
+
+        const total = await db.lead.count({ where })
+        const leads = await db.lead.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: pageSize,
+        })
+
+        const data = leads.map((l) => ({
+          leadNumber: l.leadNumber,
+          parentName: l.parentName,
+          childName: l.childName || '—',
+          source: l.source,
+          stage: l.status,
+          status: l.status,
+          createdAt: fmtDate(l.createdAt),
+        }))
+
+        return {
+          reportId,
+          title: reportDef.title,
+          domain: reportDef.domain,
+          freshness: reportDef.freshness,
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize) || 1,
+          columns: reportDef.columns,
+          data,
+        }
+      }
+
+      // 4. ATTENDANCE
+      case 'attendance-daily': {
+        const where: any = { tenantId }
+        if (options.branchId || branchId) where.branchId = options.branchId || branchId
+        if (options.status) where.status = options.status
+        if (options.classroomId) where.classroomId = options.classroomId
+
+        if (options.startDate && options.endDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          const e = new Date(options.endDate)
+          e.setHours(23, 59, 59, 999)
+          where.date = { gte: s, lte: e }
+        } else if (options.startDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          where.date = s
+        } else {
+          const targetDate = new Date()
+          targetDate.setHours(0, 0, 0, 0)
+          where.date = targetDate
+        }
+
+        if (isParent) {
+          where.student = { guardians: { some: { guardian: { userId: actorId } } } }
+        }
+        if (isTeacher) {
+          where.student = {
+            ...where.student,
+            allocations: {
+              some: { classroom: { primaryTeacherId: actorId } },
+            },
+          }
+        }
+        if (options.search) {
+          where.student = {
+            ...where.student,
+            OR: [
+              { firstName: { contains: options.search, mode: 'insensitive' } },
+              { lastName: { contains: options.search, mode: 'insensitive' } },
+              { admissionNo: { contains: options.search, mode: 'insensitive' } },
+            ],
+          }
+        }
+
+        const total = await db.attendance.count({ where })
+        const records = await db.attendance.findMany({
+          where,
+          include: {
+            student: {
+              include: {
+                allocations: {
+                  where: { status: 'ACTIVE' },
+                  include: { classroom: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+          orderBy: { date: 'desc' },
+          skip,
+          take: pageSize,
+        })
+
+        const data = records.map((r) => ({
+          date: fmtDate(r.date),
+          admissionNumber: r.student?.admissionNo || '—',
+          studentName: r.student
+            ? `${r.student.firstName} ${r.student.lastName || ''}`.trim()
+            : '—',
+          classroom: r.student?.allocations[0]?.classroom?.name || 'Unassigned',
+          status: r.status,
+          arrivalTime: '—',
+          notes: r.notes || '—',
+        }))
+
+        return {
+          reportId,
+          title: reportDef.title,
+          domain: reportDef.domain,
+          freshness: reportDef.freshness,
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize) || 1,
+          columns: reportDef.columns,
+          data,
+        }
+      }
+
+      // 5. OPERATIONS
+      case 'operations-daily': {
+        const where: any = { tenantId }
+        if (isParent) {
+          where.student = { guardians: { some: { guardian: { userId: actorId } } } }
+        }
+        if (isTeacher) {
+          where.student = {
+            ...where.student,
+            allocations: {
+              some: { classroom: { primaryTeacherId: actorId } },
+            },
+          }
+        }
+        if (options.classroomId) {
+          where.classroomId = options.classroomId
+        }
+        if (options.startDate && options.endDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          const e = new Date(options.endDate)
+          e.setHours(23, 59, 59, 999)
+          where.createdAt = { gte: s, lte: e }
+        }
+        if (options.search) {
+          where.OR = [
+            { title: { contains: options.search, mode: 'insensitive' } },
+            { body: { contains: options.search, mode: 'insensitive' } },
+            { student: { firstName: { contains: options.search, mode: 'insensitive' } } },
+            { student: { lastName: { contains: options.search, mode: 'insensitive' } } },
+          ]
+        }
+
+        const total = await db.timelineEntry.count({ where })
+        const entries = await db.timelineEntry.findMany({
+          where,
+          include: { student: true },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: pageSize,
+        })
+
+        const data = entries.map((e) => ({
+          time: e.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          studentName: e.student ? `${e.student.firstName} ${e.student.lastName || ''}`.trim() : '—',
+          type: e.type,
+          title: e.title,
+          description: e.body || '—',
+          isImportant: false,
+        }))
+
+        return {
+          reportId,
+          title: reportDef.title,
+          domain: reportDef.domain,
+          freshness: reportDef.freshness,
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize) || 1,
+          columns: reportDef.columns,
+          data,
+        }
+      }
+
+      // 6. ACADEMICS
+      case 'academics-milestones': {
+        const where: any = { tenantId }
+        if (isParent) {
+          where.student = { guardians: { some: { guardian: { userId: actorId } } } }
+        }
+        if (isTeacher) {
+          where.student = {
+            ...where.student,
+            allocations: {
+              some: { classroom: { primaryTeacherId: actorId } },
+            },
+          }
+        }
+        if (options.classroomId) {
+          where.classroomId = options.classroomId
+        }
+        if (options.status) {
+          where.status = options.status
+        }
+        if (options.search) {
+          where.OR = [
+            { narrative: { contains: options.search, mode: 'insensitive' } },
+            { milestoneTags: { contains: options.search, mode: 'insensitive' } },
+            { student: { firstName: { contains: options.search, mode: 'insensitive' } } },
+            { student: { lastName: { contains: options.search, mode: 'insensitive' } } },
+          ]
+        }
+
+        const total = await db.observation.count({ where })
+        const observations = await db.observation.findMany({
+          where,
+          include: {
+            student: {
+              include: {
+                allocations: {
+                  where: { status: 'ACTIVE' },
+                  include: { classroom: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+          orderBy: { observedAt: 'desc' },
+          skip,
+          take: pageSize,
+        })
+
+        const data = observations.map((o) => ({
+          studentName: o.student ? `${o.student.firstName} ${o.student.lastName || ''}`.trim() : '—',
+          classroom: o.student?.allocations[0]?.classroom?.name || 'Unassigned',
+          learningArea: o.category || 'Early Development',
+          milestone: o.milestoneTags || o.narrative.slice(0, 40) + '...',
+          status: o.status,
+          assessedAt: fmtDate(o.observedAt),
+        }))
+
+        return {
+          reportId,
+          title: reportDef.title,
+          domain: reportDef.domain,
+          freshness: reportDef.freshness,
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize) || 1,
+          columns: reportDef.columns,
+          data,
+        }
+      }
+
+      // 7. FINANCE - COLLECTIONS
       case 'finance-collections': {
         const where: any = {
           tenantId,
@@ -99,6 +443,20 @@ export class ReportQueryEngine {
             ...where.invoice,
             student: { guardians: { some: { guardian: { userId: actorId } } } },
           }
+        }
+        if (options.search) {
+          where.OR = [
+            { paymentNumber: { contains: options.search, mode: 'insensitive' } },
+            { transactionRef: { contains: options.search, mode: 'insensitive' } },
+            { invoice: { invoiceNumber: { contains: options.search, mode: 'insensitive' } } },
+          ]
+        }
+        if (options.startDate && options.endDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          const e = new Date(options.endDate)
+          e.setHours(23, 59, 59, 999)
+          where.paymentDate = { gte: s, lte: e }
         }
 
         const total = await db.payment.count({ where })
@@ -150,6 +508,7 @@ export class ReportQueryEngine {
         }
       }
 
+      // 8. FINANCE - OUTSTANDING
       case 'finance-outstanding': {
         const where: any = {
           tenantId,
@@ -159,8 +518,23 @@ export class ReportQueryEngine {
         if (options.branchId || branchId) where.branchId = options.branchId || branchId
         if (options.academicSessionId || academicSessionId)
           where.academicSessionId = options.academicSessionId || academicSessionId
+        if (options.status) where.status = options.status
         if (isParent) {
           where.student = { guardians: { some: { guardian: { userId: actorId } } } }
+        }
+        if (options.search) {
+          where.OR = [
+            { invoiceNumber: { contains: options.search, mode: 'insensitive' } },
+            { student: { firstName: { contains: options.search, mode: 'insensitive' } } },
+            { student: { lastName: { contains: options.search, mode: 'insensitive' } } },
+          ]
+        }
+        if (options.startDate && options.endDate) {
+          const s = new Date(options.startDate)
+          s.setHours(0, 0, 0, 0)
+          const e = new Date(options.endDate)
+          e.setHours(23, 59, 59, 999)
+          where.dueDate = { gte: s, lte: e }
         }
 
         const total = await db.invoice.count({ where })
@@ -170,14 +544,14 @@ export class ReportQueryEngine {
             student: {
               include: {
                 allocations: {
-where: { status: 'ACTIVE' },
-                   include: { classroom: true },
-                   take: 1,
-                 },
-               },
-             },
-           },
-           orderBy: { dueDate: 'asc' },
+                  where: { status: 'ACTIVE' },
+                  include: { classroom: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+          orderBy: { dueDate: 'asc' },
           skip,
           take: pageSize,
         })
@@ -223,74 +597,17 @@ where: { status: 'ACTIVE' },
         }
       }
 
-      case 'attendance-daily': {
-        const targetDate = options.startDate ? new Date(options.startDate) : new Date()
-        targetDate.setHours(0, 0, 0, 0)
-        const where: any = {
-          tenantId,
-          date: targetDate,
-        }
-        if (options.branchId || branchId) where.branchId = options.branchId || branchId
-        if (isParent) {
-          where.student = { guardians: { some: { guardian: { userId: actorId } } } }
-        }
-        if (isTeacher) {
-          where.student = {
-            ...where.student,
-            allocations: {
-              some: { classroom: { primaryTeacherId: actorId } },
-            },
-          }
-        }
-
-        const total = await db.attendance.count({ where })
-        const records = await db.attendance.findMany({
-          where,
-          include: {
-            student: {
-              include: {
-                allocations: {
-                  where: { status: 'ACTIVE' },
-                  include: { classroom: true },
-                  take: 1,
-                },
-              },
-            },
-          },
-          orderBy: { date: 'desc' },
-          skip,
-          take: pageSize,
-        })
-
-        const data = records.map((r) => ({
-          date: fmtDate(r.date),
-          admissionNumber: r.student?.admissionNo || '—',
-          studentName: r.student
-            ? `${r.student.firstName} ${r.student.lastName || ''}`.trim()
-            : '—',
-          classroom: r.student?.allocations[0]?.classroom?.name || 'Unassigned',
-          status: r.status,
-          arrivalTime: '—',
-          notes: r.notes || '—',
-        }))
-
-        return {
-          reportId,
-          title: reportDef.title,
-          domain: reportDef.domain,
-          freshness: reportDef.freshness,
-          total,
-          page,
-          pageSize,
-          totalPages: Math.ceil(total / pageSize) || 1,
-          columns: reportDef.columns,
-          data,
-        }
-      }
-
+      // 9. HR & WORKFORCE
       case 'hr-headcount': {
         const where: any = { tenantId, deletedAt: null }
         if (options.branchId || branchId) where.branchId = options.branchId || branchId
+        if (options.search) {
+          where.OR = [
+            { employeeCode: { contains: options.search, mode: 'insensitive' } },
+            { designation: { contains: options.search, mode: 'insensitive' } },
+            { department: { contains: options.search, mode: 'insensitive' } },
+          ]
+        }
 
         const total = await db.staffProfile.count({ where })
         const staff = await db.staffProfile.findMany({
@@ -335,9 +652,17 @@ where: { status: 'ACTIVE' },
         }
       }
 
+      // 10. TRANSPORT
       case 'transport-utilization': {
         const where: any = { tenantId }
         if (options.branchId || branchId) where.branchId = options.branchId || branchId
+        if (options.status) where.status = options.status
+        if (options.search) {
+          where.OR = [
+            { code: { contains: options.search, mode: 'insensitive' } },
+            { name: { contains: options.search, mode: 'insensitive' } },
+          ]
+        }
 
         const total = await db.transportRoute.count({ where })
         const routes = await db.transportRoute.findMany({
@@ -380,11 +705,21 @@ where: { status: 'ACTIVE' },
         }
       }
 
+      // 11. INVENTORY
       case 'inventory-valuation': {
         const where: any = {
           item: { tenantId, isActive: true },
         }
         if (options.branchId || branchId) where.location = { branchId: options.branchId || branchId }
+        if (options.search) {
+          where.item = {
+            ...where.item,
+            OR: [
+              { name: { contains: options.search, mode: 'insensitive' } },
+              { sku: { contains: options.search, mode: 'insensitive' } },
+            ],
+          }
+        }
 
         const total = await db.inventoryStock.count({ where })
         const stocks = await db.inventoryStock.findMany({

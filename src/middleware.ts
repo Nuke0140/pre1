@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession, SESSION_COOKIE } from '@/lib/auth'
 
-const PUBLIC_PATHS = ['/api/v1/auth/login']
+const PUBLIC_PATHS = ['/api/v1/auth/login', '/api/v1/auth/branding']
 
 function resolveTraceId(req: NextRequest): string {
   const incoming = req.headers.get('x-trace-id') || req.headers.get('traceparent')
@@ -27,7 +27,7 @@ export async function middleware(req: NextRequest) {
 
   const isProtectedPage = pathname.startsWith('/app') || pathname.startsWith('/onboard')
   const isProtectedApi =
-    pathname.startsWith('/api/v1/') && !pathname.startsWith('/api/v1/auth/login')
+    pathname.startsWith('/api/v1/') && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
   if (!isProtectedPage && !isProtectedApi) {
     const res = NextResponse.next({ request: { headers: requestHeaders } })
@@ -61,6 +61,17 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone()
     url.pathname = '/'
     url.searchParams.set('next', pathname)
+    const redirectRes = NextResponse.redirect(url)
+    redirectRes.headers.set('X-Trace-Id', traceId)
+    return redirectRes
+  }
+
+  // If user must change password, restrict browser page access to /app/settings
+  if (session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/settings')) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/app/settings'
+    url.searchParams.set('tab', 'security')
+    url.searchParams.set('mustChangePassword', 'true')
     const redirectRes = NextResponse.redirect(url)
     redirectRes.headers.set('X-Trace-Id', traceId)
     return redirectRes

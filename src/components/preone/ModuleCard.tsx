@@ -1,9 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import type { HomeModule } from '@/lib/modules'
 import { SEMANTIC_THEME_TOKENS } from '@/lib/modules'
+import { AnimatedModuleIcon } from './AnimatedModuleIcon'
 
 interface ModuleCardProps {
   module: HomeModule
@@ -15,13 +16,15 @@ interface ModuleCardProps {
  *
  * Minimalist Fluent Metro tile layout:
  * - Rounded card surface with soft elevation and subtle borders
- * - Semantic theme icon container with preschool-friendly pastel tones
+ * - Semantic theme icon container with hardware-accelerated 3D illustration
  * - Crisp module title (clean, no subheadings or Launch action clutter)
  * - Non-intrusive subtle background watermark motif
  */
 export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
-  const Icon = m.icon
   const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
+
+  const [isHovered, setIsHovered] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
 
   return (
     <Link
@@ -29,7 +32,12 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
       prefetch={true}
       className={`module-card group ${className}`.trim()}
       aria-label={m.label}
+      data-module={m.key}
       draggable={false}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={
         {
           '--card-hover-border': theme.hoverBorder,
@@ -37,22 +45,20 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
         } as React.CSSProperties
       }
     >
-      {/* Top Header: Icon + Category Tint */}
-      <div className="module-card-top">
-        <span
-          className="module-card-icon"
-          style={{
-            background: theme.iconBg,
-            color: theme.iconColor,
-            border: `1px solid ${theme.iconBorder}`,
-          }}
-        >
-          <Icon size={35} strokeWidth={2.2} />
-        </span>
+      {/* Icon Area: Takes ~80% of usable card space */}
+      <div className="module-card-icon-area module-card-top">
+        <AnimatedModuleIcon
+          moduleKey={m.key}
+          label={m.label}
+          icon={m.icon}
+          animation={m.animation}
+          theme={theme}
+          triggerAnimation={isHovered || isFocused}
+        />
       </div>
 
-      {/* Main Body: Title only (clean & glanceable) */}
-      <div className="module-card-body">
+      {/* Title Area: ~20% at the bottom, cleanly positioned below the icon */}
+      <div className="module-card-title-area module-card-body">
         <h3 className="module-card-title">{m.label}</h3>
       </div>
 
