@@ -180,6 +180,7 @@ export const POST = withApi(
           tenantId: null,
           branchId: null,
           role: 'PLATFORM_ADMIN',
+          mustChangePassword: Boolean((user as any).mustChangePassword),
         })
         await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
 
@@ -216,6 +217,7 @@ export const POST = withApi(
             role: 'PLATFORM_ADMIN',
             tenant: null,
             branch: null,
+            mustChangePassword: Boolean((user as any).mustChangePassword),
           },
         })
         res.cookies.set(SESSION_COOKIE, token, {
@@ -246,6 +248,7 @@ export const POST = withApi(
         branchId: branch?.id ?? null,
         role: primaryRole,
         roles: effectiveRoles,
+        mustChangePassword: Boolean((user as any).mustChangePassword),
       })
 
       await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
@@ -285,6 +288,7 @@ export const POST = withApi(
           roles: effectiveRoles,
           tenant: { id: membership.tenantId, name: membership.tenant.name },
           branch: branch ? { id: branch.id, name: branch.name } : null,
+          mustChangePassword: Boolean((user as any).mustChangePassword),
         },
       })
 

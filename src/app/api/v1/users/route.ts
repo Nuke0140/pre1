@@ -373,7 +373,10 @@ export const POST = withApi(async (req: NextRequest) => {
     throw errValidation('fullName, email, and at least one role are required', 'fullName')
   }
 
-  const effectivePassword = password && password.length >= 6 ? password : 'PreOneUser@2026'
+  const isGeneratedPassword = !password || password.trim().length < 8
+  const effectivePassword = isGeneratedPassword
+    ? `PreOne@${crypto.randomBytes(4).toString('hex')}`
+    : password.trim()
 
   // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
   const normPrimaryRole = primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined
@@ -502,6 +505,7 @@ export const POST = withApi(async (req: NextRequest) => {
           phone: phoneNorm,
           avatarUrl: avatarUrl?.trim() || null,
           passwordHash: await bcrypt.hash(effectivePassword, 10),
+          mustChangePassword: isGeneratedPassword,
           status: initialStatus,
         },
       })

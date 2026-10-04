@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import type { SemanticThemeTokens } from '@/lib/modules'
-import type { AnimationItem } from 'lottie-web'
 
 export interface AnimatedModuleIconProps {
   moduleKey: string
@@ -14,9 +13,13 @@ export interface AnimatedModuleIconProps {
   onAnimationEnd?: () => void
 }
 
-/** Global memory cache for fetched animation JSON payloads to guarantee 0 duplicate network requests */
-const lottieJsonCache = new Map<string, any>()
-
+/**
+ * PreOne — High-Performance Apple/Linear Style Module Icon
+ *
+ * Renders crisp, compact, hardware-accelerated 3D illustrations with zero JS overhead.
+ * Falls back to an Apple squircle app icon badge when artwork is unavailable.
+ * Guaranteed zero overlap.
+ */
 export function AnimatedModuleIcon({
   moduleKey,
   label,
@@ -26,244 +29,66 @@ export function AnimatedModuleIcon({
   triggerAnimation = false,
   onAnimationEnd,
 }: AnimatedModuleIconProps) {
-  const iconRef = useRef<HTMLSpanElement | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const animRef = useRef<AnimationItem | null>(null)
-  const isPlayingRef = useRef(false)
-  const [isVisible, setIsVisible] = useState(false)
-  const [staticArtwork, setStaticArtwork] = useState<string | null>(() => {
-    if (animation && lottieJsonCache.has(animation)) {
-      const cached = lottieJsonCache.get(animation)
-      return cached?.assets?.[0]?.p || null
-    }
-    return null
-  })
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [hasError, setHasError] = useState(false)
   const [imgError, setImgError] = useState(false)
 
-  // 1. Viewport-based lazy loading trigger (Stage 2: Visibility via IntersectionObserver)
-  useEffect(() => {
-    if (!animation || isVisible || triggerAnimation) return
-
-    const element = iconRef.current
-    if (!element || typeof IntersectionObserver === 'undefined') {
-      setIsVisible(true)
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (entry?.isIntersecting) {
-          setIsVisible(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: '120px', threshold: 0.01 }
-    )
-
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [animation, isVisible, triggerAnimation])
-
-  // 2. Initialize and load Lottie animation only when near viewport or triggered
-  useEffect(() => {
-    if (!animation || (!isVisible && !triggerAnimation)) return
-
-    let isCancelled = false
-
-    async function initLottie() {
-      try {
-        // Dynamically load lottie-web to keep initial bundle lightweight
-        const lottieModule = await import('lottie-web')
-        const lottie = lottieModule.default || lottieModule
-
-        if (isCancelled || !containerRef.current) return
-
-        // Check in-memory cache first to eliminate redundant network requests
-        let animationData = lottieJsonCache.get(animation!)
-        if (!animationData) {
-          const res = await fetch(animation!, { cache: 'default' })
-          if (!res.ok) throw new Error(`HTTP ${res.status} loading ${animation}`)
-          animationData = await res.json()
-          lottieJsonCache.set(animation!, animationData)
-        }
-
-        if (isCancelled || !containerRef.current) return
-
-        // Extract self-contained embedded artwork data URI for instant crisp raster display
-        const embeddedAsset = animationData?.assets?.[0]?.p
-        if (embeddedAsset && typeof embeddedAsset === 'string' && embeddedAsset.startsWith('data:image/')) {
-          setStaticArtwork(embeddedAsset)
-        }
-
-        // Destroy any previous instance
-        if (animRef.current) {
-          animRef.current.destroy()
-        }
-
-        // Initialize animation paused at first frame
-        const anim = lottie.loadAnimation({
-          container: containerRef.current,
-          renderer: 'svg',
-          loop: false,
-          autoplay: false,
-          animationData,
-          rendererSettings: {
-            preserveAspectRatio: 'xMidYMid meet',
-            progressiveLoad: false,
-            hideOnTransparent: true,
-          },
-        })
-
-        const syncSvgImageHrefs = () => {
-          if (containerRef.current) {
-            const images = containerRef.current.querySelectorAll('image')
-            images.forEach((img) => {
-              const xlink =
-                img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
-                img.getAttribute('xlink:href')
-              if (xlink && !img.getAttribute('href')) {
-                img.setAttribute('href', xlink)
-              }
-            })
-          }
-        }
-
-        const markReady = () => {
-          if (!isCancelled) {
-            syncSvgImageHrefs()
-            anim.goToAndStop(0, true)
-            syncSvgImageHrefs()
-            setIsLoaded(true)
-          }
-        }
-
-        anim.addEventListener('DOMLoaded', markReady)
-        anim.addEventListener('data_ready', markReady)
-        anim.addEventListener('loaded_images', markReady)
-        anim.addEventListener('error', (e) => {
-          console.warn(`[AnimatedModuleIcon] Lottie error for ${moduleKey}:`, e)
-          if (!isCancelled) setHasError(true)
-        })
-
-        anim.addEventListener('complete', () => {
-          isPlayingRef.current = false
-          anim.goToAndStop(0, true)
-          onAnimationEnd?.()
-        })
-
-        animRef.current = anim
-      } catch (err) {
-        console.warn(`[AnimatedModuleIcon] Failed to load animation for ${moduleKey}:`, err)
-        if (!isCancelled) {
-          setHasError(true)
-        }
-      }
-    }
-
-    initLottie()
-
-    return () => {
-      isCancelled = true
-      if (animRef.current) {
-        animRef.current.destroy()
-        animRef.current = null
-      }
-    }
-  }, [animation, moduleKey, onAnimationEnd])
-
-  // 2. Respond to interaction triggers (hover, keyboard focus, tap)
-  useEffect(() => {
-    if (!triggerAnimation || !animRef.current || !isLoaded || isPlayingRef.current) {
-      return
-    }
-
-    // Respect reduced motion: stay at static first frame
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    if (prefersReducedMotion) {
-      onAnimationEnd?.()
-      return
-    }
-
-    isPlayingRef.current = true
-    animRef.current.goToAndPlay(0, true)
-  }, [triggerAnimation, isLoaded, onAnimationEnd])
-
-  const isAnimated = Boolean(animation)
-  const showLottie = Boolean(animation) && isLoaded && !hasError
+  // Direct, instant, optimized WebP artwork asset
+  const webpSrc = animation ? animation.replace(/\.json$/, '.webp') : null
+  const hasValidArtwork = Boolean(webpSrc && !imgError)
 
   return (
     <span
-      ref={iconRef}
-      className={`module-card-icon ${isAnimated ? 'has-lottie' : 'is-fallback'}`}
+      className={`module-card-icon ${hasValidArtwork ? 'has-lottie' : 'is-fallback'}`}
       style={{
-        background: isAnimated ? 'transparent' : theme.iconBg,
-        color: theme.iconColor,
-        border: isAnimated ? 'none' : `1px solid ${theme.iconBorder}`,
+        background: 'transparent',
+        border: 'none',
         position: 'relative',
-        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      {/* 1. Self-contained 3D Raster Artwork (Visible only before Lottie loads, or as fallback) */}
-      {!showLottie && staticArtwork && !imgError && (
+      {hasValidArtwork ? (
+        /* 1. Crisp 3D Preschool Artwork — Proportional, Compact, Zero Overlap */
         <img
-          src={staticArtwork}
+          src={webpSrc!}
           alt={label}
+          loading="eager"
+          decoding="async"
           draggable={false}
           onError={() => setImgError(true)}
+          className="pointer-events-none select-none transition-transform duration-200"
           style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
+            maxWidth: '54px',
+            maxHeight: '54px',
+            width: 'auto',
+            height: 'auto',
             objectFit: 'contain',
-            transform: 'scale(1.28)',
-            pointerEvents: 'none',
+            transform: triggerAnimation ? 'scale(1.08) translateY(-1px)' : 'scale(1)',
+            transition: 'transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            filter: 'drop-shadow(0 3px 8px rgba(0, 0, 0, 0.08))',
           }}
         />
-      )}
-
-      {/* 2. Generic Vector Fallback (Only if neither Lottie nor 3D artwork is present, or if image failed) */}
-      {(!staticArtwork || imgError || hasError) && !showLottie && (
+      ) : (
+        /* 2. Apple Squircle App Icon Badge — Elegant, Tactile fallback */
         <span
+          className="module-card-squircle-badge"
           style={{
+            width: 46,
+            height: 46,
+            borderRadius: 14,
+            background: `linear-gradient(135deg, ${theme.iconBg}, color-mix(in srgb, ${theme.iconColor} 14%, #ffffff))`,
+            border: `1px solid ${theme.iconBorder}`,
+            color: theme.iconColor,
+            boxShadow: `0 4px 12px -2px color-mix(in srgb, ${theme.iconColor} 20%, transparent)`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            opacity: 1,
-            transition: 'opacity 0.2s ease',
-            position: 'relative',
-            inset: 0,
+            transform: triggerAnimation ? 'scale(1.06) translateY(-1px)' : 'scale(1)',
+            transition: 'transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
-          <FallbackIcon size={30} strokeWidth={2.2} />
+          <FallbackIcon size={24} strokeWidth={2.2} />
         </span>
-      )}
-
-      {/* 3. Lottie Animation Canvas (Plays smooth interactive motion over container) */}
-      {animation && !hasError && (
-        <span
-          ref={containerRef}
-          className="module-card-lottie"
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: showLottie ? 1 : 0,
-            transition: 'opacity 0.2s ease',
-            pointerEvents: 'none',
-          }}
-        />
       )}
     </span>
   )

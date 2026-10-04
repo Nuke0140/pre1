@@ -5,5 +5,5 @@ import { LearningClient } from './LearningClient'
 export default async function LearningPage() {
   const session = await getSession()
   if (!session?.tenantId) redirect('/')
-  return <LearningClient />
+  return <LearningClient session={session} />
 }

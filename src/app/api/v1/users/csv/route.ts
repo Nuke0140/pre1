@@ -114,6 +114,8 @@ async function _POST(req: NextRequest) {
         return bad('No validated rows provided for execution', 'EMPTY_ROWS')
       }
 
+      const atomicAllOrNothing = Boolean((body as any)?.atomicAllOrNothing || (body as any)?.mode === 'atomic')
+
       if (templateType === 'FAMILY') {
         const result = await UserCsvEngine.executeFamilyImport(
           {
@@ -122,7 +124,8 @@ async function _POST(req: NextRequest) {
             actorName: session.name,
             actorRole: session.role,
           },
-          rowsToExecute
+          rowsToExecute,
+          { atomicAllOrNothing }
         )
         return ok(result)
       } else {
@@ -133,7 +136,8 @@ async function _POST(req: NextRequest) {
             actorName: session.name,
             actorRole: session.role,
           },
-          rowsToExecute
+          rowsToExecute,
+          { atomicAllOrNothing }
         )
         return ok(result)
       }

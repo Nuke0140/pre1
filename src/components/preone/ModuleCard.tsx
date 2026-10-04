@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { HomeModule } from '@/lib/modules'
 import { SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 import { AnimatedModuleIcon } from './AnimatedModuleIcon'
@@ -17,55 +16,15 @@ interface ModuleCardProps {
  *
  * Minimalist Fluent Metro tile layout:
  * - Rounded card surface with soft elevation and subtle borders
- * - Semantic theme icon container with animated Lottie or pastel icon
+ * - Semantic theme icon container with hardware-accelerated 3D illustration
  * - Crisp module title (clean, no subheadings or Launch action clutter)
  * - Non-intrusive subtle background watermark motif
  */
 export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
-  const router = useRouter()
   const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
 
   const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
-  const [isTapped, setIsTapped] = useState(false)
-  const isTouchRef = useRef(false)
-  const hasNavigatedRef = useRef(false)
-
-  // Desktop hover triggers
-  const handleMouseEnter = () => setIsHovered(true)
-  const handleMouseLeave = () => setIsHovered(false)
-
-  // Keyboard accessibility triggers
-  const handleFocus = () => setIsFocused(true)
-  const handleBlur = () => setIsFocused(false)
-
-  // Touch tap triggers
-  const handleTouchStart = () => {
-    isTouchRef.current = true
-  }
-
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // If interaction occurred on touch and an animation is configured, play before routing
-    if (isTouchRef.current && m.animation && !hasNavigatedRef.current) {
-      e.preventDefault()
-      setIsTapped(true)
-
-      // Safeguard timeout to ensure navigation occurs after ~500ms animation if event didn't fire
-      setTimeout(() => {
-        if (!hasNavigatedRef.current) {
-          hasNavigatedRef.current = true
-          router.push(m.href)
-        }
-      }, 520)
-    }
-  }
-
-  const handleAnimationEnd = () => {
-    if (isTapped && !hasNavigatedRef.current) {
-      hasNavigatedRef.current = true
-      router.push(m.href)
-    }
-  }
 
   return (
     <Link
@@ -75,12 +34,10 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
       aria-label={m.label}
       data-module={m.key}
       draggable={false}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onTouchStart={handleTouchStart}
-      onClick={handleClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
       style={
         {
           '--card-hover-border': theme.hoverBorder,
@@ -96,8 +53,7 @@ export function ModuleCard({ module: m, className = '' }: ModuleCardProps) {
           icon={m.icon}
           animation={m.animation}
           theme={theme}
-          triggerAnimation={isHovered || isFocused || isTapped}
-          onAnimationEnd={handleAnimationEnd}
+          triggerAnimation={isHovered || isFocused}
         />
       </div>
 

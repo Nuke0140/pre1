@@ -134,6 +134,7 @@ model Tenant {
   subjects                    Subject[]
   programSubjects             ProgramSubject[]
   classroomSubjects           ClassroomSubject[]
+  activityProgresses          ActivityProgress[]
 
   @@map("tenants")
 }
@@ -205,6 +206,7 @@ model User {
   fullName        String
   avatarUrl       String?
   status          UserStatus    @default(ACTIVE)
+  mustChangePassword Boolean   @default(false)
   locale          String        @default("en-IN")
   preferences     Json?
   lastLoginAt     DateTime?
@@ -388,6 +390,7 @@ model Student {
   transportSecurityEvents TransportSecurityEvent[]
   generatedDocuments      GeneratedProfileDocument[]
   reportCards             StudentReportCard[]
+  activityProgress        ActivityProgress[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -1930,6 +1933,8 @@ model ClassroomActivity {
   observations      Observation[]
   materialRequests  MaterialRequest[]
 
+  activityProgress  ActivityProgress[]
+
   @@index([tenantId, academicSessionId, classroomId])
   @@index([activityDate])
   @@map("classroom_activities")
@@ -1958,6 +1963,35 @@ model StudentProgress {
   @@index([tenantId, studentId])
   @@index([tenantId, academicSessionId])
   @@map("student_progress")
+}
+
+enum LearningContentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model ActivityProgress {
+  id                   String                @id @default(uuid())
+  tenantId             String
+  activityId           String
+  studentId            String
+  status               LearningContentStatus @default(NOT_STARTED)
+  progressPercentage   Int                   @default(0)
+  playbackPositionSecs Int                   @default(0)
+  lastAccessedAt       DateTime              @default(now())
+  completedAt          DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  activity             ClassroomActivity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student              Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, activityId, studentId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, activityId])
+  @@map("activity_progress")
 }
 
 // ====================================================================

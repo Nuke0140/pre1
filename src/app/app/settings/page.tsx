@@ -160,6 +160,10 @@ export default function SettingsControlCenter() {
       const params = new URLSearchParams(window.location.search)
       const tabParam = params.get('tab')
       if (tabParam) setActiveTab(tabParam)
+      if (params.get('changePassword') === 'true' || params.get('mustChangePassword') === 'true') {
+        setActiveTab('security')
+        setPasswordModalOpen(true)
+      }
     }
   }, [loadData])
 

@@ -29,7 +29,21 @@ export const POST = withApi(async (req: NextRequest) => {
     }
 
     const result = await SettingsService.changePassword(session.uid, currentPassword, newPassword, actor)
-    return ok(result)
+
+    // Re-sign session without mustChangePassword flag
+    const refreshedToken = await signSession({
+      ...session,
+      mustChangePassword: false,
+    })
+
+    const res = ok(result)
+    res.cookies.set(SESSION_COOKIE, refreshedToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: SESSION_MAX_AGE,
+      path: '/',
+    })
+    return res
   } catch (e: any) {
     return Errors.business('PASSWORD_CHANGE_FAILED', e.message || 'Failed to change password', 400)
   }

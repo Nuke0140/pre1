@@ -244,6 +244,7 @@ export class SettingsService {
       where: { id: userId },
       data: {
         passwordHash: newHash,
+        mustChangePassword: false,
         updatedAt: new Date(),
       },
     })

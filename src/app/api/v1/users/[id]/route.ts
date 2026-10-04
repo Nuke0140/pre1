@@ -199,16 +199,38 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       designation: member.user.staffProfile?.designation,
     }
 
+    const isPlatformAdmin = session.role === 'PLATFORM_ADMIN'
+    let isGlobalStatusUpdate = false
+
     // Run updates in transaction
     const updatedMember = await db.$transaction(async (tx) => {
       if (fullName || phone !== undefined || password || lifecycleStatusToApply) {
+        let shouldUpdateUserStatus = false
+        if (lifecycleStatusToApply) {
+          const otherActiveMemberships = await tx.tenantUser.count({
+            where: {
+              userId: member.userId,
+              id: { not: member.id },
+              status: 'ACTIVE',
+              deletedAt: null,
+            },
+          })
+          shouldUpdateUserStatus = isPlatformAdmin || lifecycleStatusToApply === 'ACTIVE' || otherActiveMemberships === 0
+          isGlobalStatusUpdate = shouldUpdateUserStatus && otherActiveMemberships === 0
+        }
+
         await tx.user.update({
           where: { id: member.userId },
           data: {
             ...(fullName ? { fullName: fullName.trim() } : {}),
             ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
-            ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
-            ...(lifecycleStatusToApply ? { status: lifecycleStatusToApply, updatedAt: new Date() } : {}),
+            ...(password
+              ? {
+                  passwordHash: await bcrypt.hash(password, 10),
+                  mustChangePassword: true, // Force mandatory password change on administrative override
+                }
+              : {}),
+            ...(shouldUpdateUserStatus ? { status: lifecycleStatusToApply, updatedAt: new Date() } : {}),
           },
         })
       }
@@ -280,7 +302,12 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     // If lifecycle status changed, invalidate sessions and record canonical lifecycle audit
     if (lifecycleStatusToApply) {
-      await UserLifecycleService.revokeSessionsIfRestricted(member.userId, lifecycleStatusToApply)
+      await UserLifecycleService.revokeSessionsIfRestricted(
+        member.userId,
+        lifecycleStatusToApply,
+        session.tenantId,
+        isGlobalStatusUpdate || isPlatformAdmin
+      )
       await UserLifecycleService.recordLifecycleAudit({
         tenantId: session.tenantId,
         branchId: updatedMember.branchId || undefined,
@@ -383,14 +410,31 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
         status: 'INACTIVE',
       },
     })
-    await db.user.update({
-      where: { id: member.userId },
-      data: {
-        status: 'INACTIVE',
-        updatedAt: new Date(),
+
+    const otherActiveMemberships = await db.tenantUser.count({
+      where: {
+        userId: member.userId,
+        id: { not: member.id },
+        status: 'ACTIVE',
+        deletedAt: null,
       },
     })
-    await SessionService.revokeAllUserSessions(member.userId)
+
+    const isPlatformAdmin = session.role === 'PLATFORM_ADMIN'
+    const isGlobal = isPlatformAdmin || otherActiveMemberships === 0
+
+    if (isGlobal) {
+      await db.user.update({
+        where: { id: member.userId },
+        data: {
+          status: 'INACTIVE',
+          updatedAt: new Date(),
+        },
+      })
+      await SessionService.revokeAllUserSessions(member.userId)
+    } else {
+      await SessionService.revokeAllUserSessions(member.userId, undefined, session.tenantId)
+    }
     PermissionCache.bumpUserVersion(member.userId)
 
     const meta = getRequestMeta(req)

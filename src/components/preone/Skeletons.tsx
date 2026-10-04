@@ -197,3 +197,33 @@ export function ModulePageSkeleton() {
     </div>
   )
 }
+
+export function HomeGridSkeleton({ count = 12 }: { count?: number }) {
+  return (
+    <div className="home" aria-busy="true" aria-label="Loading home modules">
+      <section className="home-center-hero">
+        <div className="home-center-brand">
+          <div className="skel h-10 w-40 rounded-xl" />
+        </div>
+        <div className="home-context-bar flex items-center justify-center gap-2 mt-2">
+          <div className="skel h-4 w-44 rounded-full" />
+        </div>
+      </section>
+
+      <main>
+        <div className="module-grid">
+          {Array.from({ length: count }).map((_, i) => (
+            <div key={i} className="module-card pointer-events-none">
+              <div className="module-card-icon-area">
+                <div className="skel w-11 h-11 rounded-xl" />
+              </div>
+              <div className="module-card-title-area">
+                <div className="skel h-3 w-16 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+    </div>
+  )
+}

@@ -174,14 +174,18 @@ export class SessionService {
 
   /**
    * Revokes all active sessions for a user (e.g., password change, suspension, logout-all).
+   * If tenantId is provided, revokes active sessions specifically for that tenant.
    */
-  static async revokeAllUserSessions(userId: string, exceptTokenHash?: string): Promise<number> {
+  static async revokeAllUserSessions(userId: string, exceptTokenHash?: string, tenantId?: string | null): Promise<number> {
     const where: any = {
       userId,
       status: 'ACTIVE',
     }
     if (exceptTokenHash) {
       where.tokenHash = { not: exceptTokenHash }
+    }
+    if (tenantId) {
+      where.tenantId = tenantId
     }
 
     const res = await db.userSession.updateMany({

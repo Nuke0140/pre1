@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * GET /api/v1/users/invitations — list pending invitations
@@ -55,6 +56,16 @@ async function _GET(req: NextRequest) {
  * POST /api/v1/users/invitations — resend or cancel pending invitation
  */
 async function _POST(req: NextRequest) {
+  // Rate limit invitation operations (resend / cancel / activate) to 25/min per IP
+  const rl = await checkRateLimit(req, {
+    windowMs: 60 * 1000,
+    max: 25,
+    keyPrefix: 'user_invitations',
+  })
+  if (!rl.allowed) {
+    return rateLimitResponse(rl.retryAfterSeconds, 'Too many invitation requests. Please wait before retrying.')
+  }
+
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')

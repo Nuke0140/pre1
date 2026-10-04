@@ -66,6 +66,17 @@ export async function middleware(req: NextRequest) {
     return redirectRes
   }
 
+  // If user must change password, restrict browser page access to /app/settings
+  if (session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/settings')) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/app/settings'
+    url.searchParams.set('tab', 'security')
+    url.searchParams.set('mustChangePassword', 'true')
+    const redirectRes = NextResponse.redirect(url)
+    redirectRes.headers.set('X-Trace-Id', traceId)
+    return redirectRes
+  }
+
   const res = NextResponse.next({ request: { headers: requestHeaders } })
   res.headers.set('X-Trace-Id', traceId)
   return res
