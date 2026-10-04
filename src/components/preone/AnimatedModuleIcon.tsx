@@ -26,9 +26,11 @@ export function AnimatedModuleIcon({
   triggerAnimation = false,
   onAnimationEnd,
 }: AnimatedModuleIconProps) {
+  const iconRef = useRef<HTMLSpanElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const animRef = useRef<AnimationItem | null>(null)
   const isPlayingRef = useRef(false)
+  const [isVisible, setIsVisible] = useState(false)
   const [staticArtwork, setStaticArtwork] = useState<string | null>(() => {
     if (animation && lottieJsonCache.has(animation)) {
       const cached = lottieJsonCache.get(animation)
@@ -40,9 +42,34 @@ export function AnimatedModuleIcon({
   const [hasError, setHasError] = useState(false)
   const [imgError, setImgError] = useState(false)
 
-  // 1. Initialize and lazy-load Lottie animation
+  // 1. Viewport-based lazy loading trigger (Stage 2: Visibility via IntersectionObserver)
   useEffect(() => {
-    if (!animation) return
+    if (!animation || isVisible || triggerAnimation) return
+
+    const element = iconRef.current
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setIsVisible(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0]
+        if (entry?.isIntersecting) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '120px', threshold: 0.01 }
+    )
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [animation, isVisible, triggerAnimation])
+
+  // 2. Initialize and load Lottie animation only when near viewport or triggered
+  useEffect(() => {
+    if (!animation || (!isVisible && !triggerAnimation)) return
 
     let isCancelled = false
 
@@ -57,7 +84,7 @@ export function AnimatedModuleIcon({
         // Check in-memory cache first to eliminate redundant network requests
         let animationData = lottieJsonCache.get(animation!)
         if (!animationData) {
-          const res = await fetch(animation!, { cache: 'no-cache' })
+          const res = await fetch(animation!, { cache: 'default' })
           if (!res.ok) throw new Error(`HTTP ${res.status} loading ${animation}`)
           animationData = await res.json()
           lottieJsonCache.set(animation!, animationData)
@@ -172,6 +199,7 @@ export function AnimatedModuleIcon({
 
   return (
     <span
+      ref={iconRef}
       className={`module-card-icon ${isAnimated ? 'has-lottie' : 'is-fallback'}`}
       style={{
         background: isAnimated ? 'transparent' : theme.iconBg,

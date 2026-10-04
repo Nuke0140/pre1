@@ -146,7 +146,7 @@ export function GlobalWorkspaceHeader({
   return (
     <div className="workspace-header-wrapper">
       <header
-        className={`workspace-header workspace-floating-surface app-header ${scrolled ? 'scrolled' : ''}`}
+        className={`workspace-header workspace-floating-surface premium-header app-header ${scrolled ? 'scrolled' : ''}`}
       >
         {/* ── Main Horizontal Row (Desktop: Full Row / Mobile: Top Utility Row) ── */}
         <div className="workspace-header-main-row">

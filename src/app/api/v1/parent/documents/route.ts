@@ -66,6 +66,11 @@ export async function GET(req: NextRequest) {
             admissionNo: true,
           },
         },
+        studentReportCards: {
+          select: {
+            status: true,
+          },
+        },
         job: {
           select: {
             id: true,
@@ -76,7 +81,16 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return ok(documents)
+    // Parents can only view published report cards
+    const visibleDocuments = documents.filter((doc) => {
+      if (doc.documentType === 'REPORT_CARD') {
+        const rc = (doc as any).studentReportCards?.[0]
+        return rc ? rc.status === 'PUBLISHED' : false
+      }
+      return true
+    })
+
+    return ok(visibleDocuments)
   } catch (err: any) {
     return Errors.system(err.message || 'Failed to list parent documents')
   }

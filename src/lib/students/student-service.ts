@@ -304,6 +304,7 @@ export class StudentService {
                 fullName: true,
                 phone: true,
                 email: true,
+                occupation: true,
                 relationship: true,
                 userId: true,
                 user: { select: { id: true, email: true, status: true, lastLoginAt: true } },
@@ -368,15 +369,66 @@ export class StudentService {
       }
     }
 
+    // Guardian User & Session Account Health
+    const guardianUserIds = student.guardians
+      .map((g) => g.guardian.userId)
+      .filter(Boolean) as string[]
+
+    const [tenantUsers, userSessions] = await Promise.all([
+      guardianUserIds.length > 0
+        ? db.tenantUser.findMany({
+            where: { tenantId: scope.tenantId, userId: { in: guardianUserIds }, deletedAt: null },
+            select: { userId: true, status: true, role: true, createdAt: true },
+          })
+        : [],
+      guardianUserIds.length > 0
+        ? db.userSession.findMany({
+            where: { userId: { in: guardianUserIds }, status: 'ACTIVE' },
+            select: { id: true, userId: true, device: true, platform: true, lastActiveAt: true, createdAt: true, status: true },
+            orderBy: { lastActiveAt: 'desc' },
+            take: 20,
+          })
+        : [],
+    ])
+
+    const tenantUserMap = new Map(tenantUsers.map((tu) => [tu.userId, tu]))
+    const sessionMap = new Map<string, any[]>()
+    for (const s of userSessions) {
+      if (!sessionMap.has(s.userId)) sessionMap.set(s.userId, [])
+      sessionMap.get(s.userId)!.push(s)
+    }
+
     // 1. Originating Admission Application link
     const admissionApplication = await db.admissionApplication.findFirst({
       where: { tenantId: scope.tenantId, studentId: student.id },
       include: {
+        lead: {
+          select: { id: true, leadNumber: true, source: true, status: true },
+        },
         documents: {
-          select: { id: true, docType: true, fileName: true, status: true, verified: true, uploadedAt: true },
+          select: {
+            id: true,
+            docType: true,
+            fileName: true,
+            status: true,
+            verified: true,
+            uploadedAt: true,
+            verifiedAt: true,
+            remarks: true,
+            rejectionReason: true,
+          },
         },
         offers: {
-          select: { id: true, offerNumber: true, status: true, feeTotalCents: true, validUntil: true, acceptedAt: true },
+          select: {
+            id: true,
+            offerNumber: true,
+            status: true,
+            feeTotalCents: true,
+            terms: true,
+            validUntil: true,
+            acceptedAt: true,
+            issuedAt: true,
+          },
         },
       },
     })
@@ -406,12 +458,64 @@ export class StudentService {
       .reduce((acc, i) => acc + i.balanceCents, 0)
 
     const hasFinanceAccess = ctx.actorRole !== 'GUARDIAN'
+
+    // Area E: Student Deposits & Refunds
+    let deposits: any[] = []
+    let refunds: any[] = []
+    let depositStats = {
+      totalDepositsCents: 0,
+      refundedAmountCents: 0,
+      remainingAmountCents: 0,
+    }
+
+    if (hasFinanceAccess) {
+      deposits = await db.studentDeposit.findMany({
+        where: { tenantId: scope.tenantId, studentId: student.id },
+        include: {
+          feeItem: { select: { id: true, name: true } },
+          refunds: { select: { id: true, amountCents: true, refundDate: true, refundMode: true, reference: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      refunds = await db.refund.findMany({
+        where: { tenantId: scope.tenantId, studentId: student.id },
+        orderBy: { refundDate: 'desc' },
+      })
+
+      depositStats = {
+        totalDepositsCents: deposits.reduce((acc, d) => acc + d.totalAmountCents, 0),
+        refundedAmountCents: deposits.reduce((acc, d) => acc + d.refundedAmountCents, 0),
+        remainingAmountCents: deposits.reduce((acc, d) => acc + d.remainingAmountCents, 0),
+      }
+    }
+
+    // Area E: Reconcile agreed admission terms with actual fee ledger
+    const acceptedOffer = admissionApplication?.offers?.find((o) => o.status === 'ACCEPTED') || admissionApplication?.offers?.[0]
+    const offerAgreedCents = acceptedOffer ? acceptedOffer.feeTotalCents : null
+    const feeReconciliation = {
+      hasOffer: !!acceptedOffer,
+      offerNumber: acceptedOffer?.offerNumber || null,
+      offerAgreedCents,
+      totalBilledCents,
+      totalPaidCents,
+      balanceCents,
+      discrepancyCents: offerAgreedCents !== null ? totalBilledCents - offerAgreedCents : 0,
+      hasDiscrepancy: offerAgreedCents !== null && totalBilledCents !== offerAgreedCents,
+      terms: acceptedOffer?.terms || null,
+      offerStatus: acceptedOffer?.status || null,
+    }
+
     const financeSummary = hasFinanceAccess
       ? {
           totalBilledCents,
           totalPaidCents,
           balanceCents,
           overdueCents,
+          deposits,
+          refunds,
+          depositStats,
+          reconciliation: feeReconciliation,
           invoices: student.invoices.map((inv) => ({
             id: inv.id,
             invoiceNumber: inv.invoiceNumber,
@@ -435,9 +539,12 @@ export class StudentService {
           totalPaidCents: 0,
           balanceCents: 0,
           overdueCents: 0,
+          deposits: [],
+          refunds: [],
+          depositStats: { totalDepositsCents: 0, refundedAmountCents: 0, remainingAmountCents: 0 },
+          reconciliation: null,
           invoices: [],
         }
-
 
     // 4. Learning & Progress aggregation
     const progressRecords = await db.studentProgress.findMany({
@@ -479,7 +586,28 @@ export class StudentService {
       take: 20,
     })
 
-    // 6. Transport data for student
+    // Area C: Inventory Stock Issues for student
+    const stockIssues = await db.stockIssue.findMany({
+      where: { tenantId: scope.tenantId, studentId: student.id },
+      include: {
+        location: { select: { id: true, name: true, code: true } },
+        items: {
+          include: {
+            item: {
+              select: { id: true, name: true, sku: true, unitId: true, category: { select: { name: true } } },
+            },
+          },
+        },
+        returns: {
+          include: {
+            items: true,
+          },
+        },
+      },
+      orderBy: { issueDate: 'desc' },
+    })
+
+    // Area D: Transport data & Pickup Authorizations
     const transportAssignments = await db.studentTransportAssignment.findMany({
       where: { tenantId: scope.tenantId, studentId: student.id, deletedAt: null },
       include: {
@@ -506,6 +634,29 @@ export class StudentService {
       take: 10,
     })
 
+    const pickupAuthorizations = await db.transportPickupAuthorization.findMany({
+      where: { tenantId: scope.tenantId, studentId: student.id },
+      include: {
+        guardian: { select: { fullName: true, phone: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const reportCards = await db.studentReportCard.findMany({
+      where: {
+        tenantId: scope.tenantId,
+        studentId: student.id,
+        ...(ctx.actorRole === 'PARENT' || ctx.actorRole === 'GUARDIAN' ? { status: 'PUBLISHED' } : {}),
+      },
+      include: {
+        documentTemplate: { select: { id: true, name: true, type: true } },
+        academicSession: { select: { id: true, name: true } },
+        classroom: { select: { id: true, name: true } },
+        document: { select: { id: true, title: true, fileName: true, fileUrl: true, fileSizeBytes: true } },
+      },
+      orderBy: [{ academicSession: { startDate: 'desc' } }, { term: 'asc' }],
+    })
+
     return {
       student: {
         id: student.id,
@@ -518,17 +669,66 @@ export class StudentService {
         dob: student.dob,
         gender: student.gender,
         bloodGroup: student.bloodGroup,
+        allergies: student.allergies || null,
+        medicalAlerts: student.medicalAlerts || null,
+        dietaryRestrictions: student.dietaryRestrictions || null,
+        emergencyMedicalInstructions: student.emergencyMedicalInstructions || null,
         address: student.address,
         photoUrl: student.photoUrl,
         status: student.status,
         admissionDate: student.admissionDate,
         createdAt: student.createdAt,
       },
+      health: {
+        bloodGroup: student.bloodGroup,
+        allergies: student.allergies || null,
+        medicalAlerts: student.medicalAlerts || null,
+        dietaryRestrictions: student.dietaryRestrictions || null,
+        emergencyMedicalInstructions: student.emergencyMedicalInstructions || null,
+      },
+      reportCards: reportCards.map((rc) => ({
+        id: rc.id,
+        term: rc.term,
+        academicSessionName: rc.academicSession.name,
+        classroomName: rc.classroom?.name,
+        templateName: rc.documentTemplate.name,
+        templateId: rc.templateId,
+        status: rc.status,
+        overallGrade: rc.overallGrade,
+        remarks: rc.remarks,
+        attendancePct: rc.attendancePct,
+        fieldValues: rc.fieldValues,
+        documentId: rc.documentId,
+        document: rc.document,
+        evaluatorName: rc.evaluatorName,
+        publishedAt: rc.publishedAt,
+        updatedAt: rc.updatedAt,
+      })),
       admission: admissionApplication
         ? {
             id: admissionApplication.id,
             applicationNumber: admissionApplication.applicationNumber,
             status: admissionApplication.status,
+            previousSchool: admissionApplication.previousSchool,
+            notes:
+              ctx.actorRole !== 'PARENT' && ctx.actorRole !== 'GUARDIAN'
+                ? admissionApplication.notes
+                : null,
+            lead: admissionApplication.lead
+              ? {
+                  id: admissionApplication.lead.id,
+                  leadNumber: admissionApplication.lead.leadNumber,
+                  source: admissionApplication.lead.source,
+                  status: admissionApplication.lead.status,
+                }
+              : null,
+            lifecycle: {
+              submittedAt: admissionApplication.submittedAt,
+              verifiedAt: admissionApplication.verifiedAt,
+              approvedAt: admissionApplication.approvedAt,
+              rejectedAt: admissionApplication.rejectedAt,
+              rejectionReason: admissionApplication.rejectionReason,
+            },
             submittedAt: admissionApplication.submittedAt,
             documents: admissionApplication.documents,
             offers: admissionApplication.offers,
@@ -550,34 +750,103 @@ export class StudentService {
           id: a.id,
           sessionName: a.academicSession.name,
           classroomName: a.classroom.name,
+          classroomCode: a.classroom.code,
           programType: a.programType,
           status: a.status,
           startedAt: a.startedAt,
           endedAt: a.endedAt,
           reason: a.reason,
+          createdByName: (a as any).createdByName || null,
         })),
       },
-      guardians: student.guardians.map((g) => ({
-        id: g.guardian.id,
-        name: g.guardian.fullName,
-        relationship: g.guardian.relationship,
-        phone: g.guardian.phone,
-        email: g.guardian.email,
-        isPrimary: g.isPrimary,
-        canPickup: g.canPickup,
-        isFeePayer: g.isFeePayer,
-        receivesComm: g.receivesComm,
-        portalAccount: g.guardian.user
-          ? {
-              id: g.guardian.user.id,
-              email: g.guardian.user.email,
-              status: g.guardian.user.status,
-              lastLoginAt: g.guardian.user.lastLoginAt,
-            }
-          : null,
-      })),
+      guardians: student.guardians.map((g) => {
+        const tu = g.guardian.userId ? tenantUserMap.get(g.guardian.userId) : null
+        const sessions = g.guardian.userId ? sessionMap.get(g.guardian.userId) || [] : []
+        const isStaff = ctx.actorRole !== 'PARENT' && ctx.actorRole !== 'GUARDIAN'
+        return {
+          id: g.guardian.id,
+          name: g.guardian.fullName,
+          relationship: g.guardian.relationship,
+          phone: g.guardian.phone,
+          email: g.guardian.email,
+          occupation: g.guardian.occupation || null,
+          isPrimary: g.isPrimary,
+          canPickup: g.canPickup,
+          isFeePayer: g.isFeePayer,
+          receivesComm: g.receivesComm,
+          portalAccount: g.guardian.user
+            ? {
+                id: g.guardian.user.id,
+                email: g.guardian.user.email,
+                accountStatus: g.guardian.user.status,
+                membershipStatus: tu?.status || g.guardian.user.status,
+                lastLoginAt: g.guardian.user.lastLoginAt,
+                sessions: isStaff
+                  ? sessions.map((s: any) => ({
+                      id: s.id,
+                      device: s.device || 'Web Browser',
+                      platform: s.platform || 'Desktop/Mobile',
+                      lastActiveAt: s.lastActiveAt,
+                      createdAt: s.createdAt,
+                      status: s.status,
+                    }))
+                  : [],
+              }
+            : null,
+        }
+      }),
       attendance: attendanceStats,
       finance: financeSummary,
+      inventory: {
+        stockIssues: stockIssues.map((si) => ({
+          id: si.id,
+          issueNumber: si.issueNumber,
+          issueDate: si.issueDate,
+          status: si.status,
+          locationName: si.location?.name || 'Main Store',
+          issuedByName: si.issuedByName,
+          notes: si.notes,
+          items: si.items.map((it) => ({
+            id: it.id,
+            itemName: it.item?.name || 'General Item',
+            itemSku: it.item?.sku || '—',
+            category: it.item?.category?.name || 'Supplies',
+            quantity: Number(it.quantity),
+            returnedQuantity: Number(it.returnedQuantity),
+            unitCost: it.unitCost ? Number(it.unitCost) : null,
+            batchNumber: it.batchNumber,
+          })),
+          returns: si.returns.map((ret) => ({
+            id: ret.id,
+            returnNumber: ret.returnNumber,
+            returnDate: ret.returnDate,
+            returnedByName: ret.returnedByName,
+            notes: ret.notes,
+          })),
+        })),
+      },
+      transport: {
+        activeAssignment: transportAssignments.find((a) => a.status === 'ACTIVE') || null,
+        assignments: transportAssignments,
+        recentTrips: recentTripManifests,
+        pickupAuthorizations: pickupAuthorizations.map((pa) => ({
+          id: pa.id,
+          personName: pa.personName,
+          phone: pa.phone,
+          relationship: pa.relationship,
+          actionType: pa.actionType,
+          reason: pa.reason,
+          validFrom: pa.validFrom,
+          validUntil: pa.validUntil,
+          isOneTime: pa.isOneTime,
+          status: pa.status,
+          approvedByName: pa.approvedByName,
+          approvedAt: pa.approvedAt,
+          rejectionReason: pa.rejectionReason,
+          remarks: pa.remarks,
+          createdAt: pa.createdAt,
+        })),
+      },
       academics: {
         activities,
         observations: student.observations,
@@ -585,11 +854,6 @@ export class StudentService {
       },
       timeline: student.timelineEntries,
       audit: auditLogs,
-      transport: {
-        activeAssignment: transportAssignments.find((a) => a.status === 'ACTIVE') || null,
-        assignments: transportAssignments,
-        recentTrips: recentTripManifests,
-      },
     }
   }
 
@@ -870,6 +1134,10 @@ export class StudentService {
       dob?: Date | string
       gender?: Gender
       bloodGroup?: BloodGroup
+      allergies?: string | null
+      medicalAlerts?: string | null
+      dietaryRestrictions?: string | null
+      emergencyMedicalInstructions?: string | null
       address?: string
       photoUrl?: string
       seatNumber?: string
@@ -889,6 +1157,12 @@ export class StudentService {
       newSeatNumber = await this.generateSeatNumber(scope.tenantId, student.currentClassroomId)
     }
 
+    const sanitizeText = (val?: string | null, maxLen: number = 500): string | null => {
+      if (val === undefined || val === null) return null
+      const cleaned = val.replace(/<[^>]*>?/gm, '').trim()
+      return cleaned.slice(0, maxLen) || null
+    }
+
     const updated = await db.student.update({
       where: { id: student.id },
       data: {
@@ -897,7 +1171,11 @@ export class StudentService {
         ...(input.dob ? { dob: new Date(input.dob) } : {}),
         ...(input.gender ? { gender: input.gender } : {}),
         ...(input.bloodGroup !== undefined ? { bloodGroup: input.bloodGroup } : {}),
-        ...(input.address !== undefined ? { address: input.address?.trim() || null } : {}),
+        ...(input.allergies !== undefined ? { allergies: sanitizeText(input.allergies, 500) } : {}),
+        ...(input.medicalAlerts !== undefined ? { medicalAlerts: sanitizeText(input.medicalAlerts, 500) } : {}),
+        ...(input.dietaryRestrictions !== undefined ? { dietaryRestrictions: sanitizeText(input.dietaryRestrictions, 500) } : {}),
+        ...(input.emergencyMedicalInstructions !== undefined ? { emergencyMedicalInstructions: sanitizeText(input.emergencyMedicalInstructions, 1000) } : {}),
+        ...(input.address !== undefined ? { address: sanitizeText(input.address, 500) } : {}),
         ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl } : {}),
         ...(newSeatNumber !== undefined ? { seatNumber: newSeatNumber } : {}),
       },
@@ -1244,6 +1522,19 @@ export class StudentService {
     })
     if (!targetClass) throw new Error('Target classroom section not found')
 
+    // Idempotency guard: If student is already active in target session and classroom, avoid duplicates
+    const existingActiveInTarget = await db.studentAllocation.findFirst({
+      where: {
+        studentId: student.id,
+        academicSessionId: targetSession.id,
+        classroomId: targetClass.id,
+        status: 'ACTIVE',
+      },
+    })
+    if (existingActiveInTarget && student.currentClassroomId === targetClass.id) {
+      return student
+    }
+
     const seats = await classroomSeats(targetClass.id)
     if (seats.available <= 0) {
       throw new Error(`Target section ${targetClass.name} is full (${seats.current}/${seats.capacity})`)
@@ -1490,13 +1781,14 @@ export class StudentService {
       fullName?: string
       phone?: string
       email?: string
+      occupation?: string
       relationship?: string
       isPrimary?: boolean
       canPickup?: boolean
       pickupPin?: string
       isFeePayer?: boolean
       receivesComm?: boolean
-      action: 'LINK' | 'UPDATE' | 'UNLINK'
+      action: 'LINK' | 'UPDATE' | 'UNLINK' | 'INVITE'
     }
   ) {
     const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicSessionId)
@@ -1524,6 +1816,70 @@ export class StudentService {
       return { success: true }
     }
 
+    if (input.action === 'INVITE') {
+      if (!input.guardianId) throw new Error('Guardian ID is required to invite')
+      const targetGuardian = await db.guardian.findFirst({
+        where: { id: input.guardianId, tenantId: scope.tenantId },
+        include: { user: true },
+      })
+      if (!targetGuardian) throw new Error('Guardian not found')
+      if (!targetGuardian.email) throw new Error('Guardian email is required to send portal invitation')
+
+      let user = targetGuardian.user
+      if (!user) {
+        user = await db.user.findFirst({
+          where: { email: targetGuardian.email.toLowerCase().trim() },
+        })
+      }
+
+      if (!user) {
+        user = await db.user.create({
+          data: {
+            fullName: targetGuardian.fullName,
+            email: targetGuardian.email.toLowerCase().trim(),
+            phone: targetGuardian.phone,
+            role: 'PARENT',
+            status: 'PENDING',
+          },
+        })
+      }
+
+      if (targetGuardian.userId !== user.id) {
+        await db.guardian.update({
+          where: { id: targetGuardian.id },
+          data: { userId: user.id },
+        })
+      }
+
+      const existingTu = await db.tenantUser.findFirst({
+        where: { tenantId: scope.tenantId, userId: user.id },
+      })
+      if (!existingTu) {
+        await db.tenantUser.create({
+          data: {
+            tenantId: scope.tenantId,
+            userId: user.id,
+            role: 'PARENT',
+            roles: ['PARENT'],
+            status: 'PENDING',
+          },
+        })
+      }
+
+      await audit({
+        tenantId: scope.tenantId,
+        actorId: ctx.actorId,
+        actorName: ctx.actorName,
+        actorRole: ctx.actorRole,
+        action: 'INVITE_PARENT_PORTAL',
+        entity: 'Guardian',
+        entityId: targetGuardian.id,
+        summary: `Sent parent portal access invitation to ${targetGuardian.fullName} (${targetGuardian.email})`,
+      })
+
+      return { success: true, message: `Invitation dispatched to ${targetGuardian.email}`, userId: user.id }
+    }
+
     // Resolve or create guardian
     let guardian: any = null
     if (input.guardianId) {
@@ -1533,13 +1889,14 @@ export class StudentService {
       if (!guardian) throw new Error('Guardian not found')
 
       // Update canonical guardian details if provided
-      if (input.fullName || input.phone || input.email !== undefined) {
+      if (input.fullName || input.phone || input.email !== undefined || input.occupation !== undefined) {
         guardian = await db.guardian.update({
           where: { id: guardian.id },
           data: {
             ...(input.fullName ? { fullName: input.fullName.trim() } : {}),
             ...(input.phone ? { phone: input.phone.trim() } : {}),
             ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
+            ...(input.occupation !== undefined ? { occupation: input.occupation?.trim() || null } : {}),
           },
         })
       }
@@ -1566,6 +1923,7 @@ export class StudentService {
             fullName: input.fullName.trim(),
             phone: phoneNorm,
             email: input.email?.trim() || null,
+            occupation: input.occupation?.trim() || null,
             relationship: (input.relationship as any) || 'MOTHER',
             pickupPin: input.pickupPin?.trim() || null,
           },

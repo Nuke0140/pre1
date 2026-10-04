@@ -817,6 +817,19 @@ export class BulkDocumentService {
             (g) => g.guardian?.userId === session.uid
           )
           if (isLinkedGuardian) {
+            // Guard: Guardians may ONLY access report card documents that are PUBLISHED
+            if (doc.documentType === 'REPORT_CARD') {
+              const linkedRc = await db.studentReportCard.findFirst({
+                where: {
+                  tenantId,
+                  documentId: doc.id,
+                },
+                select: { status: true },
+              })
+              if (linkedRc && linkedRc.status !== 'PUBLISHED') {
+                throw new Error('This report card is not yet published')
+              }
+            }
             authorized = true
           }
         }

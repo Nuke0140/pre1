@@ -124,6 +124,7 @@ model Tenant {
   reportSchedules             ReportSchedule[]
   bulkDocumentJobs            BulkDocumentJob[]
   generatedProfileDocuments   GeneratedProfileDocument[]
+  studentReportCards          StudentReportCard[]
 
   // Notifications & Communication Relations
   inAppNotifications          InAppNotification[]
@@ -188,6 +189,7 @@ model Branch {
   // Reports & Analytics Relations
   savedReports                SavedReport[]
   bulkDocumentJobs            BulkDocumentJob[]
+  studentReportCards          StudentReportCard[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -293,6 +295,7 @@ model AcademicSession {
   purchaseOrders      PurchaseOrder[]
   stockIssues         StockIssue[]
   studentTransportAssignments StudentTransportAssignment[]
+  studentReportCards          StudentReportCard[]
 
   @@unique([tenantId, name])
   @@map("academic_sessions")
@@ -332,6 +335,7 @@ model Classroom {
   stockIssues       StockIssue[]
   leaveCoverages    LeaveCoverage[]
   subjectMappings   ClassroomSubject[]
+  studentReportCards StudentReportCard[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -352,6 +356,10 @@ model Student {
   admissionDate      DateTime            @default(now())
   photoUrl           String?
   bloodGroup         BloodGroup?
+  allergies          String?
+  medicalAlerts      String?
+  dietaryRestrictions String?
+  emergencyMedicalInstructions String?
   address            String?
   currentClassroomId String?
   seatNumber         String?
@@ -379,6 +387,7 @@ model Student {
   pickupAuthorizations TransportPickupAuthorization[]
   transportSecurityEvents TransportSecurityEvent[]
   generatedDocuments      GeneratedProfileDocument[]
+  reportCards             StudentReportCard[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -1112,6 +1121,7 @@ model DocumentTemplate {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bulkJobs BulkDocumentJob[]
+  reportCards StudentReportCard[]
 
   @@unique([tenantId, type, name])
   @@map("document_templates")
@@ -3773,6 +3783,7 @@ model GeneratedProfileDocument {
   staffProfile    StaffProfile?             @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
   job             BulkDocumentJob?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
   jobItems        BulkDocumentJobItem[]
+  studentReportCards StudentReportCard[]
 
   @@index([tenantId, entityType, studentId])
   @@index([tenantId, entityType, staffProfileId])
@@ -3828,5 +3839,46 @@ model NotificationDeliveryLog {
   @@index([tenantId, createdAt])
   @@map("notification_delivery_logs")
 }
+
+/// Student Report Card evaluation record for a term and academic session
+model StudentReportCard {
+  id                 String                    @id @default(uuid())
+  tenantId           String
+  branchId           String?
+  academicSessionId  String
+  studentId          String
+  classroomId        String?
+  term               String                    // e.g. "TERM_1", "TERM_2", "FINAL"
+  templateId         String                    // points to DocumentTemplate.id
+  templateVersion    Int                       @default(1)
+  status             String                    @default("DRAFT") // DRAFT, REVIEWED, PUBLISHED
+  evaluatorId        String?
+  evaluatorName      String?
+  remarks            String?
+  overallGrade       String?
+  attendancePct      Int?
+  fieldValues        Json                      // Record of { [fieldKey: string]: { label: string, type: string, value: any, ordering?: number } }
+  documentId         String?                   // Reference to GeneratedProfileDocument when generated
+  publishedAt        DateTime?
+  publishedById      String?
+  publishedByName    String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  tenant             Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch             Branch?                   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  academicSession    AcademicSession           @relation(fields: [academicSessionId], references: [id], onDelete: Cascade)
+  student            Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom          Classroom?                @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  documentTemplate   DocumentTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  document           GeneratedProfileDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, academicSessionId, term, studentId, templateId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, classroomId])
+  @@index([tenantId, academicSessionId, term])
+  @@map("student_report_cards")
+}
+
 
 

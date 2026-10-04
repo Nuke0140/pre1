@@ -13,7 +13,10 @@
 if (typeof window !== 'undefined') {
   try {
     const t = localStorage.getItem('preone-theme')
-    if (t) document.documentElement.setAttribute('data-theme', t)
+    if (t) {
+      document.documentElement.setAttribute('data-theme', t)
+      document.documentElement.classList.toggle('dark', t === 'dark')
+    }
 
     const primary = localStorage.getItem('preone-primary-color')
     const accent = localStorage.getItem('preone-accent-color')

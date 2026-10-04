@@ -2400,7 +2400,7 @@ export default function AdmissionsPage() {
       {tab === 'overview' && (
         <div className="space-y-5">
           {/* ── Section 12 & 13: PRIMARY METRIC + SUPPORTING METRICS STRIP ── */}
-          <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/90 shadow-xs">
+          <div className="premium-card p-4 sm:p-5">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               {/* PRIMARY METRIC */}
               <div className="flex items-center gap-4 xl:pr-6 xl:border-r border-border/80 shrink-0">
@@ -2411,9 +2411,9 @@ export default function AdmissionsPage() {
                   <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                     Admissions Activity
                   </div>
-                  <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-baseline gap-2">
+                  <div className="text-2xl sm:text-3xl font-mono font-bold tabular-nums tracking-tight text-foreground flex items-baseline gap-2">
                     {(enquiries?.length || 0) + (applications?.length || 0)}
-                    <span className="text-xs font-semibold text-muted-foreground">active prospects</span>
+                    <span className="text-xs font-semibold text-muted-foreground font-sans">active prospects</span>
                   </div>
                 </div>
               </div>
@@ -2477,7 +2477,7 @@ export default function AdmissionsPage() {
                     <div
                       key={idx}
                       onClick={() => setTab(m.targetTab)}
-                      className="p-2.5 sm:p-3 rounded-xl border border-border/70 bg-background/60 hover:bg-background transition-all cursor-pointer group flex flex-col justify-between"
+                      className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-background/60 hover:bg-background hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-150 cursor-pointer group flex flex-col justify-between"
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
@@ -2488,7 +2488,7 @@ export default function AdmissionsPage() {
                         </div>
                       </div>
                       <div className="mt-1">
-                        <div className={`text-lg sm:text-xl font-bold tracking-tight ${m.valueColor || 'text-foreground'}`}>
+                        <div className={`text-lg sm:text-xl font-mono font-bold tabular-nums tracking-tight ${m.valueColor || 'text-foreground'}`}>
                           {m.value}
                         </div>
                         <div className="text-[10px] text-muted-foreground truncate">
@@ -2506,7 +2506,7 @@ export default function AdmissionsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* ── LEFT PANEL (~65%): JOURNEY SUMMARY CARD ── */}
             <div className="lg:col-span-8 space-y-5">
-              <div className="rounded-2xl border border-border/80 bg-card shadow-xs p-4 sm:p-5 flex flex-col justify-between gap-5">
+              <div className="premium-card p-4 sm:p-5 flex flex-col justify-between gap-5">
                 {/* Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/80">
                   <div>

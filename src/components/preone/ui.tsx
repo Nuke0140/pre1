@@ -65,7 +65,7 @@ export function IconButton({
   return (
     <button
       type={type}
-      className={`btn-icon btn-icon-${size} btn-icon-${variant}${danger ? ' btn-icon-danger' : ''} ${className}`.trim()}
+      className={`btn-icon btn-icon-${size} btn-icon-${variant}${danger ? ' btn-icon-danger' : ''} transition-all duration-150 active:scale-[0.96] disabled:active:scale-100 ${className}`.trim()}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -275,6 +275,7 @@ export function StatusBadge({
 }
 
 export * from './EmptyState'
+export * from './KpiMetricCard'
 
 export function Card({
   children,
@@ -286,17 +287,19 @@ export function Card({
   ...props
 }: {
   children: React.ReactNode
-  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info' | 'nav'
+  variant?: 'default' | 'compact' | 'featured' | 'metric' | 'interactive' | 'warning' | 'success' | 'info' | 'nav' | 'subtle' | 'elevated'
   className?: string
   onClick?: () => void
   style?: React.CSSProperties
   as?: React.ElementType
   [key: string]: any
 }) {
+  const isInteractive = Boolean(onClick) || variant === 'interactive' || variant === 'nav'
   const varClass = variant !== 'default' ? `card-${variant}` : ''
+  const interactiveClass = isInteractive ? 'card-interactive' : ''
   return (
     <Component
-      className={`card ${varClass} ${className}`.trim()}
+      className={`card ${varClass} ${interactiveClass} ${className}`.trim()}
       style={style}
       onClick={onClick}
       {...(onClick && Component === 'div' ? { role: 'button', tabIndex: 0 } : {})}
@@ -349,7 +352,7 @@ export function KpiTile({
       </div>
       <div>
         <div className="kpi-label">{label}</div>
-        <div className="kpi-value">
+        <div className="kpi-value font-mono font-bold tabular-nums">
           {value}
           {unit && <span className="unit">{unit}</span>}
         </div>
@@ -554,4 +557,6 @@ export function Field({
 export * from './Typography'
 export * from './ZenTable'
 export * from './TactileMotion'
+export * from './Skeletons'
+
 

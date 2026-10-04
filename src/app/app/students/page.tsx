@@ -590,7 +590,7 @@ export default function StudentsPage() {
       {/* ── 2. COMPACT SMARTER KPI CARDS (RESPONSIVE AUTO-GRID) ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Metric 1: Students */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Students
@@ -600,7 +600,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white leading-none">
+            <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
               {stats ? stats.totalStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Across all classes</div>
@@ -608,7 +608,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 2: Active */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Active
@@ -618,7 +618,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">
+            <div className="text-2xl font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
               {stats ? stats.activeStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Currently enrolled</div>
@@ -626,7 +626,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 3: New Admissions */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               New Admissions
@@ -636,7 +636,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white leading-none">
+            <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
               {stats ? stats.recentAdmissions30d : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Last 30 days</div>
@@ -644,7 +644,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 4: Attendance Rate with mini progress */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Attendance Rate
@@ -654,7 +654,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 leading-none">
+            <div className="text-2xl font-mono font-bold tabular-nums text-indigo-600 dark:text-indigo-400 leading-none">
               {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : '—')}
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
@@ -667,7 +667,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 5: Transferred (Zero visually quiet) */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Transferred
@@ -677,7 +677,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className={`text-2xl font-bold leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {stats ? stats.transferredStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Branch transfers</div>
@@ -685,7 +685,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 6: Withdrawn (Zero visually quiet) */}
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Withdrawn
@@ -695,7 +695,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className={`text-2xl font-bold leading-none ${stats?.withdrawnStudents ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
+            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.withdrawnStudents ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {stats ? stats.withdrawnStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Archived records</div>

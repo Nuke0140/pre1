@@ -10,11 +10,13 @@ import {
   FileText, CreditCard, ChevronRight, Edit3, Camera, Trash2,
   AlertTriangle, Upload, UserPlus, ArrowRightLeft, GraduationCap,
   ExternalLink, Check, X, AlertCircle, RefreshCw, ArrowLeft,
-  Calendar, CheckCircle, Clock, Eye, Lock, Download
+  Calendar, CheckCircle, Clock, Eye, Lock, Download,
+  Briefcase, Package, Send, CheckCheck
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
+import { BulkReportCardModal } from '@/components/academics/BulkReportCardModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 
@@ -53,6 +55,18 @@ export function StudentDetailClient({ profile }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [tab, setTab] = useState('overview')
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']))
+  const [guardiansList, setGuardiansList] = useState<any[]>(guardians || [])
+
+  const handleTabChange = useCallback((nextTab: string) => {
+    setTab(nextTab)
+    setVisitedTabs((prev) => {
+      if (prev.has(nextTab)) return prev
+      const next = new Set(prev)
+      next.add(nextTab)
+      return next
+    })
+  }, [])
   const [busy, setBusy] = useState(false)
 
   // Master options
@@ -81,11 +95,50 @@ export function StudentDetailClient({ profile }: Props) {
     dob: student?.dob ? new Date(student.dob).toISOString().slice(0, 10) : '',
     gender: student?.gender || 'MALE',
     bloodGroup: student?.bloodGroup || '',
+    allergies: student?.allergies || '',
+    medicalAlerts: student?.medicalAlerts || '',
+    dietaryRestrictions: student?.dietaryRestrictions || '',
+    emergencyMedicalInstructions: student?.emergencyMedicalInstructions || '',
     address: student?.address || '',
     photoUrl: student?.photoUrl || '',
     seatNumber: student?.seatNumber || '',
     generateSeatNumber: false,
   })
+
+  // Report Card State
+  const [reportCards, setReportCards] = useState<any[]>(profile.reportCards || [])
+  const [loadingReportCards, setLoadingReportCards] = useState(false)
+  const [bulkReportModalOpen, setBulkReportModalOpen] = useState(false)
+  const [singleReportModalOpen, setSingleReportModalOpen] = useState(false)
+  const [renderingReportId, setRenderingReportId] = useState<string | null>(null)
+  const [reportForm, setReportForm] = useState<any>({
+    id: undefined,
+    term: 'Term 1',
+    templateId: '',
+    overallGrade: 'A',
+    remarks: '',
+    attendancePct: '95',
+    status: 'DRAFT',
+    domainMotor: 'Meeting Expectations',
+    domainLanguage: 'Meeting Expectations',
+    domainSocial: 'Meeting Expectations',
+    domainCognitive: 'Meeting Expectations',
+  })
+
+  const loadReportCards = useCallback(async () => {
+    if (!student?.id) return
+    try {
+      setLoadingReportCards(true)
+      const res = await fetch(`/api/v1/academics/report-cards?studentId=${student.id}`).then((r) => r.json())
+      if (res.success && Array.isArray(res.data?.reportCards)) {
+        setReportCards(res.data.reportCards)
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setLoadingReportCards(false)
+    }
+  }, [student?.id])
 
   // Status Change Form State
   const [statusForm, setStatusForm] = useState({
@@ -102,6 +155,7 @@ export function StudentDetailClient({ profile }: Props) {
     fullName: '',
     phone: '',
     email: '',
+    occupation: '',
     relationship: 'MOTHER',
     isPrimary: false,
     canPickup: true,
@@ -110,6 +164,59 @@ export function StudentDetailClient({ profile }: Props) {
     receivesComm: true,
   })
   const [guardianToUnlink, setGuardianToUnlink] = useState<{ id: string; name: string } | null>(null)
+  const [invitingGuardianId, setInvitingGuardianId] = useState<string | null>(null)
+
+  const handleInviteGuardian = async (guardianId: string, guardianName: string) => {
+    const previousGuardians = [...guardiansList]
+    setInvitingGuardianId(guardianId)
+
+    // Optimistic UI: mark invitation as pending immediately
+    setGuardiansList((prev) =>
+      prev.map((g) =>
+        g.id === guardianId
+          ? {
+              ...g,
+              portalAccount: g.portalAccount || {
+                id: 'temp-invite-' + Date.now(),
+                email: g.email || '',
+                status: 'INVITATION_PENDING',
+                isOptimistic: true,
+              },
+            }
+          : g
+      )
+    )
+
+    try {
+      const res = await fetch(`/api/v1/students/${student?.id}/guardians`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'INVITE', guardianId }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Invitation sent', `Parent portal invitation dispatched to ${guardianName}`)
+        if (json.data?.portalAccount || json.data?.guardian?.portalAccount) {
+          const confirmedAccount = json.data?.portalAccount || json.data?.guardian?.portalAccount
+          setGuardiansList((prev) =>
+            prev.map((g) =>
+              g.id === guardianId ? { ...g, portalAccount: confirmedAccount } : g
+            )
+          )
+        }
+      } else {
+        // Rollback on rejection
+        setGuardiansList(previousGuardians)
+        toast.error('Invitation failed', json.error?.message || 'Could not send invitation')
+      }
+    } catch (err: any) {
+      // Rollback on network failure
+      setGuardiansList(previousGuardians)
+      toast.error('Invitation error', err.message || 'Network error occurred')
+    } finally {
+      setInvitingGuardianId(null)
+    }
+  }
 
   // Branch Transfer State
   const [transferBranchId, setTransferBranchId] = useState('')
@@ -187,6 +294,92 @@ export function StudentDetailClient({ profile }: Props) {
       .catch(() => {})
     loadHistory()
   }, [loadHistory])
+
+  const [reportTemplates, setReportTemplates] = useState<any[]>([])
+
+  useEffect(() => {
+    fetch('/api/v1/templates?type=REPORT_CARD')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setReportTemplates(json.data)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleRenderReportPdf = async (reportCardId: string) => {
+    setRenderingReportId(reportCardId)
+    try {
+      const res = await fetch(`/api/v1/academics/report-cards/${reportCardId}/render`, {
+        method: 'POST',
+      }).then((r) => r.json())
+      if (res.success) {
+        toast.success('Report Card Generated', 'Official PDF has been compiled and saved to Profile Documents')
+        loadReportCards()
+        loadStudentDocuments()
+        if (res.data?.document) {
+          setPreviewDoc(res.data.document)
+        }
+      } else {
+        toast.error('Generation Failed', res.error?.message || 'Could not compile report card PDF')
+      }
+    } catch (err: any) {
+      toast.error('Network Error', err.message)
+    } finally {
+      setRenderingReportId(null)
+    }
+  }
+
+  const handleSaveSingleReport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const selectedTmpl = reportForm.templateId || reportTemplates[0]?.id
+      if (!selectedTmpl) {
+        toast.error('Template Required', 'Please select a report card template')
+        setBusy(false)
+        return
+      }
+
+      const res = await fetch('/api/v1/academics/report-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          academicSessionId: academic?.session?.id || sessions[0]?.id,
+          classroomId: academic?.classroom?.id || classrooms[0]?.id,
+          studentId: student?.id,
+          templateId: selectedTmpl,
+          term: reportForm.term,
+          status: reportForm.status,
+          overallGrade: reportForm.overallGrade,
+          remarks: reportForm.remarks,
+          attendancePct: parseInt(reportForm.attendancePct, 10) || null,
+          fieldValues: {
+            overallGrade: { key: 'overallGrade', label: 'Overall Grade', type: 'grade', value: reportForm.overallGrade },
+            remarks: { key: 'remarks', label: 'Educator Remarks', type: 'textarea', value: reportForm.remarks },
+            attendancePct: { key: 'attendancePct', label: 'Attendance %', type: 'number', value: reportForm.attendancePct },
+            domainMotor: { key: 'domainMotor', label: 'Gross & Fine Motor Skills', type: 'rating', value: reportForm.domainMotor },
+            domainLanguage: { key: 'domainLanguage', label: 'Language & Phonics', type: 'rating', value: reportForm.domainLanguage },
+            domainSocial: { key: 'domainSocial', label: 'Social & Emotional Harmony', type: 'rating', value: reportForm.domainSocial },
+            domainCognitive: { key: 'domainCognitive', label: 'Cognitive & Sensory Exploration', type: 'rating', value: reportForm.domainCognitive },
+          },
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Report Card Saved', `Term assessment recorded for ${reportForm.term}`)
+        setSingleReportModalOpen(false)
+        loadReportCards()
+      } else {
+        toast.error('Save Failed', json.error?.message || 'Could not save report card')
+      }
+    } catch (err: any) {
+      toast.error('Error', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   // Auto-open student edit modal if navigated with ?edit=true
   useEffect(() => {
@@ -301,11 +494,14 @@ export function StudentDetailClient({ profile }: Props) {
 
     try {
       const endpoint = `/api/v1/students/${student?.id}/guardians`
-      const method = guardianForm.isEdit ? 'PATCH' : 'POST'
+      const payload = {
+        ...guardianForm,
+        action: guardianForm.isEdit ? 'UPDATE' : 'LINK',
+      }
       const res = await fetch(endpoint, {
-        method,
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(guardianForm),
+        body: JSON.stringify(payload),
       })
       const json = await res.json()
       if (json.success) {
@@ -328,8 +524,10 @@ export function StudentDetailClient({ profile }: Props) {
     setBusy(true)
 
     try {
-      const res = await fetch(`/api/v1/students/${student?.id}/guardians?guardianId=${guardianToUnlink.id}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/v1/students/${student?.id}/guardians`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'UNLINK', guardianId: guardianToUnlink.id }),
       })
       const json = await res.json()
       if (json.success) {
@@ -657,18 +855,63 @@ export function StudentDetailClient({ profile }: Props) {
         </div>
       </div>
 
-      {/* ── 9-TAB NAVIGATION STRIP ── */}
+      {/* ── HEALTH & MEDICAL DIRECTIVES ALERT BANNER (Section 7) ── */}
+      {(student?.allergies || student?.medicalAlerts || student?.dietaryRestrictions || student?.emergencyMedicalInstructions) && (
+        <div className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 shadow-xs flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+          <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1">
+            <div className="font-bold uppercase tracking-wider text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <span>Medical & Health Directives Alert</span>
+              {student?.bloodGroup && (
+                <span className="px-2 py-0.2 rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-[10px]">
+                  Blood: {student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-')}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] pt-1">
+              {student?.allergies && (
+                <div>
+                  <span className="font-bold text-amber-950 dark:text-amber-100 block">Allergies:</span>
+                  <span className="text-amber-800 dark:text-amber-300">{student.allergies}</span>
+                </div>
+              )}
+              {student?.medicalAlerts && (
+                <div>
+                  <span className="font-bold text-amber-950 dark:text-amber-100 block">Medical Conditions:</span>
+                  <span className="text-amber-800 dark:text-amber-300">{student.medicalAlerts}</span>
+                </div>
+              )}
+              {student?.dietaryRestrictions && (
+                <div>
+                  <span className="font-bold text-amber-950 dark:text-amber-100 block">Dietary Restrictions:</span>
+                  <span className="text-amber-800 dark:text-amber-300">{student.dietaryRestrictions}</span>
+                </div>
+              )}
+              {student?.emergencyMedicalInstructions && (
+                <div>
+                  <span className="font-bold text-amber-950 dark:text-amber-100 block">Emergency Protocol:</span>
+                  <span className="text-amber-800 dark:text-amber-300">{student.emergencyMedicalInstructions}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MULTI-TAB NAVIGATION STRIP ── */}
       <div className="overflow-x-auto scrollbar-none pb-1">
         <Segmented
           value={tab}
-          onChange={setTab}
+          onChange={handleTabChange}
           options={[
             { key: 'overview', label: 'Overview' },
-            { key: 'guardians', label: `Guardians (${guardians?.length || 0})` },
+            { key: 'guardians', label: `Guardians (${guardiansList.length})` },
             { key: 'academic', label: 'Academic & Class' },
+            { key: 'report-cards', label: `Report Cards (${reportCards?.length || 0})` },
             { key: 'attendance', label: `Attendance (${attendanceRate}%)` },
             { key: 'transport', label: `Transport (${profile.transport?.activeAssignment ? 'Active' : 'None'})` },
             { key: 'fees', label: `Fees (${finance?.invoices?.length || 0})` },
+            { key: 'inventory', label: `Inventory (${profile.inventory?.stockIssues?.length || 0})` },
             { key: 'observations', label: `Observations (${academics?.observations?.length || 0})` },
             { key: 'timeline', label: 'Timeline' },
             { key: 'documents', label: `Documents (${studentDocuments?.length || 0})` },
@@ -678,8 +921,15 @@ export function StudentDetailClient({ profile }: Props) {
       </div>
 
       {/* ── TAB 1: OVERVIEW ── */}
-      {tab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {visitedTabs.has('overview') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-overview"
+          aria-labelledby="tab-overview"
+          hidden={tab !== 'overview'}
+          className={tab === 'overview' ? 'tab-panel-enter' : ''}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           {/* Card 1: Child Identity & Personal Info */}
           <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -723,12 +973,12 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           </div>
 
-          {/* Card 2: Current Enrollment & Origin */}
+          {/* Card 2: Current Enrollment & Origin Dossier */}
           <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <School size={17} className="text-purple-600 dark:text-purple-400" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Admission & Placement</h3>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Admission & Placement Dossier</h3>
               </div>
               <StatusBadge status={admission?.status || student.status} />
             </div>
@@ -738,6 +988,26 @@ export function StudentDetailClient({ profile }: Props) {
                 <span className="text-slate-500">Application Ref</span>
                 <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">{admission?.applicationNumber || 'Direct Enrollment'}</span>
               </div>
+              {admission?.lead && (
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Lead Attribution</span>
+                  <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
+                    {admission.lead.leadNumber} • {admission.lead.source || 'Inquiry'}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-500">Previous School</span>
+                <span className="text-slate-800 dark:text-slate-200">{admission?.previousSchool || 'First-time Preschooler'}</span>
+              </div>
+              {admission?.offer && (
+                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-500">Agreed Offer Terms</span>
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    {inr(admission.offer.feeTotalCents || 0)} ({admission.offer.status})
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-slate-500">Enrolled Session</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{academic?.session?.name || 'Current Academic Session'}</span>
@@ -764,6 +1034,17 @@ export function StudentDetailClient({ profile }: Props) {
                   {student.seatNumber || 'Not assigned'}
                 </span>
               </div>
+              {admission?.notes && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1">
+                    <Lock size={12} className="text-slate-400" />
+                    <span>Counselor & Intake Notes (Staff Only)</span>
+                  </div>
+                  <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 italic">
+                    &ldquo;{admission.notes}&rdquo;
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -862,11 +1143,19 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB 2: GUARDIANS & PICKUPS ── */}
-      {tab === 'guardians' && (
-        <div className="space-y-5">
+      {visitedTabs.has('guardians') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-guardians"
+          aria-labelledby="tab-guardians"
+          hidden={tab !== 'guardians'}
+          className={tab === 'guardians' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Family & Guardian Roster</h2>
@@ -897,8 +1186,8 @@ export function StudentDetailClient({ profile }: Props) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {guardians && guardians.length > 0 ? (
-              guardians.map((g: any) => (
+            {guardiansList && guardiansList.length > 0 ? (
+              guardiansList.map((g: any) => (
                 <div key={g.id} className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -921,6 +1210,7 @@ export function StudentDetailClient({ profile }: Props) {
                             fullName: g.name,
                             phone: g.phone || '',
                             email: g.email || '',
+                            occupation: g.occupation || '',
                             relationship: g.relationship || 'MOTHER',
                             isPrimary: !!g.isPrimary,
                             canPickup: !!g.canPickup,
@@ -957,6 +1247,12 @@ export function StudentDetailClient({ profile }: Props) {
                       <Mail size={13} className="text-slate-400" />
                       <span>{g.email || 'No email address'}</span>
                     </div>
+                    {g.occupation && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase size={13} className="text-slate-400" />
+                        <span>{g.occupation}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Badges / Flags */}
@@ -982,6 +1278,57 @@ export function StudentDetailClient({ profile }: Props) {
                       </span>
                     )}
                   </div>
+
+                  {/* Portal Account Link & Health */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                    {g.portalAccount ? (
+                      <div className="space-y-0.5">
+                        <div className={`flex items-center gap-1.5 font-semibold ${
+                          g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        }`}>
+                          {g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic ? (
+                            <>
+                              <Clock size={14} className="animate-spin shrink-0" />
+                              <span>Invitation Pending ({g.portalAccount.email || g.email || 'Dispatched'})</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCheck size={14} />
+                              <span>Portal Connected ({g.portalAccount.email})</span>
+                            </>
+                          )}
+                        </div>
+                        {g.portalAccount.sessions && g.portalAccount.sessions.length > 0 ? (
+                          <div className="text-[11px] text-slate-400">
+                            {g.portalAccount.sessions.length} active session{g.portalAccount.sessions.length > 1 ? 's' : ''} • Last active {timeAgo(g.portalAccount.sessions[0].lastActiveAt)}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-400">
+                            {g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic
+                              ? 'Invitation dispatched, waiting for parent acceptance'
+                              : g.portalAccount.lastLoginAt
+                              ? `Last login ${timeAgo(g.portalAccount.lastLoginAt)}`
+                              : 'Account active'}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-[11px] text-slate-400">No portal login linked</span>
+                        <button
+                          type="button"
+                          onClick={() => handleInviteGuardian(g.id, g.name)}
+                          disabled={invitingGuardianId === g.id}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <Send size={11} />
+                          <span>{invitingGuardianId === g.id ? 'Inviting...' : 'Invite to Portal'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -999,11 +1346,19 @@ export function StudentDetailClient({ profile }: Props) {
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB 3: ACADEMIC & CLASS ── */}
-      {tab === 'academic' && (
-        <div className="space-y-5">
+      {visitedTabs.has('academic') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-academic"
+          aria-labelledby="tab-academic"
+          hidden={tab !== 'academic'}
+          className={tab === 'academic' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
           {/* Current Placement Card */}
           <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -1071,22 +1426,43 @@ export function StudentDetailClient({ profile }: Props) {
 
           {/* Allocation History */}
           <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">Academic Progression History</h3>
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-bold text-slate-900 dark:text-white text-base">Academic Progression History</h3>
+              <span className="text-xs text-slate-400">{history?.length || 0} recorded allocation{history?.length === 1 ? '' : 's'}</span>
+            </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {history && history.length > 0 ? (
                 history.map((alloc: any) => (
-                  <div key={alloc.id} className="py-3 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-semibold text-slate-900 dark:text-white text-sm">
-                        {alloc.classroomName || alloc.classroom?.name} ({enumLabel(alloc.programType)})
+                  <div key={alloc.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900 dark:text-white text-sm">
+                          {alloc.classroomName || alloc.classroom?.name}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          alloc.status === 'ACTIVE'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                        }`}>
+                          {alloc.status || 'COMPLETED'}
+                        </span>
+                        {alloc.programType && (
+                          <span className="text-slate-400 text-xs">({enumLabel(alloc.programType)})</span>
+                        )}
                       </div>
-                      <div className="text-slate-500 mt-0.5">
-                        Session: {alloc.sessionName || alloc.academicSession?.name} • Reason: {alloc.reason || 'General'}
+                      <div className="text-slate-500 flex items-center gap-2 flex-wrap">
+                        <span>Session: <strong className="text-slate-700 dark:text-slate-300">{alloc.sessionName || alloc.academicSession?.name}</strong></span>
+                        {alloc.classroomCode && <span>• Code: {alloc.classroomCode}</span>}
+                        <span>• Reason: {alloc.reason || 'General Placement'}</span>
                       </div>
                     </div>
-                    <div className="text-right text-slate-400">
-                      Started: {fmtDate(alloc.startedAt)}
-                      {alloc.endedAt && <div>Ended: {fmtDate(alloc.endedAt)}</div>}
+                    <div className="text-left sm:text-right text-slate-400 text-[11px] shrink-0">
+                      <div>From: {fmtDate(alloc.startedAt)}</div>
+                      {alloc.endedAt ? (
+                        <div>To: {fmtDate(alloc.endedAt)}</div>
+                      ) : (
+                        <div className="text-emerald-600 dark:text-emerald-400 font-medium">Currently Active</div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -1096,11 +1472,340 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           </div>
         </div>
+      </div>
+      )}
+
+      {/* ── TAB: REPORT CARDS & EVALUATIONS (Section 17) ── */}
+      {visitedTabs.has('report-cards') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-report-cards"
+          aria-labelledby="tab-report-cards"
+          hidden={tab !== 'report-cards'}
+          className={tab === 'report-cards' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
+          {/* Action Header & Metric Strip */}
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <GraduationCap size={18} className="text-purple-600 dark:text-purple-400" />
+                  <h3 className="font-bold text-slate-900 dark:text-white text-base">Academic Term Evaluations & Report Cards</h3>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Term assessments, developmental rubrics, educator observations, and official PDF report cards.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={loadReportCards}
+                  className="btn btn-ghost btn-sm text-xs"
+                  title="Refresh evaluations"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <RefreshCw size={13} className={loadingReportCards ? 'animate-spin' : ''} /> Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportForm({
+                      id: undefined,
+                      term: 'Term 1',
+                      templateId: reportTemplates[0]?.id || '',
+                      status: 'DRAFT',
+                      overallGrade: 'A',
+                      remarks: '',
+                      attendancePct: '95',
+                      domainMotor: 'Meeting Expectations',
+                      domainLanguage: 'Meeting Expectations',
+                      domainSocial: 'Meeting Expectations',
+                      domainCognitive: 'Meeting Expectations',
+                    })
+                    setSingleReportModalOpen(true)
+                  }}
+                  className="btn btn-outline btn-sm text-xs font-semibold text-purple-700 dark:text-purple-300"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <FileText size={13} /> Single Assessment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkReportModalOpen(true)}
+                  className="btn btn-primary btn-sm text-xs font-semibold"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Sparkles size={13} /> Teacher Bulk Entry
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Total Evaluations</div>
+                <div className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{reportCards?.length || 0}</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Published to Parents</div>
+                <div className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  {reportCards?.filter((r) => r.status === 'PUBLISHED').length || 0}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-[10px] uppercase font-bold text-slate-400">In Draft / Review</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                  {reportCards?.filter((r) => r.status !== 'PUBLISHED').length || 0}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="text-[10px] uppercase font-bold text-slate-400">Active Classroom</div>
+                <div className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate mt-1">
+                  {academic?.classroom?.name || 'Unassigned'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Evaluations Grid */}
+          {loadingReportCards ? (
+            <div className="p-8 text-center text-xs text-slate-400 bg-white/95 dark:bg-slate-900/90 rounded-2xl border border-slate-200/80">
+              <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-purple-600" />
+              Loading student report cards...
+            </div>
+          ) : reportCards.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {reportCards.map((rc: any) => {
+                const domainMotor = rc.fieldValues?.domainMotor?.value || rc.fieldValues?.domainMotor
+                const domainLanguage = rc.fieldValues?.domainLanguage?.value || rc.fieldValues?.domainLanguage
+                const domainSocial = rc.fieldValues?.domainSocial?.value || rc.fieldValues?.domainSocial
+                const domainCognitive = rc.fieldValues?.domainCognitive?.value || rc.fieldValues?.domainCognitive
+
+                return (
+                  <div
+                    key={rc.id}
+                    className="p-5 rounded-2xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4 hover:border-purple-300 dark:hover:border-purple-800/60 transition-all"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 dark:text-white text-base">
+                              {rc.term}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              rc.status === 'PUBLISHED'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                : rc.status === 'REVIEWED'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                            }`}>
+                              {rc.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Session: {rc.academicSession?.name || academic?.session?.name || 'Current Session'}
+                            {rc.template?.name ? ` • Template: ${rc.template.name}` : ''}
+                          </p>
+                        </div>
+
+                        {rc.overallGrade && (
+                          <div className="text-right shrink-0">
+                            <div className="text-lg font-black text-purple-600 dark:text-purple-400">
+                              {rc.overallGrade}
+                            </div>
+                            <div className="text-[10px] font-bold uppercase text-slate-400">Grade</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Evaluator & Attendance */}
+                      <div className="grid grid-cols-2 gap-2 text-xs py-2 px-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                        <div>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Evaluator</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {rc.evaluatorName || 'Assigned Educator'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Term Attendance</span>
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            {rc.attendancePct != null ? `${rc.attendancePct}%` : 'Not recorded'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Remarks */}
+                      {rc.remarks && (
+                        <div className="text-xs bg-purple-50/50 dark:bg-purple-950/20 p-2.5 rounded-xl border border-purple-100/60 dark:border-purple-900/30">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 block mb-0.5">
+                            Educator Remarks:
+                          </span>
+                          <p className="text-slate-700 dark:text-slate-300 italic">
+                            &ldquo;{rc.remarks}&rdquo;
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Developmental Domains Chips */}
+                      {(domainMotor || domainLanguage || domainSocial || domainCognitive) && (
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Developmental Areas</span>
+                          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                            {domainMotor && (
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800 flex justify-between">
+                                <span className="text-slate-500">Motor:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{domainMotor}</span>
+                              </div>
+                            )}
+                            {domainLanguage && (
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800 flex justify-between">
+                                <span className="text-slate-500">Language:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{domainLanguage}</span>
+                              </div>
+                            )}
+                            {domainSocial && (
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800 flex justify-between">
+                                <span className="text-slate-500">Social:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{domainSocial}</span>
+                              </div>
+                            )}
+                            {domainCognitive && (
+                              <div className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-800 flex justify-between">
+                                <span className="text-slate-500">Cognitive:</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-200">{domainCognitive}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                      <div className="flex items-center gap-2">
+                        {rc.document ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc(rc.document)}
+                              className="inline-flex items-center gap-1 font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                            >
+                              <Eye size={13} /> View PDF
+                            </button>
+                            <a
+                              href={`/api/v1/documents/${rc.documentId}/download`}
+                              download={rc.document.fileName || `ReportCard_${rc.term}.pdf`}
+                              className="inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300 hover:underline"
+                            >
+                              <Download size={13} /> Download
+                            </a>
+                          </>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          disabled={renderingReportId === rc.id}
+                          onClick={() => handleRenderReportPdf(rc.id)}
+                          className="inline-flex items-center gap-1 font-semibold text-purple-700 dark:text-purple-300 hover:underline disabled:opacity-50"
+                        >
+                          {renderingReportId === rc.id ? (
+                            <>
+                              <RefreshCw size={13} className="animate-spin" /> Compiling...
+                            </>
+                          ) : (
+                            <>
+                              <FileText size={13} /> {rc.document ? 'Re-render PDF' : 'Generate PDF'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReportForm({
+                            id: rc.id,
+                            term: rc.term,
+                            templateId: rc.templateId,
+                            status: rc.status,
+                            overallGrade: rc.overallGrade || '',
+                            remarks: rc.remarks || '',
+                            attendancePct: rc.attendancePct != null ? String(rc.attendancePct) : '',
+                            domainMotor: domainMotor || 'Meeting Expectations',
+                            domainLanguage: domainLanguage || 'Meeting Expectations',
+                            domainSocial: domainSocial || 'Meeting Expectations',
+                            domainCognitive: domainCognitive || 'Meeting Expectations',
+                          })
+                          setSingleReportModalOpen(true)
+                        }}
+                        className="inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-400 hover:text-purple-600"
+                      >
+                        <Edit3 size={13} /> Edit
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-2xl bg-white/95 dark:bg-slate-900/90 border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+              <GraduationCap size={32} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  No academic report cards recorded
+                </p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Evaluate the child individually or launch Teacher Bulk Entry to record evaluations for the entire classroom in one pass.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportForm({
+                      id: undefined,
+                      term: 'Term 1',
+                      templateId: reportTemplates[0]?.id || '',
+                      status: 'DRAFT',
+                      overallGrade: 'A',
+                      remarks: '',
+                      attendancePct: '95',
+                      domainMotor: 'Meeting Expectations',
+                      domainLanguage: 'Meeting Expectations',
+                      domainSocial: 'Meeting Expectations',
+                      domainCognitive: 'Meeting Expectations',
+                    })
+                    setSingleReportModalOpen(true)
+                  }}
+                  className="btn btn-outline btn-sm text-xs"
+                >
+                  Create Individual Assessment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkReportModalOpen(true)}
+                  className="btn btn-primary btn-sm text-xs"
+                >
+                  Launch Classroom Bulk Entry
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       )}
 
       {/* ── TAB 4: ATTENDANCE ── */}
-      {tab === 'attendance' && (
-        <div className="space-y-5">
+      {visitedTabs.has('attendance') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-attendance"
+          aria-labelledby="tab-attendance"
+          hidden={tab !== 'attendance'}
+          className={tab === 'attendance' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
           {/* Top Attendance Metric Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
             <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
@@ -1169,11 +1874,19 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB 5: TRANSPORT ── */}
-      {tab === 'transport' && (
-        <div className="space-y-5">
+      {visitedTabs.has('transport') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-transport"
+          aria-labelledby="tab-transport"
+          hidden={tab !== 'transport'}
+          className={tab === 'transport' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
           {profile.transport?.activeAssignment ? (
             <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -1212,19 +1925,131 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           ) : (
             <EmptyState
-              icon={<Bus size={32} />}
-              title="No Active Transport"
-              message="Student has not been assigned to any school transport routes."
+              icon={<Bus size={28} />}
+              title="No School Transport Assigned"
+              description="There's no school transport route linked to this student's profile yet."
+              action={{
+                label: 'Assign Route',
+                href: '/app/transport',
+              }}
             />
           )}
+
+          {/* Pickup & Dismissal Authorizations (Area D) */}
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400" />
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">Dismissal & Pickup Authorizations</h3>
+              </div>
+              <span className="text-xs text-slate-400">Guardian & Delegated Verification</span>
+            </div>
+
+            {/* Guardian Dismissal Status */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Guardian Dismissal Authorizations</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {guardians && guardians.length > 0 ? (
+                  guardians.map((g: any) => (
+                    <div key={g.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">{g.name} ({enumLabel(g.relationship)})</div>
+                        <div className="text-slate-400 text-[11px] mt-0.5">{g.phone || 'No phone'}</div>
+                      </div>
+                      <div>
+                        {g.canPickup ? (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                            <Check size={11} /> Authorized
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-500">
+                            No Dismissal Rights
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 col-span-2">No guardians registered.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Third-Party Pickup Delegates */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Third-Party & Emergency Delegates</h4>
+                <span className="text-xs text-slate-400">
+                  {profile.transport?.pickupAuthorizations?.length || 0} registered
+                </span>
+              </div>
+
+              {profile.transport?.pickupAuthorizations && profile.transport.pickupAuthorizations.length > 0 ? (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {profile.transport.pickupAuthorizations.map((auth: any) => (
+                    <div key={auth.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>{auth.personName}</span>
+                          <span className="text-slate-400 text-[11px]">({auth.relationship})</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            auth.status === 'APPROVED' || auth.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {auth.status}
+                          </span>
+                        </div>
+                        <div className="text-slate-500 text-[11px] mt-0.5 flex items-center gap-2">
+                          <span>Phone: {auth.phone}</span>
+                          {auth.approvedByName && <span>• Approved by: {auth.approvedByName}</span>}
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right text-[11px] text-slate-400 shrink-0">
+                        <div>Valid: {fmtDate(auth.validFrom)} – {fmtDate(auth.validUntil)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 dark:bg-slate-800/40 rounded-xl">
+                  No third-party temporary pickup delegates active.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB 6: FEES & FINANCE ── */}
-      {tab === 'fees' && (
-        <div className="space-y-5">
+      {visitedTabs.has('fees') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-fees"
+          aria-labelledby="tab-fees"
+          hidden={tab !== 'fees'}
+          className={tab === 'fees' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
+          {/* Fee Reconciliation Discrepancy Banner (Area E) */}
+          {finance?.reconciliation?.hasDiscrepancy && (
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 flex items-start gap-3 text-xs shadow-xs">
+              <AlertTriangle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-bold text-sm">Admission Offer Fee Discrepancy Detected</div>
+                <p className="mt-1 text-slate-700 dark:text-slate-300 leading-relaxed">
+                  Agreed admission offer total is <strong>{inr(finance.reconciliation.offerAgreedCents)}</strong>, whereas total posted invoices in the student ledger equal <strong>{inr(finance.reconciliation.invoicedTotalCents)}</strong> (Variance: {inr(Math.abs(finance.reconciliation.discrepancyCents))}).
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  In accordance with financial compliance, historical invoices and ledgers remain immutable. Please create an adjustment credit/debit voucher if an alignment is required.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Finance KPI Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
             <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
               <div className="text-[11px] font-bold uppercase text-slate-400">Total Billed</div>
               <div className="text-xl font-bold text-slate-900 dark:text-white mt-1">{inr(finance?.totalBilledCents || 0)}</div>
@@ -1235,7 +2060,7 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
             <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
               <div className="text-[11px] font-bold uppercase text-slate-400">Current Balance</div>
-              <div className={`text-xl font-bold mt-1 ${feeBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+              <div className={`text-xl font-bold mt-1 ${feeBalance > 0 ? 'text-rose-600' : 'text-slate-800 dark:text-white'}`}>
                 {inr(feeBalance)}
               </div>
             </div>
@@ -1243,6 +2068,18 @@ export function StudentDetailClient({ profile }: Props) {
               <div className="text-[11px] font-bold uppercase text-slate-400">Overdue</div>
               <div className={`text-xl font-bold mt-1 ${finance?.overdueCents > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
                 {inr(finance?.overdueCents || 0)}
+              </div>
+            </div>
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+              <div className="text-[11px] font-bold uppercase text-slate-400">Deposits Held</div>
+              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                {inr(finance?.depositsSummary?.remainingAmountCents || 0)}
+              </div>
+            </div>
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs">
+              <div className="text-[11px] font-bold uppercase text-slate-400">Refunded</div>
+              <div className="text-xl font-bold text-slate-600 dark:text-slate-300 mt-1">
+                {inr(finance?.depositsSummary?.refundedAmountCents || 0)}
               </div>
             </div>
           </div>
@@ -1279,12 +2116,179 @@ export function StudentDetailClient({ profile }: Props) {
               )}
             </div>
           </div>
+
+          {/* Security Deposits & Refunds Section (Area E) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Deposits Card */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Security & Caution Deposits</h3>
+                <span className="text-xs text-slate-400">{finance?.deposits?.length || 0} records</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {finance?.deposits && finance.deposits.length > 0 ? (
+                  finance.deposits.map((dep: any) => (
+                    <div key={dep.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">{dep.depositNumber || dep.type}</div>
+                        <div className="text-slate-400 text-[11px]">
+                          Received: {fmtDate(dep.receivedAt)} • Remaining: {inr(dep.remainingAmountCents)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-slate-900 dark:text-white">{inr(dep.amountCents)}</div>
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600">
+                          {dep.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 py-3 text-center">No security deposits on file.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Refunds Card */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="font-bold text-slate-900 dark:text-white text-sm">Processed Refunds</h3>
+                <span className="text-xs text-slate-400">{finance?.refunds?.length || 0} records</span>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {finance?.refunds && finance.refunds.length > 0 ? (
+                  finance.refunds.map((ref: any) => (
+                    <div key={ref.id} className="py-2.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-900 dark:text-white">{ref.refundNumber}</div>
+                        <div className="text-slate-400 text-[11px]">{ref.reason || 'Deposit return / Overpayment'}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-rose-600 dark:text-rose-400">{inr(ref.amountCents)}</div>
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                          {ref.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 py-3 text-center">No refunds recorded for this student.</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+      )}
+
+      {/* ── TAB: INVENTORY ISSUES (Area C) ── */}
+      {visitedTabs.has('inventory') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-inventory"
+          aria-labelledby="tab-inventory"
+          hidden={tab !== 'inventory'}
+          className={tab === 'inventory' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Student Inventory & Issued Assets</h2>
+              <p className="text-xs text-slate-500">Track kits, books, uniforms, learning materials and recorded returns.</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+              {profile.inventory?.stockIssues?.length || 0} Issue Batches
+            </span>
+          </div>
+
+          {/* Inventory Items List */}
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+            <h3 className="font-bold text-slate-900 dark:text-white text-base">Issue Records & Itemized Assets</h3>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {profile.inventory?.stockIssues && profile.inventory.stockIssues.length > 0 ? (
+                profile.inventory.stockIssues.map((issue: any) => (
+                  <div key={issue.id} className="py-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
+                          <Package size={15} className="text-purple-600" />
+                          <span>{issue.issueNumber}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            issue.status === 'COMPLETED' || issue.status === 'ISSUED'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {issue.status}
+                          </span>
+                        </div>
+                        <div className="text-slate-500 text-[11px] mt-0.5">
+                          Issued on {fmtDate(issue.issueDate)} {issue.location?.name ? `• Location: ${issue.location.name}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-slate-400 text-[11px]">
+                        {issue.notes && <span className="italic">&ldquo;{issue.notes}&rdquo;</span>}
+                      </div>
+                    </div>
+
+                    {/* Item lines */}
+                    <div className="bg-slate-50 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800 overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="text-slate-400 border-b border-slate-200/60 dark:border-slate-700/60">
+                            <th className="pb-2 font-semibold">Item & SKU</th>
+                            <th className="pb-2 font-semibold">Category</th>
+                            <th className="pb-2 font-semibold text-center">Qty Issued</th>
+                            <th className="pb-2 font-semibold text-center">Qty Returned</th>
+                            <th className="pb-2 font-semibold text-right">Unit Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                          {issue.items?.map((item: any) => (
+                            <tr key={item.id} className="text-slate-700 dark:text-slate-300">
+                              <td className="py-2 font-medium">
+                                {item.itemName || item.item?.name || 'Supply item'}
+                                {(item.itemSku || item.item?.sku) && (
+                                  <span className="text-slate-400 font-mono text-[11px] ml-1.5">
+                                    ({item.itemSku || item.item?.sku})
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 text-slate-500">{item.category || item.item?.category?.name || 'General'}</td>
+                              <td className="py-2 text-center font-bold text-slate-900 dark:text-white">{item.quantity}</td>
+                              <td className="py-2 text-center text-slate-500">{item.returnedQuantity || 0}</td>
+                              <td className="py-2 text-right">
+                                {item.unitCostCents || item.unitCost ? inr(item.unitCostCents || item.unitCost) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <EmptyState
+                  icon={<Package size={28} />}
+                  title="No Inventory Issues Yet"
+                  description="Items issued to this classroom will appear here."
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       )}
 
       {/* ── TAB 7: OBSERVATIONS & PROGRESS ── */}
-      {tab === 'observations' && (
-        <div className="space-y-5">
+      {visitedTabs.has('observations') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-observations"
+          aria-labelledby="tab-observations"
+          hidden={tab !== 'observations'}
+          className={tab === 'observations' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Observations & Milestones</h2>
@@ -1322,18 +2326,30 @@ export function StudentDetailClient({ profile }: Props) {
               ))
             ) : (
               <EmptyState
-                icon={<Sparkles size={32} />}
-                title="No Observations Recorded"
-                message="Classroom teachers can log observations, meals, and naps through the Daily Diary."
+                icon={<Sparkles size={28} />}
+                title="No Observations Recorded Yet"
+                description="Learning observations for this student will appear here when recorded."
+                action={{
+                  label: 'Add Observation',
+                  href: `/app/daily-diary?tab=observations&studentId=${student?.id || ''}`,
+                }}
               />
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB 8: TIMELINE ── */}
-      {tab === 'timeline' && (
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+      {visitedTabs.has('timeline') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-timeline"
+          aria-labelledby="tab-timeline"
+          hidden={tab !== 'timeline'}
+          className={tab === 'timeline' ? 'tab-panel-enter' : ''}
+        >
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
           <h3 className="font-bold text-slate-900 dark:text-white text-base">Student Chronological Activity Feed</h3>
           <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
             {timeline && timeline.length > 0 ? (
@@ -1352,11 +2368,19 @@ export function StudentDetailClient({ profile }: Props) {
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* ── TAB: DOCUMENTS LIBRARY ── */}
-      {tab === 'documents' && (
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+      {visitedTabs.has('documents') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-documents"
+          aria-labelledby="tab-documents"
+          hidden={tab !== 'documents'}
+          className={tab === 'documents' ? 'tab-panel-enter' : ''}
+        >
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base">Student Document Library</h3>
@@ -1462,6 +2486,67 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
           )}
 
+          {/* Verified Admission & Intake Records (Section 16) */}
+          <div className="pt-6 border-t border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                  Verified Admission Intake & Enrollment Records
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Birth certificate, immunization proofs, identity proofs, and intake documents verified during enrollment.
+                </p>
+              </div>
+              <span className="text-xs text-slate-400">
+                {admission?.documents?.length || 0} intake files
+              </span>
+            </div>
+
+            {admission?.documents && admission.documents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {admission.documents.map((adDoc: any) => (
+                  <div
+                    key={adDoc.id}
+                    className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 flex items-center justify-between text-xs"
+                  >
+                    <div className="space-y-0.5 truncate pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-900 dark:text-white truncate">
+                          {adDoc.documentType?.replace(/_/g, ' ') || adDoc.name || 'Admission Document'}
+                        </span>
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                          adDoc.status === 'VERIFIED'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {adDoc.status || 'VERIFIED'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {adDoc.fileName || 'Document File'} {adDoc.verifiedAt ? `• Verified ${fmtDate(adDoc.verifiedAt)}` : ''}
+                      </p>
+                    </div>
+                    {adDoc.fileUrl && (
+                      <a
+                        href={adDoc.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-ghost btn-xs text-purple-600 hover:text-purple-700 shrink-0"
+                        title="View original file"
+                      >
+                        <ExternalLink size={13} /> View
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 py-2">
+                No intake documents registered during enrollment.
+              </p>
+            )}
+          </div>
+
           {previewDoc && (
             <PdfViewerModal
               open={!!previewDoc}
@@ -1474,11 +2559,19 @@ export function StudentDetailClient({ profile }: Props) {
             />
           )}
         </div>
+      </div>
       )}
 
       {/* ── TAB 9: AUDIT ── */}
-      {tab === 'audit' && (
-        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+      {visitedTabs.has('audit') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-audit"
+          aria-labelledby="tab-audit"
+          hidden={tab !== 'audit'}
+          className={tab === 'audit' ? 'tab-panel-enter' : ''}
+        >
+          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
           <h3 className="font-bold text-slate-900 dark:text-white text-base">Immutable Security Audit Ledger</h3>
           <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
             {audit && audit.length > 0 ? (
@@ -1503,6 +2596,7 @@ export function StudentDetailClient({ profile }: Props) {
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* ── MODAL 1: FULL STUDENT IDENTITY & PHOTO EDITOR ── */}
@@ -1642,6 +2736,52 @@ export function StudentDetailClient({ profile }: Props) {
                 onChange={(e) => setEditForm((p) => ({ ...p, seatNumber: e.target.value, generateSeatNumber: false }))}
                 placeholder="e.g. NUR-A-001"
               />
+            </div>
+          </div>
+
+          {/* Health & Medical Directives (Section 7) */}
+          <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+              <AlertTriangle size={14} className="text-amber-600" />
+              <span>Health, Allergies & Emergency Directives</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Known Allergies</label>
+                <input
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  value={editForm.allergies || ''}
+                  onChange={(e) => setEditForm((p) => ({ ...p, allergies: e.target.value }))}
+                  placeholder="e.g. Peanuts, Dairy, Penicillin"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Medical Conditions / Alerts</label>
+                <input
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  value={editForm.medicalAlerts || ''}
+                  onChange={(e) => setEditForm((p) => ({ ...p, medicalAlerts: e.target.value }))}
+                  placeholder="e.g. Asthma (carries inhaler), Febrile seizures"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Dietary Restrictions</label>
+                <input
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  value={editForm.dietaryRestrictions || ''}
+                  onChange={(e) => setEditForm((p) => ({ ...p, dietaryRestrictions: e.target.value }))}
+                  placeholder="e.g. Vegetarian, No eggs, Halal"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Emergency Medical Protocol</label>
+                <input
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  value={editForm.emergencyMedicalInstructions || ''}
+                  onChange={(e) => setEditForm((p) => ({ ...p, emergencyMedicalInstructions: e.target.value }))}
+                  placeholder="e.g. Call parent immediately, Dr. Mehta 9876543210"
+                />
+              </div>
             </div>
           </div>
 
@@ -1791,6 +2931,15 @@ export function StudentDetailClient({ profile }: Props) {
                 value={guardianForm.email}
                 onChange={(e) => setGuardianForm((p) => ({ ...p, email: e.target.value }))}
                 placeholder="parent@example.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Occupation</label>
+              <input
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={guardianForm.occupation}
+                onChange={(e) => setGuardianForm((p) => ({ ...p, occupation: e.target.value }))}
+                placeholder="e.g. Software Engineer, Doctor"
               />
             </div>
             <div className="space-y-1">
@@ -2146,6 +3295,191 @@ export function StudentDetailClient({ profile }: Props) {
           </div>
         </form>
       </Modal>
+
+      {/* ── MODAL 9: SINGLE REPORT CARD ASSESSMENT (Section 17) ── */}
+      <Modal
+        open={singleReportModalOpen}
+        onClose={() => setSingleReportModalOpen(false)}
+        title={reportForm.id ? 'Edit Report Card Assessment' : 'New Report Card Assessment'}
+        subtitle={`Evaluation for ${student?.firstName} ${student?.lastName || ''}`}
+        icon={<GraduationCap size={20} />}
+      >
+        <form onSubmit={handleSaveSingleReport} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Assessment Term *</label>
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                required
+                value={reportForm.term}
+                onChange={(e) => setReportForm((p) => ({ ...p, term: e.target.value }))}
+              >
+                <option value="Term 1">Term 1</option>
+                <option value="Term 2">Term 2</option>
+                <option value="Term 3">Term 3</option>
+                <option value="Mid-Term">Mid-Term</option>
+                <option value="Final Term">Final Term</option>
+                <option value="Semester 1">Semester 1</option>
+                <option value="Semester 2">Semester 2</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Report Card Template *</label>
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={reportForm.templateId}
+                onChange={(e) => setReportForm((p) => ({ ...p, templateId: e.target.value }))}
+              >
+                {reportTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} (v{t.version || 1})
+                  </option>
+                ))}
+                {reportTemplates.length === 0 && (
+                  <option value="">Default Preschool Report Card</option>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Overall Grade</label>
+              <input
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={reportForm.overallGrade}
+                onChange={(e) => setReportForm((p) => ({ ...p, overallGrade: e.target.value }))}
+                placeholder="A+, A, B, Exceeds"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Attendance %</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={reportForm.attendancePct}
+                onChange={(e) => setReportForm((p) => ({ ...p, attendancePct: e.target.value }))}
+                placeholder="95"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Status</label>
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={reportForm.status}
+                onChange={(e) => setReportForm((p) => ({ ...p, status: e.target.value }))}
+              >
+                <option value="DRAFT">Draft</option>
+                <option value="REVIEWED">Reviewed</option>
+                <option value="PUBLISHED">Published (Visible to Parents)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Developmental Domains */}
+          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2.5">
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider block">
+              Developmental Domain Rubrics
+            </span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Gross & Fine Motor Skills</label>
+                <select
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                  value={reportForm.domainMotor}
+                  onChange={(e) => setReportForm((p) => ({ ...p, domainMotor: e.target.value }))}
+                >
+                  <option value="Exceeding Expectations">Exceeding Expectations</option>
+                  <option value="Meeting Expectations">Meeting Expectations</option>
+                  <option value="Emerging">Emerging</option>
+                  <option value="Needs Support">Needs Support</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Language & Phonics</label>
+                <select
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                  value={reportForm.domainLanguage}
+                  onChange={(e) => setReportForm((p) => ({ ...p, domainLanguage: e.target.value }))}
+                >
+                  <option value="Exceeding Expectations">Exceeding Expectations</option>
+                  <option value="Meeting Expectations">Meeting Expectations</option>
+                  <option value="Emerging">Emerging</option>
+                  <option value="Needs Support">Needs Support</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Social & Emotional Harmony</label>
+                <select
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                  value={reportForm.domainSocial}
+                  onChange={(e) => setReportForm((p) => ({ ...p, domainSocial: e.target.value }))}
+                >
+                  <option value="Exceeding Expectations">Exceeding Expectations</option>
+                  <option value="Meeting Expectations">Meeting Expectations</option>
+                  <option value="Emerging">Emerging</option>
+                  <option value="Needs Support">Needs Support</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Cognitive & Sensory Exploration</label>
+                <select
+                  className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                  value={reportForm.domainCognitive}
+                  onChange={(e) => setReportForm((p) => ({ ...p, domainCognitive: e.target.value }))}
+                >
+                  <option value="Exceeding Expectations">Exceeding Expectations</option>
+                  <option value="Meeting Expectations">Meeting Expectations</option>
+                  <option value="Emerging">Emerging</option>
+                  <option value="Needs Support">Needs Support</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Educator Remarks & Narrative</label>
+            <textarea
+              className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              rows={3}
+              value={reportForm.remarks}
+              onChange={(e) => setReportForm((p) => ({ ...p, remarks: e.target.value }))}
+              placeholder="Detailed observations on student growth, curiosity, peer collaboration..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <button
+              type="button"
+              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              onClick={() => setSingleReportModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-xl font-semibold text-xs shadow-sm disabled:opacity-50"
+            >
+              {busy ? 'Saving...' : 'Save Assessment'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── MODAL 10: TEACHER BULK REPORT ENTRY (Section 17) ── */}
+      <BulkReportCardModal
+        open={bulkReportModalOpen}
+        onClose={() => setBulkReportModalOpen(false)}
+        defaultClassroomId={academic?.classroom?.id}
+        defaultSessionId={academic?.session?.id}
+        onSaved={() => {
+          loadReportCards()
+          loadStudentDocuments()
+        }}
+      />
     </div>
   )
 }

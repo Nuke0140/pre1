@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { Bus, Package, Sparkles, ReceiptText } from 'lucide-react'
 import { TactileButton } from './TactileMotion'
 import {
   EnquiriesIllustration,
@@ -40,6 +41,10 @@ export type EmptyStateIllustration =
   | 'classrooms'
   | 'placements'
   | 'students'
+  | 'transport'
+  | 'inventory'
+  | 'observations'
+  | 'transactions'
   | 'curriculum'
   | 'attendance'
   | 'health'
@@ -247,6 +252,34 @@ export const EMPTY_STATE_CONFIG = {
     title: 'Prerequisite setup incomplete',
     description: 'Complete the foundational setup configuration before proceeding with this operational module.',
   },
+  transport: {
+    illustration: 'transport' as const,
+    eyebrow: 'Transport',
+    title: 'No School Transport Assigned',
+    description: "There's no school transport route linked to this student's profile yet.",
+    actionLabel: 'Assign Route',
+  },
+  inventory: {
+    illustration: 'inventory' as const,
+    eyebrow: 'Inventory',
+    title: 'No Inventory Issues Yet',
+    description: 'Items issued to this classroom will appear here.',
+    actionLabel: 'Issue Items',
+  },
+  observations: {
+    illustration: 'observations' as const,
+    eyebrow: 'Observations',
+    title: 'No Observations Recorded Yet',
+    description: 'Learning observations for this student will appear here when recorded.',
+    actionLabel: 'Add Observation',
+  },
+  transactions: {
+    illustration: 'transactions' as const,
+    eyebrow: 'Finance',
+    title: 'No Transactions Found',
+    description: 'Transactions matching the selected filters will appear here.',
+    actionLabel: 'Clear Filters',
+  },
   error: {
     illustration: 'error' as const,
     title: "We couldn't load this data",
@@ -258,10 +291,38 @@ export const EMPTY_STATE_CONFIG = {
 
 function renderIllustration(key: EmptyStateIllustration | React.ReactNode, size: number) {
   if (React.isValidElement(key)) {
-    return key
+    return (
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300 border border-violet-100/80 dark:border-violet-900/40 shadow-xs">
+        {key}
+      </div>
+    )
   }
 
   switch (key) {
+    case 'transport':
+      return (
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-100/80 dark:border-amber-900/40 shadow-xs">
+          <Bus size={28} />
+        </div>
+      )
+    case 'inventory':
+      return (
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-100/80 dark:border-blue-900/40 shadow-xs">
+          <Package size={28} />
+        </div>
+      )
+    case 'observations':
+      return (
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-100/80 dark:border-purple-900/40 shadow-xs">
+          <Sparkles size={28} />
+        </div>
+      )
+    case 'transactions':
+      return (
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-100/80 dark:border-emerald-900/40 shadow-xs">
+          <ReceiptText size={28} />
+        </div>
+      )
     case 'enquiries':
       return <EnquiriesIllustration size={size} />
     case 'followups':
@@ -564,6 +625,132 @@ export function ErrorState({
           ? {
               label: 'Retry Connection',
               onClick: onRetry,
+              variant: 'secondary',
+            }
+          : undefined
+      }
+      compact={compact}
+    />
+  )
+}
+
+/**
+ * Context-aware empty state when student has no active transport route
+ */
+export function TransportEmptyState({
+  onAssignRoute,
+  canAssign = true,
+  compact = false,
+}: {
+  onAssignRoute?: () => void
+  canAssign?: boolean
+  compact?: boolean
+}) {
+  return (
+    <EmptyState
+      illustration="transport"
+      eyebrow="Transport"
+      title="No School Transport Assigned"
+      description="There's no school transport route linked to this student's profile yet."
+      action={
+        canAssign && onAssignRoute
+          ? {
+              label: 'Assign Route',
+              onClick: onAssignRoute,
+              variant: 'primary',
+            }
+          : undefined
+      }
+      compact={compact}
+    />
+  )
+}
+
+/**
+ * Context-aware empty state when classroom has no inventory issues
+ */
+export function InventoryEmptyState({
+  onIssueItems,
+  canIssue = true,
+  compact = false,
+}: {
+  onIssueItems?: () => void
+  canIssue?: boolean
+  compact?: boolean
+}) {
+  return (
+    <EmptyState
+      illustration="inventory"
+      eyebrow="Inventory"
+      title="No Inventory Issues Yet"
+      description="Items issued to this classroom will appear here."
+      action={
+        canIssue && onIssueItems
+          ? {
+              label: 'Issue Items',
+              onClick: onIssueItems,
+              variant: 'primary',
+            }
+          : undefined
+      }
+      compact={compact}
+    />
+  )
+}
+
+/**
+ * Context-aware empty state when student has no learning observations recorded yet
+ */
+export function ObservationsEmptyState({
+  onAddObservation,
+  canAdd = true,
+  compact = false,
+}: {
+  onAddObservation?: () => void
+  canAdd?: boolean
+  compact?: boolean
+}) {
+  return (
+    <EmptyState
+      illustration="observations"
+      eyebrow="Observations"
+      title="No Observations Recorded Yet"
+      description="Learning observations for this student will appear here when recorded."
+      action={
+        canAdd && onAddObservation
+          ? {
+              label: 'Add Observation',
+              onClick: onAddObservation,
+              variant: 'primary',
+            }
+          : undefined
+      }
+      compact={compact}
+    />
+  )
+}
+
+/**
+ * Context-aware empty state when no fee transactions match active filters
+ */
+export function TransactionsEmptyState({
+  onClearFilters,
+  compact = false,
+}: {
+  onClearFilters?: () => void
+  compact?: boolean
+}) {
+  return (
+    <EmptyState
+      illustration="transactions"
+      eyebrow="Finance"
+      title="No Transactions Found"
+      description="Transactions matching the selected filters will appear here."
+      action={
+        onClearFilters
+          ? {
+              label: 'Clear Filters',
+              onClick: onClearFilters,
               variant: 'secondary',
             }
           : undefined

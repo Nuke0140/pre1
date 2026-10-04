@@ -1210,16 +1210,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* COMPACT METRO KPI TILES (5-COLUMN BALANCED GRID) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
             <div
-              className="card"
-              style={{
-                padding: '14px 16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className="card card-interactive"
+              style={{ padding: '14px 16px', cursor: 'pointer' }}
               onClick={() => setActiveTab('ITEMS')}
               title="Click to view full inventory catalog"
             >
@@ -1231,7 +1223,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <Package size={16} color="var(--primary)" />
                 </div>
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {metrics?.totalItems || items.length}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
@@ -1240,16 +1232,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
 
             <div
-              className="card"
-              style={{
-                padding: '14px 16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className="card card-interactive"
+              style={{ padding: '14px 16px', cursor: 'pointer' }}
               onClick={() => setActiveTab('STORES')}
               title="Click to view live store stock balances"
             >
@@ -1261,7 +1245,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <DollarSign size={16} color="var(--success)" />
                 </div>
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {inr(metrics?.totalInventoryValueCents || 0, { compact: true })}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
@@ -1270,16 +1254,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
 
             <div
-              className="card"
-              style={{
-                padding: '14px 16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className="card card-interactive"
+              style={{ padding: '14px 16px', cursor: 'pointer' }}
               onClick={() => {
                 setActiveTab('REPORTS')
                 setReportSubTab('LOW_STOCK')
@@ -1294,7 +1270,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <AlertTriangle size={16} color={(metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--warning)'} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: (metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: (metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {metrics?.lowStockItemsCount || 0}
               </div>
               <div style={{ fontSize: '0.75rem', color: (metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--text-muted)', marginTop: 4 }}>
@@ -1303,16 +1279,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
 
             <div
-              className="card"
-              style={{
-                padding: '14px 16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className="card card-interactive"
+              style={{ padding: '14px 16px', cursor: 'pointer' }}
               onClick={() => {
                 setActiveTab('DISTRIBUTION')
                 setDistSubTab('REQUISITIONS')
@@ -1327,7 +1295,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <Clock size={16} color="var(--info)" />
                 </div>
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {metrics?.pendingMaterialRequestsCount || requests.filter((r) => r.status === 'PENDING').length}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
@@ -1336,16 +1304,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
 
             <div
-              className="card"
-              style={{
-                padding: '14px 16px',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              }}
+              className="card card-interactive"
+              style={{ padding: '14px 16px', cursor: 'pointer' }}
               onClick={() => setActiveTab('PROCUREMENT')}
               title="Click to view open purchase orders"
             >
@@ -1357,7 +1317,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <Truck size={16} color="var(--secondary)" />
                 </div>
               </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-heading)' }}>
+              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
                 {metrics?.openPurchaseOrdersCount || orders.filter((o) => o.status === 'ORDERED' || o.status === 'ISSUED').length}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
