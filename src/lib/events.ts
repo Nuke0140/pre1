@@ -43,6 +43,7 @@ export type DomainEvent =
   | { type: 'PayrollProcessed'; tenantId: string; cycleId: string; month: number; year: number }
   | { type: 'ResignationSubmitted'; tenantId: string; staffProfileId: string; lwd: string }
   | { type: 'ExitCompleted'; tenantId: string; staffProfileId: string }
+  | { type: 'AppraisalApproved'; tenantId: string; appraisalId: string; staffProfileId: string; revisedSalary: number }
 
 type Handler = (e: DomainEvent) => Promise<void>
 

@@ -6,6 +6,7 @@ import { useToast } from '@/components/preone/Toast'
 import { can } from '@/lib/auth'
 import {
   HRHeader,
+  MyHRTab,
   HRDashboardTab,
   HREmployeesTab,
   HRAttendanceTab,
@@ -411,6 +412,8 @@ function HRPageContent() {
 
       {/* ── Tab Workspace ── */}
       <main className="min-h-[400px]">
+        {tab === 'my-hr' && <MyHRTab />}
+
         {tab === 'dashboard' && (
           <HRDashboardTab
             metrics={metrics}

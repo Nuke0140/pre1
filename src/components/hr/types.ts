@@ -1,4 +1,5 @@
 export type HRTabKey =
+  | 'my-hr'
   | 'dashboard'
   | 'employees'
   | 'attendance'

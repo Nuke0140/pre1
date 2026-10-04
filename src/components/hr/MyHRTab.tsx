@@ -17,10 +17,12 @@ import {
   Phone,
   Mail,
   ShieldCheck,
+  Award,
+  Star,
 } from 'lucide-react'
 
 export function MyHRTab() {
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'attendance' | 'leave' | 'salary' | 'payslips' | 'documents' | 'notifications'>('profile')
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'attendance' | 'leave' | 'salary' | 'payslips' | 'performance' | 'documents' | 'notifications'>('profile')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,6 +31,7 @@ export function MyHRTab() {
   const [leaveData, setLeaveData] = useState<any>(null)
   const [salary, setSalary] = useState<any>(null)
   const [payslips, setPayslips] = useState<any[]>([])
+  const [appraisals, setAppraisals] = useState<any[]>([])
   const [documents, setDocuments] = useState<any[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
 
@@ -49,12 +52,13 @@ export function MyHRTab() {
     setLoading(true)
     setError(null)
     try {
-      const [resProf, resAtt, resLeave, resSal, resPayslip, resDocs, resNotif] = await Promise.all([
+      const [resProf, resAtt, resLeave, resSal, resPayslip, resAppraisals, resDocs, resNotif] = await Promise.all([
         fetch('/api/v1/hr/me/profile').then((r) => r.json()),
         fetch('/api/v1/hr/me/attendance').then((r) => r.json()).catch(() => ({ success: false })),
         fetch('/api/v1/hr/me/leave').then((r) => r.json()).catch(() => ({ success: false })),
         fetch('/api/v1/hr/me/salary').then((r) => r.json()).catch(() => ({ success: false })),
         fetch('/api/v1/hr/me/payslips').then((r) => r.json()).catch(() => ({ success: false })),
+        fetch('/api/v1/hr/me/appraisals').then((r) => r.json()).catch(() => ({ success: false })),
         fetch('/api/v1/hr/me/documents').then((r) => r.json()).catch(() => ({ success: false })),
         fetch('/api/v1/hr/me/notifications').then((r) => r.json()).catch(() => ({ success: false })),
       ])
@@ -69,6 +73,7 @@ export function MyHRTab() {
       if (resLeave.success) setLeaveData(resLeave.data)
       if (resSal.success) setSalary(resSal.data)
       if (resPayslip.success) setPayslips(resPayslip.data || [])
+      if (resAppraisals.success) setAppraisals(resAppraisals.data || [])
       if (resDocs.success) setDocuments(resDocs.data || [])
       if (resNotif.success) setNotifications(resNotif.data || [])
     } catch (e: any) {
@@ -188,6 +193,13 @@ export function MyHRTab() {
             >
               <FileText className="w-3.5 h-3.5 inline mr-1" />
               My Payslips
+            </button>
+            <button
+              onClick={() => setActiveSubTab('performance')}
+              className={`px-3 py-1.5 rounded-md transition ${activeSubTab === 'performance' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              <Award className="w-3.5 h-3.5 inline mr-1" />
+              My Performance
             </button>
             <button
               onClick={() => setActiveSubTab('documents')}
@@ -534,28 +546,219 @@ export function MyHRTab() {
         </div>
       )}
 
-      {/* 6. MY DOCUMENTS */}
-      {activeSubTab === 'documents' && (
+      {/* 5.5. MY PERFORMANCE APPRAISALS */}
+      {activeSubTab === 'performance' && (
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700">
-            Permitted Employee Documents
+          <div className="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700 flex items-center justify-between">
+            <span>Performance & Appraisal Records</span>
+            <span className="text-[11px] font-normal text-slate-500">Historical performance & salary revisions</span>
           </div>
-          {documents.length > 0 ? (
+          {appraisals.length > 0 ? (
             <div className="divide-y divide-slate-100 text-xs">
-              {documents.map((d) => (
-                <div key={d.id} className="p-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-semibold text-slate-800 block">{d.fileName || d.docType}</span>
-                    <span className="text-slate-400 text-[11px]">{d.docType}</span>
+              {appraisals.map((app) => (
+                <div key={app.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900 text-sm block">
+                        Review Period: {app.reviewPeriod}
+                      </span>
+                      <span className="text-slate-500 text-xs">
+                        Reviewer: {app.reviewer?.user?.fullName || 'Management'} • Date: {new Date(app.appraisalDate).toLocaleDateString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full text-xs">
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                        {app.rating.toFixed(1)} / 5.0
+                      </span>
+                      <span className="block text-[10px] text-slate-500 font-medium mt-1">
+                        {app.performanceStatus}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
-                    {d.verificationStatus || 'VERIFIED'}
-                  </span>
+
+                  {app.strengths && (
+                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-slate-700">
+                      <span className="font-bold text-slate-900">Strengths: </span>
+                      {app.strengths}
+                    </div>
+                  )}
+
+                  {app.reviewerComments && (
+                    <div className="text-slate-600 italic bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
+                      "{app.reviewerComments}"
+                    </div>
+                  )}
+
+                  {/* Salary Revision Summary */}
+                  <div className="bg-emerald-50/70 border border-emerald-200 p-3 rounded-xl flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase text-emerald-800 tracking-wider block">
+                        Approved Salary Revision
+                      </span>
+                      <span className="text-xs text-slate-600">
+                        Previous: ₹{app.previousSalary.toLocaleString()} ➔ Revised: <strong className="text-emerald-700 font-bold">₹{app.revisedSalary.toLocaleString()}</strong>
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-emerald-800 block">
+                        +₹{app.increaseAmount.toLocaleString()} ({app.increaseType === 'PERCENTAGE' ? `${app.increasePercentage}%` : 'Fixed'})
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                        Status: {app.salaryRevisionStatus}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="p-8 text-center text-xs text-slate-400">No employee documents uploaded yet.</div>
+            <div className="p-8 text-center text-xs text-slate-400">
+              No performance appraisals recorded for your account yet.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. MY DOCUMENTS */}
+      {activeSubTab === 'documents' && (
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm space-y-4 p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-indigo-600" /> Employee Verification Documents
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Upload identity proofs, ECCE certificates, or qualification degrees for HR verification.
+              </p>
+            </div>
+          </div>
+
+          {/* Upload Form */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const fileInput = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement
+              const file = fileInput?.files?.[0]
+              const docTypeSelect = e.currentTarget.querySelector('select[name="docType"]') as HTMLSelectElement
+              const docNumInput = e.currentTarget.querySelector('input[name="docNumber"]') as HTMLInputElement
+
+              if (!file) {
+                alert('Please select a file to upload (PDF, JPG, or PNG under 5MB).')
+                return
+              }
+
+              const fd = new FormData()
+              fd.append('file', file)
+              fd.append('docType', docTypeSelect.value)
+              fd.append('staffProfileId', profile.id)
+              if (docNumInput.value) fd.append('documentNumber', docNumInput.value)
+
+              try {
+                const res = await fetch('/api/v1/hr/documents/upload', {
+                  method: 'POST',
+                  body: fd,
+                }).then((r) => r.json())
+
+                if (res.success) {
+                  alert('Document uploaded successfully! Status set to PENDING verification.')
+                  fileInput.value = ''
+                  docNumInput.value = ''
+                  // Refresh documents list
+                  const rDocs = await fetch('/api/v1/hr/me/documents').then((r) => r.json())
+                  if (rDocs.success) setDocuments(rDocs.data || [])
+                } else {
+                  alert(res.error?.message || 'Failed to upload document')
+                }
+              } catch (err: any) {
+                alert(err.message || 'Upload error')
+              }
+            }}
+            className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-3"
+          >
+            <div className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+              Upload New Document
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Document Type</label>
+                <select name="docType" className="w-full text-xs p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="ID_PROOF">Aadhaar / PAN Card (Identity Proof)</option>
+                  <option value="ADDRESS_PROOF">Address Proof</option>
+                  <option value="DEGREE_CERTIFICATE">Degree / Graduation Certificate</option>
+                  <option value="ECCE_CERTIFICATE">ECCE / Montessori Diploma</option>
+                  <option value="POLICE_VERIFICATION">Police Verification Record</option>
+                  <option value="EXPERIENCE_LETTER">Experience / Relieving Letter</option>
+                  <option value="RESUME">Resume / CV</option>
+                  <option value="OTHER">Other Verification Document</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Document No. (Optional)</label>
+                <input
+                  name="docNumber"
+                  placeholder="e.g. 1234-5678-9012"
+                  className="w-full text-xs p-2 border border-slate-300 rounded-lg bg-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Select File (PDF, JPG, PNG &le; 5MB)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-xs p-1 border border-slate-300 rounded-lg bg-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="submit" className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                Upload & Submit
+              </button>
+            </div>
+          </form>
+
+          {/* Document List */}
+          {documents.length > 0 ? (
+            <div className="divide-y divide-slate-100 text-xs border border-slate-200 rounded-xl overflow-hidden">
+              {documents.map((d) => (
+                <div key={d.id} className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition">
+                  <div className="space-y-0.5">
+                    <span className="font-semibold text-slate-800 block text-xs">{d.fileName || d.docType}</span>
+                    <span className="text-slate-500 text-[11px] font-mono">
+                      Type: {d.docType} {d.documentNumber ? `• No: ${d.documentNumber}` : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        d.verificationStatus === 'VERIFIED'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : d.verificationStatus === 'REJECTED'
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {d.verificationStatus || 'PENDING'}
+                    </span>
+                    <a
+                      href={`/api/v1/hr/documents/${d.id}/download`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-md text-[11px] transition inline-flex items-center gap-1"
+                    >
+                      Download / View
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-xs text-slate-400 border border-slate-200 rounded-xl">
+              No employee documents uploaded yet. Use the form above to upload identity files.
+            </div>
           )}
         </div>
       )}

@@ -2,6 +2,8 @@ import { db } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { AuditService } from '@/lib/audit/audit-service'
 import { emit } from '@/lib/events'
+import { isEmployeeRole, normalizeRole, ROLE_META } from '@/lib/roles'
+import { StaffUserService } from '@/lib/users/staff-user-service'
 import type { Prisma, UserRole, EmploymentType, Gender, BloodGroup, VerificationStatus, StaffDocumentType } from '@prisma/client'
 
 export interface CreateStaffInput {
@@ -35,10 +37,19 @@ export interface CreateStaffInput {
   panNumber?: string | null
   aadhaarNumber?: string | null
   uanNumber?: string | null
+  pfNumber?: string | null
   esiNumber?: string | null
   probationEndDate?: Date | string | null
   confirmationDate?: Date | string | null
   noticePeriodDays?: number
+  // Bank details optional
+  bankDetails?: {
+    accountHolderName: string
+    bankName: string
+    accountNumber: string
+    ifscCode: string
+    branchName?: string | null
+  }
   // Salary structure optional
   salary?: {
     basicSalary: number
@@ -53,6 +64,67 @@ export interface CreateStaffInput {
 
 export class StaffService {
   /**
+   * Automatic Reconciliation Procedure (Section 10 Context Spec):
+   * Inspects TenantUser memberships in the given tenant with employee roles.
+   * If any employee-role user lacks a canonical StaffProfile, automatically creates one
+   * with a unique employeeCode so they seamlessly appear in HR without duplicate manual entry.
+   */
+  static async reconcileExistingStaffUsers(tenantId: string) {
+    if (!tenantId) return 0
+    try {
+      const unlinkedMembers = await db.tenantUser.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+          user: {
+            staffProfile: null,
+            deletedAt: null,
+          },
+        },
+        include: { user: true },
+      })
+
+      const staffMembers = unlinkedMembers.filter((m) =>
+        isEmployeeRole(m.role) || (m.roles && m.roles.some((r) => isEmployeeRole(r)))
+      )
+
+      if (staffMembers.length === 0) return 0
+
+      let reconciled = 0
+      for (const m of staffMembers) {
+        try {
+          const empCode = await StaffUserService.generateUniqueEmployeeCode(tenantId)
+          const canonicalRole = normalizeRole(m.role)
+          const meta = ROLE_META[canonicalRole]
+          const dept = meta ? meta.category : 'Operations'
+          const desig = meta ? meta.label : 'Staff'
+
+          await db.staffProfile.create({
+            data: {
+              tenantId,
+              userId: m.userId,
+              employeeCode: empCode,
+              branchId: m.branchId || null,
+              department: dept,
+              designation: desig,
+              employmentType: 'FULL_TIME',
+              status: m.status || 'ACTIVE',
+              joiningDate: m.createdAt || new Date(),
+            },
+          })
+          reconciled++
+        } catch (e: any) {
+          // Ignore if profile was concurrently created
+        }
+      }
+      return reconciled
+    } catch (e: any) {
+      console.error('[HR Reconciliation Error]', e.message)
+      return 0
+    }
+  }
+
+  /**
    * Atomic creation of User + TenantUser + StaffProfile (+ optional salary structure)
    * If mode === 'link', links existing User + TenantUser to new StaffProfile without duplication.
    */
@@ -65,8 +137,8 @@ export class StaffService {
       emergencyContactName, emergencyContactPhone,
       dateOfBirth, gender, maritalStatus, bloodGroup,
       currentAddress, permanentAddress, panNumber, aadhaarNumber,
-      uanNumber, esiNumber, probationEndDate, confirmationDate,
-      noticePeriodDays = 60, salary,
+      uanNumber, pfNumber, esiNumber, probationEndDate, confirmationDate,
+      noticePeriodDays = 60, salary, bankDetails,
     } = input
 
     if (!employeeCode) {
@@ -164,6 +236,7 @@ export class StaffService {
           panNumber: panNumber || null,
           aadhaarNumber: aadhaarNumber || null,
           uanNumber: uanNumber || null,
+          pfNumber: pfNumber || null,
           esiNumber: esiNumber || null,
           probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
           confirmationDate: confirmationDate ? new Date(confirmationDate) : null,
@@ -175,6 +248,24 @@ export class StaffService {
           branch: { select: { id: true, name: true } },
         },
       })
+
+      // If bank details provided, create StaffBankDetail
+      if (bankDetails && bankDetails.accountNumber && bankDetails.bankName) {
+        const rawAcc = bankDetails.accountNumber.trim()
+        const masked = rawAcc.length >= 4 ? `••••••••${rawAcc.slice(-4)}` : rawAcc
+        await tx.staffBankDetail.create({
+          data: {
+            tenantId,
+            staffProfileId: staffProfile.id,
+            accountHolderName: bankDetails.accountHolderName || staffProfile.user.fullName,
+            bankName: bankDetails.bankName,
+            accountNumberMasked: masked,
+            accountNumberEncrypted: Buffer.from(rawAcc).toString('base64'),
+            ifscCode: bankDetails.ifscCode ? bankDetails.ifscCode.toUpperCase() : '',
+            branchName: bankDetails.branchName || null,
+          },
+        })
+      }
 
       // If salary specified, create StaffSalaryStructure
       if (salary) {

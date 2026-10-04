@@ -63,6 +63,7 @@ model Tenant {
   setupValidations       SchoolSetupValidationRun[]
   schoolSetup            SchoolSetup?
   staffProfiles          StaffProfile[]
+  employeeAppraisals     EmployeeAppraisal[]
   allocations            StudentAllocation[]
   students               Student[]
   members                TenantUser[]
@@ -91,6 +92,9 @@ model Tenant {
   stockAdjustments       StockAdjustment[]
 
   // HR Relations
+  departments            Department[]
+  designations           Designation[]
+  salaryComponents       SalaryComponent[]
   staffDocuments         StaffDocument[]
   staffQualifications    StaffQualification[]
   staffBankDetails       StaffBankDetail[]
@@ -1304,14 +1308,24 @@ model StaffProfile {
   userId                String         @unique
   branchId              String?
   employeeCode          String
+  firstName             String?
+  middleName            String?
+  lastName              String?
   designation           String?
   department            String?
+  departmentId          String?
+  designationId         String?
+  reportingManagerId    String?
   qualification         String?
   joiningDate           DateTime?
   employmentType        EmploymentType @default(FULL_TIME)
   emergencyContactName  String?
   emergencyContactPhone String?
+  emergencyContactRelation String?
+  alternatePhone        String?
   status                UserStatus     @default(ACTIVE)
+  exitDate              DateTime?
+  exitReason            String?
   
   // HR profile extensions
   dateOfBirth           DateTime?
@@ -1323,6 +1337,7 @@ model StaffProfile {
   panNumber             String?
   aadhaarNumber         String?
   uanNumber             String?
+  pfNumber              String?
   esiNumber             String?
   probationEndDate      DateTime?
   confirmationDate      DateTime?
@@ -1335,6 +1350,10 @@ model StaffProfile {
   branch                Branch?        @relation(fields: [branchId], references: [id])
   tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentRef         Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designationRef        Designation?   @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  reportingManager      StaffProfile?  @relation("StaffReportingManager", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  directReports         StaffProfile[] @relation("StaffReportingManager")
 
   // HR Relations
   documents             StaffDocument[]
@@ -1348,7 +1367,9 @@ model StaffProfile {
   salaryStructure       StaffSalaryStructure?
   payslips              Payslip[]
   reviews               StaffReview[]
-  resignation           ResignationRequest?
+  appraisals            EmployeeAppraisal[] @relation("StaffAppraisals")
+  reviewedAppraisals    EmployeeAppraisal[] @relation("ReviewedAppraisals")
+  resignation           ResignationRequest[]
   offboardingTasks      OffboardingTask[]
 
   // Transport Relations
@@ -3055,6 +3076,7 @@ model StaffSalaryStructure {
 
   tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   staffProfile     StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  appraisals       EmployeeAppraisal[]
 
   @@map("staff_salary_structures")
 }
@@ -3284,6 +3306,68 @@ model OffboardingTask {
 
   @@index([tenantId, staffProfileId])
   @@map("offboarding_tasks")
+}
+
+/// HR Department Master
+model Department {
+  id          String         @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String
+  description String?
+  status      String         @default("ACTIVE")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees   StaffProfile[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("departments")
+}
+
+/// HR Designation Master
+model Designation {
+  id          String         @id @default(uuid())
+  tenantId    String
+  name        String
+  code        String
+  description String?
+  status      String         @default("ACTIVE")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employees   StaffProfile[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("designations")
+}
+
+/// HR Salary Component Master
+model SalaryComponent {
+  id              String   @id @default(uuid())
+  tenantId        String
+  name            String
+  code            String
+  type            String   @default("EARNING") // EARNING, DEDUCTION
+  calculationType String   @default("FIXED")   // FIXED, PERCENTAGE
+  value           Decimal  @default(0.0) @db.Decimal(12, 2)
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("salary_components")
 }
 
 // =========================================================================
@@ -3913,6 +3997,77 @@ model StudentReportCard {
   @@index([tenantId, academicSessionId, term])
   @@map("student_report_cards")
 }
+
+enum AppraisalIncreaseType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  NO_INCREASE
+}
+
+enum AppraisalStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum SalaryRevisionStatus {
+  NOT_APPLICABLE
+  PENDING
+  APPROVED
+  APPLIED
+  CANCELLED
+}
+
+/// Performance Appraisal and Salary Revision Record (HR Core Context)
+model EmployeeAppraisal {
+  id                    String                @id @default(uuid())
+  tenantId              String
+  staffProfileId        String
+  reviewPeriod          String                // e.g. "2025-2026"
+  reviewStartDate       DateTime?
+  reviewEndDate         DateTime?
+  appraisalDate         DateTime              @default(now())
+  reviewerId            String?               // References StaffProfile.id
+  rating                Float?                // 1.0 to 5.0 rating scale
+  performanceStatus     String?               // e.g. "EXCELLENT", "MEETS_EXPECTATIONS"
+  strengths             String?
+  areasForImprovement   String?
+  goals                 String?
+  achievements          String?
+  reviewerComments      String?
+  employeeComments      String?
+  appraisalResult       String?               // Summary conclusion
+
+  // Salary Impact Fields (Money stored in integer paise or Decimal)
+  previousSalary        Decimal               @default(0) @db.Decimal(12, 2)
+  increaseType          AppraisalIncreaseType @default(NO_INCREASE)
+  increasePercentage    Float                 @default(0.0)
+  increaseAmount        Decimal               @default(0) @db.Decimal(12, 2)
+  revisedSalary         Decimal               @default(0) @db.Decimal(12, 2)
+  effectiveDate         DateTime?             // Effective date of salary increase
+
+  salaryRevisionStatus  SalaryRevisionStatus  @default(NOT_APPLICABLE)
+  salaryStructureId     String?
+  rejectionReason       String?
+
+  status                AppraisalStatus       @default(DRAFT)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
+
+  tenant                Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  staffProfile          StaffProfile          @relation("StaffAppraisals", fields: [staffProfileId], references: [id], onDelete: Cascade)
+  reviewerProfile       StaffProfile?         @relation("ReviewedAppraisals", fields: [reviewerId], references: [id], onDelete: SetNull)
+  salaryStructure       StaffSalaryStructure? @relation(fields: [salaryStructureId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, staffProfileId])
+  @@index([tenantId, reviewPeriod])
+  @@index([tenantId, status])
+  @@map("employee_appraisals")
+}
+
 
 
 

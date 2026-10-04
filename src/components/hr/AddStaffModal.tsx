@@ -37,11 +37,32 @@ export function AddStaffModal({
     emergencyContactName: '',
     emergencyContactPhone: '',
     basicSalary: 22000,
+    panNumber: '',
+    aadhaarNumber: '',
+    uanNumber: '',
+    pfNumber: '',
+    esiNumber: '',
+    bankName: '',
+    accountHolderName: '',
+    accountNumber: '',
+    ifscCode: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await onSubmit(form)
+    const payload = {
+      ...form,
+      bankDetails:
+        form.bankName || form.accountNumber
+          ? {
+              bankName: form.bankName,
+              accountHolderName: form.accountHolderName || form.fullName,
+              accountNumber: form.accountNumber,
+              ifscCode: form.ifscCode,
+            }
+          : undefined,
+    }
+    await onSubmit(payload)
   }
 
   return (
@@ -205,6 +226,113 @@ export function AddStaffModal({
                 onChange={(e) => setForm({ ...form, basicSalary: parseFloat(e.target.value) || 0 })}
               />
             </Field>
+          </div>
+        </div>
+
+        {/* Section 4: Statutory & Bank Information */}
+        <div>
+          <h4 className="font-semibold text-foreground border-b border-border/60 pb-1 mb-2.5 flex items-center justify-between">
+            <span>4. Statutory & Bank Information</span>
+            <span className="text-[10px] font-normal text-muted-foreground">Optional statutory & payout details</span>
+          </h4>
+
+          {/* Statutory Sub-section */}
+          <div className="space-y-2">
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Statutory Records
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Field label="PAN Number">
+                <input
+                  className="input text-xs w-full uppercase font-mono"
+                  placeholder="ABCDE1234F"
+                  maxLength={10}
+                  value={form.panNumber || ''}
+                  onChange={(e) => setForm({ ...form, panNumber: e.target.value.toUpperCase() })}
+                />
+              </Field>
+              <Field label="Aadhaar Number (12 Digits)">
+                <input
+                  className="input text-xs w-full font-mono"
+                  placeholder="123456789012"
+                  maxLength={12}
+                  value={form.aadhaarNumber || ''}
+                  onChange={(e) => setForm({ ...form, aadhaarNumber: e.target.value.replace(/\D/g, '') })}
+                />
+              </Field>
+              <Field label="UAN Number">
+                <input
+                  className="input text-xs w-full font-mono"
+                  placeholder="100123456789"
+                  value={form.uanNumber || ''}
+                  onChange={(e) => setForm({ ...form, uanNumber: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+              <Field label="PF Account Number">
+                <input
+                  className="input text-xs w-full font-mono"
+                  placeholder="MH/BAN/0012345/000/0001"
+                  value={form.pfNumber || ''}
+                  onChange={(e) => setForm({ ...form, pfNumber: e.target.value })}
+                />
+              </Field>
+              <Field label="ESI Number">
+                <input
+                  className="input text-xs w-full font-mono"
+                  placeholder="31001234560001001"
+                  value={form.esiNumber || ''}
+                  onChange={(e) => setForm({ ...form, esiNumber: e.target.value })}
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* Bank Sub-section */}
+          <div className="space-y-2 mt-3 pt-2 border-t border-border/40">
+            <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Direct Salary Payout Bank Details
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Bank Name">
+                <input
+                  className="input text-xs w-full"
+                  placeholder="e.g. State Bank of India / HDFC Bank"
+                  value={form.bankName || ''}
+                  onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                />
+              </Field>
+              <Field label="Account Holder Name">
+                <input
+                  className="input text-xs w-full"
+                  placeholder="As per bank passbook"
+                  value={form.accountHolderName || ''}
+                  onChange={(e) => setForm({ ...form, accountHolderName: e.target.value })}
+                />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+              <Field label="Account Number">
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  className="input text-xs w-full font-mono"
+                  placeholder="Enter full account number"
+                  value={form.accountNumber || ''}
+                  onChange={(e) => setForm({ ...form, accountNumber: e.target.value.replace(/\D/g, '') })}
+                />
+              </Field>
+              <Field label="IFSC Code">
+                <input
+                  className="input text-xs w-full uppercase font-mono"
+                  placeholder="SBIN0001234"
+                  maxLength={11}
+                  value={form.ifscCode || ''}
+                  onChange={(e) => setForm({ ...form, ifscCode: e.target.value.toUpperCase() })}
+                />
+              </Field>
+            </div>
           </div>
         </div>
       </form>

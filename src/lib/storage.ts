@@ -114,3 +114,95 @@ export async function deleteBrandingAsset(url: string | null | undefined): Promi
     console.warn(`Failed to cleanup branding asset at ${url}:`, err)
   }
 }
+
+const ALLOWED_STAFF_DOC_MIMES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+]
+
+const DOC_EXTENSION_MAP: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+}
+
+const MAX_STAFF_DOC_SIZE = 5 * 1024 * 1024 // 5 MB
+
+/**
+ * Durably saves an uploaded staff verification document to tenant-isolated storage.
+ */
+export async function saveStaffDocumentFile({
+  tenantId,
+  staffProfileId,
+  docType,
+  buffer,
+  mimeType,
+  originalName,
+}: {
+  tenantId: string
+  staffProfileId: string
+  docType: string
+  buffer: Buffer
+  mimeType: string
+  originalName?: string
+}): Promise<{ url: string; fileName: string; size: number; mimeType: string }> {
+  const normalizedMime = mimeType.toLowerCase().trim()
+  if (!ALLOWED_STAFF_DOC_MIMES.includes(normalizedMime)) {
+    throw new Error(`Invalid file format "${mimeType}". Allowed formats: PDF, JPEG, PNG.`)
+  }
+
+  if (buffer.length > MAX_STAFF_DOC_SIZE) {
+    throw new Error(`File exceeds maximum allowed size of 5 MB (size: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB).`)
+  }
+
+  let ext = DOC_EXTENSION_MAP[normalizedMime]
+  if (!ext && originalName) {
+    const parsedExt = path.extname(originalName).replace('.', '').toLowerCase()
+    if (['pdf', 'jpg', 'jpeg', 'png'].includes(parsedExt)) ext = parsedExt
+  }
+  if (!ext) ext = 'pdf'
+
+  const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '')
+  const sanitizedStaffId = staffProfileId.replace(/[^a-zA-Z0-9_-]/g, '')
+  const sanitizedDocType = docType.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase()
+  const randomSuffix = crypto.randomBytes(4).toString('hex')
+  const filename = `${sanitizedDocType}-${Date.now()}-${randomSuffix}.${ext}`
+
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'documents', 'staff', sanitizedTenantId, sanitizedStaffId)
+  await fs.promises.mkdir(uploadDir, { recursive: true })
+
+  const filePath = path.join(uploadDir, filename)
+  await fs.promises.writeFile(filePath, buffer)
+
+  const durableUrl = `/uploads/documents/staff/${sanitizedTenantId}/${sanitizedStaffId}/${filename}`
+  const userFacingName = originalName ? path.basename(originalName) : filename
+
+  return {
+    url: durableUrl,
+    fileName: userFacingName,
+    size: buffer.length,
+    mimeType: normalizedMime,
+  }
+}
+
+/**
+ * Safely removes an uploaded staff document file from disk if present.
+ */
+export async function deleteStaffDocumentFile(url: string | null | undefined): Promise<void> {
+  if (!url || typeof url !== 'string') return
+  if (!url.startsWith('/uploads/documents/staff/')) return
+
+  try {
+    const relativePath = url.replace('/uploads/documents/staff/', '')
+    const filePath = path.join(process.cwd(), 'public', 'uploads', 'documents', 'staff', path.normalize(relativePath))
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath)
+    }
+  } catch (err) {
+    console.warn(`Failed to cleanup staff document file at ${url}:`, err)
+  }
+}
+

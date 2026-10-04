@@ -67,6 +67,14 @@ export function HRHeader({
 }: HRHeaderProps) {
   const modules: ModuleDef[] = [
     {
+      key: 'my-hr',
+      label: 'My HR',
+      desc: 'Self-service portal for profile, leave & payslips',
+      icon: Users,
+      accentColor: 'text-indigo-600 dark:text-indigo-400',
+      iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20',
+    },
+    {
       key: 'dashboard',
       label: 'Dashboard',
       desc: 'Workforce snapshot & KPIs',

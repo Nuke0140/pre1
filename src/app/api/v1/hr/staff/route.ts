@@ -14,6 +14,9 @@ export const GET = withApi(async (req: NextRequest) => {
     throw errPermission('No tenant context found in active session')
   }
 
+  // Automatically reconcile any staff-role user missing a StaffProfile
+  await StaffService.reconcileExistingStaffUsers(session.tenantId)
+
   const sp = req.nextUrl.searchParams
   const search = sp.get('search') || ''
   const branchId = sp.get('branchId') || undefined
