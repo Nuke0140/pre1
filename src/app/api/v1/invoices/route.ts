@@ -6,7 +6,6 @@ import { audit, nextNumber } from '@/lib/sequence'
 import { resolveSessionId } from '@/lib/academic'
 import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
-import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * Overdue sync — ISSUED + dueDate < today → OVERDUE (Spec §23, Scenario 7).
