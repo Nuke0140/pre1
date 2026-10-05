@@ -22,16 +22,25 @@ export function isInstitutionWide(session: SessionPayload): boolean {
   return roles.some((role) => INSTITUTION_WIDE_ROLES.includes(role))
 }
 
-export function tenantScopedIdWhere<T extends Record<string, unknown>>(
+export function tenantScopedWhere<T extends Record<string, unknown>>(
+  field: string,
   id: string,
   tenantId: string,
   extra?: T
 ) {
   return {
     ...extra,
-    id,
+    [field]: id,
     tenantId,
   }
+}
+
+export function tenantScopedIdWhere<T extends Record<string, unknown>>(
+  id: string,
+  tenantId: string,
+  extra?: T
+) {
+  return tenantScopedWhere('id', id, tenantId, extra)
 }
 
 export function assertTenantScope(session: SessionPayload, resource: ScopedResource): void {
