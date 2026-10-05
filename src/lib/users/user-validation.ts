@@ -210,7 +210,8 @@ export function validateStaffInput(input: StaffCreateInput): { valid: boolean; e
       : input.role
       ? [input.role]
       : []
-  if (assignedRoles.length === 0) {
+  // At least one role is required when creating a new user without identification context
+  if (assignedRoles.length === 0 && !input.email && !input.username && !input.phone) {
     errors.push('At least one staff role must be specified')
   }
 

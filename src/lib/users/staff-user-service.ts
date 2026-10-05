@@ -118,13 +118,24 @@ export class StaffUserService {
         avatarUrl: input.avatarUrl || null,
       })
 
-      // Step B: Create TenantUser membership
+      // Step B: Create or update TenantUser membership (preserving existing role if unsupplied)
+      const existingMembership = await tx.tenantUser.findFirst({
+        where: { tenantId: ctx.tenantId, userId: user.id, deletedAt: null },
+      })
+      const hasExplicitRole = Boolean(input.role || input.roles?.length || input.primaryRole || input.additionalRoles?.length)
+      const targetRole = hasExplicitRole ? primaryRole : existingMembership?.role || primaryRole
+      const targetRoles = hasExplicitRole
+        ? assignedRoles
+        : existingMembership?.roles && existingMembership.roles.length > 0
+        ? existingMembership.roles
+        : [targetRole]
+
       const membership = await UserIdentityService.createOrUpdateMembership(tx, {
         tenantId: ctx.tenantId,
         userId: user.id,
-        role: primaryRole,
-        roles: assignedRoles,
-        branchId: input.branchId || null,
+        role: targetRole,
+        roles: targetRoles,
+        branchId: input.branchId !== undefined ? (input.branchId || null) : existingMembership?.branchId || null,
         status: initialStatus,
       })
 
