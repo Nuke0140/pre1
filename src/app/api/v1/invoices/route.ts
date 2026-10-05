@@ -6,6 +6,7 @@ import { audit, nextNumber } from '@/lib/sequence'
 import { resolveSessionId } from '@/lib/academic'
 import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
+import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * Overdue sync — ISSUED + dueDate < today → OVERDUE (Spec §23, Scenario 7).
@@ -49,11 +50,17 @@ export const GET = withApi(async (req: NextRequest) => {
 
   await syncOverdue(session.tenantId)
 
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isParent = effectiveRoles.includes('PARENT')
+
   const where = {
     tenantId: session.tenantId,
     deletedAt: null,
     ...(studentId ? { studentId } : {}),
     ...(status ? { status: status as 'ISSUED' } : {}),
+    ...(isParent
+      ? { student: { guardians: { some: { guardian: { userId: session.uid } } } } }
+      : {}),
   }
 
   const [total, invoices] = await Promise.all([
