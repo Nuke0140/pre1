@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
+import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/applications/{id}/verify — Document Verification & Correction
@@ -45,7 +46,7 @@ async function _POST(
     const { audit } = await import('@/lib/sequence')
 
     const app = await db.admissionApplication.findFirst({
-      where: { id, tenantId: session.tenantId, deletedAt: null },
+      where: tenantScopedIdWhere(id, session.tenantId, { deletedAt: null }),
       include: { documents: true },
     })
     if (!app) return Errors.notFound('Application')
