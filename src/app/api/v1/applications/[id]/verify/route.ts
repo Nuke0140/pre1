@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
-import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { tenantScopedIdWhere, assertResourceScope } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/applications/{id}/verify — Document Verification & Correction
@@ -50,6 +50,8 @@ async function _POST(
       include: { documents: true },
     })
     if (!app) return Errors.notFound('Application')
+
+    assertResourceScope(session, { tenantId: app.tenantId, branchId: app.branchId })
 
     await db.$transaction([
       db.applicationDocument.updateMany({
