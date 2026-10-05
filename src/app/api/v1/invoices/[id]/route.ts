@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit } from '@/lib/audit'
-import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { tenantScopedIdWhere, assertResourceScope } from '@/lib/security/resource-scope'
 import { requireGuardianChildAccess } from '@/lib/auth-api'
 
 async function _GET(
@@ -21,7 +21,7 @@ async function _GET(
       include: {
         student: {
           select: {
-            firstName: true, lastName: true, admissionNo: true,
+            firstName: true, lastName: true, admissionNo: true, branchId: true,
             currentClassroom: { select: { name: true } },
           },
         },
@@ -32,10 +32,22 @@ async function _GET(
     if (!invoice) return Errors.notFound('Invoice')
 
     const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-    if (effectiveRoles.includes('PARENT')) {
+    const isParent = effectiveRoles.includes('PARENT')
+    const isGuardian = effectiveRoles.includes('GUARDIAN')
+    const isStaffFinance = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT'].includes(r))
+    const isFamily = (isParent || isGuardian) && !isStaffFinance
+
+    if (isFamily) {
       const childAccess = await requireGuardianChildAccess(session, invoice.studentId)
       if (childAccess instanceof Response) return childAccess
+    } else {
+      assertResourceScope(session, {
+        tenantId: invoice.tenantId,
+        branchId: invoice.student.branchId,
+      })
     }
+
+    const maskFinance = isGuardian && !isParent && !isStaffFinance
 
     return ok({
       id: invoice.id,
@@ -48,17 +60,17 @@ async function _GET(
       },
       issueDate: invoice.issueDate,
       dueDate: invoice.dueDate,
-      items: invoice.items.map((i) => ({
+      items: maskFinance ? [] : invoice.items.map((i) => ({
         feeHead: i.feeHead, description: i.description, amountCents: i.amountCents,
       })),
-      subtotalCents: invoice.subtotalCents,
-      discountCents: invoice.discountCents,
-      totalCents: invoice.totalCents,
-      paidCents: invoice.paidCents,
-      balanceCents: invoice.balanceCents,
+      subtotalCents: maskFinance ? 0 : invoice.subtotalCents,
+      discountCents: maskFinance ? 0 : invoice.discountCents,
+      totalCents: maskFinance ? 0 : invoice.totalCents,
+      paidCents: maskFinance ? 0 : invoice.paidCents,
+      balanceCents: maskFinance ? 0 : invoice.balanceCents,
       status: invoice.status,
-      notes: invoice.notes,
-      payments: invoice.payments.map((p) => ({
+      notes: maskFinance ? null : invoice.notes,
+      payments: maskFinance ? [] : invoice.payments.map((p) => ({
         id: p.id,
         paymentNumber: p.paymentNumber,
         amountCents: p.amountCents,
@@ -88,9 +100,15 @@ async function _PATCH(
     const { action, reason, notes } = body
 
     const existing = await db.invoice.findFirst({
-      where: { id, tenantId: session.tenantId },
+      where: tenantScopedIdWhere(id, session.tenantId),
+      include: { student: { select: { branchId: true } } },
     })
     if (!existing) return Errors.notFound('Invoice')
+
+    assertResourceScope(session, {
+      tenantId: existing.tenantId,
+      branchId: existing.student?.branchId,
+    })
 
     if (action === 'VOID' || action === 'CANCEL') {
       if (existing.paidCents > 0) {

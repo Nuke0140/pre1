@@ -850,7 +850,7 @@ export class WaitingListService {
     const current = this.mapRow(rows[0])
     if (current.status === 'CONVERTED' && current.studentId) {
       // Idempotent return
-      const existingStudent = await db.student.findUnique({ where: { id: current.studentId } })
+      const existingStudent = await db.student.findFirst({ where: { id: current.studentId, tenantId: ctx.tenantId } })
       return { entry: current, student: existingStudent }
     }
 

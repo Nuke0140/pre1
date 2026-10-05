@@ -6,7 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
 import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
-import { tenantScopedWhere, tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { tenantScopedWhere, tenantScopedIdWhere, assertResourceScope } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/invoices/{id}/payments — record a payment against an invoice.
@@ -56,6 +56,10 @@ async function _POST(
       include: { student: true },
     })
     if (!invoice) return Errors.notFound('Invoice')
+    assertResourceScope(session, {
+      tenantId: invoice.tenantId,
+      branchId: invoice.student?.branchId,
+    })
     if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
       return Errors.conflict(`Cannot pay a ${invoice.status.toLowerCase()} invoice`)
     }

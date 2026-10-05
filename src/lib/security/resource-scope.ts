@@ -7,6 +7,24 @@ export interface ScopedResource {
 
 const INSTITUTION_WIDE_ROLES: Role[] = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN']
 
+export interface ScopeActor {
+  tenantId: string | null
+  branchId?: string | null
+  role?: Role
+  roles?: Role[]
+}
+
+export function getActorRoles(actor: ScopeActor): Role[] {
+  if (actor.roles && actor.roles.length > 0) return actor.roles
+  if (actor.role) return [actor.role]
+  return []
+}
+
+export function isActorInstitutionWide(actor: ScopeActor): boolean {
+  const roles = getActorRoles(actor)
+  return roles.some((role) => INSTITUTION_WIDE_ROLES.includes(role))
+}
+
 /**
  * Canonical object-level security helpers.
  *
@@ -18,7 +36,7 @@ const INSTITUTION_WIDE_ROLES: Role[] = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN']
  * the responsibility of the domain/service layer.
  */
 export function isInstitutionWide(session: SessionPayload): boolean {
-  const roles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const roles = session.roles && session.roles.length > 0 ? session.roles : (session.role ? [session.role] : [])
   return roles.some((role) => INSTITUTION_WIDE_ROLES.includes(role))
 }
 
@@ -43,27 +61,7 @@ export function tenantScopedIdWhere<T extends Record<string, unknown>>(
   return tenantScopedWhere('id', id, tenantId, extra)
 }
 
-export interface ScopeActor {
-  tenantId: string | null
-  branchId?: string | null
-  role: Role
-}
-
-export function assertActorResourceScope(
-  actor: ScopeActor,
-  resource: ScopedResource
-): void {
-  if (!actor.tenantId) throw new Error('Tenant context is required')
-  if (resource.tenantId !== actor.tenantId) {
-    throw new Error('Unauthorized: cross-tenant resource access')
-  }
-  if (!resource.branchId || isInstitutionWide({ ...actor, uid: '', email: '', name: '' } as SessionPayload)) return
-  if (actor.branchId && actor.branchId !== resource.branchId) {
-    throw new Error('Unauthorized: resource belongs to another branch')
-  }
-}
-
-export function assertTenantScope(session: SessionPayload, resource: ScopedResource): void {
+export function assertTenantScope(session: { tenantId?: string | null }, resource: ScopedResource): void {
   if (!session.tenantId) {
     throw new Error('Tenant context is required')
   }
@@ -77,9 +75,36 @@ export function assertBranchScope(
   session: SessionPayload,
   resourceBranchId?: string | null
 ): void {
+  // If the resource is not bound to a specific branch, or actor has institution-wide privileges
   if (!resourceBranchId || isInstitutionWide(session)) return
 
-  if (session.branchId && session.branchId !== resourceBranchId) {
+  // Branch-scoped role attempting to access a branch-bound resource:
+  // Missing branch assignment on the actor is an explicit DENY (fail-closed, not default-allow)
+  if (!session.branchId) {
+    throw new Error('Unauthorized: branch-scoped actor missing branch assignment')
+  }
+
+  if (session.branchId !== resourceBranchId) {
+    throw new Error('Unauthorized: resource belongs to another branch')
+  }
+}
+
+export function assertActorResourceScope(
+  actor: ScopeActor,
+  resource: ScopedResource
+): void {
+  if (!actor.tenantId) throw new Error('Tenant context is required')
+  if (resource.tenantId !== actor.tenantId) {
+    throw new Error('Unauthorized: cross-tenant resource access')
+  }
+  if (!resource.branchId || isActorInstitutionWide(actor)) return
+
+  // Branch-scoped actor attempting to access branch-bound resource
+  if (!actor.branchId) {
+    throw new Error('Unauthorized: branch-scoped actor missing branch assignment')
+  }
+
+  if (actor.branchId !== resource.branchId) {
     throw new Error('Unauthorized: resource belongs to another branch')
   }
 }

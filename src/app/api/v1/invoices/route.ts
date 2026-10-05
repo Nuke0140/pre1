@@ -6,6 +6,7 @@ import { audit, nextNumber } from '@/lib/sequence'
 import { resolveSessionId } from '@/lib/academic'
 import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
+import { isInstitutionWide, assertResourceScope } from '@/lib/security/resource-scope'
 
 /**
  * Overdue sync — ISSUED + dueDate < today → OVERDUE (Spec §23, Scenario 7).
@@ -51,14 +52,25 @@ export const GET = withApi(async (req: NextRequest) => {
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isParent = effectiveRoles.includes('PARENT')
+  const isGuardian = effectiveRoles.includes('GUARDIAN')
+  const isStaffFinance = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT'].includes(r))
+  const isFamily = (isParent || isGuardian) && !isStaffFinance
+  const isBranchScopedStaff = !isInstitutionWide(session) && !isFamily
+
+  if (isBranchScopedStaff && !session.branchId) {
+    throw errPermission('Branch-scoped actor missing branch assignment')
+  }
 
   const where = {
     tenantId: session.tenantId,
     deletedAt: null,
     ...(studentId ? { studentId } : {}),
     ...(status ? { status: status as 'ISSUED' } : {}),
-    ...(isParent
+    ...(isFamily
       ? { student: { guardians: { some: { guardian: { userId: session.uid } } } } }
+      : {}),
+    ...(isBranchScopedStaff && session.branchId
+      ? { student: { branchId: session.branchId } }
       : {}),
   }
 
@@ -86,6 +98,8 @@ export const GET = withApi(async (req: NextRequest) => {
     }),
   ])
 
+  const maskFinance = isGuardian && !isParent && !isStaffFinance
+
   return ok(
     invoices.map((i) => ({
       id: i.id,
@@ -96,10 +110,10 @@ export const GET = withApi(async (req: NextRequest) => {
       feePayer: i.student.guardians[0]?.guardian.fullName ?? null,
       issueDate: i.issueDate,
       dueDate: i.dueDate,
-      subtotalCents: i.subtotalCents,
-      totalCents: i.totalCents,
-      paidCents: i.paidCents,
-      balanceCents: i.balanceCents,
+      subtotalCents: maskFinance ? 0 : i.subtotalCents,
+      totalCents: maskFinance ? 0 : i.totalCents,
+      paidCents: maskFinance ? 0 : i.paidCents,
+      balanceCents: maskFinance ? 0 : i.balanceCents,
       status: i.status,
     })),
     { page, pageSize, total, totalPages: Math.ceil(total / pageSize) }
@@ -132,6 +146,8 @@ export const POST = withApi(async (req: NextRequest) => {
   if (!student) {
     throw errNotFound('Student')
   }
+
+  assertResourceScope(session, { tenantId: student.tenantId, branchId: student.branchId })
 
   const subtotal = lineItems.reduce((s, i) => s + Math.round(i.amountCents), 0)
   const invoiceNumber = await nextNumber('invoice', session.tenantId)

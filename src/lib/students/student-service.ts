@@ -28,6 +28,7 @@ export interface ScopeContext {
   actorId?: string | null
   actorName?: string | null
   actorRole?: string | null
+  actorRoles?: string[] | null
 }
 
 export interface StudentFilterOptions {
@@ -42,13 +43,18 @@ export interface StudentFilterOptions {
 }
 
 function ctxToSession(ctx: ScopeContext) {
+  const roles = (ctx.actorRoles && ctx.actorRoles.length > 0
+    ? ctx.actorRoles
+    : (ctx.actorRole ? [ctx.actorRole] : ['OWNER'])) as any[]
+
   return {
     uid: ctx.actorId || '',
     email: '',
     name: ctx.actorName || '',
     tenantId: ctx.tenantId,
     branchId: ctx.branchId,
-    role: (ctx.actorRole || 'OWNER') as any,
+    role: (roles[0] || ctx.actorRole || 'OWNER') as any,
+    roles: roles as any,
   }
 }
 
@@ -475,7 +481,12 @@ export class StudentService {
       .filter((i) => i.status === 'OVERDUE' || (i.balanceCents > 0 && new Date(i.dueDate) < new Date()))
       .reduce((acc, i) => acc + i.balanceCents, 0)
 
-    const hasFinanceAccess = ctx.actorRole !== 'GUARDIAN'
+    const effectiveActorRoles = ctx.actorRoles && ctx.actorRoles.length > 0
+      ? ctx.actorRoles
+      : (ctx.actorRole ? [ctx.actorRole] : [])
+    const hasFinanceAccess = effectiveActorRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PARENT'].includes(r))
+      || (effectiveActorRoles.length > 0 && !effectiveActorRoles.includes('GUARDIAN'))
+      || (effectiveActorRoles.length === 0 && ctx.actorRole !== 'GUARDIAN')
 
     // Area E: Student Deposits & Refunds
     let deposits: any[] = []

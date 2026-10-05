@@ -36,6 +36,7 @@ export interface ScopeContext {
   actorId?: string | null
   actorName?: string | null
   actorRole?: string | null
+  actorRoles?: string[] | null
 }
 
 export interface CreateEnquiryInput {
@@ -768,6 +769,9 @@ export class AdmissionService {
         tenantId: scope.tenantId,
         branchId: ctx.branchId,
         role: (ctx.actorRole || 'OWNER') as any,
+        roles: (ctx.actorRoles && ctx.actorRoles.length > 0
+          ? ctx.actorRoles
+          : (ctx.actorRole ? [ctx.actorRole] : ['OWNER'])) as any,
       },
       {
         tenantId: doc.application.tenantId,
