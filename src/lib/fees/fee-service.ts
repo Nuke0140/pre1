@@ -812,48 +812,87 @@ export class FeeService {
    */
   static async initiatePayment(ctx: ScopeContext, input: InitiatePaymentInput) {
     const { invoiceId, amountCents, method, transactionRef, notes } = input
+    const ref = transactionRef?.trim()
     if (!invoiceId || !amountCents || amountCents <= 0 || !method) {
       throw new Error('invoiceId, positive amountCents, and method are required')
     }
-
-    const invoice = await db.invoice.findFirst({
-      where: { id: invoiceId, tenantId: ctx.tenantId, deletedAt: null },
-      include: { student: true },
-    })
-    if (!invoice) throw new Error('Invoice not found')
-    if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
-      throw new Error(`Cannot pay an invoice with status ${invoice.status}`)
+    if (!ref) {
+      throw new Error('transactionRef or Idempotency-Key is required for payment writes')
     }
 
-    // Cash limit check (IT Act 269ST: cash > ₹50,000 strictly prohibited)
+    const existing = await db.payment.findUnique({
+      where: {
+        tenantId_transactionRef: {
+          tenantId: ctx.tenantId,
+          transactionRef: ref,
+        },
+      },
+      include: { invoice: true, receipt: true },
+    })
+    if (existing) {
+      const sameRequest = existing.invoiceId === invoiceId && existing.amountCents === amountCents && existing.method === method
+      if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+      return existing
+    }
+
     if (method === 'CASH' && amountCents > 5000000) {
       throw new Error('Cash payments above ₹50,000 are not allowed (IT Act Section 269ST)')
     }
 
-    if (amountCents > invoice.balanceCents) {
-      throw new Error(`Amount ₹${amountCents / 100} exceeds invoice balance ₹${invoice.balanceCents / 100}`)
-    }
+    const payment = await db.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenantId: ctx.tenantId, deletedAt: null },
+      })
+      if (!invoice) throw new Error('Invoice not found')
+      if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
+        throw new Error(`Cannot pay an invoice with status ${invoice.status}`)
+      }
 
-    const paymentNumber = await nextNumber('payment', ctx.tenantId)
+      await tx.$queryRaw`
+        SELECT 1 FROM "invoices"
+        WHERE "id" = ${invoice.id} AND "tenantId" = ${ctx.tenantId}
+        FOR UPDATE
+      `
 
-    const payment = await db.payment.create({
-      data: {
-        tenantId: ctx.tenantId,
-        invoiceId: invoice.id,
-        studentId: invoice.studentId,
-        paymentNumber,
-        amountCents,
-        method,
-        transactionRef: transactionRef || `TXN-${Date.now()}`,
-        status: 'PENDING',
-        receivedById: ctx.actorId,
-        notes: notes || null,
-      },
+      const duplicate = await tx.payment.findUnique({
+        where: {
+          tenantId_transactionRef: {
+            tenantId: ctx.tenantId,
+            transactionRef: ref,
+          },
+        },
+        include: { invoice: true, receipt: true },
+      })
+      if (duplicate) {
+        const sameRequest = duplicate.invoiceId === invoice.id && duplicate.amountCents === amountCents && duplicate.method === method
+        if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+        return duplicate
+      }
+
+      const balanceCents = invoice.totalCents - invoice.paidCents
+      if (amountCents > balanceCents) {
+        throw new Error(`BUSINESS_OVERPAY: Amount ₹${amountCents / 100} exceeds invoice balance ₹${balanceCents / 100}`)
+      }
+
+      const paymentNumber = await nextNumber('payment', ctx.tenantId)
+      return tx.payment.create({
+        data: {
+          tenantId: ctx.tenantId,
+          invoiceId: invoice.id,
+          studentId: invoice.studentId,
+          paymentNumber,
+          amountCents,
+          method,
+          transactionRef: ref,
+          status: 'PENDING',
+          receivedById: ctx.actorId,
+          notes: notes || null,
+        },
+      })
     })
 
     await recordAudit({
       tenantId: ctx.tenantId,
-      branchId: invoice.branchId,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -861,15 +900,12 @@ export class FeeService {
       entity: 'Payment',
       entityId: payment.id,
       module: 'Fees',
-      summary: `Payment initiated ${paymentNumber} (₹${amountCents / 100}) via ${method}`,
+      summary: `Payment initiated ${payment.paymentNumber} (₹${amountCents / 100}) via ${method}`,
     })
 
     return payment
   }
 
-  /**
-   * 7. VERIFY PAYMENT & ISSUE RECEIPT (IDEMPOTENT)
-   */
   static async verifyPayment(ctx: ScopeContext, input: VerifyPaymentInput) {
     const { paymentId, paymentNumber, invoiceId, transactionRef, gatewayStatus = 'SUCCESS', failureReason } = input
 
