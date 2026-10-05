@@ -5,6 +5,7 @@ import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit } from '@/lib/audit'
 import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { requireGuardianChildAccess } from '@/lib/auth-api'
 
 async function _GET(
   req: NextRequest,
@@ -29,6 +30,12 @@ async function _GET(
       },
     })
     if (!invoice) return Errors.notFound('Invoice')
+
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    if (effectiveRoles.includes('PARENT')) {
+      const childAccess = await requireGuardianChildAccess(session, invoice.studentId)
+      if (childAccess instanceof Response) return childAccess
+    }
 
     return ok({
       id: invoice.id,
