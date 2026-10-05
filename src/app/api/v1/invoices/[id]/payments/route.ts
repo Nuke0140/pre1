@@ -6,6 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
 import { emit } from '@/lib/events'
 import { registerIntegrations } from '@/lib/integrations'
+import { tenantScopedWhere, tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/invoices/{id}/payments — record a payment against an invoice.
@@ -36,11 +37,9 @@ async function _POST(
     const idempotencyKey = req.headers.get('idempotency-key') || transactionRef
     if (idempotencyKey) {
       const existing = await db.payment.findFirst({
-        where: {
-          tenantId: session.tenantId!,
-          invoiceId: id,
+        where: tenantScopedWhere('invoiceId', id, session.tenantId!, {
           transactionRef: idempotencyKey,
-        },
+        }),
         include: { receipt: true },
       })
       if (existing) {
@@ -53,7 +52,7 @@ async function _POST(
     }
 
     const invoice = await db.invoice.findFirst({
-      where: { id, tenantId: session.tenantId! },
+      where: tenantScopedIdWhere(id, session.tenantId!),
       include: { student: true },
     })
     if (!invoice) return Errors.notFound('Invoice')
