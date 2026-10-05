@@ -47,32 +47,27 @@ async function _POST(
       return Errors.conflict('Student is already allocated to this classroom')
     }
 
-    const seats = await classroomSeats(classroomId)
-    if (seats.available <= 0) {
-      // visible exception — capacity problems surface to management (Spec §34)
-      await raiseFollowUp({
-        tenantId: session.tenantId,
-        domain: 'ADMISSION',
-        severity: 'WARNING',
-        title: `Section full — allocation blocked (${target.name})`,
-        detail: `Allocation of ${student.firstName} to ${target.name} blocked: ${seats.current}/${seats.capacity}. Waitlist or add capacity.`,
-        sourceType: 'Allocation',
-        sourceId: `${student.id}:${classroomId}`,
-        dedupeKey: `allocfull:${student.id}:${classroomId}`,
-        studentId: student.id,
-        classroomId,
-        responsibleRole: 'PRINCIPAL',
-      })
-      return Errors.business(
-        'BUSINESS_CLASS_FULL',
-        `Section ${target.name} is at full capacity (${seats.current}/${seats.capacity}). Waitlist or add capacity.`
-      )
-    }
-
     const now = new Date()
     const sessionRow = await resolveSessionId(session.tenantId, { classroomId })
 
     const result = await db.$transaction(async (tx) => {
+      // Serialize allocations targeting the same classroom.
+      const lockedClassrooms = await tx.$queryRaw<Array<{ id: string; capacity: number }>>`
+        SELECT "id", "capacity"
+        FROM "classrooms"
+        WHERE "id" = ${classroomId} AND "tenantId" = ${session.tenantId} AND "isActive" = true
+        FOR UPDATE
+      `
+      const lockedTarget = lockedClassrooms[0]
+      if (!lockedTarget) throw new Error('Target classroom not found')
+
+      const activeCount = await tx.student.count({
+        where: { currentClassroomId: classroomId, status: 'ACTIVE', deletedAt: null },
+      })
+      if (activeCount >= lockedTarget.capacity) {
+        throw new Error(`BUSINESS_CLASS_FULL: Section ${target.name} is at full capacity (${activeCount}/${lockedTarget.capacity}). Waitlist or add capacity.`)
+      }
+
       // close previous ACTIVE allocation (never overwrite history)
       if (student.currentClassroomId) {
         await tx.studentAllocation.updateMany({
@@ -105,7 +100,7 @@ async function _POST(
         data: { currentClassroomId: classroomId },
       })
 
-      return { allocation, updated }
+      return { allocation, updated, activeCountAfter: activeCount + 1, capacity: lockedTarget.capacity }
     })
 
     await audit({
