@@ -966,16 +966,35 @@ export class FeeService {
     const receiptNumber = await nextNumber('receipt', ctx.tenantId)
 
     const result = await db.$transaction(async (tx) => {
-      // 1. Mark payment SUCCESS
+      await tx.$queryRaw`SELECT 1 FROM "payments" WHERE "id" = ${payment.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedPayment = await tx.payment.findFirst({
+        where: { id: payment.id, tenantId: ctx.tenantId },
+        include: { invoice: true, receipt: true },
+      })
+      if (!lockedPayment) throw new Error('Payment record not found')
+
+      if (lockedPayment.status === 'SUCCESS' && lockedPayment.receipt) {
+        return {
+          payment: lockedPayment,
+          receipt: lockedPayment.receipt,
+          invoice: lockedPayment.invoice!,
+          alreadyVerified: true,
+        }
+      }
+
+      if (!lockedPayment.invoice) throw new Error('Associated invoice not found')
+
+      await tx.$queryRaw`SELECT 1 FROM "invoices" WHERE "id" = ${lockedPayment.invoice.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedInvoice = await tx.invoice.findFirst({
+        where: { id: lockedPayment.invoice.id, tenantId: ctx.tenantId },
+      })
+      if (!lockedInvoice) throw new Error('Associated invoice not found')
+
       const confirmedPayment = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'SUCCESS',
-          paymentDate: new Date(),
-        },
+        where: { id: lockedPayment.id },
+        data: { status: 'SUCCESS', paymentDate: new Date() },
       })
 
-      // 2. Issue Receipt
       const receipt = await tx.receipt.create({
         data: {
           paymentId: confirmedPayment.id,
@@ -985,26 +1004,20 @@ export class FeeService {
         },
       })
 
-      // 3. Update Invoice Balance & Status
-      const paidCents = invoice.paidCents + confirmedPayment.amountCents
-      const balanceCents = Math.max(0, invoice.totalCents - paidCents)
+      const paidCents = lockedInvoice.paidCents + confirmedPayment.amountCents
+      const balanceCents = Math.max(0, lockedInvoice.totalCents - paidCents)
       const newStatus: InvoiceStatus = balanceCents === 0 ? 'PAID' : 'PARTIALLY_PAID'
 
       const updatedInvoice = await tx.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          paidCents,
-          balanceCents,
-          status: newStatus,
-        },
+        where: { id: lockedInvoice.id },
+        data: { paidCents, balanceCents, status: newStatus },
       })
 
-      // 4. Create Parent Portal Timeline Entry
       await tx.timelineEntry.create({
         data: {
           tenantId: ctx.tenantId,
-          studentId: invoice.studentId,
-          academicSessionId: invoice.academicSessionId,
+          studentId: lockedInvoice.studentId,
+          academicSessionId: lockedInvoice.academicSessionId,
           type: 'NOTE',
           title: `Fee Payment Confirmed — Receipt ${receiptNumber}`,
           body: `Payment of ₹${confirmedPayment.amountCents / 100} received via ${confirmedPayment.method}. Receipt ${receiptNumber} issued. Remaining balance: ₹${balanceCents / 100}.`,
@@ -1012,7 +1025,7 @@ export class FeeService {
         },
       })
 
-      return { payment: confirmedPayment, receipt, invoice: updatedInvoice }
+      return { payment: confirmedPayment, receipt, invoice: updatedInvoice, alreadyVerified: false }
     })
 
     // Emit domain event to resolve overdue follow-ups
