@@ -119,7 +119,13 @@ async function _POST(
       programType: target.programType,
       seats: await classroomSeats(classroomId),
     })
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message?.startsWith('BUSINESS_CLASS_FULL:')) {
+      return Errors.business(
+        'BUSINESS_CLASS_FULL',
+        e.message.replace('BUSINESS_CLASS_FULL: ', '')
+      )
+    }
     return Errors.system(e)
   }
 }
