@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit } from '@/lib/audit'
+import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 async function _GET(
   req: NextRequest,
@@ -15,7 +16,7 @@ async function _GET(
 
   try {
     const invoice = await db.invoice.findFirst({
-      where: { id, tenantId: session.tenantId },
+      where: tenantScopedIdWhere(id, session.tenantId),
       include: {
         student: {
           select: {
