@@ -94,6 +94,7 @@ export { withApi } from './with-api'
 export {
   PreOneError,
   errValidation,
+  errBadRequest,
   errPermission,
   errNotFound,
   errConflict,

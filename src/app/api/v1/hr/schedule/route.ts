@@ -19,6 +19,13 @@ async function _GET(req: NextRequest) {
 
     const tenantId = session.tenantId
 
+    // Fetch branches for name resolution
+    const branches = await db.branch.findMany({
+      where: { tenantId },
+      select: { id: true, name: true },
+    })
+    const branchMap = new Map(branches.map((b) => [b.id, b]))
+
     // 1. Fetch classrooms with assigned primary teacher, program, and active student allocations
     const classrooms = await db.classroom.findMany({
       where: {
@@ -44,14 +51,13 @@ async function _GET(req: NextRequest) {
             },
           },
         },
-        branch: { select: { id: true, name: true, code: true } },
         program: { select: { id: true, name: true, code: true } },
         academicSession: { select: { id: true, name: true } },
         _count: {
           select: { students: true },
         },
       },
-      orderBy: [{ branch: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ name: 'asc' }],
     })
 
     // 2. Fetch all active staff in this tenant/branch
@@ -115,7 +121,7 @@ async function _GET(req: NextRequest) {
         capacity: c.capacity,
         enrolledCount: c._count.students,
         branchId: c.branchId,
-        branchName: c.branch?.name || 'Main Campus',
+        branchName: branchMap.get(c.branchId)?.name || 'Main Campus',
         primaryTeacher: c.primaryTeacher
           ? {
               id: c.primaryTeacher.id,

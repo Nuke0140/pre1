@@ -162,3 +162,17 @@ export function normalizeRole(role: string): CanonicalRole {
 export function isCanonicalRole(role: string): role is CanonicalRole {
   return CANONICAL_ROLES.includes(role as CanonicalRole)
 }
+
+/**
+ * Determines whether a given role represents an employee/staff role.
+ * Non-employee roles: PARENT, GUARDIAN, PLATFORM_ADMIN.
+ * Employee roles: OWNER, PRINCIPAL, COORDINATOR, TEACHER, ACCOUNTS, RECEPTIONIST, STAFF, ATTENDANT, DRIVER, etc.
+ */
+export function isEmployeeRole(role: string): boolean {
+  if (!role) return false
+  const canonical = normalizeRole(role)
+  const meta = ROLE_META[canonical]
+  if (!meta) return false
+  return meta.category !== 'FAMILY' && canonical !== 'PLATFORM_ADMIN'
+}
+

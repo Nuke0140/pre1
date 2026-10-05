@@ -42,7 +42,7 @@ async function _GET(req: NextRequest) {
     const corrections = await db.attendanceStaff.findMany({
       where: {
         tenantId,
-        source: 'CORRECTION',
+        remarks: { contains: 'Correction', mode: 'insensitive' },
       },
       include: {
         staffProfile: {

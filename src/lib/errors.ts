@@ -103,6 +103,17 @@ export function errValidation(
   })
 }
 
+export function errBadRequest(message: string, field?: string, module?: string): PreOneError {
+  return new PreOneError({
+    class: 'OPERATIONAL',
+    code: 'BAD_REQUEST',
+    httpStatus: 400,
+    userMessage: message,
+    field,
+    module,
+  })
+}
+
 export function errPermission(
   message?: string,
   code: string = ErrorCodes.PERMISSION_DENIED,
