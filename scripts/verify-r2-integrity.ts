@@ -24,6 +24,12 @@ const checks: Array<[string, boolean]> = [
   ['allocation route locks classroom row', allocationRoute.includes('FROM "classrooms"') && allocationRoute.includes('FOR UPDATE')],
   ['allocation route rechecks active count in transaction', allocationRoute.includes('tx.student.count')],
   ['promotion locks target classroom row', promotionRoute.includes('FROM "classrooms"') && promotionRoute.includes('FOR UPDATE')],
+
+  ['invoice payment short-circuits idempotent replay', paymentRoute.includes("if (result.idempotent)")],
+  ['invoice payment replay returns original receipt', paymentRoute.includes("result.receipt?.receiptNumber ?? null")],
+  ['allocation maps class-full to business error', allocationRoute.includes("Errors.business(") && allocationRoute.includes("BUSINESS_CLASS_FULL")],
+  ['verification suppresses duplicate side effects', feeService.includes("if (!result.alreadyVerified)")],
+  ['verification exposes alreadyVerified result', feeService.includes("alreadyVerified: result.alreadyVerified")],
 ]
 
 let failed = 0
