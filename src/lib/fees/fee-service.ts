@@ -2247,6 +2247,8 @@ export class FeeService {
     if (!feeScheduleId || !amountCents || amountCents <= 0 || !method) {
       throw new Error('feeScheduleId, positive amountCents, and method are required')
     }
+    const ref = transactionRef?.trim()
+    if (!ref) throw new Error('transactionRef or Idempotency-Key is required for payment writes')
 
     const schedule = await db.studentFeeSchedule.findFirst({
       where: { id: feeScheduleId, tenantId: ctx.tenantId, studentId },
@@ -2259,23 +2261,39 @@ export class FeeService {
       throw new Error('Cash payments above ₹50,000 are not allowed (IT Act Section 269ST)')
     }
 
-    if (amountCents > schedule.remainingAmountCents) {
-      throw new Error(`Payment amount ₹${amountCents / 100} exceeds remaining balance ₹${schedule.remainingAmountCents / 100}`)
+    const existing = await db.payment.findUnique({
+      where: { tenantId_transactionRef: { tenantId: ctx.tenantId, transactionRef: ref } },
+    })
+    if (existing) {
+      const sameRequest = existing.feeScheduleId === schedule.id && existing.amountCents === amountCents && existing.method === method
+      if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+      return { payment: existing, receipt: null, schedule }
     }
 
     const paymentNumber = await nextNumber('payment', ctx.tenantId)
     const receiptNumber = await nextNumber('receipt', ctx.tenantId)
 
     const result = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "student_fee_schedules" WHERE "id" = ${schedule.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedSchedule = await tx.studentFeeSchedule.findFirst({ where: { id: schedule.id, tenantId: ctx.tenantId, studentId } })
+      if (!lockedSchedule) throw new Error('Fee schedule item not found')
+      const duplicate = await tx.payment.findUnique({ where: { tenantId_transactionRef: { tenantId: ctx.tenantId, transactionRef: ref } } })
+      if (duplicate) {
+        const sameRequest = duplicate.feeScheduleId === lockedSchedule.id && duplicate.amountCents === amountCents && duplicate.method === method
+        if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+        return { payment: duplicate, receipt: null, schedule: lockedSchedule }
+      }
+      if (amountCents > lockedSchedule.remainingAmountCents) throw new Error(`BUSINESS_OVERPAY: Payment amount ₹${amountCents / 100} exceeds remaining balance ₹${lockedSchedule.remainingAmountCents / 100}`)
+
       const payment = await tx.payment.create({
         data: {
           tenantId: ctx.tenantId,
-          feeScheduleId: schedule.id,
+          feeScheduleId: lockedSchedule.id,
           studentId: schedule.studentId,
           paymentNumber,
           amountCents,
           method,
-          transactionRef: transactionRef || `TXN-${Date.now()}`,
+          transactionRef: ref,
           status: 'SUCCESS',
           paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
           receivedById: ctx.actorId,
@@ -2293,8 +2311,8 @@ export class FeeService {
         },
       })
 
-      const newPaidCents = schedule.amountPaidCents + amountCents
-      const newRemainingCents = Math.max(0, schedule.amountDueCents - newPaidCents)
+      const newPaidCents = lockedSchedule.amountPaidCents + amountCents
+      const newRemainingCents = Math.max(0, lockedSchedule.amountDueCents - newPaidCents)
       const newStatus: FeeScheduleStatus = newRemainingCents === 0 ? 'PAID' : 'PARTIALLY_PAID'
 
       const updatedSchedule = await tx.studentFeeSchedule.update({
