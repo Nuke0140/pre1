@@ -718,6 +718,7 @@ model Payment {
   receipt        Receipt?
 
   @@unique([tenantId, paymentNumber])
+  @@unique([tenantId, transactionRef])
   @@index([tenantId, status])
   @@index([studentId])
   @@index([feeScheduleId])
