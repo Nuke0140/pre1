@@ -43,6 +43,26 @@ export function tenantScopedIdWhere<T extends Record<string, unknown>>(
   return tenantScopedWhere('id', id, tenantId, extra)
 }
 
+export interface ScopeActor {
+  tenantId: string | null
+  branchId?: string | null
+  role: Role
+}
+
+export function assertActorResourceScope(
+  actor: ScopeActor,
+  resource: ScopedResource
+): void {
+  if (!actor.tenantId) throw new Error('Tenant context is required')
+  if (resource.tenantId !== actor.tenantId) {
+    throw new Error('Unauthorized: cross-tenant resource access')
+  }
+  if (!resource.branchId || isInstitutionWide({ ...actor, uid: '', email: '', name: '' } as SessionPayload)) return
+  if (actor.branchId && actor.branchId !== resource.branchId) {
+    throw new Error('Unauthorized: resource belongs to another branch')
+  }
+}
+
 export function assertTenantScope(session: SessionPayload, resource: ScopedResource): void {
   if (!session.tenantId) {
     throw new Error('Tenant context is required')
