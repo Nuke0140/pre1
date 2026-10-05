@@ -123,15 +123,15 @@ async function runTests() {
     // 2. Navigation & Launcher Union check
     const navItems = navForRole(multiRoles)
     const navKeys = navItems.map((n) => n.key)
-    assert(navKeys.includes('attendance'), 'Nav includes Attendance (from TEACHER)')
-    assert(navKeys.includes('academics'), 'Nav includes Academics (from TEACHER)')
+    assert(navKeys.includes('daily-diary'), 'Nav includes Daily Diary (from TEACHER attendance:read)')
+    assert(navKeys.includes('learning'), 'Nav includes Learning (from TEACHER academics:read)')
     assert(navKeys.includes('finance'), 'Nav includes Finance (from ACCOUNTS)')
     assert(!navKeys.includes('settings'), 'Nav excludes Settings (neither role)')
     assert(!navKeys.includes('platform'), 'Nav excludes Platform Console')
 
     const homeTiles = homeModules(multiRoles)
     const homeTileKeys = homeTiles.map((h) => h.key)
-    assert(homeTileKeys.includes('attendance'), 'Dashboard launcher includes Attendance tile')
+    assert(homeTileKeys.includes('daily-diary'), 'Dashboard launcher includes Daily Diary tile')
     assert(homeTileKeys.includes('finance'), 'Dashboard launcher includes Finance tile')
     assert(!homeTileKeys.includes('settings'), 'Dashboard launcher excludes Settings tile')
 
@@ -247,7 +247,7 @@ async function runTests() {
     assert(hrStaffRecord !== null, 'Staff record retrievable in HR directory')
     assert(hrStaffRecord?.designation === 'Storekeeper', 'HR directory reflects designation Storekeeper')
     assert(hrStaffRecord?.user.memberships[0]?.role === 'COORDINATOR', 'HR directory reflects canonical RBAC role COORDINATOR')
-    assert(can(hrStaffRecord?.user.memberships[0]?.role as Role, 'inventory:approve') === true, 'Storekeeper with COORDINATOR role has inventory:approve capability')
+    assert(can(hrStaffRecord?.user.memberships[0]?.role as Role, 'inventory:request') === true, 'Storekeeper with COORDINATOR role has inventory:request capability')
 
     // -------------------------------------------------------------------------
     // TEST C: TEACHER & ACADEMICS LINKAGE

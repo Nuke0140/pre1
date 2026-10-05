@@ -71,11 +71,6 @@ export class UserIdentityService {
         where: { username: opts.username.trim().toLowerCase() },
       })
     }
-    if (!user && phoneNorm) {
-      user = await tx.user.findFirst({
-        where: { phone: phoneNorm },
-      })
-    }
     if (!user && opts.username?.trim()) {
       user = await tx.user.findUnique({
         where: { username: opts.username.trim().toLowerCase() },
@@ -124,14 +119,16 @@ export class UserIdentityService {
       return { user, isNewUser: true }
     } else {
       // Update phone if previously unset
+      const needsNameUpdate = Boolean(opts.fullName?.trim()) && user.fullName !== opts.fullName.trim()
       const needsPhoneUpdate = !user.phone && phoneNorm
       const needsUsernameUpdate = !user.username && username
       const needsAvatarUpdate = !user.avatarUrl && opts.avatarUrl?.trim()
 
-      if (needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate) {
+      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate) {
         user = await tx.user.update({
           where: { id: user.id },
           data: {
+            ...(needsNameUpdate ? { fullName: opts.fullName.trim() } : {}),
             ...(needsPhoneUpdate ? { phone: phoneNorm } : {}),
             ...(needsUsernameUpdate ? { username } : {}),
             ...(needsAvatarUpdate ? { avatarUrl: opts.avatarUrl!.trim() } : {}),

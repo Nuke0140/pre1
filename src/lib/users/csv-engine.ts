@@ -3,6 +3,7 @@ import { StaffUserService } from './staff-user-service'
 import { FamilyUserService, normalizeRelationship } from './family-user-service'
 import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType, BloodGroup } from '@prisma/client'
 import { normalizeRole, type CanonicalRole } from '@/lib/roles'
+import { recordAudit } from '@/lib/audit'
 
 /**
  * Sanitizes a cell against spreadsheet formula injection (=, +, -, @, \t, \r)
@@ -236,7 +237,11 @@ export class UserCsvEngine {
   /**
    * Preview & Validation for Staff CSV
    */
-  static async previewStaffCsv(tenantId: string, csvContent: string): Promise<CsvPreviewResult> {
+  static async previewStaffCsv(
+    tenantId: string,
+    csvContent: string,
+    options?: { mode?: 'CREATE' | 'UPDATE'; overwrite?: boolean }
+  ): Promise<CsvPreviewResult & { invalidRows?: number; newUsers?: number; existingUsers?: number; errors?: any[] }> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
 
@@ -277,7 +282,32 @@ export class UserCsvEngine {
       const roleStr = normalizeRole(rawRole) as UserRole
       const branchCode = r.branchCode?.trim().toUpperCase() || ''
 
-      if (!fullName) errors.push('Full name is missing')
+      let isExisting = false
+      let existingUser: any = null
+      if (email || username) {
+        existingUser = await db.user.findFirst({
+          where: {
+            OR: [
+              ...(email ? [{ email }] : []),
+              ...(username ? [{ username }] : []),
+            ],
+          },
+          include: { staffProfile: true },
+        })
+        if (existingUser) {
+          isExisting = true
+          if (options?.mode === 'CREATE' && options?.overwrite === false) {
+            errors.push('An account with this email already exists in system (USER_ALREADY_EXISTS)')
+          } else {
+            warnings.push(`User already exists in system. Profile will be linked/updated.`)
+          }
+        }
+      }
+
+      const effectiveFullName = fullName || existingUser?.fullName || ''
+      if (!effectiveFullName && options?.mode !== 'DELETE') {
+        errors.push('Full name is missing')
+      }
       if (!email) {
         errors.push('Email is missing')
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -322,33 +352,15 @@ export class UserCsvEngine {
       // Validate role
       if (roleStr === 'PARENT' || roleStr === 'GUARDIAN') {
         errors.push('Cannot assign PARENT or GUARDIAN role in Staff CSV. Use Family CSV.')
-      } else if (!CANONICAL_STAFF_ROLES.includes(roleStr as CanonicalRole)) {
+      } else if (r.role && !CANONICAL_STAFF_ROLES.includes(roleStr as CanonicalRole)) {
         errors.push(`Invalid staff role "${rawRole}". Allowed: ${CANONICAL_STAFF_ROLES.join(', ')}.`)
-      }
-
-      // Check existing User in DB
-      let isExisting = false
-      if (email || username) {
-        const existing = await db.user.findFirst({
-          where: {
-            OR: [
-              ...(email ? [{ email }] : []),
-              ...(username ? [{ username }] : []),
-            ],
-          },
-          include: { staffProfile: true },
-        })
-        if (existing) {
-          isExisting = true
-          warnings.push(`User already exists in system. Profile will be linked/updated.`)
-        }
       }
 
       const isBlocked = errors.length > 0
       previewRows.push(
         (() => {
           const status = isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID'
-          const action = isBlocked ? 'BLOCK' : isExisting ? 'LINK' : 'CREATE'
+          const action = isBlocked ? 'BLOCK' : options?.mode === 'DELETE' ? 'DELETE' : isExisting ? 'LINK' : 'CREATE'
           const rawEmpType = r.employmentType?.toUpperCase()
           const empType: EmploymentType =
             rawEmpType === 'REGULAR' || rawEmpType === 'FULL_TIME'
@@ -362,17 +374,17 @@ export class UserCsvEngine {
             status,
             action,
             identifier: email || username || phone,
-            name: fullName,
+            name: effectiveFullName,
             role: roleStr,
             details: `Branch: ${branchId || 'Main'}, EmpCode: ${r.employeeCode || 'Auto'}`,
             errors,
             warnings,
             data: {
               username: username || undefined,
-              fullName,
+              fullName: effectiveFullName,
               email,
               phone,
-              role: roleStr,
+              role: r.role ? roleStr : undefined,
               branchId,
               designation: r.designation || null,
               department: r.department || null,
@@ -392,6 +404,17 @@ export class UserCsvEngine {
     const blockedCount = previewRows.filter((r) => r.status === 'BLOCKED').length
     const warningCount = previewRows.filter((r) => r.status === 'WARNING').length
     const validCount = previewRows.filter((r) => r.status === 'VALID').length
+    const newUsers = previewRows.filter((r) => r.action === 'CREATE').length
+    const existingUsers = previewRows.filter((r) => r.action === 'LINK').length
+
+    const allErrors = previewRows.flatMap((r) =>
+      r.errors.map((e) => ({
+        rowNumber: r.rowNumber,
+        identifier: r.identifier,
+        message: e,
+        errorCode: e.includes('USER_ALREADY_EXISTS') ? 'USER_ALREADY_EXISTS' : 'VALIDATION_ERROR',
+      }))
+    )
 
     return {
       templateType: 'STAFF',
@@ -399,6 +422,10 @@ export class UserCsvEngine {
       validRows: validCount,
       warningRows: warningCount,
       blockedRows: blockedCount,
+      invalidRows: blockedCount,
+      newUsers,
+      existingUsers,
+      errors: allErrors,
       rows: previewRows,
     }
   }
@@ -461,7 +488,10 @@ export class UserCsvEngine {
       const relationship = normalizeRelationship(r.relationship || r.relationToChild)
       const admissionNo = r.studentAdmissionNo?.trim() || r.admissionNo?.trim() || ''
       const studentUsername = r.studentUsername?.trim().toLowerCase() || ''
-      const studentName = r.studentName?.trim() || r.childName?.trim() || ''
+      const studentName =
+        r.studentName?.trim() ||
+        r.childName?.trim() ||
+        `${r.childFirstName || r.studentFirstName || ''} ${r.childLastName || r.studentLastName || ''}`.trim()
       const studentDateOfBirth = r.studentDateOfBirth?.trim() || r.studentDob?.trim() || r.childDOB?.trim() || ''
       const studentGender = (r.studentGender?.trim().toUpperCase() || r.childGender?.trim().toUpperCase() || 'MALE') as Gender
       const studentBloodGroup = (r.studentBloodGroup?.trim().toUpperCase() || r.bloodGroup?.trim().toUpperCase()) as BloodGroup | undefined
@@ -719,58 +749,79 @@ export class UserCsvEngine {
   static async executeStaffImport(
     ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
     rows: CsvPreviewRow[],
-    options?: { atomicAllOrNothing?: boolean; chunkSize?: number }
+    options?: { atomicAllOrNothing?: boolean; chunkSize?: number; mode?: 'CREATE' | 'UPDATE' | 'DELETE' }
   ) {
     let createdCount = 0
     let updatedCount = 0
+    let deletedCount = 0
     let blockedCount = 0
     let skippedCount = 0
     const errors: Array<{ rowNumber: number; identifier?: string; message: string }> = []
     const chunkSize = options?.chunkSize || 15
+    const mode = options?.mode || 'CREATE'
 
-    // If atomic mode is requested, execute all rows in a single top-level transaction
-    if (options?.atomicAllOrNothing) {
-      try {
-        await db.$transaction(async (tx) => {
-          for (const row of rows) {
-            if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
-              throw new Error(`Row ${row.rowNumber} is invalid: ${row.errors.join('; ')}`)
-            }
-            if (row.action === 'SKIP') {
-              skippedCount++
-              continue
-            }
-            await StaffUserService.createStaff(
-              {
-                tenantId: ctx.tenantId,
-                actorId: ctx.actorId,
-                actorName: ctx.actorName,
-                actorRole: ctx.actorRole,
-              },
-              row.data as any,
-              tx
-            )
-            if (row.action === 'CREATE') createdCount++
-            else updatedCount++
-          }
+    if (mode === 'DELETE') {
+      for (const row of rows) {
+        if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+          blockedCount++
+          continue
+        }
+        const identifier = row.data?.email || row.identifier
+        if (!identifier) {
+          blockedCount++
+          continue
+        }
+        const member = await db.tenantUser.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            deletedAt: null,
+            user: {
+              OR: [
+                { email: identifier.toLowerCase().trim() },
+                { username: identifier.toLowerCase().trim() },
+              ],
+            },
+          },
+          include: { user: true },
         })
-        return {
-          total: rows.length,
-          createdCount,
-          updatedCount,
-          blockedCount: 0,
-          skippedCount,
-          errors: [],
+
+        if (member) {
+          const now = new Date()
+          await db.tenantUser.update({
+            where: { id: member.id },
+            data: { status: 'INACTIVE', deletedAt: now },
+          })
+          await db.user.update({
+            where: { id: member.userId },
+            data: { status: 'INACTIVE', deletedAt: now, updatedAt: now },
+          })
+          deletedCount++
+        } else {
+          skippedCount++
         }
-      } catch (err: any) {
-        return {
-          total: rows.length,
-          createdCount: 0,
-          updatedCount: 0,
-          blockedCount: rows.length,
-          skippedCount: 0,
-          errors: [{ rowNumber: 0, message: `Batch rolled back atomically: ${err.message}` }],
-        }
+      }
+
+      await recordAudit({
+        tenantId: ctx.tenantId,
+        actorId: ctx.actorId,
+        actorName: ctx.actorName,
+        actorRole: ctx.actorRole,
+        action: 'CSV_DELETE',
+        entity: 'User',
+        entityId: ctx.tenantId,
+        module: 'Users',
+        severity: 'WARNING',
+        summary: `Executed staff CSV deletion: ${deletedCount} user(s) soft-deactivated`,
+      })
+
+      return {
+        total: rows.length,
+        createdCount: 0,
+        updatedCount: 0,
+        deletedCount,
+        blockedCount,
+        skippedCount,
+        errors,
       }
     }
 
@@ -807,7 +858,6 @@ export class UserCsvEngine {
           else updatedCount++
         } catch (err: any) {
           blockedCount++
-          // Safe error message without leaking sensitive internal details
           const safeMessage = err.message || 'Failed to process staff record'
           errors.push({
             rowNumber: row.rowNumber,
@@ -818,10 +868,24 @@ export class UserCsvEngine {
       }
     }
 
+    const auditAction = createdCount > 0 && updatedCount === 0 ? 'CSV_CREATE' : 'CSV_UPDATE'
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: auditAction,
+      entity: 'User',
+      entityId: ctx.tenantId,
+      module: 'Users',
+      summary: `Executed staff CSV import (${auditAction}): ${createdCount} created, ${updatedCount} updated`,
+    })
+
     return {
       total: rows.length,
       createdCount,
       updatedCount,
+      deletedCount: 0,
       blockedCount,
       skippedCount,
       errors,
