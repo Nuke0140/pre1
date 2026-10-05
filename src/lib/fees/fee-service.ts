@@ -1028,33 +1028,35 @@ export class FeeService {
       return { payment: confirmedPayment, receipt, invoice: updatedInvoice, alreadyVerified: false }
     })
 
-    // Emit domain event to resolve overdue follow-ups
-    await emit({
-      type: 'PaymentReceived',
-      tenantId: ctx.tenantId,
-      invoiceId: invoice.id,
-      studentId: invoice.studentId,
-      paymentNumber: result.payment.paymentNumber,
-      amountCents: result.payment.amountCents,
-      fullyPaid: result.invoice.status === 'PAID',
-    })
+    if (!result.alreadyVerified) {
+      // Emit domain event to resolve overdue follow-ups only for a new verification.
+      await emit({
+        type: 'PaymentReceived',
+        tenantId: ctx.tenantId,
+        invoiceId: invoice.id,
+        studentId: invoice.studentId,
+        paymentNumber: result.payment.paymentNumber,
+        amountCents: result.payment.amountCents,
+        fullyPaid: result.invoice.status === 'PAID',
+      })
 
-    await recordAudit({
-      tenantId: ctx.tenantId,
-      branchId: invoice.branchId,
-      actorId: ctx.actorId,
-      actorName: ctx.actorName,
-      actorRole: ctx.actorRole,
-      action: 'PAYMENT_CONFIRMED',
-      entity: 'Payment',
-      entityId: result.payment.id,
-      module: 'Fees',
-      summary: `Confirmed payment ${result.payment.paymentNumber} (₹${result.payment.amountCents / 100}). Receipt: ${result.receipt.receiptNumber}`,
-    })
+      await recordAudit({
+        tenantId: ctx.tenantId,
+        branchId: invoice.branchId,
+        actorId: ctx.actorId,
+        actorName: ctx.actorName,
+        actorRole: ctx.actorRole,
+        action: 'PAYMENT_CONFIRMED',
+        entity: 'Payment',
+        entityId: result.payment.id,
+        module: 'Fees',
+        summary: `Confirmed payment ${result.payment.paymentNumber} (₹${result.payment.amountCents / 100}). Receipt: ${result.receipt.receiptNumber}`,
+      })
+    }
 
     return {
       success: true,
-      alreadyVerified: false,
+      alreadyVerified: result.alreadyVerified,
       payment: result.payment,
       receipt: result.receipt,
       invoice: result.invoice,
