@@ -163,6 +163,31 @@ async function runTests() {
   const userCountAfter = await db.user.count({ where: { email: newEmail } })
   assert(userCountBefore === userCountAfter && userCountAfter === 0, 'Dry-run verified: zero database writes occurred')
 
+  // Execute CREATE import for a new user to generate CSV_CREATE audit log
+  const createExecuteReq = new NextRequest('http://localhost:3000/api/v1/users/csv', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionToken}`,
+      'Cookie': `${SESSION_COOKIE}=${sessionToken}`,
+    },
+    body: JSON.stringify({
+      action: 'execute',
+      mode: 'CREATE',
+      rows: [
+        {
+          rowNumber: 2,
+          fullName: 'Brand New Staff Member',
+          email: `brandnew.${Date.now()}@csvtest.com`,
+          role: 'COORDINATOR',
+          branchCode: 'NORTH',
+          designation: 'Academic Head',
+        },
+      ],
+    }),
+  })
+  await postCsv(createExecuteReq)
+
   // 4. Test CREATE Mode without Overwrite (Duplicate Email)
   console.log('\n--- Test Suite 2: CREATE Mode Duplicate Rejection ---')
   const dupReq = new NextRequest('http://localhost:3000/api/v1/users/csv', {
