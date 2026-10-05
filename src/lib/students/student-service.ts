@@ -17,6 +17,7 @@ import { db } from '@/lib/db'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { classroomSeats } from '@/lib/capacity'
 import { audit } from '@/lib/audit'
+import { assertResourceScope } from '@/lib/security/resource-scope'
 import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
 
 export interface ScopeContext {
@@ -38,6 +39,17 @@ export interface StudentFilterOptions {
   search?: string
   page?: number
   pageSize?: number
+}
+
+function ctxToSession(ctx: ScopeContext) {
+  return {
+    uid: ctx.actorId || '',
+    email: '',
+    name: ctx.actorName || '',
+    tenantId: ctx.tenantId,
+    branchId: ctx.branchId,
+    role: (ctx.actorRole || 'OWNER') as any,
+  }
 }
 
 export class StudentService {
@@ -349,6 +361,12 @@ export class StudentService {
     })
 
     if (!student) throw new Error('Student not found')
+
+    // Centralized tenant + branch boundary before object-level checks.
+    assertResourceScope(ctxToSession(ctx), {
+      tenantId: student.tenantId,
+      branchId: student.branchId,
+    })
 
     // Parent permission check: Only allowed to view own ward
     if (ctx.actorRole === 'PARENT') {
