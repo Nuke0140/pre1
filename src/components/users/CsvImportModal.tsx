@@ -8,6 +8,7 @@ import {
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { CsvUploadIllustration } from '@/components/preone'
+import { useI18n } from '@/lib/i18n'
 
 interface CsvImportModalProps {
   open: boolean
@@ -18,6 +19,7 @@ interface CsvImportModalProps {
 
 export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModalProps) {
   const toast = useToast()
+  const { t } = useI18n()
 
   const [step, setStep] = useState<'UPLOAD' | 'PREVIEW' | 'RESULT'>('UPLOAD')
   const [inputMode, setInputMode] = useState<'FILE' | 'PASTE'>('FILE')
@@ -146,7 +148,8 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
     <Modal
       open={open}
       onClose={handleClose}
-      title={type === 'STAFF' ? 'Bulk Import Staff Users (CSV)' : 'Bulk Import Family Users (CSV)'}
+      title={type === 'STAFF' ? t('users.importStaffCsv') : t('users.importFamilyCsv')}
+      subtitle={t('users.csvImportSub')}
       icon={<FileSpreadsheet className="w-5 h-5 text-emerald-600" />}
       iconClass="ic-green"
       wide
@@ -160,7 +163,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                 onClick={() => setStep('UPLOAD')}
                 disabled={executing}
               >
-                ← Back to Upload
+                ← {t('common.back')}
               </button>
             )}
           </div>
@@ -172,7 +175,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                 onClick={handleClose}
                 disabled={validating || executing}
               >
-                Cancel
+                {t('users.cancel')}
               </button>
             )}
 
@@ -189,7 +192,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                     <span>Validating CSV...</span>
                   </>
                 ) : (
-                  <span>Validate & Preview Rows →</span>
+                  <span>{t('users.validateAndPreview')} →</span>
                 )}
               </button>
             )}
@@ -208,7 +211,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                   </>
                 ) : (
                   <span>
-                    Execute Import ({previewData.validRows + previewData.warningRows} Ready Rows)
+                    {t('users.confirmImport')} ({previewData.validRows + previewData.warningRows}) →
                   </span>
                 )}
               </button>

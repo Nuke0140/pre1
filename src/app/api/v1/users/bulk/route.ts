@@ -20,6 +20,9 @@ export type BulkAction =
   | 'ASSIGN_CLASSROOM'
   | 'REVOKE_SESSIONS'
   | 'UPDATE_PROFILE'
+  | 'FORCE_PASSWORD_CHANGE'
+  | 'BULK_EDIT'
+  | 'CUSTOM_FIELD'
 
 interface BulkRequest {
   action: BulkAction
@@ -34,6 +37,12 @@ interface BulkRequest {
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'
   classroomId?: string
   reason?: string
+  // Bulk Edit specific
+  field?: 'department' | 'designation' | 'branchId' | 'status' | 'customField'
+  fieldName?: string
+  fieldValue?: string | null
+  overrideMode?: 'UPDATE_ALL' | 'ONLY_EMPTY' | 'ONLY_MATCHING' | 'SKIP_EXISTING'
+  matchCurrentValue?: string
   changes?: {
     role?: UserRole
     roles?: UserRole[]
@@ -216,6 +225,51 @@ export const POST = withApi(async (req: NextRequest) => {
 
     // PREVIEW MODE — Return analysis without making any database changes
     if (mode === 'PREVIEW') {
+      const diff: Array<{
+        userId: string
+        name: string
+        before: string
+        after: string
+        willChange: boolean
+      }> = []
+
+      const editField = body.field || 'department'
+      const editVal = body.fieldValue !== undefined ? String(body.fieldValue) : ''
+      const overrideMode = body.overrideMode || 'UPDATE_ALL'
+      const matchVal = body.matchCurrentValue?.trim().toLowerCase() || ''
+
+      for (const m of eligibleMembers) {
+        let beforeVal = ''
+        if (action === 'BULK_EDIT') {
+          if (editField === 'department') beforeVal = m.user.staffProfile?.department || ''
+          else if (editField === 'designation') beforeVal = m.user.staffProfile?.designation || ''
+          else if (editField === 'branchId') beforeVal = m.branchId || ''
+        } else if (action === 'CUSTOM_FIELD') {
+          const prefs: any = (m.user.preferences as any) || {}
+          const cf = prefs.customFields || {}
+          beforeVal = cf[body.fieldName || ''] !== undefined ? String(cf[body.fieldName || '']) : ''
+        } else if (action === 'CHANGE_BRANCH') {
+          beforeVal = m.branchId || ''
+        } else if (action === 'ASSIGN_ROLE') {
+          beforeVal = m.role
+        } else if (action === 'SUSPEND' || action === 'ACTIVATE') {
+          beforeVal = m.status
+        }
+
+        let willChange = true
+        if (overrideMode === 'ONLY_EMPTY') willChange = !beforeVal || beforeVal.trim() === ''
+        else if (overrideMode === 'ONLY_MATCHING') willChange = beforeVal.trim().toLowerCase() === matchVal
+        else if (overrideMode === 'SKIP_EXISTING') willChange = !beforeVal || beforeVal.trim() === ''
+
+        diff.push({
+          userId: m.userId,
+          name: m.user.fullName,
+          before: beforeVal || '(empty)',
+          after: willChange ? (action === 'CHANGE_BRANCH' ? String(branchId || '') : editVal || '(empty)') : beforeVal || '(empty)',
+          willChange,
+        })
+      }
+
       return ok({
         success: true,
         action,
@@ -225,9 +279,11 @@ export const POST = withApi(async (req: NextRequest) => {
         affected: affectedUserIds,
         blocked,
         reasons,
-        updatedCount: affectedUserIds.length,
+        updatedCount: diff.filter((d) => d.willChange).length,
+        unchangedCount: diff.filter((d) => !d.willChange).length,
         affectedUserIds,
         skippedUserIds,
+        diff: diff.slice(0, 100), // First 100 preview rows
       })
     }
 
@@ -463,6 +519,119 @@ export const POST = withApi(async (req: NextRequest) => {
                     department: dept || null,
                     branchId: brId || m.branchId,
                   },
+                })
+              }
+            }
+          }
+          break
+        }
+
+        case 'FORCE_PASSWORD_CHANGE': {
+          for (const m of eligibleMembers) {
+            await tx.user.update({
+              where: { id: m.userId },
+              data: { mustChangePassword: true, updatedAt: new Date() },
+            })
+          }
+          break
+        }
+
+        case 'BULK_EDIT': {
+          const editField = body.field || 'department'
+          const editVal = body.fieldValue !== undefined ? body.fieldValue : ''
+          const mode = body.overrideMode || 'UPDATE_ALL'
+          const matchVal = body.matchCurrentValue?.trim().toLowerCase() || ''
+
+          for (const m of eligibleMembers) {
+            let currentVal = ''
+            if (editField === 'department') {
+              currentVal = m.user.staffProfile?.department || ''
+            } else if (editField === 'designation') {
+              currentVal = m.user.staffProfile?.designation || ''
+            } else if (editField === 'branchId') {
+              currentVal = m.branchId || ''
+            }
+
+            // Determine if row should be modified based on overrideMode
+            let shouldUpdate = false
+            if (mode === 'UPDATE_ALL') {
+              shouldUpdate = true
+            } else if (mode === 'ONLY_EMPTY') {
+              shouldUpdate = !currentVal || currentVal.trim() === ''
+            } else if (mode === 'ONLY_MATCHING') {
+              shouldUpdate = currentVal.trim().toLowerCase() === matchVal
+            } else if (mode === 'SKIP_EXISTING') {
+              shouldUpdate = !currentVal || currentVal.trim() === ''
+            }
+
+            if (!shouldUpdate) continue
+
+            if (editField === 'department' || editField === 'designation') {
+              if (m.user.staffProfile) {
+                await tx.staffProfile.update({
+                  where: { id: m.user.staffProfile.id },
+                  data: {
+                    ...(editField === 'department' ? { department: editVal ? String(editVal) : null } : {}),
+                    ...(editField === 'designation' ? { designation: editVal ? String(editVal) : null } : {}),
+                  },
+                })
+              } else {
+                await tx.staffProfile.create({
+                  data: {
+                    tenantId: session.tenantId!,
+                    userId: m.userId,
+                    employeeCode: `EMP-${Date.now().toString().slice(-4)}-${m.userId.slice(0, 3)}`,
+                    department: editField === 'department' && editVal ? String(editVal) : null,
+                    designation: editField === 'designation' && editVal ? String(editVal) : null,
+                    branchId: m.branchId,
+                  },
+                })
+              }
+            } else if (editField === 'branchId') {
+              await tx.tenantUser.update({
+                where: { id: m.id },
+                data: { branchId: editVal ? String(editVal) : null },
+              })
+              if (m.user.staffProfile) {
+                await tx.staffProfile.update({
+                  where: { id: m.user.staffProfile.id },
+                  data: { branchId: editVal ? String(editVal) : null },
+                })
+              }
+            }
+          }
+          break
+        }
+
+        case 'CUSTOM_FIELD': {
+          const fName = body.fieldName?.trim()
+          const fVal = body.fieldValue !== undefined ? body.fieldValue : ''
+          const mode = body.overrideMode || 'UPDATE_ALL'
+          const matchVal = body.matchCurrentValue?.trim().toLowerCase() || ''
+
+          if (fName) {
+            for (const m of eligibleMembers) {
+              const prefs: Record<string, any> = (m.user.preferences as Record<string, any>) || {}
+              const customFields: Record<string, any> = prefs.customFields || {}
+              const currentVal = customFields[fName] !== undefined ? String(customFields[fName]) : ''
+
+              let shouldUpdate = false
+              if (mode === 'UPDATE_ALL') {
+                shouldUpdate = true
+              } else if (mode === 'ONLY_EMPTY') {
+                shouldUpdate = !currentVal || currentVal.trim() === ''
+              } else if (mode === 'ONLY_MATCHING') {
+                shouldUpdate = currentVal.trim().toLowerCase() === matchVal
+              } else if (mode === 'SKIP_EXISTING') {
+                shouldUpdate = !currentVal || currentVal.trim() === ''
+              }
+
+              if (shouldUpdate) {
+                customFields[fName] = fVal
+                prefs.customFields = customFields
+                await tx.user.update({
+                  where: { id: m.userId },
+                  data: { preferences: prefs, updatedAt: new Date() },
                 })
               }
             }

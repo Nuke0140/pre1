@@ -15,6 +15,7 @@ import { RecordInspector } from '@/components/preone/RecordInspector'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n/context'
 
 interface StudentRow {
   id: string
@@ -78,6 +79,7 @@ function formatAge(dobString: string): string {
 export default function StudentsPage() {
   const router = useRouter()
   const toast = useToast()
+  const { t } = useI18n()
   const [rows, setRows] = useState<StudentRow[] | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -378,10 +380,10 @@ export default function StudentsPage() {
     },
     {
       key: 'classroom',
-      header: 'Class / Section',
+      header: t('students.classSection'),
       sortable: true,
       sortValue: (s) => s.classroom?.name || '',
-      export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : 'Unassigned',
+      export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : t('students.unassigned'),
       render: (s) =>
         s.classroom ? (
           <div className="flex flex-col gap-0.5">
@@ -394,18 +396,18 @@ export default function StudentsPage() {
               </span>
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {s.classroom.teacher ? `Educator: ${s.classroom.teacher}` : 'No primary teacher'}
+              {s.classroom.teacher ? `${t('students.educator')}: ${s.classroom.teacher}` : t('students.noPrimaryTeacher')}
             </span>
           </div>
         ) : (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
-            Unassigned
+            {t('students.unassigned')}
           </span>
         ),
     },
     {
       key: 'dob',
-      header: 'Age & DOB',
+      header: t('students.ageDob'),
       sortable: true,
       sortValue: (s) => new Date(s.dob).getTime(),
       export: (s) => `${fmtDate(s.dob)} (${formatAge(s.dob)})`,
@@ -422,8 +424,8 @@ export default function StudentsPage() {
     },
     {
       key: 'primaryGuardian',
-      header: 'Primary Guardian',
-      export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : 'None'),
+      header: t('students.primaryGuardian'),
+      export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : t('common.none')),
       render: (s) =>
         s.primaryGuardian ? (
           <div className="flex flex-col">
@@ -431,7 +433,7 @@ export default function StudentsPage() {
               {s.primaryGuardian.name}
             </span>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {enumLabel(s.primaryGuardian.relationship)} · Primary
+              {enumLabel(s.primaryGuardian.relationship)}
             </span>
             {s.primaryGuardian.phone && (
               <span className="text-[11px] font-mono text-slate-400 mt-0.5">
@@ -445,7 +447,7 @@ export default function StudentsPage() {
     },
     {
       key: 'attendance',
-      header: 'Attendance',
+      header: t('students.attendance'),
       sortable: true,
       sortValue: (s) => s.attendance?.rate ?? 100,
       render: (s) => {
@@ -471,18 +473,18 @@ export default function StudentsPage() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('common.status'),
       sortable: true,
       filter: {
-        placeholder: 'Filter by status',
+        placeholder: t('students.filterStatus'),
         get: (s) => s.status,
         options: [
-          { value: 'ACTIVE', label: 'Active' },
-          { value: 'INACTIVE', label: 'Inactive' },
-          { value: 'TRANSFERRED', label: 'Transferred' },
-          { value: 'WITHDRAWN', label: 'Withdrawn' },
-          { value: 'SUSPENDED', label: 'Suspended' },
-          { value: 'GRADUATED', label: 'Graduated' },
+          { value: 'ACTIVE', label: enumLabel('ACTIVE') },
+          { value: 'INACTIVE', label: enumLabel('INACTIVE') },
+          { value: 'TRANSFERRED', label: enumLabel('TRANSFERRED') },
+          { value: 'WITHDRAWN', label: enumLabel('WITHDRAWN') },
+          { value: 'SUSPENDED', label: enumLabel('SUSPENDED') },
+          { value: 'GRADUATED', label: enumLabel('GRADUATED') },
         ],
       },
       render: (s) => <StatusPill status={s.status} size="sm" />,
@@ -535,12 +537,12 @@ export default function StudentsPage() {
             <span className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 shadow-2xs">
               <GraduationCap size={18} />
             </span>
-            <span>Students & Child Records</span>
+            <span>{t('students.title')}</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
-            Manage children, classroom placement, guardians, attendance and day-to-day preschool information.
+            {t('students.subtitle')}
           </p>
         </div>
 
@@ -549,9 +551,9 @@ export default function StudentsPage() {
           <button
             type="button"
             onClick={() => { load(); loadStats(); }}
-            title="Refresh list"
+            title={t('common.refresh')}
             className="p-2 sm:p-2.5 min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-purple-500/30"
-            aria-label="Refresh student list"
+            aria-label={t('common.refresh')}
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -561,7 +563,7 @@ export default function StudentsPage() {
             className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] flex-1 sm:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
           >
             <Plus size={16} />
-            <span>Enroll Child</span>
+            <span>{t('students.enrollChild')}</span>
           </button>
         </div>
       </div>
@@ -572,9 +574,9 @@ export default function StudentsPage() {
           <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
             <AlertCircle size={24} />
           </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Unable to load students</h3>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">{t('students.unableToLoad')}</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Please refresh and try again.
+            {t('students.pleaseRefresh')}
           </p>
           <button
             type="button"
@@ -582,7 +584,7 @@ export default function StudentsPage() {
             className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl bg-primary text-white text-xs font-semibold shadow-sm hover:bg-primary-hover transition-colors"
           >
             <RefreshCw size={14} />
-            <span>Refresh</span>
+            <span>{t('common.refresh')}</span>
           </button>
         </div>
       )}
@@ -593,7 +595,7 @@ export default function StudentsPage() {
         <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Students
+              {t('students.totalStudents')}
             </span>
             <div className="w-6 h-6 rounded-lg bg-purple-50 dark:bg-purple-950/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
               <Users size={13} />
@@ -603,7 +605,7 @@ export default function StudentsPage() {
             <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
               {stats ? stats.totalStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1 truncate">Across all classes</div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">{t('students.allClasses')}</div>
           </div>
         </div>
 
@@ -611,7 +613,7 @@ export default function StudentsPage() {
         <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Active
+              {t('students.activeStudents')}
             </span>
             <div className="w-6 h-6 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
               <GraduationCap size={13} />
@@ -621,7 +623,7 @@ export default function StudentsPage() {
             <div className="text-2xl font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
               {stats ? stats.activeStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1 truncate">Currently enrolled</div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">{enumLabel('ACTIVE')}</div>
           </div>
         </div>
 
@@ -629,7 +631,7 @@ export default function StudentsPage() {
         <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              New Admissions
+              {t('students.recentAdmissions')}
             </span>
             <div className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-950/60 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
               <Activity size={13} />
@@ -639,7 +641,7 @@ export default function StudentsPage() {
             <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
               {stats ? stats.recentAdmissions30d : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1 truncate">Last 30 days</div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">{t('nav.admissions')}</div>
           </div>
         </div>
 
@@ -647,7 +649,7 @@ export default function StudentsPage() {
         <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Attendance Rate
+              {t('students.attendanceAverage')}
             </span>
             <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
               <Calendar size={13} />
@@ -670,7 +672,7 @@ export default function StudentsPage() {
         <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-              Transferred
+              {t('students.transferredStudents')}
             </span>
             <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${stats?.transferredStudents ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
               <ArrowRightLeft size={13} />
@@ -680,7 +682,7 @@ export default function StudentsPage() {
             <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {stats ? stats.transferredStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
-            <div className="text-[11px] text-slate-400 mt-1 truncate">Branch transfers</div>
+            <div className="text-[11px] text-slate-400 mt-1 truncate">{enumLabel('TRANSFERRED')}</div>
           </div>
         </div>
 

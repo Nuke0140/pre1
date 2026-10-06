@@ -24,9 +24,11 @@ import {
 } from '@/components/users/types'
 import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 
 export default function StaffUsersPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   const [loading, setLoading] = useState(true)
   const [users, setUsers] = useState<UserRecord[]>([])
@@ -249,15 +251,15 @@ export default function StaffUsersPage() {
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
-          { label: 'Home', href: '/app' },
-          { label: 'Users & Access', href: '/app/users' },
-          { label: 'Staff Users' },
+          { label: t('nav.home'), href: '/app' },
+          { label: t('users.title'), href: '/app/users' },
+          { label: t('users.staffUsers') },
         ]}
       />
 
       {/* Page Header */}
       <PageHead
-        title="Staff Users"
+        title={t('users.staffUsers')}
         backHref="/app/users"
         actions={
           <div className="users-actions-bar">
@@ -265,8 +267,8 @@ export default function StaffUsersPage() {
               type="button"
               onClick={fetchStaff}
               className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
-              title="Refresh list"
-              aria-label="Refresh list"
+              title={t('common.refresh')}
+              aria-label={t('common.refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
@@ -276,7 +278,7 @@ export default function StaffUsersPage() {
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
             >
               <Shield className="w-3.5 h-3.5 text-purple-600" />
-              <span>Roles Directory</span>
+              <span>{t('users.rolesDirectory')}</span>
             </button>
             <button
               type="button"
@@ -284,7 +286,7 @@ export default function StaffUsersPage() {
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Bulk Import</span>
+              <span>{t('common.import')}</span>
             </button>
             <button
               type="button"
@@ -292,7 +294,7 @@ export default function StaffUsersPage() {
               className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Add Staff User</span>
+              <span>+ {t('users.addStaff')}</span>
             </button>
           </div>
         }
@@ -301,7 +303,7 @@ export default function StaffUsersPage() {
       {/* 4-Box KPI Strip (Single cohesive line on desktop & laptops) */}
       <div className="kpi-row kpi-4">
         <KpiTile
-          label="Total Staff"
+          label={t('users.totalStaff')}
           value={total}
           icon={<Briefcase />}
           iconClass="ic-purple"
@@ -338,7 +340,7 @@ export default function StaffUsersPage() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search name, email, phone, role..."
+              placeholder={t('users.searchStaffPlaceholder')}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
@@ -355,7 +357,7 @@ export default function StaffUsersPage() {
                   setPage(1)
                 }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                title="Clear search"
+                title={t('common.clear')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -372,7 +374,7 @@ export default function StaffUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Roles</option>
+              <option value="ALL">{t('users.allRoles')}</option>
               {CANONICAL_STAFF_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_BADGE[r]?.label || r}
@@ -391,7 +393,7 @@ export default function StaffUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Branches</option>
+              <option value="ALL">{t('users.allBranches')}</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -410,12 +412,12 @@ export default function StaffUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-              <option value="LOCKED">LOCKED</option>
-              <option value="DEACTIVATED">DEACTIVATED</option>
-              <option value="ARCHIVED">ARCHIVED</option>
+              <option value="ALL">{t('users.allStatuses')}</option>
+              <option value="ACTIVE">{t('users.statusActive')}</option>
+              <option value="SUSPENDED">{t('users.statusSuspended')}</option>
+              <option value="LOCKED">{t('users.statusLocked')}</option>
+              <option value="DEACTIVATED">{t('users.statusDeactivated')}</option>
+              <option value="ARCHIVED">{t('users.statusArchived')}</option>
             </select>
           </div>
 
@@ -424,10 +426,10 @@ export default function StaffUsersPage() {
             href="/api/v1/users/export?role=STAFF"
             className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
             download
-            title="Export CSV"
+            title={t('common.export')}
           >
             <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>Export</span>
+            <span>{t('common.export')}</span>
           </a>
 
           {/* Reset */}
@@ -444,7 +446,7 @@ export default function StaffUsersPage() {
               className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
               title="Reset filters"
             >
-              Reset
+              {t('common.clear')}
             </button>
           )}
         </div>

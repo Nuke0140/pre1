@@ -12,6 +12,8 @@ import { Avatar, StatusBadge } from '@/components/preone/ui'
 import { UserRecord, ROLE_BADGE } from './types'
 import { normalizeRole } from '@/lib/roles'
 import { fmtDateTime, timeAgo } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
+import { PhotoUploadModal } from './PhotoUploadModal'
 
 interface User360DrawerProps {
   open: boolean
@@ -22,10 +24,19 @@ interface User360DrawerProps {
 }
 
 export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: User360DrawerProps) {
+  const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'RELATIONSHIPS' | 'SECURITY' | 'DOCUMENTS'>('OVERVIEW')
   const [staffDocuments, setStaffDocuments] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<any>(null)
+  const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (user) {
+      setUserAvatarUrl(user.avatarUrl || null)
+    }
+  }, [user])
 
   const loadDocuments = React.useCallback(async () => {
     if (!user) return
@@ -71,7 +82,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
     <Modal
       open={open}
       onClose={onClose}
-      title="User 360 Profile"
+      title={t('users.user360Title')}
       subtitle={`Unified identity & access overview for ${user.name}`}
       wide
     >
@@ -79,7 +90,12 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
         {/* Header Profile Card */}
         <div className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-indigo-50/30 dark:from-gray-900 dark:to-indigo-950/20 border border-gray-200 dark:border-gray-800 flex items-start justify-between">
           <div className="flex items-center gap-3.5">
-            <Avatar name={user.name} src={user.avatarUrl} size="lg" />
+            <div className="relative group cursor-pointer" onClick={() => setPhotoModalOpen(true)}>
+              <Avatar name={user.name} src={userAvatarUrl} size="lg" />
+              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-semibold">
+                Change
+              </div>
+            </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-gray-900 dark:text-white">{user.name}</h3>
@@ -114,7 +130,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            Identity & Contact
+            {t('users.tabOverview')}
           </button>
           {isStaff && (
             <button
@@ -126,7 +142,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              Employment & Classes
+              Employment &amp; Classes
             </button>
           )}
           {isFamily && (
@@ -139,7 +155,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >
-              Linked Children & Pickup
+              {t('users.tabRelationships')}
             </button>
           )}
           <button
@@ -151,7 +167,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            RBAC & Roles
+            {t('users.tabSecurity')}
           </button>
           <button
             type="button"
@@ -162,7 +178,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 : 'text-gray-500 hover:text-gray-900'
             }`}
           >
-            Documents ({staffDocuments.length})
+            {t('users.tabDocuments')} ({staffDocuments.length})
           </button>
         </div>
 
@@ -409,7 +425,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
         {/* Actions Bar */}
         <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <button type="button" className="btn btn-secondary text-xs" onClick={onClose}>
-            Close
+            {t('common.close')}
           </button>
           <div className="flex items-center gap-2">
             {onEdit && (
@@ -422,7 +438,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 }}
               >
                 <Edit3 className="w-3.5 h-3.5" />
-                Edit Profile
+                {t('common.edit')}
               </button>
             )}
             {onStatusChange && (
@@ -434,7 +450,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                   onStatusChange(user)
                 }}
               >
-                {user.status === 'ACTIVE' ? 'Suspend Account' : 'Activate Account'}
+                {user.status === 'ACTIVE' ? t('users.statusSuspended') : t('users.statusActive')}
               </button>
             )}
           </div>

@@ -17,6 +17,7 @@ import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/f
 import { useToast } from '@/components/preone/Toast'
 import { FunnelChart } from '@/components/preone/Chart'
 import { fmtDate, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 
 // ── Master Types ─────────────────────────────────────────────────────────────
 interface AcademicSessionOption {
@@ -416,6 +417,7 @@ function computeNextAction(app: ApplicationListItem | ReviewData['application'],
 
 export default function AdmissionsPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   // Navigation state (Default: Overview workspace)
   const [tab, setTab] = useState<string>('overview')
@@ -2234,10 +2236,10 @@ export default function AdmissionsPage() {
             </span>
           </div>
           <h1 className="page-title">
-            Admissions
+            {t('admissions.title')}
           </h1>
           <p className="page-description">
-            Manage enquiries, applications, offers and final admissions from first contact to a bright new beginning.
+            {t('admissions.subtitle')}
           </p>
         </div>
 
@@ -2249,7 +2251,7 @@ export default function AdmissionsPage() {
             onClick={() => { setCsvType('leads'); setCsvStep(0); setCsvModalOpen(true); }}
           >
             <Download size={14} />
-            <span>Import Enquiries</span>
+            <span>{t('admissions.importEnquiries')}</span>
           </button>
           <button
             type="button"
@@ -2257,7 +2259,7 @@ export default function AdmissionsPage() {
             onClick={() => setEnquiryModal(true)}
           >
             <Plus size={14} />
-            <span>+ New Enquiry</span>
+            <span>{t('admissions.newEnquiry')}</span>
           </button>
         </div>
       </div>
@@ -2268,7 +2270,7 @@ export default function AdmissionsPage() {
           {/* Academic Session */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
             <Calendar size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Session:</span>
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.session')}:</span>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
@@ -2285,7 +2287,7 @@ export default function AdmissionsPage() {
           {/* Branch */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
             <Building size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Branch:</span>
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.branch')}:</span>
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
@@ -2302,13 +2304,13 @@ export default function AdmissionsPage() {
           {/* Program */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
             <Filter size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Program:</span>
+            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.program')}:</span>
             <select
               value={filterProgram}
               onChange={(e) => setFilterProgram(e.target.value)}
               className="bg-transparent text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer"
             >
-              <option value="">All Programs</option>
+              <option value="">{t('admissions.allPrograms')}</option>
               {programs.map((p) => (
                 <option key={p.id} value={p.programType || p.code}>
                   {p.name}
@@ -2323,7 +2325,7 @@ export default function AdmissionsPage() {
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 className="input text-xs pl-7.5 pr-7 h-8.5 rounded-xl bg-background w-full"
-                placeholder="Search child, parent, phone, ID..."
+                placeholder={t('admissions.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -2342,7 +2344,7 @@ export default function AdmissionsPage() {
               onClick={loadData}
               disabled={busy}
               className="btn btn-ghost btn-sm h-8.5 w-8.5 p-0 rounded-xl border border-border/60 hover:bg-muted/50 shrink-0"
-              title="Refresh admissions records"
+              title={t('common.refresh')}
             >
               <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
             </button>

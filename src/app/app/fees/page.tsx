@@ -35,6 +35,7 @@ import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/componen
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 
 interface FeeStructureItem {
   id?: string
@@ -132,6 +133,7 @@ interface ChildFeeProfile {
 
 export default function FeesPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   // User Role State
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -751,21 +753,21 @@ export default function FeesPage() {
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       <PageHead
-        title="Fees & Finance Management"
-        sub="Manage fee structures, class assignments, payments, receipts, and refundable deposits"
+        title={t('fees.title')}
+        sub={t('fees.subtitle')}
         actions={
           <div className="flex gap-2">
             <button
               onClick={() => setShowStructureModal(true)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm flex items-center gap-1.5 shadow-sm"
             >
-              <Plus className="size-4" /> Create Fee Structure
+              <Plus className="size-4" /> {t('fees.createFeeStructure')}
             </button>
             <button
               onClick={() => setShowPaymentModal(true)}
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium text-sm flex items-center gap-1.5 shadow-sm"
             >
-              <IndianRupee className="size-4" /> Record Payment
+              <IndianRupee className="size-4" /> {t('fees.recordPayment')}
             </button>
           </div>
         }
@@ -774,28 +776,28 @@ export default function FeesPage() {
       {/* Admin Top KPI Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiTile
-          label="Active Fee Structures"
+          label={t('fees.activeStructures')}
           value={activeStructuresCount.toString()}
           meta={`${totalStructuresCount} total configured`}
           icon={<Layers className="size-5 text-indigo-600" />}
           iconClass="ic-purple"
         />
         <KpiTile
-          label="Total Collected Fees"
+          label={t('fees.totalCollected')}
           value={inr(totalCollectedRupees * 100)}
           meta="Verified payment transactions"
           icon={<IndianRupee className="size-5 text-emerald-600" />}
           iconClass="ic-emerald"
         />
         <KpiTile
-          label="Refundable Deposits Held"
+          label={t('fees.refundableDeposits')}
           value={inr(totalHeldDepositsRupees * 100)}
           meta={`${deposits.length} security deposits active`}
           icon={<ShieldCheck className="size-5 text-amber-600" />}
           iconClass="ic-amber"
         />
         <KpiTile
-          label="Recorded Payments"
+          label={t('fees.recordedPayments')}
           value={payments.length.toString()}
           meta="Official receipts issued"
           icon={<Receipt className="size-5 text-purple-600" />}
@@ -806,16 +808,16 @@ export default function FeesPage() {
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
         {[
-          { key: 'STRUCTURES', label: 'Fee Structures & Activation', icon: Layers },
-          { key: 'DEPOSITS', label: 'Refundable Security Deposits', icon: ShieldCheck },
-          { key: 'PAYMENTS', label: 'Payment Transactions & Receipts', icon: Receipt },
-        ].map((t) => {
-          const Icon = t.icon
-          const isActive = activeTab === t.key
+          { key: 'STRUCTURES', label: t('fees.feeStructuresTab'), icon: Layers },
+          { key: 'DEPOSITS', label: t('fees.securityDepositsTab'), icon: ShieldCheck },
+          { key: 'PAYMENTS', label: t('fees.paymentReceiptsTab'), icon: Receipt },
+        ].map((tItem) => {
+          const Icon = tItem.icon
+          const isActive = activeTab === tItem.key
           return (
             <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
+              key={tItem.key}
+              onClick={() => setActiveTab(tItem.key as any)}
               className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 ${
                 isActive
                   ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
@@ -823,7 +825,7 @@ export default function FeesPage() {
               }`}
             >
               <Icon className="size-4" />
-              {t.label}
+              {tItem.label}
             </button>
           )
         })}

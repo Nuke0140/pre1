@@ -35,17 +35,11 @@ import { Modal } from '@/components/preone/Modal'
 import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
 import { isoDate, enumLabel } from '@/lib/format'
+import { useI18n, formatDateLocale, getGlobalLocale } from '@/lib/i18n'
 
 function getFormattedDayAndDate(dateStr: string) {
   if (!dateStr) return ''
-  const d = new Date(`${dateStr}T00:00:00Z`)
-  return d.toLocaleDateString('en-US', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return formatDateLocale(dateStr, getGlobalLocale())
 }
 
 interface UserContext {
@@ -201,6 +195,7 @@ interface ScheduleRow {
 
 export default function DailyDiaryPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   // Context & Selection States
   const [context, setContext] = useState<ContextData | null>(null)
@@ -880,18 +875,18 @@ export default function DailyDiaryPage() {
             <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 shadow-2xs">
               <CalendarCheck size={20} className="stroke-[2.2]" />
             </span>
-            Daily Diary
+            {t('dailyDiary.title')}
           </h1>
 
           {/* Secondary Description */}
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             {user?.isTeacher ? (
               <>
-                Teacher: <strong className="text-slate-800 dark:text-slate-200">{user.name}</strong> • Class:{' '}
-                <strong className="text-slate-800 dark:text-slate-200">{currentClass?.name || 'Unassigned'}</strong>
+                {t('students.educator')}: <strong className="text-slate-800 dark:text-slate-200">{user.name}</strong> • {t('students.classSection')}:{' '}
+                <strong className="text-slate-800 dark:text-slate-200">{currentClass?.name || t('students.unassigned')}</strong>
               </>
             ) : (
-              <>School-wide Daily Activity & Operational Command Center</>
+              <>{t('dailyDiary.subtitle')}</>
             )}
           </p>
         </div>
@@ -910,7 +905,7 @@ export default function DailyDiaryPage() {
                 }`}
                 onClick={() => setAdminViewMode('school')}
               >
-                <Building2 size={13} /> School Overview
+                <Building2 size={13} /> {t('dailyDiary.schoolOverview')}
               </button>
               <button
                 type="button"
@@ -921,7 +916,7 @@ export default function DailyDiaryPage() {
                 }`}
                 onClick={() => setAdminViewMode('class')}
               >
-                <Users size={13} /> Class View
+                <Users size={13} /> {t('dailyDiary.classView')}
               </button>
             </div>
           )}
@@ -932,8 +927,8 @@ export default function DailyDiaryPage() {
               type="button"
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               onClick={handlePrevDay}
-              title="Previous Day"
-              aria-label="Previous Day"
+              title={t('common.prev')}
+              aria-label={t('common.prev')}
             >
               <ChevronLeft size={16} />
             </button>
@@ -956,8 +951,8 @@ export default function DailyDiaryPage() {
               type="button"
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               onClick={handleNextDay}
-              title="Next Day"
-              aria-label="Next Day"
+              title={t('common.next')}
+              aria-label={t('common.next')}
             >
               <ChevronRight size={16} />
             </button>
@@ -967,7 +962,7 @@ export default function DailyDiaryPage() {
               className="ml-1 px-2.5 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors"
               onClick={() => setSelectedDate(isoDate())}
             >
-              Today
+              {t('common.today')}
             </button>
           </div>
         </div>

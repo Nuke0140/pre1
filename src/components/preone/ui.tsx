@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 
 export function Avatar({
   name,
@@ -454,6 +455,7 @@ export function PageHead({
   badge?: React.ReactNode
   backHref?: string
 }) {
+  const { t } = useI18n()
   const desc = description || sub
   return (
     <div className="page-head">
@@ -478,7 +480,8 @@ export function PageHead({
                 outline: 'none',
                 boxShadow: 'none',
               }}
-              title="Back"
+              title={t('common.back')}
+              aria-label={t('common.back')}
             >
               <ChevronLeft size={18} />
             </Link>
