@@ -17,6 +17,7 @@ import { db } from '@/lib/db'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { classroomSeats } from '@/lib/capacity'
 import { audit } from '@/lib/audit'
+import { assertResourceScope } from '@/lib/security/resource-scope'
 import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
 
 export interface ScopeContext {
@@ -27,6 +28,7 @@ export interface ScopeContext {
   actorId?: string | null
   actorName?: string | null
   actorRole?: string | null
+  actorRoles?: string[] | null
 }
 
 export interface StudentFilterOptions {
@@ -38,6 +40,22 @@ export interface StudentFilterOptions {
   search?: string
   page?: number
   pageSize?: number
+}
+
+function ctxToSession(ctx: ScopeContext) {
+  const roles = (ctx.actorRoles && ctx.actorRoles.length > 0
+    ? ctx.actorRoles
+    : (ctx.actorRole ? [ctx.actorRole] : ['OWNER'])) as any[]
+
+  return {
+    uid: ctx.actorId || '',
+    email: '',
+    name: ctx.actorName || '',
+    tenantId: ctx.tenantId,
+    branchId: ctx.branchId,
+    role: (roles[0] || ctx.actorRole || 'OWNER') as any,
+    roles: roles as any,
+  }
 }
 
 export class StudentService {
@@ -350,6 +368,12 @@ export class StudentService {
 
     if (!student) throw new Error('Student not found')
 
+    // Centralized tenant + branch boundary before object-level checks.
+    assertResourceScope(ctxToSession(ctx), {
+      tenantId: student.tenantId,
+      branchId: student.branchId,
+    })
+
     // Parent permission check: Only allowed to view own ward
     if (ctx.actorRole === 'PARENT') {
       const isLinked = student.guardians.some((g) => g.guardian.userId === ctx.actorId)
@@ -457,7 +481,12 @@ export class StudentService {
       .filter((i) => i.status === 'OVERDUE' || (i.balanceCents > 0 && new Date(i.dueDate) < new Date()))
       .reduce((acc, i) => acc + i.balanceCents, 0)
 
-    const hasFinanceAccess = ctx.actorRole !== 'GUARDIAN'
+    const effectiveActorRoles = ctx.actorRoles && ctx.actorRoles.length > 0
+      ? ctx.actorRoles
+      : (ctx.actorRole ? [ctx.actorRole] : [])
+    const hasFinanceAccess = effectiveActorRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PARENT'].includes(r))
+      || (effectiveActorRoles.length > 0 && !effectiveActorRoles.includes('GUARDIAN'))
+      || (effectiveActorRoles.length === 0 && ctx.actorRole !== 'GUARDIAN')
 
     // Area E: Student Deposits & Refunds
     let deposits: any[] = []

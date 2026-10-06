@@ -812,48 +812,87 @@ export class FeeService {
    */
   static async initiatePayment(ctx: ScopeContext, input: InitiatePaymentInput) {
     const { invoiceId, amountCents, method, transactionRef, notes } = input
+    const ref = transactionRef?.trim()
     if (!invoiceId || !amountCents || amountCents <= 0 || !method) {
       throw new Error('invoiceId, positive amountCents, and method are required')
     }
-
-    const invoice = await db.invoice.findFirst({
-      where: { id: invoiceId, tenantId: ctx.tenantId, deletedAt: null },
-      include: { student: true },
-    })
-    if (!invoice) throw new Error('Invoice not found')
-    if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
-      throw new Error(`Cannot pay an invoice with status ${invoice.status}`)
+    if (!ref) {
+      throw new Error('transactionRef or Idempotency-Key is required for payment writes')
     }
 
-    // Cash limit check (IT Act 269ST: cash > ₹50,000 strictly prohibited)
+    const existing = await db.payment.findUnique({
+      where: {
+        tenantId_transactionRef: {
+          tenantId: ctx.tenantId,
+          transactionRef: ref,
+        },
+      },
+      include: { invoice: true, receipt: true },
+    })
+    if (existing) {
+      const sameRequest = existing.invoiceId === invoiceId && existing.amountCents === amountCents && existing.method === method
+      if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+      return existing
+    }
+
     if (method === 'CASH' && amountCents > 5000000) {
       throw new Error('Cash payments above ₹50,000 are not allowed (IT Act Section 269ST)')
     }
 
-    if (amountCents > invoice.balanceCents) {
-      throw new Error(`Amount ₹${amountCents / 100} exceeds invoice balance ₹${invoice.balanceCents / 100}`)
-    }
+    const payment = await db.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({
+        where: { id: invoiceId, tenantId: ctx.tenantId, deletedAt: null },
+      })
+      if (!invoice) throw new Error('Invoice not found')
+      if (['CANCELLED', 'WRITTEN_OFF'].includes(invoice.status)) {
+        throw new Error(`Cannot pay an invoice with status ${invoice.status}`)
+      }
 
-    const paymentNumber = await nextNumber('payment', ctx.tenantId)
+      await tx.$queryRaw`
+        SELECT 1 FROM "invoices"
+        WHERE "id" = ${invoice.id} AND "tenantId" = ${ctx.tenantId}
+        FOR UPDATE
+      `
 
-    const payment = await db.payment.create({
-      data: {
-        tenantId: ctx.tenantId,
-        invoiceId: invoice.id,
-        studentId: invoice.studentId,
-        paymentNumber,
-        amountCents,
-        method,
-        transactionRef: transactionRef || `TXN-${Date.now()}`,
-        status: 'PENDING',
-        receivedById: ctx.actorId,
-        notes: notes || null,
-      },
+      const duplicate = await tx.payment.findUnique({
+        where: {
+          tenantId_transactionRef: {
+            tenantId: ctx.tenantId,
+            transactionRef: ref,
+          },
+        },
+        include: { invoice: true, receipt: true },
+      })
+      if (duplicate) {
+        const sameRequest = duplicate.invoiceId === invoice.id && duplicate.amountCents === amountCents && duplicate.method === method
+        if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+        return duplicate
+      }
+
+      const balanceCents = invoice.totalCents - invoice.paidCents
+      if (amountCents > balanceCents) {
+        throw new Error(`BUSINESS_OVERPAY: Amount ₹${amountCents / 100} exceeds invoice balance ₹${balanceCents / 100}`)
+      }
+
+      const paymentNumber = await nextNumber('payment', ctx.tenantId)
+      return tx.payment.create({
+        data: {
+          tenantId: ctx.tenantId,
+          invoiceId: invoice.id,
+          studentId: invoice.studentId,
+          paymentNumber,
+          amountCents,
+          method,
+          transactionRef: ref,
+          status: 'PENDING',
+          receivedById: ctx.actorId,
+          notes: notes || null,
+        },
+      })
     })
 
     await recordAudit({
       tenantId: ctx.tenantId,
-      branchId: invoice.branchId,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -861,15 +900,12 @@ export class FeeService {
       entity: 'Payment',
       entityId: payment.id,
       module: 'Fees',
-      summary: `Payment initiated ${paymentNumber} (₹${amountCents / 100}) via ${method}`,
+      summary: `Payment initiated ${payment.paymentNumber} (₹${amountCents / 100}) via ${method}`,
     })
 
     return payment
   }
 
-  /**
-   * 7. VERIFY PAYMENT & ISSUE RECEIPT (IDEMPOTENT)
-   */
   static async verifyPayment(ctx: ScopeContext, input: VerifyPaymentInput) {
     const { paymentId, paymentNumber, invoiceId, transactionRef, gatewayStatus = 'SUCCESS', failureReason } = input
 
@@ -930,16 +966,35 @@ export class FeeService {
     const receiptNumber = await nextNumber('receipt', ctx.tenantId)
 
     const result = await db.$transaction(async (tx) => {
-      // 1. Mark payment SUCCESS
+      await tx.$queryRaw`SELECT 1 FROM "payments" WHERE "id" = ${payment.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedPayment = await tx.payment.findFirst({
+        where: { id: payment.id, tenantId: ctx.tenantId },
+        include: { invoice: true, receipt: true },
+      })
+      if (!lockedPayment) throw new Error('Payment record not found')
+
+      if (lockedPayment.status === 'SUCCESS' && lockedPayment.receipt) {
+        return {
+          payment: lockedPayment,
+          receipt: lockedPayment.receipt,
+          invoice: lockedPayment.invoice!,
+          alreadyVerified: true,
+        }
+      }
+
+      if (!lockedPayment.invoice) throw new Error('Associated invoice not found')
+
+      await tx.$queryRaw`SELECT 1 FROM "invoices" WHERE "id" = ${lockedPayment.invoice.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedInvoice = await tx.invoice.findFirst({
+        where: { id: lockedPayment.invoice.id, tenantId: ctx.tenantId },
+      })
+      if (!lockedInvoice) throw new Error('Associated invoice not found')
+
       const confirmedPayment = await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'SUCCESS',
-          paymentDate: new Date(),
-        },
+        where: { id: lockedPayment.id },
+        data: { status: 'SUCCESS', paymentDate: new Date() },
       })
 
-      // 2. Issue Receipt
       const receipt = await tx.receipt.create({
         data: {
           paymentId: confirmedPayment.id,
@@ -949,26 +1004,20 @@ export class FeeService {
         },
       })
 
-      // 3. Update Invoice Balance & Status
-      const paidCents = invoice.paidCents + confirmedPayment.amountCents
-      const balanceCents = Math.max(0, invoice.totalCents - paidCents)
+      const paidCents = lockedInvoice.paidCents + confirmedPayment.amountCents
+      const balanceCents = Math.max(0, lockedInvoice.totalCents - paidCents)
       const newStatus: InvoiceStatus = balanceCents === 0 ? 'PAID' : 'PARTIALLY_PAID'
 
       const updatedInvoice = await tx.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          paidCents,
-          balanceCents,
-          status: newStatus,
-        },
+        where: { id: lockedInvoice.id },
+        data: { paidCents, balanceCents, status: newStatus },
       })
 
-      // 4. Create Parent Portal Timeline Entry
       await tx.timelineEntry.create({
         data: {
           tenantId: ctx.tenantId,
-          studentId: invoice.studentId,
-          academicSessionId: invoice.academicSessionId,
+          studentId: lockedInvoice.studentId,
+          academicSessionId: lockedInvoice.academicSessionId,
           type: 'NOTE',
           title: `Fee Payment Confirmed — Receipt ${receiptNumber}`,
           body: `Payment of ₹${confirmedPayment.amountCents / 100} received via ${confirmedPayment.method}. Receipt ${receiptNumber} issued. Remaining balance: ₹${balanceCents / 100}.`,
@@ -976,36 +1025,38 @@ export class FeeService {
         },
       })
 
-      return { payment: confirmedPayment, receipt, invoice: updatedInvoice }
+      return { payment: confirmedPayment, receipt, invoice: updatedInvoice, alreadyVerified: false }
     })
 
-    // Emit domain event to resolve overdue follow-ups
-    await emit({
-      type: 'PaymentReceived',
-      tenantId: ctx.tenantId,
-      invoiceId: invoice.id,
-      studentId: invoice.studentId,
-      paymentNumber: result.payment.paymentNumber,
-      amountCents: result.payment.amountCents,
-      fullyPaid: result.invoice.status === 'PAID',
-    })
+    if (!result.alreadyVerified) {
+      // Emit domain event to resolve overdue follow-ups only for a new verification.
+      await emit({
+        type: 'PaymentReceived',
+        tenantId: ctx.tenantId,
+        invoiceId: invoice.id,
+        studentId: invoice.studentId,
+        paymentNumber: result.payment.paymentNumber,
+        amountCents: result.payment.amountCents,
+        fullyPaid: result.invoice.status === 'PAID',
+      })
 
-    await recordAudit({
-      tenantId: ctx.tenantId,
-      branchId: invoice.branchId,
-      actorId: ctx.actorId,
-      actorName: ctx.actorName,
-      actorRole: ctx.actorRole,
-      action: 'PAYMENT_CONFIRMED',
-      entity: 'Payment',
-      entityId: result.payment.id,
-      module: 'Fees',
-      summary: `Confirmed payment ${result.payment.paymentNumber} (₹${result.payment.amountCents / 100}). Receipt: ${result.receipt.receiptNumber}`,
-    })
+      await recordAudit({
+        tenantId: ctx.tenantId,
+        branchId: invoice.branchId,
+        actorId: ctx.actorId,
+        actorName: ctx.actorName,
+        actorRole: ctx.actorRole,
+        action: 'PAYMENT_CONFIRMED',
+        entity: 'Payment',
+        entityId: result.payment.id,
+        module: 'Fees',
+        summary: `Confirmed payment ${result.payment.paymentNumber} (₹${result.payment.amountCents / 100}). Receipt: ${result.receipt.receiptNumber}`,
+      })
+    }
 
     return {
       success: true,
-      alreadyVerified: false,
+      alreadyVerified: result.alreadyVerified,
       payment: result.payment,
       receipt: result.receipt,
       invoice: result.invoice,
@@ -2211,6 +2262,8 @@ export class FeeService {
     if (!feeScheduleId || !amountCents || amountCents <= 0 || !method) {
       throw new Error('feeScheduleId, positive amountCents, and method are required')
     }
+    const ref = transactionRef?.trim()
+    if (!ref) throw new Error('transactionRef or Idempotency-Key is required for payment writes')
 
     const schedule = await db.studentFeeSchedule.findFirst({
       where: { id: feeScheduleId, tenantId: ctx.tenantId, studentId },
@@ -2223,23 +2276,39 @@ export class FeeService {
       throw new Error('Cash payments above ₹50,000 are not allowed (IT Act Section 269ST)')
     }
 
-    if (amountCents > schedule.remainingAmountCents) {
-      throw new Error(`Payment amount ₹${amountCents / 100} exceeds remaining balance ₹${schedule.remainingAmountCents / 100}`)
+    const existing = await db.payment.findUnique({
+      where: { tenantId_transactionRef: { tenantId: ctx.tenantId, transactionRef: ref } },
+    })
+    if (existing) {
+      const sameRequest = existing.feeScheduleId === schedule.id && existing.amountCents === amountCents && existing.method === method
+      if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+      return { payment: existing, receipt: null, schedule }
     }
 
     const paymentNumber = await nextNumber('payment', ctx.tenantId)
     const receiptNumber = await nextNumber('receipt', ctx.tenantId)
 
     const result = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "student_fee_schedules" WHERE "id" = ${schedule.id} AND "tenantId" = ${ctx.tenantId} FOR UPDATE`
+      const lockedSchedule = await tx.studentFeeSchedule.findFirst({ where: { id: schedule.id, tenantId: ctx.tenantId, studentId } })
+      if (!lockedSchedule) throw new Error('Fee schedule item not found')
+      const duplicate = await tx.payment.findUnique({ where: { tenantId_transactionRef: { tenantId: ctx.tenantId, transactionRef: ref } } })
+      if (duplicate) {
+        const sameRequest = duplicate.feeScheduleId === lockedSchedule.id && duplicate.amountCents === amountCents && duplicate.method === method
+        if (!sameRequest) throw new Error('IDEMPOTENCY_CONFLICT')
+        return { payment: duplicate, receipt: null, schedule: lockedSchedule }
+      }
+      if (amountCents > lockedSchedule.remainingAmountCents) throw new Error(`BUSINESS_OVERPAY: Payment amount ₹${amountCents / 100} exceeds remaining balance ₹${lockedSchedule.remainingAmountCents / 100}`)
+
       const payment = await tx.payment.create({
         data: {
           tenantId: ctx.tenantId,
-          feeScheduleId: schedule.id,
+          feeScheduleId: lockedSchedule.id,
           studentId: schedule.studentId,
           paymentNumber,
           amountCents,
           method,
-          transactionRef: transactionRef || `TXN-${Date.now()}`,
+          transactionRef: ref,
           status: 'SUCCESS',
           paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
           receivedById: ctx.actorId,
@@ -2257,8 +2326,8 @@ export class FeeService {
         },
       })
 
-      const newPaidCents = schedule.amountPaidCents + amountCents
-      const newRemainingCents = Math.max(0, schedule.amountDueCents - newPaidCents)
+      const newPaidCents = lockedSchedule.amountPaidCents + amountCents
+      const newRemainingCents = Math.max(0, lockedSchedule.amountDueCents - newPaidCents)
       const newStatus: FeeScheduleStatus = newRemainingCents === 0 ? 'PAID' : 'PARTIALLY_PAID'
 
       const updatedSchedule = await tx.studentFeeSchedule.update({

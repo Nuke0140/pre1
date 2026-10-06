@@ -2311,7 +2311,7 @@ export class InventoryService {
           where: { tenantId, itemId: item.itemId },
           _sum: { availableQuantity: true },
         })
-        const itemMaster = await tx.inventoryItem.findUnique({ where: { id: item.itemId } })
+        const itemMaster = await tx.inventoryItem.findFirst({ where: { id: item.itemId, tenantId } })
         const totalAvail = Number(updatedStock._sum.availableQuantity || 0)
         if (itemMaster && totalAvail <= Number(itemMaster.reorderLevel)) {
           await emit({
