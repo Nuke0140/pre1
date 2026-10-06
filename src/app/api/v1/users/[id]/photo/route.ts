@@ -1,144 +1,105 @@
-import { NextRequest } from 'next/server'
-import { ok, bad, errAuth } from '@/lib/api'
 import { withApi } from '@/lib/with-api'
-import { requireApi, isResponse } from '@/lib/auth-api'
-import { db } from '@/lib/db'
-import { saveUserProfilePhoto, deleteUserProfilePhoto } from '@/lib/storage'
-import { recordAudit, getRequestMeta } from '@/lib/audit'
+import { NextRequest } from 'next/server'
+import { ok, bad, serverError } from '@/lib/api'
+import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
+import { UserPhotoService } from '@/lib/users/user-photo-service'
 
 /**
- * POST /api/v1/users/[id]/photo — Securely upload / replace a user's profile photo
+ * POST /api/v1/users/[id]/photo — Upload single profile photo for user
  */
-export const POST = withApi(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
-  if (!session.tenantId) throw errAuth('Tenant required')
+  if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
-  const { id: targetUserId } = await params
-
-  // Verify user exists and belongs to the caller's tenant
-  const tenantUser = await db.tenantUser.findFirst({
-    where: {
-      userId: targetUserId,
-      tenantId: session.tenantId,
-      deletedAt: null,
-    },
-    include: {
-      user: true,
-    },
-  })
-
-  if (!tenantUser) {
-    return bad('User not found in your school', 'USER_NOT_FOUND')
-  }
-
-  const formData = await req.formData()
-  const file = formData.get('photo') || formData.get('file')
-
-  if (!file || !(file instanceof File)) {
-    return bad('Please select a valid image file to upload', 'FILE_REQUIRED')
-  }
-
-  const arrayBuffer = await file.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
 
   try {
-    const saved = await saveUserProfilePhoto({
-      tenantId: session.tenantId,
-      userId: targetUserId,
-      buffer,
-      mimeType: file.type,
-      originalName: file.name,
-    })
+    const formData = await req.formData()
+    const file = (formData.get('file') || formData.get('photo')) as File | null
 
-    // Delete old avatar if it was stored locally
-    if (tenantUser.user.avatarUrl) {
-      await deleteUserProfilePhoto(tenantUser.user.avatarUrl)
+    if (!file || typeof file === 'string') {
+      return bad('Image file is required under "file" or "photo" field', 'FILE_REQUIRED')
     }
 
-    // Persist new avatar URL
-    await db.user.update({
-      where: { id: targetUserId },
-      data: { avatarUrl: saved.url },
-    })
+    const mimeType = file.type || 'image/png'
+    const sizeBytes = file.size
 
-    const meta = getRequestMeta(req)
-    await recordAudit({
+    const validation = UserPhotoService.validateImage(mimeType, sizeBytes)
+    if (!validation.valid) {
+      return bad(validation.error!, 'INVALID_PHOTO')
+    }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const fileBuffer = Buffer.from(arrayBuffer)
+
+    const actor = {
+      id: session.uid,
+      name: session.name,
+      role: session.role,
+      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
+    }
+
+    const result = await UserPhotoService.saveSingleUserPhoto({
+      userId: id,
       tenantId: session.tenantId,
-      actorId: session.userId,
-      actorName: session.fullName || 'Admin',
-      actorRole: session.role,
-      action: 'USER_PHOTO_UPDATED',
-      entity: 'User',
-      entityId: targetUserId,
-      module: 'USERS',
-      summary: `Updated profile photo for ${tenantUser.user.fullName}`,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
-      newValues: { avatarUrl: saved.url },
+      fileBuffer,
+      mimeType,
+      originalFilename: file.name || 'photo.png',
+      actor,
     })
 
     return ok({
+      userId: id,
+      avatarUrl: result.avatarUrl,
       success: true,
-      avatarUrl: saved.url,
-      size: saved.size,
-      mimeType: saved.mimeType,
+      message: 'Profile photo updated successfully',
     })
   } catch (err: any) {
-    return bad(err.message || 'Failed to upload photo', 'PHOTO_UPLOAD_FAILED')
+    return serverError(err.message)
   }
-})
+}
 
 /**
- * DELETE /api/v1/users/[id]/photo — Remove profile photo and reset to initials fallback
+ * DELETE /api/v1/users/[id]/photo — Remove profile photo for user
  */
-export const DELETE = withApi(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
-  if (!session.tenantId) throw errAuth('Tenant required')
+  if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
-  const { id: targetUserId } = await params
+  const manageCheck = await requireCanManageUser(session, id)
+  if (isResponse(manageCheck)) return manageCheck
 
-  const tenantUser = await db.tenantUser.findFirst({
-    where: {
-      userId: targetUserId,
+  try {
+    const actor = {
+      id: session.uid,
+      name: session.name,
+      role: session.role,
+      ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || undefined,
+      userAgent: req.headers.get('user-agent') || undefined,
+    }
+
+    await UserPhotoService.removeUserPhoto({
+      userId: id,
       tenantId: session.tenantId,
-      deletedAt: null,
-    },
-    include: {
-      user: true,
-    },
-  })
-
-  if (!tenantUser) {
-    return bad('User not found in your school', 'USER_NOT_FOUND')
-  }
-
-  if (tenantUser.user.avatarUrl) {
-    await deleteUserProfilePhoto(tenantUser.user.avatarUrl)
-    await db.user.update({
-      where: { id: targetUserId },
-      data: { avatarUrl: null },
+      actor,
     })
 
-    const meta = getRequestMeta(req)
-    await recordAudit({
-      tenantId: session.tenantId,
-      actorId: session.userId,
-      actorName: session.fullName || 'Admin',
-      actorRole: session.role,
-      action: 'USER_PHOTO_REMOVED',
-      entity: 'User',
-      entityId: targetUserId,
-      module: 'USERS',
-      summary: `Removed profile photo for ${tenantUser.user.fullName}`,
-      ipAddress: meta.ipAddress,
-      userAgent: meta.userAgent,
+    return ok({
+      userId: id,
+      avatarUrl: null,
+      success: true,
+      message: 'Profile photo removed successfully',
     })
+  } catch (err: any) {
+    return serverError(err.message)
   }
+}
 
-  return ok({
-    success: true,
-    avatarUrl: null,
-  })
-})
+export const POST = withApi(_POST)
+export const DELETE = withApi(_DELETE)

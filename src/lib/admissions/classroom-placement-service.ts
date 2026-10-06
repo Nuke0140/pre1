@@ -165,12 +165,12 @@ export class ClassroomPlacementService {
     let finalAcademicYearId = academicYearId
     if (!finalAcademicYearId) {
       const currentYear = await db.academicSession.findFirst({
-        where: { tenantId, isCurrent: true, deletedAt: null },
+        where: { tenantId, isCurrent: true },
       })
       finalAcademicYearId = currentYear?.id
       if (!finalAcademicYearId) {
         const anyYear = await db.academicSession.findFirst({
-          where: { tenantId, deletedAt: null },
+          where: { tenantId },
           orderBy: { startDate: 'desc' },
         })
         finalAcademicYearId = anyYear?.id

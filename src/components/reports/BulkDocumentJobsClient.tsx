@@ -240,7 +240,7 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
   // Auto-generate job title
   const handleProceedToStep3 = () => {
     const tmpl = availableTemplatesForType.find((t) => t.id === formData.templateId)
-    const tmplName = tmpl?.name || DOCUMENT_TYPE_CONFIG[formData.documentType]?.title || 'Document'
+    const tmplName = tmpl?.name || (DOCUMENT_TYPE_CONFIG[formData.documentType] as any)?.title || DOCUMENT_TYPE_CONFIG[formData.documentType]?.label || 'Document'
     const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
     const autoTitle = `Bulk ${tmplName} — ${today}`
     setFormData((prev) => ({ ...prev, title: prev.title.trim() || autoTitle }))
@@ -442,7 +442,7 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Template: <span className="font-semibold text-slate-700 dark:text-slate-300">{jobDetail.templateName}</span> (v{jobDetail.templateVersion})
-                {' • '}Type: <span className="font-semibold text-slate-700 dark:text-slate-300">{DOCUMENT_TYPE_CONFIG[jobDetail.documentType as DocumentType]?.title || jobDetail.documentType}</span>
+                {' • '}Type: <span className="font-semibold text-slate-700 dark:text-slate-300">{(DOCUMENT_TYPE_CONFIG[jobDetail.documentType as DocumentType] as any)?.title || DOCUMENT_TYPE_CONFIG[jobDetail.documentType as DocumentType]?.label || jobDetail.documentType}</span>
                 {' • '}Created by {jobDetail.createdByName || 'Admin'} on {new Date(jobDetail.createdAt).toLocaleString('en-IN')}
               </p>
             </div>
@@ -752,7 +752,7 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                          {DOCUMENT_TYPE_CONFIG[job.documentType as DocumentType]?.title || job.documentType}
+                          {(DOCUMENT_TYPE_CONFIG[job.documentType as DocumentType] as any)?.title || DOCUMENT_TYPE_CONFIG[job.documentType as DocumentType]?.label || job.documentType}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -874,7 +874,7 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
                             : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 text-slate-700 dark:text-slate-300'
                         }`}
                       >
-                        <div className="font-semibold">{cfg?.title || type}</div>
+                        <div className="font-semibold">{(cfg as any)?.title || cfg?.label || type}</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">{cfg?.description?.slice(0, 40)}...</div>
                       </div>
                     )
@@ -1072,7 +1072,7 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
                 </div>
                 <ul className="space-y-1 text-slate-600 dark:text-slate-300 list-disc list-inside">
                   <li>Total target records: <strong>{previewTotal ?? 0}</strong></li>
-                  <li>Document type: <strong>{DOCUMENT_TYPE_CONFIG[formData.documentType]?.title || formData.documentType}</strong></li>
+                  <li>Document type: <strong>{(DOCUMENT_TYPE_CONFIG[formData.documentType] as any)?.title || DOCUMENT_TYPE_CONFIG[formData.documentType]?.label || formData.documentType}</strong></li>
                   <li>Template: <strong>{availableTemplatesForType.find((t) => t.id === formData.templateId)?.name}</strong></li>
                   <li>Output: Individual PDF stored in student/staff profile document library + downloadable ZIP package</li>
                 </ul>

@@ -415,7 +415,7 @@ export class StudentService {
         : [],
     ])
 
-    const tenantUserMap = new Map(tenantUsers.map((tu) => [tu.userId, tu]))
+    const tenantUserMap = new Map(tenantUsers.map((tu) => [tu.userId, tu] as [string, typeof tu]))
     const sessionMap = new Map<string, any[]>()
     for (const s of userSessions) {
       if (!sessionMap.has(s.userId)) sessionMap.set(s.userId, [])
@@ -808,7 +808,7 @@ export class StudentService {
                 id: g.guardian.user.id,
                 email: g.guardian.user.email,
                 accountStatus: g.guardian.user.status,
-                membershipStatus: tu?.status || g.guardian.user.status,
+                membershipStatus: (tu as any)?.status || g.guardian.user.status,
                 lastLoginAt: g.guardian.user.lastLoginAt,
                 sessions: isStaff
                   ? sessions.map((s: any) => ({
@@ -1867,7 +1867,7 @@ export class StudentService {
             fullName: targetGuardian.fullName,
             email: targetGuardian.email.toLowerCase().trim(),
             phone: targetGuardian.phone,
-            role: 'PARENT',
+            passwordHash: '',
             status: 'PENDING',
           },
         })

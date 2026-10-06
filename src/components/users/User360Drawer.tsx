@@ -11,7 +11,7 @@ import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { Avatar, StatusBadge } from '@/components/preone/ui'
 import { UserRecord, ROLE_BADGE } from './types'
 import { normalizeRole } from '@/lib/roles'
-import { fmtDateTime, timeAgo } from '@/lib/format'
+import { fmtDateTime, timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { PhotoUploadModal } from './PhotoUploadModal'
 
@@ -40,7 +40,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
 
   const loadDocuments = React.useCallback(async () => {
     if (!user) return
-    const entityId = user.staffProfileId || user.userId || user.id
+    const entityId = (user as any).staffProfileId || (user.staffProfile as any)?.id || user.userId || user.id
     try {
       setLoadingDocs(true)
       const res = await fetch(`/api/v1/documents/profile?entityType=STAFF&entityId=${entityId}`).then((r) => r.json())
