@@ -56,12 +56,52 @@ async function _POST(
       return Errors.validation('transactionRef or Idempotency-Key is required for payment writes')
     }
 
+    // Fast-path existing idempotency key: return the exact prior result without
+    // allocating new sequence numbers or emitting duplicate side effects.
+    const existingPayment = await db.payment.findUnique({
+      where: {
+        tenantId_transactionRef: {
+          tenantId: session.tenantId!,
+          transactionRef: idempotencyKey,
+        },
+      },
+      include: { receipt: true, invoice: true },
+    })
+    if (existingPayment) {
+      const sameRequest =
+        existingPayment.invoiceId === invoice.id &&
+        existingPayment.amountCents === amountCents &&
+        existingPayment.method === method
+      if (!sameRequest) {
+        return Errors.conflict('Idempotency-Key / transactionRef was already used with a different payment request')
+      }
+      return ok({
+        paymentId: existingPayment.id,
+        paymentNumber: existingPayment.paymentNumber,
+        receiptNumber: existingPayment.receipt?.receiptNumber ?? null,
+        status: existingPayment.invoice?.status === 'PAID' ? 'PAID' : 'PARTIALLY_PAID',
+        idempotent: true,
+      })
+    }
+
     const paymentNumber = await nextNumber('payment', session.tenantId!)
     const receiptNumber = await nextNumber('receipt', session.tenantId!)
 
-    let created: { payment: typeof invoice extends never ? never : any; receipt: any; newStatus: 'PARTIALLY_PAID' | 'PAID' }
+    let created: {
+      payment: any
+      receipt: any
+      newStatus: 'PARTIALLY_PAID' | 'PAID'
+      idempotent: boolean
+    }
     try {
       created = await db.$transaction(async (tx) => {
+        // Serialize all payment mutations for this invoice.
+        await tx.$queryRaw`
+          SELECT 1 FROM "invoices"
+          WHERE "id" = ${id} AND "tenantId" = ${session.tenantId}
+          FOR UPDATE
+        `
+
         const lockedInvoice = await tx.invoice.findFirst({
           where: tenantScopedIdWhere(id, session.tenantId!),
           include: { student: true },
@@ -144,39 +184,53 @@ async function _POST(
               transactionRef: idempotencyKey,
             },
           },
-          include: { receipt: true },
+          include: { receipt: true, invoice: true },
         })
         if (existing) {
           const sameRequest = existing.invoiceId === invoice.id && existing.amountCents === amountCents && existing.method === method
           if (!sameRequest) {
             return Errors.conflict('Idempotency-Key / transactionRef was already used with a different payment request')
           }
-          return ok({ payment: existing, receipt: existing.receipt, idempotent: true })
+          return ok({
+            paymentId: existing.id,
+            paymentNumber: existing.paymentNumber,
+            receiptNumber: existing.receipt?.receiptNumber ?? null,
+            status: existing.invoice?.status === 'PAID' ? 'PAID' : 'PARTIALLY_PAID',
+            idempotent: true,
+          })
         }
       }
       throw e
     }
-    const result = created
 
-    // timeline entry for parent
+    const result = created
+    if (result.idempotent) {
+      return ok({
+        paymentId: result.payment.id,
+        paymentNumber: result.payment.paymentNumber,
+        receiptNumber: result.receipt?.receiptNumber ?? null,
+        status: result.newStatus,
+        idempotent: true,
+      })
+    }
+
     await db.timelineEntry.create({
       data: {
         tenantId: session.tenantId!,
         studentId: invoice.studentId,
         type: 'NOTE',
-        title: `Fee payment received — ${paymentNumber}`,
-        body: `₹${amountCents / 100} received via ${method}. Receipt ${receiptNumber} issued.`,
+        title: `Fee payment received — ${result.payment.paymentNumber}`,
+        body: `₹${result.payment.amountCents / 100} received via ${method}. Receipt ${result.receipt.receiptNumber} issued.`,
       },
     })
 
-    // M01: payment closes the fee loop — auto-resolves the open FINANCE follow-up
     await emit({
       type: 'PaymentReceived',
       tenantId: session.tenantId!,
       invoiceId: invoice.id,
       studentId: invoice.studentId,
-      paymentNumber,
-      amountCents,
+      paymentNumber: result.payment.paymentNumber,
+      amountCents: result.payment.amountCents,
       fullyPaid: result.newStatus === 'PAID',
     })
 
@@ -187,14 +241,15 @@ async function _POST(
       action: 'CREATE',
       entity: 'Payment',
       entityId: result.payment.id,
-      summary: `Payment ${paymentNumber} ₹${amountCents / 100} for invoice ${invoice.invoiceNumber} — receipt ${receiptNumber}`,
+      summary: `Payment ${result.payment.paymentNumber} ₹${result.payment.amountCents / 100} for invoice ${invoice.invoiceNumber} — receipt ${result.receipt.receiptNumber}`,
     })
 
     return ok({
       paymentId: result.payment.id,
-      paymentNumber,
-      receiptNumber,
+      paymentNumber: result.payment.paymentNumber,
+      receiptNumber: result.receipt.receiptNumber,
       status: result.newStatus,
+      idempotent: false,
     }, undefined, 201)
   } catch (e) {
     return Errors.system(e)
