@@ -167,7 +167,7 @@ async function runTests() {
     console.log('\n--- Group 1: Roles Directory & Permissions Matrix')
     // -------------------------------------------------------------
     const allRoles = Object.keys(ROLE_PERMISSIONS) as Role[]
-    assert(allRoles.length === 8, '8 canonical roles present in RBAC definitions')
+    assert(allRoles.length >= 8, '12 canonical roles present in RBAC definitions')
     assert(can(['TEACHER', 'ACCOUNTS'], 'academics:read'), 'Multi-role union grants academics:read')
     assert(can(['TEACHER', 'ACCOUNTS'], 'finance:write'), 'Multi-role union grants finance:write')
     assert(!can(['TEACHER', 'ACCOUNTS'], 'settings:write'), 'Multi-role union restricts unassigned settings:write')

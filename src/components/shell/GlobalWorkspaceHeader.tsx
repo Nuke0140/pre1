@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import {
   Search,
@@ -12,12 +12,16 @@ import {
   Ban,
   ChevronRight,
   ChevronDown,
+  Languages,
+  Globe,
 } from 'lucide-react'
 import { enumLabel, timeAgo } from '@/lib/format'
 import type { Role } from '@/lib/auth'
 import { FullscreenButton } from './FullscreenButton'
 import { HelpButton } from './HelpButton'
 import type { BrandingConfig } from '@/lib/branding-types'
+import { useI18n } from '@/lib/i18n/context'
+import { SUPPORTED_LOCALES, SupportedLocale } from '@/lib/i18n/types'
 
 export interface GlobalWorkspaceHeaderProps {
   user: {
@@ -92,6 +96,22 @@ export function GlobalWorkspaceHeader({
 }: GlobalWorkspaceHeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const [isMac, setIsMac] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
+  const langRef = useRef<HTMLDivElement>(null)
+  const { locale, setLocale, t } = useI18n()
+
+  // Close language popover on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false)
+      }
+    }
+    if (langOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [langOpen])
 
   // Scroll compression detection
   useEffect(() => {
@@ -134,7 +154,7 @@ export function GlobalWorkspaceHeader({
       <div className="workspace-search-left">
         <Search className="workspace-search-icon" aria-hidden="true" />
         <span className="workspace-search-placeholder">
-          Search students, staff, invoices, classes…
+          {t('header.searchPlaceholder')}
         </span>
       </div>
       <kbd className="workspace-search-kbd">
@@ -212,22 +232,76 @@ export function GlobalWorkspaceHeader({
             {/* 2. Full Screen Button */}
             <FullscreenButton className="hidden md:inline-flex" />
 
-        {/* 3. Theme Toggle Button */}
-        <button
-          suppressHydrationWarning
-          type="button"
-          className="workspace-action-btn"
-          aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-          title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
-          onClick={onToggleTheme}
-        >
-          {theme === 'light' ? (
-            <Moon size={16} aria-hidden="true" />
-          ) : (
-            <Sun size={16} aria-hidden="true" />
-          )}
-          <span className="workspace-action-label">Theme</span>
-        </button>
+            {/* 2.5 Language Selector */}
+            <div ref={langRef} style={{ position: 'relative' }}>
+              <button
+                suppressHydrationWarning
+                type="button"
+                className={`workspace-action-btn ${langOpen ? 'active' : ''}`}
+                aria-label={t('header.language')}
+                title={t('header.language')}
+                onClick={() => setLangOpen((prev) => !prev)}
+              >
+                <Languages size={16} aria-hidden="true" />
+                <span className="workspace-action-label">
+                  {locale === 'hi-IN' ? 'हिंदी' : locale === 'mr-IN' ? 'मराठी' : 'EN'}
+                </span>
+              </button>
+
+              {langOpen && (
+                <div
+                  role="menu"
+                  className="dropdown-menu absolute right-0 mt-2 w-40 rounded-xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-in fade-in zoom-in-95"
+                >
+                  <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    {t('header.language')}
+                  </div>
+                  {SUPPORTED_LOCALES.map((loc) => {
+                    const isSelected = locale === loc.code
+                    return (
+                      <button
+                        key={loc.code}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setLocale(loc.code)
+                          setLangOpen(false)
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors ${
+                          isSelected
+                            ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-medium'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span>{loc.nativeName}</span>
+                        </span>
+                        {isSelected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-purple-400" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Theme Toggle Button */}
+            <button
+              suppressHydrationWarning
+              type="button"
+              className="workspace-action-btn"
+              aria-label={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              title={theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme'}
+              onClick={onToggleTheme}
+            >
+              {theme === 'light' ? (
+                <Moon size={16} aria-hidden="true" />
+              ) : (
+                <Sun size={16} aria-hidden="true" />
+              )}
+              <span className="workspace-action-label">{t('header.theme')}</span>
+            </button>
 
 
         {/* 4. Inbox (Needs Attention) Action & Popover */}

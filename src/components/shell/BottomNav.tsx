@@ -16,6 +16,7 @@ import { DockStarsAccent } from '@/components/preone/illustrations'
 import { DockDateTime } from './DockDateTime'
 import type { NavItem } from '@/lib/nav'
 import type { Role } from '@/lib/auth'
+import { useI18n } from '@/lib/i18n/context'
 
 export interface BottomNavProps {
   user: { role: Role; name?: string }
@@ -51,6 +52,8 @@ export function BottomNav({
   triggerRef,
   className = '',
 }: BottomNavProps) {
+  const { t } = useI18n()
+
   // Resolve canonical dock navigation items based on user role and permissions
   const { leftItems, rightItems } = useMemo(() => {
     // Canonical preferred items across roles
@@ -88,13 +91,13 @@ export function BottomNav({
     const left: ResolvedDockItem[] = [
       {
         key: homeItem.key,
-        label: 'Home',
+        label: t('nav.home'),
         href: homeItem.href,
         icon: homeItem.icon || Home,
       },
       {
         key: appsItem.key,
-        label: 'Apps',
+        label: t('nav.dashboard'),
         href: appsItem.href,
         icon: appsItem.icon || LayoutGrid,
         image: '/animations/home/dashboard.webp',
@@ -106,7 +109,7 @@ export function BottomNav({
     if (studentsItem) {
       right.push({
         key: studentsItem.key,
-        label: 'Students',
+        label: t('nav.students'),
         href: studentsItem.href,
         icon: studentsItem.icon || GraduationCap,
         image: '/animations/home/students.webp',
@@ -115,7 +118,7 @@ export function BottomNav({
     if (learningItem) {
       right.push({
         key: learningItem.key,
-        label: 'Learning',
+        label: t('nav.learning'),
         href: learningItem.href,
         icon: learningItem.icon || GraduationCap,
         image: '/animations/home/preo_learning_mascot.webp',
@@ -124,7 +127,7 @@ export function BottomNav({
     if (staffItem) {
       right.push({
         key: staffItem.key,
-        label: 'Staff',
+        label: t('nav.users'),
         href: staffItem.href,
         icon: staffItem.icon || Briefcase,
         image: '/animations/home/users.webp',
@@ -133,7 +136,7 @@ export function BottomNav({
     if (growthItem) {
       right.push({
         key: growthItem.key,
-        label: growthItem.key === 'daily-diary' ? 'Diary' : growthItem.label,
+        label: growthItem.key === 'daily-diary' ? t('nav.dailyDiary') : t('nav.reports'),
         href: growthItem.href,
         icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
         image: '/animations/home/daily_diary.webp',

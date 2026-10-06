@@ -5,6 +5,7 @@ import { User, Phone, Building, Briefcase, Shield, Key } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { Role, UserLifecycleStatus, BranchOption, UserRecord, CANONICAL_STAFF_ROLES, CANONICAL_FAMILY_ROLES, ROLE_BADGE } from './types'
+import { useI18n } from '@/lib/i18n'
 
 interface EditUserModalProps {
   open: boolean
@@ -16,6 +17,7 @@ interface EditUserModalProps {
 
 export function EditUserModal({ open, onClose, user, branches, onSuccess }: EditUserModalProps) {
   const toast = useToast()
+  const { t } = useI18n()
   const [submitting, setSubmitting] = useState(false)
 
   const [fullName, setFullName] = useState('')
@@ -98,17 +100,17 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit User Profile"
+      title={t('users.editUserTitle')}
       subtitle={`Modify account details and role permissions for ${user.name}`}
       icon={<User className="w-5 h-5 text-indigo-600" />}
       iconClass="ic-purple"
       footer={
         <div className="flex items-center justify-end gap-2 w-full">
           <button type="button" className="btn btn-secondary text-xs" onClick={onClose} disabled={submitting}>
-            Cancel
+            {t('users.cancel')}
           </button>
           <button type="submit" form="edit-user-form" className="btn btn-primary text-xs" disabled={submitting}>
-            {submitting ? 'Saving Changes...' : 'Save Profile Changes'}
+            {submitting ? '...' : t('users.saveUser')}
           </button>
         </div>
       }

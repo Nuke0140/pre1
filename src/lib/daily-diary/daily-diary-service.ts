@@ -547,6 +547,8 @@ export class DailyDiaryService {
       throw new Error('VALIDATION_ERROR: No active academic session found')
     }
 
+    let targetTeacherId = data.teacherId && data.teacherId.trim() !== '' ? data.teacherId : classroom.primaryTeacherId || session.uid
+    if (targetTeacherId) {
       const validUser = await db.tenantUser.findFirst({
         where: { userId: targetTeacherId, tenantId, status: 'ACTIVE' },
         select: { id: true },

@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { Bus, Package, Sparkles, ReceiptText } from 'lucide-react'
 import { TactileButton } from './TactileMotion'
+import { useI18n } from '@/lib/i18n'
 import {
   EnquiriesIllustration,
   FollowupsIllustration,
@@ -486,15 +487,16 @@ export function SearchEmptyState({
   onClear?: () => void
   compact?: boolean
 }) {
+  const { t } = useI18n()
   return (
     <EmptyState
       illustration="search"
-      title={query ? `No results for "${query}"` : 'No results match your search'}
-      description="Check for typos, try using broader keywords, or clear your query to see all records."
+      title={query ? `${t('common.noData')}: "${query}"` : t('table.noRecords')}
+      description={t('table.noRecordsDesc')}
       action={
         onClear
           ? {
-              label: 'Clear Search',
+              label: t('common.clear'),
               onClick: onClear,
               variant: 'secondary',
             }
@@ -515,15 +517,16 @@ export function FilterEmptyState({
   onClearFilters?: () => void
   compact?: boolean
 }) {
+  const { t } = useI18n()
   return (
     <EmptyState
       illustration="filter"
-      title="Nothing matches these filters"
-      description="Try adjusting or clearing one or more active filters to broaden your results."
+      title={t('table.noRecords')}
+      description={t('table.noRecordsDesc')}
       action={
         onClearFilters
           ? {
-              label: 'Clear Filters',
+              label: t('table.clearFilter'),
               onClick: onClearFilters,
               variant: 'secondary',
             }

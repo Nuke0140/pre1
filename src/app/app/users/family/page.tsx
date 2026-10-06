@@ -18,11 +18,16 @@ import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
+import { BulkActionModal } from '@/components/users/BulkActionModal'
+import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import { UserRecord, BranchOption, ClassroomOption } from '@/components/users/types'
 import { timeAgo } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
+import { Image, Layers } from 'lucide-react'
 
 export default function FamilyUsersPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   // Tab: PARENTS vs GUARDIANS
   const [activeTab, setActiveTab] = useState<'PARENTS' | 'GUARDIANS'>('PARENTS')
@@ -48,11 +53,14 @@ export default function FamilyUsersPage() {
 
   // Selection
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
+  const [selectAllMatching, setSelectAllMatching] = useState(false)
 
   // Modals
   const [addFamilyOpen, setAddFamilyOpen] = useState(false)
   const [addFamilyRole, setAddFamilyRole] = useState<'PARENT' | 'GUARDIAN'>('PARENT')
   const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [zipPhotoModalOpen, setZipPhotoModalOpen] = useState(false)
+  const [bulkActionModalOpen, setBulkActionModalOpen] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
@@ -391,15 +399,15 @@ export default function FamilyUsersPage() {
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
-          { label: 'Home', href: '/app' },
-          { label: 'Users & Access', href: '/app/users' },
-          { label: 'Family Users' },
+          { label: t('nav.home'), href: '/app' },
+          { label: t('users.title'), href: '/app/users' },
+          { label: t('users.familyUsers') },
         ]}
       />
 
       {/* Page Header */}
       <PageHead
-        title="Family Users"
+        title={t('users.familyUsers')}
         backHref="/app/users"
         actions={
           <div className="users-actions-bar">
@@ -407,8 +415,8 @@ export default function FamilyUsersPage() {
               type="button"
               onClick={fetchFamilyUsers}
               className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
-              title="Refresh list"
-              aria-label="Refresh list"
+              title={t('common.refresh')}
+              aria-label={t('common.refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
@@ -418,7 +426,16 @@ export default function FamilyUsersPage() {
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
             >
               <Shield className="w-3.5 h-3.5 text-purple-600" />
-              <span>Roles Directory</span>
+              <span>{t('users.rolesDirectory')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setZipPhotoModalOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3"
+              title={t('users.bulkPhotoUpload')}
+            >
+              <Image className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{t('users.bulkPhotoUpload')}</span>
             </button>
             <button
               type="button"
@@ -426,7 +443,7 @@ export default function FamilyUsersPage() {
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Import Family CSV</span>
+              <span>{t('users.importFamilyCsv')}</span>
             </button>
             <button
               type="button"
@@ -437,7 +454,7 @@ export default function FamilyUsersPage() {
               className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Add Parent</span>
+              <span>+ {t('users.addParent')}</span>
             </button>
             <button
               type="button"
@@ -448,7 +465,7 @@ export default function FamilyUsersPage() {
               className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <Shield className="w-3.5 h-3.5" />
-              <span>+ Add Guardian</span>
+              <span>+ {t('users.addGuardian')}</span>
             </button>
           </div>
         }
@@ -468,7 +485,7 @@ export default function FamilyUsersPage() {
           >
             <span className="flex items-center justify-center gap-1.5">
               <User className="w-3.5 h-3.5" />
-              <span>Parents ({parentCount})</span>
+              <span>{t('users.parentsTab', { count: parentCount })}</span>
             </span>
           </button>
 
@@ -483,7 +500,7 @@ export default function FamilyUsersPage() {
           >
             <span className="flex items-center justify-center gap-1.5">
               <Shield className="w-3.5 h-3.5" />
-              <span>Guardians ({guardianCount})</span>
+              <span>{t('users.guardiansTab', { count: guardianCount })}</span>
             </span>
           </button>
         </div>
@@ -617,7 +634,7 @@ export default function FamilyUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Branches</option>
+              <option value="ALL">{t('users.allBranches')}</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.code})
@@ -636,12 +653,12 @@ export default function FamilyUsersPage() {
               }}
               className="select w-full text-xs"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-              <option value="LOCKED">LOCKED</option>
-              <option value="DEACTIVATED">DEACTIVATED</option>
-              <option value="ARCHIVED">ARCHIVED</option>
+              <option value="ALL">{t('users.allStatuses')}</option>
+              <option value="ACTIVE">{t('users.statusActive')}</option>
+              <option value="SUSPENDED">{t('users.statusSuspended')}</option>
+              <option value="LOCKED">{t('users.statusLocked')}</option>
+              <option value="DEACTIVATED">{t('users.statusDeactivated')}</option>
+              <option value="ARCHIVED">{t('users.statusArchived')}</option>
             </select>
           </div>
 
@@ -650,10 +667,10 @@ export default function FamilyUsersPage() {
             href={`/api/v1/users/export?role=${activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN'}`}
             className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
             download
-            title="Export CSV"
+            title={t('common.export')}
           >
             <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>Export</span>
+            <span>{t('common.export')}</span>
           </a>
 
           {/* Clear Filters Button if filters dirty */}
@@ -668,7 +685,7 @@ export default function FamilyUsersPage() {
               }}
               className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
             >
-              Reset
+              {t('common.clear')}
             </button>
           )}
         </div>
@@ -676,6 +693,51 @@ export default function FamilyUsersPage() {
 
       {/* Family DataTable Workspace */}
       <div className="table-workspace">
+        {/* Smart Selection Banner */}
+        {selectedKeys.length > 0 && (
+          <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
+            <span className="text-purple-900 dark:text-purple-200 font-medium">
+              {selectAllMatching ? (
+                <>All <strong>{total}</strong> {activeTab.toLowerCase()} matching filters are selected.</>
+              ) : (
+                <>
+                  <strong>{selectedKeys.length}</strong> {activeTab.toLowerCase()} on this page selected.
+                  {total > users.length && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectAllMatching(true)}
+                      className="ml-2 underline text-purple-700 dark:text-purple-300 font-semibold hover:text-purple-900"
+                    >
+                      Select all {total} matching {activeTab.toLowerCase()}
+                    </button>
+                  )}
+                </>
+              )}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionModalOpen(true)}
+                className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1.5 shadow-sm"
+              >
+                <Layers size={13} />
+                <span>Bulk Actions ({selectAllMatching ? total : selectedKeys.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedKeys([])
+                  setSelectAllMatching(false)
+                }}
+                className="btn btn-ghost text-xs py-1 px-2 text-gray-500 hover:text-gray-700"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         <DataTable
           columns={activeTab === 'PARENTS' ? parentColumns : guardianColumns}
           data={users}
@@ -683,7 +745,10 @@ export default function FamilyUsersPage() {
           showToolbar={false}
           rowSelection={true}
           selectedKeys={selectedKeys}
-          onSelectionChange={setSelectedKeys}
+          onSelectionChange={(keys) => {
+            setSelectedKeys(keys)
+            if (keys.length === 0) setSelectAllMatching(false)
+          }}
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle={`No ${activeTab === 'PARENTS' ? 'parents' : 'guardians'} found`}
           emptyMessage={`No ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} accounts match your selected campus branch, status, or search query.`}
@@ -757,6 +822,28 @@ export default function FamilyUsersPage() {
       <RolesDirectoryModal
         open={rolesModalOpen}
         onClose={() => setRolesModalOpen(false)}
+      />
+
+      <ZipPhotoUploadModal
+        open={zipPhotoModalOpen}
+        onClose={() => setZipPhotoModalOpen(false)}
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <BulkActionModal
+        open={bulkActionModalOpen}
+        onClose={() => setBulkActionModalOpen(false)}
+        selectedUserIds={
+          selectAllMatching
+            ? users.map((u) => u.userId || u.id)
+            : (selectedKeys.map(String))
+        }
+        branches={branches}
+        onSuccess={() => {
+          setSelectedKeys([])
+          setSelectAllMatching(false)
+          fetchFamilyUsers()
+        }}
       />
     </div>
   )

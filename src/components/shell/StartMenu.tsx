@@ -7,6 +7,7 @@ import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 import { StartMenuIllustration } from '@/components/preone'
 import type { ShellUser } from './AppShell'
+import { useI18n } from '@/lib/i18n/context'
 
 export interface StartMenuProps {
   isOpen: boolean
@@ -43,11 +44,50 @@ export function StartMenu({
   const internalMenuRef = useRef<HTMLDivElement>(null)
   const menuRef = externalMenuRef || internalMenuRef
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
+
+  // Helper to get localized module label
+  const getModuleLabel = useCallback(
+    (key: string, defaultLabel: string) => {
+      const keyMap: Record<string, string> = {
+        home: 'nav.home',
+        dashboard: 'nav.dashboard',
+        'daily-diary': 'nav.dailyDiary',
+        users: 'nav.users',
+        hr: 'nav.hr',
+        setup: 'nav.setup',
+        admissions: 'nav.admissions',
+        students: 'nav.students',
+        learning: 'nav.learning',
+        'preo-learning': 'nav.learning',
+        preo_learning: 'nav.learning',
+        operations: 'nav.operations',
+        transport: 'nav.transport',
+        inventory: 'nav.inventory',
+        finance: 'nav.finance',
+        fees: 'nav.finance',
+        reports: 'nav.reports',
+        reports_analytics: 'nav.reports',
+        communication: 'nav.communication',
+        announcements: 'nav.communication',
+        settings: 'nav.settings',
+        audit: 'nav.audit',
+        audit_logs: 'nav.audit',
+        platform: 'nav.platform',
+      }
+      const navKey = keyMap[key]
+      return navKey ? t(navKey) : defaultLabel
+    },
+    [t]
+  )
 
   // Canonical authorized modules for user's role
   const allModules = useMemo<HomeModule[]>(() => {
-    return homeModules(user.role)
-  }, [user.role])
+    return homeModules(user.role).map((m) => ({
+      ...m,
+      label: getModuleLabel(m.key, m.label),
+    }))
+  }, [user.role, getModuleLabel])
 
   // Real-time RBAC-filtered search against name, description, and key
   const filteredModules = useMemo<HomeModule[]>(() => {

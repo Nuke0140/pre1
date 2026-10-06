@@ -114,3 +114,75 @@ export async function deleteBrandingAsset(url: string | null | undefined): Promi
     console.warn(`Failed to cleanup branding asset at ${url}:`, err)
   }
 }
+
+const ALLOWED_PHOTO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024 // 5MB
+
+/**
+ * Durably saves an uploaded user profile photo to public storage.
+ * Returns the durable relative URL (e.g. /uploads/avatars/<filename>).
+ */
+export async function saveUserProfilePhoto({
+  tenantId,
+  userId,
+  buffer,
+  mimeType,
+  originalName,
+}: {
+  tenantId: string
+  userId: string
+  buffer: Buffer
+  mimeType: string
+  originalName?: string
+}): Promise<{ url: string; size: number; mimeType: string }> {
+  const normalizedMime = mimeType.toLowerCase().trim()
+  if (!ALLOWED_PHOTO_MIME_TYPES.includes(normalizedMime)) {
+    throw new Error('This image format is not supported. Please upload JPEG, PNG, or WebP.')
+  }
+
+  if (buffer.length > MAX_PHOTO_SIZE) {
+    throw new Error('This photo is too large. Please choose an image smaller than 5MB.')
+  }
+
+  let ext = EXTENSION_MAP[normalizedMime]
+  if (!ext && originalName) {
+    const parsedExt = path.extname(originalName).replace('.', '').toLowerCase()
+    if (parsedExt) ext = parsedExt
+  }
+  if (!ext) ext = 'jpg'
+
+  const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '')
+  const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '')
+  const randomSuffix = crypto.randomBytes(4).toString('hex')
+  const filename = `${sanitizedTenantId}-${sanitizedUserId}-${Date.now()}-${randomSuffix}.${ext}`
+
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars')
+  await fs.promises.mkdir(uploadDir, { recursive: true })
+
+  const filePath = path.join(uploadDir, filename)
+  await fs.promises.writeFile(filePath, buffer)
+
+  return {
+    url: `/uploads/avatars/${filename}`,
+    size: buffer.length,
+    mimeType: normalizedMime,
+  }
+}
+
+/**
+ * Safely removes a previously uploaded profile photo from disk.
+ */
+export async function deleteUserProfilePhoto(url: string | null | undefined): Promise<void> {
+  if (!url || typeof url !== 'string') return
+  if (!url.startsWith('/uploads/avatars/')) return
+
+  try {
+    const filename = path.basename(url)
+    const filePath = path.join(process.cwd(), 'public', 'uploads', 'avatars', filename)
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath)
+    }
+  } catch (err) {
+    console.warn(`Failed to cleanup avatar at ${url}:`, err)
+  }
+}

@@ -6,6 +6,7 @@ import {
   AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown,
 } from 'lucide-react'
 import { Skeleton, EmptyState, IconButton, ZenTableSkeleton } from './ui'
+import { useI18n } from '@/lib/i18n/context'
 
 export interface ColumnFilterOption {
   value: string
@@ -147,6 +148,8 @@ export function DataTable<T extends { id?: string | number }>({
   selectionSummary,
   stickyCheckColumn,
 }: DataTableProps<T>) {
+  const { t } = useI18n()
+  const effectiveSearchPlaceholder = searchPlaceholder || t('table.searchPlaceholder')
   const [localSearch, setLocalSearch] = useState(searchValue || '')
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultSortDir)
@@ -367,23 +370,23 @@ export function DataTable<T extends { id?: string | number }>({
   }
 
   const rangeLabel = pagination || paginate
-    ? `Showing ${currentPage === 0 ? 0 : ((currentPage - 1) * (pagination ? pagination.pageSize : pageSize)) + 1}-${Math.min(currentPage * (pagination ? pagination.pageSize : pageSize), pagination ? pagination.total : filtered.length)} of ${pagination ? pagination.total : filtered.length}`
-    : `${filtered.length} row${filtered.length === 1 ? '' : 's'}`
+    ? `${t('table.showing')} ${currentPage === 0 ? 0 : ((currentPage - 1) * (pagination ? pagination.pageSize : pageSize)) + 1}-${Math.min(currentPage * (pagination ? pagination.pageSize : pageSize), pagination ? pagination.total : filtered.length)} ${t('table.of')} ${pagination ? pagination.total : filtered.length}`
+    : `${filtered.length} ${t('table.records')}`
 
   return (
     <div className="dtable-wrap" ref={wrapRef}>
       {showToolbar && (searchPlaceholder || filters || toolbarActions || rowSelection || showExport) && (
         <div className="table-toolbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, flexWrap: 'wrap' }}>
-            {searchPlaceholder && (
+            {(searchPlaceholder || showToolbar) && (
               <div className="input-search" style={{ maxWidth: 280, width: '100%' }}>
                 <Search size={15} />
                 <input
                   className="input"
-                  placeholder={searchPlaceholder}
+                  placeholder={effectiveSearchPlaceholder}
                   value={localSearch}
                   onChange={(e) => setSearch(e.target.value)}
-                  aria-label={searchPlaceholder}
+                  aria-label={effectiveSearchPlaceholder}
                 />
               </div>
             )}
@@ -392,7 +395,7 @@ export function DataTable<T extends { id?: string | number }>({
           <div className="table-tool-actions" role="toolbar" aria-label="Table tools">
             {rowSelection && selection.size > 0 && (
               <button className="btn btn-ghost btn-sm" onClick={clearSelection}>
-                <X size={14} /> Clear ({selection.size})
+                <X size={14} /> {t('common.cancel')} ({selection.size})
               </button>
             )}
             {bulkActions}
@@ -400,7 +403,7 @@ export function DataTable<T extends { id?: string | number }>({
               <span className="t-caption" style={{ whiteSpace: 'nowrap' }}>{rangeLabel}</span>
             )}
             {showExport && (
-              <button className="btn btn-ghost btn-sm" onClick={exportSelected} title="Export CSV">
+              <button className="btn btn-ghost btn-sm" onClick={exportSelected} title={t('common.export')}>
                 <Download size={14} /> CSV
               </button>
             )}
@@ -799,7 +802,7 @@ export function DataTable<T extends { id?: string | number }>({
           <div className="dtable-foot-right">
             {(pagination?.onPageSizeChange || paginate) && (
               <label className="dtable-page-size">
-                <span className="t-caption">Rows</span>
+                <span className="t-caption">{t('table.rows')}</span>
                 <select
                   className="select"
                   value={pagination ? pagination.pageSize : pageSize}
@@ -821,7 +824,7 @@ export function DataTable<T extends { id?: string | number }>({
               <ChevronLeft size={14} style={{ marginLeft: -8 }} />
             </button>
             <button className="btn btn-ghost btn-sm" disabled={currentPage <= 1} onClick={() => (pagination ? pagination.onPageChange(currentPage - 1) : setPage(currentPage - 1))}>
-              <ChevronLeft size={14} /> Prev
+              <ChevronLeft size={14} /> {t('table.prev')}
             </button>
             <span className="dtable-page-jump">
               <input
@@ -841,7 +844,7 @@ export function DataTable<T extends { id?: string | number }>({
               <span className="t-caption">/ {totalPagesDecided}</span>
             </span>
             <button className="btn btn-ghost btn-sm" disabled={currentPage >= totalPagesDecided} onClick={() => (pagination ? pagination.onPageChange(currentPage + 1) : setPage(currentPage + 1))}>
-              Next <ChevronRight size={14} />
+              {t('table.next')} <ChevronRight size={14} />
             </button>
             <button className="btn btn-ghost btn-sm" disabled={currentPage >= totalPagesDecided} onClick={() => (pagination ? pagination.onPageChange(totalPagesDecided) : setPage(totalPagesDecided))} aria-label="Last page">
               <ChevronRight size={14} />

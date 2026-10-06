@@ -65,6 +65,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { TactileButton } from '@/components/preone/TactileMotion'
 import { fmtDate, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 import type { Role } from '@/lib/auth'
 import { normalizeRole } from '@/lib/roles'
 
@@ -84,6 +85,7 @@ interface LearningClientProps {
 
 export function LearningClient({ session }: LearningClientProps) {
   const toast = useToast()
+  const { t } = useI18n()
 
   // Tabs
   const [tab, setTab] = useState<'overview' | 'curriculum' | 'activities' | 'observations' | 'progress'>('overview')
@@ -101,8 +103,8 @@ export function LearningClient({ session }: LearningClientProps) {
   const CATEGORIES = useMemo(() => [
     {
       id: 'courses' as const,
-      title: 'Courses',
-      subtitle: 'Structured lessons & developmental learning units',
+      title: t('learning.courses'),
+      subtitle: t('learning.coursesSub'),
       activityType: 'LESSON',
       singularLabel: 'Course Lesson',
       Icon: Courses3DIcon,
@@ -110,8 +112,8 @@ export function LearningClient({ session }: LearningClientProps) {
     },
     {
       id: 'rhymes' as const,
-      title: 'Poems & Rhymes',
-      subtitle: 'Melodic action rhymes, songs & cadence phonics',
+      title: t('learning.rhymes'),
+      subtitle: t('learning.rhymesSub'),
       activityType: 'RHYME',
       singularLabel: 'Rhyme',
       Icon: Rhymes3DIcon,
@@ -119,8 +121,8 @@ export function LearningClient({ session }: LearningClientProps) {
     },
     {
       id: 'stories' as const,
-      title: 'Stories',
-      subtitle: 'Illustrated picture tales, moral adventures & reads',
+      title: t('learning.stories'),
+      subtitle: t('learning.storiesSub'),
       activityType: 'STORY',
       singularLabel: 'Story',
       Icon: Stories3DIcon,
@@ -128,22 +130,22 @@ export function LearningClient({ session }: LearningClientProps) {
     },
     {
       id: 'games' as const,
-      title: 'Games',
-      subtitle: 'Tactile puzzles, sorting play & motor coordination',
+      title: t('learning.games'),
+      subtitle: t('learning.gamesSub'),
       activityType: 'GAME',
       singularLabel: 'Game',
       Icon: Games3DIcon,
       bgGlow: 'bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent',
     },
-  ], [])
+  ], [t])
 
   // Canonical 4-Subject definition for Courses category (matching reference layout & sequence)
   const SUBJECTS = useMemo(() => [
     {
       id: 'english' as const,
       number: 1,
-      title: 'English',
-      subtitle: 'Alphabet → Phonics → Vocabulary → Reading → Writing',
+      title: t('learning.english'),
+      subtitle: t('learning.englishPath'),
       badge: 'Language & Literacy',
       topics: ['Alphabet', 'Phonics', 'Vocabulary', 'Reading', 'Writing'],
       keywords: ['alphabet', 'phonics', 'vocabulary', 'reading', 'writing', 'letter', 'sound', 'word', 'story', 'english', 'language'],
@@ -155,8 +157,8 @@ export function LearningClient({ session }: LearningClientProps) {
     {
       id: 'mathematics' as const,
       number: 2,
-      title: 'Mathematics',
-      subtitle: 'Numbers → Counting → Shapes → Patterns → Basic Maths',
+      title: t('learning.math'),
+      subtitle: t('learning.mathPath'),
       badge: 'Core Numeracy',
       topics: ['Numbers', 'Counting', 'Shapes', 'Patterns', 'Basic Maths'],
       keywords: ['number', 'counting', 'shape', 'pattern', 'math', 'count', 'quantity', 'geometry', 'measure', 'logic'],
@@ -168,8 +170,8 @@ export function LearningClient({ session }: LearningClientProps) {
     {
       id: 'evs' as const,
       number: 3,
-      title: 'EVS & General Awareness',
-      subtitle: 'Fruits → Animals → Plants → Body Parts → Our World',
+      title: t('learning.evs'),
+      subtitle: t('learning.evsPath'),
       badge: 'Environmental Discovery',
       topics: ['Fruits', 'Animals', 'Plants', 'Body Parts', 'Our World'],
       keywords: ['fruit', 'animal', 'plant', 'body', 'nature', 'world', 'weather', 'community', 'season', 'sensory', 'evs', 'science'],
@@ -181,8 +183,8 @@ export function LearningClient({ session }: LearningClientProps) {
     {
       id: 'creativity' as const,
       number: 4,
-      title: 'Creativity & Life Skills',
-      subtitle: 'Art → Rhymes → Stories → Good Habits → Social Skills',
+      title: t('learning.creativity'),
+      subtitle: t('learning.creativityPath'),
       badge: 'Creative & Socio-Emotional',
       topics: ['Art', 'Rhymes', 'Stories', 'Good Habits', 'Social Skills'],
       keywords: ['art', 'rhyme', 'story', 'habit', 'social', 'craft', 'music', 'emotion', 'sharing', 'manners', 'kindness', 'hygiene'],
@@ -191,7 +193,7 @@ export function LearningClient({ session }: LearningClientProps) {
       tagline: 'Hands-on artistic expression, rhyming cadences, daily habits, and collaborative play',
       Icon: CreativitySubjectIllustration,
     },
-  ], [])
+  ], [t])
 
   // Auth / Permissions
   const effectiveRoles = useMemo(() => {
@@ -1066,10 +1068,10 @@ export function LearningClient({ session }: LearningClientProps) {
                 onClick={() => fetchData()}
                 disabled={refreshing}
                 className="btn btn-secondary btn-sm inline-flex items-center gap-1.5 rounded-xl text-xs"
-                title="Refresh Library"
+                title={t('common.refresh')}
               >
                 <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-                <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <span>{refreshing ? t('common.loading') : t('common.refresh')}</span>
               </button>
 
               {canWrite && (
@@ -1092,7 +1094,7 @@ export function LearningClient({ session }: LearningClientProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search courses, rhymes, stories, or games..."
+              placeholder={t('common.search')}
               className="input pl-10 pr-10 py-2.5 text-sm w-full rounded-2xl bg-surface-elevated border-border focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all shadow-sm"
             />
             {searchQuery && (
@@ -1266,7 +1268,7 @@ export function LearningClient({ session }: LearningClientProps) {
                   className="btn btn-ghost btn-sm inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft size={16} />
-                  <span>Back to Subjects</span>
+                  <span>{t('learning.backToSubjects')}</span>
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -1560,7 +1562,7 @@ export function LearningClient({ session }: LearningClientProps) {
                   className="btn btn-ghost btn-sm inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
                   <ChevronLeft size={16} />
-                  <span>Back to PreO Learning</span>
+                  <span>{t('learning.backToCategories')}</span>
                 </button>
 
                 {canWrite && (
@@ -1749,7 +1751,7 @@ export function LearningClient({ session }: LearningClientProps) {
                 className="btn btn-ghost btn-sm inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft size={16} />
-                <span>Back to PreO Learning</span>
+                <span>{t('learning.backToCategories')}</span>
               </button>
 
               {canWrite && (
