@@ -309,6 +309,7 @@ export default function SetupStepPage() {
   }
 
   const isOptional = def.applicability !== 'MANDATORY'
+  const displayStatus = me?.status === 'BLOCKED' ? 'PENDING' : (me?.status ?? 'PENDING')
   const statusBadgeCls: Record<string, string> = { COMPLETE: 'b-success', PENDING: 'b-info', BLOCKED: 'b-danger', SKIPPED: 'b-neutral' }
   const list = Array.isArray(payload) ? payload : []
 
@@ -325,7 +326,7 @@ export default function SetupStepPage() {
             )}
             {me?.status === 'COMPLETE' ? (
               <button className="btn btn-outline" onClick={reopenStep}><RotateCcw size={15} /> Reopen</button>
-            ) : me?.status !== 'SKIPPED' && !me?.locked && (
+            ) : me?.status !== 'SKIPPED' && (
               <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}>
                 <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save & Continue'}
               </button>
@@ -336,39 +337,36 @@ export default function SetupStepPage() {
 
       {/* status strip */}
       <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className={`badge ${statusBadgeCls[me?.status ?? 'PENDING']}`}>{me?.status}</span>
+        <span className={`badge ${statusBadgeCls[displayStatus]}`}>{displayStatus}</span>
         {me?.applicability !== 'MANDATORY' && <span className="badge b-neutral">{me?.applicability}</span>}
         {me?.changedAfterCompletion && <span className="badge b-orange">edited after completion</span>}
         <span className="card-sub" style={{ flex: 1 }}>{me?.detail || def.description}</span>
         {me?.completedByName && <span className="t-caption">completed by {me.completedByName}</span>}
       </div>
 
-      {/* blocked banner — why is this blocked? */}
-      {(me?.locked || me?.status === 'BLOCKED') && me?.status !== 'COMPLETE' && (
-        <div className="card" style={{ borderColor: 'var(--danger)', marginBottom: 14 }}>
+      {/* prerequisite notice if dependencies pending */}
+      {me?.missingDeps && me.missingDeps.length > 0 && me?.status !== 'COMPLETE' && (
+        <div className="card" style={{ borderColor: 'var(--border-subtle)', marginBottom: 14 }}>
           <div style={{ display: 'flex', gap: 10 }}>
-            <Lock size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+            <Lock size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>Why is this blocked?</div>
-              <div style={{ fontSize: 13 }}>{me?.blockedReason ?? 'Complete the dependency steps first.'}</div>
-              {(me?.missingDeps.length ?? 0) > 0 && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  {me!.missingDeps.map((d) => (
-                    <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
-                      ✗ {d.label} <span style={{ opacity: 0.6 }}>— fix configuration</span>
-                    </a>
-                  ))}
-                </div>
-              )}
+              <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Prerequisite Steps Pending</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{me?.blockedReason ?? 'You can configure this step now. Marking it complete will verify prerequisite steps.'}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {me.missingDeps.map((d) => (
+                  <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
+                    → {d.label}
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── BODY ── */}
-      {(!me?.locked || me?.status === 'COMPLETE') && (
-        <div className="card">
-          <div style={{ padding: 16 }}>
+      {/* ── BODY (Always accessible for editing) ── */}
+      <div className="card">
+        <div style={{ padding: 16 }}>
             {(kind === 'config' || kind === 'branding') && CONFIG_FORMS[configDomain] && (
               <>
                 <p className="card-sub" style={{ marginBottom: 14 }}>{CONFIG_FORMS[configDomain].intro}</p>
@@ -424,11 +422,10 @@ export default function SetupStepPage() {
                 <TableToolbar title="Branches" count={list.length} onAdd={() => setModal('branch')} addLabel="Add Branch" />
                 {list.length === 0 ? <EmptyState icon={<Building2 size={40} />} title="No branches configured yet" message="Add your first campus — classrooms, staff, students and operations all hang from a branch." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Branch</th><th>Timings</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Branch</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>{list.map((b: any) => (
                       <tr key={String(b.id)}>
                         <td><span className="cell-strong">{b.name}</span><span className="cell-sub">{b.code} · {b.city ?? '—'}</span></td>
-                        <td>{b.timingOpen || '08:30'}–{b.timingClose || '16:00'}</td>
                         <td>{b.capacity ? (b.capacity + ' seats') : 'Flexible'}</td>
                         <td>{String(b.facilities ?? 0)}</td>
                         <td>{String(b.staff ?? 0)}</td>
@@ -648,7 +645,6 @@ export default function SetupStepPage() {
             )}
           </div>
         </div>
-      )}
 
       {/* ── MODALS (rendered from parent with real api/toast) ── */}
       {modal === 'branch' && <BranchModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
@@ -911,8 +907,6 @@ function BranchModal({ onClose, onDone, api, toast }: { onClose: () => void; onD
           <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="MAIN2" /></div>
           <div className="field"><label>City</label><input className="input" name="city" /></div>
           <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue="08:30" /></div>
-          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue="16:00" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
           <div className="field"><label>Capacity (seats)</label><input className="input" name="capacity" type="number" min="1" /></div>
         </div>
@@ -1141,8 +1135,6 @@ function EditBranchModal({ item, onClose, onDone, api, toast }: { item: Dict; on
           <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Branch code is permanent" /></div>
           <div className="field"><label>City</label><input className="input" name="city" defaultValue={String(item.city || '')} /></div>
           <div className="field"><label>Contact Phone</label><input className="input" name="phone" defaultValue={String(item.phone || '')} /></div>
-          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue={String(item.timingOpen || '08:30')} /></div>
-          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue={String(item.timingClose || '16:00')} /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Campus Address</label><input className="input" name="address" defaultValue={String(item.address || '')} /></div>
           <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" defaultValue={item.capacity ? Number(item.capacity) : ''} min="1" /></div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>

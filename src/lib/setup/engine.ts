@@ -163,20 +163,12 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
     case 'branch': {
       const active = activeBranches(ctx)
       const n = active.length
-      const validTimings = active.every((b) => b.timingOpen < b.timingClose)
-      const rooms = ctx.facilities.filter((f) => f.isActive).length + activeClassrooms(ctx).length
-      const ok = n >= 1 && validTimings && rooms >= 1
+      const ok = n >= 1
       return {
         satisfied: ok,
         blocked: false,
-        detail: !ok
-          ? n === 0
-            ? 'No active branch configured'
-            : !validTimings
-              ? 'Branch closing time must be after opening time'
-              : 'At least one classroom/facility room required'
-          : `${n} branch(es), ${rooms} room(s) registered`,
-        snapshot: { branches: n, rooms, validTimings },
+        detail: ok ? `${n} branch(es) registered` : 'No active branch configured',
+        snapshot: { branches: n },
         missingDeps: noDeps,
       }
     }

@@ -10,7 +10,7 @@ import {
   Sliders, Activity, Check, RefreshCw, Layers, ExternalLink, AlertCircle, Info,
 } from 'lucide-react'
 import {
-  PageHead, Segmented, Skeleton, EmptyState, StatusBadge,
+  PageHead, Skeleton, EmptyState, StatusBadge,
   SetupPhaseCard, SetupStepTile,
 } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -93,7 +93,7 @@ type Dict = Record<string, any>
 const STEP_STATUS_MAP: Record<string, { cls: string; label: string }> = {
   COMPLETE: { cls: 'b-success', label: 'Complete' },
   PENDING: { cls: 'b-info', label: 'Pending' },
-  BLOCKED: { cls: 'b-danger', label: 'Blocked' },
+  BLOCKED: { cls: 'b-info', label: 'Pending' },
   SKIPPED: { cls: 'b-neutral', label: 'Skipped' },
 }
 
@@ -314,7 +314,6 @@ export default function SetupPage() {
     return (
       <div className="page-container">
         <PageHead
-          eyebrow="PRESCHOOL SETUP & READINESS"
           title="Preschool Setup & Configuration"
         />
         <div className="table-workspace"><div style={{ padding: 24 }}><Skeleton h={240} /></div></div>
@@ -326,38 +325,16 @@ export default function SetupPage() {
     <div className="page-container">
       {/* ── 1. CANONICAL PAGE HEADER ── */}
       <PageHead
-        eyebrow="PRESCHOOL SETUP & READINESS"
         title="Preschool Setup & Configuration"
-        sub="Configure foundation, academic structure, daily operations, and business rules."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>
               <LayoutList size={14} /> Dependency Graph
             </button>
-            <button className="btn btn-outline" onClick={runValidation} disabled={validating}>
-              <ClipboardCheck size={14} /> {validating ? 'Verifying…' : 'Run Health Check'}
-            </button>
-            <button className="btn btn-outline" onClick={() => setGoLiveOpen(true)}>
-              <Rocket size={14} /> Go-Live Checklist
-            </button>
             {status.status !== 'LIVE' && mandatoryLeft === 0 && (
               <button className="btn btn-primary" onClick={() => setGoLiveOpen(true)}>
                 <Rocket size={14} /> Launch Preschool (Go Live)
               </button>
-            )}
-            {nextStep && (
-              <a
-                className="btn btn-primary"
-                href={
-                  nextStep.key === 'branding'
-                    ? '/app/setup/branding'
-                    : nextStep.key === 'templates'
-                    ? '/app/setup/templates'
-                    : `/app/setup/${nextStep.key}`
-                }
-              >
-                <PlayCircle size={14} /> Step Guide ({nextStep.label}) <ChevronRight size={14} />
-              </a>
             )}
           </div>
         }
@@ -365,25 +342,6 @@ export default function SetupPage() {
 
       {/* ── 2. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
       <div style={{ marginTop: 8 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            marginBottom: 16,
-          }}
-        >
-          <Segmented
-            value={metroFilter}
-            onChange={(v) => setMetroFilter(v as typeof metroFilter)}
-            options={[
-              { key: 'ALL', label: `All (${status.steps.length})` },
-              { key: 'MANDATORY', label: `Mandatory (${mandatorySteps.length})` },
-              { key: 'RECOMMENDED', label: `Recommended (${recommendedSteps.length})` },
-              { key: 'REMAINING', label: `Remaining (${remainingCount})` },
-            ]}
-          />
-        </div>
 
         {/* 4 Phase Columns */}
         <div className="setup-phases-grid">
@@ -404,7 +362,7 @@ export default function SetupPage() {
                 phaseNumber={idx + 1}
                 phaseKey={phaseKey}
                 title={phase.label}
-                description={phase.sub}
+                description=""
                 completedCount={counts.completed}
                 totalCount={counts.total}
               >
@@ -428,7 +386,7 @@ export default function SetupPage() {
                             : `/app/setup/${s.key}`
                         }
                         name={s.label}
-                        status={s.status}
+                        status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
                         icon={<Icon size={16} />}
                         applicability={s.applicability}
                         statusBadge={
@@ -439,9 +397,7 @@ export default function SetupPage() {
                         helper={
                           isDrifted
                             ? 'Configuration drifted — underlying data modified since completion'
-                            : s.status === 'BLOCKED'
-                              ? (s.blockedReason || 'Blocked by prerequisites')
-                              : (s.detail || s.description)
+                            : (s.detail || s.description)
                         }
                       />
                     )
@@ -574,8 +530,6 @@ export default function SetupPage() {
               <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="KRM" /></div>
               <div className="field"><label>City</label><input className="input" name="city" placeholder="Bengaluru" /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-              <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue="08:30" /></div>
-              <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue="16:00" /></div>
               <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" placeholder="60" /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
             </div>
@@ -600,8 +554,6 @@ export default function SetupPage() {
                 name: fd.name,
                 city: fd.city || null,
                 phone: fd.phone || null,
-                timingOpen: fd.timingOpen,
-                timingClose: fd.timingClose,
                 capacity: fd.capacity ? Number(fd.capacity) : null,
                 address: fd.address || null,
                 isActive: fd.isActive === 'on',
@@ -621,8 +573,6 @@ export default function SetupPage() {
               <div className="field"><label>Code</label><input className="input" value={editingItem.code} disabled /></div>
               <div className="field"><label>City</label><input className="input" name="city" defaultValue={editingItem.city || ''} /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" defaultValue={editingItem.phone || ''} /></div>
-              <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue={editingItem.timingOpen || '08:30'} /></div>
-              <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue={editingItem.timingClose || '16:00'} /></div>
               <div className="field"><label>Capacity</label><input className="input" name="capacity" type="number" defaultValue={editingItem.capacity || ''} /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" defaultValue={editingItem.address || ''} /></div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>

@@ -70,7 +70,7 @@ export const SETUP_STEPS: StepDef[] = [
     applicability: 'MANDATORY',
     deps: ['school_profile'],
     icon: 'Building2',
-    description: 'At least one operating campus with address, operating timings and physical room infrastructure.',
+    description: 'At least one operating campus with address, contact details and operating capacity.',
   },
   {
     key: 'branding',

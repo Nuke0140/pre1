@@ -56,9 +56,8 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
 
     cat('branch', 'Branch / Campus & Infrastructure', [
       branches.length === 0 ? B('No active branch exists') : W(''),
-      branches.some((b) => b.timingOpen >= b.timingClose) ? B('A branch has closing time before opening time') : W(''),
-      rooms.length === 0 ? B('No classroom rooms configured') : W(''),
-      rooms.some((r) => r.capacity <= 0) ? B('A room has zero or invalid capacity') : W(''),
+      rooms.length === 0 ? W('No classroom rooms configured yet (set up in Classrooms)') : W(''),
+      rooms.some((r) => r.capacity <= 0) ? W('A room has zero or invalid capacity') : W(''),
       ctx.facilities.filter((f) => f.isActive).length === 0 ? W('No play / nap / meal / medical areas registered (recommended)') : W(''),
     ].filter((f) => f.message !== '')),
 
