@@ -173,6 +173,55 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     if (targetRoles) {
       const roleErr = requireCanAssignRole(session, targetRoles)
       if (roleErr) return roleErr
+
+      // Critical-role protection: prevent removing the sole Owner or sole Principal from the tenant
+      if (member.role === 'OWNER' && !targetRoles.includes('OWNER')) {
+        const ownerCount = await db.tenantUser.count({
+          where: {
+            tenantId: session.tenantId,
+            role: 'OWNER',
+            status: 'ACTIVE',
+            deletedAt: null,
+            id: { not: member.id },
+          },
+        })
+        if (ownerCount === 0) {
+          return forbidden('Cannot remove the sole active Owner of the school')
+        }
+      }
+
+      if (member.role === 'PRINCIPAL' && !targetRoles.includes('PRINCIPAL')) {
+        const principalCount = await db.tenantUser.count({
+          where: {
+            tenantId: session.tenantId,
+            role: 'PRINCIPAL',
+            status: 'ACTIVE',
+            deletedAt: null,
+            id: { not: member.id },
+          },
+        })
+        if (principalCount === 0) {
+          return forbidden('Cannot downgrade the sole active Principal of the school')
+        }
+      }
+    }
+
+    // Critical-role protection on status change: cannot deactivate/suspend the sole Owner
+    if (lifecycleStatusToApply && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(lifecycleStatusToApply)) {
+      if (member.role === 'OWNER') {
+        const ownerCount = await db.tenantUser.count({
+          where: {
+            tenantId: session.tenantId,
+            role: 'OWNER',
+            status: 'ACTIVE',
+            deletedAt: null,
+            id: { not: member.id },
+          },
+        })
+        if (ownerCount === 0) {
+          return forbidden('Cannot suspend or deactivate the sole active Owner of the school')
+        }
+      }
     }
 
     if (branchId) {

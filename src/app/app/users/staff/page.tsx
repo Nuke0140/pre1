@@ -18,6 +18,8 @@ import { User360Drawer } from '@/components/users/User360Drawer'
 import { RecordInspector } from '@/components/preone'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
+import { BulkActionModal } from '@/components/users/BulkActionModal'
+import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import {
   UserRecord, BranchOption, ClassroomOption, Role,
   CANONICAL_STAFF_ROLES, ROLE_BADGE
@@ -25,6 +27,7 @@ import {
 import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
+import { Image, Layers } from 'lucide-react'
 
 export default function StaffUsersPage() {
   const toast = useToast()
@@ -34,6 +37,10 @@ export default function StaffUsersPage() {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
   const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
+
+  // Smart Selection state
+  const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
+  const [selectAllMatching, setSelectAllMatching] = useState(false)
 
   // Filters
   const [search, setSearch] = useState('')
@@ -49,6 +56,8 @@ export default function StaffUsersPage() {
   // Modals
   const [addStaffOpen, setAddStaffOpen] = useState(false)
   const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [zipPhotoModalOpen, setZipPhotoModalOpen] = useState(false)
+  const [bulkActionModalOpen, setBulkActionModalOpen] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
@@ -282,6 +291,15 @@ export default function StaffUsersPage() {
             </button>
             <button
               type="button"
+              onClick={() => setZipPhotoModalOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3"
+              title={t('users.bulkPhotoUpload')}
+            >
+              <Image className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{t('users.bulkPhotoUpload')}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setCsvModalOpen(true)}
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
@@ -454,12 +472,63 @@ export default function StaffUsersPage() {
 
       {/* Staff DataTable Workspace */}
       <div className="table-workspace">
+        {/* Smart Selection Banner when page is fully selected and total > pageSize */}
+        {selectedKeys.length > 0 && (
+          <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
+            <span className="text-purple-900 dark:text-purple-200 font-medium">
+              {selectAllMatching ? (
+                <>All <strong>{total}</strong> staff matching filters are selected.</>
+              ) : (
+                <>
+                  <strong>{selectedKeys.length}</strong> staff on this page selected.
+                  {total > users.length && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectAllMatching(true)}
+                      className="ml-2 underline text-purple-700 dark:text-purple-300 font-semibold hover:text-purple-900"
+                    >
+                      Select all {total} matching staff
+                    </button>
+                  )}
+                </>
+              )}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionModalOpen(true)}
+                className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1.5 shadow-sm"
+              >
+                <Layers size={13} />
+                <span>Bulk Actions ({selectAllMatching ? total : selectedKeys.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedKeys([])
+                  setSelectAllMatching(false)
+                }}
+                className="btn btn-ghost text-xs py-1 px-2 text-gray-500 hover:text-gray-700"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         <DataTable
           columns={columns}
           data={users}
           loading={loading}
           onRowClick={(u) => setViewingUser(u)}
           showToolbar={false}
+          rowSelection={true}
+          selectedKeys={selectedKeys}
+          onSelectionChange={(keys) => {
+            setSelectedKeys(keys)
+            if (keys.length === 0) setSelectAllMatching(false)
+          }}
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle="No staff members found"
           emptyMessage="No staff records match your selected role, branch, status, or search query."
@@ -532,6 +601,28 @@ export default function StaffUsersPage() {
       <RolesDirectoryModal
         open={rolesModalOpen}
         onClose={() => setRolesModalOpen(false)}
+      />
+
+      <ZipPhotoUploadModal
+        open={zipPhotoModalOpen}
+        onClose={() => setZipPhotoModalOpen(false)}
+        onSuccess={fetchStaff}
+      />
+
+      <BulkActionModal
+        open={bulkActionModalOpen}
+        onClose={() => setBulkActionModalOpen(false)}
+        selectedUserIds={
+          selectAllMatching
+            ? users.map((u) => u.userId || u.id)
+            : (selectedKeys.map(String))
+        }
+        branches={branches}
+        onSuccess={() => {
+          setSelectedKeys([])
+          setSelectAllMatching(false)
+          fetchStaff()
+        }}
       />
     </div>
   )

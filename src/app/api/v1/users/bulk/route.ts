@@ -212,6 +212,30 @@ export const POST = withApi(async (req: NextRequest) => {
         }
       }
 
+      // Sole Owner protection against bulk suspension, deactivation, or role removal
+      if (m.role === 'OWNER') {
+        if (
+          action === 'SUSPEND' ||
+          action === 'DEACTIVATE' ||
+          (action === 'REMOVE_ROLE' && role === 'OWNER') ||
+          (action === 'UPDATE_PROFILE' && (effectiveStatus === 'INACTIVE' || effectiveStatus === 'SUSPENDED'))
+        ) {
+          const ownerCount = await db.tenantUser.count({
+            where: {
+              tenantId: session.tenantId,
+              role: 'OWNER',
+              status: 'ACTIVE',
+              deletedAt: null,
+              id: { not: m.id },
+            },
+          })
+          if (ownerCount === 0) {
+            blocked.push({ userId: uid, reason: 'CANNOT_RESTRICT_SOLE_OWNER' })
+            continue
+          }
+        }
+      }
+
       eligibleMembers.push(m)
     }
 

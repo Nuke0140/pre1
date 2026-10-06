@@ -18,9 +18,12 @@ import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
+import { BulkActionModal } from '@/components/users/BulkActionModal'
+import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import { UserRecord, BranchOption, ClassroomOption } from '@/components/users/types'
 import { timeAgo } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
+import { Image, Layers } from 'lucide-react'
 
 export default function FamilyUsersPage() {
   const toast = useToast()
@@ -50,11 +53,14 @@ export default function FamilyUsersPage() {
 
   // Selection
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
+  const [selectAllMatching, setSelectAllMatching] = useState(false)
 
   // Modals
   const [addFamilyOpen, setAddFamilyOpen] = useState(false)
   const [addFamilyRole, setAddFamilyRole] = useState<'PARENT' | 'GUARDIAN'>('PARENT')
   const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [zipPhotoModalOpen, setZipPhotoModalOpen] = useState(false)
+  const [bulkActionModalOpen, setBulkActionModalOpen] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
@@ -424,6 +430,15 @@ export default function FamilyUsersPage() {
             </button>
             <button
               type="button"
+              onClick={() => setZipPhotoModalOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3"
+              title={t('users.bulkPhotoUpload')}
+            >
+              <Image className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{t('users.bulkPhotoUpload')}</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setCsvModalOpen(true)}
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
             >
@@ -678,6 +693,51 @@ export default function FamilyUsersPage() {
 
       {/* Family DataTable Workspace */}
       <div className="table-workspace">
+        {/* Smart Selection Banner */}
+        {selectedKeys.length > 0 && (
+          <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
+            <span className="text-purple-900 dark:text-purple-200 font-medium">
+              {selectAllMatching ? (
+                <>All <strong>{total}</strong> {activeTab.toLowerCase()} matching filters are selected.</>
+              ) : (
+                <>
+                  <strong>{selectedKeys.length}</strong> {activeTab.toLowerCase()} on this page selected.
+                  {total > users.length && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectAllMatching(true)}
+                      className="ml-2 underline text-purple-700 dark:text-purple-300 font-semibold hover:text-purple-900"
+                    >
+                      Select all {total} matching {activeTab.toLowerCase()}
+                    </button>
+                  )}
+                </>
+              )}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionModalOpen(true)}
+                className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1.5 shadow-sm"
+              >
+                <Layers size={13} />
+                <span>Bulk Actions ({selectAllMatching ? total : selectedKeys.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedKeys([])
+                  setSelectAllMatching(false)
+                }}
+                className="btn btn-ghost text-xs py-1 px-2 text-gray-500 hover:text-gray-700"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
         <DataTable
           columns={activeTab === 'PARENTS' ? parentColumns : guardianColumns}
           data={users}
@@ -685,7 +745,10 @@ export default function FamilyUsersPage() {
           showToolbar={false}
           rowSelection={true}
           selectedKeys={selectedKeys}
-          onSelectionChange={setSelectedKeys}
+          onSelectionChange={(keys) => {
+            setSelectedKeys(keys)
+            if (keys.length === 0) setSelectAllMatching(false)
+          }}
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle={`No ${activeTab === 'PARENTS' ? 'parents' : 'guardians'} found`}
           emptyMessage={`No ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} accounts match your selected campus branch, status, or search query.`}
@@ -759,6 +822,28 @@ export default function FamilyUsersPage() {
       <RolesDirectoryModal
         open={rolesModalOpen}
         onClose={() => setRolesModalOpen(false)}
+      />
+
+      <ZipPhotoUploadModal
+        open={zipPhotoModalOpen}
+        onClose={() => setZipPhotoModalOpen(false)}
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <BulkActionModal
+        open={bulkActionModalOpen}
+        onClose={() => setBulkActionModalOpen(false)}
+        selectedUserIds={
+          selectAllMatching
+            ? users.map((u) => u.userId || u.id)
+            : (selectedKeys.map(String))
+        }
+        branches={branches}
+        onSuccess={() => {
+          setSelectedKeys([])
+          setSelectAllMatching(false)
+          fetchFamilyUsers()
+        }}
       />
     </div>
   )
