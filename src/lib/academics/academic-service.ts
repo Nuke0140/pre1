@@ -1035,7 +1035,7 @@ export class AcademicService {
     })
 
     // If concern requires attention or is urgent, raise a follow-up task
-    let followUp = null
+    let followUp: any = null
     if (concern === 'NEEDS_ATTENTION' || concern === 'URGENT') {
       const fuRes = await raiseFollowUp({
         tenantId: scope.tenantId,

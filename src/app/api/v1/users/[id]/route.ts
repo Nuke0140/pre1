@@ -16,6 +16,7 @@ import { normalizeRole } from '@/lib/roles'
 import { UserLifecycleService } from '@/lib/users/user-lifecycle-service'
 import { SessionService } from '@/lib/users/session-service'
 import { PermissionCache } from '@/lib/cache/permission-cache'
+import { UsernameService } from '@/lib/users/username-service'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -112,7 +113,10 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     const body = await req.json()
     const {
       fullName,
+      email,
       phone,
+      username,
+      avatarUrl,
       role,
       roles: inputRoles,
       primaryRole,
@@ -124,7 +128,10 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       employeeCode,
     } = body as {
       fullName?: string
+      email?: string
       phone?: string
+      username?: string
+      avatarUrl?: string | null
       role?: UserRole
       roles?: UserRole[]
       primaryRole?: UserRole
@@ -134,6 +141,50 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       password?: string
       designation?: string
       employeeCode?: string
+    }
+
+    // Validate email format and uniqueness if provided
+    let cleanEmail: string | undefined = undefined
+    if (email !== undefined) {
+      if (email && email.trim()) {
+        cleanEmail = email.trim().toLowerCase()
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+          return bad('Invalid email address format', 'INVALID_EMAIL')
+        }
+        const existingEmailUser = await db.user.findFirst({
+          where: { email: cleanEmail, id: { not: member.userId } },
+          select: { id: true },
+        })
+        if (existingEmailUser) {
+          return bad('Email address is already in use by another user', 'EMAIL_ALREADY_EXISTS')
+        }
+      } else {
+        cleanEmail = undefined
+      }
+    }
+
+    // Validate username format and uniqueness if provided
+    let cleanUsername: string | undefined = undefined
+    if (username !== undefined) {
+      if (username && username.trim()) {
+        cleanUsername = username.trim().toLowerCase()
+        if (cleanUsername.length < 3) {
+          return bad('Username must be at least 3 characters', 'INVALID_USERNAME')
+        }
+        const available = await UsernameService.isUsernameAvailable(cleanUsername, 'STAFF', member.userId)
+        if (!available) {
+          return bad(`Username '${cleanUsername}' is already taken`, 'USERNAME_ALREADY_EXISTS')
+        }
+      } else {
+        cleanUsername = undefined
+      }
+    }
+
+    // Validate password complexity if provided
+    if (password !== undefined && password !== null && password !== '') {
+      if (password.length < 6) {
+        return bad('Password must be at least 6 characters long', 'INVALID_PASSWORD')
+      }
     }
 
     // Lifecycle status mutation validation and canonical routing
@@ -191,7 +242,10 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     const oldValues = {
       fullName: member.user.fullName,
+      email: member.user.email,
       phone: member.user.phone,
+      username: member.user.username,
+      avatarUrl: member.user.avatarUrl,
       role: member.role,
       roles: member.roles,
       status: member.status,
@@ -201,10 +255,19 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     const isPlatformAdmin = session.role === 'PLATFORM_ADMIN'
     let isGlobalStatusUpdate = false
+    let isPasswordReset = false
 
     // Run updates in transaction
     const updatedMember = await db.$transaction(async (tx) => {
-      if (fullName || phone !== undefined || password || lifecycleStatusToApply) {
+      if (
+        fullName ||
+        cleanEmail !== undefined ||
+        phone !== undefined ||
+        cleanUsername !== undefined ||
+        avatarUrl !== undefined ||
+        password ||
+        lifecycleStatusToApply
+      ) {
         let shouldUpdateUserStatus = false
         if (lifecycleStatusToApply) {
           const otherActiveMemberships = await tx.tenantUser.count({
@@ -219,11 +282,18 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           isGlobalStatusUpdate = shouldUpdateUserStatus && otherActiveMemberships === 0
         }
 
+        if (password) {
+          isPasswordReset = true
+        }
+
         await tx.user.update({
           where: { id: member.userId },
           data: {
             ...(fullName ? { fullName: fullName.trim() } : {}),
+            ...(cleanEmail !== undefined ? { email: cleanEmail } : {}),
             ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
+            ...(cleanUsername !== undefined ? { username: cleanUsername } : {}),
+            ...(avatarUrl !== undefined ? { avatarUrl: avatarUrl?.trim() || null } : {}),
             ...(password
               ? {
                   passwordHash: await bcrypt.hash(password, 10),
@@ -299,6 +369,28 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
       return updated
     })
+
+    // If password was reset by administrator, revoke all active sessions for the user and record audit
+    if (isPasswordReset) {
+      await SessionService.revokeAllUserSessions(member.userId)
+      PermissionCache.bumpUserVersion(member.userId)
+      const meta = getRequestMeta(req)
+      await recordAudit({
+        tenantId: session.tenantId,
+        branchId: updatedMember.branchId || undefined,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'ADMIN_PASSWORD_RESET',
+        entity: 'User',
+        entityId: member.userId,
+        module: 'Users',
+        severity: 'WARNING',
+        summary: `Administrator ${session.name} reset password for user ${updatedMember.user.fullName}`,
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+      })
+    }
 
     // If lifecycle status changed, invalidate sessions and record canonical lifecycle audit
     if (lifecycleStatusToApply) {

@@ -2106,7 +2106,7 @@ export class AdmissionService {
           const activeParentsCount = await tx.studentGuardian.count({
             where: {
               studentId: student.id,
-              relationship: { in: ['FATHER', 'MOTHER', 'PARENT'] },
+              relationship: { in: ['FATHER', 'MOTHER', 'PARENT'] as any },
             },
           })
 

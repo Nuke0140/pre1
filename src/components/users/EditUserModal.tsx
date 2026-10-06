@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { User, Phone, Building, Briefcase, Shield, Key } from 'lucide-react'
+import { User, Phone, Building, Briefcase, Shield, Key, Camera, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
+import { Avatar } from '@/components/preone/ui'
 import { useToast } from '@/components/preone/Toast'
 import { Role, UserLifecycleStatus, BranchOption, UserRecord, CANONICAL_STAFF_ROLES, CANONICAL_FAMILY_ROLES, ROLE_BADGE } from './types'
 
@@ -17,6 +18,7 @@ interface EditUserModalProps {
 export function EditUserModal({ open, onClose, user, branches, onSuccess }: EditUserModalProps) {
   const toast = useToast()
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
 
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
@@ -25,6 +27,7 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
   const [branchId, setBranchId] = useState('')
   const [designation, setDesignation] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -35,10 +38,60 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
       setBranchId(user.branchId || '')
       setDesignation(user.staffProfile?.designation || '')
       setNewPassword('')
+      setAvatarUrl(user.avatarUrl || null)
     }
   }, [user, open])
 
   if (!user) return null
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const userId = user.userId || user.id
+    const formData = new FormData()
+    formData.append('file', file)
+
+    setUploadingPhoto(true)
+    try {
+      const res = await fetch(`/api/v1/users/${userId}/photo`, {
+        method: 'POST',
+        body: formData,
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'Photo upload failed')
+      }
+      setAvatarUrl(json.data.avatarUrl)
+      toast.success('Photo Uploaded', 'User profile photo updated successfully')
+      onSuccess()
+    } catch (err: any) {
+      toast.error('Upload Error', err.message || 'Failed to upload profile photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleRemovePhoto = async () => {
+    const userId = user.userId || user.id
+    setUploadingPhoto(true)
+    try {
+      const res = await fetch(`/api/v1/users/${userId}/photo`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        throw new Error(json.error?.message || json.message || 'Photo removal failed')
+      }
+      setAvatarUrl(null)
+      toast.success('Photo Removed', 'User profile photo removed successfully')
+      onSuccess()
+    } catch (err: any) {
+      toast.error('Removal Error', err.message || 'Failed to remove profile photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
 
   const isStaff = !['PARENT', 'GUARDIAN'].includes(user.role)
 
@@ -114,6 +167,50 @@ export function EditUserModal({ open, onClose, user, branches, onSuccess }: Edit
       }
     >
       <form id="edit-user-form" onSubmit={handleSubmit} className="space-y-4">
+        {/* Profile Photo Uploader Section */}
+        <div className="flex items-center gap-4 p-3 rounded-xl border border-border/80 bg-muted/30">
+          <div className="relative group">
+            <Avatar name={fullName || user.name} src={avatarUrl} size="lg" />
+            {uploadingPhoto && (
+              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center text-white text-xs">
+                ...
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-foreground mb-0.5">Profile Photo</div>
+            <div className="text-[11px] text-muted-foreground">
+              PNG, JPG, WEBP or GIF up to 5MB. Auto-optimized.
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <label className="btn btn-xs btn-outline flex items-center gap-1.5 cursor-pointer">
+                <Camera className="w-3.5 h-3.5 text-primary" />
+                <span>{avatarUrl ? 'Change Photo' : 'Upload Photo'}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                  disabled={uploadingPhoto}
+                />
+              </label>
+
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  disabled={uploadingPhoto}
+                  className="btn btn-xs btn-ghost text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             Full Name <span className="text-red-500">*</span>

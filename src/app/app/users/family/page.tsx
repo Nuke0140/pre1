@@ -6,7 +6,7 @@ import {
   Baby, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Phone, Mail, Edit3, Shield, Eye, Lock,
   ChevronLeft, CheckCircle2, User, Users,
-  KeyRound, Clock, X
+  KeyRound, Clock, X, Camera
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -15,6 +15,7 @@ import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { useToast } from '@/components/preone/Toast'
 import { AddFamilyModal } from '@/components/users/AddFamilyModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
+import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
@@ -53,6 +54,7 @@ export default function FamilyUsersPage() {
   const [addFamilyOpen, setAddFamilyOpen] = useState(false)
   const [addFamilyRole, setAddFamilyRole] = useState<'PARENT' | 'GUARDIAN'>('PARENT')
   const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [bulkPhotosOpen, setBulkPhotosOpen] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
@@ -430,6 +432,14 @@ export default function FamilyUsersPage() {
             </button>
             <button
               type="button"
+              onClick={() => setBulkPhotosOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-photos"
+            >
+              <Camera className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Upload Photos</span>
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 setAddFamilyRole('PARENT')
                 setAddFamilyOpen(true)
@@ -736,6 +746,12 @@ export default function FamilyUsersPage() {
         open={csvModalOpen}
         onClose={() => setCsvModalOpen(false)}
         type="FAMILY"
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <BulkPhotoUploadModal
+        open={bulkPhotosOpen}
+        onClose={() => setBulkPhotosOpen(false)}
         onSuccess={fetchFamilyUsers}
       />
 

@@ -80,7 +80,7 @@ export function parseCsvString(csvContent: string): { headers: string[]; rows: R
 export interface CsvPreviewRow {
   rowNumber: number
   status: 'VALID' | 'WARNING' | 'BLOCKED'
-  action: 'CREATE' | 'LINK' | 'SKIP' | 'BLOCK'
+  action: 'CREATE' | 'LINK' | 'SKIP' | 'BLOCK' | 'DELETE' | 'UPDATE'
   identifier: string
   name: string
   role: string
@@ -305,7 +305,7 @@ export class UserCsvEngine {
       }
 
       const effectiveFullName = fullName || existingUser?.fullName || ''
-      if (!effectiveFullName && options?.mode !== 'DELETE') {
+      if (!effectiveFullName && (options?.mode as string) !== 'DELETE') {
         errors.push('Full name is missing')
       }
       if (!email) {
@@ -360,7 +360,7 @@ export class UserCsvEngine {
       previewRows.push(
         (() => {
           const status = isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID'
-          const action = isBlocked ? 'BLOCK' : options?.mode === 'DELETE' ? 'DELETE' : isExisting ? 'LINK' : 'CREATE'
+          const action = isBlocked ? 'BLOCK' : (options?.mode as string) === 'DELETE' ? 'DELETE' : isExisting ? 'LINK' : 'CREATE'
           const rawEmpType = r.employmentType?.toUpperCase()
           const empType: EmploymentType =
             rawEmpType === 'REGULAR' || rawEmpType === 'FULL_TIME'

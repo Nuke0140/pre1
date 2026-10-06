@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
-  ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X
+  ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -14,6 +14,7 @@ import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { useToast } from '@/components/preone/Toast'
 import { AddStaffModal } from '@/components/users/AddStaffModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
+import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { RecordInspector } from '@/components/preone'
 import { EditUserModal } from '@/components/users/EditUserModal'
@@ -47,6 +48,7 @@ export default function StaffUsersPage() {
   // Modals
   const [addStaffOpen, setAddStaffOpen] = useState(false)
   const [csvModalOpen, setCsvModalOpen] = useState(false)
+  const [bulkPhotosOpen, setBulkPhotosOpen] = useState(false)
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
@@ -288,6 +290,14 @@ export default function StaffUsersPage() {
             </button>
             <button
               type="button"
+              onClick={() => setBulkPhotosOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-photos"
+            >
+              <Camera className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Upload Photos</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setAddStaffOpen(true)}
               className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
@@ -506,6 +516,12 @@ export default function StaffUsersPage() {
         open={csvModalOpen}
         onClose={() => setCsvModalOpen(false)}
         type="STAFF"
+        onSuccess={fetchStaff}
+      />
+
+      <BulkPhotoUploadModal
+        open={bulkPhotosOpen}
+        onClose={() => setBulkPhotosOpen(false)}
         onSuccess={fetchStaff}
       />
 

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Search, Filter, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Download,
-  AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown,
+  AlertCircle, MoreVertical, Columns3, Rows3, X, ArrowUpDown, Eye,
 } from 'lucide-react'
 import { Skeleton, EmptyState, IconButton, ZenTableSkeleton } from './ui'
 

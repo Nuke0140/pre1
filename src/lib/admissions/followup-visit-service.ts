@@ -382,8 +382,8 @@ export class FollowUpVisitService {
         applicationResult = await LeadService.startApplication(
           {
             tenantId: ctx.tenantId,
-            branchId: ctx.branchId || lead.branchId,
-            academicYearId: ctx.academicYearId || lead.academicSessionId,
+            branchId: ctx.branchId || lead.branchId || undefined,
+            academicYearId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
             actorId: ctx.actorId,
             actorName: ctx.actorName,
             actorRole: ctx.actorRole,
@@ -401,7 +401,7 @@ export class FollowUpVisitService {
       await raiseFollowUp({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId,
-        academicSessionId: ctx.academicYearId || lead.academicSessionId,
+        academicSessionId: ctx.academicYearId || (lead as any).academicSessionId,
         domain: 'ADMISSION',
         severity: 'INFO',
         title: `Decision Follow-up: ${lead.childName || lead.parentName}`,
@@ -426,7 +426,7 @@ export class FollowUpVisitService {
       await audit({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId || undefined,
-        academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+        academicSessionId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
         actorId: ctx.actorId,
         actorName: ctx.actorName,
         actorRole: ctx.actorRole,
@@ -441,8 +441,8 @@ export class FollowUpVisitService {
       await LeadService.markLost(
         {
           tenantId: ctx.tenantId,
-          branchId: ctx.branchId || lead.branchId,
-          academicYearId: ctx.academicYearId || lead.academicSessionId,
+          branchId: ctx.branchId || lead.branchId || undefined,
+          academicYearId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
           actorId: ctx.actorId,
           actorName: ctx.actorName,
           actorRole: ctx.actorRole,

@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
 import { AppShell } from '@/components/shell/AppShell'
@@ -18,8 +17,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (session.tenantId) {
     const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
     if (!tenant) {
-      const cookieStore = await cookies()
-      cookieStore.delete('preone_session')
       redirect('/')
     }
     branding = await getEffectiveBranding(session.tenantId)
