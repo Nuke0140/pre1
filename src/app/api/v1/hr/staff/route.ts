@@ -77,6 +77,7 @@ export const GET = withApi(async (req: NextRequest) => {
         name: p.user.fullName,
         email: p.user.email,
         phone: p.user.phone,
+        avatarUrl: p.user.avatarUrl,
         employeeCode: p.employeeCode,
         designation: p.designation,
         department: p.department,

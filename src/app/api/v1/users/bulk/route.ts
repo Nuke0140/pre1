@@ -8,6 +8,7 @@ import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
 import { SessionService } from '@/lib/users/session-service'
 import { PermissionCache } from '@/lib/cache/permission-cache'
+import { BulkUpdateService } from '@/lib/users/bulk-update-service'
 
 export type BulkAction =
   | 'ACTIVATE'
@@ -20,11 +21,14 @@ export type BulkAction =
   | 'ASSIGN_CLASSROOM'
   | 'REVOKE_SESSIONS'
   | 'UPDATE_PROFILE'
+  | 'BULK_UPDATE_FIELD'
 
 interface BulkRequest {
   action: BulkAction
   userIds: string[]
   mode?: 'PREVIEW' | 'EXECUTE'
+  field?: string
+  value?: any
   role?: UserRole
   roles?: UserRole[]
   isPrimary?: boolean
@@ -60,23 +64,46 @@ export const POST = withApi(async (req: NextRequest) => {
   const body = (await req.json()) as BulkRequest
   const {
     action,
-      userIds,
-      mode = 'EXECUTE',
-      role,
-      roles,
-      isPrimary,
-      branchId,
-      designation,
-      department,
-      status,
-      classroomId,
-      reason,
-      changes,
-    } = body
+    userIds,
+    mode = 'EXECUTE',
+    field,
+    value,
+    role,
+    roles,
+    isPrimary,
+    branchId,
+    designation,
+    department,
+    status,
+    classroomId,
+    reason,
+    changes,
+  } = body as any
 
-    if (!action || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
-      return bad('Valid action and non-empty userIds array are required', 'INVALID_BULK_REQUEST')
+  if (!action || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    return bad('Valid action and non-empty userIds array are required', 'INVALID_BULK_REQUEST')
+  }
+
+  // Route generic BULK_UPDATE_FIELD action
+  if (action === 'BULK_UPDATE_FIELD') {
+    if (!field || typeof field !== 'string') {
+      return bad('Field parameter is required for BULK_UPDATE_FIELD', 'FIELD_REQUIRED')
     }
+    const res = await BulkUpdateService.processBulkFieldUpdate({
+      tenantId: session.tenantId,
+      actorId: session.uid,
+      actorName: session.name,
+      actorRole: session.role,
+      actorBranchId: session.branchId,
+      userIds,
+      fieldKey: field,
+      value,
+      mode,
+      reason,
+      req,
+    })
+    return ok(res)
+  }
 
     const bulkOperationId = randomUUID()
 

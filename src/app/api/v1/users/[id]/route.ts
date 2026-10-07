@@ -69,6 +69,8 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       fullName: member.user.fullName,
       email: member.user.email,
       phone: member.user.phone,
+      username: member.user.username,
+      avatarUrl: member.user.avatarUrl,
       role: member.role,
       roles: assignedRoles,
       status: member.status,
