@@ -189,6 +189,7 @@ export const GET = withApi(async (req: NextRequest) => {
   let inactiveCount = 0
   let tabAll = 0
   let tabStaff = 0
+  let tabStaffActive = 0
   let tabPending = 0
   const roleCounts: Record<string, number> = {}
 
@@ -201,7 +202,10 @@ export const GET = withApi(async (req: NextRequest) => {
     else if (g.status === 'INACTIVE') inactiveCount += count
 
     if (g.status === 'PENDING') tabPending += count
-    if (!['PARENT', 'GUARDIAN'].includes(g.role)) tabStaff += count
+    if (!['PARENT', 'GUARDIAN'].includes(g.role)) {
+      tabStaff += count
+      if (g.status === 'ACTIVE') tabStaffActive += count
+    }
 
     roleCounts[g.role] = (roleCounts[g.role] || 0) + count
   }
@@ -273,6 +277,7 @@ export const GET = withApi(async (req: NextRequest) => {
       tabs: {
         ALL: tabAll,
         STAFF: tabStaff,
+        STAFF_ACTIVE: tabStaffActive,
         TEACHER: roleCounts['TEACHER'] || 0,
         PARENT: roleCounts['PARENT'] || 0,
         GUARDIAN: roleCounts['GUARDIAN'] || 0,
@@ -357,17 +362,19 @@ export const POST = withApi(async (req: NextRequest) => {
     isInvite?: boolean
   }
 
-  // Determine roles array and primary role
-  let assignedRoles: UserRole[] = []
-  if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
-    assignedRoles = [...new Set(inputRoles.map((r) => normalizeRole(r) as UserRole))]
-  } else if (inputAdditionalRoles && Array.isArray(inputAdditionalRoles) && inputAdditionalRoles.length > 0) {
-    const primary = normalizeRole(primaryRole || role || ('TEACHER' as UserRole)) as UserRole
-    const others = inputAdditionalRoles.map((r) => normalizeRole(r) as UserRole)
-    assignedRoles = [...new Set([primary, ...others])]
-  } else if (role) {
-    assignedRoles = [normalizeRole(role) as UserRole]
-  }
+  // Keep role input handling in one place: primaryRole is the explicit primary role,
+  // while roles is the complete assigned-role set.
+  const assignedRoles: UserRole[] = (() => {
+    if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
+      return [...new Set(inputRoles.map((r) => normalizeRole(r) as UserRole))]
+    }
+    if (inputAdditionalRoles && Array.isArray(inputAdditionalRoles) && inputAdditionalRoles.length > 0) {
+      const primary = normalizeRole(primaryRole || role || ('TEACHER' as UserRole)) as UserRole
+      const others = inputAdditionalRoles.map((r) => normalizeRole(r) as UserRole)
+      return [...new Set([primary, ...others])]
+    }
+    return role ? [normalizeRole(role) as UserRole] : []
+  })()
 
   if (!fullName || !email || assignedRoles.length === 0) {
     throw errValidation('fullName, email, and at least one role are required', 'fullName')

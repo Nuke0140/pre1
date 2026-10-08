@@ -30,7 +30,7 @@ export default function UsersLauncherPage() {
         const tabs = json.meta?.tabs || {}
         setStats({
           staffTotal: tabs.STAFF || 0,
-          staffActive: tabs.STAFF || 0,
+          staffActive: tabs.STAFF_ACTIVE ?? 0,
           parentsTotal: tabs.PARENT || 0,
           guardiansTotal: tabs.GUARDIAN || 0,
           loading: false,
