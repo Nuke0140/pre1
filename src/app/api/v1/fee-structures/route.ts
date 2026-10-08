@@ -6,7 +6,7 @@ import { FeeService } from '@/lib/fees/fee-service'
 import type { ProgramType, FeeStructureStatus } from '@prisma/client'
 
 async function _GET(req: NextRequest) {
-  const session = await requireApi(req, 'finance:read')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 

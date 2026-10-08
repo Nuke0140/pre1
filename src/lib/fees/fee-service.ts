@@ -1918,7 +1918,22 @@ export class FeeService {
           where: { programId: input.programId, branchId: finalBranchId, tenantId: ctx.tenantId, isActive: true },
         })
         if (!mapping) {
-          throw new Error(`Program "${programRecord.name}" is not mapped to the selected branch`)
+          const anyMapping = await db.programBranch.findFirst({
+            where: { programId: input.programId, tenantId: ctx.tenantId, isActive: true },
+          })
+          if (!anyMapping) {
+            // Auto-establish canonical ProgramBranch mapping if program has no branch mappings yet
+            await db.programBranch.create({
+              data: {
+                tenantId: ctx.tenantId,
+                programId: input.programId,
+                branchId: finalBranchId,
+                isActive: true,
+              },
+            })
+          } else {
+            throw new Error(`Program "${programRecord.name}" is not mapped to the selected branch. Please map it in Program Setup first.`)
+          }
         }
       }
     }

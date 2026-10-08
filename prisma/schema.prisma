@@ -57,6 +57,7 @@ model Tenant {
   observations           Observation[]
   payments               Payment[]
   programs               Program[]
+  programBranches        ProgramBranch[]
   receipts               Receipt[]
   schoolConfigs          SchoolConfig[]
   setupSteps             SchoolSetupStep[]
@@ -162,6 +163,7 @@ model Branch {
   calendarEvents CalendarEvent[]
   facilities         Facility[]
   staffProfiles      StaffProfile[]
+  programBranches    ProgramBranch[]
   inventoryLocations InventoryLocation[]
   inventoryStocks    InventoryStock[]
   stockMovements     StockMovement[]
@@ -1208,11 +1210,34 @@ model Program {
   curriculums    Curriculum[]
   subjectMappings ProgramSubject[]
   feeStructures  FeeStructure[]
+  branchMappings  ProgramBranch[]
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])
   @@index([tenantId, isActive])
   @@map("programs")
+}
+
+/// Program to Branch Mapping (Multi-Branch master/mapping architecture)
+model ProgramBranch {
+  id           String    @id @default(uuid())
+  tenantId     String
+  programId    String
+  branchId     String
+  capacity     Int?
+  isActive     Boolean   @default(true)
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([programId, branchId])
+  @@index([tenantId, branchId, isActive])
+  @@map("program_branches")
 }
 
 /// Academic Subject Master (M00 / M02)

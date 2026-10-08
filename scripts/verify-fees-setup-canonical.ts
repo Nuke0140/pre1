@@ -176,6 +176,8 @@ async function runVerification() {
   if (!duplicatePrevented) throw new Error('Expected duplicate active fee structure to be rejected')
 
   console.log('\n[TEST 4] Unmapped program rejection for branch:')
+  await db.programBranch.deleteMany({ where: { program: { tenantId: tenant.id, code: 'UNMAP' } } })
+  await db.program.deleteMany({ where: { tenantId: tenant.id, code: 'UNMAP' } })
   const otherProg = await db.program.create({
     data: {
       tenantId: tenant.id,
@@ -185,6 +187,26 @@ async function runVerification() {
       isActive: true,
     },
   })
+  const otherBranch = await db.branch.findFirst({
+    where: { tenantId: tenant.id, id: { not: branch.id }, deletedAt: null },
+  }) || await db.branch.create({
+    data: {
+      tenantId: tenant.id,
+      name: 'Alternate Campus',
+      code: 'ALT-CAMPUS',
+      isActive: true,
+    },
+  })
+
+  await db.programBranch.create({
+    data: {
+      tenantId: tenant.id,
+      programId: otherProg.id,
+      branchId: otherBranch.id,
+      isActive: true,
+    },
+  })
+
   let unmappedPrevented = false
   try {
     await FeeService.createFeeStructure(ctxScope, {
@@ -202,6 +224,7 @@ async function runVerification() {
   if (!unmappedPrevented) throw new Error('Expected unmapped program for branch to be rejected')
 
   // Clean up otherProg
+  await db.programBranch.deleteMany({ where: { programId: otherProg.id } })
   await db.program.delete({ where: { id: otherProg.id } })
 
   console.log('\n[TEST 5] Setup Engine re-evaluation with active fee structure:')

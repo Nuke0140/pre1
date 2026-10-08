@@ -59,13 +59,33 @@ async function _POST(req: NextRequest) {
     })
     const existingSet = new Set(existing.map((e) => e.admissionNo))
 
-    let classroom = null as { id: string; name: string } | null
-    if (programId) {
+    const explicitBranchId = body.branchId ? String(body.branchId) : null
+    let targetBranchId: string | null = explicitBranchId
+
+    let classroom = null as { id: string; name: string; branchId: string } | null
+    if (body.classroomId) {
       const c = await db.classroom.findFirst({
-        where: { tenantId: session.tenantId, programId, isActive: true },
-        select: { id: true, name: true },
+        where: { id: String(body.classroomId), tenantId: session.tenantId, isActive: true },
+        select: { id: true, name: true, branchId: true },
       })
-      classroom = c
+      if (c) {
+        classroom = c
+        targetBranchId = targetBranchId || c.branchId
+      }
+    } else if (programId) {
+      const c = await db.classroom.findFirst({
+        where: {
+          tenantId: session.tenantId,
+          programId,
+          isActive: true,
+          ...(targetBranchId ? { branchId: targetBranchId } : {}),
+        },
+        select: { id: true, name: true, branchId: true },
+      })
+      if (c) {
+        classroom = c
+        targetBranchId = targetBranchId || c.branchId
+      }
     }
 
     const seen = new Map<string, number>()
@@ -91,6 +111,7 @@ async function _POST(req: NextRequest) {
       return ok({
         mode, total: rows.length, valid: valid.length, invalid: invalid.length,
         targetClassroom: classroom,
+        targetBranchId,
         rows: checked.map((c) => ({
           row: c.row, firstName: c.data.firstName, lastName: c.data.lastName,
           admissionNo: c.data.admissionNo, dob: c.data.dob, gender: c.data.gender,
@@ -105,18 +126,24 @@ async function _POST(req: NextRequest) {
     // commit — only error-free rows; each in a transaction creating Student + Guardian + link
     if (valid.length === 0) return Errors.business('IMPORT_001', 'No valid rows to import', 422)
 
-    const branchRow = classroom
-      ? await db.classroom.findUnique({ where: { id: classroom.id }, select: { branchId: true } })
-      : await db.branch.findFirst({ where: { tenantId: session.tenantId, isMain: true } })
-    if (!branchRow) return Errors.notFound('Branch')
+    if (!targetBranchId) {
+      const mainBranch = await db.branch.findFirst({
+        where: { tenantId: session.tenantId, deletedAt: null },
+        orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
+      })
+      if (mainBranch) targetBranchId = mainBranch.id
+    }
+    if (!targetBranchId) return Errors.notFound('Branch')
 
+    const resolvedBranchId = targetBranchId
     const result = await db.$transaction(async (tx) => {
       let imported = 0
       for (const c of valid) {
         const student = await tx.student.create({
           data: {
             tenantId: session.tenantId,
-            branchId: branchRow.branchId,
+            branchId: resolvedBranchId,
             admissionNo: c.data.admissionNo,
             firstName: c.data.firstName,
             lastName: c.data.lastName || null,

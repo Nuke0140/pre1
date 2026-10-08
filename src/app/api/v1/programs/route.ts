@@ -17,7 +17,13 @@ async function _GET(req: NextRequest) {
   try {
     const programs = await db.program.findMany({
       where: { tenantId: session.tenantId, deletedAt: null },
-      include: { _count: { select: { classrooms: true } } },
+      include: {
+        _count: { select: { classrooms: true } },
+        branchMappings: {
+          where: { deletedAt: null },
+          select: { id: true, branchId: true, isActive: true, capacity: true },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     })
     const feePlans = await db.feePlan.findMany({
@@ -31,6 +37,7 @@ async function _GET(req: NextRequest) {
       durationMonths: p.durationMonths, capacity: p.capacity, isActive: p.isActive,
       classrooms: p._count.classrooms,
       hasFeePlan: feeTypes.has(p.programType),
+      branchMappings: p.branchMappings,
     })))
   } catch (e) {
     return Errors.system(e)

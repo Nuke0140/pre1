@@ -12,9 +12,20 @@
  */
 import { db } from '@/lib/db'
 import { audit } from '@/lib/sequence'
-import { SETUP_STEPS, STEP_MAP, isUnlocked, type StepKey, LEGACY_KEY_MAP } from './steps'
+import { SETUP_STEPS, STEP_MAP, isUnlocked, type StepKey, type StepScope, LEGACY_KEY_MAP } from './steps'
 
 type StepStatus = 'PENDING' | 'COMPLETE' | 'BLOCKED' | 'SKIPPED'
+
+export interface BranchReadiness {
+  branchId: string
+  branchName: string
+  branchCode: string
+  status: 'READY' | 'IN_PROGRESS' | 'BLOCKED'
+  progress: number
+  completedSteps: number
+  totalSteps: number
+  blockers: string[]
+}
 
 interface CtxBranch { id: string; name: string; code: string; timingOpen: string; timingClose: string; capacity: number | null; isActive: boolean }
 interface CtxProgram { id: string; code: string; name: string; programType: string; ageMinMonths: number | null; ageMaxMonths: number | null; capacity: number; isActive: boolean }
@@ -142,7 +153,7 @@ export interface StepEvaluation {
 }
 
 /** Pure predicate per step across the 17 canonical areas — derived ONLY from real data. */
-export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
+export function evaluateStep(key: StepKey, ctx: TenantContext, branchId?: string | null): StepEvaluation {
   const noDeps: string[] = []
   switch (key) {
     // ── Phase 1 — Foundation (4) ──────────────────────────────────────
@@ -172,6 +183,16 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
     }
     case 'branch': {
       const active = activeBranches(ctx)
+      if (branchId) {
+        const target = active.find((b) => b.id === branchId)
+        return {
+          satisfied: !!target,
+          blocked: false,
+          detail: target ? `Campus "${target.name}" is active` : 'Selected campus is not active or does not exist',
+          snapshot: { branchId, active: !!target },
+          missingDeps: noDeps,
+        }
+      }
       const n = active.length
       const ok = n >= 1
       return {
@@ -218,6 +239,20 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
     case 'academic_year': {
       const s = ctx.currentSession
       const valid = !!s && s.startDate < s.endDate
+      if (branchId) {
+        const bRooms = activeClassrooms(ctx).filter((c) => c.branchId === branchId && c.academicSessionId === s?.id)
+        return {
+          satisfied: valid,
+          blocked: false,
+          detail: s
+            ? valid
+              ? `Current year: ${s.name}${bRooms.length > 0 ? ` (${bRooms.length} class(es) in this campus)` : ''}`
+              : 'Current academic year has an invalid date range'
+            : 'No academic year marked current',
+          snapshot: { session: s?.name ?? null, valid, campusClassrooms: bRooms.length },
+          missingDeps: noDeps,
+        }
+      }
       return {
         satisfied: valid,
         blocked: false,
@@ -246,40 +281,106 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
     }
     case 'programs': {
       const active = activePrograms(ctx)
-      const n = active.length
-      const ok = n >= 1 && active.every((p) => p.capacity > 0)
+      if (branchId) {
+        const campusMappings = ctx.programBranches.filter((pb) => pb.branchId === branchId && pb.isActive)
+        const ok = active.length >= 1 && campusMappings.length >= 1
+        return {
+          satisfied: ok,
+          blocked: false,
+          detail: active.length === 0
+            ? 'No active programs configured in school'
+            : campusMappings.length === 0
+              ? 'No active programs mapped to this campus'
+              : `${campusMappings.length} program(s) mapped and active for this campus`,
+          snapshot: { totalPrograms: active.length, campusMappings: campusMappings.length },
+          missingDeps: noDeps,
+        }
+      }
+
+      const branches = activeBranches(ctx)
+      if (branches.length === 0) {
+        return { satisfied: false, blocked: false, detail: 'No active branch configured', snapshot: { programs: 0 }, missingDeps: noDeps }
+      }
+      const unmapped = branches.filter((b) => !ctx.programBranches.some((pb) => pb.branchId === b.id && pb.isActive))
+      const totalMappings = ctx.programBranches.filter((pb) => pb.isActive).length
+      const ok = active.length >= 1 && unmapped.length === 0 && totalMappings >= branches.length
       return {
         satisfied: ok,
         blocked: false,
-        detail: n === 0
-          ? 'No active programs configured'
+        detail: unmapped.length > 0
+          ? `Campus(es) lacking program mapping: ${unmapped.map((b) => b.name).join(', ')}`
           : ok
-            ? `${n} active program(s) configured`
-            : 'Some programs have zero or invalid capacity',
-        snapshot: { programs: n },
+            ? `${active.length} master program(s) active across ${totalMappings} campus mapping(s)`
+            : 'No active programs configured',
+        snapshot: { programs: active.length, campusMappings: totalMappings, unmappedCampuses: unmapped.length },
         missingDeps: noDeps,
       }
     }
     case 'classroom': {
+      if (branchId) {
+        const cur = currentClassrooms(ctx).filter((c) => c.branchId === branchId)
+        const linked = cur.filter((c) => c.programId != null && c.capacity > 0)
+        const unassigned = cur.filter((c) => c.primaryTeacherId == null).length
+        const ok = cur.length >= 1 && linked.length === cur.length && unassigned === 0
+        return {
+          satisfied: ok,
+          blocked: false,
+          detail: cur.length === 0
+            ? 'No classrooms configured for this campus in current year'
+            : unassigned > 0
+              ? `${unassigned} class(es) in this campus lack an assigned primary teacher`
+              : linked.length < cur.length
+                ? 'All classes must be linked to a program with capacity'
+                : `${linked.length} classroom(s) ready with teachers assigned`,
+          snapshot: { classrooms: cur.length, linked: linked.length, unassigned },
+          missingDeps: noDeps,
+        }
+      }
+
+      const branches = activeBranches(ctx)
       const cur = currentClassrooms(ctx)
-      const linked = cur.filter((c) => c.programId != null && c.capacity > 0)
-      const unassigned = cur.filter((c) => c.primaryTeacherId == null).length
-      const ok = linked.length >= 1 && unassigned === 0
+      const emptyCampuses = branches.filter((b) => !cur.some((c) => c.branchId === b.id))
+      const unassigned = cur.filter((c) => c.primaryTeacherId == null)
+      const unlinked = cur.filter((c) => c.programId == null || c.capacity <= 0)
+      const ok = branches.length > 0 && emptyCampuses.length === 0 && cur.length >= 1 && unassigned.length === 0 && unlinked.length === 0
       return {
         satisfied: ok,
         blocked: false,
-        detail: linked.length === 0
-          ? 'No classroom section linked to a program for current year'
-          : unassigned > 0
-            ? `${unassigned} class(es) without an assigned primary teacher`
-            : `${linked.length} classroom(s) ready with teachers assigned`,
-        snapshot: { classrooms: cur.length, linked: linked.length, unassigned },
+        detail: emptyCampuses.length > 0
+          ? `Campus(es) without classrooms in current year: ${emptyCampuses.map((b) => b.name).join(', ')}`
+          : unassigned.length > 0
+            ? `${unassigned.length} class(es) lack an assigned primary teacher`
+            : unlinked.length > 0
+              ? `${unlinked.length} class(es) not linked to a program`
+              : cur.length === 0
+                ? 'No classrooms linked to a program for current year'
+                : `${cur.length} classroom(s) ready across all campuses with teachers assigned`,
+        snapshot: { classrooms: cur.length, emptyCampuses: emptyCampuses.length, unassigned: unassigned.length },
         missingDeps: noDeps,
       }
     }
     case 'subject': {
       const activeSubs = ctx.subjects.filter((s) => s.status === 'ACTIVE')
       const mapped = ctx.programSubjects.length
+      if (branchId) {
+        const campusProgIds = new Set(
+          ctx.programBranches.filter((pb) => pb.branchId === branchId && pb.isActive).map((pb) => pb.programId)
+        )
+        const campusMapped = ctx.programSubjects.filter((ps) => campusProgIds.has(ps.programId)).length
+        const ok = activeSubs.length >= 1 && campusMapped >= 1
+        return {
+          satisfied: ok,
+          blocked: false,
+          detail: activeSubs.length === 0
+            ? 'No academic subjects or activities created'
+            : campusMapped === 0
+              ? 'Subjects must be mapped to programs offered at this campus'
+              : `${activeSubs.length} subject(s) active across ${campusMapped} mapping(s) for this campus`,
+          snapshot: { subjects: activeSubs.length, campusProgramMappings: campusMapped },
+          missingDeps: noDeps,
+        }
+      }
+
       const ok = activeSubs.length >= 1 && mapped >= 1
       return {
         satisfied: ok,
@@ -354,7 +455,6 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
 
     // ── Phase 4 — Business Rules (4) ──────────────────────────────────
     case 'fees_setup': {
-      const branches = activeBranches(ctx)
       const progs = activePrograms(ctx)
 
       if (progs.length === 0) {
@@ -367,7 +467,46 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
         }
       }
 
-      // Collect all (branch, program) active pairings
+      if (branchId) {
+        const branchProgIds = new Set(
+          ctx.programBranches
+            .filter((pb) => pb.branchId === branchId && pb.isActive)
+            .map((pb) => pb.programId)
+        )
+        const branchProgs = branchProgIds.size > 0
+          ? progs.filter((p) => branchProgIds.has(p.id))
+          : progs
+
+        const missing = branchProgs.filter((p) => {
+          const hasActiveStructure = ctx.feeStructures.some(
+            (fs) =>
+              fs.status === 'ACTIVE' &&
+              (fs.programId === p.id || fs.programType === p.programType) &&
+              (!fs.branchId || fs.branchId === branchId)
+          )
+          const hasActivePlan = ctx.feePlans.some(
+            (fp) => fp.isActive && fp.programType === p.programType
+          )
+          return !hasActiveStructure && !hasActivePlan
+        })
+
+        const ok = branchProgs.length > 0 && missing.length === 0
+        return {
+          satisfied: ok,
+          blocked: false,
+          detail: ok
+            ? `Active fee structures configured for all ${branchProgs.length} program(s) in this campus`
+            : `${missing.length} program(s) in this campus lack active fee structure: ${missing.map((p) => p.name).join(', ')}`,
+          snapshot: {
+            totalPairs: branchProgs.length,
+            coveredPairs: branchProgs.length - missing.length,
+            missingPairs: missing.length,
+          },
+          missingDeps: noDeps,
+        }
+      }
+
+      const branches = activeBranches(ctx)
       type ProgramBranchPair = { branch: CtxBranch; program: CtxProgram }
       const activePairs: ProgramBranchPair[] = []
 
@@ -377,8 +516,6 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
             .filter((pb) => pb.branchId === branch.id && pb.isActive)
             .map((pb) => pb.programId)
         )
-        // If mappings exist for this branch, evaluate mapped active programs;
-        // if no mappings exist yet, evaluate all active programs for the branch.
         const branchProgs = mappedProgIds.size > 0
           ? progs.filter((p) => mappedProgIds.has(p.id))
           : progs
@@ -388,7 +525,6 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
         }
       }
 
-      // Check which pairs have an active fee structure (or active fee plan)
       const missingPairs = activePairs.filter(({ branch, program }) => {
         const hasActiveStructure = ctx.feeStructures.some(
           (fs) =>
@@ -524,8 +660,10 @@ export interface SetupStatusPayload {
   progress: number
   startedAt: Date | null
   goLiveAt: Date | null
+  currentBranchId: string | null
+  branchReadiness: BranchReadiness[]
   steps: {
-    key: string; label: string; phase: string; applicability: string; icon: string
+    key: string; label: string; phase: string; scope: StepScope; applicability: string; icon: string
     description: string; status: StepStatus; detail: string
     blockedReason: string | null; missingDeps: { key: string; label: string }[]
     completedAt: Date | null; completedByName: string | null
@@ -542,11 +680,42 @@ export interface SetupStatusPayload {
  */
 export async function syncSetup(
   tenantId: string,
-  actor?: { id: string; name: string } | null
+  actor?: { id: string; name: string } | null,
+  branchId?: string | null
 ): Promise<SetupStatusPayload | null> {
   await ensureSetupRows(tenantId)
   const ctx = await loadContext(tenantId)
   if (!ctx) return null
+
+  const targetBranchId = branchId && branchId !== 'ALL' && ctx.branches.some((b) => b.id === branchId) ? branchId : null
+
+  // Compute readiness for every active branch
+  const activeCampuses = activeBranches(ctx)
+  const branchReadiness: BranchReadiness[] = activeCampuses.map((b) => {
+    let completedSteps = 0
+    const blockers: string[] = []
+    for (const def of SETUP_STEPS) {
+      const ev = evaluateStep(def.key, ctx, b.id)
+      if (ev.satisfied) {
+        completedSteps++
+      } else if (def.applicability === 'MANDATORY') {
+        blockers.push(`${def.label}: ${ev.detail}`)
+      }
+    }
+    const progress = Math.round((completedSteps / SETUP_STEPS.length) * 100)
+    const bStatus: 'READY' | 'IN_PROGRESS' | 'BLOCKED' =
+      blockers.length === 0 ? 'READY' : completedSteps > 0 ? 'IN_PROGRESS' : 'BLOCKED'
+    return {
+      branchId: b.id,
+      branchName: b.name,
+      branchCode: b.code,
+      status: bStatus,
+      progress,
+      completedSteps,
+      totalSteps: SETUP_STEPS.length,
+      blockers,
+    }
+  })
 
   const rows = await db.schoolSetupStep.findMany({ where: { tenantId } })
   const statusByKey: Record<string, StepStatus> = Object.fromEntries(rows.map((r) => [r.stepKey, r.status as StepStatus]))
@@ -554,7 +723,7 @@ export async function syncSetup(
   const autoCompletes: string[] = []
   const autoOpens: string[] = []
 
-  // pass 1 — evaluate deps then predicates
+  // pass 1 — evaluate deps then predicates (aggregate evaluation for canonical DB rows)
   for (const def of SETUP_STEPS) {
     const row = rows.find((r) => r.stepKey === def.key)
     if (!row) continue
@@ -567,7 +736,7 @@ export async function syncSetup(
       const s = statusByKey[d]
       return s !== 'COMPLETE' && s !== 'SKIPPED'
     })
-    const ev = evaluateStep(def.key, ctx)
+    const ev = evaluateStep(def.key, ctx, null)
 
     if (missingDeps.length > 0) {
       const reason = `Requires ${missingDeps.map((d) => STEP_MAP[d]?.label || d).join(' and ')} to be completed first.`
@@ -650,7 +819,8 @@ export async function syncSetup(
   const freshRows = await db.schoolSetupStep.findMany({ where: { tenantId } })
   const mandatory = freshRows.filter((r) => r.applicability === 'MANDATORY')
   const mandatoryDone = mandatory.filter((r) => r.status === 'COMPLETE' || r.status === 'SKIPPED').length
-  const anyBlocked = mandatory.some((r) => r.status === 'BLOCKED')
+  const anyBranchBlocked = branchReadiness.some((br) => br.status === 'BLOCKED')
+  const anyBlocked = mandatory.some((r) => r.status === 'BLOCKED') || anyBranchBlocked
   const doneCount = freshRows.filter((r) => r.status === 'COMPLETE' || r.status === 'SKIPPED').length
   const progress = freshRows.length ? Math.round((doneCount / freshRows.length) * 100) : 0
 
@@ -684,14 +854,23 @@ export async function syncSetup(
     }
   }
 
+  // Add branch-specific blockers to guidance if any exist
+  for (const br of branchReadiness) {
+    for (const blocker of br.blockers) {
+      guidance.push({ level: 'warning', message: `[${br.branchName}] ${blocker}`, stepKey: 'branch' })
+    }
+  }
+
   return {
     status,
     progress,
     startedAt: setup!.startedAt,
     goLiveAt: setup!.goLiveAt,
+    currentBranchId: targetBranchId,
+    branchReadiness,
     steps: SETUP_STEPS.map((def) => {
       const row = freshRows.find((r) => r.stepKey === def.key)
-      const ev = evaluateStep(def.key, ctx)
+      const ev = evaluateStep(def.key, ctx, targetBranchId)
       const missingDeps = def.deps
         .filter((d) => {
           const s = freshRows.find((r) => r.stepKey === d)?.status
@@ -705,10 +884,11 @@ export async function syncSetup(
         key: def.key,
         label: def.label,
         phase: def.phase,
+        scope: def.scope,
         applicability: def.applicability,
         icon: def.icon,
         description: def.description,
-        status: rowStatus,
+        status: targetBranchId && def.scope === 'BRANCH' ? (ev.satisfied ? 'COMPLETE' : 'PENDING') : rowStatus,
         detail: ev.detail,
         blockedReason: row?.blockedReason ?? null,
         missingDeps,
@@ -729,7 +909,8 @@ export async function syncSetup(
 export async function completeStep(
   tenantId: string,
   key: string,
-  actor: { id: string; name: string }
+  actor: { id: string; name: string },
+  branchId?: string | null
 ): Promise<{ ok: boolean; message: string; detail?: string }> {
   const def = STEP_MAP[key]
   if (!def) return { ok: false, message: `Unknown step: ${key}` }
@@ -746,7 +927,7 @@ export async function completeStep(
     return { ok: false, message: `Prerequisites not met: ${missing.map((d) => STEP_MAP[d]?.label || d).join(', ')}` }
   }
 
-  const ev = evaluateStep(def.key, ctx)
+  const ev = evaluateStep(def.key, ctx, branchId)
   if (!ev.satisfied) {
     return { ok: false, message: ev.detail || 'Requirements not satisfied by operational data' }
   }
@@ -768,7 +949,7 @@ export async function completeStep(
   await audit({
     tenantId, actorId: actor.id, actorName: actor.name,
     action: 'SETUP_STEP_COMPLETED', entity: 'SchoolSetupStep', entityId: def.key,
-    summary: `Completed step: ${def.label}`,
+    summary: `Completed step: ${def.label}${branchId ? ` for branch ${branchId}` : ''}`,
   })
 
   return { ok: true, message: `Completed ${def.label}` }

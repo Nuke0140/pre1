@@ -43,11 +43,24 @@ interface StepRow {
   locked: boolean
 }
 
+interface BranchReadiness {
+  branchId: string
+  branchName: string
+  branchCode: string
+  status: 'READY' | 'IN_PROGRESS' | 'BLOCKED'
+  progress: number
+  completedSteps: number
+  totalSteps: number
+  blockers: string[]
+}
+
 interface StatusPayload {
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'READY_FOR_GO_LIVE' | 'LIVE'
   progress: number
   startedAt: string | null
   goLiveAt: string | null
+  currentBranchId: string | null
+  branchReadiness?: BranchReadiness[]
   steps: StepRow[]
   nextStepKey: string | null
   guidance: { level: 'info' | 'warning'; message: string; stepKey: string }[]
@@ -57,12 +70,23 @@ interface ValidationCategory {
   key: string
   label: string
   status: 'PASS' | 'WARNING' | 'BLOCKED'
-  findings: { status: 'PASS' | 'WARNING' | 'BLOCKED'; message: string }[]
+  findings: { status: 'PASS' | 'WARNING' | 'BLOCKED'; message: string; branchName?: string | null }[]
+}
+
+interface BranchValidationSummary {
+  branchId: string
+  branchName: string
+  status: 'PASS' | 'WARNING' | 'BLOCKED'
+  blockedCount: number
+  warningCount: number
+  blockers: string[]
 }
 
 interface ValidationPayload {
   overall: 'PASS' | 'WARNING' | 'BLOCKED'
   categories: ValidationCategory[]
+  branchSummaries?: BranchValidationSummary[]
+  blockers?: { category: string; message: string; branchName?: string | null }[]
   setupStatus?: string
 }
 
@@ -115,6 +139,7 @@ const CAT_STATUS_MAP: Record<string, { cls: string; label: string }> = {
 export default function SetupPage() {
   const toast = useToast()
   const [status, setStatus] = useState<StatusPayload | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
   const [metroFilter, setMetroFilter] = useState<'ALL' | 'MANDATORY' | 'RECOMMENDED' | 'REMAINING'>('ALL')
   const [validation, setValidation] = useState<ValidationPayload | null>(null)
   const [validating, setValidating] = useState(false)
@@ -141,9 +166,11 @@ export default function SetupPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<Dict | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (bId?: string) => {
     try {
-      const res = await fetch('/api/v1/setup/status')
+      const activeBId = bId !== undefined ? bId : selectedBranchId
+      const q = activeBId && activeBId !== 'ALL' ? `?branchId=${activeBId}` : ''
+      const res = await fetch(`/api/v1/setup/status${q}`)
       const j = await res.json()
       if (j.success) {
         setStatus(j.data)
@@ -154,7 +181,7 @@ export default function SetupPage() {
     } catch {
       // ignore network errors on unmount
     }
-  }, [])
+  }, [selectedBranchId])
 
   const loadHubData = useCallback(async () => {
     try {
@@ -328,6 +355,28 @@ export default function SetupPage() {
         title="Preschool Setup & Configuration"
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {branches.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', padding: '3px 8px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <Building2 size={14} style={{ color: 'var(--text-secondary)' }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>Campus:</span>
+                <select
+                  className="select"
+                  style={{ minWidth: 150, height: 28, fontSize: 12, padding: '2px 8px' }}
+                  value={selectedBranchId}
+                  onChange={(e) => {
+                    setSelectedBranchId(e.target.value)
+                    load(e.target.value)
+                  }}
+                >
+                  <option value="ALL">All Campuses (Aggregated)</option>
+                  {branches.map((b: any) => (
+                    <option key={String(b.id)} value={String(b.id)}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>
               <LayoutList size={14} /> Dependency Graph
             </button>
@@ -340,7 +389,94 @@ export default function SetupPage() {
         }
       />
 
-      {/* ── 2. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
+      {/* ── 2. CAMPUS READINESS MATRIX OVERVIEW ── */}
+      {status.branchReadiness && status.branchReadiness.length > 0 && (
+        <div style={{ marginTop: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+              <Building2 size={15} style={{ color: 'var(--primary)' }} />
+              <span>Campus Readiness Matrix</span>
+              <span className="badge b-neutral" style={{ fontSize: 10.5 }}>{status.branchReadiness.length} Campuses</span>
+            </div>
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              {selectedBranchId !== 'ALL' ? 'Showing filtered campus — click a card or select All Campuses to see full school' : 'All operating campuses must pass operational readiness before Go-Live'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+            {status.branchReadiness.map((br) => {
+              const isReady = br.status === 'READY'
+              const isBlocked = br.status === 'BLOCKED'
+              const badgeCls = isReady ? 'b-success' : isBlocked ? 'b-danger' : 'b-orange'
+              const isSelected = selectedBranchId === br.branchId
+              return (
+                <div
+                  key={br.branchId}
+                  className="card"
+                  style={{
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    border: isSelected
+                      ? '2px solid var(--primary)'
+                      : isBlocked
+                      ? '1px solid var(--danger, #ef4444)'
+                      : '1px solid var(--border-subtle)',
+                    background: isSelected ? 'var(--bg-subtle)' : 'var(--bg-card)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onClick={() => {
+                    const next = selectedBranchId === br.branchId ? 'ALL' : br.branchId
+                    setSelectedBranchId(next)
+                    load(next)
+                  }}
+                  title={`Click to filter setup steps for ${br.branchName}`}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 13.5 }}>{br.branchName}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({br.branchCode})</span>
+                    </div>
+                    <span className={`badge ${badgeCls}`} style={{ fontSize: 10.5 }}>
+                      {br.status.replaceAll('_', ' ')}
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Ready: {br.completedSteps}/{br.totalSteps}</span>
+                      <span style={{ fontWeight: 600 }}>{br.progress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: 5, background: 'var(--bg-subtle)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${br.progress}%`,
+                          height: '100%',
+                          background: isReady ? 'var(--success, #16a34a)' : isBlocked ? 'var(--danger, #dc2626)' : 'var(--primary)',
+                          borderRadius: 99,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {br.blockers.length > 0 ? (
+                    <div style={{ fontSize: 11, color: 'var(--danger, #b91c1c)', background: 'var(--danger-bg, #fef2f2)', padding: '5px 8px', borderRadius: 6, marginTop: 4 }}>
+                      <div style={{ fontWeight: 600 }}>Blocker:</div>
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{br.blockers[0]}</div>
+                      {br.blockers.length > 1 && <div style={{ fontSize: 10, opacity: 0.8 }}>+{br.blockers.length - 1} more</div>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--success, #16a34a)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <CheckCircle2 size={12} />
+                      <span>All campus checks ready</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── 3. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
       <div style={{ marginTop: 8 }}>
 
         {/* 4 Phase Columns */}
@@ -444,6 +580,21 @@ export default function SetupPage() {
                 <RefreshCw size={13} /> Re-verify
               </button>
             </div>
+            {validation.branchSummaries && validation.branchSummaries.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                <span className="cell-strong" style={{ fontSize: 13 }}>Campus Health Breakdown:</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                  {validation.branchSummaries.map((bs) => (
+                    <div key={bs.branchId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--bg-card)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 500 }}>{bs.branchName}</span>
+                      <span className={`badge ${CAT_STATUS_MAP[bs.status]?.cls || 'b-neutral'}`} style={{ fontSize: 10.5 }}>
+                        {bs.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {validation.categories.map((c) => (
               <div key={c.key} style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-card)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
