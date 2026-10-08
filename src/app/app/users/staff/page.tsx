@@ -15,6 +15,7 @@ import { useToast } from '@/components/preone/Toast'
 import { AddStaffModal } from '@/components/users/AddStaffModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
+import { BulkUpdateFieldModal } from '@/components/users/BulkUpdateFieldModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { RecordInspector } from '@/components/preone'
 import { EditUserModal } from '@/components/users/EditUserModal'
@@ -53,6 +54,10 @@ export default function StaffUsersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [total, setTotal] = useState(0)
+
+  // Selection & Bulk Actions
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [bulkFieldUpdateOpen, setBulkFieldUpdateOpen] = useState(false)
 
   // Modals
   const [addStaffOpen, setAddStaffOpen] = useState(false)
@@ -120,21 +125,56 @@ export default function StaffUsersPage() {
     fetchStaff()
   }, [fetchStaff])
 
-  // Support deep links from search & inspector: ?editUser=... or ?user=...
+  // Track handled URL deep link IDs to prevent infinite re-opening on close
+  const deepLinkHandledRef = React.useRef<string | null>(null)
+
   useEffect(() => {
     if (typeof window !== 'undefined' && users.length > 0) {
       const sp = new URLSearchParams(window.location.search)
       const editUserId = sp.get('editUser')
       const viewUserId = sp.get('user')
-      if (editUserId && !editingUser) {
-        const found = users.find((u) => u.userId === editUserId || u.id === editUserId)
-        if (found) setEditingUser(found)
-      } else if (viewUserId && !viewingUser) {
-        const found = users.find((u) => u.userId === viewUserId || u.id === viewUserId)
-        if (found) setViewingUser(found)
+      const targetId = editUserId || viewUserId
+
+      if (targetId && deepLinkHandledRef.current !== targetId) {
+        deepLinkHandledRef.current = targetId
+        if (editUserId) {
+          const found = users.find((u) => u.userId === editUserId || u.id === editUserId)
+          if (found) setEditingUser(found)
+        } else if (viewUserId) {
+          const found = users.find((u) => u.userId === viewUserId || u.id === viewUserId)
+          if (found) setViewingUser(found)
+        }
       }
     }
-  }, [users, editingUser, viewingUser])
+  }, [users])
+
+  const handleCloseViewingUser = useCallback(() => {
+    setViewingUser(null)
+    deepLinkHandledRef.current = null
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.has('user') || sp.has('editUser')) {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('user')
+        url.searchParams.delete('editUser')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [])
+
+  const handleCloseEditingUser = useCallback(() => {
+    setEditingUser(null)
+    deepLinkHandledRef.current = null
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      if (sp.has('user') || sp.has('editUser')) {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('user')
+        url.searchParams.delete('editUser')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [])
 
   // KPIs
   const kpis = useMemo(() => {
@@ -307,6 +347,15 @@ export default function StaffUsersPage() {
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>{t('common.import')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkFieldUpdateOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-fields"
+              title="Dynamic Bulk User Field Update"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-purple-600" />
+              <span>Bulk Field Update</span>
             </button>
             <button
               type="button"
@@ -532,13 +581,34 @@ export default function StaffUsersPage() {
           data={users}
           loading={loading}
           onRowClick={(u) => setViewingUser(u)}
-          showToolbar={false}
           rowSelection={true}
           selectedKeys={selectedKeys}
           onSelectionChange={(keys) => {
             setSelectedKeys(keys)
             if (keys.length === 0) setSelectAllMatching(false)
           }}
+          showToolbar={selectedKeys.length > 0}
+          bulkActions={
+            selectedKeys.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                  onClick={() => setBulkFieldUpdateOpen(true)}
+                >
+                  <Edit3 size={14} />
+                  <span>Bulk Update Field ({selectedKeys.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
+                  onClick={() => setBulkActionModalOpen(true)}
+                >
+                  <span>More Actions</span>
+                </button>
+              </div>
+            ) : null
+          }
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle="No staff members found"
           emptyMessage="No staff records match your selected role, branch, status, or search query."
@@ -599,7 +669,7 @@ export default function StaffUsersPage() {
       {/* Side-Peek Inspector Drawer */}
       <RecordInspector
         open={Boolean(viewingUser)}
-        onClose={() => setViewingUser(null)}
+        onClose={handleCloseViewingUser}
         type="staff"
         recordId={viewingUser?.userId || viewingUser?.id}
         initialData={viewingUser}
@@ -608,7 +678,7 @@ export default function StaffUsersPage() {
 
       <EditUserModal
         open={Boolean(editingUser)}
-        onClose={() => setEditingUser(null)}
+        onClose={handleCloseEditingUser}
         user={editingUser}
         branches={branches}
         onSuccess={fetchStaff}
@@ -643,6 +713,18 @@ export default function StaffUsersPage() {
         onSuccess={() => {
           setSelectedKeys([])
           setSelectAllMatching(false)
+          fetchStaff()
+        }}
+      />
+
+      <BulkUpdateFieldModal
+        open={bulkFieldUpdateOpen}
+        onClose={() => setBulkFieldUpdateOpen(false)}
+        selectedUserIds={selectedKeys.map((k) => String(k))}
+        branches={branches}
+        userType="STAFF"
+        onSuccess={() => {
+          setSelectedKeys([])
           fetchStaff()
         }}
       />

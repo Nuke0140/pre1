@@ -48,7 +48,7 @@ export function Staff360Drawer({ open, onClose, staff, loading }: Staff360Drawer
         <div className="space-y-5 text-xs">
           {/* ── Employee Header Strip ── */}
           <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 flex items-center gap-3">
-            <Avatar name={staff.user?.fullName} size="lg" />
+            <Avatar name={staff.user?.fullName || staff.name} src={staff.user?.avatarUrl || staff.avatarUrl || staff.user?.photoUrl || staff.photoUrl} size="lg" />
             <div className="space-y-1 min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-foreground truncate">{staff.user?.fullName}</h2>

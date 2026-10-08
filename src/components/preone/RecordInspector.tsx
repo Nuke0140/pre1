@@ -524,7 +524,7 @@ export function RecordInspector({
         <div
           ref={bodyRef}
           className="drawer-body flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-5"
-          style={{ overscrollBehavior: 'contain', overflowX: 'hidden' }}
+          style={{ overscrollBehavior: 'contain', overflowX: 'hidden', scrollbarGutter: 'stable' }}
         >
           {loading && !data ? (
             <div className="space-y-4 py-6">
@@ -908,18 +908,26 @@ function StaffInspectorContent({
 }) {
   const staff = data.user || data
   const profile = staff.staffProfile || data.staffProfile || {}
-  const fullName = staff.fullName || staff.name || 'Staff Member'
-  const email = staff.email
-  const phone = staff.phone || profile.phone
+  const fullName = staff.fullName || staff.name || data.name || 'Staff Member'
+  const email = staff.email || data.email
+  const phone = staff.phone || profile.phone || data.phone
   const cleanPhone = cleanPhoneForWhatsApp(phone)
   const role = staff.role || data.role || 'STAFF'
   const taughtClasses = staff.taughtClasses || data.taughtClasses || []
+  const avatarUrl =
+    staff.avatarUrl ||
+    data.avatarUrl ||
+    profile.avatarUrl ||
+    profile.photoUrl ||
+    staff.photoUrl ||
+    data.photoUrl ||
+    null
 
   return (
     <div className="space-y-5 text-sm">
       {/* Identity Card */}
       <div className="card p-4 rounded-xl flex items-start gap-4">
-        <Avatar name={fullName} src={staff.avatarUrl} size="lg" className="shrink-0" />
+        <Avatar name={fullName} src={avatarUrl} size="lg" className="shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-bold text-base text-foreground truncate">{fullName}</h4>

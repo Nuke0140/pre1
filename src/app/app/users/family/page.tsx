@@ -16,6 +16,7 @@ import { useToast } from '@/components/preone/Toast'
 import { AddFamilyModal } from '@/components/users/AddFamilyModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
+import { BulkUpdateFieldModal } from '@/components/users/BulkUpdateFieldModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
@@ -55,6 +56,7 @@ export default function FamilyUsersPage() {
   // Selection
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [selectAllMatching, setSelectAllMatching] = useState(false)
+  const [bulkFieldUpdateOpen, setBulkFieldUpdateOpen] = useState(false)
 
   // Modals
   const [addFamilyOpen, setAddFamilyOpen] = useState(false)
@@ -449,6 +451,15 @@ export default function FamilyUsersPage() {
             </button>
             <button
               type="button"
+              onClick={() => setBulkFieldUpdateOpen(true)}
+              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-fields"
+              title="Dynamic Bulk Field Update"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-purple-600" />
+              <span>Bulk Field Update</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setBulkPhotosOpen(true)}
               className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-photos"
             >
@@ -752,13 +763,34 @@ export default function FamilyUsersPage() {
           columns={activeTab === 'PARENTS' ? parentColumns : guardianColumns}
           data={users}
           loading={loading}
-          showToolbar={false}
+          showToolbar={selectedKeys.length > 0}
           rowSelection={true}
           selectedKeys={selectedKeys}
           onSelectionChange={(keys) => {
             setSelectedKeys(keys)
             if (keys.length === 0) setSelectAllMatching(false)
           }}
+          bulkActions={
+            selectedKeys.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                  onClick={() => setBulkFieldUpdateOpen(true)}
+                >
+                  <Edit3 size={14} />
+                  <span>Bulk Update Field ({selectedKeys.length})</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
+                  onClick={() => setBulkActionModalOpen(true)}
+                >
+                  <span>More Actions</span>
+                </button>
+              </div>
+            ) : null
+          }
           emptyIcon={<EmptyUsersIllustration size={120} />}
           emptyTitle={`No ${activeTab === 'PARENTS' ? 'parents' : 'guardians'} found`}
           emptyMessage={`No ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} accounts match your selected campus branch, status, or search query.`}
@@ -864,6 +896,18 @@ export default function FamilyUsersPage() {
         onSuccess={() => {
           setSelectedKeys([])
           setSelectAllMatching(false)
+          fetchFamilyUsers()
+        }}
+      />
+
+      <BulkUpdateFieldModal
+        open={bulkFieldUpdateOpen}
+        onClose={() => setBulkFieldUpdateOpen(false)}
+        selectedUserIds={selectedKeys.map((k) => String(k))}
+        branches={branches}
+        userType="FAMILY"
+        onSuccess={() => {
+          setSelectedKeys([])
           fetchFamilyUsers()
         }}
       />

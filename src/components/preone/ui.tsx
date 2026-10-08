@@ -20,6 +20,10 @@ export function Avatar({
   const [imgError, setImgError] = React.useState(false)
   const safeName = name || ''
 
+  React.useEffect(() => {
+    setImgError(false)
+  }, [src])
+
   if (src && !imgError) {
     return (
       <span className={`avatar ${size || ''} ${className || ''}`} style={{ overflow: 'hidden', padding: 0 }} aria-hidden="true">
