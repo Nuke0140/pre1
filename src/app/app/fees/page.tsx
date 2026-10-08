@@ -63,6 +63,8 @@ interface FeeStructure {
   classroom?: { id: string; name: string } | null
   program?: { id: string; name: string } | null
   programType?: string | null
+  branchId?: string | null
+  branch?: { id: string; name: string } | null
   items: FeeStructureItem[]
   _count?: { schedules: number }
   createdAt: string
@@ -143,7 +145,10 @@ export default function FeesPage() {
   const [activeTab, setActiveTab] = useState<'STRUCTURES' | 'SCHEDULES' | 'DEPOSITS' | 'PAYMENTS'>('STRUCTURES')
 
   // Master Options
-  const [classrooms, setClassrooms] = useState<{ id: string; name: string }[]>([])
+  const [branches, setBranches] = useState<{ id: string; name: string; code: string }[]>([])
+  const [programs, setPrograms] = useState<{ id: string; name: string; code: string; programType: string }[]>([])
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('ALL')
+  const [classrooms, setClassrooms] = useState<{ id: string; name: string; branchId?: string; programId?: string }[]>([])
   const [academicSessions, setAcademicSessions] = useState<{ id: string; name: string }[]>([])
   const [students, setStudents] = useState<{ id: string; name: string; admissionNo: string }[]>([])
 
@@ -170,6 +175,8 @@ export default function FeesPage() {
 
   // Form States
   const [structForm, setStructForm] = useState({
+    branchId: '',
+    programId: '',
     name: '',
     description: '',
     academicSessionId: '',
@@ -259,14 +266,24 @@ export default function FeesPage() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [clsRes, sessRes, stdRes] = await Promise.all([
+        const [clsRes, sessRes, stdRes, brRes, prRes] = await Promise.all([
           fetch('/api/v1/classrooms').catch(() => null),
           fetch('/api/v1/academic-years').catch(() => fetch('/api/v1/academics/sessions')).catch(() => null),
           fetch('/api/v1/students').catch(() => null),
+          fetch('/api/v1/branches').catch(() => null),
+          fetch('/api/v1/programs').catch(() => null),
         ])
         if (clsRes && clsRes.ok) {
           const d = await clsRes.json()
           setClassrooms(d.data || d || [])
+        }
+        if (brRes && brRes.ok) {
+          const d = await brRes.json()
+          setBranches(d.data || d || [])
+        }
+        if (prRes && prRes.ok) {
+          const d = await prRes.json()
+          setPrograms(d.data || d || [])
         }
         if (sessRes && sessRes.ok) {
           const d = await sessRes.json()
@@ -344,6 +361,8 @@ export default function FeesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          branchId: structForm.branchId || undefined,
+          programId: structForm.programId || undefined,
           name: structForm.name,
           description: structForm.description,
           academicSessionId: structForm.academicSessionId || undefined,
@@ -834,30 +853,89 @@ export default function FeesPage() {
       {/* TAB 1: FEE STRUCTURES */}
       {activeTab === 'STRUCTURES' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Configured Fee Structures</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Activating a structure automatically applies it to all eligible class students
-            </span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Configured Fee Structures</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Canonical fee configuration governed in Setup. Activating a structure applies it to enrolled class students.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="/app/setup/fees_setup"
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
+              >
+                <span>Setup & Governance</span>
+              </a>
+              <button
+                onClick={() => setShowStructureModal(true)}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 flex items-center gap-1 transition-all duration-150 active:scale-[0.98]"
+              >
+                <Plus className="size-3.5" />
+                <span>New Structure</span>
+              </button>
+            </div>
           </div>
 
-          {!structures.length ? (
+          {/* Campus Branch Filter Toolbar */}
+          {branches.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <Building2 className="size-4 text-slate-500" />
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Filter by Campus:</span>
+                <select
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                  value={selectedBranchFilter}
+                  onChange={(e) => setSelectedBranchFilter(e.target.value)}
+                >
+                  <option value="ALL">All Campuses ({branches.length})</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-slate-500 dark:text-slate-400">
+                Showing{' '}
+                <strong className="text-slate-900 dark:text-white font-mono">
+                  {structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length}
+                </strong>{' '}
+                structure(s)
+              </div>
+            </div>
+          )}
+
+          {!(structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length) ? (
             <EmptyState
               icon={<Sparkles className="size-8 text-indigo-500" />}
-              title="No Fee Structures Configured"
-              message="Create a fee structure for Nursery or Playgroup to configure tuition and deposit rules."
+              title="No Fee Structures Found"
+              message={
+                selectedBranchFilter !== 'ALL'
+                  ? 'No fee structures configured for the selected campus. Configure fee pricing in Setup.'
+                  : 'No fee structures configured yet. Create a fee structure in Setup or right here.'
+              }
               action={
-                <button
-                  onClick={() => setShowStructureModal(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all duration-150 active:scale-[0.98]"
-                >
-                  Create Fee Structure
-                </button>
+                <div className="flex gap-2">
+                  <a
+                    href="/app/setup/fees_setup"
+                    className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150"
+                  >
+                    Configure in Setup
+                  </a>
+                  <button
+                    onClick={() => setShowStructureModal(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all duration-150 active:scale-[0.98]"
+                  >
+                    Create Fee Structure
+                  </button>
+                </div>
               }
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {structures.map((st) => (
+              {structures
+                .filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter)
+                .map((st) => (
                 <div key={st.id} className="premium-card p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -1092,6 +1170,19 @@ export default function FeesPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Campus Branch</label>
+                <select
+                  value={structForm.branchId}
+                  onChange={(e) => setStructForm({ ...structForm, branchId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Branches / Main Campus</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Academic Session</label>
                 <select
                   value={structForm.academicSessionId}
@@ -1104,14 +1195,30 @@ export default function FeesPage() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Classroom / Program</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Program</label>
+                <select
+                  value={structForm.programId}
+                  onChange={(e) => setStructForm({ ...structForm, programId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Select Program (Optional)</option>
+                  {programs.map((p) => (
+                    <option key={p.id} value={p.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{p.name} ({p.code})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Classroom (Optional)</label>
                 <select
                   value={structForm.classroomId}
                   onChange={(e) => setStructForm({ ...structForm, classroomId: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Classrooms / All Programs</option>
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Classrooms in Program</option>
                   {classrooms.map((c) => (
                     <option key={c.id} value={c.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{c.name}</option>
                   ))}

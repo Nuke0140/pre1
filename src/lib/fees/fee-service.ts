@@ -70,6 +70,7 @@ export interface CreateFeeStructureItemInput {
 }
 
 export interface CreateFeeStructureInput {
+  branchId?: string | null
   academicSessionId?: string | null
   programId?: string | null
   classroomId?: string | null
@@ -1830,6 +1831,7 @@ export class FeeService {
   static async getFeeStructures(
     tenantId: string,
     filters?: {
+      branchId?: string
       academicSessionId?: string
       classroomId?: string
       programId?: string
@@ -1841,6 +1843,7 @@ export class FeeService {
       where: {
         tenantId,
         deletedAt: null,
+        ...(filters?.branchId ? { branchId: filters.branchId } : {}),
         ...(filters?.academicSessionId ? { academicSessionId: filters.academicSessionId } : {}),
         ...(filters?.classroomId ? { classroomId: filters.classroomId } : {}),
         ...(filters?.programId ? { programId: filters.programId } : {}),
@@ -1884,20 +1887,84 @@ export class FeeService {
       throw new Error('Name and at least one fee item are required')
     }
 
-    const { session } = await this.verifyScope(ctx.tenantId, ctx.branchId, input.academicSessionId)
+    const targetBranchId = input.branchId !== undefined ? input.branchId : ctx.branchId
+    const { session, branch } = await this.verifyScope(ctx.tenantId, targetBranchId, input.academicSessionId)
     const targetSessionId = input.academicSessionId || session?.id
+    const finalBranchId = targetBranchId || branch?.id || null
+
+    // Validate branch exists and belongs to tenant
+    if (finalBranchId) {
+      const branchExists = await db.branch.findFirst({
+        where: { id: finalBranchId, tenantId: ctx.tenantId, deletedAt: null },
+      })
+      if (!branchExists) throw new Error('Selected branch does not belong to this school')
+    }
+
+    // Resolve program details if programId is provided
+    let resolvedProgramType = input.programType || null
+    let programRecord: any = null
+    if (input.programId) {
+      programRecord = await db.program.findFirst({
+        where: { id: input.programId, tenantId: ctx.tenantId, deletedAt: null },
+      })
+      if (!programRecord) throw new Error('Selected program was not found')
+      if (!resolvedProgramType && programRecord.programType) {
+        resolvedProgramType = programRecord.programType
+      }
+
+      // If branch is specified, verify program is mapped to this branch
+      if (finalBranchId) {
+        const mapping = await db.programBranch.findFirst({
+          where: { programId: input.programId, branchId: finalBranchId, tenantId: ctx.tenantId, isActive: true },
+        })
+        if (!mapping) {
+          throw new Error(`Program "${programRecord.name}" is not mapped to the selected branch`)
+        }
+      }
+    }
+
+    // Validate academic session belongs to tenant
+    if (targetSessionId) {
+      const sessionExists = await db.academicSession.findFirst({
+        where: { id: targetSessionId, tenantId: ctx.tenantId },
+      })
+      if (!sessionExists) throw new Error('Selected academic session was not found')
+    }
+
+    const structureStatus = input.status || 'DRAFT'
+
+    // Prevent duplicate active fee structures for Branch + Program + Academic Session
+    if (structureStatus === 'ACTIVE' && input.programId && targetSessionId) {
+      const existingActive = await db.feeStructure.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          branchId: finalBranchId,
+          programId: input.programId,
+          academicSessionId: targetSessionId,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        include: { program: true },
+      })
+      if (existingActive) {
+        const progName = existingActive.program?.name || 'this program'
+        throw new Error(
+          `An active fee structure already exists for ${progName} in the selected branch and academic year. Please edit or archive the existing structure first.`
+        )
+      }
+    }
 
     const structure = await db.feeStructure.create({
       data: {
         tenantId: ctx.tenantId,
-        branchId: ctx.branchId || null,
+        branchId: finalBranchId,
         academicSessionId: targetSessionId,
         programId: input.programId || null,
         classroomId: input.classroomId || null,
-        programType: input.programType || null,
+        programType: resolvedProgramType,
         name: input.name.trim(),
         description: input.description?.trim() || null,
-        status: input.status || 'DRAFT',
+        status: structureStatus,
         effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : null,
         effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
         createdById: ctx.actorId,
@@ -1920,11 +1987,51 @@ export class FeeService {
           })),
         },
       },
-      include: { items: true },
+      include: { items: true, program: true, academicSession: true },
     })
+
+    // If active and has programType, sync/upsert canonical FeePlan record so legacy readers remain consistent
+    if (structure.status === 'ACTIVE' && resolvedProgramType) {
+      try {
+        const totalAnnualCents = structure.items.reduce((s, i) => s + Math.round(i.amountCents), 0)
+        const existingPlan = await db.feePlan.findFirst({
+          where: {
+            tenantId: ctx.tenantId,
+            programType: resolvedProgramType,
+            branchId: finalBranchId,
+          },
+        })
+        if (!existingPlan) {
+          await db.feePlan.create({
+            data: {
+              tenantId: ctx.tenantId,
+              branchId: finalBranchId,
+              name: structure.name,
+              programType: resolvedProgramType,
+              totalAnnualCents,
+              installmentCount: 1,
+              isActive: true,
+              items: {
+                create: structure.items.map((item) => ({
+                  feeHeadId: item.feeHeadId || null,
+                  feeHead: 'TUITION',
+                  label: item.name,
+                  amountCents: item.amountCents,
+                  frequency: item.frequency,
+                })),
+              },
+            },
+          })
+        }
+      } catch (err) {
+        // Non-blocking log: FeeStructure remains authoritative
+        console.warn('FeePlan sync notice:', err)
+      }
+    }
 
     await recordAudit({
       tenantId: ctx.tenantId,
+      branchId: finalBranchId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,

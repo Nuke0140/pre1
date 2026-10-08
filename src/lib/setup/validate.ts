@@ -110,9 +110,39 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
     ].filter((f) => f.message !== '')),
 
     cat('finance', 'Fees & Finance', [
-      programs.length > 0 && programs.some((p) => !ctx.feePlans.some((f) => f.isActive && f.programType === p.programType))
-        ? B(`No active fee plan exists for: ${programs.filter((p) => !ctx.feePlans.some((f) => f.isActive && f.programType === p.programType)).map((p) => p.name).join(', ')}`)
-        : W(''),
+      ...(() => {
+        const missingCoverage: string[] = []
+        for (const b of branches) {
+          const mappedProgIds = new Set(
+            ctx.programBranches
+              .filter((pb) => pb.branchId === b.id && pb.isActive)
+              .map((pb) => pb.programId)
+          )
+          const branchProgs = mappedProgIds.size > 0
+            ? programs.filter((p) => mappedProgIds.has(p.id))
+            : programs
+
+          for (const p of branchProgs) {
+            const hasActiveStructure = ctx.feeStructures.some(
+              (fs) =>
+                fs.status === 'ACTIVE' &&
+                (fs.programId === p.id || fs.programType === p.programType) &&
+                (!fs.branchId || fs.branchId === b.id)
+            )
+            const hasActivePlan = ctx.feePlans.some(
+              (fp) => fp.isActive && fp.programType === p.programType
+            )
+            if (!hasActiveStructure && !hasActivePlan) {
+              missingCoverage.push(`${p.name} (${b.name})`)
+            }
+          }
+        }
+
+        if (programs.length > 0 && missingCoverage.length > 0) {
+          return [B(`No active fee structure configured for: ${missingCoverage.slice(0, 4).join(', ')}${missingCoverage.length > 4 ? '…' : ''}`)]
+        }
+        return []
+      })(),
       A(cfg.FINANCE?.paymentMethods).length === 0 ? W('Accepted payment methods not configured (defaults: Cash, UPI, Bank)') : W(''),
     ].filter((f) => f.message !== '')),
 

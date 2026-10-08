@@ -5,6 +5,7 @@ import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
+  ArrowUpRight, ShieldCheck,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -581,23 +582,7 @@ export default function SetupStepPage() {
             {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} onEditStaff={(s) => { setEditItem(s); setEditType('staff'); }} />}
 
             {kind === 'fees' && (
-              <>
-                <p className="card-sub" style={{ marginBottom: 14 }}>Every active program needs an active fee plan — invoices can never be generated without valid fee configuration. Fee heads and plan items live in <a href="/app/settings" className="cell-link">Settings → Fees</a> (existing Finance domain).</p>
-                <div className="dtable-scroll"><table className="dtable">
-                  <thead><tr><th>Program</th><th>Fee plan</th><th>Classes</th></tr></thead>
-                  <tbody>{list.map((p: any) => (
-                    <tr key={String(p.id)}>
-                      <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code}</span></td>
-                      <td>{p.hasFeePlan ? <span className="badge b-success">active plan linked</span> : <span className="badge b-danger">no fee plan</span>}</td>
-                      <td>{String(p.classrooms)}</td>
-                    </tr>
-                  ))}</tbody>
-                </table></div>
-                <div style={{ marginTop: 14 }}>
-                  <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
-                  <QuickFinanceConfig onDone={refreshAll} api={api} toast={toast} />
-                </div>
-              </>
+              <FeeSetupSection onDone={refreshAll} api={api} toast={toast} />
             )}
 
             {kind === 'import' && (
@@ -858,6 +843,738 @@ function StaffSection({ staff, onDone, onAdd, onEditStaff }: { staff: Dict[]; on
             </tr>
           ))}</tbody>
         </table></div>
+      )}
+    </>
+  )
+}
+
+interface FeeItemRow {
+  name: string
+  feeType: 'REGULAR' | 'REFUNDABLE_DEPOSIT'
+  amountRupees: number | string
+  frequency: 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'ANNUALLY'
+  dueRule: string
+  lateFeeApplicable: boolean
+  lateFeeRupees: number | string
+  isRefundable: boolean
+}
+
+function CreateFeeStructureModal({
+  branches,
+  programs,
+  academicYears,
+  onClose,
+  onDone,
+  api,
+  toast,
+}: {
+  branches: any[]
+  programs: any[]
+  academicYears: any[]
+  onClose: () => void
+  onDone: () => void
+  api: ApiFn
+  toast: ToastFn
+}) {
+  const [step, setStep] = useState<1 | 2>(1)
+  const [branchId, setBranchId] = useState(branches[0]?.id || '')
+  const [academicSessionId, setAcademicSessionId] = useState(
+    academicYears.find((y) => y.isCurrent)?.id || academicYears[0]?.id || ''
+  )
+  const [programId, setProgramId] = useState('')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState<'ACTIVE' | 'DRAFT'>('ACTIVE')
+  const [busy, setBusy] = useState(false)
+
+  const [items, setItems] = useState<FeeItemRow[]>([
+    { name: 'Admission Fee', feeType: 'REGULAR', amountRupees: 5000, frequency: 'ONE_TIME', dueRule: 'On Admission', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: false },
+    { name: 'Tuition Fee', feeType: 'REGULAR', amountRupees: 4000, frequency: 'MONTHLY', dueRule: '10th of every month', lateFeeApplicable: true, lateFeeRupees: 200, isRefundable: false },
+    { name: 'Caution / Security Deposit', feeType: 'REFUNDABLE_DEPOSIT', amountRupees: 5000, frequency: 'ONE_TIME', dueRule: 'On Admission', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: true },
+  ])
+
+  // Filter programs mapped to selected branch
+  const availablePrograms = useMemo(() => {
+    if (!branchId) return []
+    return programs.filter((p) => {
+      if (!p.branchMappings || p.branchMappings.length === 0) return true
+      return p.branchMappings.some((bm: any) => bm.branchId === branchId && bm.isActive)
+    })
+  }, [programs, branchId])
+
+  useEffect(() => {
+    if (availablePrograms.length > 0 && !availablePrograms.some((p) => p.id === programId)) {
+      setProgramId(availablePrograms[0].id)
+    }
+  }, [availablePrograms, programId])
+
+  const selectedProg = programs.find((p) => p.id === programId)
+  const selectedBranch = branches.find((b) => b.id === branchId)
+  const selectedYear = academicYears.find((y) => y.id === academicSessionId)
+
+  // Auto-generate name when parameters change if name was default
+  useEffect(() => {
+    if (selectedProg && selectedBranch && selectedYear) {
+      setName(`${selectedProg.name} Fee Structure — ${selectedYear.name || 'AY'}`)
+    }
+  }, [selectedProg?.name, selectedBranch?.name, selectedYear?.name])
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { name: 'Activity & Learning Kit', feeType: 'REGULAR', amountRupees: 1500, frequency: 'ANNUALLY', dueRule: 'Term Start', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: false },
+    ])
+  }
+
+  const removeItem = (index: number) => {
+    if (items.length <= 1) {
+      toast.error('Validation', 'A fee structure must have at least one fee head')
+      return
+    }
+    setItems((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const updateItem = (index: number, patch: Partial<FeeItemRow>) => {
+    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  }
+
+  const totalAnnualRupees = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const amt = Number(item.amountRupees) || 0
+      const mult = item.frequency === 'MONTHLY' ? 12 : item.frequency === 'QUARTERLY' ? 4 : item.frequency === 'HALF_YEARLY' ? 2 : 1
+      return sum + amt * mult
+    }, 0)
+  }, [items])
+
+  const handleSubmit = async () => {
+    if (!branchId) { toast.error('Branch Required', 'Please select a campus branch'); return }
+    if (!academicSessionId) { toast.error('Academic Year Required', 'Please select an academic year'); return }
+    if (!programId) { toast.error('Program Required', 'Please select a program mapped to this branch'); return }
+    if (!name.trim()) { toast.error('Name Required', 'Please provide a name for this fee structure'); return }
+    if (items.length === 0) { toast.error('Fee Items Required', 'Please configure at least one fee head'); return }
+
+    for (const item of items) {
+      if (!item.name.trim()) {
+        toast.error('Validation', 'All fee heads must have a name')
+        return
+      }
+      if (Number(item.amountRupees) <= 0) {
+        toast.error('Validation', `Amount for "${item.name}" must be greater than zero`)
+        return
+      }
+    }
+
+    setBusy(true)
+    const payload = {
+      branchId,
+      academicSessionId,
+      programId,
+      name: name.trim(),
+      description: description.trim() || null,
+      status,
+      items: items.map((it, idx) => ({
+        name: it.name.trim(),
+        feeType: it.feeType,
+        amountCents: Math.round(Number(it.amountRupees) * 100),
+        currency: 'INR',
+        frequency: it.frequency,
+        dueRule: it.dueRule?.trim() || null,
+        lateFeeApplicable: Boolean(it.lateFeeApplicable),
+        lateFeeAmountCents: it.lateFeeApplicable ? Math.round(Number(it.lateFeeRupees) * 100) : 0,
+        isRefundable: Boolean(it.isRefundable || it.feeType === 'REFUNDABLE_DEPOSIT'),
+        sortOrder: idx,
+      })),
+    }
+
+    const res = await api('/api/v1/fee-structures', 'POST', payload)
+    setBusy(false)
+
+    if (res.success) {
+      toast.success('Fee Structure Created', `Configured "${name}" for ${selectedProg?.name} (${selectedBranch?.name})`)
+      onDone()
+      onClose()
+    } else {
+      toast.error('Failed to create fee structure', res.error?.message || 'Database error')
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={step === 1 ? 'Configure Canonical Fee Structure' : 'Review & Confirm Fee Structure'}
+      icon={<IndianRupee size={22} />}
+      iconClass="ic-blue"
+      wide
+    >
+      {step === 1 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--foreground-muted)' }}>
+            This configuration writes directly to canonical Finance records. Finance operations (invoicing, collections, student fee schedules) consume this exact structure.
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label>Campus Branch <span className="req">*</span></label>
+              <select className="select" value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Academic Year <span className="req">*</span></label>
+              <select className="select" value={academicSessionId} onChange={(e) => setAcademicSessionId(e.target.value)} required>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={y.id}>{y.name} {y.isCurrent ? '(Current)' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Program <span className="req">*</span></label>
+              <select className="select" value={programId} onChange={(e) => setProgramId(e.target.value)} required disabled={availablePrograms.length === 0}>
+                {availablePrograms.length === 0 ? (
+                  <option value="">No programs mapped to this campus</option>
+                ) : (
+                  availablePrograms.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                  ))
+                )}
+              </select>
+              {availablePrograms.length === 0 && (
+                <span className="helper" style={{ color: 'var(--danger)' }}>
+                  Map programs to this campus in Program Setup first.
+                </span>
+              )}
+            </div>
+
+            <div className="field">
+              <label>Initial Status</label>
+              <select className="select" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+                <option value="ACTIVE">ACTIVE (Ready for Student Invoicing)</option>
+                <option value="DRAFT">DRAFT (Review / Under Configuration)</option>
+              </select>
+            </div>
+
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Structure Name <span className="req">*</span></label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nursery Annual Fee Plan — AY 2026-27" required />
+            </div>
+
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Description / Notes</label>
+              <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional administrative remarks or schedule notes" />
+            </div>
+          </div>
+
+          {/* Fee Items Table */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>Fee Heads & Installment Rules</span>
+                <span className="helper" style={{ display: 'block' }}>Configured amounts stored in exact integer paise</span>
+              </div>
+              <button type="button" className="btn btn-sm btn-outline" onClick={addItem}>
+                <Plus size={13} /> Add Fee Head
+              </button>
+            </div>
+
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+              <table className="dtable" style={{ margin: 0, fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Fee Head Name</th>
+                    <th>Type</th>
+                    <th>Frequency</th>
+                    <th style={{ width: 110 }}>Amount (₹)</th>
+                    <th>Due Rule</th>
+                    <th style={{ width: 70 }}>Late Fee</th>
+                    <th style={{ width: 40 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <input
+                          className="input"
+                          style={{ height: 32, fontSize: 12.5 }}
+                          value={it.name}
+                          onChange={(e) => updateItem(idx, { name: e.target.value })}
+                          placeholder="e.g. Tuition"
+                          required
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="select"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.feeType}
+                          onChange={(e) => {
+                            const ft = e.target.value as any
+                            updateItem(idx, { feeType: ft, isRefundable: ft === 'REFUNDABLE_DEPOSIT' })
+                          }}
+                        >
+                          <option value="REGULAR">Regular Fee</option>
+                          <option value="REFUNDABLE_DEPOSIT">Refundable Deposit</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          className="select"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.frequency}
+                          onChange={(e) => updateItem(idx, { frequency: e.target.value as any })}
+                        >
+                          <option value="ONE_TIME">One Time</option>
+                          <option value="MONTHLY">Monthly</option>
+                          <option value="QUARTERLY">Quarterly</option>
+                          <option value="HALF_YEARLY">Half Yearly</option>
+                          <option value="ANNUALLY">Annually</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          className="input"
+                          type="number"
+                          min="1"
+                          style={{ height: 32, fontSize: 12.5, fontWeight: 600 }}
+                          value={it.amountRupees}
+                          onChange={(e) => updateItem(idx, { amountRupees: e.target.value })}
+                          required
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="input"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.dueRule}
+                          onChange={(e) => updateItem(idx, { dueRule: e.target.value })}
+                          placeholder="e.g. 5th of Month"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={it.lateFeeApplicable}
+                          onChange={(e) => updateItem(idx, { lateFeeApplicable: e.target.checked })}
+                          title="Apply late fee penalty"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: 4, color: 'var(--danger)' }}
+                          onClick={() => removeItem(idx)}
+                          title="Remove item"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>
+                Estimated Annualised Total: <strong style={{ color: 'var(--foreground)' }}>₹{totalAnnualRupees.toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (!branchId || !academicSessionId || !programId || !name.trim()) {
+                  toast.error('Validation', 'Please complete all required fields')
+                  return
+                }
+                setStep(2)
+              }}
+              disabled={availablePrograms.length === 0}
+            >
+              Continue to Review →
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* STEP 2: REVIEW & CONFIRM */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 16, background: 'var(--surface-muted)' }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 16, fontWeight: 700 }}>{name}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, fontSize: 13 }}>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Campus:</span> <strong>{selectedBranch?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Program:</span> <strong>{selectedProg?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Academic Year:</span> <strong>{selectedYear?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Status:</span> <span className={`badge ${status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>{status}</span></div>
+            </div>
+            {description && <p style={{ margin: '10px 0 0 0', fontSize: 12.5, color: 'var(--foreground-muted)' }}>{description}</p>}
+          </div>
+
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+            <table className="dtable" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Fee Head</th>
+                  <th>Type</th>
+                  <th>Frequency</th>
+                  <th>Due Rule</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, idx) => (
+                  <tr key={idx}>
+                    <td><strong style={{ fontSize: 13 }}>{it.name}</strong></td>
+                    <td>
+                      {it.feeType === 'REFUNDABLE_DEPOSIT' ? (
+                        <span className="badge b-orange">Refundable Deposit</span>
+                      ) : (
+                        <span className="badge b-primary">Regular Fee</span>
+                      )}
+                    </td>
+                    <td><span className="badge b-neutral">{it.frequency.replace('_', ' ')}</span></td>
+                    <td><span className="cell-sub">{it.dueRule || '—'}</span></td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>
+                      ₹{Number(it.amountRupees).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} disabled={busy}>
+              ← Back to Edit
+            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+              <button
+                type="button"
+                className={`btn btn-primary ${busy ? 'is-loading' : ''}`}
+                onClick={handleSubmit}
+                disabled={busy}
+              >
+                <CheckCircle2 size={15} /> {busy ? 'Persisting to Finance…' : 'Save & Publish to Finance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function FeeSetupSection({ onDone, api, toast }: { onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [loading, setLoading] = useState(true)
+  const [branches, setBranches] = useState<any[]>([])
+  const [programs, setPrograms] = useState<any[]>([])
+  const [academicYears, setAcademicYears] = useState<any[]>([])
+  const [structures, setStructures] = useState<any[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
+  const loadFeeData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [brRes, prRes, yrRes, stRes] = await Promise.all([
+        fetch('/api/v1/branches').then((r) => r.json()),
+        fetch('/api/v1/programs').then((r) => r.json()),
+        fetch('/api/v1/academic-years').then((r) => r.json()),
+        fetch('/api/v1/fee-structures').then((r) => r.json()),
+      ])
+
+      if (brRes.success) setBranches(brRes.data || [])
+      if (prRes.success) setPrograms(prRes.data || [])
+      if (yrRes.success) setAcademicYears(yrRes.data || [])
+      if (stRes.success) setStructures(stRes.data || [])
+    } catch (err: any) {
+      toast.error('Failed to load fee configuration', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadFeeData()
+  }, [loadFeeData])
+
+  // Filter structures by branch
+  const filteredStructures = useMemo(() => {
+    if (selectedBranchId === 'ALL') return structures
+    return structures.filter((s) => !s.branchId || s.branchId === selectedBranchId)
+  }, [structures, selectedBranchId])
+
+  // Build Program x Campus coverage matrix
+  const coverageMatrix = useMemo(() => {
+    const activeBranches = branches.filter((b) => b.isActive)
+    const activeProgs = programs.filter((p) => p.isActive)
+    const rows: Array<{
+      program: any
+      branch: any
+      activeStructure: any | null
+      status: 'CONFIGURED' | 'MISSING'
+    }> = []
+
+    for (const prog of activeProgs) {
+      for (const branch of activeBranches) {
+        // Only include if mapped
+        const isMapped = !prog.branchMappings || prog.branchMappings.length === 0 ||
+          prog.branchMappings.some((bm: any) => bm.branchId === branch.id && bm.isActive)
+
+        if (isMapped) {
+          const activeSt = structures.find(
+            (st) =>
+              st.status === 'ACTIVE' &&
+              (st.programId === prog.id || st.programType === prog.programType) &&
+              (!st.branchId || st.branchId === branch.id)
+          )
+          rows.push({
+            program: prog,
+            branch,
+            activeStructure: activeSt || null,
+            status: activeSt ? 'CONFIGURED' : 'MISSING',
+          })
+        }
+      }
+    }
+
+    if (selectedBranchId === 'ALL') return rows
+    return rows.filter((r) => r.branch.id === selectedBranchId)
+  }, [branches, programs, structures, selectedBranchId])
+
+  const missingCoverageCount = coverageMatrix.filter((r) => r.status === 'MISSING').length
+
+  if (loading) {
+    return <div style={{ padding: 16 }}><Skeleton h={220} /></div>
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <p className="card-sub" style={{ margin: 0 }}>
+            Create and govern canonical fee structures. Invoices, dues, payment tracking, and receipts in <strong>Finance</strong> directly consume these exact structures.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>View in Finance</span> <ArrowUpRight size={13} />
+          </a>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+            <Plus size={14} /> Create Fee Structure
+          </button>
+        </div>
+      </div>
+
+      {/* Campus Branch Filter & Readiness Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Building2 size={16} style={{ color: 'var(--foreground-muted)' }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Filter by Campus:</span>
+          <select
+            className="select"
+            style={{ height: 32, fontSize: 12.5, minWidth: 160 }}
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+          >
+            <option value="ALL">All Campuses ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          {missingCoverageCount === 0 ? (
+            <span className="badge b-success" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <ShieldCheck size={13} /> 100% Fee Coverage — Go-Live Ready
+            </span>
+          ) : (
+            <span className="badge b-danger">
+              {missingCoverageCount} program mapping(s) lack active fee structure
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Program Coverage Matrix Table */}
+      <div style={{ marginBottom: 20 }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+          Campus Program Pricing Coverage
+        </h4>
+        <div className="dtable-scroll">
+          <table className="dtable">
+            <thead>
+              <tr>
+                <th>Campus Branch</th>
+                <th>Program</th>
+                <th>Active Fee Structure</th>
+                <th>Annual Amount</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coverageMatrix.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--foreground-muted)' }}>
+                    No programs mapped to the selected campus filter.
+                  </td>
+                </tr>
+              ) : (
+                coverageMatrix.map((row, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <span className="cell-strong">{row.branch.name}</span>
+                      <span className="cell-sub">{row.branch.code}</span>
+                    </td>
+                    <td>
+                      <span className="cell-strong">{row.program.name}</span>
+                      <span className="cell-sub">{row.program.code}</span>
+                    </td>
+                    <td>
+                      {row.activeStructure ? (
+                        <div>
+                          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{row.activeStructure.name}</span>
+                          <span className="cell-sub">{row.activeStructure.academicSession?.name || 'AY'}</span>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>Not configured</span>
+                      )}
+                    </td>
+                    <td>
+                      {row.activeStructure ? (
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                          ₹{(
+                            row.activeStructure.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) / 100
+                          ).toLocaleString('en-IN')}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      {row.status === 'CONFIGURED' ? (
+                        <span className="badge b-success">Active</span>
+                      ) : (
+                        <span className="badge b-danger">Missing Fee Structure</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {row.status === 'MISSING' ? (
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => {
+                            setSelectedBranchId(row.branch.id)
+                            setShowCreateModal(true)
+                          }}
+                        >
+                          <Plus size={12} /> Configure
+                        </button>
+                      ) : (
+                        <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" title="View details in Finance">
+                          Finance <ArrowUpRight size={12} />
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Configured Structures List */}
+      <div>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+          Configured Canonical Fee Structures ({filteredStructures.length})
+        </h4>
+        {filteredStructures.length === 0 ? (
+          <EmptyState
+            icon={<IndianRupee size={36} />}
+            title="No fee structures found"
+            message="Click 'Create Fee Structure' to define tuition, admission fees, and deposit rules for your programs."
+          />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+            {filteredStructures.map((st) => {
+              const totalRupees =
+                (st.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) || 0) / 100
+              const branchName = branches.find((b) => b.id === st.branchId)?.name || 'All Campuses'
+
+              return (
+                <div key={st.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h5 style={{ margin: '0 0 2px 0', fontSize: 14, fontWeight: 700 }}>{st.name}</h5>
+                      <span className="cell-sub">{branchName} · {st.academicSession?.name || 'AY'}</span>
+                    </div>
+                    <span className={`badge ${st.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>
+                      {st.status}
+                    </span>
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 10px', fontSize: 12, background: 'var(--surface-muted)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600 }}>
+                      <span>Fee Heads ({st.items?.length || 0})</span>
+                      <span style={{ fontFamily: 'monospace' }}>Total: ₹{totalRupees.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {st.items?.slice(0, 3).map((item: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--foreground-muted)' }}>
+                          <span>{item.name}</span>
+                          <span style={{ fontFamily: 'monospace' }}>₹{((item.amountCents || 0) / 100).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                      {st.items?.length > 3 && (
+                        <span style={{ fontSize: 11, color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+                          +{st.items.length - 3} more head(s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto' }}>
+                    <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" style={{ fontSize: 12 }}>
+                      Inspect in Finance <ArrowUpRight size={12} />
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
+        <QuickFinanceConfig onDone={() => { onDone(); loadFeeData() }} api={api} toast={toast} />
+      </div>
+
+      {showCreateModal && (
+        <CreateFeeStructureModal
+          branches={branches}
+          programs={programs}
+          academicYears={academicYears}
+          onClose={() => setShowCreateModal(false)}
+          onDone={() => {
+            loadFeeData()
+            onDone()
+          }}
+          api={api}
+          toast={toast}
+        />
       )}
     </>
   )

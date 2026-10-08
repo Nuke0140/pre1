@@ -12,6 +12,7 @@ async function _GET(req: NextRequest) {
 
   try {
     const sp = req.nextUrl.searchParams
+    const branchId = sp.get('branchId') || session.branchId || undefined
     const programType = (sp.get('programType') as ProgramType) || undefined
     const academicSessionId = sp.get('academicSessionId') || undefined
     const classroomId = sp.get('classroomId') || undefined
@@ -19,6 +20,7 @@ async function _GET(req: NextRequest) {
     const status = (sp.get('status') as FeeStructureStatus) || undefined
 
     const structures = await FeeService.getFeeStructures(session.tenantId, {
+      branchId,
       academicSessionId,
       classroomId,
       programId,
@@ -33,7 +35,7 @@ async function _GET(req: NextRequest) {
 }
 
 async function _POST(req: NextRequest) {
-  const session = await requireApi(req, 'finance:write')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
@@ -44,19 +46,27 @@ async function _POST(req: NextRequest) {
       return Errors.validation('name and at least one fee item are required')
     }
 
+    const targetBranchId = body.branchId || session.branchId
+
     const structure = await FeeService.createFeeStructure(
       {
         tenantId: session.tenantId,
-        branchId: session.branchId,
+        branchId: targetBranchId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
-      body
+      {
+        ...body,
+        branchId: targetBranchId,
+      }
     )
 
     return ok(structure, undefined, 201)
   } catch (e: any) {
+    if (e.message) {
+      return Errors.validation(e.message)
+    }
     return Errors.system(e)
   }
 }

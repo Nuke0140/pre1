@@ -18,7 +18,9 @@ type StepStatus = 'PENDING' | 'COMPLETE' | 'BLOCKED' | 'SKIPPED'
 
 interface CtxBranch { id: string; name: string; code: string; timingOpen: string; timingClose: string; capacity: number | null; isActive: boolean }
 interface CtxProgram { id: string; code: string; name: string; programType: string; ageMinMonths: number | null; ageMaxMonths: number | null; capacity: number; isActive: boolean }
+interface CtxProgramBranch { id: string; programId: string; branchId: string; capacity: number | null; isActive: boolean }
 interface CtxClassroom { id: string; branchId: string; academicSessionId: string; programType: string; programId: string | null; capacity: number; primaryTeacherId: string | null; isActive: boolean }
+interface CtxFeeStructure { id: string; branchId: string | null; academicSessionId: string | null; programId: string | null; programType: string | null; status: string }
 
 export interface TenantContext {
   tenant: {
@@ -28,6 +30,7 @@ export interface TenantContext {
   }
   branches: CtxBranch[]
   programs: CtxProgram[]
+  programBranches: CtxProgramBranch[]
   classrooms: CtxClassroom[]
   facilities: { id: string; branchId: string; type: string; isActive: boolean }[]
   currentSession: { id: string; name: string; startDate: Date; endDate: Date; isCurrent: boolean } | null
@@ -35,6 +38,7 @@ export interface TenantContext {
   staffProfiles: { id: string; userId: string; branchId: string | null; employeeCode: string }[]
   calendarEvents: { id: string; type: string; date: Date }[]
   feePlans: { id: string; programType: string; isActive: boolean; totalAnnualCents: number }[]
+  feeStructures: CtxFeeStructure[]
   subjects: { id: string; code: string; name: string; subjectType: string; status: string }[]
   programSubjects: { id: string; programId: string; subjectId: string }[]
   classroomSubjects: { id: string; classroomId: string; subjectId: string; specialistTeacherId: string | null }[]
@@ -58,6 +62,8 @@ export async function loadContext(tenantId: string): Promise<TenantContext | nul
     staffProfiles,
     calendarEvents,
     feePlans,
+    feeStructures,
+    programBranches,
     subjects,
     programSubjects,
     classroomSubjects,
@@ -74,6 +80,8 @@ export async function loadContext(tenantId: string): Promise<TenantContext | nul
     db.staffProfile.findMany({ where: { tenantId, deletedAt: null } }),
     db.calendarEvent.findMany({ where: { tenantId }, orderBy: { date: 'asc' } }),
     db.feePlan.findMany({ where: { tenantId } }),
+    db.feeStructure.findMany({ where: { tenantId, deletedAt: null } }),
+    db.programBranch.findMany({ where: { tenantId, deletedAt: null } }),
     db.subject.findMany({ where: { tenantId, deletedAt: null } }),
     db.programSubject.findMany({ where: { tenantId } }),
     db.classroomSubject.findMany({ where: { tenantId } }),
@@ -96,6 +104,7 @@ export async function loadContext(tenantId: string): Promise<TenantContext | nul
     },
     branches: branches.map((b) => ({ id: b.id, name: b.name, code: b.code, timingOpen: b.timingOpen, timingClose: b.timingClose, capacity: b.capacity, isActive: b.isActive })),
     programs: programs.map((p) => ({ id: p.id, code: p.code, name: p.name, programType: p.programType, ageMinMonths: p.ageMinMonths, ageMaxMonths: p.ageMaxMonths, capacity: p.capacity, isActive: p.isActive })),
+    programBranches: programBranches.map((pb) => ({ id: pb.id, programId: pb.programId, branchId: pb.branchId, capacity: pb.capacity, isActive: pb.isActive })),
     classrooms: classrooms.map((c) => ({ id: c.id, branchId: c.branchId, academicSessionId: c.academicSessionId, programType: c.programType, programId: c.programId, capacity: c.capacity, primaryTeacherId: c.primaryTeacherId, isActive: c.isActive })),
     facilities: facilities.map((f) => ({ id: f.id, branchId: f.branchId, type: f.type, isActive: f.isActive })),
     currentSession: current ? { id: current.id, name: current.name, startDate: current.startDate, endDate: current.endDate, isCurrent: current.isCurrent } : null,
@@ -103,6 +112,7 @@ export async function loadContext(tenantId: string): Promise<TenantContext | nul
     staffProfiles: staffProfiles.map((s) => ({ id: s.id, userId: s.userId, branchId: s.branchId, employeeCode: s.employeeCode })),
     calendarEvents: calendarEvents.map((e) => ({ id: e.id, type: e.type, date: e.date })),
     feePlans: feePlans.map((f) => ({ id: f.id, programType: f.programType, isActive: f.isActive, totalAnnualCents: f.totalAnnualCents })),
+    feeStructures: feeStructures.map((fs) => ({ id: fs.id, branchId: fs.branchId, academicSessionId: fs.academicSessionId, programId: fs.programId, programType: fs.programType, status: fs.status })),
     subjects: subjects.map((s) => ({ id: s.id, code: s.code, name: s.name, subjectType: s.subjectType, status: s.status })),
     programSubjects: programSubjects.map((ps) => ({ id: ps.id, programId: ps.programId, subjectId: ps.subjectId })),
     classroomSubjects: classroomSubjects.map((cs) => ({ id: cs.id, classroomId: cs.classroomId, subjectId: cs.subjectId, specialistTeacherId: cs.specialistTeacherId })),
@@ -344,18 +354,73 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
 
     // ── Phase 4 — Business Rules (4) ──────────────────────────────────
     case 'fees_setup': {
+      const branches = activeBranches(ctx)
       const progs = activePrograms(ctx)
-      const covered = progs.filter((p) => ctx.feePlans.some((f) => f.isActive && f.programType === p.programType))
-      const ok = progs.length >= 1 && covered.length === progs.length
+
+      if (progs.length === 0) {
+        return {
+          satisfied: false,
+          blocked: false,
+          detail: 'No active programs to configure fees for',
+          snapshot: { programs: 0, covered: 0 },
+          missingDeps: noDeps,
+        }
+      }
+
+      // Collect all (branch, program) active pairings
+      type ProgramBranchPair = { branch: CtxBranch; program: CtxProgram }
+      const activePairs: ProgramBranchPair[] = []
+
+      for (const branch of branches) {
+        const mappedProgIds = new Set(
+          ctx.programBranches
+            .filter((pb) => pb.branchId === branch.id && pb.isActive)
+            .map((pb) => pb.programId)
+        )
+        // If mappings exist for this branch, evaluate mapped active programs;
+        // if no mappings exist yet, evaluate all active programs for the branch.
+        const branchProgs = mappedProgIds.size > 0
+          ? progs.filter((p) => mappedProgIds.has(p.id))
+          : progs
+
+        for (const prog of branchProgs) {
+          activePairs.push({ branch, program: prog })
+        }
+      }
+
+      // Check which pairs have an active fee structure (or active fee plan)
+      const missingPairs = activePairs.filter(({ branch, program }) => {
+        const hasActiveStructure = ctx.feeStructures.some(
+          (fs) =>
+            fs.status === 'ACTIVE' &&
+            (fs.programId === program.id || fs.programType === program.programType) &&
+            (!fs.branchId || fs.branchId === branch.id)
+        )
+        const hasActivePlan = ctx.feePlans.some(
+          (fp) => fp.isActive && fp.programType === program.programType
+        )
+        return !hasActiveStructure && !hasActivePlan
+      })
+
+      const ok = activePairs.length > 0 && missingPairs.length === 0
+      const missingDetail = missingPairs
+        .slice(0, 3)
+        .map((mp) => `${mp.program.name} (${mp.branch.name})`)
+        .join(', ')
+
       return {
         satisfied: ok,
         blocked: false,
-        detail: progs.length === 0
-          ? 'No programs to bill yet'
-          : ok
-            ? 'Active fee plans configured for every program'
-            : `${progs.length - covered.length} program(s) without an active fee plan`,
-        snapshot: { programs: progs.length, covered: covered.length },
+        detail: ok
+          ? 'Active fee structures configured for all campus programs'
+          : missingPairs.length > 0
+            ? `${missingPairs.length} program campus mapping(s) lack active fee structure: ${missingDetail}${missingPairs.length > 3 ? '…' : ''}`
+            : 'No active fee structure configured',
+        snapshot: {
+          totalPairs: activePairs.length,
+          coveredPairs: activePairs.length - missingPairs.length,
+          missingPairs: missingPairs.length,
+        },
         missingDeps: noDeps,
       }
     }

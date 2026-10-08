@@ -368,14 +368,55 @@ export default function BrandingPage() {
       </div>
 
       <PageHead
-        eyebrow="SCHOOL SETUP"
-        title="School Brand Identity Center"
-        sub="Make PreOne look and feel like your preschool across authentication, staff workspace, parent portal, and documents."
+        eyebrow="FOUNDATION SETUP"
+        title="Branding & Visual Identity Center"
+        sub="Personalize themes, workspace layout, parent portal appearance, and floating navigation accents."
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm font-semibold"
+              onClick={() => setResetModalOpen(true)}
+              disabled={saving || resetting}
+            >
+              <RotateCcw size={14} style={{ marginRight: 5 }} /> Reset Theme
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm font-bold"
+              onClick={handleSaveChanges}
+              disabled={saving || resetting || !isPrimaryValid || !isAccentValid}
+              style={{ padding: '7px 18px' }}
+            >
+              {saving ? (
+                <>
+                  <RefreshCw size={13} className="spin" style={{ marginRight: 6 }} />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Save size={13} style={{ marginRight: 6 }} />
+                  Save Changes
+                </>
+              )}
+            </button>
+          </div>
+        }
       />
 
-      {/* ── Branding Status Card (Section 37) ── */}
-      <div className="card" style={{ padding: 18, marginBottom: 24, background: 'var(--bg-subtle)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      {/* ── Branding Status Card (Modern Pill / Stat Overview) ── */}
+      <div
+        className="card"
+        style={{
+          padding: '16px 20px',
+          marginBottom: 24,
+          background: 'var(--card, #fff)',
+          borderRadius: 14,
+          border: '1px solid var(--border-subtle)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className={`badge ${brandingStatus.cls}`} style={{ fontSize: 12, padding: '4px 10px', fontWeight: 700 }}>
               {brandingStatus.label}
@@ -385,18 +426,42 @@ export default function BrandingPage() {
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {logoUrl ? <Check size={14} style={{ color: 'var(--success)' }} /> : <span style={{ opacity: 0.4 }}>○</span>} School Logo
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: primaryColor,
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  display: 'inline-block',
+                }}
+              />
+              Primary: <strong style={{ color: 'var(--text-primary)' }}>{primaryColor}</strong>
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {isPrimaryCustom ? <Check size={14} style={{ color: 'var(--success)' }} /> : <span style={{ opacity: 0.4 }}>○</span>} Primary Color
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  background: accentColor,
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  display: 'inline-block',
+                }}
+              />
+              Accent: <strong style={{ color: 'var(--text-primary)' }}>{accentColor}</strong>
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {isAccentCustom ? <Check size={14} style={{ color: 'var(--success)' }} /> : <span style={{ opacity: 0.4 }}>○</span>} Accent Color
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <Monitor size={13} style={{ color: 'var(--primary)' }} />
+              <strong style={{ color: 'var(--text-primary)' }}>
+                {layout === 'CLASSIC_SIDEBAR' ? 'Classic Sidebar' : 'Windows Shell'}
+              </strong>
             </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Check size={14} style={{ color: 'var(--success)' }} /> {layout === 'CLASSIC_SIDEBAR' ? 'Classic Sidebar' : 'Windows Shell'}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <Sparkles size={13} style={{ color: glowConfig.enabled ? 'var(--color-success, #10b981)' : 'var(--text-muted)' }} />
+              Footer Glow: <strong style={{ color: 'var(--text-primary)' }}>{glowConfig.enabled ? 'ON' : 'OFF'}</strong>
             </span>
           </div>
         </div>
@@ -410,126 +475,68 @@ export default function BrandingPage() {
         ═══════════════════════════════════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* ── 1. Brand Identity ── */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
-                1. School Identity & Logo
-              </h3>
-              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                Canonical school name and logo used on login, official receipts, certificates, and reports.
-              </p>
-            </div>
-
-            {/* School Name (Read-only from School Profile) */}
-            <div className="field" style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                School Legal Name (from School Profile)
-              </label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  className="input"
-                  value={schoolName}
-                  readOnly
-                  style={{ background: 'var(--bg-subtle)', cursor: 'not-allowed', fontWeight: 600 }}
-                />
-                <a
-                  href="/app/setup/school_profile"
-                  className="btn btn-outline btn-sm"
-                  style={{ whiteSpace: 'nowrap', fontSize: 12 }}
-                  title="Edit School Profile in Foundation setup"
-                >
-                  Edit Profile <ExternalLink size={12} style={{ marginLeft: 4 }} />
-                </a>
-              </div>
-              {schoolCode && (
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                  Short Identifier / Code: <strong>{schoolCode}</strong>
-                </div>
-              )}
-            </div>
-
-            {/* School Logo */}
-            <div className="field">
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8, display: 'block' }}>
-                School Logo
-              </label>
-
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-                {/* Logo Preview Box */}
+          {/* ── 1. Linked School Identity ── */}
+          <div
+            className="card"
+            style={{
+              padding: 20,
+              background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.04) 0%, rgba(59, 130, 246, 0.02) 100%)',
+              borderColor: 'rgba(124, 58, 237, 0.2)',
+              borderRadius: 14,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <div
                   style={{
-                    width: 80,
-                    height: 80,
+                    width: 52,
+                    height: 52,
                     borderRadius: 12,
-                    border: '2px dashed var(--border-default)',
-                    background: 'var(--bg-subtle)',
+                    backgroundColor: 'var(--card, #fff)',
+                    border: '1.5px solid rgba(124, 58, 237, 0.25)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     overflow: 'hidden',
-                    position: 'relative',
+                    flexShrink: 0,
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.08)',
                   }}
                 >
                   {logoUrl ? (
                     <img
                       src={logoUrl}
-                      alt="School Logo Preview"
+                      alt="School Crest"
                       style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                     />
                   ) : (
-                    <ImageIcon size={28} style={{ color: 'var(--text-muted)' }} />
+                    <Building2 size={24} style={{ color: 'var(--primary)' }} />
                   )}
                 </div>
 
-                {/* Upload / Replace / Remove Controls */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <input
-                    type="file"
-                    ref={logoFileInputRef}
-                    onChange={handleLogoFileUpload}
-                    accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-                    style={{ display: 'none' }}
-                  />
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm font-semibold"
-                      disabled={uploadingLogo}
-                      onClick={() => logoFileInputRef.current?.click()}
-                    >
-                      <Upload size={13} style={{ marginRight: 6 }} />
-                      {uploadingLogo ? 'Uploading Logo...' : (logoUrl ? 'Replace Logo' : 'Upload Logo')}
-                    </button>
-
-                    {logoUrl && (
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm text-danger font-semibold"
-                        onClick={() => setRemoveLogoModalOpen(true)}
-                        style={{ color: 'var(--danger)' }}
-                      >
-                        <Trash2 size={13} style={{ marginRight: 4 }} /> Remove
-                      </button>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
+                      {schoolName}
+                    </h3>
+                    {schoolCode && (
+                      <span className="badge b-neutral" style={{ fontSize: 11, fontWeight: 600 }}>
+                        {schoolCode}
+                      </span>
                     )}
                   </div>
-
-                  <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                    Supported: Transparent PNG, JPG, or SVG (Max 2MB).
-                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
+                    Institutional crest & legal identity are managed in Foundation setup.
+                  </p>
                 </div>
               </div>
 
-              {/* Direct URL Fallback */}
-              <div style={{ marginTop: 12 }}>
-                <input
-                  className="input text-xs"
-                  placeholder="Or enter direct image URL (https://.../logo.png)"
-                  value={logoUrl || ''}
-                  onChange={(e) => setLogoUrl(e.target.value.trim() || null)}
-                />
-              </div>
+              <a
+                href="/app/setup/school_profile"
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, borderRadius: 8, whiteSpace: 'nowrap' }}
+              >
+                School Profile <ExternalLink size={12} />
+              </a>
             </div>
           </div>
 
