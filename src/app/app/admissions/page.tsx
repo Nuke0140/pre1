@@ -8,9 +8,13 @@ import {
   Send, UserPlus, HeartHandshake, AlertTriangle, RefreshCw, ChevronDown,
   Download, Printer, DollarSign, History, ShieldAlert, Award, X,
   MessageCircle, FileSignature, GraduationCap, BarChart3, Filter,
-  ArrowUpRight, ArrowDownRight, Layers, Sparkles, User, Info, CheckCircle
+  ArrowUpRight, ArrowDownRight, Layers, Sparkles, User, Info, CheckCircle,
+  Share2, LayoutGrid
 } from 'lucide-react'
-import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton } from '@/components/preone/ui'
+import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton, Breadcrumbs } from '@/components/preone'
+import Link from 'next/link'
+import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
+import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
 import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
@@ -447,6 +451,7 @@ export default function AdmissionsPage() {
 
   // Inspector & Modal states
   const [enquiryModal, setEnquiryModal] = useState(false)
+  const [sharePublicModal, setSharePublicModal] = useState(false)
   const [formModal, setFormModal] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null)
   const [pendingFormPayload, setPendingFormPayload] = useState<any | null>(null)
@@ -941,10 +946,10 @@ export default function AdmissionsPage() {
     async function loadMasters() {
       try {
         const [sessRes, brRes, progRes, clsRes, feeRes] = await Promise.all([
-          fetch('/api/v1/academic-years').then((r) => r.json()),
-          fetch('/api/v1/branches').then((r) => r.json()),
-          fetch('/api/v1/programs').then((r) => r.json()),
-          fetch('/api/v1/classrooms').then((r) => r.json()),
+          fetch('/api/v1/academic-years').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+          fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+          fetch('/api/v1/programs').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+          fetch('/api/v1/classrooms').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
           fetch('/api/v1/fee-plans').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
         ])
 
@@ -984,8 +989,8 @@ export default function AdmissionsPage() {
       })
 
       const [enqRes, formRes, visitRes, wlRes] = await Promise.all([
-        fetch(`/api/v1/leads?${qParams.toString()}`).then((r) => r.json()),
-        fetch(`/api/v1/applications?${qParams.toString()}`).then((r) => r.json()),
+        fetch(`/api/v1/leads?${qParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+        fetch(`/api/v1/applications?${qParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
         fetch(`/api/v1/visits?branchId=${selectedBranchId}&queue=${followUpFilter}`).then((r) => r.json()).catch(() => ({ success: false, data: null })),
         fetch(
           `/api/v1/admissions/waitlist?branchId=${selectedBranchId}&academicYearId=${selectedSessionId}${filterProgram ? `&programType=${filterProgram}` : ''}${wlPriorityFilter !== 'ALL' ? `&priority=${wlPriorityFilter}` : ''}${wlStatusFilter !== 'ALL' ? `&status=${wlStatusFilter}` : ''}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`
@@ -2223,75 +2228,68 @@ export default function AdmissionsPage() {
 
   return (
     <div className="w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-28">
-      {/* ── 1. ADMISSIONS WORKSPACE HEADER (Ambient Background — No giant white box) ── */}
+      {/* ── Breadcrumb Navigation ── */}
+      <Breadcrumbs items={[{ label: t('nav.home'), href: '/app' }, { label: 'Admissions' }]} />
+
+      {/* ── 1. CLEAN ENTERPRISE HEADER (No Subheading Text / No Jargon) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="micro-eyebrow">
-              ADMISSIONS & ENROLLMENT
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-primary/10 text-primary border border-primary/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              M03 Control Plane
-            </span>
-          </div>
-          <h1 className="page-title">
-            {t('admissions.title')}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Admissions
           </h1>
-          <p className="page-description">
-            {t('admissions.subtitle')}
-          </p>
         </div>
 
-        {/* Action Buttons: Equal on mobile, compact on desktop */}
-        <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto pt-1 sm:pt-0">
+        {/* Action Buttons: Clean, High Affordance */}
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            className="btn btn-ghost btn-sm h-9 px-3.5 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50 flex-1 sm:flex-initial justify-center"
-            onClick={() => { setCsvType('leads'); setCsvStep(0); setCsvModalOpen(true); }}
+            onClick={() => setSharePublicModal(true)}
+            className="btn btn-ghost btn-sm h-9 px-3 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50"
+            title="Share Public Form Link"
           >
-            <Download size={14} />
-            <span>{t('admissions.importEnquiries')}</span>
+            <Share2 size={13} className="text-primary" />
+            <span className="hidden sm:inline">Share Public Link</span>
           </button>
           <button
             type="button"
-            className="btn btn-primary btn-sm h-9 px-4 gap-1.5 text-xs font-semibold rounded-xl shadow-xs flex-1 sm:flex-initial justify-center"
+            onClick={() => { setCsvType('leads'); setCsvStep(0); setCsvModalOpen(true); }}
+            className="btn btn-ghost btn-sm h-9 px-3 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50"
+            title="Import Enquiries from CSV"
+          >
+            <Download size={13} />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+          <button
+            type="button"
+            onClick={loadData}
+            disabled={busy}
+            className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
+            title={t('common.refresh')}
+          >
+            <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm h-9 px-4 gap-1.5 text-xs font-semibold rounded-xl shadow-xs"
             onClick={() => setEnquiryModal(true)}
           >
-            <Plus size={14} />
-            <span>{t('admissions.newEnquiry')}</span>
+            <Plus size={15} />
+            <span>New Enquiry</span>
           </button>
         </div>
       </div>
 
-      {/* ── 2. CONTEXT COMMAND BAR (Single Compact Row on Desktop) ── */}
-      <div className="p-2.5 sm:p-3 rounded-2xl border border-border/80 bg-card/90 backdrop-blur-sm shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-center">
-          {/* Academic Session */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
-            <Calendar size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.session')}:</span>
-            <select
-              value={selectedSessionId}
-              onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer"
-            >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.isCurrent ? '★' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Branch */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
-            <Building size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.branch')}:</span>
+      {/* ── 2. CAMPUS & ACADEMIC YEAR SELECTOR STRIP ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Branch Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs">
+            <Building size={14} className="text-primary shrink-0" />
+            <span className="text-xs font-semibold text-muted-foreground">Branch:</span>
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer"
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1"
             >
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -2301,708 +2299,168 @@ export default function AdmissionsPage() {
             </select>
           </div>
 
-          {/* Program */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-background border border-border/60">
-            <Filter size={13} className="text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground shrink-0">{t('admissions.program')}:</span>
+          {/* Academic Session Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs">
+            <Calendar size={14} className="text-primary shrink-0" />
+            <span className="text-xs font-semibold text-muted-foreground">Academic Year:</span>
             <select
-              value={filterProgram}
-              onChange={(e) => setFilterProgram(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-foreground focus:outline-none w-full cursor-pointer"
+              value={selectedSessionId}
+              onChange={(e) => setSelectedSessionId(e.target.value)}
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1"
             >
-              <option value="">{t('admissions.allPrograms')}</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.programType || p.code}>
-                  {p.name}
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} {s.isCurrent ? '★ Current' : ''}
                 </option>
               ))}
             </select>
           </div>
+        </div>
 
-          {/* Search + Refresh */}
-          <div className="flex items-center gap-1.5">
-            <div className="relative flex-1">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                className="input text-xs pl-7.5 pr-7 h-8.5 rounded-xl bg-background w-full"
-                placeholder={t('admissions.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={loadData}
-              disabled={busy}
-              className="btn btn-ghost btn-sm h-8.5 w-8.5 p-0 rounded-xl border border-border/60 hover:bg-muted/50 shrink-0"
-              title={t('common.refresh')}
-            >
-              <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-            </button>
-          </div>
+        <div className="text-[11px] text-muted-foreground font-medium px-2 hidden sm:block">
+          Preschool Admissions Hub
         </div>
       </div>
 
-      {/* ── 3. WORKSPACE SEGMENTED NAVIGATION ── */}
-      <div className="w-full overflow-x-auto no-scrollbar pb-0.5">
-        <div
-          role="tablist"
-          aria-label="Admissions workspaces"
-          className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card border border-border/80 shadow-2xs text-xs"
-        >
-          {NAV_TABS.map((t) => {
-            const isActive = tab === t.key
-            let count = 0
-            if (t.key === 'enquiries') count = enquiries?.length || 0
-            else if (t.key === 'followups') count = pipelineMetrics.cards.followupsDue
-            else if (t.key === 'applications') count = applications?.length || 0
-            else if (t.key === 'waitlist') count = pipelineMetrics.cards.waitlisted
-            else if (t.key === 'admissions') count = pipelineMetrics.cards.admissionsCompleted
-
-            const showCount = count > 0 && t.key !== 'overview' && t.key !== 'reports'
-
-            return (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setTab(t.key)}
-                className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground font-bold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 font-medium'
-                }`}
-              >
-                <span>{t.label}</span>
-                {showCount && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════════════
-          A. OVERVIEW WORKSPACE (Command Center Dashboard)
-      ═══════════════════════════════════════════════════════════════════════ */}
+      {/* ── 3. WINDOWS-STYLE 8-MODULE LAUNCHER GRID (CLEAN & EASY TO UNDERSTAND) ── */}
       {tab === 'overview' && (
-        <div className="space-y-5">
-          {/* ── Section 12 & 13: PRIMARY METRIC + SUPPORTING METRICS STRIP ── */}
-          <div className="premium-card p-4 sm:p-5">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-              {/* PRIMARY METRIC */}
-              <div className="flex items-center gap-4 xl:pr-6 xl:border-r border-border/80 shrink-0">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xl">
-                  <Layers size={22} />
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Admissions Activity
+      <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+        {[
+          {
+            key: 'enquiries',
+            title: 'Enquiries',
+            href: '/app/admissions/enquiries',
+            count: enquiries?.length || 0,
+            countLabel: 'Inquiries',
+            badge: pipelineMetrics.cards.newEnquiries > 0 ? `${pipelineMetrics.cards.newEnquiries} New` : undefined,
+            badgeVariant: 'rose',
+            icon: Users,
+            accentBorder: 'hover:border-rose-400 dark:hover:border-rose-700',
+            iconColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/15',
+          },
+          {
+            key: 'follow-ups',
+            title: 'Follow-ups',
+            href: '/app/admissions/follow-ups',
+            count: pipelineMetrics.cards.followupsDue,
+            countLabel: 'Calls Due',
+            badge: pipelineMetrics.cards.followupsDue > 0 ? `${pipelineMetrics.cards.followupsDue} Urgent` : undefined,
+            badgeVariant: 'amber',
+            icon: Phone,
+            accentBorder: 'hover:border-amber-400 dark:hover:border-amber-700',
+            iconColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/15',
+          },
+          {
+            key: 'visits',
+            title: 'Campus Visits',
+            href: '/app/admissions/visits',
+            count: pipelineMetrics.cards.visitsScheduled,
+            countLabel: 'Tours Booked',
+            badge: pipelineMetrics.cards.visitsScheduled > 0 ? `${pipelineMetrics.cards.visitsScheduled} Booked` : undefined,
+            badgeVariant: 'blue',
+            icon: Calendar,
+            accentBorder: 'hover:border-blue-400 dark:hover:border-blue-700',
+            iconColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/15',
+          },
+          {
+            key: 'applications',
+            title: 'Applications',
+            href: '/app/admissions/applications',
+            count: applications?.length || 0,
+            countLabel: 'Applications',
+            badge: pipelineMetrics.cards.underReview > 0 ? `${pipelineMetrics.cards.underReview} Review` : undefined,
+            badgeVariant: 'violet',
+            icon: ClipboardList,
+            accentBorder: 'hover:border-violet-400 dark:hover:border-violet-700',
+            iconColor: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/15',
+          },
+          {
+            key: 'admitted',
+            title: 'Confirmed Admissions',
+            href: '/app/admissions/admitted',
+            count: pipelineMetrics.cards.admissionsCompleted,
+            countLabel: 'Enrolled',
+            badge: pipelineMetrics.cards.readyForConfirmation > 0 ? `${pipelineMetrics.cards.readyForConfirmation} Ready` : undefined,
+            badgeVariant: 'emerald',
+            icon: GraduationCap,
+            accentBorder: 'hover:border-emerald-400 dark:hover:border-emerald-700',
+            iconColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/15',
+          },
+          {
+            key: 'waiting-list',
+            title: 'Waiting List',
+            href: '/app/admissions/waiting-list',
+            count: pipelineMetrics.cards.waitlisted,
+            countLabel: 'Waitlisted',
+            badge: pipelineMetrics.cards.waitlisted > 0 ? `${pipelineMetrics.cards.waitlisted} Waiting` : undefined,
+            badgeVariant: 'orange',
+            icon: Clock,
+            accentBorder: 'hover:border-orange-400 dark:hover:border-orange-700',
+            iconColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover:bg-orange-500/15',
+          },
+          {
+            key: 'classroom-placements',
+            title: 'Classroom Placements',
+            href: '/app/admissions/classroom-placements',
+            count: classrooms.length,
+            countLabel: 'Sections',
+            badge: undefined,
+            badgeVariant: 'teal',
+            icon: Building,
+            accentBorder: 'hover:border-teal-400 dark:hover:border-teal-700',
+            iconColor: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/15',
+          },
+          {
+            key: 'reports',
+            title: 'Reports & Analytics',
+            href: '/app/admissions/reports',
+            count: (enquiries?.length || 0) + (applications?.length || 0),
+            countLabel: 'Total Records',
+            badge: undefined,
+            badgeVariant: 'indigo',
+            icon: BarChart3,
+            accentBorder: 'hover:border-indigo-400 dark:hover:border-indigo-700',
+            iconColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/15',
+          },
+        ].map((card) => {
+          const Icon = card.icon
+          return (
+            <Link
+              key={card.key}
+              href={card.href}
+              className={`p-5 sm:p-6 rounded-2xl border border-border/80 bg-card shadow-2xs transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer flex flex-col justify-between group ${card.accentBorder}`}
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors ${card.iconColor}`}>
+                    <Icon size={22} />
                   </div>
-                  <div className="text-2xl sm:text-3xl font-mono font-bold tabular-nums tracking-tight text-foreground flex items-baseline gap-2">
-                    {(enquiries?.length || 0) + (applications?.length || 0)}
-                    <span className="text-xs font-semibold text-muted-foreground font-sans">active prospects</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SUPPORTING METRIC CHIPS (6 Compact Metro Tiles) */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 flex-1">
-                {[
-                  {
-                    label: 'New Enquiries',
-                    value: pipelineMetrics.cards.newEnquiries,
-                    sub: '+2 this week',
-                    icon: UserPlus,
-                    iconBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-                    targetTab: 'enquiries',
-                  },
-                  {
-                    label: 'Follow-ups Due',
-                    value: pipelineMetrics.cards.followupsDue,
-                    sub: pipelineMetrics.cards.followupsDue > 0 ? 'Urgent today' : 'Up to date',
-                    icon: Clock,
-                    iconBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                    valueColor: pipelineMetrics.cards.followupsDue > 0 ? 'text-amber-600 dark:text-amber-400' : undefined,
-                    targetTab: 'followups',
-                  },
-                  {
-                    label: 'Visits Booked',
-                    value: pipelineMetrics.cards.visitsScheduled,
-                    sub: 'Campus tours',
-                    icon: Calendar,
-                    iconBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-                    targetTab: 'followups',
-                  },
-                  {
-                    label: 'Under Review',
-                    value: pipelineMetrics.cards.underReview,
-                    sub: 'Dossiers',
-                    icon: ClipboardList,
-                    iconBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-                    targetTab: 'applications',
-                  },
-                  {
-                    label: 'Offers Sent',
-                    value: pipelineMetrics.cards.offersAwaitingParent,
-                    sub: 'Awaiting parent',
-                    icon: Send,
-                    iconBg: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
-                    targetTab: 'applications',
-                  },
-                  {
-                    label: 'Ready to Enroll',
-                    value: pipelineMetrics.cards.readyForConfirmation,
-                    sub: pipelineMetrics.cards.readyForConfirmation > 0 ? 'Staff review' : '0 ready',
-                    icon: ThumbsUp,
-                    iconBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-                    valueColor: pipelineMetrics.cards.readyForConfirmation > 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined,
-                    targetTab: 'applications',
-                  },
-                ].map((m, idx) => {
-                  const Icon = m.icon
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => setTab(m.targetTab)}
-                      className="p-2.5 sm:p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-background/60 hover:bg-background hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-150 cursor-pointer group flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                          {m.label}
-                        </span>
-                        <div className={`w-5.5 h-5.5 rounded-lg flex items-center justify-center shrink-0 ${m.iconBg}`}>
-                          <Icon size={12} />
-                        </div>
-                      </div>
-                      <div className="mt-1">
-                        <div className={`text-lg sm:text-xl font-mono font-bold tabular-nums tracking-tight ${m.valueColor || 'text-foreground'}`}>
-                          {m.value}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          {m.sub}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Section 14 & 17: TWO-COLUMN MAIN OPERATIONAL WORKSPACE (65/35 SPLIT) ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* ── LEFT PANEL (~65%): JOURNEY SUMMARY CARD ── */}
-            <div className="lg:col-span-8 space-y-5">
-              <div className="premium-card p-4 sm:p-5 flex flex-col justify-between gap-5">
-                {/* Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/80">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                      <Layers size={17} className="text-primary" />
-                      <span>Admissions Journey</span>
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      From initial enquiry to first day of preschool across 12 canonical milestones
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPipelineModalOpen(true)}
-                    className="btn btn-outline btn-sm h-8.5 px-3 rounded-xl gap-1.5 text-xs font-semibold hover:bg-primary/5 hover:text-primary transition-colors"
-                  >
-                    <span>View Full Journey (12 Stages)</span>
-                    <ArrowRight size={13} />
-                  </button>
-                </div>
-
-                {/* 12-Stage Horizontal Progression Strip */}
-                <div>
-                  <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 flex items-center justify-between">
-                    <span>Journey Pipeline Health</span>
-                    <span className="text-[10px] lowercase text-muted-foreground">click any stage to filter</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2">
-                    {ADMISSION_JOURNEY_STAGES.map((s) => {
-                      const Icon = s.icon
-                      const countInfo = pipelineMetrics.stageCounts[s.step] || { total: 0, pending: 0, attention: 0 }
-                      const hasAttention = countInfo.attention > 0
-                      const hasItems = countInfo.total > 0
-
-                      const targetTab =
-                        s.step === 1 ? 'enquiries' :
-                        s.step === 2 || s.step === 3 ? 'followups' :
-                        s.step === 4 ? 'enquiries' :
-                        s.step >= 5 && s.step <= 11 ? 'applications' :
-                        'admissions'
-
-                      return (
-                        <div
-                          key={s.step}
-                          onClick={() => setTab(targetTab)}
-                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2 group hover:shadow-2xs ${
-                            hasAttention
-                              ? 'border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10'
-                              : hasItems
-                              ? 'border-primary/20 bg-primary/5 hover:border-primary/40 hover:bg-primary/10'
-                              : 'border-border/70 bg-background/50 hover:bg-background'
-                          }`}
-                          title={`${s.label}: ${s.desc}`}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="w-5 h-5 rounded-md bg-background/80 text-[10px] font-mono font-bold text-muted-foreground flex items-center justify-center shrink-0">
-                              {s.short}
-                            </span>
-                            <div className="w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
-                              <Icon size={12} />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[11px] font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                              {s.label.replace(/^\d+\s*—\s*/, '')}
-                            </div>
-                            <div className="flex items-center justify-between mt-0.5">
-                              <span className={`text-xs font-extrabold ${hasAttention ? 'text-amber-600 dark:text-amber-400' : hasItems ? 'text-primary' : 'text-muted-foreground'}`}>
-                                {countInfo.total}
-                              </span>
-                              {hasAttention ? (
-                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Action required" />
-                              ) : hasItems ? (
-                                <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* Highlighted Next Step Box */}
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                      <Sparkles size={18} />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-foreground">
-                        {pipelineMetrics.cards.readyForConfirmation > 0
-                          ? `Classroom Placement: ${pipelineMetrics.cards.readyForConfirmation} candidate(s) ready to enroll`
-                          : pipelineMetrics.cards.underReview > 0
-                          ? `Document Verification: ${pipelineMetrics.cards.underReview} application(s) awaiting review`
-                          : pipelineMetrics.cards.followupsDue > 0
-                          ? `Parent Outreach: ${pipelineMetrics.cards.followupsDue} follow-up call(s) due today`
-                          : pipelineMetrics.cards.newEnquiries > 0
-                          ? `New Leads: ${pipelineMetrics.cards.newEnquiries} fresh enquiries awaiting first contact`
-                          : 'Admissions Pipeline Running Smoothly'}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {pipelineMetrics.cards.readyForConfirmation > 0
-                          ? 'Parent accepted fee offer. Confirm staff verification and seat allocation to finalize.'
-                          : pipelineMetrics.cards.underReview > 0
-                          ? 'Dossiers require mandatory certificate checks or age-eligibility validation.'
-                          : pipelineMetrics.cards.followupsDue > 0
-                          ? 'Engage prospective families to schedule campus tours or answer queries.'
-                          : pipelineMetrics.cards.newEnquiries > 0
-                          ? 'Review intake notes and initiate introductory parent conversation.'
-                          : 'All daily operational bottlenecks and prospective queues are up to date.'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (pipelineMetrics.cards.readyForConfirmation > 0 || pipelineMetrics.cards.underReview > 0) {
-                        setTab('applications')
-                      } else if (pipelineMetrics.cards.followupsDue > 0) {
-                        setTab('followups')
-                      } else {
-                        setTab('enquiries')
-                      }
-                    }}
-                    className="btn btn-primary btn-sm h-8 px-3 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
-                  >
-                    <span>Proceed →</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* ── RIGHT PANEL (~35%): ACTION REQUIRED ── */}
-            <div className="lg:col-span-4 space-y-5">
-              <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
-                <div className="p-4 sm:p-5 border-b border-border/80 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
-                      <AlertCircle size={16} className="text-amber-500" />
-                      <span>Action Required</span>
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Bottlenecks needing attention today
-                    </p>
-                  </div>
-                  {(pipelineMetrics.cards.readyForConfirmation + pipelineMetrics.cards.followupsDue + pipelineMetrics.cards.underReview + pipelineMetrics.cards.offersAwaitingParent) > 0 ? (
-                    <span className="badge b-amber text-[10px] font-bold">
-                      {pipelineMetrics.cards.readyForConfirmation + pipelineMetrics.cards.followupsDue + pipelineMetrics.cards.underReview + pipelineMetrics.cards.offersAwaitingParent} pending
+                  {card.badge && (
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {card.badge}
                     </span>
-                  ) : (
-                    <span className="badge b-green text-[10px] font-bold">0 pending</span>
                   )}
                 </div>
-
-                <div className="p-4 sm:p-5 space-y-3">
-                  {/* Task 1: Parent Accepted Offer (Ready for Final Confirmation) */}
-                  {pipelineMetrics.cards.readyForConfirmation > 0 && (
-                    <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                          <ThumbsUp size={13} />
-                          <span>Parent Accepted Offer</span>
-                        </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                          {pipelineMetrics.cards.readyForConfirmation} ready
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Fee offer accepted by parent. Allocate classroom section and enroll.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setTab('applications')}
-                        className="btn btn-sm h-7.5 rounded-lg bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700 w-full justify-center"
-                      >
-                        Confirm & Enroll →
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Task 2: Follow-ups Due */}
-                  {pipelineMetrics.cards.followupsDue > 0 && (
-                    <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
-                          <Clock size={13} />
-                          <span>Follow-ups Due Today</span>
-                        </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300">
-                          {pipelineMetrics.cards.followupsDue} due
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Scheduled parent outreach calls or campus tours waiting for response.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setTab('followups')}
-                        className="btn btn-sm h-7.5 rounded-lg bg-amber-600 text-white font-semibold text-xs hover:bg-amber-700 w-full justify-center"
-                      >
-                        Open Task Queue →
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Task 3: Under Review */}
-                  {pipelineMetrics.cards.underReview > 0 && (
-                    <div className="p-3 rounded-xl border border-blue-500/25 bg-blue-500/5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-blue-700 dark:text-blue-400">
-                          <FileCheck2 size={13} />
-                          <span>Applications Under Review</span>
-                        </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-500/20 text-blue-700 dark:text-blue-300">
-                          {pipelineMetrics.cards.underReview} pending
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Applicant dossiers awaiting mandatory document checks or principal decision.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setTab('applications')}
-                        className="btn btn-sm h-7.5 rounded-lg bg-blue-600 text-white font-semibold text-xs hover:bg-blue-700 w-full justify-center"
-                      >
-                        Review Dossiers →
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Task 4: Offers Awaiting Parent */}
-                  {pipelineMetrics.cards.offersAwaitingParent > 0 && (
-                    <div className="p-3 rounded-xl border border-purple-500/25 bg-purple-500/5 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-400">
-                          <Send size={13} />
-                          <span>Offers Sent to Parents</span>
-                        </div>
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-700 dark:text-purple-300">
-                          {pipelineMetrics.cards.offersAwaitingParent} sent
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-snug">
-                        Admission offers issued. Waiting for parent acceptance in portal.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setTab('applications')}
-                        className="btn btn-sm h-7.5 rounded-lg bg-purple-600 text-white font-semibold text-xs hover:bg-purple-700 w-full justify-center"
-                      >
-                        View Offers →
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Empty State */}
-                  {pipelineMetrics.cards.readyForConfirmation === 0 &&
-                    pipelineMetrics.cards.followupsDue === 0 &&
-                    pipelineMetrics.cards.underReview === 0 &&
-                    pipelineMetrics.cards.offersAwaitingParent === 0 && (
-                      <div className="p-5 text-center text-muted-foreground border border-dashed border-border/80 rounded-xl space-y-1.5">
-                        <CheckCircle2 size={24} className="text-emerald-500 mx-auto" />
-                        <div className="text-xs font-bold text-foreground">All caught up!</div>
-                        <p className="text-[11px] leading-relaxed">
-                          No urgent bottlenecks blocking progress today.
-                        </p>
-                      </div>
-                    )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── SECONDARY OPERATIONAL AREA (3-COLUMN SPLIT) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* COLUMN 1: Today's Follow-ups & Scheduled Visits */}
-            <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden flex flex-col justify-between">
-              <div>
-                <div className="p-4 border-b border-border/80 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                      <Clock size={14} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                        Today's Follow-ups & Visits
-                      </h4>
-                      <p className="text-[10.5px] text-muted-foreground">
-                        Campus visits and prospective parent calls
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTab('followups')}
-                    className="text-[11px] font-semibold text-primary hover:underline"
-                  >
-                    View All
-                  </button>
-                </div>
-
-                <div className="p-3 divide-y divide-border/50">
-                  {enquiries && enquiries.filter((e) => (e.nextFollowUpAt && new Date(e.nextFollowUpAt) <= new Date()) || e.status === 'QUALIFIED').slice(0, 4).length > 0 ? (
-                    enquiries
-                      .filter((e) => (e.nextFollowUpAt && new Date(e.nextFollowUpAt) <= new Date()) || e.status === 'QUALIFIED')
-                      .slice(0, 4)
-                      .map((e) => (
-                        <div
-                          key={e.id}
-                          onClick={() => openLeadInspector(e.id, 'overview')}
-                          className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-2.5 cursor-pointer group"
-                        >
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                              {e.parentName}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground truncate">
-                              {e.childName ? `Child: ${e.childName}` : e.phone} · <span className="font-medium text-foreground/80">{e.interestedProgram || 'Nursery'}</span>
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              e.status === 'QUALIFIED' ? 'bg-blue-500/10 text-blue-600' : 'bg-amber-500/10 text-amber-600'
-                            }`}>
-                              {e.status === 'QUALIFIED' ? 'Visit' : 'Follow-up'}
-                            </span>
-                            <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                              {e.nextFollowUpAt ? fmtDate(e.nextFollowUpAt) : 'Today'}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                  ) : (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      No follow-ups due right now.
-                    </div>
-                  )}
-                </div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground mt-4 group-hover:text-primary transition-colors tracking-tight">
+                  {card.title}
+                </h3>
               </div>
 
-              <div className="p-3 bg-muted/20 border-t border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setEnquiryModal(true)}
-                  className="btn btn-outline btn-sm w-full h-8 text-xs font-semibold rounded-lg gap-1.5 justify-center"
-                >
-                  <UserPlus size={13} />
-                  <span>Log New Follow-up / Enquiry</span>
-                </button>
-              </div>
-            </div>
-
-            {/* COLUMN 2: Applications Requiring Review */}
-            <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden flex flex-col justify-between">
-              <div>
-                <div className="p-4 border-b border-border/80 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                      <ClipboardList size={14} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                        Applications Under Review
-                      </h4>
-                      <p className="text-[10.5px] text-muted-foreground">
-                        Dossiers pending document verification
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTab('applications')}
-                    className="text-[11px] font-semibold text-primary hover:underline"
-                  >
-                    View All
-                  </button>
+              <div className="mt-5 pt-3.5 border-t border-border/50 flex items-center justify-between">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black tracking-tight text-foreground">{card.count}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">{card.countLabel}</span>
                 </div>
-
-                <div className="p-3 divide-y divide-border/50">
-                  {applications && applications.filter((a) => ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENTS_PENDING'].includes(a.status)).slice(0, 4).length > 0 ? (
-                    applications
-                      .filter((a) => ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENTS_PENDING'].includes(a.status))
-                      .slice(0, 4)
-                      .map((a) => {
-                        const docs = a.documents || []
-                        const verifiedDocs = docs.filter((d) => d.verified || d.status === 'VERIFIED').length
-                        const totalDocs = docs.length
-                        return (
-                          <div
-                            key={a.id}
-                            onClick={() => openInspector(a.id, 'documents')}
-                            className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-2.5 cursor-pointer group"
-                          >
-                            <div className="min-w-0">
-                              <div className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                                {a.childFirstName} {a.childLastName}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground truncate">
-                                {a.programType} · Parent: {a.parentName}
-                              </div>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-600">
-                                {verifiedDocs}/{totalDocs} Docs
-                              </span>
-                              <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                {fmtDate(a.submittedAt)}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })
-                  ) : (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      No applications waiting for review.
-                    </div>
-                  )}
+                <div className="w-8 h-8 rounded-full bg-muted/40 group-hover:bg-primary group-hover:text-primary-foreground text-muted-foreground flex items-center justify-center transition-all duration-200 group-hover:translate-x-0.5">
+                  <ArrowUpRight size={15} />
                 </div>
               </div>
-
-              <div className="p-3 bg-muted/20 border-t border-border/60">
-                <button
-                  type="button"
-                  onClick={() => setFormModal(true)}
-                  className="btn btn-outline btn-sm w-full h-8 text-xs font-semibold rounded-lg gap-1.5 justify-center"
-                >
-                  <FileText size={13} />
-                  <span>New Direct Admission Form</span>
-                </button>
-              </div>
-            </div>
-
-            {/* COLUMN 3: Recent Activity & Shortcuts */}
-            <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden flex flex-col justify-between">
-              <div>
-                <div className="p-4 border-b border-border/80 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-                      <Clock size={14} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                        Recent Activity
-                      </h4>
-                      <p className="text-[10.5px] text-muted-foreground">
-                        Chronological milestone feed
-                      </p>
-                    </div>
-                  </div>
-                  <span className="badge b-purple text-[10px]">Live</span>
-                </div>
-
-                <div className="p-3 space-y-2.5">
-                  {recentEvents.length > 0 ? (
-                    recentEvents.slice(0, 4).map((ev, i) => (
-                      <div key={i} className="flex items-start justify-between gap-2 text-left">
-                        <div className="flex items-start gap-2 min-w-0">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-foreground truncate">
-                              {ev.title}
-                            </p>
-                            <p className="text-[10.5px] text-muted-foreground truncate">
-                              {ev.detail}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                          {ev.time}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      No recent admissions activity recorded.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-3 bg-muted/20 border-t border-border/60">
-                <button
-                  type="button"
-                  onClick={() => { setCsvType('leads'); setCsvStep(0); setCsvModalOpen(true); }}
-                  className="btn btn-outline btn-sm w-full h-8 text-xs font-semibold rounded-lg gap-1.5 justify-center"
-                >
-                  <Download size={13} />
-                  <span>Batch Import CSV</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+            </Link>
+          )
+        })}
+      </div>
+      </>
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════
@@ -3187,17 +2645,17 @@ export default function AdmissionsPage() {
                       <EmptyState
                         illustration="enquiries"
                         eyebrow="Admissions"
-                        title={enquirySearch ? `No enquiries match "${enquirySearch}"` : 'No enquiries yet'}
+                        title={searchQuery ? `No enquiries match "${searchQuery}"` : 'No enquiries yet'}
                         description={
-                          enquirySearch
+                          searchQuery
                             ? 'Check for spelling mistakes or clear your search to view all enquiries.'
                             : 'Your admissions pipeline is ready. Register your first parent enquiry to begin tracking prospective families.'
                         }
                         action={
-                          enquirySearch
+                          searchQuery
                             ? {
                                 label: 'Clear Search',
-                                onClick: () => setEnquirySearch(''),
+                                onClick: () => setSearchQuery(''),
                                 variant: 'secondary',
                               }
                             : {
@@ -3278,17 +2736,17 @@ export default function AdmissionsPage() {
                 compact
                 illustration="enquiries"
                 eyebrow="Admissions"
-                title={enquirySearch ? `No enquiries match "${enquirySearch}"` : 'No enquiries yet'}
+                title={searchQuery ? `No enquiries match "${searchQuery}"` : 'No enquiries yet'}
                 description={
-                  enquirySearch
+                  searchQuery
                     ? 'Check for spelling mistakes or clear your search to view all enquiries.'
                     : 'Your admissions pipeline is ready. Register your first parent enquiry to begin tracking prospective families.'
                 }
                 action={
-                  enquirySearch
+                  searchQuery
                     ? {
                         label: 'Clear Search',
-                        onClick: () => setEnquirySearch(''),
+                        onClick: () => setSearchQuery(''),
                         variant: 'secondary',
                       }
                     : {
@@ -7579,6 +7037,26 @@ export default function AdmissionsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* ── MODAL: STREAMLINED MINIMAL ENQUIRY CAPTURE ── */}
+      <MinimalEnquiryModal
+        open={enquiryModal}
+        onClose={() => setEnquiryModal(false)}
+        branches={branches}
+        defaultBranchId={selectedBranchId}
+        programs={programs}
+        onSuccess={() => {
+          loadData()
+        }}
+      />
+
+      {/* ── MODAL: SHARE PUBLIC FORM LINK ── */}
+      <SharePublicFormModal
+        open={sharePublicModal}
+        onClose={() => setSharePublicModal(false)}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
     </div>
   )
 }

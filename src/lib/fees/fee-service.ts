@@ -2330,18 +2330,25 @@ export class FeeService {
 
     const classroomId = student.currentClassroomId
     const programType = student.currentClassroom?.programType
+    const programId = student.currentClassroom?.programId
     const academicSessionId = student.currentClassroom?.academicSessionId
+    const branchId = student.branchId || student.currentClassroom?.branchId || ctx.branchId
 
     const activeStructures = await db.feeStructure.findMany({
       where: {
         tenantId: ctx.tenantId,
         status: 'ACTIVE',
         deletedAt: null,
-        OR: [
-          { classroomId: classroomId || undefined },
-          { programType: programType || undefined },
-          { academicSessionId: academicSessionId || undefined },
-          { classroomId: null, programId: null, programType: null },
+        ...(branchId ? { OR: [{ branchId }, { branchId: null }] } : {}),
+        AND: [
+          {
+            OR: [
+              ...(classroomId ? [{ classroomId }] : []),
+              ...(programId ? [{ programId }] : []),
+              ...(programType ? [{ programType }] : []),
+              { classroomId: null, programId: null, programType: null },
+            ],
+          },
         ],
       },
     })

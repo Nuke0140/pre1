@@ -11,6 +11,7 @@ import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '
 import { EmptyUsersIllustration } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
+import { SearchFilterBar, type FilterConfig } from '@/components/preone'
 import { useToast } from '@/components/preone/Toast'
 import { AddStaffModal } from '@/components/users/AddStaffModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
@@ -22,6 +23,13 @@ import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import {
   UserRecord, BranchOption, ClassroomOption, Role,
   CANONICAL_STAFF_ROLES, ROLE_BADGE
@@ -54,6 +62,13 @@ export default function StaffUsersPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [total, setTotal] = useState(0)
+  const [metaKpis, setMetaKpis] = useState<{ total: number; active: number; pending: number; suspended: number; inactive: number }>({
+    total: 0,
+    active: 0,
+    pending: 0,
+    suspended: 0,
+    inactive: 0,
+  })
 
   // Selection & Bulk Actions
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
@@ -107,6 +122,9 @@ export default function StaffUsersPage() {
         const json = await res.json()
         setUsers(json.data || [])
         setTotal(json.meta?.total || 0)
+        if (json.meta?.kpis) {
+          setMetaKpis(json.meta.kpis)
+        }
       } else {
         toast.error('Fetch Error', 'Failed to retrieve staff users')
       }
@@ -313,58 +331,60 @@ export default function StaffUsersPage() {
         title={t('users.staffUsers')}
         backHref="/app/users"
         actions={
-          <div className="users-actions-bar">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={fetchStaff}
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
               title={t('common.refresh')}
               aria-label={t('common.refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
-            <button
-              type="button"
-              onClick={() => setRolesModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
-            >
-              <Shield className="w-3.5 h-3.5 text-purple-600" />
-              <span>{t('users.rolesDirectory')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setZipPhotoModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3"
-              title={t('users.bulkPhotoUpload')}
-            >
-              <Image className="w-3.5 h-3.5 text-indigo-600" />
-              <span>{t('users.bulkPhotoUpload')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCsvModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('common.import')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBulkFieldUpdateOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-fields"
-              title="Dynamic Bulk User Field Update"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>Bulk Field Update</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBulkPhotosOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-photos"
-            >
-              <Camera className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Upload Photos</span>
-            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                  title="More actions"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setRolesModalOpen(true)}>
+                  <Shield className="w-4 h-4 text-purple-600" />
+                  <span>{t('users.rolesDirectory')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCsvModalOpen(true)}>
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <span>{t('common.import')} CSV</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="/api/v1/users/export?role=STAFF" download className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-blue-600" />
+                    <span>{t('common.export')} CSV</span>
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setBulkFieldUpdateOpen(true)}>
+                  <Edit3 className="w-4 h-4 text-purple-600" />
+                  <span>Bulk Field Update</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setBulkPhotosOpen(true)}>
+                  <Camera className="w-4 h-4 text-indigo-600" />
+                  <span>Upload Photos</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setZipPhotoModalOpen(true)}>
+                  <Image className="w-4 h-4 text-indigo-600" />
+                  <span>{t('users.bulkPhotoUpload')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               type="button"
               onClick={() => setAddStaffOpen(true)}
@@ -409,124 +429,136 @@ export default function StaffUsersPage() {
         />
       </div>
 
-      {/* Filter Bar */}
-      <div className="card card-compact p-3 sm:p-4 rounded-xl sm:rounded-2xl">
-        <div className="users-filter-row">
-          {/* Search */}
-          <div className="relative users-filter-search">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={t('users.searchStaffPlaceholder')}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              style={{ paddingLeft: '36px', paddingRight: search ? '32px' : '14px' }}
-              className="input w-full text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('')
-                  setPage(1)
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                title={t('common.clear')}
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Role Filter */}
-          <div className="users-filter-select">
-            <select
-              value={selectedRole}
-              onChange={(e) => {
-                setSelectedRole(e.target.value)
-                setPage(1)
-              }}
-              className="select w-full text-xs"
-            >
-              <option value="ALL">{t('users.allRoles')}</option>
-              {CANONICAL_STAFF_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_BADGE[r]?.label || r}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Branch Filter */}
-          <div className="users-filter-select">
-            <select
-              value={selectedBranch}
-              onChange={(e) => {
-                setSelectedBranch(e.target.value)
-                setPage(1)
-              }}
-              className="select w-full text-xs"
-            >
-              <option value="ALL">{t('users.allBranches')}</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="users-filter-select">
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value)
-                setPage(1)
-              }}
-              className="select w-full text-xs"
-            >
-              <option value="ALL">{t('users.allStatuses')}</option>
-              <option value="ACTIVE">{t('users.statusActive')}</option>
-              <option value="SUSPENDED">{t('users.statusSuspended')}</option>
-              <option value="LOCKED">{t('users.statusLocked')}</option>
-              <option value="DEACTIVATED">{t('users.statusDeactivated')}</option>
-              <option value="ARCHIVED">{t('users.statusArchived')}</option>
-            </select>
-          </div>
-
-          {/* Export CSV */}
-          <a
-            href="/api/v1/users/export?role=STAFF"
-            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
-            download
-            title={t('common.export')}
+      {/* Filter & Search Bar */}
+      <div className="card card-compact p-3 sm:p-4 rounded-xl sm:rounded-2xl space-y-3">
+        {/* Quick Status Pill Bar */}
+        <div className="flex items-center gap-1.5 flex-wrap border-b border-gray-100 dark:border-gray-800/80 pb-2.5 text-xs">
+          <button
+            type="button"
+            onClick={() => { setSelectedStatus('ALL'); setPage(1); }}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              selectedStatus === 'ALL'
+                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 font-semibold shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
           >
-            <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>{t('common.export')}</span>
-          </a>
-
-          {/* Reset */}
-          {(search || selectedRole !== 'ALL' || selectedBranch !== 'ALL' || selectedStatus !== 'ALL') && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('')
-                setSelectedRole('ALL')
-                setSelectedBranch('ALL')
-                setSelectedStatus('ALL')
-                setPage(1)
-              }}
-              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
-              title="Reset filters"
-            >
-              {t('common.clear')}
-            </button>
-          )}
+            All <span className="opacity-75 font-mono ml-1">{metaKpis.total || total}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedStatus('ACTIVE'); setPage(1); }}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              selectedStatus === 'ACTIVE'
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Active <span className="opacity-75 font-mono ml-1">{metaKpis.active}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedStatus('PENDING'); setPage(1); }}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              selectedStatus === 'PENDING'
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 font-semibold shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Pending <span className="opacity-75 font-mono ml-1">{metaKpis.pending}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedStatus('SUSPENDED'); setPage(1); }}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+              selectedStatus === 'SUSPENDED'
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-semibold shadow-xs'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            Inactive / Suspended <span className="opacity-75 font-mono ml-1">{(metaKpis.suspended || 0) + (metaKpis.inactive || 0)}</span>
+          </button>
         </div>
+
+        <SearchFilterBar
+          search={{
+            value: search,
+            onChange: (val) => {
+              setSearch(val)
+              setPage(1)
+            },
+            placeholder: t('users.searchStaffPlaceholder'),
+            shortcut: '⌘K',
+          }}
+          filters={[
+            {
+              id: 'role',
+              label: t('users.filterByRole') || 'Role',
+              type: 'select',
+              value: selectedRole,
+              defaultValue: 'ALL',
+              placeholder: t('users.allRoles'),
+              options: [
+                { value: 'ALL', label: t('users.allRoles') },
+                ...CANONICAL_STAFF_ROLES.map((r) => ({
+                  value: r,
+                  label: ROLE_BADGE[r]?.label || r,
+                })),
+              ],
+              onChange: (val) => {
+                setSelectedRole(val)
+                setPage(1)
+              },
+            },
+            {
+              id: 'branch',
+              label: t('users.filterByBranch') || 'Campus',
+              type: 'branch',
+              value: selectedBranch,
+              defaultValue: 'ALL',
+              placeholder: t('users.allBranches'),
+              options: [
+                { value: 'ALL', label: t('users.allBranches') },
+                ...branches.map((b) => ({
+                  value: b.id,
+                  label: `${b.name} (${b.code})`,
+                  isMain: b.code === 'MAIN' || (b as any).isMain,
+                })),
+              ],
+              onChange: (val) => {
+                setSelectedBranch(val)
+                setPage(1)
+              },
+            },
+            {
+              id: 'status',
+              label: t('users.filterByStatus') || 'Status',
+              type: 'status',
+              value: selectedStatus,
+              defaultValue: 'ALL',
+              placeholder: t('users.allStatuses'),
+              options: [
+                { value: 'ALL', label: t('users.allStatuses') },
+                { value: 'ACTIVE', label: t('users.statusActive'), colorDot: 'green' },
+                { value: 'PENDING', label: t('users.statusPending') || 'Pending', colorDot: 'amber' },
+                { value: 'SUSPENDED', label: t('users.statusSuspended'), colorDot: 'red' },
+                { value: 'LOCKED', label: t('users.statusLocked'), colorDot: 'red' },
+                { value: 'DEACTIVATED', label: t('users.statusDeactivated'), colorDot: 'red' },
+                { value: 'ARCHIVED', label: t('users.statusArchived'), colorDot: 'slate' },
+              ],
+              onChange: (val) => {
+                setSelectedStatus(val)
+                setPage(1)
+              },
+            },
+          ]}
+          onReset={() => {
+            setSearch('')
+            setSelectedRole('ALL')
+            setSelectedBranch('ALL')
+            setSelectedStatus('ALL')
+            setPage(1)
+          }}
+        />
       </div>
 
       {/* Staff DataTable Workspace */}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
+import { Breadcrumbs, type Crumb } from './Breadcrumbs'
 
 export function Avatar({
   name,
@@ -449,21 +450,32 @@ export function SectionHeader({
 }
 
 export function PageHead({
-  title, sub, description, actions, eyebrow, badge, backHref,
+  title, sub, subtitle, description, actions, eyebrow, badge, backHref, breadcrumbs,
 }: {
   title: React.ReactNode
   sub?: string
+  subtitle?: string
   description?: string
   actions?: React.ReactNode
   eyebrow?: string
   badge?: React.ReactNode
   backHref?: string
+  breadcrumbs?: Crumb[] | React.ReactNode
 }) {
   const { t } = useI18n()
-  const desc = description || sub
+  const desc = description || sub || subtitle
   return (
     <div className="page-head">
       <div>
+        {breadcrumbs && (
+          <div className="page-head-breadcrumbs">
+            {Array.isArray(breadcrumbs) ? (
+              <Breadcrumbs items={breadcrumbs} />
+            ) : (
+              breadcrumbs
+            )}
+          </div>
+        )}
         {eyebrow && <div className="page-eyebrow micro-eyebrow">{eyebrow}</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {backHref && (

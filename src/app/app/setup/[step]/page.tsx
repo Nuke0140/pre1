@@ -329,6 +329,11 @@ export default function SetupStepPage() {
   return (
     <>
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Setup', href: '/app/setup' },
+          { label: def.label },
+        ]}
         title={def.label}
         sub={def.description}
         actions={

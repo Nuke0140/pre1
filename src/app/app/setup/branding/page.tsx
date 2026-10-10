@@ -7,7 +7,7 @@ import {
   AlertTriangle, Eye, ArrowLeft, Building2, ExternalLink,
   Trash2, Image as ImageIcon, Sparkles, Check, Monitor, Layout, FileText, Users, Lock, ChevronRight
 } from 'lucide-react'
-import { PageHead, Skeleton, StatusBadge } from '@/components/preone/ui'
+import { PageHead, Skeleton, StatusBadge, Breadcrumbs } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import {
@@ -356,15 +356,15 @@ export default function BrandingPage() {
 
   return (
     <div className="page-shell" style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 60 }}>
-      {/* ── Breadcrumb & Top Bar ── */}
+      {/* ── Breadcrumb Navigation ── */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
-          <a href="/app/setup" className="cell-link" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ArrowLeft size={14} /> Setup Dashboard
-          </a>
-          <ChevronRight size={14} style={{ opacity: 0.5 }} />
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Branding & Theme</span>
-        </div>
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/app' },
+            { label: 'Setup', href: '/app/setup' },
+            { label: 'Branding & Theme' },
+          ]}
+        />
       </div>
 
       <PageHead

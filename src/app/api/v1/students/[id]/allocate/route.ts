@@ -103,6 +103,22 @@ async function _POST(
       return { allocation, updated, activeCountAfter: activeCount + 1, capacity: lockedTarget.capacity }
     })
 
+    try {
+      const { FeeService } = await import('@/lib/fees/fee-service')
+      await FeeService.applyActiveFeeStructuresToStudent(
+        {
+          tenantId: session.tenantId,
+          branchId: target.branchId,
+          actorId: session.uid,
+          actorName: session.name,
+          actorRole: session.role,
+        },
+        student.id
+      )
+    } catch (feeErr) {
+      console.warn('[allocate] Fee structure application warning:', feeErr)
+    }
+
     await audit({
       tenantId: session.tenantId,
       actorId: session.uid,

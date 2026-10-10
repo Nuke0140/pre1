@@ -554,7 +554,7 @@ export function OperationsClient() {
   if (!data) {
     return (
       <div className="w-full space-y-6 pb-12">
-        <Breadcrumbs items={[{ label: 'Dashboard', href: '/app' }, { label: 'Operations' }]} />
+        <Breadcrumbs items={[{ label: 'Home', href: '/app' }, { label: 'Operations' }]} />
         <PageHead title="Operations Control Room" sub="Synchronizing daily operational execution layer..." />
         <div className="metric-strip">
           {[...Array(4)].map((_, i) => (
@@ -575,7 +575,7 @@ export function OperationsClient() {
   return (
     <div className="w-full space-y-6 pb-12">
       {/* ── Breadcrumbs ── */}
-      <Breadcrumbs items={[{ label: 'Dashboard', href: '/app' }, { label: 'Operations' }]} />
+      <Breadcrumbs items={[{ label: 'Home', href: '/app' }, { label: 'Operations' }]} />
 
       {/* ── 1. Page Header & Operational Context ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-border">

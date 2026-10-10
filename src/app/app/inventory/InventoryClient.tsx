@@ -1043,6 +1043,10 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   return (
     <>
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Inventory' },
+        ]}
         title="Inventory & Procurement"
         badge={
           <span

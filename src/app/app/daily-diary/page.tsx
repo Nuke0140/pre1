@@ -30,7 +30,7 @@ import {
   Trash2,
   Minus,
 } from 'lucide-react'
-import { PageHead, Avatar } from '@/components/preone/ui'
+import { PageHead, Avatar, Breadcrumbs } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
@@ -855,6 +855,9 @@ export default function DailyDiaryPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* ── Breadcrumb Navigation ── */}
+      <Breadcrumbs items={[{ label: 'Home', href: '/app' }, { label: 'Daily Diary' }]} />
+
       {/* ── PREONE PAGE HEADER ── */}
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

@@ -356,6 +356,10 @@ export default function SettingsControlCenter() {
   return (
     <div className="page-container space-y-6" style={{ paddingBottom: 60 }}>
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Settings' },
+        ]}
         title="Settings & Administration"
         sub="Unified configuration control center for preschool operations, policies, integrations, and RBAC"
         actions={

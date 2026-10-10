@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  Baby, User, Mail, Phone, Key, Shield, AlertCircle, AlertTriangle,
-  CheckCircle2, Lock, Search, RefreshCw, Eye, EyeOff, Plus, Trash2, Camera
+  Baby, User, Mail, Phone, Key, Shield, AlertCircle,
+  CheckCircle2, Lock, Search, RefreshCw, Eye, EyeOff, Plus,
+  ArrowRight, ArrowLeft, Check, Sparkles, Building, DoorOpen, Calendar
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { BranchOption, ClassroomOption } from './types'
+import { UserPhotoUpload } from './UserPhotoUpload'
 
 interface AddFamilyModalProps {
   open: boolean
@@ -36,99 +38,87 @@ export function AddFamilyModal({
   onSuccess,
 }: AddFamilyModalProps) {
   const toast = useToast()
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [submitting, setSubmitting] = useState(false)
-
-  // Step 1: Caregiver Identity
-  const [role, setRole] = useState<'PARENT' | 'GUARDIAN'>(defaultRole)
-  const [avatarUrl, setAvatarUrl] = useState('')
-  const [fullName, setFullName] = useState('')
-  const [caregiverGender, setCaregiverGender] = useState<string>('UNSPECIFIED')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [relationship, setRelationship] = useState('FATHER')
-  const [status, setStatus] = useState<string>('ACTIVE')
 
-  // Step 2: Child Association
+  // Step 1: Caregiver Details
+  const [role, setRole] = useState<'PARENT' | 'GUARDIAN'>(defaultRole)
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [relationship, setRelationship] = useState('FATHER')
+  const [avatarUrl, setAvatarUrl] = useState('')
+
+  // Step 2: Child Connection
   const [childMode, setChildMode] = useState<'EXISTING' | 'CREATE'>('EXISTING')
 
-  // Existing student state
+  // Mode A: Existing Student
   const [studentSearch, setStudentSearch] = useState('')
   const [searchingStudents, setSearchingStudents] = useState(false)
   const [studentOptions, setStudentOptions] = useState<StudentSearchItem[]>([])
   const [selectedStudent, setSelectedStudent] = useState<StudentSearchItem | null>(null)
   const [existingParentCount, setExistingParentCount] = useState<number>(0)
-  const [checkingParentCount, setCheckingParentCount] = useState(false)
 
-  // Multi-child (additional siblings)
-  const [additionalStudents, setAdditionalStudents] = useState<StudentSearchItem[]>([])
-  const [siblingSearch, setSiblingSearch] = useState('')
-  const [siblingSearching, setSiblingSearching] = useState(false)
-  const [siblingOptions, setSiblingOptions] = useState<StudentSearchItem[]>([])
-  const [showSiblingSearch, setShowSiblingSearch] = useState(false)
-
-  // New child state
-  const [childAdmissionNo, setChildAdmissionNo] = useState('')
+  // Mode B: New Student
   const [childFirstName, setChildFirstName] = useState('')
   const [childLastName, setChildLastName] = useState('')
   const [childDOB, setChildDOB] = useState('')
   const [childGender, setChildGender] = useState('MALE')
-  const [childBloodGroup, setChildBloodGroup] = useState('')
   const [childBranchId, setChildBranchId] = useState(branches[0]?.id || '')
   const [childClassroomId, setChildClassroomId] = useState(classrooms[0]?.id || '')
-  const [childSeatNumber, setChildSeatNumber] = useState('')
-  const [childAdmissionYear, setChildAdmissionYear] = useState('2026-27')
+  const [childAdmissionNo, setChildAdmissionNo] = useState('')
+  const [childPhotoUrl, setChildPhotoUrl] = useState('')
 
-  // Step 3: Permissions & pickup
+  // Step 3: Security & Access
   const [canPickup, setCanPickup] = useState(true)
   const [pickupPin, setPickupPin] = useState('')
-  const [showPin, setShowPin] = useState(false)
   const [receivesComm, setReceivesComm] = useState(true)
-  const [isFeePayer, setIsFeePayer] = useState(true)
-  const [isPrimary, setIsPrimary] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [status, setStatus] = useState<'ACTIVE' | 'PENDING'>('ACTIVE')
 
   useEffect(() => {
-    setRole(defaultRole)
-    if (defaultRole === 'GUARDIAN') {
-      setRelationship('GRANDPARENT')
-      setIsFeePayer(false)
+    if (open) {
+      setRole(defaultRole)
+      if (defaultRole === 'GUARDIAN') {
+        setRelationship('GRANDPARENT')
+      } else {
+        setRelationship('FATHER')
+      }
+      if (!password) generateRandomPassword()
+      if (branches.length > 0 && !childBranchId) setChildBranchId(branches[0].id)
+      if (classrooms.length > 0 && !childClassroomId) setChildClassroomId(classrooms[0].id)
+    }
+  }, [open, defaultRole, branches, classrooms])
+
+  // Auto-generate username from fullName
+  const handleFullNameChange = (val: string) => {
+    setFullName(val)
+    const slug = val
+      .toLowerCase()
+      .trim()
+      .replace(/^(mr\.|mrs\.|ms\.|dr\.)\s+/i, '')
+      .replace(/[^a-z0-9]/g, '.')
+      .replace(/\.+/g, '.')
+    if (slug) {
+      const rand = Math.floor(100 + Math.random() * 900)
+      setUsername(`${slug}.${rand}`)
     } else {
-      setRelationship('FATHER')
-      setIsFeePayer(true)
+      setUsername('')
     }
-  }, [defaultRole, open])
-
-  useEffect(() => {
-    if (branches.length > 0 && !childBranchId) {
-      setChildBranchId(branches[0].id)
-    }
-    if (classrooms.length > 0 && !childClassroomId) {
-      setChildClassroomId(classrooms[0].id)
-    }
-  }, [branches, classrooms, childBranchId, childClassroomId])
-
-  // Auto-generate username helper
-  const handleAutoSuggestUsername = () => {
-    if (!fullName.trim()) return
-    const clean = fullName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
-    const rand = Math.floor(100 + Math.random() * 900)
-    setUsername(`${clean}.${rand}`)
   }
 
-  // Random password generator
-  const handleGeneratePassword = () => {
+  const generateRandomPassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*'
-    let pwd = ''
-    for (let i = 0; i < 10; i++) {
+    let pwd = 'PreOne@'
+    for (let i = 0; i < 4; i++) {
       pwd += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     setPassword(pwd)
-    setShowPassword(true)
   }
 
-  // Search students for primary link
+  // Search students with debounce
   useEffect(() => {
     if (!studentSearch.trim() || studentSearch.length < 2) {
       setStudentOptions([])
@@ -138,51 +128,22 @@ export function AddFamilyModal({
     const timer = setTimeout(async () => {
       setSearchingStudents(true)
       try {
-        const res = await fetch(`/api/v1/students?search=${encodeURIComponent(studentSearch.trim())}&pageSize=10`)
+        const res = await fetch(`/api/v1/students?search=${encodeURIComponent(studentSearch.trim())}&pageSize=8`)
         if (res.ok) {
           const json = await res.json()
           setStudentOptions(json.data || json.items || [])
         }
       } catch (err) {
-        console.error('Failed to search students:', err)
+        // Non-blocking
       } finally {
         setSearchingStudents(false)
       }
-    }, 300)
+    }, 250)
 
     return () => clearTimeout(timer)
   }, [studentSearch])
 
-  // Search siblings
-  useEffect(() => {
-    if (!siblingSearch.trim() || siblingSearch.length < 2) {
-      setSiblingOptions([])
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setSiblingSearching(true)
-      try {
-        const res = await fetch(`/api/v1/students?search=${encodeURIComponent(siblingSearch.trim())}&pageSize=10`)
-        if (res.ok) {
-          const json = await res.json()
-          const items: StudentSearchItem[] = json.data || json.items || []
-          const filtered = items.filter(
-            (it) => it.id !== selectedStudent?.id && !additionalStudents.some((s) => s.id === it.id)
-          )
-          setSiblingOptions(filtered)
-        }
-      } catch (err) {
-        console.error('Failed to search siblings:', err)
-      } finally {
-        setSiblingSearching(false)
-      }
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [siblingSearch, selectedStudent, additionalStudents])
-
-  // Check parent count when selectedStudent changes
+  // Check parent count when existing student is selected
   useEffect(() => {
     if (!selectedStudent) {
       setExistingParentCount(0)
@@ -190,7 +151,6 @@ export function AddFamilyModal({
     }
 
     const checkParents = async () => {
-      setCheckingParentCount(true)
       try {
         const res = await fetch(`/api/v1/students/${selectedStudent.id}`)
         if (res.ok) {
@@ -203,9 +163,7 @@ export function AddFamilyModal({
           setExistingParentCount(parents.length)
         }
       } catch (e) {
-        // Silent catch
-      } finally {
-        setCheckingParentCount(false)
+        // Non-blocking
       }
     }
 
@@ -215,53 +173,88 @@ export function AddFamilyModal({
   const isParentLimitExceeded = role === 'PARENT' && childMode === 'EXISTING' && existingParentCount >= 2
 
   const resetForm = () => {
+    setStep(1)
     setFullName('')
-    setEmail('')
     setPhone('')
-    setUsername('')
-    setPassword('')
+    setEmail('')
     setAvatarUrl('')
-    setCaregiverGender('UNSPECIFIED')
-    setStatus('ACTIVE')
+    setRole(defaultRole)
+    setRelationship('FATHER')
+    setChildMode('EXISTING')
     setSelectedStudent(null)
     setStudentSearch('')
-    setAdditionalStudents([])
-    setSiblingSearch('')
-    setShowSiblingSearch(false)
-    setChildAdmissionNo('')
     setChildFirstName('')
     setChildLastName('')
     setChildDOB('')
-    setChildBloodGroup('')
-    setChildSeatNumber('')
+    setChildAdmissionNo('')
+    setChildPhotoUrl('')
+    setCanPickup(true)
     setPickupPin('')
+    setReceivesComm(true)
+    setUsername('')
+    setPassword('')
+    setStatus('ACTIVE')
+  }
+
+  const validateStep1 = () => {
+    if (!fullName.trim()) {
+      toast.error('Validation Error', 'Full Name is required')
+      return false
+    }
+    if (!phone.trim()) {
+      toast.error('Validation Error', 'Mobile Phone number is required')
+      return false
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Validation Error', 'A valid Email address is required')
+      return false
+    }
+    return true
+  }
+
+  const validateStep2 = () => {
+    if (childMode === 'EXISTING') {
+      if (!selectedStudent) {
+        toast.error('Student Required', 'Please search and select the enrolled child')
+        return false
+      }
+      if (isParentLimitExceeded) {
+        toast.error(
+          'Max 2 Parents Rule',
+          'This child already has 2 registered parents. Please select Guardian role in Step 1.'
+        )
+        return false
+      }
+    } else {
+      if (!childFirstName.trim()) {
+        toast.error('Validation Error', 'Child first name is required')
+        return false
+      }
+      if (!childDOB) {
+        toast.error('Validation Error', 'Child Date of Birth is required')
+        return false
+      }
+    }
+    return true
+  }
+
+  const handleNext = () => {
+    if (step === 1) {
+      if (validateStep1()) setStep(2)
+    } else if (step === 2) {
+      if (validateStep2()) setStep(3)
+    }
+  }
+
+  const handleBack = () => {
+    if (step === 2) setStep(1)
+    if (step === 3) setStep(2)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!fullName.trim() || !email.trim() || !phone.trim()) {
-      toast.error('Validation Error', 'Full name, email, and mobile phone are required')
-      return
-    }
-
-    if (childMode === 'EXISTING' && !selectedStudent) {
-      toast.error('Student Required', 'Please search and select the enrolled child')
-      return
-    }
-
-    if (isParentLimitExceeded) {
-      toast.error(
-        'Max 2 Parents Rule',
-        'This child already has 2 registered parents. Please select the GUARDIAN role.'
-      )
-      return
-    }
-
-    if (childMode === 'CREATE' && (!childFirstName.trim() || !childDOB)) {
-      toast.error('Child Info Required', 'Child first name and DOB are required')
-      return
-    }
+    if (!validateStep1() || !validateStep2()) return
 
     if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
       toast.error('Invalid PIN', 'Pickup PIN must be 4 to 6 numeric digits')
@@ -271,45 +264,38 @@ export function AddFamilyModal({
     setSubmitting(true)
     try {
       const payload: any = {
-        avatarUrl: avatarUrl.trim() || null,
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.trim(),
-        gender: caregiverGender !== 'UNSPECIFIED' ? caregiverGender : undefined,
-        username: username.trim() || undefined,
-        password: password.trim() || undefined,
+        avatarUrl: avatarUrl.trim() || null,
         role,
         primaryRole: role,
         roles: [role],
         relationship,
         status,
-        isPrimary,
         canPickup,
         pickupPin: pickupPin.trim() || undefined,
         receivesComm,
-        isFeePayer: role === 'PARENT' ? true : isFeePayer,
+        username: username.trim() || undefined,
+        password: password.trim() || undefined,
+        childMode,
       }
 
       if (childMode === 'EXISTING' && selectedStudent) {
         payload.studentId = selectedStudent.id
         payload.studentAdmissionNo = selectedStudent.admissionNo
-        if (additionalStudents.length > 0) {
-          payload.studentAdmissionNos = additionalStudents.map((s) => s.admissionNo)
-        }
       }
 
       if (childMode === 'CREATE') {
         payload.newChild = {
-          admissionNo: childAdmissionNo.trim() || undefined,
           firstName: childFirstName.trim(),
           lastName: childLastName.trim() || undefined,
           dob: childDOB,
           gender: childGender,
-          bloodGroup: childBloodGroup || undefined,
           branchId: childBranchId || undefined,
           classroomId: childClassroomId || undefined,
-          seatNumber: childSeatNumber.trim() || undefined,
-          admissionYear: childAdmissionYear,
+          admissionNo: childAdmissionNo.trim() || undefined,
+          photoUrl: childPhotoUrl.trim() || undefined,
         }
       }
 
@@ -326,7 +312,7 @@ export function AddFamilyModal({
 
       toast.success(
         `${role === 'PARENT' ? 'Parent' : 'Guardian'} Account Created`,
-        `${fullName} registered successfully. ${json.data?.username ? `Username: ${json.data.username}` : ''}`
+        `${fullName} registered successfully.`
       )
       resetForm()
       onSuccess()
@@ -339,56 +325,58 @@ export function AddFamilyModal({
   }
 
   const modalFooter = (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 12 }}>
-      <div className="hidden sm:flex" style={{ alignItems: 'center', gap: 6 }}>
-        {role === 'PARENT' ? (
-          <span
-            className="badge b-primary"
-            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, gap: 6 }}
-          >
-            <Shield style={{ width: 13, height: 13 }} />
-            Max 2 Parents per child policy enforced
-          </span>
-        ) : (
-          <span
-            className="badge b-amber"
-            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, gap: 6 }}
-          >
-            <CheckCircle2 style={{ width: 13, height: 13 }} />
-            Unlimited authorized guardians allowed
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 'auto', marginLeft: 'auto' }}>
+    <div className="flex items-center justify-between w-full gap-3">
+      {step > 1 ? (
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          onClick={handleBack}
+          disabled={submitting}
+          className="btn btn-secondary text-xs flex items-center gap-1.5 py-2 px-3"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back</span>
+        </button>
+      ) : (
+        <button
+          type="button"
           onClick={onClose}
           disabled={submitting}
+          className="btn btn-secondary text-xs py-2 px-3"
         >
           Cancel
         </button>
-        <button
-          type="submit"
-          form="add-family-form"
-          className={`btn btn-sm ${role === 'PARENT' ? 'btn-primary' : ''}`}
-          style={
-            role === 'GUARDIAN'
-              ? { background: 'var(--warning)', color: '#FFFFFF', border: 'none' }
-              : undefined
-          }
-          disabled={submitting || isParentLimitExceeded}
-        >
-          {submitting ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span className="animate-spin" style={{ width: 12, height: 12, border: '2px solid #FFFFFF', borderTopColor: 'transparent', borderRadius: '50%' }} />
-              Saving...
-            </span>
-          ) : (
-            `Create ${role === 'PARENT' ? 'Parent Account' : 'Authorized Guardian'}`
-          )}
-        </button>
+      )}
+
+      <div className="flex items-center gap-2">
+        {step < 3 ? (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="btn btn-primary text-xs flex items-center gap-1.5 py-2 px-4 font-semibold shadow-xs"
+          >
+            <span>Continue</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            form="add-family-form"
+            disabled={submitting}
+            className="btn btn-primary text-xs flex items-center gap-1.5 py-2 px-4 font-semibold shadow-xs"
+          >
+            {submitting ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Creating Account...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Create Family Account</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -397,1068 +385,679 @@ export function AddFamilyModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={role === 'PARENT' ? 'Add Parent Account' : 'Add Authorized Guardian'}
-      subtitle={
-        role === 'PARENT'
-          ? 'Primary student caregiver & fee payer with full academic visibility'
-          : 'Authorized pickup escort, relative, or secondary campus contact'
-      }
-      icon={
-        role === 'PARENT' ? (
-          <User style={{ width: 20, height: 20 }} />
-        ) : (
-          <Shield style={{ width: 20, height: 20 }} />
-        )
-      }
-      iconClass={role === 'PARENT' ? 'ic-purple' : 'ic-amber'}
+      title="Add Family Member"
+      subtitle="Connect parents and authorized guardians to students effortlessly"
+      icon={<Baby className="w-5 h-5" />}
+      iconClass="ic-orange"
       wide
       footer={modalFooter}
     >
-      <form id="add-family-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Role Selector Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-          {/* Parent Account Card */}
+      <div className="space-y-4">
+        {/* Step Indicator Bar */}
+        <div className="flex items-center justify-between px-1 py-1 bg-gray-50 dark:bg-gray-900/60 rounded-xl border border-gray-100 dark:border-gray-800">
           <button
             type="button"
-            onClick={() => {
-              setRole('PARENT')
-              setRelationship('FATHER')
-              setIsFeePayer(true)
-            }}
-            style={{
-              position: 'relative',
-              textAlign: 'left',
-              padding: '14px 16px',
-              borderRadius: 'var(--radius-lg)',
-              background: role === 'PARENT' ? 'var(--preone-primary-soft)' : 'var(--bg-card)',
-              border: role === 'PARENT' ? '2px solid var(--primary)' : '1px solid var(--border-default)',
-              boxShadow: role === 'PARENT' ? 'var(--shadow-card)' : 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              transition: 'all 150ms ease',
-            }}
+            onClick={() => setStep(1)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+              step === 1
+                ? 'bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-300 font-bold shadow-xs'
+                : step > 1
+                ? 'text-emerald-700 dark:text-emerald-400 font-medium'
+                : 'text-gray-400'
+            }`}
           >
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                background: role === 'PARENT' ? 'var(--primary)' : 'var(--bg-muted)',
-                color: role === 'PARENT' ? '#FFFFFF' : 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'background 150ms ease',
-              }}
-            >
-              <User style={{ width: 18, height: 18 }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Parent Account</span>
-                <span className="badge b-primary b-sm">Fee Payer</span>
-              </div>
-              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.35 }}>
-                Max 2 per child. Full billing, academic, and attendance access.
-              </p>
-            </div>
-          </button>
-
-          {/* Authorized Guardian Card */}
-          <button
-            type="button"
-            onClick={() => {
-              setRole('GUARDIAN')
-              setRelationship('GRANDPARENT')
-              setIsFeePayer(false)
-            }}
-            style={{
-              position: 'relative',
-              textAlign: 'left',
-              padding: '14px 16px',
-              borderRadius: 'var(--radius-lg)',
-              background: role === 'GUARDIAN' ? 'var(--warning-soft)' : 'var(--bg-card)',
-              border: role === 'GUARDIAN' ? '2px solid var(--warning)' : '1px solid var(--border-default)',
-              boxShadow: role === 'GUARDIAN' ? 'var(--shadow-card)' : 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 12,
-              transition: 'all 150ms ease',
-            }}
-          >
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                background: role === 'GUARDIAN' ? 'var(--warning)' : 'var(--bg-muted)',
-                color: role === 'GUARDIAN' ? '#FFFFFF' : 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'background 150ms ease',
-              }}
-            >
-              <Shield style={{ width: 18, height: 18 }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Authorized Guardian</span>
-                <span className="badge b-amber b-sm">Unlimited</span>
-              </div>
-              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.35 }}>
-                Grandparents & relatives. Gate pickup & timeline notices.
-              </p>
-            </div>
-          </button>
-        </div>
-
-        {/* Section 1: Caregiver Information */}
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-xl)',
-            padding: '16px 18px',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              paddingBottom: 10,
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: 14,
-            }}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                background: 'var(--primary-light)',
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              1
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Caregiver Information
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+              step === 1
+                ? 'bg-amber-600 text-white font-bold'
+                : step > 1
+                ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+            }`}>
+              {step > 1 ? '✓' : '1'}
             </span>
-          </div>
+            <span>1. Caregiver Details</span>
+          </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <div className="field">
-              <label>
-                Full Name <span className="req">*</span>
-              </label>
-              <div className="input-icon-wrap">
-                <User style={{ width: 16, height: 16 }} />
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Rahul Patil"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="input"
-                  style={{ paddingLeft: 38 }}
-                />
-              </div>
-            </div>
+          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800 mx-2" />
 
-            <div className="field">
-              <label>
-                Relationship to Child <span className="req">*</span>
-              </label>
-              <select
-                value={relationship}
-                onChange={(e) => setRelationship(e.target.value)}
-                className="select"
-              >
-                {role === 'PARENT' ? (
-                  <>
-                    <option value="FATHER">Father</option>
-                    <option value="MOTHER">Mother</option>
-                    <option value="GUARDIAN">Guardian</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="GUARDIAN">Guardian</option>
-                    <option value="GRANDPARENT">Grandparent (Grandmother / Grandfather)</option>
-                    <option value="SIBLING">Sibling (Brother / Sister of legal age)</option>
-                    <option value="OTHER">Uncle / Aunt / Caregiver / Nanny</option>
-                  </>
-                )}
-              </select>
-            </div>
+          <button
+            type="button"
+            onClick={() => validateStep1() && setStep(2)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+              step === 2
+                ? 'bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-300 font-bold shadow-xs'
+                : step > 2
+                ? 'text-emerald-700 dark:text-emerald-400 font-medium'
+                : 'text-gray-400'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+              step === 2
+                ? 'bg-amber-600 text-white font-bold'
+                : step > 2
+                ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+            }`}>
+              {step > 2 ? '✓' : '2'}
+            </span>
+            <span>2. Child Connection</span>
+          </button>
 
-            <div className="field">
-              <label>
-                Email Address <span className="req">*</span>
-              </label>
-              <div className="input-icon-wrap">
-                <Mail style={{ width: 16, height: 16 }} />
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. rahul.patil@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input"
-                  style={{ paddingLeft: 38 }}
-                />
-              </div>
-            </div>
+          <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800 mx-2" />
 
-            <div className="field">
-              <label>
-                Mobile Phone <span className="req">*</span>
-              </label>
-              <div className="input-icon-wrap">
-                <Phone style={{ width: 16, height: 16 }} />
-                <input
-                  type="tel"
-                  required
-                  placeholder="e.g. +91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="input"
-                  style={{ paddingLeft: 38 }}
-                />
-              </div>
-            </div>
-
-            <div className="field">
-              <label>Caregiver Gender (Optional)</label>
-              <select
-                value={caregiverGender}
-                onChange={(e) => setCaregiverGender(e.target.value)}
-                className="select"
-              >
-                <option value="UNSPECIFIED">Select Gender (Optional)</option>
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-
-            <div className="field">
-              <label>Account Status</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="select"
-              >
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="PENDING">PENDING</option>
-                <option value="INACTIVE">INACTIVE</option>
-                <option value="SUSPENDED">SUSPENDED</option>
-              </select>
-            </div>
-
-            <div className="field">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label>Portal Username</label>
-                <button
-                  type="button"
-                  onClick={handleAutoSuggestUsername}
-                  className="btn-link text-xs"
-                  style={{ fontSize: 11, color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                >
-                  Suggest from Name
-                </button>
-              </div>
-              <input
-                type="text"
-                placeholder="e.g. rahul.patil"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="input font-mono"
-              />
-            </div>
-
-            <div className="field">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label>Password</label>
-                <button
-                  type="button"
-                  onClick={handleGeneratePassword}
-                  className="btn-link text-xs"
-                  style={{ fontSize: 11, color: 'var(--primary)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
-                >
-                  Generate Password
-                </button>
-              </div>
-              <div className="input-icon-wrap" style={{ position: 'relative' }}>
-                <Key style={{ width: 16, height: 16 }} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Leave empty for default"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input font-mono"
-                  style={{ paddingLeft: 38, paddingRight: 38 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Photo / Avatar URL (Optional)</label>
-              <div className="input-icon-wrap">
-                <Camera style={{ width: 16, height: 16 }} />
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  className="input"
-                  style={{ paddingLeft: 38 }}
-                />
-              </div>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => validateStep1() && validateStep2() && setStep(3)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+              step === 3
+                ? 'bg-white dark:bg-gray-800 text-amber-700 dark:text-amber-300 font-bold shadow-xs'
+                : 'text-gray-400'
+            }`}
+          >
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] ${
+              step === 3
+                ? 'bg-amber-600 text-white font-bold'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+            }`}>
+              3
+            </span>
+            <span>3. Security &amp; Access</span>
+          </button>
         </div>
 
-        {/* Section 2: Student Association */}
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-xl)',
-            padding: '16px 18px',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingBottom: 10,
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: 14,
-              flexWrap: 'wrap',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 6,
-                  background: 'var(--primary-light)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                }}
-              >
-                2
+        <form id="add-family-form" onSubmit={handleSubmit} autoComplete="off">
+          {/* ──────────────── STEP 1: CAREGIVER DETAILS ──────────────── */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Caregiver Profile
+                  </span>
+                  {/* Role Selector Pills */}
+                  <div className="flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRole('PARENT')
+                        if (relationship === 'GRANDPARENT') setRelationship('FATHER')
+                      }}
+                      className={`px-3 py-1 rounded-md font-medium transition-colors ${
+                        role === 'PARENT'
+                          ? 'bg-white dark:bg-gray-900 text-amber-700 dark:text-amber-300 font-semibold shadow-xs'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Parent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRole('GUARDIAN')
+                        if (relationship === 'FATHER' || relationship === 'MOTHER') setRelationship('GRANDPARENT')
+                      }}
+                      className={`px-3 py-1 rounded-md font-medium transition-colors ${
+                        role === 'GUARDIAN'
+                          ? 'bg-white dark:bg-gray-900 text-purple-700 dark:text-purple-300 font-semibold shadow-xs'
+                          : 'text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      Guardian
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Full Name */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative mt-1">
+                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Ramesh Joshi"
+                        value={fullName}
+                        onChange={(e) => handleFullNameChange(e.target.value)}
+                        className="input w-full text-xs pl-9"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+
+                  {/* Relationship */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Relationship to Child <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={relationship}
+                      onChange={(e) => setRelationship(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      {role === 'PARENT' ? (
+                        <>
+                          <option value="FATHER">Father</option>
+                          <option value="MOTHER">Mother</option>
+                          <option value="STEP_PARENT">Step-Parent</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="GRANDPARENT">Grandparent</option>
+                          <option value="UNCLE_AUNT">Uncle / Aunt</option>
+                          <option value="LEGAL_GUARDIAN">Legal Guardian</option>
+                          <option value="NANNY_CARETAKER">Nanny / Caretaker</option>
+                          <option value="OTHER">Other Relative</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {/* Mobile Phone */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Mobile Phone <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative mt-1">
+                      <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="tel"
+                        required
+                        placeholder="+91 98765 43210"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="input w-full text-xs pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative mt-1">
+                      <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="e.g. ramesh@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="input w-full text-xs pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Caregiver Profile Photo Upload */}
+                  <UserPhotoUpload
+                    value={avatarUrl}
+                    onChange={setAvatarUrl}
+                    name={fullName}
+                    label="Caregiver Profile Photo"
+                    hint="Upload photo from device (JPG, PNG, WebP up to 5MB). Stored securely."
+                  />
+                </div>
               </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Student Association
-              </span>
             </div>
+          )}
 
-            <div className="seg" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={childMode === 'EXISTING'}
-                onClick={() => setChildMode('EXISTING')}
-                className={childMode === 'EXISTING' ? 'on' : ''}
-              >
-                Enrolled Student
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={childMode === 'CREATE'}
-                onClick={() => setChildMode('CREATE')}
-                className={childMode === 'CREATE' ? 'on' : ''}
-              >
-                Enroll New Student
-              </button>
-            </div>
-          </div>
+          {/* ──────────────── STEP 2: CHILD CONNECTION ──────────────── */}
+          {step === 2 && (
+            <div className="space-y-4">
+              {/* Option Selector: Existing vs Create New */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChildMode('EXISTING')}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    childMode === 'EXISTING'
+                      ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs ring-1 ring-amber-500/30'
+                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      childMode === 'EXISTING' ? 'border-amber-600 bg-amber-600 text-white' : 'border-gray-400'
+                    }`}>
+                      {childMode === 'EXISTING' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">Enrolled Student</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 pl-6">
+                    Link to a child already registered in the preschool
+                  </p>
+                </button>
 
-          {childMode === 'EXISTING' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {!selectedStudent ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div className="input-icon-wrap">
-                    <Search style={{ width: 16, height: 16 }} />
-                    <input
-                      type="search"
-                      placeholder="Search by Admission No (e.g. ADM-2026-00123) or Student Name..."
-                      value={studentSearch}
-                      onChange={(e) => setStudentSearch(e.target.value)}
-                      className="input"
-                      style={{ paddingLeft: 38 }}
-                    />
+                <button
+                  type="button"
+                  onClick={() => setChildMode('CREATE')}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    childMode === 'CREATE'
+                      ? 'border-amber-500 bg-amber-50/50 dark:bg-amber-950/20 shadow-xs ring-1 ring-amber-500/30'
+                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      childMode === 'CREATE' ? 'border-amber-600 bg-amber-600 text-white' : 'border-gray-400'
+                    }`}>
+                      {childMode === 'CREATE' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </span>
+                    <span className="text-xs font-bold text-gray-900 dark:text-white">Register New Student</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 pl-6">
+                    Create child record along with this caregiver
+                  </p>
+                </button>
+              </div>
+
+              {/* MODE A: EXISTING STUDENT SEARCH */}
+              {childMode === 'EXISTING' && (
+                <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-3">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-white">
+                    Select Enrolled Student
                   </div>
 
-                  {searchingStudents && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6, padding: '2px 4px' }}>
-                      <span className="animate-spin" style={{ width: 12, height: 12, border: '2px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%' }} />
-                      Searching student directory...
-                    </div>
-                  )}
-
-                  {studentOptions.length > 0 && (
-                    <div
-                      style={{
-                        maxHeight: 190,
-                        overflowY: 'auto',
-                        border: '1px solid var(--border-default)',
-                        borderRadius: 'var(--radius-lg)',
-                        background: 'var(--bg-card)',
-                        boxShadow: 'var(--shadow-elevated)',
-                      }}
-                    >
-                      {studentOptions.map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedStudent(s)
-                            setStudentSearch('')
-                            setStudentOptions([])
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '10px 14px',
-                            textAlign: 'left',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            borderBottom: '1px solid var(--border-subtle)',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            transition: 'background 120ms ease',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div
-                              style={{
-                                width: 30,
-                                height: 30,
-                                borderRadius: '50%',
-                                background: 'var(--primary-light)',
-                                color: 'var(--primary)',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 12,
-                              }}
-                            >
-                              {s.firstName?.[0] || 'S'}
-                            </div>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 650, color: 'var(--text-primary)' }}>
-                                {s.firstName} {s.lastName || ''}
-                              </div>
-                              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                                Class: {s.currentClassroom?.name || 'Unassigned'}
-                              </div>
-                            </div>
+                  {selectedStudent ? (
+                    <div className="p-3 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-amber-200/60 dark:bg-amber-800/40 text-amber-800 dark:text-amber-200 font-bold flex items-center justify-center text-xs">
+                          {selectedStudent.firstName[0]}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-gray-900 dark:text-white">
+                            {selectedStudent.firstName} {selectedStudent.lastName || ''}
                           </div>
-                          <span className="badge b-neutral b-sm font-mono" style={{ fontSize: 11 }}>
-                            {s.admissionNo}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    background: 'var(--bg-subtle)',
-                    border: '1px solid var(--border-default)',
-                    borderRadius: 'var(--radius-lg)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 10,
-                        background: 'var(--primary)',
-                        color: '#FFFFFF',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 15,
-                        boxShadow: 'var(--shadow-soft)',
-                      }}
-                    >
-                      {selectedStudent.firstName?.[0] || 'S'}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 750, color: 'var(--text-primary)' }}>
-                          {selectedStudent.firstName} {selectedStudent.lastName || ''}
-                        </span>
-                        <span className="badge b-primary b-sm font-mono" style={{ fontWeight: 700 }}>
-                          {selectedStudent.admissionNo}
-                        </span>
+                          <div className="text-[11px] text-gray-500 font-mono flex items-center gap-2 mt-0.5">
+                            <span>Adm: {selectedStudent.admissionNo}</span>
+                            {selectedStudent.currentClassroom && (
+                              <span>• Class: {selectedStudent.currentClassroom.name}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span>Class: {selectedStudent.currentClassroom?.name || 'Unassigned'}</span>
-                        <span>•</span>
-                        <span>
-                          {checkingParentCount ? (
-                            <span style={{ color: 'var(--primary)' }}>Verifying quota...</span>
-                          ) : (
-                            <span
-                              className={`badge b-sm ${
-                                existingParentCount >= 2 ? 'b-amber' : 'b-success'
-                              }`}
-                              style={{ padding: '2px 8px' }}
-                            >
-                              {existingParentCount >= 2 ? (
-                                <AlertTriangle style={{ width: 11, height: 11 }} />
-                              ) : (
-                                <CheckCircle2 style={{ width: 11, height: 11 }} />
-                              )}
-                              {existingParentCount}/2 Parents registered
-                              {existingParentCount < 2 && ` (${2 - existingParentCount} slot open)`}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedStudent(null)
-                      setStudentSearch('')
-                    }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ color: 'var(--danger)', fontSize: 12 }}
-                  >
-                    Change Student
-                  </button>
-                </div>
-              )}
-
-              {/* Max 2 Parents policy warning */}
-              {isParentLimitExceeded && (
-                <div
-                  style={{
-                    padding: '12px 16px',
-                    background: 'var(--warning-soft)',
-                    border: '1px solid var(--warning)',
-                    borderRadius: 'var(--radius-lg)',
-                    fontSize: 12,
-                    color: '#92400E',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 10,
-                  }}
-                >
-                  <AlertTriangle style={{ width: 18, height: 18, color: '#D97706', flexShrink: 0, marginTop: 2 }} />
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>
-                      Max 2 Parents Rule Enforced
-                    </strong>
-                    This child already has 2 registered Parent accounts in this preschool. According to school policy, primary parent accounts are capped at 2. You can add this caregiver as an Authorized Guardian with full gate pickup authorizations.
-                    <div style={{ marginTop: 8 }}>
                       <button
                         type="button"
                         onClick={() => {
-                          setRole('GUARDIAN')
-                          setRelationship('GRANDPARENT')
-                          setIsFeePayer(false)
+                          setSelectedStudent(null)
+                          setStudentSearch('')
                         }}
-                        className="btn btn-sm"
-                        style={{ background: '#D97706', color: '#FFFFFF', border: 'none', fontWeight: 700 }}
+                        className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:underline"
                       >
-                        Switch to Authorized Guardian account →
+                        Change
                       </button>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Multi-Child / Sibling Support */}
-              {selectedStudent && (
-                <div style={{ marginTop: 8, borderTop: '1px dashed var(--border-default)', paddingTop: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
-                      Linked Siblings / Additional Children ({additionalStudents.length})
-                    </span>
-                    {!showSiblingSearch && (
-                      <button
-                        type="button"
-                        onClick={() => setShowSiblingSearch(true)}
-                        className="btn btn-ghost btn-xs"
-                        style={{ fontSize: 11.5, color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                      >
-                        <Plus size={13} /> Link Another Child
-                      </button>
-                    )}
-                  </div>
-
-                  {additionalStudents.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-                      {additionalStudents.map((s) => (
-                        <div
-                          key={s.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-md)',
-                            background: 'var(--bg-muted)',
-                            fontSize: 12,
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Baby size={14} className="text-primary" />
-                            <span style={{ fontWeight: 600 }}>{s.firstName} {s.lastName || ''}</span>
-                            <span className="badge b-primary b-sm font-mono">{s.admissionNo}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setAdditionalStudents(additionalStudents.filter((x) => x.id !== s.id))}
-                            className="btn btn-ghost btn-xs text-danger"
-                            style={{ padding: 4 }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {showSiblingSearch && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--bg-card)', padding: 10, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
-                          type="search"
-                          placeholder="Search sibling by name or admission no..."
-                          value={siblingSearch}
-                          onChange={(e) => setSiblingSearch(e.target.value)}
-                          className="input input-sm"
-                          style={{ flex: 1 }}
+                          type="text"
+                          placeholder="Search child by name or admission number..."
+                          value={studentSearch}
+                          onChange={(e) => setStudentSearch(e.target.value)}
+                          className="input w-full text-xs pl-9"
+                          autoFocus
                         />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowSiblingSearch(false)
-                            setSiblingSearch('')
-                            setSiblingOptions([])
-                          }}
-                          className="btn btn-secondary btn-xs"
-                        >
-                          Cancel
-                        </button>
+                        {searchingStudents && (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        )}
                       </div>
 
-                      {siblingSearching && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Searching siblings...</div>
-                      )}
-
-                      {siblingOptions.length > 0 && (
-                        <div style={{ maxHeight: 130, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
-                          {siblingOptions.map((s) => (
+                      {studentOptions.length > 0 && (
+                        <div className="border border-gray-200 dark:border-gray-800 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                          {studentOptions.map((st) => (
                             <div
-                              key={s.id}
+                              key={st.id}
                               onClick={() => {
-                                setAdditionalStudents([...additionalStudents, s])
-                                setSiblingSearch('')
-                                setSiblingOptions([])
-                                setShowSiblingSearch(false)
+                                setSelectedStudent(st)
+                                setStudentOptions([])
                               }}
-                              style={{
-                                padding: '6px 10px',
-                                fontSize: 12,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                borderBottom: '1px solid var(--border-subtle)',
-                              }}
+                              className="p-2.5 hover:bg-amber-50/60 dark:hover:bg-amber-950/30 cursor-pointer flex items-center justify-between text-xs transition-colors"
                             >
-                              <span>{s.firstName} {s.lastName || ''}</span>
-                              <span className="font-mono text-xs">{s.admissionNo}</span>
+                              <div className="font-semibold text-gray-900 dark:text-white">
+                                {st.firstName} {st.lastName || ''}
+                              </div>
+                              <div className="text-[11px] text-gray-500 font-mono">
+                                {st.admissionNo} {st.currentClassroom ? `(${st.currentClassroom.name})` : ''}
+                              </div>
                             </div>
                           ))}
                         </div>
                       )}
+
+                      {studentSearch.length >= 2 && !searchingStudents && studentOptions.length === 0 && (
+                        <p className="text-xs text-gray-400 italic py-1">
+                          No students matching &quot;{studentSearch}&quot;. You can choose &quot;Register New Student&quot; above.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {isParentLimitExceeded && (
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                      <div>
+                        <strong>Max 2 Parents Rule:</strong> This child already has 2 registered Parents.
+                        Please switch role to <strong>Guardian</strong> in Step 1.
+                      </div>
                     </div>
                   )}
                 </div>
               )}
+
+              {/* MODE B: CREATE NEW STUDENT */}
+              {childMode === 'CREATE' && (
+                <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-4">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-white">
+                    New Student Details
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* First Name */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        First Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Aarav"
+                        value={childFirstName}
+                        onChange={(e) => setChildFirstName(e.target.value)}
+                        className="input w-full text-xs mt-1"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Last Name */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Last Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Joshi"
+                        value={childLastName}
+                        onChange={(e) => setChildLastName(e.target.value)}
+                        className="input w-full text-xs mt-1"
+                      />
+                    </div>
+
+                    {/* Date of Birth */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Date of Birth <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative mt-1">
+                        <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="date"
+                          required
+                          value={childDOB}
+                          onChange={(e) => setChildDOB(e.target.value)}
+                          className="input w-full text-xs pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Gender */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Gender
+                      </label>
+                      <select
+                        value={childGender}
+                        onChange={(e) => setChildGender(e.target.value)}
+                        className="select w-full text-xs mt-1"
+                      >
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
+                    </div>
+
+                    {/* Campus Branch */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Campus Branch
+                      </label>
+                      <div className="relative mt-1">
+                        <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={childBranchId}
+                          onChange={(e) => setChildBranchId(e.target.value)}
+                          className="select w-full text-xs pl-9"
+                        >
+                          {branches.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name} ({b.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Classroom */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Classroom / Section
+                      </label>
+                      <div className="relative mt-1">
+                        <DoorOpen className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={childClassroomId}
+                          onChange={(e) => setChildClassroomId(e.target.value)}
+                          className="select w-full text-xs pl-9"
+                        >
+                          <option value="">Select Classroom</option>
+                          {classrooms.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.code ? `(${c.code})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Admission Number */}
+                    <div className="field sm:col-span-2">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Admission Number (Optional - Auto-generated if left blank)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. PRE-2026-0042"
+                        value={childAdmissionNo}
+                        onChange={(e) => setChildAdmissionNo(e.target.value)}
+                        className="input w-full text-xs font-mono mt-1"
+                      />
+                    </div>
+
+                    {/* Child Admission Photo Upload */}
+                    <UserPhotoUpload
+                      value={childPhotoUrl}
+                      onChange={setChildPhotoUrl}
+                      name={`${childFirstName} ${childLastName}`.trim() || 'Child'}
+                      label="Child Photo (Optional)"
+                      hint="Upload student enrollment photo from device (JPG, PNG, WebP up to 5MB)."
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: 12,
-                padding: '14px 16px',
-                background: 'var(--bg-subtle)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div className="field">
-                <label>Admission No. (Optional / Auto)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. ADM-2026-00125"
-                  value={childAdmissionNo}
-                  onChange={(e) => setChildAdmissionNo(e.target.value)}
-                  className="input font-mono"
-                />
+          )}
+
+          {/* ──────────────── STEP 3: SECURITY & ACCESS ──────────────── */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-4">
+                <div className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
+                  Pickup &amp; Access Controls
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Pickup Authorization Toggle */}
+                  <div className="field sm:col-span-2 flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                    <div>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                        Authorized for Campus Pickup
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Permit this caregiver to pick up the child from campus gates
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={canPickup}
+                        onChange={(e) => setCanPickup(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-amber-600" />
+                    </label>
+                  </div>
+
+                  {/* Pickup PIN */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Pickup Security PIN (Optional)
+                    </label>
+                    <div className="relative mt-1">
+                      <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        maxLength={6}
+                        placeholder="e.g. 4821"
+                        value={pickupPin}
+                        onChange={(e) => setPickupPin(e.target.value.replace(/\D/g, ''))}
+                        className="input w-full text-xs pl-9 font-mono tracking-widest"
+                      />
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      4 to 6 digits numeric PIN for contactless gate verification
+                    </p>
+                  </div>
+
+                  {/* Communications Toggle */}
+                  <div className="field flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                    <div>
+                      <span className="text-xs font-bold text-gray-900 dark:text-white block">
+                        Receive Broadcasts &amp; Alerts
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Attendance, fee receipts, and updates
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={receivesComm}
+                        onChange={(e) => setReceivesComm(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-amber-600" />
+                    </label>
+                  </div>
+                </div>
               </div>
 
-              <div className="field">
-                <label>
-                  Child First Name <span className="req">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Aarav"
-                  value={childFirstName}
-                  onChange={(e) => setChildFirstName(e.target.value)}
-                  className="input"
-                />
+              {/* Login Credentials & Review */}
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-3">
+                <div className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
+                  Parent Portal Access
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Portal Username
+                    </label>
+                    <div className="relative mt-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">@</span>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="input w-full text-xs pl-7 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Temporary Password
+                    </label>
+                    <div className="flex gap-2 mt-1">
+                      <div className="relative flex-1">
+                        <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="input w-full text-xs pl-9 pr-9 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={generateRandomPassword}
+                        className="btn btn-secondary text-xs px-2.5 py-1"
+                        title="Generate random password"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="field">
-                <label>Child Last Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Patil"
-                  value={childLastName}
-                  onChange={(e) => setChildLastName(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div className="field">
-                <label>
-                  Date of Birth <span className="req">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={childDOB}
-                  onChange={(e) => setChildDOB(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div className="field">
-                <label>Gender <span className="req">*</span></label>
-                <select
-                  value={childGender}
-                  onChange={(e) => setChildGender(e.target.value)}
-                  className="select"
-                >
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-
-              <div className="field">
-                <label>Blood Group</label>
-                <select
-                  value={childBloodGroup}
-                  onChange={(e) => setChildBloodGroup(e.target.value)}
-                  className="select"
-                >
-                  <option value="">Select (Optional)</option>
-                  <option value="A_POSITIVE">A+</option>
-                  <option value="A_NEGATIVE">A-</option>
-                  <option value="B_POSITIVE">B+</option>
-                  <option value="B_NEGATIVE">B-</option>
-                  <option value="O_POSITIVE">O+</option>
-                  <option value="O_NEGATIVE">O-</option>
-                  <option value="AB_POSITIVE">AB+</option>
-                  <option value="AB_NEGATIVE">AB-</option>
-                </select>
-              </div>
-
-              <div className="field">
-                <label>Campus Branch <span className="req">*</span></label>
-                <select
-                  value={childBranchId}
-                  onChange={(e) => setChildBranchId(e.target.value)}
-                  className="select"
-                >
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label>Classroom / Section <span className="req">*</span></label>
-                <select
-                  value={childClassroomId}
-                  onChange={(e) => setChildClassroomId(e.target.value)}
-                  className="select"
-                >
-                  {classrooms.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="field">
-                <label>Seat Number (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. SEAT-12"
-                  value={childSeatNumber}
-                  onChange={(e) => setChildSeatNumber(e.target.value)}
-                  className="input font-mono"
-                />
-              </div>
-
-              <div className="field">
-                <label>Admission Year <span className="req">*</span></label>
-                <input
-                  type="text"
-                  value={childAdmissionYear}
-                  onChange={(e) => setChildAdmissionYear(e.target.value)}
-                  className="input font-mono"
-                />
+              {/* Summary Card */}
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-amber-50/40 dark:bg-amber-950/20 space-y-2">
+                <div className="text-xs font-bold text-gray-900 dark:text-white">
+                  Review &amp; Confirm
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                  <div>
+                    <span className="text-[11px] text-gray-400 block">Caregiver</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{fullName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400 block">Role &amp; Relation</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 capitalize">
+                      {role.toLowerCase()} ({relationship.toLowerCase().replace('_', ' ')})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400 block">Child</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {childMode === 'EXISTING'
+                        ? selectedStudent ? `${selectedStudent.firstName} (${selectedStudent.admissionNo})` : '—'
+                        : `${childFirstName} ${childLastName}`.trim()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-gray-400 block">Pickup Security</span>
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {canPickup ? (pickupPin ? 'Authorized (PIN)' : 'Authorized') : 'Restricted'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
-        </div>
-
-        {/* Section 3: Security & Campus Authorizations */}
-        <div
-          style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-xl)',
-            padding: '16px 18px',
-            boxShadow: 'var(--shadow-soft)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              paddingBottom: 10,
-              borderBottom: '1px solid var(--border-subtle)',
-              marginBottom: 14,
-            }}
-          >
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 6,
-                background: 'var(--primary-light)',
-                color: 'var(--primary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              3
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Security & Campus Authorizations
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, marginBottom: 14 }}>
-            <div className="field">
-              <label>
-                4-6 Digit Pickup PIN <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Gate signout verification)</span>
-              </label>
-              <div className="input-icon-wrap" style={{ position: 'relative' }}>
-                <Lock style={{ width: 16, height: 16 }} />
-                <input
-                  type={showPin ? 'text' : 'password'}
-                  maxLength={6}
-                  placeholder="••••"
-                  value={pickupPin}
-                  onChange={(e) => setPickupPin(e.target.value.replace(/\D/g, ''))}
-                  className="input font-mono"
-                  style={{ paddingLeft: 38, paddingRight: 38, letterSpacing: '0.2em' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              <span className="helper">Never stored in plain text. Used for afternoon dismissal authorization.</span>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                border: canPickup ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
-                background: canPickup ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
-                cursor: 'pointer',
-                transition: 'all 120ms ease',
-                userSelect: 'none',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={canPickup}
-                onChange={(e) => setCanPickup(e.target.checked)}
-                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
-                  Authorized Campus Pickup
-                </span>
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
-                  Authorized to sign-out child from campus gate with PIN verification.
-                </span>
-              </div>
-            </label>
-
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                border: receivesComm ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
-                background: receivesComm ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
-                cursor: 'pointer',
-                transition: 'all 120ms ease',
-                userSelect: 'none',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={receivesComm}
-                onChange={(e) => setReceivesComm(e.target.checked)}
-                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
-                  Timeline & Notice Broadcasts
-                </span>
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
-                  Receives daily attendance alerts, classroom photos, and announcements.
-                </span>
-              </div>
-            </label>
-
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-lg)',
-                border: isFeePayer ? '1.5px solid var(--primary)' : '1px solid var(--border-default)',
-                background: isFeePayer ? 'var(--preone-primary-soft)' : 'var(--bg-subtle)',
-                cursor: 'pointer',
-                transition: 'all 120ms ease',
-                userSelect: 'none',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={isFeePayer}
-                onChange={(e) => setIsFeePayer(e.target.checked)}
-                disabled={role === 'PARENT'}
-                style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--primary)', cursor: 'pointer' }}
-              />
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', display: 'block' }}>
-                    Fee Payer Authorization
-                  </span>
-                  {role === 'PARENT' && (
-                    <span className="badge b-primary b-sm" style={{ fontSize: 10 }}>Mandatory for Parent</span>
-                  )}
-                </div>
-                <span style={{ fontSize: 11.5, color: 'var(--text-muted)', display: 'block', marginTop: 2, lineHeight: 1.35 }}>
-                  Authorized to view fee schedules, make payments, and access fee receipts.
-                </span>
-              </div>
-            </label>
-          </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </Modal>
   )
 }

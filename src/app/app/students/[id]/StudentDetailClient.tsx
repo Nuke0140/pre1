@@ -13,7 +13,7 @@ import {
   Calendar, CheckCircle, Clock, Eye, Lock, Download,
   Briefcase, Package, Send, CheckCheck
 } from 'lucide-react'
-import { Avatar, StatusBadge, Segmented, EmptyState } from '@/components/preone/ui'
+import { Avatar, StatusBadge, Segmented, EmptyState, Breadcrumbs } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { BulkReportCardModal } from '@/components/academics/BulkReportCardModal'
@@ -677,15 +677,15 @@ export function StudentDetailClient({ profile }: Props) {
   return (
     <div className="space-y-6 pb-20 max-w-7xl mx-auto">
       {/* ── BREADCRUMB / BACK NAVIGATION ── */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/app/students"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-        >
-          <ArrowLeft size={14} />
-          <span>Back to Students Directory</span>
-        </Link>
-        <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-0.5 rounded-full border border-purple-200/60 dark:border-purple-800/40">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <Breadcrumbs
+          items={[
+            { label: 'Home', href: '/app' },
+            { label: 'Students', href: '/app/students' },
+            { label: student?.name || student?.fullName || student?.firstName || 'Student Profile' },
+          ]}
+        />
+        <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-0.5 rounded-full border border-purple-200/60 dark:border-purple-800/40 shrink-0 self-start sm:self-auto">
           STUDENT 360° PROFILE
         </span>
       </div>

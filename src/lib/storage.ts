@@ -130,7 +130,7 @@ export async function saveUserProfilePhoto({
   originalName,
 }: {
   tenantId: string
-  userId: string
+  userId?: string
   buffer: Buffer
   mimeType: string
   originalName?: string
@@ -152,7 +152,7 @@ export async function saveUserProfilePhoto({
   if (!ext) ext = 'jpg'
 
   const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '')
-  const sanitizedUserId = userId.replace(/[^a-zA-Z0-9_-]/g, '')
+  const sanitizedUserId = (userId || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, '')
   const randomSuffix = crypto.randomBytes(4).toString('hex')
   const filename = `${sanitizedTenantId}-${sanitizedUserId}-${Date.now()}-${randomSuffix}.${ext}`
 

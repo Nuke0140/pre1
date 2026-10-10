@@ -31,7 +31,7 @@ import {
   UserCheck,
   Download,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
+import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, SearchFilterBar } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
@@ -75,6 +75,9 @@ interface StudentFeeSchedule {
   studentId: string
   studentName?: string
   admissionNo?: string
+  branchName?: string
+  classroomName?: string
+  programName?: string
   itemName: string
   feeType: 'REGULAR' | 'REFUNDABLE_DEPOSIT'
   period: string
@@ -316,10 +319,11 @@ export default function FeesPage() {
           setParentChildren(d.data || [])
         }
       } else {
-        const [structRes, depRes, payRes] = await Promise.all([
+        const [structRes, depRes, payRes, schedRes] = await Promise.all([
           fetch('/api/v1/fee-structures'),
           fetch('/api/v1/deposits'),
           fetch('/api/v1/payments'),
+          fetch('/api/v1/fee-schedules'),
         ])
 
         if (structRes.ok) {
@@ -333,6 +337,10 @@ export default function FeesPage() {
         if (payRes.ok) {
           const d = await payRes.json()
           setPayments(d.data || [])
+        }
+        if (schedRes && schedRes.ok) {
+          const d = await schedRes.json()
+          setSchedules(d.data || [])
         }
       }
     } catch (e: any) {
@@ -450,6 +458,19 @@ export default function FeesPage() {
     }
   }
 
+  // Quick Action: Pre-populate payment modal from specific student fee schedule
+  const handleQuickCollect = (sc: StudentFeeSchedule) => {
+    setPaymentForm({
+      studentId: sc.studentId,
+      feeScheduleId: sc.id,
+      amountRupees: sc.remainingRupees,
+      method: 'CASH',
+      transactionRef: '',
+      notes: `Payment for ${sc.itemName} (${sc.period})`,
+    })
+    setShowPaymentModal(true)
+  }
+
   // Process Refund Handler
   const handleProcessRefund = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -562,6 +583,41 @@ export default function FeesPage() {
     toast.success('Payment transactions exported to CSV successfully!')
   }
 
+  // Export Fee Schedules to CSV
+  const handleExportSchedulesCSV = () => {
+    if (!filteredSchedules.length) {
+      toast.error('No fee schedules to export.')
+      return
+    }
+
+    const headers = ['Student Name', 'Admission No', 'Branch', 'Class', 'Fee Item', 'Period', 'Due Date', 'Amount Due (INR)', 'Amount Paid (INR)', 'Remaining (INR)', 'Status']
+    const rows = filteredSchedules.map((sc) => [
+      `"${(sc.studentName || '').replace(/"/g, '""')}"`,
+      `"${(sc.admissionNo || '').replace(/"/g, '""')}"`,
+      `"${(sc.branchName || '').replace(/"/g, '""')}"`,
+      `"${(sc.classroomName || '').replace(/"/g, '""')}"`,
+      `"${(sc.itemName || '').replace(/"/g, '""')}"`,
+      `"${(sc.period || '').replace(/"/g, '""')}"`,
+      `"${fmtDate(sc.dueDate)}"`,
+      `"${sc.amountDueRupees || 0}"`,
+      `"${sc.amountPaidRupees || 0}"`,
+      `"${sc.remainingRupees || 0}"`,
+      `"${(sc.status || '').replace(/"/g, '""')}"`,
+    ])
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `fee_schedules_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success('Fee schedules exported to CSV successfully!')
+  }
+
   // Calculate Metrics Aggregates
   const totalStructuresCount = structures.length
   const activeStructuresCount = structures.filter((s) => s.status === 'ACTIVE').length
@@ -571,6 +627,31 @@ export default function FeesPage() {
   const totalCollectedRupees = payments
     .filter((p) => p.status === 'SUCCESS')
     .reduce((acc, p) => acc + parseFloat(p.amountRupees || '0'), 0)
+
+  const filteredSchedules = schedules.filter((sc) => {
+    if (selectedBranchFilter !== 'ALL') {
+      const matchBranch = branches.find((b) => b.id === selectedBranchFilter)
+      if (matchBranch && sc.branchName && sc.branchName !== matchBranch.name) {
+        return false
+      }
+    }
+    if (statusFilter !== 'ALL' && sc.status !== statusFilter) {
+      return false
+    }
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      const matchName = (sc.studentName || '').toLowerCase().includes(term)
+      const matchAdm = (sc.admissionNo || '').toLowerCase().includes(term)
+      const matchItem = (sc.itemName || '').toLowerCase().includes(term)
+      if (!matchName && !matchAdm && !matchItem) return false
+    }
+    return true
+  })
+
+  const totalScheduleDuesRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.amountDueRupees || '0'), 0)
+  const totalSchedulePaidRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.amountPaidRupees || '0'), 0)
+  const totalScheduleRemainingRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.remainingRupees || '0'), 0)
+  const overdueSchedulesCount = filteredSchedules.filter((sc) => sc.status === 'OVERDUE').length
 
   if (loadingUser) {
     return (
@@ -590,6 +671,10 @@ export default function FeesPage() {
     return (
       <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
         <PageHead
+          breadcrumbs={[
+            { label: t('nav.home'), href: '/app' },
+            { label: 'Child Fee Portal' },
+          ]}
           title="Child Fee Portal"
           sub="View fee schedules, payment history, receipts, and deposit status"
         />
@@ -772,6 +857,10 @@ export default function FeesPage() {
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       <PageHead
+        breadcrumbs={[
+          { label: t('nav.home'), href: '/app' },
+          { label: t('fees.title') },
+        ]}
         title={t('fees.title')}
         sub={t('fees.subtitle')}
         actions={
@@ -828,6 +917,7 @@ export default function FeesPage() {
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
         {[
           { key: 'STRUCTURES', label: t('fees.feeStructuresTab'), icon: Layers },
+          { key: 'SCHEDULES', label: 'Student Dues & Schedules', icon: Calendar },
           { key: 'DEPOSITS', label: t('fees.securityDepositsTab'), icon: ShieldCheck },
           { key: 'PAYMENTS', label: t('fees.paymentReceiptsTab'), icon: Receipt },
         ].map((tItem) => {
@@ -983,6 +1073,254 @@ export default function FeesPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: STUDENT DUES & SCHEDULES */}
+      {activeTab === 'SCHEDULES' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <Calendar className="size-5 text-indigo-600 dark:text-indigo-400" />
+                Student Fee Schedules & Dues
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Track operational installments, aging dues, overdue follow-ups, and collect payments directly.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportSchedulesCSV}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
+              >
+                <Download className="size-3.5" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() => {
+                  setPaymentForm({
+                    studentId: '',
+                    feeScheduleId: '',
+                    amountRupees: '',
+                    method: 'CASH',
+                    transactionRef: '',
+                    notes: '',
+                  })
+                  setShowPaymentModal(true)
+                }}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 flex items-center gap-1 transition-all duration-150 active:scale-[0.98]"
+              >
+                <Plus className="size-3.5" />
+                <span>Collect Payment</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Operational KPI summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                Total Scheduled Dues
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
+                {inr(Math.round(totalScheduleDuesRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                {filteredSchedules.length} total installment items
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                Collected Amount
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1 block">
+                {inr(Math.round(totalSchedulePaidRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                Paid against schedules
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                Outstanding Balance
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1 block">
+                {inr(Math.round(totalScheduleRemainingRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                Pending operational collection
+              </span>
+            </div>
+
+            <div className={`p-3.5 rounded-xl border ${
+              overdueSchedulesCount > 0 
+                ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20' 
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60'
+            } shadow-sm`}>
+              <span className="text-[11px] font-medium text-red-600 dark:text-red-400 uppercase tracking-wider block">
+                Overdue Installments
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-red-600 dark:text-red-400 mt-1 block">
+                {overdueSchedulesCount}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                {overdueSchedulesCount > 0 ? 'Requires immediate follow-up' : 'All schedules on track'}
+              </span>
+            </div>
+          </div>
+
+          {/* Filters Toolbar */}
+          <SearchFilterBar
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: 'Search by student name, admission #, fee item...',
+              shortcut: '⌘K',
+            }}
+            filters={[
+              ...(branches.length > 0
+                ? [
+                    {
+                      id: 'branch',
+                      label: 'Campus',
+                      type: 'branch' as const,
+                      value: selectedBranchFilter,
+                      defaultValue: 'ALL',
+                      placeholder: `All Campuses (${branches.length})`,
+                      options: [
+                        { value: 'ALL', label: `All Campuses (${branches.length})` },
+                        ...branches.map((b) => ({
+                          value: b.id,
+                          label: `${b.name} (${b.code})`,
+                        })),
+                      ],
+                      onChange: setSelectedBranchFilter,
+                    },
+                  ]
+                : []),
+              {
+                id: 'status',
+                label: 'Status',
+                type: 'status' as const,
+                value: statusFilter,
+                defaultValue: 'ALL',
+                placeholder: 'All Statuses',
+                options: [
+                  { value: 'ALL', label: 'All Statuses' },
+                  { value: 'OVERDUE', label: 'Overdue', colorDot: 'red' },
+                  { value: 'PENDING', label: 'Pending', colorDot: 'amber' },
+                  { value: 'PARTIALLY_PAID', label: 'Partial', colorDot: 'blue' },
+                  { value: 'PAID', label: 'Paid', colorDot: 'green' },
+                ],
+                onChange: setStatusFilter,
+              },
+            ]}
+            onReset={() => {
+              setSearchTerm('')
+              setSelectedBranchFilter('ALL')
+              setStatusFilter('ALL')
+            }}
+          />
+
+          {/* Schedules Table */}
+          {!filteredSchedules.length ? (
+            <EmptyState
+              icon={<Calendar className="size-8 text-indigo-500" />}
+              title="No Fee Schedules Found"
+              message={
+                searchTerm || statusFilter !== 'ALL' || selectedBranchFilter !== 'ALL'
+                  ? 'No fee schedules match the selected filters. Clear filters to view all schedules.'
+                  : 'Fee schedules are automatically generated when active fee structures are applied to classes or newly admitted students.'
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Admission #</th>
+                    <th className="p-3">Campus / Class</th>
+                    <th className="p-3">Fee Item & Period</th>
+                    <th className="p-3">Due Date</th>
+                    <th className="p-3">Amount Due</th>
+                    <th className="p-3">Paid</th>
+                    <th className="p-3">Remaining</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {filteredSchedules.map((sc) => {
+                    const isOverdue = sc.status === 'OVERDUE'
+                    const isPaid = sc.status === 'PAID'
+                    return (
+                      <tr key={sc.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="p-3 font-semibold text-slate-900 dark:text-white">
+                          {sc.studentName || 'Student'}
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-xs">
+                          {sc.admissionNo || '-'}
+                        </td>
+                        <td className="p-3 text-slate-700 dark:text-slate-300 text-xs">
+                          <div>{sc.classroomName || 'Class'}</div>
+                          {sc.branchName && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                              {sc.branchName}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-700 dark:text-slate-300 text-xs">
+                          <div className="font-medium text-slate-900 dark:text-slate-100">{sc.itemName}</div>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            {sc.period}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs">
+                          <div className={`flex items-center gap-1 font-mono ${isOverdue ? 'text-red-600 font-bold dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                            {isOverdue && <AlertCircle className="size-3 text-red-500 shrink-0" />}
+                            <span>{fmtDate(sc.dueDate)}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 font-mono tabular-nums font-medium text-slate-900 dark:text-slate-200">
+                          {inr(parseFloat(sc.amountDueRupees || '0') * 100)}
+                        </td>
+                        <td className="p-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
+                          {inr(parseFloat(sc.amountPaidRupees || '0') * 100)}
+                        </td>
+                        <td className="p-3 font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">
+                          <span className={parseFloat(sc.remainingRupees || '0') > 0 ? (isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400') : 'text-slate-500'}>
+                            {inr(parseFloat(sc.remainingRupees || '0') * 100)}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <StatusBadge status={sc.status} />
+                        </td>
+                        <td className="p-3 text-right">
+                          {!isPaid ? (
+                            <button
+                              onClick={() => handleQuickCollect(sc)}
+                              className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-semibold flex items-center gap-1 ml-auto transition-all duration-150 active:scale-[0.98]"
+                            >
+                              <CreditCard className="size-3" />
+                              Collect
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1">
+                              <CheckCircle2 className="size-3" /> Settled
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

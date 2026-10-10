@@ -8,7 +8,7 @@ import {
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
   SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight
 } from 'lucide-react'
-import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState } from '@/components/preone/ui'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { RecordInspector } from '@/components/preone/RecordInspector'
@@ -512,6 +512,9 @@ export default function StudentsPage() {
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-20 max-w-[1460px] mx-auto px-3 sm:px-5 lg:px-6">
+      {/* ── Breadcrumb Navigation ── */}
+      <Breadcrumbs items={[{ label: t('nav.home'), href: '/app' }, { label: t('students.title') }]} />
+
       {/* ── 1. COMPACT HERO STRIP ── */}
       <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -706,254 +709,119 @@ export default function StudentsPage() {
       </div>
 
       {/* ── 3. SEARCH & FILTER WORKSPACE ── */}
-      <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-3">
-        {/* ROW 1: Large prominent search field */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-            />
-            <input
-              type="text"
-              className="w-full h-11 pl-11 pr-9 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all shadow-2xs"
-              placeholder="Search students, admission no., guardian, phone..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              aria-label="Search students"
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
-                aria-label="Clear search query"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
+      <SearchFilterBar
+        search={{
+          value: q,
+          onChange: setQ,
+          placeholder: 'Search students, admission no., guardian, phone...',
+          shortcut: '⌘K',
+        }}
+        filters={[
+          {
+            id: 'branch',
+            label: 'Campus',
+            type: 'branch',
+            value: branchFilter,
+            defaultValue: 'ALL',
+            placeholder: 'All Campuses',
+            options: [
+              { value: 'ALL', label: 'All Campuses' },
+              ...branches.map((b) => ({
+                value: b.id,
+                label: b.name,
+                isMain: b.isMain,
+              })),
+            ],
+            onChange: setBranchFilter,
+          },
+          {
+            id: 'session',
+            label: 'Session',
+            type: 'select',
+            value: sessionFilter,
+            defaultValue: 'ALL',
+            placeholder: 'All Sessions',
+            options: [
+              { value: 'ALL', label: 'All Sessions' },
+              ...sessions.map((s) => ({
+                value: s.id,
+                label: s.isCurrent ? `${s.name} (Current)` : s.name,
+              })),
+            ],
+            onChange: setSessionFilter,
+          },
+          {
+            id: 'program',
+            label: 'Program',
+            type: 'select',
+            value: programFilter,
+            defaultValue: 'ALL',
+            placeholder: 'All Programs',
+            options: [
+              { value: 'ALL', label: 'All Programs' },
+              ...programs.map((p) => ({
+                value: p.id,
+                label: p.name,
+              })),
+            ],
+            onChange: setProgramFilter,
+          },
+          {
+            id: 'status',
+            label: 'Status',
+            type: 'status',
+            value: statusFilter,
+            defaultValue: 'ALL',
+            placeholder: 'All Statuses',
+            options: [
+              { value: 'ALL', label: 'All Statuses' },
+              { value: 'ACTIVE', label: 'Active Only', colorDot: 'green' },
+              { value: 'TRANSFERRED', label: 'Transferred', colorDot: 'blue' },
+              { value: 'WITHDRAWN', label: 'Withdrawn', colorDot: 'amber' },
+              { value: 'SUSPENDED', label: 'Suspended', colorDot: 'red' },
+              { value: 'GRADUATED', label: 'Graduated', colorDot: 'purple' },
+            ],
+            onChange: setStatusFilter,
+          },
+        ]}
+        onReset={() => {
+          setQ('')
+          setBranchFilter('ALL')
+          setSessionFilter('ALL')
+          setProgramFilter('ALL')
+          setStatusFilter('ALL')
+          setClassFilter('ALL')
+        }}
+      />
 
-          {/* Mobile Filter Toggle */}
+      {/* Classroom Quick-Switch Rail */}
+      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5">
+        <button
+          onClick={() => setClassFilter('ALL')}
+          className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
+            classFilter === 'ALL'
+              ? 'bg-purple-600 text-white font-semibold shadow-xs'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
+          }`}
+        >
+          All Classrooms
+        </button>
+        {classrooms.map((c) => (
           <button
-            type="button"
-            onClick={() => setMobileFiltersOpen((prev) => !prev)}
-            className="md:hidden flex items-center gap-1.5 h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 shrink-0"
-            aria-label="Toggle filters"
-          >
-            <SlidersHorizontal size={14} />
-            <span>Filters</span>
-            {activeFiltersCount > 0 && (
-              <span className="w-4 h-4 rounded-full bg-purple-600 text-white text-[10px] flex items-center justify-center font-bold">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* ROW 2: Desktop Filter Dropdowns */}
-        <div className="hidden md:grid grid-cols-4 gap-2.5">
-          <select
-            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-            value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-            aria-label="Filter by Campus"
-          >
-            <option value="ALL">All Campuses</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name} {b.isMain ? '★' : ''}</option>
-            ))}
-          </select>
-
-          <select
-            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-            value={sessionFilter}
-            onChange={(e) => setSessionFilter(e.target.value)}
-            aria-label="Filter by Academic Session"
-          >
-            <option value="ALL">All Academic Sessions</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>{s.name} {s.isCurrent ? '★ (Current)' : ''}</option>
-            ))}
-          </select>
-
-          <select
-            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-            value={programFilter}
-            onChange={(e) => setProgramFilter(e.target.value)}
-            aria-label="Filter by Program"
-          >
-            <option value="ALL">All Programs</option>
-            {programs.map((p) => (
-              <option key={p.id} value={p.programType || p.id}>{p.name}</option>
-            ))}
-          </select>
-
-          <select
-            className="h-9 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by Lifecycle Status"
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">Active Only</option>
-            <option value="TRANSFERRED">Transferred</option>
-            <option value="WITHDRAWN">Withdrawn</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="GRADUATED">Graduated</option>
-          </select>
-        </div>
-
-        {/* Mobile Filter Drawer / Collapsible */}
-        {mobileFiltersOpen && (
-          <div className="md:hidden grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 animate-in fade-in">
-            <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Campus</label>
-              <select
-                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
-                value={branchFilter}
-                onChange={(e) => setBranchFilter(e.target.value)}
-              >
-                <option value="ALL">All Campuses</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Session</label>
-              <select
-                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
-                value={sessionFilter}
-                onChange={(e) => setSessionFilter(e.target.value)}
-              >
-                <option value="ALL">All Sessions</option>
-                {sessions.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Program</label>
-              <select
-                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
-                value={programFilter}
-                onChange={(e) => setProgramFilter(e.target.value)}
-              >
-                <option value="ALL">All Programs</option>
-                {programs.map((p) => (
-                  <option key={p.id} value={p.programType || p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Status</label>
-              <select
-                className="w-full h-8 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 text-slate-700 dark:text-slate-200"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="ACTIVE">Active Only</option>
-                <option value="TRANSFERRED">Transferred</option>
-                <option value="WITHDRAWN">Withdrawn</option>
-                <option value="SUSPENDED">Suspended</option>
-                <option value="GRADUATED">Graduated</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* ROW 3: Compact Metro Chips for Classroom Quick-Switch */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-none flex items-center gap-1.5 pb-0.5">
-          <button
-            onClick={() => setClassFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
-              classFilter === 'ALL'
+            key={c.id}
+            onClick={() => setClassFilter(c.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap flex items-center gap-1.5 transition-all ${
+              classFilter === c.id
                 ? 'bg-purple-600 text-white font-semibold shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
             }`}
           >
-            All Classrooms
+            <span>{c.name}</span>
+            <span className={`text-[10px] px-1 rounded ${classFilter === c.id ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+              {enumLabel(c.programType)}
+            </span>
           </button>
-          {classrooms.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => setClassFilter(c.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap flex items-center gap-1.5 transition-all ${
-                classFilter === c.id
-                  ? 'bg-purple-600 text-white font-semibold shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
-              }`}
-            >
-              <span>{c.name}</span>
-              <span className={`text-[10px] px-1 rounded ${classFilter === c.id ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
-                {enumLabel(c.programType)}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* ROW 4: Active Filter Chips */}
-        {activeFiltersCount > 0 && (
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap text-xs">
-            <span className="text-slate-400 font-medium">Active Filters:</span>
-            {q && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
-                Search: &ldquo;{q}&rdquo;
-                <button onClick={() => setQ('')} className="hover:text-purple-900 dark:hover:text-white" aria-label="Remove search filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            {branchFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Campus: {branches.find(b => b.id === branchFilter)?.name || branchFilter}
-                <button onClick={() => setBranchFilter('ALL')} className="hover:text-slate-900" aria-label="Remove campus filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            {sessionFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Session: {sessions.find(s => s.id === sessionFilter)?.name || sessionFilter}
-                <button onClick={() => setSessionFilter('ALL')} className="hover:text-slate-900" aria-label="Remove session filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            {programFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Program: {enumLabel(programFilter)}
-                <button onClick={() => setProgramFilter('ALL')} className="hover:text-slate-900" aria-label="Remove program filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            {classFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Class: {classrooms.find(c => c.id === classFilter)?.name || classFilter}
-                <button onClick={() => setClassFilter('ALL')} className="hover:text-slate-900" aria-label="Remove classroom filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            {statusFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                Status: {enumLabel(statusFilter)}
-                <button onClick={() => setStatusFilter('ALL')} className="hover:text-slate-900" aria-label="Remove status filter">
-                  <X size={12} />
-                </button>
-              </span>
-            )}
-            <button
-              onClick={clearAllFilters}
-              className="text-purple-600 dark:text-purple-400 hover:underline font-semibold ml-auto text-xs"
-            >
-              Clear all filters
-            </button>
-          </div>
-        )}
+        ))}
       </div>
 
       {/* ── 4. CONTEXTUAL BULK ACTIONS TOOLBAR ── */}

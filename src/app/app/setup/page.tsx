@@ -352,6 +352,10 @@ export default function SetupPage() {
     <div className="page-container">
       {/* ── 1. CANONICAL PAGE HEADER ── */}
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Setup' },
+        ]}
         title="Preschool Setup & Configuration"
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

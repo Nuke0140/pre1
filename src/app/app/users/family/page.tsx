@@ -12,6 +12,7 @@ import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '
 import { EmptyUsersIllustration } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
+import { SearchFilterBar } from '@/components/preone'
 import { useToast } from '@/components/preone/Toast'
 import { AddFamilyModal } from '@/components/users/AddFamilyModal'
 import { CsvImportModal } from '@/components/users/CsvImportModal'
@@ -22,10 +23,17 @@ import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { UserRecord, BranchOption, ClassroomOption } from '@/components/users/types'
 import { timeAgo } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
-import { Image, Layers } from 'lucide-react'
+import { Image, Layers, MoreHorizontal } from 'lucide-react'
 
 export default function FamilyUsersPage() {
   const toast = useToast()
@@ -414,79 +422,74 @@ export default function FamilyUsersPage() {
         title={t('users.familyUsers')}
         backHref="/app/users"
         actions={
-          <div className="users-actions-bar">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={fetchFamilyUsers}
-              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 users-act-refresh"
+              className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               title={t('common.refresh')}
               aria-label={t('common.refresh')}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-600' : ''}`} />
             </button>
-            <button
-              type="button"
-              onClick={() => setRolesModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-roles"
-            >
-              <Shield className="w-3.5 h-3.5 text-purple-600" />
-              <span>{t('users.rolesDirectory')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setZipPhotoModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3"
-              title={t('users.bulkPhotoUpload')}
-            >
-              <Image className="w-3.5 h-3.5 text-indigo-600" />
-              <span>{t('users.bulkPhotoUpload')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCsvModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-import"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('users.importFamilyCsv')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBulkFieldUpdateOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-fields"
-              title="Dynamic Bulk Field Update"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-purple-600" />
-              <span>Bulk Field Update</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBulkPhotosOpen(true)}
-              className="btn btn-secondary text-xs flex items-center justify-center gap-1.5 py-2 px-2.5 sm:px-3 users-act-photos"
-            >
-              <Camera className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Upload Photos</span>
-            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  title="More actions"
+                  aria-label="More actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setRolesModalOpen(true)}>
+                  <Shield className="w-4 h-4 text-purple-600" />
+                  <span>{t('users.rolesDirectory')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCsvModalOpen(true)}>
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                  <span>{t('users.importFamilyCsv')}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a
+                    href={`/api/v1/users/export?role=${activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN'}`}
+                    download
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4 text-blue-600" />
+                    <span>{t('common.export')} CSV</span>
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setBulkFieldUpdateOpen(true)}>
+                  <Edit3 className="w-4 h-4 text-amber-600" />
+                  <span>Bulk Field Update</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setBulkPhotosOpen(true)}>
+                  <Camera className="w-4 h-4 text-indigo-600" />
+                  <span>Upload Photos</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setZipPhotoModalOpen(true)}>
+                  <Image className="w-4 h-4 text-indigo-600" />
+                  <span>{t('users.bulkPhotoUpload')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <button
               type="button"
               onClick={() => {
-                setAddFamilyRole('PARENT')
+                setAddFamilyRole(activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN')
                 setAddFamilyOpen(true)
               }}
               className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ {t('users.addParent')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAddFamilyRole('GUARDIAN')
-                setAddFamilyOpen(true)
-              }}
-              className="btn bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>+ {t('users.addGuardian')}</span>
+              <span>+ {t('users.addFamily') || 'Add Family Member'}</span>
             </button>
           </div>
         }
@@ -613,104 +616,65 @@ export default function FamilyUsersPage() {
         )}
       </div>
 
-      {/* Filter / Search Area */}
-      <div className="card card-compact p-3 sm:p-4 rounded-xl sm:rounded-2xl">
-        <div className="users-filter-row">
-          {/* Search */}
-          <div className="relative users-filter-search">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={`Search ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} name, child, admission no...`}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
-              style={{ paddingLeft: '36px', paddingRight: search ? '32px' : '14px' }}
-              className="input w-full text-xs"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('')
-                  setPage(1)
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                title="Clear search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Branch Filter */}
-          <div className="users-filter-select">
-            <select
-              value={selectedBranch}
-              onChange={(e) => {
-                setSelectedBranch(e.target.value)
-                setPage(1)
-              }}
-              className="select w-full text-xs"
-            >
-              <option value="ALL">{t('users.allBranches')}</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="users-filter-select">
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value)
-                setPage(1)
-              }}
-              className="select w-full text-xs"
-            >
-              <option value="ALL">{t('users.allStatuses')}</option>
-              <option value="ACTIVE">{t('users.statusActive')}</option>
-              <option value="SUSPENDED">{t('users.statusSuspended')}</option>
-              <option value="LOCKED">{t('users.statusLocked')}</option>
-              <option value="DEACTIVATED">{t('users.statusDeactivated')}</option>
-              <option value="ARCHIVED">{t('users.statusArchived')}</option>
-            </select>
-          </div>
-
-          {/* Export CSV */}
-          <a
-            href={`/api/v1/users/export?role=${activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN'}`}
-            className="btn btn-outline text-xs flex items-center justify-center gap-1.5 py-2 px-3 users-filter-export shrink-0"
-            download
-            title={t('common.export')}
-          >
-            <Download className="w-3.5 h-3.5 text-gray-500" />
-            <span>{t('common.export')}</span>
-          </a>
-
-          {/* Clear Filters Button if filters dirty */}
-          {(search || selectedBranch !== 'ALL' || selectedStatus !== 'ALL') && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('')
-                setSelectedBranch('ALL')
-                setSelectedStatus('ALL')
-                setPage(1)
-              }}
-              className="btn btn-ghost text-xs py-2 px-2.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 w-full sm:w-auto shrink-0"
-            >
-              {t('common.clear')}
-            </button>
-          )}
-        </div>
-      </div>
+      <SearchFilterBar
+        search={{
+          value: search,
+          onChange: (val) => {
+            setSearch(val)
+            setPage(1)
+          },
+          placeholder: `Search ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} name, child, admission no...`,
+          shortcut: '⌘K',
+        }}
+        filters={[
+          {
+            id: 'branch',
+            label: t('users.filterByBranch') || 'Campus',
+            type: 'branch',
+            value: selectedBranch,
+            defaultValue: 'ALL',
+            placeholder: t('users.allBranches'),
+            options: [
+              { value: 'ALL', label: t('users.allBranches') },
+              ...branches.map((b) => ({
+                value: b.id,
+                label: `${b.name} (${b.code})`,
+                isMain: b.code === 'MAIN' || (b as any).isMain,
+              })),
+            ],
+            onChange: (val) => {
+              setSelectedBranch(val)
+              setPage(1)
+            },
+          },
+          {
+            id: 'status',
+            label: t('users.filterByStatus') || 'Status',
+            type: 'status',
+            value: selectedStatus,
+            defaultValue: 'ALL',
+            placeholder: t('users.allStatuses'),
+            options: [
+              { value: 'ALL', label: t('users.allStatuses') },
+              { value: 'ACTIVE', label: t('users.statusActive'), colorDot: 'green' },
+              { value: 'SUSPENDED', label: t('users.statusSuspended'), colorDot: 'red' },
+              { value: 'LOCKED', label: t('users.statusLocked'), colorDot: 'red' },
+              { value: 'DEACTIVATED', label: t('users.statusDeactivated'), colorDot: 'red' },
+              { value: 'ARCHIVED', label: t('users.statusArchived'), colorDot: 'slate' },
+            ],
+            onChange: (val) => {
+              setSelectedStatus(val)
+              setPage(1)
+            },
+          },
+        ]}
+        onReset={() => {
+          setSearch('')
+          setSelectedBranch('ALL')
+          setSelectedStatus('ALL')
+          setPage(1)
+        }}
+      />
 
       {/* Family DataTable Workspace */}
       <div className="table-workspace">

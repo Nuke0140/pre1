@@ -1144,6 +1144,16 @@ export class StudentService {
       summary: `Student ${result.student.firstName} ${result.student.lastName || ''} (${admissionNo}) created`,
     })
 
+    // Auto-generate canonical fee schedules if classroom is assigned
+    if (result.classroom) {
+      try {
+        const { FeeService } = await import('@/lib/fees/fee-service')
+        await FeeService.applyActiveFeeStructuresToStudent(scope, result.student.id)
+      } catch (feeErr) {
+        console.warn('[StudentService.createStudent] Fee schedule auto-generation warning:', feeErr)
+      }
+    }
+
     return result.student
   }
 
