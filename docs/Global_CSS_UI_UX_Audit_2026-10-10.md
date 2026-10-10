@@ -1,74 +1,98 @@
-# PreOne Global CSS & UI/UX Audit — 2026-10-10
+# PreOne Global CSS & UI/UX Audit
 
-## Scope and method
-Reviewed the public `Nuke0140/pre1` repository's main branch, `src/app/globals.css`, the root layout import, Tailwind configuration, selected shared UI components, package scripts/configuration, and existing CSS-focused verification scripts. This was a repository/source audit; no browser screenshot inspection, local build, production bundle analysis, or runtime visual regression suite was run from this connector session.
+**Date:** 2026-10-10  
+**Repository:** [Nuke0140/pre1](https://github.com/Nuke0140/pre1)  
+**Branch reviewed:** `main` at commit `e0c88c89f0a125c26c0b9d4187db8815f1d29302`  
+**Status:** Source audit complete; browser/runtime validation remains required.
 
-## Confirmed findings
+## Executive summary
 
-### 1. Global stylesheet is wired
-- Root layout imports `./globals.css` from `src/app/layout.tsx`.
-- Tailwind CSS v4 is imported from the same stylesheet; `tailwind.config.ts` is connected via `@config`.
-- The stylesheet is approximately 249 KB by UTF-8 content length and about 8,570 lines in the retrieved file representation.
-- The file includes global reset/base rules, semantic tokens, light/dark theme rules, component-level classes, responsive rules and motion states in one large stylesheet.
+The root layout imports one global stylesheet, but `src/app/globals.css` now combines reset rules, design tokens, theme overrides, typography, shared component rules, feature styling, responsive behavior, and motion effects. The safe path is a staged consolidation—not an immediate rewrite—because existing selectors, legacy aliases, and verification scripts may depend on the current cascade.
 
-### 2. Design token architecture has accumulated duplication
-- A source scan counted 567 custom-property declarations representing 359 unique token names; 188 token names are declared more than once across contexts (including intentional light/dark overrides and compatibility aliases).
-- Several names are repeated up to four times, e.g. `--surface-elevated`, `--border-subtle`, `--border-default`, `--border-strong`.
-- This is not, by itself, proof that every duplicate is a defect. Some repetition is expected for theme overrides, but current token ownership is difficult to audit safely without separating canonical definitions, theme overrides, and deprecated aliases.
-- Motion, surface, elevation, radius, spacing, typography, legacy PO aliases and workspace tokens coexist. Consolidate ownership before deleting old variables.
+## Source-level evidence
 
-### 3. Media queries and override pressure
-- 92 media-query blocks and 127 `!important` declarations were found in `globals.css`.
-- Breakpoints vary in formatting and values: examples include 640px/640px compact forms, 760px/767px/768px, 900px/960px and several custom desktop widths.
-- The stylesheet contains 28 keyframes, and reduced-motion safeguards appear in more than one place.
-- These are audit hotspots, not automatic bugs. The next step is to inventory each component's responsive contract, merge truly equivalent blocks, and retain intentional component-specific breakpoints.
+| Check | Result |
+|---|---|
+| Root stylesheet import | Confirmed: `src/app/layout.tsx` imports `./globals.css` |
+| Tailwind integration | `globals.css` imports Tailwind and connects `tailwind.config.ts` |
+| Stylesheet size | 249,326 characters; approximately 8,570 lines in the retrieved source |
+| Custom-property declarations | 567 declarations across 359 unique token names |
+| Repeated token names | 188 names occur more than once; theme overrides and compatibility aliases may be intentional |
+| `!important` | 127 occurrences |
+| Media query blocks | 92 |
+| Keyframe declarations | 28 |
+| Theme selectors | Both `[data-theme="dark"]` and `.dark` are supported |
+| Typography system | CSS custom properties/classes, Tailwind typography values, and a React Typography component all encode parts of the same contract |
+| TypeScript build gate | `next.config.ts` sets `typescript.ignoreBuildErrors: true` |
+| Test commands | `package.json` defines build/lint but no standard `test` script; multiple verification scripts exist as individual files |
 
-### 4. Type and color source-of-truth mismatch risk
-- Global CSS defines canonical typography variables/classes, while Tailwind config separately declares the same type scale.
-- Existing `scripts/verify-typography-system.ts` checks token/class existence and Tailwind mapping, but it does not compare the actual CSS/Tailwind values, selector precedence, or real component adoption across the application.
-- The app currently imports both Poppins and Nunito weights globally; the actual per-route font payload and rendered font use were not profiled in this audit.
-- Shared components show a mix of semantic CSS classes, Tailwind utilities, CSS-variable inline styles, and a few hardcoded style values. Runtime values may legitimately need inline styles; design constants should prefer canonical tokens.
+These counts are audit indicators, not automatic defect counts. For example, a token re-declared in a dark-theme block is expected. A stylesheet's source size also does not equal its production-delivered size; that must be measured from the build output.
 
-### 5. Theme handling
-- `globals.css` supports `[data-theme="dark"]` and `.dark` selectors.
-- Root HTML initializes with `data-theme="light"`; client components restore saved theme from localStorage, and `PreHydration` applies saved theme/brand values before hydration.
-- Theme logic therefore spans CSS, root layout, `PreHydration`, and `AppShell`. A contract test should verify first paint, reload persistence, dark/light selector parity, and custom brand overrides together.
-- Dark-mode rules use direct color literals in some component selectors instead of only semantic tokens. Gradually replace these only after a visual and contrast check.
+## Findings
 
-### 6. Performance and quality gates
-- `package.json` exposes `build` and `lint`, but no standard `test` script is declared there; many verification scripts exist as direct files and are not visibly wired into a default command from the inspected package file.
-- `next.config.ts` sets `typescript.ignoreBuildErrors: true`, allowing a Next.js build to proceed despite TypeScript errors. This is a release-quality risk; CI should run a strict type-check as an independent blocking job before this is disabled/removed.
-- `src/components/shell/AppShell.tsx` polls notification and user-attention endpoints on intervals. This is not a CSS issue, but contributes to global shell network activity and should be checked for role authorization, failures, tab visibility, and mount/unmount cleanup during broader performance testing.
+### P0 — Quality and cascade risks
 
-### 7. Existing verification coverage
-The repository includes scripts for typography, dark mode, semantic status pills, empty states, start menu, bottom navigation, tactile motion and table styling. This is useful groundwork. Most inspected checks are source-string assertions; they establish that expected selectors/tokens exist, not that computed styles are correct in a browser or that the whole app is visually consistent.
+1. **Token ownership is spread out.** Canonical values, theme overrides, compatibility aliases and component-specific styling coexist. It is difficult to tell which token is the authoritative source without a registry.
+2. **Responsive breakpoints have accumulated.** The stylesheet includes varied widths and mixed formatting (for example 640px, 760px/767px/768px, 900px/960px, and custom desktop widths). Some are likely justified, but the rationale should be documented by component.
+3. **Override pressure is high.** The number of `!important` declarations suggests accumulated cascade conflicts. Review them individually instead of removing them with a global replacement.
+4. **Type safety is not guaranteed by build success alone.** A separate blocking type-check is needed while `typescript.ignoreBuildErrors` is true.
 
-## Priority recommendation
+### P1 — Design system consistency
 
-### P0 — Establish guardrails before a broad refactor
-1. Add a dedicated CSS/design-system audit command that reports duplicate token declarations by selector/context, duplicate selectors, media-query inventory, `!important` inventory, hardcoded colors in shared UI files, and direct stylesheet imports.
-2. Make strict TypeScript checking a blocking CI step (e.g. `tsc --noEmit`) and stop treating a successful framework build alone as proof of type safety.
-3. Capture baseline screenshots for representative flows: login/onboarding, dashboard, admissions list/form, student detail, finance table, setup, dialogs/drawers, empty/loading/error states, light and dark themes, and mobile widths.
+5. **Typography is defined in multiple places.** CSS roles and tokens live alongside a Tailwind font-size scale. Existing verification checks for presence, but it does not ensure CSS and Tailwind values match or prove every screen uses the intended typography primitives.
+6. **Theme restoration spans multiple layers.** CSS, root layout, `PreHydration`, and `AppShell` participate in theme handling. Test first paint, refresh persistence, selector parity and custom branding together.
+7. **Shared UI uses multiple styling mechanisms.** Components mix semantic classes, Tailwind utilities, CSS-variable-backed inline styles and some literal values. Dynamic measurements can remain inline; stable colors, spacing, typography and shadows should prefer semantic tokens.
+8. **Some dark-mode component rules include direct color literals.** Migrate these gradually to semantic tokens after computed-style, contrast and screenshot checks.
 
-### P1 — Reduce global CSS complexity safely
-4. Define clear stylesheet ownership: `tokens.css` (canonical tokens and themes), `base.css` (resets, typography, focus and shared document rules), and feature/component styles where appropriate. Keep one root import entrypoint. Do this incrementally; avoid a one-shot split that can alter cascade order.
-5. Create a token registry with exactly one canonical light-mode declaration per token, explicit dark/brand overrides, and a documented compatibility map. Deprecate aliases first; remove only when a repo-wide usage scan proves they are unused.
-6. Normalize responsive breakpoints into a small documented set (while retaining justified exceptions). Group media rules by component instead of adding new disconnected global patches.
-7. Audit and reduce `!important` only when the underlying cascade conflict is understood. Never bulk-remove it by regex.
+### P2 — Performance and maintainability
 
-### P2 — Improve the design system and perceived performance
-8. Keep the existing PreOne Fluent Metro direction: clean light canvas, violet brand, restrained elevation, clear card/tile hierarchy, consistent radius/spacing and calm motion. Improve hierarchy and whitespace rather than layering more glow/shadow effects onto every surface.
-9. Move stable visual constants (colors, spacing, radius, typography, shadows) to semantic tokens/shared classes. Keep inline styles for genuinely dynamic values only.
-10. Profile production CSS and JS bundles and font loading on representative routes; optimize based on measured route-level payload and rendering, not raw source size alone.
-11. Add browser-based visual regression and accessibility checks for keyboard focus, reduced motion, contrast, zoom/reflow, mobile navigation, overflow and dialog/drawer behavior.
+9. **Route-level CSS cost has not been measured.** No production CSS coverage, emitted asset size, Core Web Vitals or runtime profile was executed for this source audit.
+10. **Global shell activity should be profiled separately from CSS.** `AppShell.tsx` polls notification and user-attention endpoints. Review role authorization, errors, intervals and behavior in hidden tabs during performance QA.
+11. **Existing checks are a good starting point, but not a complete visual audit.** The repo includes typography, dark mode, status pill, empty state, start menu, bottom navigation, motion and table verification scripts. Many checks are source assertions and cannot establish that computed styles or full-page visuals are correct.
 
-## Definition of done for the next phase
-- No unexplained token conflicts; every duplicate is documented as a theme override or compatibility alias.
-- No accidental duplicate global style sources.
-- CSS diff is reviewed against baseline screenshots at desktop, tablet and mobile widths in both themes.
-- Strict type-check, lint, existing module verification scripts and browser smoke tests pass.
-- Production CSS/JS bundle and font loading are measured before and after; no performance gain is claimed without comparing those measurements.
-- Existing routes, forms, tables, menus, dialogs, responsive layout and school branding continue to work.
+## Recommended implementation plan
 
-## Important limitation
-This document reports findings from source inspection. It does not claim a successful build, passing tests, measured runtime speed improvement, or a complete visual audit because those were not executed in this connector session.
+### Phase 1 — Freeze a baseline
+- Capture representative screens: onboarding/login, dashboard, admissions list/form, student detail, finance table, setup, dialogs/drawers, and loading/empty/error states.
+- Capture desktop, tablet and mobile widths in light and dark themes.
+- Record production build output, emitted CSS/JS sizes, font requests, console errors, layout overflow and representative route timings.
+- Run lint, a strict type-check and existing verification scripts to establish a baseline.
+
+### Phase 2 — Add audit guardrails
+- Add a reproducible `audit:css` command to inventory token declarations by selector/context, repeated selectors, media queries, `!important`, hardcoded colors in shared UI, and global stylesheet imports.
+- Add blocking CI type-checking, such as `tsc --noEmit`. Resolve existing issues before disabling `typescript.ignoreBuildErrors`.
+- Add a standard command to run the design-system verification scripts so they are not dependent on manually remembering each filename.
+
+### Phase 3 — Consolidate the CSS safely
+- Keep `globals.css` as the single root import, but progressively extract clear ownership into `tokens.css`, `base.css`, and feature/component styles. Preserve cascade/import order initially.
+- Document canonical light-mode tokens, explicit dark/branding overrides, and compatibility aliases.
+- Search all source usage before deleting any alias or selector. Do not remove a property merely because it is declared more than once.
+- Normalize common breakpoints while preserving documented component-specific exceptions.
+- Reduce `!important` one conflict at a time and verify its affected screens.
+- Make typography CSS and Tailwind values derive from one source of truth where practical.
+
+### Phase 4 — Improve the actual UX
+- Preserve PreOne Fluent Metro: clear tiles/cards, white space, violet brand emphasis, restrained elevation, consistent radius and spacing, readable hierarchy, calm motion.
+- Improve primary-action visibility, heading consistency, tables, form grouping, empty states, keyboard focus and small-screen reflow.
+- Ensure reduced-motion preferences apply to non-essential motion.
+- Move stable design constants to semantic tokens/shared classes; retain inline styles for truly dynamic values.
+
+### Phase 5 — Verify and measure
+- Add browser-based visual regression checks and accessibility verification for focus, contrast, reduced motion, zoom/reflow, mobile navigation, horizontal overflow, dialogs and drawers.
+- Run module-level smoke/regression scripts.
+- Compare production CSS/JS assets and representative route performance before/after. Do not claim speed improvements without measured results.
+- Review desktop/tablet/mobile screenshots in both themes before merging.
+
+## Definition of done
+
+- Every repeated token is documented as an intentional theme override/alias or removed after a usage check.
+- No unintended extra global stylesheet entrypoint exists.
+- Breakpoints and component-specific responsive behavior are documented.
+- Every removed override is backed by browser verification.
+- Strict type-check, lint, design-system verification and browser smoke tests pass.
+- No regression in navigation, forms, tables, dialogs, dark mode, responsive screens or school branding.
+- CSS/JS/font payload and runtime performance are measured before and after.
+
+## Limitations
+
+This is a repository source/configuration audit. Browser screenshots, local build execution, computed-style coverage, browser-based visual regression and production bundle measurement were not performed during this audit. Therefore, no claim is made that tests passed or runtime performance has already improved.
