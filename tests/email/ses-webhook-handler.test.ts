@@ -109,7 +109,7 @@ describe('SES webhook handler security regression tests', () => {
   })
 
   it('fails closed if no SNS topic allowlist is configured', async () => {
-    const { handler, request } = createHarness()
+    const { request } = createHarness()
     const payload = signedBounce('sns-no-allowlist-1')
     const noAllowlistHandler = createSesWebhookHandler({
       db: {
