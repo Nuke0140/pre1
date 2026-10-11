@@ -23,6 +23,11 @@ export function Modal({
 }: ModalProps) {
   const panelRef = React.useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
+  const onCloseRef = React.useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     setMounted(true)
@@ -34,7 +39,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab') {
@@ -62,7 +67,9 @@ export function Modal({
       }
     }
     const focusTimer = window.setTimeout(() => {
-      panelRef.current?.focus()
+      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+        panelRef.current.focus()
+      }
     }, 30)
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -72,7 +79,7 @@ export function Modal({
       document.body.style.overflow = ''
       opener?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open || !mounted) return null
 
@@ -156,6 +163,11 @@ export function Drawer({
 }: DrawerProps) {
   const panelRef = React.useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
+  const onCloseRef = React.useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     setMounted(true)
@@ -167,7 +179,7 @@ export function Drawer({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab') {
@@ -195,7 +207,9 @@ export function Drawer({
       }
     }
     const focusTimer = window.setTimeout(() => {
-      panelRef.current?.focus()
+      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+        panelRef.current.focus()
+      }
     }, 30)
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -205,7 +219,7 @@ export function Drawer({
       document.body.style.overflow = ''
       opener?.focus()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open || !mounted) return null
 

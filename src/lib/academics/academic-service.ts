@@ -17,6 +17,7 @@ import { ConfigurationService } from '@/lib/setup/config-service'
 import { resolveSessionId, currentSession } from '@/lib/academic'
 import { raiseFollowUp } from '@/lib/followups'
 import { audit } from '@/lib/sequence'
+import { SubjectService } from '@/lib/academics/subject-service'
 import type {
   ActivityStatus,
   CurriculumStatus,
@@ -785,6 +786,14 @@ export class AcademicService {
       if (classroom.primaryTeacherId !== ctx.actorId) {
         throw new Error('You are only authorized to schedule activities for your assigned classroom')
       }
+    }
+
+    if (input.title) {
+      await SubjectService.validateSubjectEligibility(scope.tenantId, input.classroomId, input.title, {
+        uid: ctx.actorId,
+        tenantId: scope.tenantId,
+        role: ctx.actorRole,
+      } as any)
     }
 
     if (input.learningGoalId) {

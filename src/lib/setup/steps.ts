@@ -13,9 +13,10 @@
  */
 
 export type StepKey =
-  // Phase 1 — Foundation (4)
+  // Phase 1 — Foundation (5)
   | 'school_profile'
   | 'branch'
+  | 'classroom_foundation'
   | 'branding'
   | 'roles'
   // Phase 2 — Academic Structure (5)
@@ -73,6 +74,15 @@ export const SETUP_STEPS: StepDef[] = [
     description: 'At least one operating campus with address, operating timings and physical room infrastructure.',
   },
   {
+    key: 'classroom_foundation',
+    label: 'Classroom Foundation',
+    phase: 'FOUNDATION',
+    applicability: 'MANDATORY',
+    deps: ['branch'],
+    icon: 'DoorOpen',
+    description: 'Basic physical classrooms and rooms created and assigned to operating branches.',
+  },
+  {
     key: 'branding',
     label: 'Branding & Theme',
     phase: 'FOUNDATION',
@@ -124,7 +134,7 @@ export const SETUP_STEPS: StepDef[] = [
     label: 'Classroom',
     phase: 'ACADEMIC_STRUCTURE',
     applicability: 'MANDATORY',
-    deps: ['academic_year', 'programs', 'branch'],
+    deps: ['academic_year', 'programs', 'branch', 'classroom_foundation'],
     icon: 'LayoutGrid',
     description: 'Class-section units per program with capacity, assigned room, and designated primary teacher.',
   },
@@ -133,7 +143,7 @@ export const SETUP_STEPS: StepDef[] = [
     label: 'Subject',
     phase: 'ACADEMIC_STRUCTURE',
     applicability: 'MANDATORY',
-    deps: ['programs', 'curriculum'],
+    deps: ['programs'],
     icon: 'GraduationCap',
     description: 'Academic subjects and activity disciplines (Core, Optional, Activity) mapped to programs and classrooms.',
   },

@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { SessionPayload } from '@/lib/auth'
 import { recordAudit } from '@/lib/audit'
+import { SubjectService } from '@/lib/academics/subject-service'
 import { AttendanceStatus, ActivityStatus, ObservationConcern } from '@prisma/client'
 
 export interface DailyDiaryScope {
@@ -155,12 +156,8 @@ export class DailyDiaryService {
       })
     }
 
-    // 5. Fetch reusable subject list for tenant
-    const subjects = await db.subject.findMany({
-      where: { tenantId, status: 'ACTIVE', deletedAt: null },
-      select: { id: true, name: true, code: true, shortName: true, subjectType: true },
-      orderBy: { name: 'asc' },
-    })
+    // 5. Fetch eligible subject list for teacher/admin
+    const subjects = await SubjectService.getTeacherEligibleSubjects(session, { status: 'ACTIVE' })
 
     return {
       user: {
@@ -507,6 +504,10 @@ export class DailyDiaryService {
 
     if (!classroom) throw new Error('Classroom not found')
 
+    if (data.title) {
+      await SubjectService.validateSubjectEligibility(tenantId, data.classroomId, data.title, session)
+    }
+
     const startStr = data.startTime || '09:00'
     const endStr = data.endTime || '09:30'
     const startMin = timeToMinutes(startStr)
@@ -608,6 +609,12 @@ export class DailyDiaryService {
     })
 
     if (!classroom) throw new Error('Classroom not found')
+
+    for (const act of data.activities) {
+      if (act.title) {
+        await SubjectService.validateSubjectEligibility(tenantId, data.classroomId, act.title, session)
+      }
+    }
 
     const activeSession = await db.academicSession.findFirst({
       where: { tenantId, status: 'ACTIVE' },
@@ -729,6 +736,11 @@ export class DailyDiaryService {
 
     // Enforce teacher classroom scoping
     await assertClassroomAccess(session, existing.classroomId)
+
+    const titleToValidate = data.title !== undefined ? data.title : existing.title
+    if (titleToValidate) {
+      await SubjectService.validateSubjectEligibility(tenantId, existing.classroomId, titleToValidate, session)
+    }
 
     const newStart = data.startTime || existing.startTime || '09:00'
     const newEnd = data.endTime || existing.endTime || '09:30'

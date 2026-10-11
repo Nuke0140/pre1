@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { AuditService } from '@/lib/audit/audit-service'
+import { SessionPayload } from '@/lib/auth'
 import type { SubjectType } from '@prisma/client'
 
 export interface CreateSubjectInput {
@@ -22,18 +23,43 @@ export interface UpdateSubjectInput {
 
 export class SubjectService {
   /**
-   * List all subjects for a tenant with optional status/type filter
+   * List all subjects for a tenant with optional status/type/program/classroom filter
    */
   static async getSubjects(
     tenantId: string,
-    filter?: { status?: string; subjectType?: SubjectType }
+    filter?: {
+      status?: string
+      subjectType?: SubjectType
+      programId?: string
+      classroomId?: string
+    }
   ) {
+    let targetProgramId = filter?.programId
+
+    if (filter?.classroomId && !targetProgramId) {
+      const cls = await db.classroom.findFirst({
+        where: { id: filter.classroomId, tenantId },
+        select: { programId: true },
+      })
+      if (cls?.programId) {
+        targetProgramId = cls.programId
+      }
+    }
+
     return db.subject.findMany({
       where: {
         tenantId,
         deletedAt: null,
         ...(filter?.status ? { status: filter.status } : {}),
         ...(filter?.subjectType ? { subjectType: filter.subjectType } : {}),
+        ...(targetProgramId
+          ? {
+              OR: [
+                { programMappings: { some: { programId: targetProgramId } } },
+                ...(filter?.classroomId ? [{ classroomMappings: { some: { classroomId: filter.classroomId } } }] : []),
+              ],
+            }
+          : {}),
       },
       include: {
         programMappings: {
@@ -54,8 +80,201 @@ export class SubjectService {
           },
         },
       },
-      orderBy: { code: 'asc' },
+      orderBy: { name: 'asc' },
     })
+  }
+
+  /**
+   * Resolve teacher/user authorized subjects according to rule:
+   * Authenticated Teacher -> Assigned Class -> Assigned Program -> Configured Subjects
+   */
+  static async getTeacherEligibleSubjects(
+    session: SessionPayload,
+    filter?: {
+      classroomId?: string
+      programId?: string
+      status?: string
+      subjectType?: SubjectType
+    }
+  ) {
+    const tenantId = session.tenantId!
+    const role = session.role
+    const roles = session.roles || [role]
+    const isAdmin = roles.some((r) => ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'PLATFORM_ADMIN', 'ADMIN'].includes(r))
+    const activeStatus = filter?.status || 'ACTIVE'
+
+    // 1. If Admin/Owner: Full access to configured active subjects for the tenant
+    if (isAdmin) {
+      return this.getSubjects(tenantId, {
+        status: activeStatus,
+        subjectType: filter?.subjectType,
+        programId: filter?.programId,
+        classroomId: filter?.classroomId,
+      })
+    }
+
+    // 2. If Teacher: Scoped strictly to assigned classes & programs
+    const teacherUserId = session.uid
+
+    const assignedClassrooms = await db.classroom.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: [
+          { primaryTeacherId: teacherUserId },
+          { subjectMappings: { some: { specialistTeacherId: teacherUserId } } },
+        ],
+      },
+      select: { id: true, programId: true },
+    })
+
+    if (assignedClassrooms.length === 0) {
+      return [] // Teacher has no assigned classrooms/programs -> return empty array
+    }
+
+    // If a specific classroomId was requested, verify teacher is assigned to it
+    if (filter?.classroomId) {
+      const isAssigned = assignedClassrooms.some((c) => c.id === filter.classroomId)
+      if (!isAssigned) {
+        return [] // Teacher not authorized for requested classroom
+      }
+      const targetClassroom = assignedClassrooms.find((c) => c.id === filter.classroomId)
+      const targetProgramId = targetClassroom?.programId || filter.programId
+
+      return db.subject.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+          ...(activeStatus ? { status: activeStatus } : {}),
+          ...(filter?.subjectType ? { subjectType: filter.subjectType } : {}),
+          OR: [
+            ...(targetProgramId ? [{ programMappings: { some: { programId: targetProgramId } } }] : []),
+            { classroomMappings: { some: { classroomId: filter.classroomId } } },
+          ],
+        },
+        include: {
+          programMappings: {
+            include: {
+              program: {
+                select: { id: true, code: true, name: true, programType: true },
+              },
+            },
+          },
+          classroomMappings: {
+            include: {
+              classroom: {
+                select: { id: true, name: true, code: true, branchId: true },
+              },
+              specialistTeacher: {
+                select: { id: true, fullName: true, email: true },
+              },
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      })
+    }
+
+    // Otherwise, collect all assigned program IDs for this teacher
+    const assignedProgramIds = assignedClassrooms
+      .map((c) => c.programId)
+      .filter((pId): pId is string => Boolean(pId))
+    const assignedClassroomIds = assignedClassrooms.map((c) => c.id)
+
+    return db.subject.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        ...(activeStatus ? { status: activeStatus } : {}),
+        ...(filter?.subjectType ? { subjectType: filter.subjectType } : {}),
+        OR: [
+          ...(assignedProgramIds.length > 0 ? [{ programMappings: { some: { programId: { in: assignedProgramIds } } } }] : []),
+          { classroomMappings: { some: { classroomId: { in: assignedClassroomIds } } } },
+        ],
+      },
+      include: {
+        programMappings: {
+          include: {
+            program: {
+              select: { id: true, code: true, name: true, programType: true },
+            },
+          },
+        },
+        classroomMappings: {
+          include: {
+            classroom: {
+              select: { id: true, name: true, code: true, branchId: true },
+            },
+            specialistTeacher: {
+              select: { id: true, fullName: true, email: true },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    })
+  }
+
+  /**
+   * Validate subject eligibility when creating or updating Daily Diary / Schedule entries
+   */
+  static async validateSubjectEligibility(
+    tenantId: string,
+    classroomId: string,
+    subjectTitleOrId: string,
+    session: SessionPayload
+  ) {
+    if (!subjectTitleOrId || !subjectTitleOrId.trim()) {
+      return true
+    }
+
+    const title = subjectTitleOrId.trim()
+
+    // 1. Fetch subject from DB
+    const subject = await db.subject.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          { id: title },
+          { name: { equals: title, mode: 'insensitive' } },
+          { code: { equals: title.toUpperCase(), mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        programMappings: true,
+        classroomMappings: true,
+      },
+    })
+
+    if (!subject) {
+      throw new Error(`VALIDATION_ERROR: Subject "${title}" is not configured in Setup. Please select an existing subject from Setup.`)
+    }
+
+    if (subject.deletedAt !== null || subject.status !== 'ACTIVE') {
+      throw new Error(`VALIDATION_ERROR: Subject "${subject.name}" is inactive and cannot be assigned to new entries.`)
+    }
+
+    // 2. Resolve Classroom
+    const classroom = await db.classroom.findFirst({
+      where: { id: classroomId, tenantId },
+      select: { id: true, programId: true },
+    })
+
+    if (!classroom) {
+      throw new Error('VALIDATION_ERROR: Classroom not found')
+    }
+
+    // 3. Verify program-to-subject or classroom-to-subject mapping
+    const isProgramMapped = classroom.programId
+      ? subject.programMappings.some((pm) => pm.programId === classroom.programId)
+      : false
+    const isClassroomMapped = subject.classroomMappings.some((cm) => cm.classroomId === classroomId)
+
+    if (!isProgramMapped && !isClassroomMapped) {
+      throw new Error(`VALIDATION_ERROR: Subject "${subject.name}" is not configured for this class's program. Please configure subjects in Setup.`)
+    }
+
+    return subject
   }
 
   /**

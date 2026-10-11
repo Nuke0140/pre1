@@ -265,7 +265,7 @@ export default function SetupPage() {
       FOUNDATION: { total: 0, completed: 0 },
       ACADEMIC_STRUCTURE: { total: 0, completed: 0 },
       BUSINESS_RULES: { total: 0, completed: 0 },
-      OPERATIONS_READINESS: { total: 0, completed: 0 },
+      OPERATIONS: { total: 0, completed: 0 },
     }
     if (!status?.steps) return counts
     for (const s of status.steps) {
@@ -284,7 +284,7 @@ export default function SetupPage() {
       FOUNDATION: [],
       ACADEMIC_STRUCTURE: [],
       BUSINESS_RULES: [],
-      OPERATIONS_READINESS: [],
+      OPERATIONS: [],
     }
     if (!status?.steps) return map
     for (const s of status.steps) {

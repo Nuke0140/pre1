@@ -58,10 +58,29 @@ async function _POST(req: NextRequest) {
       : await db.branch.findFirst({ where: { tenantId: session.tenantId, isMain: true } })
     if (!branch) return Errors.notFound('Branch')
 
-    const acad = await db.academicSession.findFirst({
+    let acad = await db.academicSession.findFirst({
       where: { tenantId: session.tenantId, isCurrent: true },
     })
-    if (!acad) return Errors.notFound('Academic session')
+    if (!acad) {
+      acad = await db.academicSession.findFirst({
+        where: { tenantId: session.tenantId },
+        orderBy: { createdAt: 'desc' },
+      })
+    }
+    if (!acad) {
+      const acadStart = new Date(new Date().getFullYear(), 3, 1)
+      const acadEnd = new Date(new Date().getFullYear() + 1, 2, 31)
+      acad = await db.academicSession.create({
+        data: {
+          tenantId: session.tenantId,
+          name: `${acadStart.getFullYear()}-${String(acadEnd.getFullYear()).slice(2)}`,
+          startDate: acadStart,
+          endDate: acadEnd,
+          status: 'ACTIVE',
+          isCurrent: true,
+        },
+      })
+    }
 
     const count = await db.classroom.count({ where: { tenantId: session.tenantId } })
     const classroom = await db.classroom.create({

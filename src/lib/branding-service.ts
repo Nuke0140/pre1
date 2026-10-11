@@ -59,7 +59,7 @@ export async function getEffectiveBranding(tenantId: string): Promise<BrandingCo
     layout,
     bannerUrl,
     logoUrl,
-    schoolName: tenant?.name || 'PreOne Preschool',
+    schoolName: tenant?.name?.trim() || '',
     schoolCode: tenant?.code || '',
     footerGlow: (brandData.footerGlow as any) || null,
   }
@@ -131,7 +131,7 @@ export async function resetThemeSettings(
   return {
     ...resetData,
     logoUrl: tenant?.logoUrl || null,
-    schoolName: tenant?.name || 'PreOne Preschool',
+    schoolName: tenant?.name?.trim() || '',
     schoolCode: tenant?.code || '',
   }
 }

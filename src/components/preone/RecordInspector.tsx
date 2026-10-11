@@ -146,6 +146,11 @@ export function RecordInspector({
     }
   }, [open, recordId, fetchRecord])
 
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   // Background scroll preservation and focus management without page jump
   useEffect(() => {
     if (!open) return
@@ -162,13 +167,15 @@ export function RecordInspector({
       window.scrollTo({ top: currentScrollY, behavior: 'instant' })
     }
 
-    // Accessible focus without scrolling parent page
-    closeBtnRef.current?.focus({ preventScroll: true })
+    // Accessible focus without scrolling parent page if focus is not already inside inspector panel
+    if (closeBtnRef.current && !drawerPanelRef.current?.contains(document.activeElement)) {
+      closeBtnRef.current.focus({ preventScroll: true })
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
     }
 
@@ -181,7 +188,7 @@ export function RecordInspector({
       // Restore exact background scroll position
       window.scrollTo({ top: currentScrollY, behavior: 'instant' })
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open || !mounted) return null
 

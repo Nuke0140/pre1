@@ -43,6 +43,11 @@ export function PdfViewerModal({
     setMounted(true)
   }, [])
 
+  const onCloseRef = React.useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     if (!open) return
     setIsLoading(true)
@@ -51,7 +56,7 @@ export function PdfViewerModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -61,7 +66,7 @@ export function PdfViewerModal({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [open, onClose, documentId])
+  }, [open, documentId])
 
   if (!open || !mounted) return null
 

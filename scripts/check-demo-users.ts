@@ -5,13 +5,7 @@ const db = new PrismaClient()
 
 async function main() {
   const users = await db.user.findMany({
-    where: {
-      OR: [
-        { email: { contains: 'sunshine' } },
-        { email: { contains: 'preone' } },
-        { email: { contains: 'demo' } },
-      ],
-    },
+    where: {},
     select: {
       email: true,
       username: true,

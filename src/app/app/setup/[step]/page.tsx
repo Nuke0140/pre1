@@ -135,7 +135,7 @@ function TableToolbar({ title, count, onAdd, addLabel, icon }: { title: string; 
   )
 }
 
-function FooterActions({ busy, onSaveDraft, onComplete, completeLabel = 'Save & Continue', showDraft = true }: {
+function FooterActions({ busy, onSaveDraft, onComplete, completeLabel = 'Save Changes', showDraft = true }: {
   busy: boolean; onSaveDraft: () => void; onComplete: () => void; completeLabel?: string; showDraft?: boolean
 }) {
   return (
@@ -168,6 +168,7 @@ export default function SetupStepPage() {
   const [editType, setEditType] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<Dict | null>(null)
   const [csv, setCsv] = useState('')
+  const [selectedProgramForSubject, setSelectedProgramForSubject] = useState<string>('ALL')
 
   const kind = useMemo(() => {
     if (!def) return 'unknown'
@@ -176,6 +177,7 @@ export default function SetupStepPage() {
     if (CONFIG_STEP_DOMAIN[def.key]) return 'config'
     switch (def.key) {
       case 'branch': return 'branches'
+      case 'classroom_foundation': return 'infrastructure'
       case 'programs': return 'programs'
       case 'roles': return 'roles'
       case 'academic_year': return 'years'
@@ -269,7 +271,7 @@ export default function SetupStepPage() {
     return true
   }
 
-  const completeStep = async (thenNav = true) => {
+  const completeStep = async (thenNav = false) => {
     setSaving(true)
     const saved = await saveConfig()
     if (!saved) { setSaving(false); return }
@@ -277,12 +279,15 @@ export default function SetupStepPage() {
     setSaving(false)
     if (j.success) {
       toast.success('Step complete', j.data?.message)
-      const fresh = await fetch('/api/v1/setup/status').then((r) => r.json())
-      if (fresh.success) {
-        const next = fresh.data.nextStepKey as string | null
-        if (thenNav && next) router.push(next === 'branding' ? '/app/setup/branding' : `/app/setup/${next}`)
-        else if (thenNav) router.push('/app/setup')
-        else loadStatus()
+      if (thenNav) {
+        const fresh = await fetch('/api/v1/setup/status').then((r) => r.json())
+        if (fresh.success) {
+          const next = fresh.data.nextStepKey as string | null
+          if (next) router.push(next === 'branding' ? '/app/setup/branding' : `/app/setup/${next}`)
+          else router.push('/app/setup')
+        }
+      } else {
+        loadStatus()
       }
     } else {
       toast.error('Cannot complete yet', [j.error?.message, j.error?.details].filter(Boolean).join(' — '))
@@ -291,7 +296,7 @@ export default function SetupStepPage() {
 
   const skipStep = async () => {
     const j = await api(`/api/v1/setup/steps/${stepKey}`, 'POST', { action: 'skip' })
-    if (j.success) { toast.info('Step skipped', j.data?.message); router.push('/app/setup') }
+    if (j.success) { toast.info('Step skipped', j.data?.message); loadStatus() }
     else toast.error('Cannot skip', j.error?.message)
   }
 
@@ -326,8 +331,8 @@ export default function SetupStepPage() {
             {me?.status === 'COMPLETE' ? (
               <button className="btn btn-outline" onClick={reopenStep}><RotateCcw size={15} /> Reopen</button>
             ) : me?.status !== 'SKIPPED' && !me?.locked && (
-              <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}>
-                <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save & Continue'}
+              <button className="btn btn-primary" onClick={() => completeStep(false)} disabled={saving}>
+                <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save Changes'}
               </button>
             )}
           </>
@@ -384,8 +389,8 @@ export default function SetupStepPage() {
                 <ConfigForm form={CONFIG_FORMS[configDomain]} data={configData ?? {}} setData={setConfigData} />
                 <FooterActions
                   busy={saving}
-                  onSaveDraft={async () => { if (await saveConfig()) toast.info('Draft saved', 'You can continue later') }}
-                  onComplete={() => completeStep(true)}
+                  onSaveDraft={async () => { if (await saveConfig()) { toast.info('Draft saved', 'You can continue later'); loadStatus() } }}
+                  onComplete={() => completeStep(false)}
                 />
               </>
             )}
@@ -394,7 +399,7 @@ export default function SetupStepPage() {
               <>
                 <div className="form-grid">
                   {[
-                    { k: 'name', label: 'School name', req: true }, { k: 'email', label: 'Email', req: true, t: 'email' },
+                    { k: 'name', label: 'School Legal Name', req: true }, { k: 'email', label: 'Email', req: true, t: 'email' },
                     { k: 'phone', label: 'Contact number', req: true }, { k: 'website', label: 'Website' },
                     { k: 'city', label: 'City', req: true }, { k: 'state', label: 'State' },
                     { k: 'pincode', label: 'Postal code' }, { k: 'timezone', label: 'Timezone' },
@@ -402,7 +407,19 @@ export default function SetupStepPage() {
                   ].map((f) => (
                     <div className="field" key={f.k}>
                       <label>{f.label} {f.req && <span className="req">*</span>}</label>
-                      <input className="input" type={f.t ?? 'text'} value={String(payload[f.k] ?? '')} onChange={(e) => setPayload({ ...payload, [f.k]: e.target.value })} />
+                      <input
+                        className="input"
+                        type={f.t ?? 'text'}
+                        value={String((f.k === 'name' ? (payload.name ?? payload.legalName) : payload[f.k]) ?? '')}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          if (f.k === 'name') {
+                            setPayload({ ...payload, name: val, legalName: val })
+                          } else {
+                            setPayload({ ...payload, [f.k]: val })
+                          }
+                        }}
+                      />
                     </div>
                   ))}
                   <div className="field" style={{ gridColumn: '1 / -1' }}>
@@ -413,8 +430,8 @@ export default function SetupStepPage() {
                 <p className="helper" style={{ marginTop: 8 }}>School identity propagates to branding, login, portals, communication, reports, certificates and documents.</p>
                 <FooterActions
                   busy={saving}
-                  onSaveDraft={async () => { if (await saveConfig()) toast.info('Draft saved') }}
-                  onComplete={() => completeStep(true)}
+                  onSaveDraft={async () => { if (await saveConfig()) { toast.info('Draft saved'); loadStatus() } }}
+                  onComplete={() => completeStep(false)}
                 />
               </>
             )}
@@ -546,37 +563,13 @@ export default function SetupStepPage() {
             {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} onAddClass={() => setModal('classroom')} />}
 
             {kind === 'subjects' && (
-              <>
-                <TableToolbar title="Subjects & Learning Areas" count={list.length} icon={<BookOpen size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={() => setModal('subject')} addLabel="Add Subject" />
-                <p className="helper" style={{ marginBottom: 10 }}>Configure core and activity learning areas (e.g. Literacy, Numeracy, Motor Skills) and map them to programs.</p>
-                {list.length === 0 ? (
-                  <EmptyState icon={<BookOpen size={40} />} title="No subjects configured" message="Add early learning areas and subjects. These link to programs and classroom observations." />
-                ) : (
-                  <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Subject</th><th>Type</th><th>Programs Mapped</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
-                    <tbody>{list.map((s: any) => (
-                      <tr key={String(s.id)}>
-                        <td><span className="cell-strong">{s.name}</span><span className="cell-sub">{s.code}</span></td>
-                        <td><span className={`badge ${s.type === 'CORE' ? 'b-primary' : s.type === 'OPTIONAL' ? 'b-info' : 'b-neutral'}`}>{s.type}</span></td>
-                        <td>
-                          {s.programSubjects && s.programSubjects.length > 0 ? (
-                            <span className="badge b-success">{s.programSubjects.map((ps: any) => ps.program?.name ?? ps.programId).join(', ')}</span>
-                          ) : (
-                            <span className="badge b-warning">Unmapped</span>
-                          )}
-                        </td>
-                        <td>{String(s.classroomCount ?? 0)}</td>
-                        <td><StatusBadge status={s.active ? 'ACTIVE' : 'INACTIVE'} /></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(s); setEditType('subject'); }} title="Edit subject">
-                            <Edit3 size={13} /> Edit
-                          </button>
-                        </td>
-                      </tr>
-                    ))}</tbody>
-                  </table></div>
-                )}
-              </>
+              <ProgramWiseSubjectSection
+                list={Array.isArray(payload) ? payload : []}
+                onAddSubject={() => setModal('subject')}
+                onEditSubject={(s) => { setEditItem(s); setEditType('subject'); }}
+                selectedProgramId={selectedProgramForSubject}
+                setSelectedProgramId={setSelectedProgramForSubject}
+              />
             )}
 
             {kind === 'teachers' && <TeachersSection rooms={list} onDone={refreshAll} />}
@@ -643,7 +636,7 @@ export default function SetupStepPage() {
             {kind !== 'config' && kind !== 'branding' && kind !== 'profile' && me?.status !== 'COMPLETE' && me?.status !== 'SKIPPED' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
                 <span className="helper" style={{ marginRight: 'auto' }}>Completion is verified against your real data — this records who completed the step and when.</span>
-                <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}><CheckCircle2 size={15} /> Mark Step Complete</button>
+                <button className="btn btn-primary" onClick={() => completeStep(false)} disabled={saving}><CheckCircle2 size={15} /> Mark Step Complete</button>
               </div>
             )}
           </div>
@@ -653,7 +646,7 @@ export default function SetupStepPage() {
       {/* ── MODALS (rendered from parent with real api/toast) ── */}
       {modal === 'branch' && <BranchModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'program' && <ProgramModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
-      {modal === 'subject' && <SubjectModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
+      {modal === 'subject' && <SubjectModal defaultProgramId={selectedProgramForSubject !== 'ALL' ? selectedProgramForSubject : undefined} onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'year' && <YearModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'event' && <EventModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
       {modal === 'classroom' && <ClassroomModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
@@ -1547,16 +1540,167 @@ function EditStaffModal({ item, onClose, onDone, api, toast }: { item: Dict; onC
   )
 }
 
-function SubjectModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
-  const [busy, setBusy] = useState(false)
+function ProgramWiseSubjectSection({
+  list,
+  onAddSubject,
+  onEditSubject,
+  selectedProgramId,
+  setSelectedProgramId,
+}: {
+  list: Dict[]
+  onAddSubject: () => void
+  onEditSubject: (s: Dict) => void
+  selectedProgramId: string
+  setSelectedProgramId: (id: string) => void
+}) {
   const [programs, setPrograms] = useState<Dict[]>([])
-  const [selectedPrograms, setSelectedPrograms] = useState<string[]>([])
 
   useEffect(() => {
     fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
       if (j.success && Array.isArray(j.data)) setPrograms(j.data)
     })
   }, [])
+
+  const selectedProgramObj = programs.find((p: any) => String(p.id) === selectedProgramId)
+
+  const filteredList = useMemo(() => {
+    if (selectedProgramId === 'ALL') return list
+    return list.filter((s: any) => {
+      const pm = s.programSubjects || s.programMappings || []
+      return pm.some((p: any) => String(p.programId) === selectedProgramId)
+    })
+  }, [list, selectedProgramId])
+
+  return (
+    <>
+      {/* Program Selection Priority Bar */}
+      <div style={{ padding: '14px 16px', background: 'var(--surface-muted)', borderRadius: 12, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'between', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
+              Select Program (Priority):
+            </span>
+            <select
+              className="select"
+              style={{ fontSize: 13, fontWeight: 700, minWidth: 200, borderColor: 'var(--primary)' }}
+              value={selectedProgramId}
+              onChange={(e) => setSelectedProgramId(e.target.value)}
+            >
+              <option value="ALL">All Programs ({list.length} subjects)</option>
+              {programs.map((p: any) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginLeft: 'auto' }}>
+            <button className="btn btn-primary" onClick={onAddSubject}>
+              <Plus size={15} style={{ marginRight: 4 }} />
+              {selectedProgramObj ? `Add Subject for ${selectedProgramObj.name}` : 'Add Subject'}
+            </button>
+          </div>
+        </div>
+        <p className="helper" style={{ marginTop: 6, marginBottom: 0 }}>
+          Subjects are created program-wise. Select a target program first to view or add subjects for that specific program.
+        </p>
+      </div>
+
+      <TableToolbar
+        title={selectedProgramObj ? `Subjects for ${selectedProgramObj.name}` : 'All Program Subjects'}
+        count={filteredList.length}
+        icon={<BookOpen size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
+        onAdd={onAddSubject}
+        addLabel={selectedProgramObj ? `Add Subject for ${selectedProgramObj.name}` : 'Add Subject'}
+      />
+
+      {filteredList.length === 0 ? (
+        <EmptyState
+          icon={<BookOpen size={40} />}
+          title={selectedProgramObj ? `No subjects created for ${selectedProgramObj.name} yet` : 'No subjects configured'}
+          message={selectedProgramObj ? `Click "+ Add Subject for ${selectedProgramObj.name}" to create subjects for this program.` : 'Add subjects program-wise.'}
+        />
+      ) : (
+        <div className="dtable-scroll">
+          <table className="dtable">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Programs Mapped</th>
+                <th>Classes</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredList.map((s: any) => (
+                <tr key={String(s.id)}>
+                  <td>
+                    <span className="cell-strong">{s.name}</span>
+                    <span className="cell-sub">{s.code}</span>
+                  </td>
+                  <td>
+                    <span className={`badge ${s.subjectType === 'CORE' || s.type === 'CORE' ? 'b-primary' : s.subjectType === 'OPTIONAL' || s.type === 'OPTIONAL' ? 'b-info' : 'b-neutral'}`}>
+                      {s.subjectType || s.type}
+                    </span>
+                  </td>
+                  <td>
+                    {s.programSubjects && s.programSubjects.length > 0 ? (
+                      <span className="badge b-success">
+                        {s.programSubjects.map((ps: any) => ps.program?.name ?? ps.programId).join(', ')}
+                      </span>
+                    ) : s.programMappings && s.programMappings.length > 0 ? (
+                      <span className="badge b-success">
+                        {s.programMappings.map((pm: any) => pm.program?.name ?? pm.programId).join(', ')}
+                      </span>
+                    ) : (
+                      <span className="badge b-warning">Unmapped</span>
+                    )}
+                  </td>
+                  <td>{String(s.classroomCount ?? 0)}</td>
+                  <td><StatusBadge status={s.status || (s.active ? 'ACTIVE' : 'INACTIVE')} /></td>
+                  <td>
+                    <button className="btn btn-sm btn-outline" onClick={() => onEditSubject(s)} title="Edit subject">
+                      <Edit3 size={13} /> Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  )
+}
+
+function SubjectModal({ defaultProgramId, onClose, onDone, api, toast }: { defaultProgramId?: string; onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
+  const [busy, setBusy] = useState(false)
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const [primaryProgramId, setPrimaryProgramId] = useState<string>(defaultProgramId || '')
+  const [selectedPrograms, setSelectedPrograms] = useState<string[]>(defaultProgramId ? [defaultProgramId] : [])
+
+  useEffect(() => {
+    fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
+      if (j.success && Array.isArray(j.data)) {
+        setPrograms(j.data)
+        if (!primaryProgramId && j.data.length > 0) {
+          const firstId = String(j.data[0].id)
+          setPrimaryProgramId(firstId)
+          setSelectedPrograms((prev) => (prev.length === 0 ? [firstId] : prev))
+        }
+      }
+    })
+  }, [])
+
+  const handlePrimaryChange = (progId: string) => {
+    setPrimaryProgramId(progId)
+    if (progId && !selectedPrograms.includes(progId)) {
+      setSelectedPrograms((prev) => [...prev, progId])
+    }
+  }
 
   const toggleProgram = (id: string) => {
     setSelectedPrograms((prev) =>
@@ -1567,13 +1711,21 @@ function SubjectModal({ onClose, onDone, api, toast }: { onClose: () => void; on
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true)
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const allProgramIds = Array.from(new Set([primaryProgramId, ...selectedPrograms].filter(Boolean)))
+
+    if (allProgramIds.length === 0) {
+      setBusy(false)
+      toast.error('Program Selection Required', 'Please select a program for this subject.')
+      return
+    }
+
     const payload = {
       name: fd.name,
       code: fd.code,
       shortName: fd.shortName || undefined,
       description: fd.description || undefined,
       subjectType: fd.subjectType || 'CORE',
-      programIds: selectedPrograms,
+      programIds: allProgramIds,
     }
     const j = await api('/api/v1/subjects', 'POST', payload)
     setBusy(false)
@@ -1586,9 +1738,31 @@ function SubjectModal({ onClose, onDone, api, toast }: { onClose: () => void; on
   }
 
   return (
-    <Modal open onClose={onClose} title="Add Subject / Learning Area" icon={<BookOpen size={22} />} iconClass="ic-blue">
+    <Modal open onClose={onClose} title="Add Program-Wise Subject" icon={<BookOpen size={22} />} iconClass="ic-blue">
       <form onSubmit={submit}>
         <div className="form-grid">
+          {/* Priority Field 1: Program Selection */}
+          <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <label style={{ fontWeight: 700, color: 'var(--primary)' }}>
+              1. Target Program (Priority) <span className="req">*</span>
+            </label>
+            <select
+              className="select"
+              style={{ fontWeight: 600 }}
+              value={primaryProgramId}
+              onChange={(e) => handlePrimaryChange(e.target.value)}
+              required
+            >
+              <option value="">-- Select Target Program --</option>
+              {programs.map((p: any) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
+                </option>
+              ))}
+            </select>
+            <div className="helper">Subjects are created program-wise. Choose the target program for this subject first.</div>
+          </div>
+
           <div className="field"><label>Subject Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Early Literacy & Phonics" /></div>
           <div className="field"><label>Subject Code <span className="req">*</span></label><input className="input" name="code" required placeholder="LIT" /></div>
           <div className="field"><label>Short Name</label><input className="input" name="shortName" placeholder="Literacy" /></div>
@@ -1596,14 +1770,14 @@ function SubjectModal({ onClose, onDone, api, toast }: { onClose: () => void; on
             <select className="select" name="subjectType" defaultValue="CORE" required>
               <option value="CORE">CORE — Core Learning Area</option>
               <option value="OPTIONAL">OPTIONAL — Optional / Elective</option>
-              <option value="ACTIVITY">ACTIVITY — Co-curricular / Activity</option>
+              <option value="ACTIVITY">ACTIVITY — Co-curricular Activity</option>
             </select>
           </div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" placeholder="Foundational language and reading development" /></div>
 
-          {programs.length > 0 && (
+          {programs.length > 1 && (
             <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Assign to Programs</label>
+              <label>Also Map to Additional Programs (Optional)</label>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
                 {programs.map((p: any) => (
                   <label key={String(p.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', background: 'var(--surface-muted)', padding: '4px 8px', borderRadius: 6 }}>

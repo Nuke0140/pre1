@@ -70,7 +70,7 @@ export default function BrandingPage() {
 
       if (json.success && json.data) {
         const d = json.data as BrandingConfig
-        setSchoolName(d.schoolName || 'PreOne Preschool')
+        setSchoolName(d.schoolName || '')
         setSchoolCode(d.schoolCode || '')
         setLogoUrl(d.logoUrl || null)
         setPrimaryColor(d.primaryColor || PREONE_BRANDING_DEFAULTS.primaryColor)

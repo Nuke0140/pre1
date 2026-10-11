@@ -164,19 +164,32 @@ export function evaluateStep(key: StepKey, ctx: TenantContext): StepEvaluation {
       const active = activeBranches(ctx)
       const n = active.length
       const validTimings = active.every((b) => b.timingOpen < b.timingClose)
-      const rooms = ctx.facilities.filter((f) => f.isActive).length + activeClassrooms(ctx).length
-      const ok = n >= 1 && validTimings && rooms >= 1
+      const ok = n >= 1 && validTimings
       return {
         satisfied: ok,
         blocked: false,
         detail: !ok
           ? n === 0
             ? 'No active branch configured'
-            : !validTimings
-              ? 'Branch closing time must be after opening time'
-              : 'At least one classroom/facility room required'
-          : `${n} branch(es), ${rooms} room(s) registered`,
-        snapshot: { branches: n, rooms, validTimings },
+            : 'Branch closing time must be after opening time'
+          : `${n} branch(es) registered with valid operating hours`,
+        snapshot: { branches: n, validTimings },
+        missingDeps: noDeps,
+      }
+    }
+    case 'classroom_foundation': {
+      const activeRooms = activeClassrooms(ctx)
+      const activeFacilities = ctx.facilities.filter((f) => f.isActive)
+      const totalPhysicalRooms = activeRooms.length + activeFacilities.length
+      const validBranchRef = totalPhysicalRooms > 0 && activeRooms.every((c) => c.branchId && ctx.branches.some((b) => b.id === c.branchId && b.isActive))
+      const ok = totalPhysicalRooms >= 1 && (activeRooms.length === 0 || validBranchRef)
+      return {
+        satisfied: ok,
+        blocked: false,
+        detail: ok
+          ? `${totalPhysicalRooms} room(s)/classroom(s) configured across valid branches`
+          : 'At least one classroom/room assigned to an active branch required',
+        snapshot: { totalPhysicalRooms, classrooms: activeRooms.length, facilities: activeFacilities.length, validBranchRef },
         missingDeps: noDeps,
       }
     }

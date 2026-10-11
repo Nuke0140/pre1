@@ -49,7 +49,7 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
 
   const categories: ValidationCategory[] = [
     cat('identity', 'Identity (School Profile)', [
-      !t.name || !t.code ? B('School name or code missing') : W(''),
+      !t.name || !t.code ? B('School legal name or code missing') : W(''),
       !t.email || !t.phone ? B('School email / contact number missing') : W(''),
       !t.city || !t.address ? W('City / address incomplete — appears on reports and documents') : W(''),
     ].filter((f) => f.message !== '')),
@@ -57,9 +57,8 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
     cat('branch', 'Branch / Campus & Infrastructure', [
       branches.length === 0 ? B('No active branch exists') : W(''),
       branches.some((b) => b.timingOpen >= b.timingClose) ? B('A branch has closing time before opening time') : W(''),
-      rooms.length === 0 ? B('No classroom rooms configured') : W(''),
+      (rooms.length === 0 && ctx.facilities.filter((f) => f.isActive).length === 0) ? W('No classroom rooms or facility areas registered yet') : W(''),
       rooms.some((r) => r.capacity <= 0) ? B('A room has zero or invalid capacity') : W(''),
-      ctx.facilities.filter((f) => f.isActive).length === 0 ? W('No play / nap / meal / medical areas registered (recommended)') : W(''),
     ].filter((f) => f.message !== '')),
 
     cat('users_rbac', 'Users & RBAC (M01 Identity)', [

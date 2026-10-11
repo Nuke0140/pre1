@@ -32,6 +32,11 @@ export function BottomSheet({
   const [translateY, setTranslateY] = useState<number>(0)
   const [isDragging, setIsDragging] = useState<boolean>(false)
 
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   // Focus trap and ESC key dismissal
   useEffect(() => {
     if (!open) {
@@ -42,7 +47,7 @@ export function BottomSheet({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
       }
     }
 
@@ -50,7 +55,9 @@ export function BottomSheet({
     document.body.style.overflow = 'hidden'
 
     const focusTimer = setTimeout(() => {
-      panelRef.current?.focus()
+      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+        panelRef.current.focus()
+      }
     }, 40)
 
     return () => {
@@ -58,7 +65,7 @@ export function BottomSheet({
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
-  }, [open, onClose])
+  }, [open])
 
   // Touch handlers for swipe-down dismissal
   const handleTouchStart = (e: React.TouchEvent) => {

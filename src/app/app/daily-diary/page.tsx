@@ -1532,13 +1532,7 @@ export default function DailyDiaryPage() {
               >
                 <BookOpen size={14} className="mr-1.5" /> Overview
               </button>
-              <button
-                type="button"
-                className={`btn btn-sm ${activeTab === 'subjects' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setActiveTab('subjects')}
-              >
-                <BookOpen size={14} className="mr-1.5" /> Manage Subjects
-              </button>
+
               <button
                 type="button"
                 className={`btn btn-sm ${activeTab === 'builder' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1778,89 +1772,7 @@ export default function DailyDiaryPage() {
             </div>
           )}
 
-          {/* TAB 2: MANAGE SUBJECTS */}
-          {activeTab === 'subjects' && (
-            <div className="glass-panel p-6 space-y-6">
-              <div className="flex items-center justify-between border-b border-border pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                    <BookOpen size={20} className="text-primary" /> Reusable Subjects List
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Maintain the reusable subject & activity list that populates the Daily Schedule Builder dropdowns.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => {
-                    setNewSubjectName('')
-                    setNewSubjectType('CORE')
-                    setShowAddSubjectModal(true)
-                  }}
-                >
-                  <Plus size={15} /> Add Subject
-                </button>
-              </div>
 
-              {subjects.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-border rounded-xl">
-                  <BookOpen className="mx-auto text-muted-foreground mb-2" size={40} />
-                  <h4 className="font-bold text-base text-foreground">No subjects created yet</h4>
-                  <p className="text-xs text-muted-foreground mt-1">Create your first subject (e.g. English, Math, Story, Drawing, Music) to populate your schedule builder.</p>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary mt-4"
-                    onClick={() => {
-                      setNewSubjectName('')
-                      setNewSubjectType('CORE')
-                      setShowAddSubjectModal(true)
-                    }}
-                  >
-                    <Plus size={14} /> Add Subject
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {subjects.map((sub) => (
-                    <div key={sub.id} className="p-4 rounded-xl border border-border bg-card/40 flex items-center justify-between gap-3 hover:border-primary/40 transition-colors">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-foreground">{sub.name}</h4>
-                          <span className={`badge text-[10px] ${sub.subjectType === 'CORE' ? 'b-indigo' : 'b-purple'}`}>
-                            {sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-mono text-muted-foreground">Code: {sub.code}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-blue-500"
-                          onClick={() => {
-                            setEditSubjectName(sub.name)
-                            setEditSubjectType(sub.subjectType || 'CORE')
-                            setShowEditSubjectModal(sub)
-                          }}
-                          title="Edit Subject"
-                        >
-                          <Edit3 size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-icon-xs btn-icon-ghost text-rose-500"
-                          onClick={() => handleRemoveSubject(sub)}
-                          title="Remove Subject"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* TAB: IN-PAGE DAILY SCHEDULE BUILDER & DAILY REPORT (2-COLUMN BOX LAYOUT) */}
           {activeTab === 'builder' && (
@@ -1957,18 +1869,17 @@ export default function DailyDiaryPage() {
                                 required
                               >
                                 <option value="">-- Select Subject --</option>
-                                {subjects.map((sub) => (
-                                  <option key={sub.id} value={sub.name}>
-                                    {sub.name} ({sub.subjectType === 'CORE' ? 'Core' : 'Activity'})
+                                {subjects.length === 0 ? (
+                                  <option value="" disabled>
+                                    No subjects are configured for this program. Please configure subjects in Setup.
                                   </option>
-                                ))}
-                                <option value="English & Phonics">English & Phonics</option>
-                                <option value="Mathematics & Numbers">Mathematics & Numbers</option>
-                                <option value="EVS & Environmental Science">EVS & Environmental Science</option>
-                                <option value="Art & Craft">Art & Craft</option>
-                                <option value="Physical Activity & Play">Physical Activity & Play</option>
-                                <option value="Music & Movement">Music & Movement</option>
-                                <option value="Storytelling & Rhymes">Storytelling & Rhymes</option>
+                                ) : (
+                                  subjects.map((sub) => (
+                                    <option key={sub.id} value={sub.name}>
+                                      {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                                    </option>
+                                  ))
+                                )}
                               </select>
                             </td>
                             <td className="p-2">
@@ -2613,108 +2524,7 @@ export default function DailyDiaryPage() {
         </div>
       )}
 
-      {/* MODAL: MANAGE SUBJECTS (ADD) */}
-      {showAddSubjectModal && (
-        <Modal
-          open={showAddSubjectModal}
-          onClose={() => setShowAddSubjectModal(false)}
-          title="Add Reusable Subject"
-        >
-          <form onSubmit={handleAddSubject} className="space-y-4 pt-2">
-            <div>
-              <label className="text-xs font-bold text-foreground">Subject Name *</label>
-              <input
-                type="text"
-                className="input text-sm mt-1"
-                placeholder="e.g. English, Math, Drawing, Story, Music, Outdoor Play..."
-                value={newSubjectName}
-                onChange={(e) => setNewSubjectName(e.target.value)}
-                required
-              />
-            </div>
 
-            <div>
-              <label className="text-xs font-bold text-foreground">Subject Category</label>
-              <select
-                className="select text-xs mt-1 font-semibold"
-                value={newSubjectType}
-                onChange={(e) => setNewSubjectType(e.target.value)}
-              >
-                <option value="CORE">Core Subject (Academic / Learning)</option>
-                <option value="ACTIVITY">Activity (Co-curricular / Co-educational)</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => setShowAddSubjectModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-sm btn-primary"
-                disabled={submittingSubject}
-              >
-                {submittingSubject ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Subject
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* MODAL: MANAGE SUBJECTS (EDIT) */}
-      {showEditSubjectModal && (
-        <Modal
-          open={!!showEditSubjectModal}
-          onClose={() => setShowEditSubjectModal(null)}
-          title="Edit Subject"
-        >
-          <form onSubmit={handleEditSubjectSubmit} className="space-y-4 pt-2">
-            <div>
-              <label className="text-xs font-bold text-foreground">Subject Name *</label>
-              <input
-                type="text"
-                className="input text-sm mt-1"
-                value={editSubjectName}
-                onChange={(e) => setEditSubjectName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-foreground">Subject Category</label>
-              <select
-                className="select text-xs mt-1 font-semibold"
-                value={editSubjectType}
-                onChange={(e) => setEditSubjectType(e.target.value)}
-              >
-                <option value="CORE">Core Subject</option>
-                <option value="ACTIVITY">Activity</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={() => setShowEditSubjectModal(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-sm btn-primary"
-                disabled={submittingSubject}
-              >
-                {submittingSubject ? <RefreshCw className="animate-spin" size={14} /> : <Save size={14} />} Save Changes
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
 
       {/* MODAL: DAILY SCHEDULE BUILDER (MULTI-ROW TABLE FORM) */}
       {showScheduleBuilderModal && (
@@ -2760,18 +2570,17 @@ export default function DailyDiaryPage() {
                           required
                         >
                           <option value="">-- Select Subject --</option>
-                          {subjects.map((sub) => (
-                            <option key={sub.id} value={sub.name}>
-                              {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                          {subjects.length === 0 ? (
+                            <option value="" disabled>
+                              No subjects are configured for this program. Please configure subjects in Setup.
                             </option>
-                          ))}
-                          <option value="English & Phonics">English & Phonics</option>
-                          <option value="Mathematics & Numbers">Mathematics & Numbers</option>
-                          <option value="EVS & Environmental Science">EVS & Environmental Science</option>
-                          <option value="Art & Craft">Art & Craft</option>
-                          <option value="Physical Activity & Play">Physical Activity & Play</option>
-                          <option value="Music & Movement">Music & Movement</option>
-                          <option value="Storytelling & Rhymes">Storytelling & Rhymes</option>
+                          ) : (
+                            subjects.map((sub) => (
+                              <option key={sub.id} value={sub.name}>
+                                {sub.name} ({sub.subjectType === 'CORE' ? 'Core Subject' : 'Activity'})
+                              </option>
+                            ))
+                          )}
                         </select>
                       </td>
                       <td className="p-3">

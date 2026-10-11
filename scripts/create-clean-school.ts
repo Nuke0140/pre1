@@ -138,14 +138,79 @@ async function main() {
     update: { branchId: branchDemo.id },
   })
 
+  // 3. PreOne Preschool OS (School Code: PREONE)
+  const tenantPreone = await db.tenant.upsert({
+    where: { code: 'PREONE' },
+    create: {
+      name: 'PreOne Preschool Academy',
+      code: 'PREONE',
+      type: 'SCHOOL',
+      status: 'ACTIVE',
+      subscriptionPlan: 'PRO',
+      maxBranches: 5,
+      maxStudents: 500,
+      onboardingStep: 5,
+      onboardedAt: new Date(),
+    },
+    update: { status: 'ACTIVE' },
+  })
+
+  const branchPreone = await db.branch.upsert({
+    where: { tenantId_code: { tenantId: tenantPreone.id, code: 'MAIN' } },
+    create: {
+      tenantId: tenantPreone.id,
+      name: 'PreOne Main Campus',
+      code: 'MAIN',
+      isMain: true,
+    },
+    update: { isActive: true },
+  })
+
+  const userPreone = await db.user.upsert({
+    where: { email: 'admin@mypreone.com' },
+    create: {
+      email: 'admin@mypreone.com',
+      username: 'admin',
+      fullName: 'PreOne Administrator',
+      passwordHash: hash,
+      status: 'ACTIVE',
+    },
+    update: { status: 'ACTIVE', passwordHash: hash },
+  })
+
+  await db.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: tenantPreone.id, userId: userPreone.id } },
+    create: {
+      tenantId: tenantPreone.id,
+      userId: userPreone.id,
+      role: 'OWNER',
+      roles: ['OWNER', 'PRINCIPAL'],
+      branchId: branchPreone.id,
+      status: 'ACTIVE',
+    },
+    update: { status: 'ACTIVE' },
+  })
+
+  await db.staffProfile.upsert({
+    where: { userId: userPreone.id },
+    create: {
+      tenantId: tenantPreone.id,
+      userId: userPreone.id,
+      employeeCode: 'EMP-001',
+      designation: 'School Director',
+      branchId: branchPreone.id,
+    },
+    update: { branchId: branchPreone.id },
+  })
+
   console.log('✅ Clean schools initialized with 0 dummy staff/students:')
   console.log('   Option 1:')
-  console.log('     · School Code: sunshine')
-  console.log('     · Email:       owner@sunshine.demo')
+  console.log('     · School Code: PREONE')
+  console.log('     · Email:       admin@mypreone.com')
   console.log('     · Password:    Preone@123')
   console.log('   Option 2:')
-  console.log('     · School Code: DEMO-SCHOOL')
-  console.log('     · Email:       admin@preone.in')
+  console.log('     · School Code: SUNSHINE')
+  console.log('     · Email:       owner@sunshine.demo')
   console.log('     · Password:    Preone@123')
 }
 
