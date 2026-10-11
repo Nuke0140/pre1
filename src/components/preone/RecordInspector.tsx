@@ -168,7 +168,7 @@ export function RecordInspector({
     }
 
     // Accessible focus without scrolling parent page if focus is not already inside inspector panel
-    if (closeBtnRef.current && !drawerPanelRef.current?.contains(document.activeElement)) {
+    if (closeBtnRef.current && !drawerRef.current?.contains(document.activeElement)) {
       closeBtnRef.current.focus({ preventScroll: true })
     }
 

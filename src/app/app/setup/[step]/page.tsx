@@ -166,6 +166,7 @@ export default function SetupStepPage() {
   const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<Dict | null>(null)
+  const [editType, setEditType] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<Dict | null>(null)
   const [csv, setCsv] = useState('')
   const [selectedProgramForSubject, setSelectedProgramForSubject] = useState<string>('ALL')

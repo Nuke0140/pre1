@@ -82,6 +82,7 @@ export const SETUP_STEPS: StepDef[] = [
     key: 'classroom_foundation',
     label: 'Classroom Foundation',
     phase: 'FOUNDATION',
+    scope: 'BRANCH',
     applicability: 'MANDATORY',
     deps: ['branch'],
     icon: 'DoorOpen',
