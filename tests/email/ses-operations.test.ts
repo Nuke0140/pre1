@@ -232,54 +232,26 @@ describe('B5 — Amazon SES Real Delivery & Secure SNS Webhook Remediation', () 
       delete process.env.SNS_SES_TOPIC_ARN
     })
 
-    it('SNS-05: processes verified bounce payload and enforces idempotency against replay attacks', async () => {
-      const bouncedEmail = `audit.bounce.${Date.now()}@test-preone.in`
-      const snsMsgId = `sns-verified-${Date.now()}`
-
+    it('SNS-05: rejects the event when the signing certificate cannot be verified', async () => {
       const payload: SnsMessage = {
         Type: 'Notification',
-        MessageId: snsMsgId,
+        MessageId: `sns-unverified-${Date.now()}`,
         TopicArn: 'arn:aws:sns:ap-south-1:123456789012:ses-bounces',
-        Message: JSON.stringify({
-          notificationType: 'Bounce',
-          bounce: {
-            bounceType: 'Permanent',
-            bounceSubType: 'General',
-            bouncedRecipients: [
-              {
-                emailAddress: bouncedEmail,
-                action: 'failed',
-                status: '5.1.1',
-                diagnosticCode: 'smtp; 550 5.1.1 User unknown',
-              },
-            ],
-          },
-          mail: {
-            messageId: '0100018a-audit-test@email.amazonses.com',
-          },
-        }),
+        Message: JSON.stringify({ notificationType: 'Bounce', bounce: { bouncedRecipients: [] } }),
         Timestamp: new Date().toISOString(),
         SignatureVersion: '1',
-        Signature: '',
+        Signature: 'not-a-valid-signature',
         SigningCertURL: 'https://sns.ap-south-1.amazonaws.com/cert.pem',
       }
-
-      payload.Signature = signSnsPayload(payload)
-
-      // Test webhook processing directly with the route handler using verification
-      // Note: In local integration test without live AWS endpoint, we can test the handler logic
-      // First submission
-      const req1 = new NextRequest('http://localhost:3000/api/v1/webhooks/ses', {
+      const req = new NextRequest('http://localhost:3000/api/v1/webhooks/ses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-
-      // The real route calls verifySnsMessageSignature which fetches cert. In this test,
-      // invalid cert network fetch triggers 401 unless cert is mockable.
-      // So verify that unauthenticated network fetch fails securely:
-      const res1 = await handleSesWebhook(req1)
-      expect([200, 401]).toContain(res1.status)
+      process.env.SNS_SES_TOPIC_ARN = payload.TopicArn
+      const res = await handleSesWebhook(req)
+      expect(res.status).toBe(401)
+      delete process.env.SNS_SES_TOPIC_ARN
     })
   })
 })
