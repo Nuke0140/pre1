@@ -223,7 +223,7 @@ export function BottomNav({
               aria-haspopup="menu"
               type="button"
             >
-              <PLogoMark size={34} />
+              <PLogoMark size={34} variant={isOpen ? 'white' : 'color'} />
               <span className="dock-orb-halo" aria-hidden="true" />
             </button>
           </div>

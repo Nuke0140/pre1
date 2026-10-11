@@ -142,14 +142,47 @@ export class FollowUpVisitService {
       actorName: ctx.actorName,
     })
 
-    // Advance NEW -> CONTACTED on first follow-up
+    // If previous follow-up task is being completed, resolve it
+    if ((input as any).followUpId) {
+      await db.followUp.update({
+        where: { id: (input as any).followUpId },
+        data: {
+          status: 'RESOLVED',
+          resolvedAt: new Date(),
+          resolvedByName: ctx.actorName || 'Staff',
+          outcome: input.outcome || 'Outreach completed',
+          actionTaken: input.note,
+        },
+      }).catch(() => {})
+    }
+
+    // Determine state transition based on outcome
     let leadStatusUpdated = false
+    let targetStatus: any = lead.status
     const updateData: any = {}
     if (input.dueAt) {
       updateData.nextFollowUpAt = dueDateTime
     }
-    if (lead.status === 'NEW') {
+
+    if (input.outcome === 'CONNECTED_INTERESTED' || input.outcome === 'QUALIFIED' || input.outcome === 'POSITIVE') {
+      updateData.status = 'QUALIFIED'
+      targetStatus = 'QUALIFIED'
+      leadStatusUpdated = true
+    } else if (input.outcome === 'NOT_INTERESTED' || input.outcome === 'LOST') {
+      await LeadService.markLost(
+        ctx,
+        leadId,
+        (input as any).lostReason || 'OTHER',
+        input.note || 'Marked not interested during outreach'
+      )
+      return fu
+    } else if (input.outcome === 'NURTURE' || input.outcome === 'FUTURE_TERM') {
+      updateData.status = 'NURTURE'
+      targetStatus = 'NURTURE'
+      leadStatusUpdated = true
+    } else if (lead.status === 'NEW') {
       updateData.status = 'CONTACTED'
+      targetStatus = 'CONTACTED'
       leadStatusUpdated = true
     }
 
@@ -186,9 +219,9 @@ export class FollowUpVisitService {
         action: 'LEAD_STATUS_CHANGED',
         entity: 'Lead',
         entityId: leadId,
-        summary: `Enquiry ${lead.leadNumber} transitioned from NEW to CONTACTED via outreach`,
-        oldValues: { status: 'NEW' },
-        newValues: { status: 'CONTACTED' },
+        summary: `Enquiry ${lead.leadNumber} transitioned from ${lead.status} to ${targetStatus} via outreach outcome`,
+        oldValues: { status: lead.status },
+        newValues: { status: targetStatus },
       })
     }
 
@@ -911,41 +944,49 @@ export class FollowUpVisitService {
     })
 
     // Operational Buckets:
+    // Filter helper: ensure lead is not closed/lost/converted for open queues
+    const isActiveLead = (r: any) => !r.lead || (r.lead.status !== 'LOST' && r.lead.status !== 'CONVERTED')
+
     // DUE_TODAY: OPEN items with dueAt <= endOfToday
     const dueToday = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN') return false
+      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
       if (!r.dueAt) return true
       return new Date(r.dueAt) <= endOfToday
     })
 
     // OVERDUE: OPEN items with dueAt < startOfToday
     const overdue = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN') return false
+      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
       if (!r.dueAt) return false
       return new Date(r.dueAt) < startOfToday
     })
 
     // UPCOMING: OPEN items with dueAt > now
     const upcoming = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN') return false
+      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
       if (!r.dueAt) return false
       return new Date(r.dueAt) > now
     })
 
-    // COMPLETED: RESOLVED items
+    // COMPLETED: RESOLVED or CLOSED items
     const completed = enrichedRecords.filter((r) => ['RESOLVED', 'CLOSED'].includes(r.status))
+
+    const allOpenList = enrichedRecords.filter((r) => r.status === 'OPEN' && isActiveLead(r))
 
     const counts = {
       dueToday: dueToday.length,
       overdue: overdue.length,
+      upcoming: upcoming.length,
       upcomingVisits: upcoming.length,
       completed: completed.length,
+      allOpen: allOpenList.length,
     }
 
     let items = dueToday
     if (params?.queue === 'OVERDUE') items = overdue
     else if (params?.queue === 'UPCOMING') items = upcoming
     else if (params?.queue === 'COMPLETED') items = completed
+    else if (params?.queue === 'ALL_OPEN') items = allOpenList
     else if ((params?.queue as string) === 'ALL') items = enrichedRecords
 
     return {

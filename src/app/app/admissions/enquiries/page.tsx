@@ -4,16 +4,24 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Users, Plus, Download, Search, X, Filter, Phone, Calendar,
   ClipboardList, CheckCircle2, AlertTriangle, ArrowRight, Check,
-  RefreshCw, Building, Eye, Clock, MessageCircle, FileText, Edit2
+  RefreshCw, Building, Eye, Clock, MessageCircle, FileText, Edit2,
+  LayoutGrid, List, SlidersHorizontal
 } from 'lucide-react'
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
 import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
+import { EnquiryCard } from '@/components/admissions/EnquiryCard'
+import { MobileEnquiryActionBar } from '@/components/admissions/MobileEnquiryActionBar'
+import { SelectEnquiryForAppModal } from '@/components/admissions/SelectEnquiryForAppModal'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import {
+  normalizePhoneNumberForTel,
+  buildWhatsAppChatUrl,
+} from '@/lib/contact-utils'
 
 export default function EnquiriesPage() {
   const toast = useToast()
@@ -28,10 +36,17 @@ export default function EnquiriesPage() {
   const [filterProgram, setFilterProgram] = useState('')
   const [filterStatus, setFilterStatus] = useState('ACTIVE')
   const [filterSource, setFilterSource] = useState('')
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
+
+  // Layout View Mode: 'auto' (cards on mobile/tablet, table on desktop) | 'cards' | 'table'
+  const [viewMode, setViewMode] = useState<'auto' | 'cards' | 'table'>('auto')
 
   // Data states
   const [enquiries, setEnquiries] = useState<any[] | null>(null)
   const [busy, setBusy] = useState(false)
+
+  // Selected enquiry for contextual mobile actions
+  const [selectedEnquiryForApp, setSelectedEnquiryForApp] = useState<any | null>(null)
 
   // Modals
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false)
@@ -40,6 +55,9 @@ export default function EnquiriesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerTab, setDrawerTab] = useState<'overview' | 'timeline'>('overview')
   const [timelineEvents, setTimelineEvents] = useState<any[]>([])
+
+  // Quick picker modal for "Start Application" when no enquiry is selected yet
+  const [selectEnquiryModalOpen, setSelectEnquiryModalOpen] = useState(false)
 
   // Follow-up quick action modal
   const [followUpModal, setFollowUpModal] = useState<{ open: boolean; enquiry: any | null }>({
@@ -132,9 +150,20 @@ export default function EnquiriesPage() {
     loadEnquiries()
   }, [loadEnquiries])
 
+  // Active filters count
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (filterProgram) count++
+    if (filterStatus && filterStatus !== 'ACTIVE') count++
+    if (filterSource) count++
+    if (searchQuery) count++
+    return count
+  }, [filterProgram, filterStatus, filterSource, searchQuery])
+
   // Open Lead Dossier Drawer
   const openDossier = async (enquiry: any) => {
     setSelectedEnquiry(enquiry)
+    setSelectedEnquiryForApp(enquiry)
     setDrawerOpen(true)
     setDrawerTab('overview')
     try {
@@ -182,21 +211,56 @@ export default function EnquiriesPage() {
     }
   }
 
-  // Open Start Application modal
+  // Open Start Application / Assign Follow-up modal
   const handleStartApplication = (enquiry: any) => {
+    setSelectedEnquiryForApp(enquiry)
     setStartAppModal({ open: true, enquiry })
   }
 
-  // Handle successful application start
+  // Trigger from mobile sticky action bar
+  const handleMobileStartApplication = () => {
+    if (selectedEnquiryForApp) {
+      handleStartApplication(selectedEnquiryForApp)
+    } else {
+      setSelectEnquiryModalOpen(true)
+    }
+  }
+
+  // Handle successful follow-up assignment
   const handleApplicationStarted = (data: any) => {
     toast.success(
-      'Application Dossier Started! 📋',
-      `Application ${data.applicationNumber || ''} created and follow-up assigned.`
+      'Follow-up Assigned & Scheduled! ✓',
+      `Assigned to staff. Enquiry is now in the Follow-ups workflow.`
     )
     loadEnquiries()
     if (selectedEnquiry?.id === data.leadId) {
       setDrawerOpen(false)
       setSelectedEnquiry(null)
+    }
+  }
+
+  // Explicitly convert a Qualified lead to an Admission Application
+  const handleConvertToApplication = async (enquiry: any) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/leads/${enquiry.id}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const json = await res.json()
+      setBusy(false)
+      if (json.success) {
+        toast.success(
+          'Converted to Application! 📋',
+          `Application ${json.data?.applicationNumber || ''} created with zero data re-entry.`
+        )
+        loadEnquiries()
+      } else {
+        toast.error('Failed to convert enquiry', json.error?.message)
+      }
+    } catch {
+      setBusy(false)
+      toast.error('Network error while converting enquiry')
     }
   }
 
@@ -210,21 +274,23 @@ export default function EnquiriesPage() {
       onBranchChange={setSelectedBranchId}
       onNewEnquiry={() => setEnquiryModalOpen(true)}
       onSharePublicForm={() => setShareModalOpen(true)}
+      hideMobileHeaderAction={true}
       moduleCounts={{
         enquiries: enquiries?.length || 0,
       }}
     >
-      <div className="space-y-4">
-        {/* ── Search & Filter Controls ── */}
-        <div className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-            {/* Search Input with generous left padding so text never overlaps icon */}
-            <div className="relative flex-1 min-w-[220px] max-w-md">
+      {/* Container with bottom padding so sticky bottom bar never obscures content */}
+      <div className="space-y-4 pb-24 sm:pb-28 lg:pb-6">
+        {/* ── Search & Filter Controls (Responsive Toolbar) ── */}
+        <div className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
                 className="input text-xs pl-9.5 pr-8 h-9 rounded-xl bg-background border border-border/80 w-full focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground/80"
-                placeholder="Search by parent name, phone, child, or reference ID..."
+                placeholder="Search parent, phone, child, or ref #..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -233,244 +299,541 @@ export default function EnquiriesPage() {
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                  aria-label="Clear search"
                 >
                   <X size={13} />
                 </button>
               )}
             </div>
 
-            {/* Program Filter */}
-            <select
-              value={filterProgram}
-              onChange={(e) => setFilterProgram(e.target.value)}
-              className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[150px] font-medium"
-            >
-              <option value="">All Programs</option>
-              {programs.map((p) => (
-                <option key={p.id} value={p.programType || p.code}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            {/* Desktop Filters (Hidden on Mobile, visible on sm and up) */}
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
+              {/* Program Filter */}
+              <select
+                value={filterProgram}
+                onChange={(e) => setFilterProgram(e.target.value)}
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[140px] font-medium"
+                aria-label="Filter by Program"
+              >
+                <option value="">All Programs</option>
+                {programs.map((p) => (
+                  <option key={p.id} value={p.programType || p.code}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
 
-            {/* Status Filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[170px] font-medium"
-            >
-              <option value="ACTIVE">Active Enquiries</option>
-              <option value="ALL">All Statuses (History)</option>
-              <option value="NEW">New (Uncontacted)</option>
-              <option value="CONTACTED">Contacted</option>
-              <option value="QUALIFIED">Campus Tour Scheduled</option>
-              <option value="APPLICATION_STARTED">Application Started</option>
-              <option value="CONVERTED">Enrolled / Admitted</option>
-              <option value="LOST">Closed / Lost</option>
-            </select>
+              {/* Status Filter */}
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[160px] font-medium"
+                aria-label="Filter by Status"
+              >
+                <option value="ACTIVE">Active Enquiries</option>
+                <option value="ALL">All Statuses (History)</option>
+                <option value="NEW">New (Uncontacted)</option>
+                <option value="CONTACTED">Contacted</option>
+                <option value="QUALIFIED">Campus Tour Scheduled</option>
+                <option value="APPLICATION_STARTED">Application Started</option>
+                <option value="CONVERTED">Enrolled / Admitted</option>
+                <option value="LOST">Closed / Lost</option>
+              </select>
 
-            {/* Source Filter */}
-            <select
-              value={filterSource}
-              onChange={(e) => setFilterSource(e.target.value)}
-              className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[140px] font-medium"
-            >
-              <option value="">All Sources</option>
-              <option value="WALK_IN">Walk-in</option>
-              <option value="PHONE">Phone Call</option>
-              <option value="WEBSITE">Website Form</option>
-              <option value="REFERRAL">Referral</option>
-              <option value="GOOGLE_ADS">Google Ads</option>
-              <option value="FACEBOOK">Social Media</option>
-            </select>
-          </div>
+              {/* Source Filter */}
+              <select
+                value={filterSource}
+                onChange={(e) => setFilterSource(e.target.value)}
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[130px] font-medium"
+                aria-label="Filter by Source"
+              >
+                <option value="">All Sources</option>
+                <option value="WALK_IN">Walk-in</option>
+                <option value="PHONE">Phone Call</option>
+                <option value="WEBSITE">Website Form</option>
+                <option value="REFERRAL">Referral</option>
+                <option value="GOOGLE_ADS">Google Ads</option>
+                <option value="FACEBOOK">Social Media</option>
+              </select>
+            </div>
 
-          <div className="flex items-center gap-2">
-            {(searchQuery || filterProgram || filterStatus || filterSource) && (
+            {/* Toolbar Right: Mobile Filter Toggle, View Switcher & Refresh */}
+            <div className="flex items-center gap-1.5 ml-auto">
+              {/* Mobile Filter Toggle Button */}
               <button
                 type="button"
-                onClick={() => {
-                  setSearchQuery('')
-                  setFilterProgram('')
-                  setFilterStatus('')
-                  setFilterSource('')
-                }}
-                className="btn btn-ghost btn-sm h-9 px-3 text-xs text-muted-foreground hover:text-foreground font-medium"
+                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                className={`btn btn-outline btn-sm h-9 px-2.5 rounded-xl text-xs sm:hidden gap-1.5 font-semibold ${
+                  activeFiltersCount > 0 ? 'border-primary text-primary bg-primary/5' : ''
+                }`}
+                aria-label="Toggle filters"
               >
-                Clear Filters
+                <SlidersHorizontal size={13} />
+                <span>Filters</span>
+                {activeFiltersCount > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                    {activeFiltersCount}
+                  </span>
+                )}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={loadEnquiries}
-              disabled={busy}
-              className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
-              title="Refresh"
-            >
-              <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-            </button>
+
+              {/* View Switcher: Auto / Cards / Table */}
+              <div className="hidden sm:inline-flex items-center p-0.5 rounded-xl border border-border/80 bg-muted/30">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('cards')}
+                  className={`p-1.5 rounded-lg text-xs transition-all ${
+                    viewMode === 'cards'
+                      ? 'bg-card text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Card view (Touch friendly)"
+                  aria-label="Switch to Card view"
+                >
+                  <LayoutGrid size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-lg text-xs transition-all ${
+                    viewMode === 'table'
+                      ? 'bg-card text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Table view"
+                  aria-label="Switch to Table view"
+                >
+                  <List size={13} />
+                </button>
+              </div>
+
+              {/* Clear Filters (Desktop) */}
+              {(searchQuery || filterProgram || (filterStatus && filterStatus !== 'ACTIVE') || filterSource) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('')
+                    setFilterProgram('')
+                    setFilterStatus('ACTIVE')
+                    setFilterSource('')
+                  }}
+                  className="btn btn-ghost btn-sm h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground font-medium hidden sm:inline-flex"
+                >
+                  Reset
+                </button>
+              )}
+
+              {/* Refresh Button */}
+              <button
+                type="button"
+                onClick={loadEnquiries}
+                disabled={busy}
+                className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
+                title="Refresh enquiries"
+                aria-label="Refresh enquiries"
+              >
+                <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
+
+          {/* ── Mobile Collapsible Filters Tray ── */}
+          {showMobileFilters && (
+            <div className="sm:hidden pt-2 border-t border-border/60 grid grid-cols-1 gap-2.5 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Program
+                  </label>
+                  <select
+                    value={filterProgram}
+                    onChange={(e) => setFilterProgram(e.target.value)}
+                    className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
+                  >
+                    <option value="">All Programs</option>
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.programType || p.code}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="ALL">All Statuses</option>
+                    <option value="NEW">New</option>
+                    <option value="CONTACTED">Contacted</option>
+                    <option value="QUALIFIED">Tour Scheduled</option>
+                    <option value="APPLICATION_STARTED">App Started</option>
+                    <option value="CONVERTED">Enrolled</option>
+                    <option value="LOST">Lost</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                  Enquiry Source
+                </label>
+                <select
+                  value={filterSource}
+                  onChange={(e) => setFilterSource(e.target.value)}
+                  className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
+                >
+                  <option value="">All Sources</option>
+                  <option value="WALK_IN">Walk-in</option>
+                  <option value="PHONE">Phone Call</option>
+                  <option value="WEBSITE">Website Form</option>
+                  <option value="REFERRAL">Referral</option>
+                  <option value="GOOGLE_ADS">Google Ads</option>
+                  <option value="FACEBOOK">Social Media</option>
+                </select>
+              </div>
+
+              {(searchQuery || filterProgram || filterStatus !== 'ACTIVE' || filterSource) && (
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('')
+                      setFilterProgram('')
+                      setFilterStatus('ACTIVE')
+                      setFilterSource('')
+                    }}
+                    className="btn btn-ghost btn-sm h-8 px-3 text-xs text-muted-foreground hover:text-foreground font-medium"
+                  >
+                    Reset All Filters
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* ── Enquiries Table ── */}
-        <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
-          <div className="p-3.5 sm:p-4 border-b border-border/80 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-foreground">
-                All Enquiries
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
-                {enquiries?.length || 0}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Updated</span>
-            </div>
+        {/* ── Count & View Header ── */}
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-foreground">
+              {filterStatus === 'ALL' ? 'All Enquiries' : 'Active Enquiries'}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+              {enquiries?.length || 0}
+            </span>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Ref #</th>
-                  {selectedBranchId === '__ALL_BRANCHES__' && (
-                    <th className="py-3.5 px-4 font-semibold text-foreground">Branch</th>
-                  )}
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Parent / Contact</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Child</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Program</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Source</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Date</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Next Reminder</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground">Status</th>
-                  <th className="py-3.5 px-4 font-semibold text-foreground text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {enquiries && enquiries.length > 0 ? (
-                  enquiries.map((e) => {
-                    const isOverdue = e.nextFollowUpAt && new Date(e.nextFollowUpAt) < new Date()
+          {selectedEnquiryForApp && (
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <span>Selected for App:</span>
+              <span className="font-bold text-primary truncate max-w-[140px]">
+                {selectedEnquiryForApp.childName || selectedEnquiryForApp.parentName}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedEnquiryForApp(null)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Clear selection"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+        </div>
 
-                    return (
-                      <tr
-                        key={e.id}
-                        className="hover:bg-muted/40 transition-colors group cursor-pointer text-xs"
-                        onClick={() => openDossier(e)}
-                      >
-                        <td className="py-3 px-4 font-mono font-bold text-primary whitespace-nowrap">
-                          {e.leadNumber}
-                        </td>
-                        {selectedBranchId === '__ALL_BRANCHES__' && (
+        {/* ============================================================== */}
+        {/* RESPONSIVE DISPLAY: CARDS VS TABLE                            */}
+        {/* ============================================================== */}
+
+        {/* 1. RESPONSIVE CARDS VIEW (Default on Mobile & Tablet, or if viewMode === 'cards') */}
+        <div
+          className={
+            viewMode === 'cards'
+              ? 'block'
+              : viewMode === 'table'
+              ? 'hidden'
+              : 'block lg:hidden'
+          }
+        >
+          {enquiries && enquiries.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {enquiries.map((e) => (
+                <EnquiryCard
+                  key={e.id}
+                  enquiry={e}
+                  onViewDossier={openDossier}
+                  onLogFollowUp={(item) => setFollowUpModal({ open: true, enquiry: item })}
+                  onStartApplication={handleStartApplication}
+                  onConvertToApplication={handleConvertToApplication}
+                  isSelected={selectedEnquiryForApp?.id === e.id}
+                  onSelect={(item) => setSelectedEnquiryForApp(item)}
+                  busy={busy}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border/80 bg-card p-8">
+              <EmptyState
+                illustration="enquiries"
+                eyebrow="Admissions"
+                title={searchQuery ? `No enquiries match "${searchQuery}"` : 'No enquiries found'}
+                description={
+                  searchQuery
+                    ? 'Try refining your search terms or clearing your filters.'
+                    : 'Capture parent interest and prospective family walk-ins to start your admissions pipeline.'
+                }
+                action={{
+                  label: '+ Register New Enquiry',
+                  onClick: () => setEnquiryModalOpen(true),
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* 2. DESKTOP TABLE VIEW (Default on Desktop >= 1024px, or if viewMode === 'table') */}
+        <div
+          className={
+            viewMode === 'table'
+              ? 'block'
+              : viewMode === 'cards'
+              ? 'hidden'
+              : 'hidden lg:block'
+          }
+        >
+          <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
+            <div className="p-3.5 sm:p-4 border-b border-border/80 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Enquiry Registry
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Live Data</span>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Ref #</th>
+                    {selectedBranchId === '__ALL_BRANCHES__' && (
+                      <th className="py-3.5 px-4 font-semibold text-foreground">Branch</th>
+                    )}
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Parent / Contact</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Child</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Program</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Source</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Date</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Next Reminder</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Status</th>
+                    <th className="py-3.5 px-4 font-semibold text-foreground text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {enquiries && enquiries.length > 0 ? (
+                    enquiries.map((e) => {
+                      const isOverdue = e.nextFollowUpAt && new Date(e.nextFollowUpAt) < new Date()
+                      const telUrl = normalizePhoneNumberForTel(e.phone)
+                      const whatsAppUrl = buildWhatsAppChatUrl(
+                        e.phone,
+                        `Hello, I am contacting you regarding your admission enquiry with PreOne.`
+                      )
+
+                      return (
+                        <tr
+                          key={e.id}
+                          className="hover:bg-muted/40 transition-colors group cursor-pointer text-xs"
+                          onClick={() => openDossier(e)}
+                        >
+                          <td className="py-3 px-4 font-mono font-bold text-primary whitespace-nowrap">
+                            {e.leadNumber}
+                          </td>
+                          {selectedBranchId === '__ALL_BRANCHES__' && (
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                                <Building size={11} />
+                                <span>{e.branchName || 'Main'}</span>
+                              </span>
+                            </td>
+                          )}
+                          <td className="py-3 px-4">
+                            <FamilyIdentityChip
+                              name={e.parentName}
+                              phone={e.phone}
+                              email={e.email}
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            {e.childName ? (
+                              <StudentIdentityChip
+                                name={e.childName}
+                                size="sm"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground/70 italic text-[11px]">Not specified</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                              <Building size={11} />
-                              <span>{e.branchName || 'Main'}</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
+                              {e.interestedProgram || 'Nursery'}
                             </span>
                           </td>
-                        )}
-                        <td className="py-3 px-4">
-                          <FamilyIdentityChip
-                            name={e.parentName}
-                            phone={e.phone}
-                            email={e.email}
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          {e.childName ? (
-                            <StudentIdentityChip
-                              name={e.childName}
-                              size="sm"
-                            />
-                          ) : (
-                            <span className="text-muted-foreground/70 italic text-[11px]">Not specified</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
-                            {e.interestedProgram || 'Nursery'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-muted text-foreground border border-border/60">
-                            {e.source}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap font-medium">
-                          {fmtDate(e.createdAt)}
-                        </td>
-                        <td className="py-3 px-4 text-[11px] whitespace-nowrap">
-                          {e.nextFollowUpAt ? (
-                            <span className={isOverdue ? 'text-destructive font-bold bg-destructive/10 px-2 py-0.5 rounded-lg' : 'text-foreground font-medium'}>
-                              {fmtDate(e.nextFollowUpAt)}
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-muted text-foreground border border-border/60">
+                              {e.source}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground/60 italic">—</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <StatusPill status={e.status} size="sm" />
-                        </td>
-                        <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openDossier(e)}
-                              className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
-                              title="View Dossier"
-                            >
-                              <Eye size={12} />
-                              <span className="hidden sm:inline">View</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFollowUpModal({ open: true, enquiry: e })}
-                              className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
-                              title="Log Follow-up Call"
-                            >
-                              <Phone size={12} />
-                              <span className="hidden sm:inline">Call</span>
-                            </button>
-                            {e.status !== 'APPLICATION_STARTED' && e.status !== 'CONVERTED' && e.status !== 'LOST' && (
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap font-medium">
+                            {fmtDate(e.createdAt)}
+                          </td>
+                          <td className="py-3 px-4 text-[11px] whitespace-nowrap">
+                            {e.nextFollowUpAt ? (
+                              <span className={isOverdue ? 'text-destructive font-bold bg-destructive/10 px-2 py-0.5 rounded-lg' : 'text-foreground font-medium'}>
+                                {fmtDate(e.nextFollowUpAt)}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/60 italic">—</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <StatusPill status={e.status} size="sm" />
+                          </td>
+                          <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Direct Call action */}
+                              {telUrl && (
+                                <a
+                                  href={telUrl}
+                                  className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
+                                  title={`Call ${e.phone}`}
+                                  aria-label={`Call ${e.parentName}`}
+                                >
+                                  <Phone size={12} />
+                                  <span className="hidden sm:inline">Call</span>
+                                </a>
+                              )}
+
+                              {/* Direct WhatsApp action */}
+                              {whatsAppUrl && (
+                                <a
+                                  href={whatsAppUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1 text-[11px] font-medium"
+                                  title={`WhatsApp ${e.phone}`}
+                                  aria-label={`Message ${e.parentName} on WhatsApp`}
+                                >
+                                  <MessageCircle size={12} />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </a>
+                              )}
+
+                              {/* Dossier button */}
                               <button
                                 type="button"
-                                onClick={() => handleStartApplication(e)}
-                                className="btn btn-primary btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shadow-xs"
+                                onClick={() => openDossier(e)}
+                                className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
+                                title="View Dossier"
                               >
-                                Start Form
+                                <Eye size={12} />
+                                <span className="hidden sm:inline">View</span>
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={selectedBranchId === '__ALL_BRANCHES__' ? 11 : 10} className="py-8">
-                      <EmptyState
-                        illustration="enquiries"
-                        eyebrow="Admissions"
-                        title={searchQuery ? `No enquiries match "${searchQuery}"` : 'No enquiries found'}
-                        description={
-                          searchQuery
-                            ? 'Try refining your search terms or clearing your filters.'
-                            : 'Capture parent interest and prospective family walk-ins to start your admissions pipeline.'
-                        }
-                        action={{
-                          label: '+ Register New Enquiry',
-                          onClick: () => setEnquiryModalOpen(true),
-                        }}
-                      />
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+
+                              {/* Contextual status button */}
+                              {e.status === 'QUALIFIED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleConvertToApplication(e)}
+                                  disabled={busy}
+                                  className="btn btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 shrink-0"
+                                  title="Move Qualified Lead to Admission Application"
+                                >
+                                  <CheckCircle2 size={11} />
+                                  <span>Move to App</span>
+                                </button>
+                              )}
+                              {e.status === 'NEW' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartApplication(e)}
+                                  className="btn btn-primary btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shadow-xs shrink-0"
+                                  title="Assign staff and schedule outreach"
+                                >
+                                  Assign
+                                </button>
+                              )}
+                              {e.status === 'CONTACTED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setFollowUpModal({ open: true, enquiry: e })}
+                                  className="btn btn-outline btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shrink-0"
+                                  title="Record outreach activity"
+                                >
+                                  Follow-up
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={selectedBranchId === '__ALL_BRANCHES__' ? 11 : 10} className="py-8">
+                        <EmptyState
+                          illustration="enquiries"
+                          eyebrow="Admissions"
+                          title={searchQuery ? `No enquiries match "${searchQuery}"` : 'No enquiries found'}
+                          description={
+                            searchQuery
+                              ? 'Try refining your search terms or clearing your filters.'
+                              : 'Capture parent interest and prospective family walk-ins to start your admissions pipeline.'
+                          }
+                          action={{
+                            label: '+ Register New Enquiry',
+                            onClick: () => setEnquiryModalOpen(true),
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* ── STICKY BOTTOM ACTION BAR ON MOBILE & TABLET ── */}
+      <MobileEnquiryActionBar
+        onRecordEnquiry={() => setEnquiryModalOpen(true)}
+        onStartApplication={handleMobileStartApplication}
+        selectedEnquiry={selectedEnquiryForApp}
+        totalEnquiries={enquiries?.length || 0}
+        disabled={busy}
+      />
+
+      {/* ── MODAL: Select Enquiry for Application Picker ── */}
+      <SelectEnquiryForAppModal
+        open={selectEnquiryModalOpen}
+        onClose={() => setSelectEnquiryModalOpen(false)}
+        enquiries={enquiries || []}
+        onSelect={(enquiry) => {
+          setSelectedEnquiryForApp(enquiry)
+          handleStartApplication(enquiry)
+        }}
+      />
 
       {/* ── MODAL: Streamlined New Enquiry ── */}
       <MinimalEnquiryModal

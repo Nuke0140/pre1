@@ -448,17 +448,17 @@ export function EmptyState({
       )}
 
       {effectiveEyebrow && (
-        <span className="empty-eyebrow eyebrow">
+        <span className="empty-eyebrow eyebrow micro-eyebrow">
           {effectiveEyebrow}
         </span>
       )}
 
-      <h3 className="empty-title empty-what">
+      <h3 className="empty-title empty-what section-title">
         {title}
       </h3>
 
       {effectiveDescription && (
-        <p className="empty-description empty-why">
+        <p className="empty-description empty-why body-copy-sm">
           {effectiveDescription}
         </p>
       )}

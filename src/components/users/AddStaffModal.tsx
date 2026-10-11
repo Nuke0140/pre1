@@ -179,10 +179,27 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     if (step === 3) setStep(2)
   }
 
+  const validateStep3 = () => {
+    if (password && password.trim().length < 6) {
+      toast.error('Validation Error', 'Password must be at least 6 characters')
+      return false
+    }
+    if (username && !/^[a-zA-Z0-9._-]+$/.test(username.trim())) {
+      toast.error('Validation Error', 'Username can only contain letters, numbers, dots, hyphens, and underscores')
+      return false
+    }
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateStep1() || !validateStep2()) return
+    if (step !== 3) {
+      handleNext()
+      return
+    }
+
+    if (!validateStep1() || !validateStep2() || !validateStep3()) return
 
     setSubmitting(true)
     try {
@@ -219,7 +236,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
 
       const json = await res.json()
       if (!res.ok) {
-        throw new Error(json.error || json.message || 'Failed to create staff account')
+        const errorMsg =
+          typeof json.error === 'object'
+            ? json.error?.message
+            : typeof json.error === 'string'
+            ? json.error
+            : json.message || 'Failed to create staff account'
+        throw new Error(errorMsg)
       }
 
       toast.success(
@@ -380,7 +403,17 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           </button>
         </div>
 
-        <form id="add-staff-form" onSubmit={handleSubmit} autoComplete="off">
+        <form
+          id="add-staff-form"
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && step < 3) {
+              e.preventDefault()
+              handleNext()
+            }
+          }}
+          autoComplete="off"
+        >
           {/* ──────────────── STEP 1: BASIC INFORMATION ──────────────── */}
           {step === 1 && (
             <div className="space-y-4">
@@ -527,7 +560,10 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       <select
                         required
                         value={branchId}
-                        onChange={(e) => setBranchId(e.target.value)}
+                        onChange={(e) => {
+                          setBranchId(e.target.value)
+                          setClassroomId('')
+                        }}
                         className="select w-full text-xs pl-9"
                       >
                         {branches.map((b) => (

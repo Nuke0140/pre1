@@ -6,10 +6,8 @@ import { usePathname } from 'next/navigation'
 import {
   Users,
   PhoneCall,
-  CalendarCheck2,
   FileSpreadsheet,
   GraduationCap,
-  Hourglass,
   LayoutGrid,
   BarChart3,
   Building,
@@ -46,13 +44,6 @@ export const ADMISSIONS_MODULES: AdmissionsNavigationModule[] = [
     accent: 'amber',
   },
   {
-    key: 'visits',
-    label: 'Campus Visits',
-    href: '/app/admissions/visits',
-    icon: CalendarCheck2,
-    accent: 'blue',
-  },
-  {
     key: 'applications',
     label: 'Applications',
     href: '/app/admissions/applications',
@@ -65,13 +56,6 @@ export const ADMISSIONS_MODULES: AdmissionsNavigationModule[] = [
     href: '/app/admissions/admitted',
     icon: GraduationCap,
     accent: 'teal',
-  },
-  {
-    key: 'waiting-list',
-    label: 'Waiting List',
-    href: '/app/admissions/waiting-list',
-    icon: Hourglass,
-    accent: 'orange',
   },
   {
     key: 'classroom-placements',
@@ -109,6 +93,7 @@ export interface AdmissionsShellProps {
   onSharePublicForm?: () => void
   actions?: React.ReactNode
   moduleCounts?: Partial<Record<string, number>>
+  hideMobileHeaderAction?: boolean
 }
 
 export function AdmissionsShell({
@@ -129,6 +114,7 @@ export function AdmissionsShell({
   onSharePublicForm,
   actions,
   moduleCounts = {},
+  hideMobileHeaderAction = false,
 }: AdmissionsShellProps) {
   const pathname = usePathname()
   const { t } = useI18n()
@@ -240,7 +226,9 @@ export function AdmissionsShell({
             <button
               type="button"
               onClick={onNewEnquiry}
-              className="btn btn-primary btn-sm h-8.5 px-3.5 gap-1.5 text-xs font-semibold rounded-xl shadow-xs"
+              className={`btn btn-primary btn-sm h-8.5 px-3.5 gap-1.5 text-xs font-semibold rounded-xl shadow-xs ${
+                hideMobileHeaderAction ? 'hidden lg:inline-flex' : ''
+              }`}
             >
               <Plus size={14} />
               <span>New Enquiry</span>

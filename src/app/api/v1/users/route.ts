@@ -370,6 +370,10 @@ export const POST = withApi(async (req: NextRequest) => {
     isInvite?: boolean
   }
 
+  const effectiveFullName = (fullName || (body as any).parentName || (body as any).parentGuardianFullName || '').trim()
+  const effectiveEmail = (email || (body as any).parentEmail || (body as any).parentGuardianEmail || '').trim().toLowerCase()
+  const effectivePhone = phone || (body as any).parentPhone || (body as any).parentGuardianPhone
+
   // Determine roles array and primary role
   let assignedRoles: UserRole[] = []
   if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
@@ -378,11 +382,15 @@ export const POST = withApi(async (req: NextRequest) => {
     const primary = normalizeRole(primaryRole || role || ('TEACHER' as UserRole)) as UserRole
     const others = inputAdditionalRoles.map((r) => normalizeRole(r) as UserRole)
     assignedRoles = [...new Set([primary, ...others])]
+  } else if (primaryRole) {
+    assignedRoles = [normalizeRole(primaryRole) as UserRole]
   } else if (role) {
     assignedRoles = [normalizeRole(role) as UserRole]
+  } else if ((body as any).userType === 'FAMILY' || (body as any).parentName || (body as any).childMode) {
+    assignedRoles = ['PARENT']
   }
 
-  if (!fullName || !email || assignedRoles.length === 0) {
+  if (!effectiveFullName || !effectiveEmail || assignedRoles.length === 0) {
     throw errValidation('fullName, email, and at least one role are required', 'fullName')
   }
 
@@ -428,9 +436,9 @@ export const POST = withApi(async (req: NextRequest) => {
   if (isFamilyFlow) {
     const familyInput = normalizeFamilyCreateInput({
       ...body,
-      fullName: fullName || (body as any).parentGuardianFullName,
-      email: email || (body as any).parentGuardianEmail,
-      phone: phone || (body as any).parentGuardianPhone,
+      fullName: effectiveFullName,
+      email: effectiveEmail,
+      phone: effectivePhone,
       role: finalPrimaryRole,
       password: effectivePassword,
       status: initialStatus,
@@ -440,8 +448,8 @@ export const POST = withApi(async (req: NextRequest) => {
     const familyResult = await FamilyUserService.createFamilyUser(
       {
         tenantId: session.tenantId!,
-        actorId: session.userId,
-        actorName: session.fullName,
+        actorId: (session as any).userId || session.uid,
+        actorName: (session as any).fullName || session.name,
         actorRole: session.role,
         actorBranchId: session.branchId,
         reqMeta: getRequestMeta(req),
@@ -452,6 +460,7 @@ export const POST = withApi(async (req: NextRequest) => {
     return ok(
       {
         id: familyResult.user.id,
+        userId: familyResult.user.id,
         email: familyResult.user.email,
         fullName: familyResult.user.fullName,
         username: familyResult.user.username,
@@ -462,9 +471,11 @@ export const POST = withApi(async (req: NextRequest) => {
         guardianId: familyResult.guardian?.id,
         studentId: familyResult.student?.id,
         student: familyResult.student,
+        parent: familyResult.user,
         isNewStudent: familyResult.isNewStudent,
       },
-      { status: 201 }
+      undefined,
+      201
     )
   }
 
@@ -846,6 +857,8 @@ export const POST = withApi(async (req: NextRequest) => {
       membershipId: result.membership.id,
       fullName: result.user.fullName,
       email: result.user.email,
+      username: result.user.username,
+      avatarUrl: result.user.avatarUrl,
       phone: result.user.phone,
       role: result.finalPrimaryRole,
       roles: result.assignedRoles,

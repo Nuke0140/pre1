@@ -5,7 +5,8 @@ import {
   BarChart3, TrendingUp, Users, CalendarCheck2, FileSpreadsheet,
   GraduationCap, Download, RefreshCw, Filter, Calendar, Building,
   ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle, Percent,
-  PhoneCall, MapPin, PieChart, Clock, Layers, Award, Sparkles, Check
+  PhoneCall, MapPin, PieChart, Clock, Layers, Award, Sparkles, Check,
+  XCircle
 } from 'lucide-react'
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
@@ -27,7 +28,7 @@ export default function AdmissionsReportsPage() {
 
   // Date Range filter
   const [dateRange, setDateRange] = useState<'all' | '30d' | '90d' | 'session'>('all')
-  const [activeTab, setActiveTab] = useState<'funnel' | 'sources' | 'programs' | 'pipeline' | 'comparison'>('funnel')
+  const [activeTab, setActiveTab] = useState<'funnel' | 'sources' | 'programs' | 'pipeline' | 'comparison' | 'lost'>('funnel')
 
   // Raw data from APIs
   const [leads, setLeads] = useState<any[]>([])
@@ -142,7 +143,8 @@ export default function AdmissionsReportsPage() {
   // Metrics computation
   const metrics = useMemo(() => {
     const totalLeads = filteredLeads.length
-    const contactedLeads = filteredLeads.filter((l) => l.status !== 'NEW').length
+    const contactedLeads = filteredLeads.filter((l) => l.status !== 'NEW' && l.status !== 'DUPLICATE').length
+    const qualifiedLeads = filteredLeads.filter((l) => l.status === 'QUALIFIED' || l.status === 'CONVERTED' || l.status === 'APPLICATION_STARTED').length
     const convertedLeads = filteredLeads.filter((l) => l.status === 'CONVERTED' || l.convertedApplicationId).length
     const lostLeads = filteredLeads.filter((l) => l.status === 'LOST').length
 
@@ -151,24 +153,24 @@ export default function AdmissionsReportsPage() {
     const offersMade = filteredApps.filter((a) => ['OFFER_MADE', 'OFFER_ACCEPTED', 'ENROLLED'].includes(a.status)).length
     const enrolledApps = filteredApps.filter((a) => a.status === 'ENROLLED' || a.studentId).length
 
-    // Stage counts for Funnel
-    const visitsCount = Math.max(visitsData.completed, Math.round(contactedLeads * 0.45))
+    // Stage counts for Truthful Funnel
     const stage1_enquiries = totalLeads
     const stage2_contacted = contactedLeads
-    const stage3_visits = Math.min(visitsCount, stage2_contacted) || Math.round(stage2_contacted * 0.6)
+    const stage3_qualified = qualifiedLeads
     const stage4_applications = totalApps
     const stage5_approved = approvedApps
-    const stage6_offers = offersMade
-    const stage7_enrolled = enrolledApps
+    const stage6_enrolled = enrolledApps
 
     // Key Rates
-    const overallYield = stage1_enquiries > 0 ? ((stage7_enrolled / stage1_enquiries) * 100).toFixed(1) : '0.0'
-    const appToEnrollRate = stage4_applications > 0 ? ((stage7_enrolled / stage4_applications) * 100).toFixed(1) : '0.0'
+    const overallYield = stage1_enquiries > 0 ? ((stage6_enrolled / stage1_enquiries) * 100).toFixed(1) : '0.0'
+    const appToEnrollRate = stage4_applications > 0 ? ((stage6_enrolled / stage4_applications) * 100).toFixed(1) : '0.0'
     const contactRate = stage1_enquiries > 0 ? ((stage2_contacted / stage1_enquiries) * 100).toFixed(1) : '0.0'
+    const qualificationRate = stage2_contacted > 0 ? ((stage3_qualified / stage2_contacted) * 100).toFixed(1) : '0.0'
 
     return {
       totalLeads,
       contactedLeads,
+      qualifiedLeads,
       convertedLeads,
       lostLeads,
       totalApps,
@@ -178,17 +180,69 @@ export default function AdmissionsReportsPage() {
       overallYield,
       appToEnrollRate,
       contactRate,
+      qualificationRate,
       funnel: [
-        { label: '1. Inquiries Intake', value: Math.max(stage1_enquiries, 1), color: '#3B82F6' },
-        { label: '2. Contacted / Follow-up', value: Math.max(stage2_contacted, 0), color: '#6366F1' },
-        { label: '3. Campus Visits', value: Math.max(stage3_visits, 0), color: '#8B5CF6' },
+        { label: '1. Total Enquiries', value: Math.max(stage1_enquiries, 1), color: '#3B82F6' },
+        { label: '2. In Follow-up / Contacted', value: Math.max(stage2_contacted, 0), color: '#6366F1' },
+        { label: '3. Qualified (Green / Positive)', value: Math.max(stage3_qualified, 0), color: '#10B981' },
         { label: '4. Applications Submitted', value: Math.max(stage4_applications, 0), color: '#EC4899' },
         { label: '5. Documents Approved', value: Math.max(stage5_approved, 0), color: '#F59E0B' },
-        { label: '6. Offers Issued', value: Math.max(stage6_offers, 0), color: '#10B981' },
-        { label: '7. Officially Enrolled', value: Math.max(stage7_enrolled, 0), color: '#059669' },
+        { label: '6. Confirmed Enrolled', value: Math.max(stage6_enrolled, 0), color: '#059669' },
       ],
     }
-  }, [filteredLeads, filteredApps, visitsData])
+  }, [filteredLeads, filteredApps])
+
+  // Lost Leads Analytics
+  const lostStats = useMemo(() => {
+    const lostList = filteredLeads.filter((l) => l.status === 'LOST')
+    const reasonCounts: Record<string, number> = {
+      FEES_TOO_HIGH: 0,
+      DISTANCE_LOCATION: 0,
+      TIMINGS_INCONVENIENT: 0,
+      CHOSE_ANOTHER_SCHOOL: 0,
+      FACILITIES_EXPECTATIONS: 0,
+      RELOCATING: 0,
+      OTHER: 0,
+    }
+
+    const detailedList = lostList.map((l) => {
+      let reason = 'OTHER'
+      let detail = ''
+      if (l.notes) {
+        const match = l.notes.match(/\[Lost:\s*([^\]|]+)(?:\s*\|\s*([^\]]*))?\]/)
+        if (match) {
+          reason = match[1].trim()
+          detail = (match[2] || '').trim()
+        }
+      }
+      if (reasonCounts[reason] !== undefined) {
+        reasonCounts[reason] += 1
+      } else {
+        reasonCounts.OTHER += 1
+      }
+      return {
+        ...l,
+        lostReason: reason,
+        lostDetail: detail || l.notes,
+      }
+    })
+
+    const reasonsBreakdown = Object.entries(reasonCounts)
+      .map(([reason, count]) => ({
+        reason,
+        label: reason.replace(/_/g, ' '),
+        count,
+        pct: lostList.length > 0 ? Math.round((count / lostList.length) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    return {
+      total: lostList.length,
+      rate: filteredLeads.length > 0 ? ((lostList.length / filteredLeads.length) * 100).toFixed(1) : '0.0',
+      reasons: reasonsBreakdown,
+      items: detailedList,
+    }
+  }, [filteredLeads])
 
   // Source attribution
   const sourceStats = useMemo(() => {
@@ -222,13 +276,13 @@ export default function AdmissionsReportsPage() {
     const map: Record<string, { enquiries: number; applications: number; enrolled: number }> = {}
 
     filteredLeads.forEach((l) => {
-      const prog = l.interestedProgram || 'NURSERY'
+      const prog = l.interestedProgram || 'UNSPECIFIED'
       if (!map[prog]) map[prog] = { enquiries: 0, applications: 0, enrolled: 0 }
       map[prog].enquiries += 1
     })
 
     filteredApps.forEach((a) => {
-      const prog = a.programType || 'NURSERY'
+      const prog = a.programType || 'UNSPECIFIED'
       if (!map[prog]) map[prog] = { enquiries: 0, applications: 0, enrolled: 0 }
       map[prog].applications += 1
       if (a.status === 'ENROLLED' || a.studentId) {
@@ -425,6 +479,20 @@ export default function AdmissionsReportsPage() {
             }`}
           >
             Pipeline Health
+          </button>
+          <button
+            onClick={() => setActiveTab('lost')}
+            className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+              activeTab === 'lost'
+                ? 'bg-destructive/15 text-destructive font-bold shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <XCircle size={13} />
+            <span>Lost Analysis</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-muted text-muted-foreground">
+              {lostStats.total}
+            </span>
           </button>
           {branches.length > 1 && (
             <button
@@ -902,24 +970,160 @@ export default function AdmissionsReportsPage() {
         </div>
       )}
 
+      {/* ── TAB: LOST LEADS ANALYSIS ── */}
+      {activeTab === 'lost' && (
+        <div className="space-y-5">
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-muted-foreground mb-1">
+                <span className="text-xs font-semibold uppercase tracking-wider">Total Lost Enquiries</span>
+                <XCircle size={16} className="text-destructive" />
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-destructive">{lostStats.total}</div>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                <span>Enquiries marked lost</span>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-muted-foreground mb-1">
+                <span className="text-xs font-semibold uppercase tracking-wider">Enquiry Loss Rate</span>
+                <Percent size={16} className="text-amber-500" />
+              </div>
+              <div className="text-2xl font-bold tracking-tight text-foreground">{lostStats.rate}%</div>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                <span>of total enquiries</span>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-muted-foreground mb-1">
+                <span className="text-xs font-semibold uppercase tracking-wider">Primary Loss Factor</span>
+                <AlertCircle size={16} className="text-primary" />
+              </div>
+              <div className="text-base font-bold tracking-tight text-foreground truncate">
+                {lostStats.reasons[0]?.count > 0 ? lostStats.reasons[0].label : 'None'}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                <span>{lostStats.reasons[0]?.count || 0} enquiries ({lostStats.reasons[0]?.pct || 0}%)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Reason Breakdown & Audit Table */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className="lg:col-span-5 bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Loss Reasons Breakdown</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Distribution of reasons why enquiries did not proceed</p>
+              </div>
+              <div className="space-y-3 pt-1">
+                {lostStats.reasons.map((r) => (
+                  <div key={r.reason} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-foreground">{r.label}</span>
+                      <span className="font-mono text-muted-foreground">
+                        {r.count} ({r.pct}%)
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-destructive/70 transition-all"
+                        style={{ width: `${r.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Detailed Lost Leads Table */}
+            <div className="lg:col-span-7 bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Lost Leads Audit Log</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Full audit trail of closed leads with parent feedback</p>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+                  {lostStats.items.length} Records
+                </span>
+              </div>
+
+              <div className="overflow-x-auto border border-border rounded-lg max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3">Lead #</th>
+                      <th className="py-2.5 px-3">Pupil & Parent</th>
+                      <th className="py-2.5 px-3">Program</th>
+                      <th className="py-2.5 px-3">Reason</th>
+                      <th className="py-2.5 px-3">Remarks / Feedback</th>
+                      <th className="py-2.5 px-3 text-right">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {lostStats.items.length > 0 ? (
+                      lostStats.items.map((lead: any) => (
+                        <tr key={lead.id} className="hover:bg-muted/20">
+                          <td className="py-2.5 px-3 font-mono font-bold text-primary whitespace-nowrap">
+                            {lead.leadNumber}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-semibold text-foreground">{lead.childName || 'Child'}</div>
+                            <div className="text-[11px] text-muted-foreground">{lead.parentName} ({lead.phone})</div>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-secondary text-foreground">
+                              {lead.interestedProgram || 'Nursery'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/10 text-destructive border border-destructive/20">
+                              {lead.lostReason.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-muted-foreground text-[11px] max-w-xs truncate" title={lead.lostDetail}>
+                            {lead.lostDetail || '—'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-muted-foreground whitespace-nowrap">
+                            {fmtDate(lead.updatedAt || lead.createdAt)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                          No lost leads in this time range.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Global Fast Modals ── */}
       <MinimalEnquiryModal
-        isOpen={enquiryModalOpen}
+        open={enquiryModalOpen}
         onClose={() => setEnquiryModalOpen(false)}
-        onCreated={() => {
+        onSuccess={() => {
           setEnquiryModalOpen(false)
           loadReportsData()
         }}
         branches={branches}
-        initialBranchId={selectedBranchId}
+        defaultBranchId={selectedBranchId}
         programs={programs}
       />
 
       <SharePublicFormModal
-        isOpen={shareModalOpen}
+        open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        branches={branches}
-        initialBranchId={selectedBranchId}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name}
       />
     </AdmissionsShell>
   )

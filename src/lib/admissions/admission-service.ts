@@ -2648,7 +2648,7 @@ export class AdmissionService {
       }
 
       // Resolve Program
-      let resolvedProgramType: string = 'NURSERY'
+      let resolvedProgramType: string = programs[0]?.programType || 'PLAYGROUP'
       if (programStr) {
         const matched = programs.find(
           (p) =>

@@ -168,7 +168,7 @@ export function RecordInspector({
     }
 
     // Accessible focus without scrolling parent page if focus is not already inside inspector panel
-    if (closeBtnRef.current && !drawerPanelRef.current?.contains(document.activeElement)) {
+    if (closeBtnRef.current && !drawerRef.current?.contains(document.activeElement)) {
       closeBtnRef.current.focus({ preventScroll: true })
     }
 
@@ -252,7 +252,7 @@ export function RecordInspector({
       >
         {/* Sticky Header with Upper Action Buttons */}
         <div
-          className="drawer-head border-b border-border/80 px-4 sm:px-6 py-3 sm:py-3.5 shrink-0 flex flex-col"
+          className="drawer-head border-b border-border/60 dark:border-border/40 px-4 sm:px-6 py-3 sm:py-3.5 shrink-0 flex flex-col"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -292,13 +292,13 @@ export function RecordInspector({
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3
                     id="inspector-title"
-                    className="text-sm sm:text-base font-bold truncate text-foreground leading-tight"
+                    className="card-title font-heading text-base sm:text-lg font-semibold truncate text-foreground leading-tight"
                   >
                     {getRecordTitle()}
                   </h3>
                   <StatusBadge status={getStatus()} size="sm" />
                 </div>
-                <p className="text-[11px] sm:text-xs text-muted-foreground truncate mt-0.5 font-medium">
+                <p className="body-copy-sm text-xs sm:text-[13px] text-muted-foreground truncate mt-0.5 font-normal">
                   {getSubtitle()}
                 </p>
               </div>
@@ -311,7 +311,7 @@ export function RecordInspector({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline flex items-center gap-1.5 text-xs font-semibold px-2.5 h-8 border-border hover:bg-muted"
+                    className="btn btn-sm btn-outline flex items-center gap-1.5 text-xs font-semibold px-2.5 h-8 border-border/60 dark:border-border/40 hover:bg-muted"
                     onClick={() => {
                       const id = data?.id || recordId
                       if (onEdit) onEdit(data || { id })
@@ -346,7 +346,7 @@ export function RecordInspector({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline flex items-center gap-1.5 text-xs font-semibold px-2.5 h-8 border-border hover:bg-muted"
+                    className="btn btn-sm btn-outline flex items-center gap-1.5 text-xs font-semibold px-2.5 h-8 border-border/60 dark:border-border/40 hover:bg-muted"
                     onClick={() => {
                       const id = data?.userId || data?.id || recordId
                       if (onEdit) onEdit(data || { id })

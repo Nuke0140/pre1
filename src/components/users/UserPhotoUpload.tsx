@@ -43,23 +43,67 @@ export function UserPhotoUpload({
 
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
+      // 1. Try S3 pre-signed direct upload first
+      let uploadedUrl: string | null = null
 
-      const res = await fetch('/api/v1/users/photo', {
-        method: 'POST',
-        body: formData,
-      })
+      try {
+        const presignRes = await fetch('/api/v1/uploads/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'avatars',
+            filename: file.name,
+            mimeType: file.type,
+            sizeBytes: file.size,
+          }),
+        })
 
-      const json = await res.json()
-      if (!res.ok) {
-        throw new Error(json.error || json.message || 'Failed to upload photo')
+        if (presignRes.ok) {
+          const presignJson = await presignRes.json()
+          const { uploadUrl, fileUrl } = presignJson.data || presignJson
+
+          if (uploadUrl && fileUrl) {
+            // Upload binary directly to S3 / mock endpoint
+            const s3Res = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': file.type,
+              },
+              body: file,
+            })
+
+            if (s3Res.ok) {
+              uploadedUrl = fileUrl
+            }
+          }
+        }
+      } catch (presignErr) {
+        console.warn('Presigned upload failed, falling back to server multipart:', presignErr)
       }
 
-      const uploadedUrl = json.data?.url || json.url || json.data?.avatarUrl
+      // 2. Fallback to server multipart upload if presign was unavailable or failed
+      if (!uploadedUrl) {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const res = await fetch('/api/v1/users/photo', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const json = await res.json()
+        if (!res.ok) {
+          throw new Error(json.error || json.message || 'Failed to upload photo')
+        }
+
+        uploadedUrl = json.data?.url || json.url || json.data?.avatarUrl
+      }
+
       if (uploadedUrl) {
         onChange(uploadedUrl)
         toast.success('Photo Uploaded', 'Profile photo saved and ready to store.')
+      } else {
+        throw new Error('Upload succeeded but no storage URL was returned')
       }
     } catch (err: any) {
       toast.error('Upload Error', err.message || 'Could not upload photo')
@@ -72,7 +116,7 @@ export function UserPhotoUpload({
   }
 
   const handleRemove = async () => {
-    if (value && value.startsWith('/uploads/avatars/')) {
+    if (value) {
       try {
         await fetch('/api/v1/users/photo', {
           method: 'DELETE',
@@ -135,7 +179,7 @@ export function UserPhotoUpload({
               {uploading ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                  <span>Uploading...</span>
+                  <span>Uploading to S3...</span>
                 </>
               ) : (
                 <>

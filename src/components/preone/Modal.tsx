@@ -14,6 +14,7 @@ interface ModalProps {
   icon?: React.ReactNode
   iconClass?: string
   wide?: boolean
+  size?: 'sm' | 'md' | 'lg' | 'xl' | string
   maxWidth?: string | number
   className?: string
   children: React.ReactNode
@@ -21,7 +22,7 @@ interface ModalProps {
 }
 
 export function Modal({
-  open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, maxWidth, className, children, footer,
+  open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, size, maxWidth, className, children, footer,
 }: ModalProps) {
   const { t } = useI18n()
   const panelRef = React.useRef<HTMLDivElement>(null)
@@ -90,7 +91,7 @@ export function Modal({
     <div className="ovl" role="dialog" aria-modal="true" aria-label={title}>
       <div className="ovl-backdrop" onClick={onClose} />
       <div
-        className={`modal${wide ? ' modal-wide' : ''}${className ? ` ${className}` : ''}`}
+        className={`modal${wide || size === 'lg' || size === 'xl' ? ' modal-wide' : ''}${size === 'sm' ? ' modal-sm' : ''}${className ? ` ${className}` : ''}`}
         style={maxWidth ? { maxWidth, width: typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth } : undefined}
         ref={panelRef}
         tabIndex={-1}
@@ -99,8 +100,8 @@ export function Modal({
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             {icon && <div className={`modal-icon ${iconClass}`}>{icon}</div>}
             <div>
-              <h3>{title}</h3>
-              {subtitle && <div className="modal-sub">{subtitle}</div>}
+              <h3 className="section-title">{title}</h3>
+              {subtitle && <div className="modal-sub body-copy-sm">{subtitle}</div>}
             </div>
           </div>
           <button className="x-btn" onClick={onClose} aria-label={t('common.close')}>

@@ -134,6 +134,7 @@ export const POST = withApi(async (req: NextRequest) => {
     childLastName,
     childDob,
     childGender,
+    programId,
     programType,
     parentName,
     parentPhone,
@@ -175,7 +176,8 @@ export const POST = withApi(async (req: NextRequest) => {
     },
     {
       leadId,
-      programType: programType || 'NURSERY',
+      programId: programId || null,
+      programType,
       childFirstName,
       childLastName,
       childDob,

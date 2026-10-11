@@ -15,6 +15,7 @@ import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdenti
 import Link from 'next/link'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
+import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
 import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
@@ -631,6 +632,15 @@ export default function AdmissionsPage() {
     activity: [],
     tab: 'overview',
     loading: false,
+  })
+
+  // Start Application & Assign Follow-up Modal State
+  const [startAppModal, setStartAppModal] = useState<{
+    open: boolean
+    enquiry: any | null
+  }>({
+    open: false,
+    enquiry: null,
   })
 
   // Lost Lead Modal State
@@ -2357,18 +2367,6 @@ export default function AdmissionsPage() {
             iconColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/15',
           },
           {
-            key: 'visits',
-            title: 'Campus Visits',
-            href: '/app/admissions/visits',
-            count: pipelineMetrics.cards.visitsScheduled,
-            countLabel: 'Tours Booked',
-            badge: pipelineMetrics.cards.visitsScheduled > 0 ? `${pipelineMetrics.cards.visitsScheduled} Booked` : undefined,
-            badgeVariant: 'blue',
-            icon: Calendar,
-            accentBorder: 'hover:border-blue-400 dark:hover:border-blue-700',
-            iconColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/15',
-          },
-          {
             key: 'applications',
             title: 'Applications',
             href: '/app/admissions/applications',
@@ -2391,18 +2389,6 @@ export default function AdmissionsPage() {
             icon: GraduationCap,
             accentBorder: 'hover:border-emerald-400 dark:hover:border-emerald-700',
             iconColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/15',
-          },
-          {
-            key: 'waiting-list',
-            title: 'Waiting List',
-            href: '/app/admissions/waiting-list',
-            count: pipelineMetrics.cards.waitlisted,
-            countLabel: 'Waitlisted',
-            badge: pipelineMetrics.cards.waitlisted > 0 ? `${pipelineMetrics.cards.waitlisted} Waiting` : undefined,
-            badgeVariant: 'orange',
-            icon: Clock,
-            accentBorder: 'hover:border-orange-400 dark:hover:border-orange-700',
-            iconColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover:bg-orange-500/15',
           },
           {
             key: 'classroom-placements',
@@ -2633,7 +2619,7 @@ export default function AdmissionsPage() {
                               <button
                                 type="button"
                                 className="btn btn-primary btn-sm"
-                                onClick={() => handleConvertEnquiry(e.id)}
+                                onClick={() => setStartAppModal({ open: true, enquiry: e })}
                                 style={{ padding: '3px 8px', fontSize: 11.5 }}
                               >
                                 Start Form
@@ -2844,7 +2830,7 @@ export default function AdmissionsPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--primary)' }}>
-                          {lead?.leadNumber || 'ENQUIRY'}
+                          {lead?.leadNumber || '—'}
                         </span>
                         {isVisit ? (
                           <span className="badge b-purple" style={{ fontSize: 11 }}>
@@ -2857,7 +2843,7 @@ export default function AdmissionsPage() {
                         )}
                       </div>
                       <span className="badge" style={{ fontSize: 11, background: 'var(--bg-subtle)' }}>
-                        {lead?.interestedProgram || 'NURSERY'}
+                        {lead?.interestedProgram || 'General'}
                       </span>
                     </div>
 
@@ -3041,7 +3027,7 @@ export default function AdmissionsPage() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: 11.5, fontWeight: 750, color: 'var(--primary)' }}>{e.leadNumber}</span>
-                      <span className="badge b-purple">{e.interestedProgram || 'NURSERY'}</span>
+                      <span className="badge b-purple">{e.interestedProgram || 'General'}</span>
                     </div>
 
                     <div>
@@ -5125,7 +5111,7 @@ export default function AdmissionsPage() {
                     </div>
                     <div className="field">
                       <label className="text-xs font-semibold text-foreground">Interested Program</label>
-                      <select name="interestedProgram" defaultValue={leadInspector.data?.interestedProgram || 'NURSERY'} className="input text-xs">
+                      <select name="interestedProgram" defaultValue={leadInspector.data?.interestedProgram || (programs[0]?.programType || '')} className="input text-xs">
                         {programs.map((p) => (
                           <option key={p.id} value={p.programType || p.code}>{p.name}</option>
                         ))}
@@ -6863,6 +6849,23 @@ export default function AdmissionsPage() {
         onClose={() => setSharePublicModal(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── MODAL: START APPLICATION & ASSIGN FOLLOW-UP ── */}
+      <StartApplicationModal
+        open={startAppModal.open}
+        onClose={() => setStartAppModal({ open: false, enquiry: null })}
+        enquiry={startAppModal.enquiry}
+        onSuccess={(data) => {
+          toast.success(
+            'Application Dossier Started! 📋',
+            `Application ${data.applicationNumber || ''} created and follow-up assigned.`
+          )
+          loadData()
+          if (data.applicationId) {
+            openInspector(data.applicationId, 'documents')
+          }
+        }}
       />
     </div>
   )

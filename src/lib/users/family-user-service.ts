@@ -121,7 +121,13 @@ export class FamilyUserService {
       }
 
       // Branch check if actor is branch scoped
-      if (ctx.actorBranchId && targetStudent.branchId !== ctx.actorBranchId && ctx.actorRole !== 'OWNER' && ctx.actorRole !== 'PLATFORM_ADMIN') {
+      if (
+        ctx.actorBranchId &&
+        targetStudent.branchId !== ctx.actorBranchId &&
+        ctx.actorRole !== 'OWNER' &&
+        ctx.actorRole !== 'PLATFORM_ADMIN' &&
+        ctx.actorRole !== 'PRINCIPAL'
+      ) {
         throw new Error('Unauthorized: Selected student belongs to another campus branch')
       }
 

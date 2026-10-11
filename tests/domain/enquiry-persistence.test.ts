@@ -4,6 +4,8 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
 import { NextRequest } from 'next/server'
 import { POST as leadsPost, GET as leadsGet } from '@/app/api/v1/leads/route'
 import { POST as publicEnquiryPost, GET as publicEnquiryGet } from '@/app/api/v1/public/enquiry/route'
+import { POST as startAppPost } from '@/app/api/v1/leads/[id]/start-application/route'
+import { GET as visitsGet } from '@/app/api/v1/visits/route'
 import { signSession, SESSION_COOKIE } from '@/lib/auth'
 
 describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flow', () => {
@@ -270,6 +272,7 @@ describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flo
         childName: 'Advik Kulkarni',
         childDob: '2023-05-20',
         interestedProgram: universalProgram.code, // Program code
+        consentGiven: true,
         notes: 'Interested in day care facilities along with playgroup',
       }),
     })
@@ -293,5 +296,184 @@ describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flo
     expect(publicLead?.branchId).toBe(branchB.id)
     expect(publicLead?.interestedProgram).toBe('PLAYGROUP')
     expect(publicLead?.source).toBe('WEBSITE')
+  })
+
+  // ── Test 6: Distinct Reference Numbers & Reference Immutability ──
+  it('E2E-06: Two distinct enquiries receive distinct reference IDs that remain immutable on refresh', async () => {
+    const phone1 = `96${ts.slice(-8)}`
+    const phone2 = `95${ts.slice(-8)}`
+
+    // Create enquiry 1
+    const req1 = new NextRequest('http://localhost:3000/api/v1/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        parentName: 'Parent One',
+        phone: phone1,
+        branchId: branchA.id,
+      }),
+    })
+    const res1 = await leadsPost(req1)
+    expect(res1.status).toBe(201)
+    const json1 = await res1.json()
+    const ref1 = json1.data.leadNumber
+
+    // Create enquiry 2
+    const req2 = new NextRequest('http://localhost:3000/api/v1/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        parentName: 'Parent Two',
+        phone: phone2,
+        branchId: branchA.id,
+      }),
+    })
+    const res2 = await leadsPost(req2)
+    expect(res2.status).toBe(201)
+    const json2 = await res2.json()
+    const ref2 = json2.data.leadNumber
+
+    // References must be distinct
+    expect(ref1).not.toBe(ref2)
+    expect(ref1).toBeDefined()
+    expect(ref2).toBeDefined()
+
+    // Immutability: re-fetching from database returns identical reference
+    const check1 = await db.lead.findUnique({ where: { id: json1.data.id } })
+    const check2 = await db.lead.findUnique({ where: { id: json2.data.id } })
+    expect(check1?.leadNumber).toBe(ref1)
+    expect(check2?.leadNumber).toBe(ref2)
+  })
+
+  // ── Test 7: Invalid Input Rejection & No Fake Success ──
+  it('E2E-07: Invalid inputs are rejected and never produce a fake success reference', async () => {
+    // Missing parent name
+    const reqInvalid = new NextRequest('http://localhost:3000/api/v1/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        parentName: '',
+        phone: '12345',
+        branchId: branchA.id,
+      }),
+    })
+    const resInvalid = await leadsPost(reqInvalid)
+    expect(resInvalid.status).toBe(422)
+    const jsonInvalid = await resInvalid.json()
+    expect(jsonInvalid.success).toBe(false)
+
+    // Invalid branch not in school/authorized scope
+    const reqUnauthorizedBranch = new NextRequest('http://localhost:3000/api/v1/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        parentName: 'Valid Parent',
+        phone: '9876543210',
+        branchId: '00000000-0000-0000-0000-000000000000',
+      }),
+    })
+    const resUnauth = await leadsPost(reqUnauthorizedBranch)
+    expect([403, 422]).toContain(resUnauth.status)
+    const jsonUnauth = await resUnauth.json()
+    expect(jsonUnauth.success).toBe(false)
+  })
+
+  // ── Test 8: Empty Search Results Return Empty Array Without Invented Records ──
+  it('E2E-08: Empty query returns empty array rather than invented or dummy mock records', async () => {
+    const reqEmpty = new NextRequest(`http://localhost:3000/api/v1/leads?branchId=${branchA.id}&q=NonExistentSearchQueryXYZ`, {
+      headers: { cookie: adminCookie },
+    })
+    const resEmpty = await leadsGet(reqEmpty)
+    expect(resEmpty.status).toBe(200)
+    const jsonEmpty = await resEmpty.json()
+    expect(jsonEmpty.success).toBe(true)
+    expect(Array.isArray(jsonEmpty.data)).toBe(true)
+    expect(jsonEmpty.data.length).toBe(0)
+  })
+
+  // ── Test 9: Complete Start Form -> Assign Follow-up -> Follow-up Queue Visibility Flow ──
+  it('E2E-09: Start Form assigns staff, creates follow-up, and is immediately visible in follow-up workspace', async () => {
+    // 1. Create enquiry (e.g. from internal staff or public form)
+    const reqCreate = new NextRequest('http://localhost:3000/api/v1/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        parentName: 'Sneha Patel',
+        phone: '9876543299',
+        email: 'sneha.patel@test.com',
+        childName: 'Aarav Patel',
+        childDob: '2022-06-15',
+        branchId: branchA.id,
+        programType: 'PLAYGROUP',
+        source: 'WEBSITE',
+        notes: 'Interested in day care facilities as well',
+      }),
+    })
+    const resCreate = await leadsPost(reqCreate)
+    expect(resCreate.status).toBe(201)
+    const jsonCreate = await resCreate.json()
+    expect(jsonCreate.success).toBe(true)
+    const leadId = jsonCreate.data.id
+    expect(leadId).toBeTruthy()
+
+    // 2. Click "Start Form": Submit start-application with staff assignment and scheduled follow-up
+    const scheduledDueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Tomorrow
+    const reqStartApp = new NextRequest(`http://localhost:3000/api/v1/leads/${leadId}/start-application`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+      body: JSON.stringify({
+        branchId: branchA.id,
+        assignedStaffId: adminUser.id,
+        followUpDate: scheduledDueAt,
+        followUpType: 'Phone Call',
+        followUpNotes: 'Call parent regarding admission dossier and medical documents.',
+      }),
+    })
+    const resStartApp = await startAppPost(reqStartApp, { params: Promise.resolve({ id: leadId }) })
+    expect(resStartApp.status).toBe(201)
+    const jsonStartApp = await resStartApp.json()
+    expect(jsonStartApp.success).toBe(true)
+    // Premature application creation is strictly prevented
+    expect(jsonStartApp.data.applicationId).toBeFalsy()
+    expect(jsonStartApp.data.followUpId).toBeTruthy()
+
+    // 3. Verify Lead in DB has entered Follow-ups workflow ('CONTACTED') and has no premature application
+    const leadInDb = await db.lead.findUnique({ where: { id: leadId } })
+    expect(leadInDb?.status).toBe('CONTACTED')
+    expect(leadInDb?.convertedApplicationId).toBeNull()
+    expect(leadInDb?.assignedToId).toBe(adminUser.id)
+
+    // 4. Verify FollowUp record persisted in database
+    const followUpInDb = await db.followUp.findUnique({ where: { id: jsonStartApp.data.followUpId } })
+    expect(followUpInDb).toBeTruthy()
+    expect(followUpInDb?.sourceId).toBe(leadId)
+    expect(followUpInDb?.assignedToId).toBe(adminUser.id)
+    expect(followUpInDb?.status).toBe('OPEN')
+    expect(followUpInDb?.domain).toBe('ADMISSION')
+
+    // 5. Query Follow-up workspace queues (api/v1/visits) under ALL_OPEN queue
+    const reqVisitsAllOpen = new NextRequest(`http://localhost:3000/api/v1/visits?branchId=${branchA.id}&queue=ALL_OPEN`, {
+      headers: { cookie: adminCookie },
+    })
+    const resVisitsAllOpen = await visitsGet(reqVisitsAllOpen)
+    expect(resVisitsAllOpen.status).toBe(200)
+    const jsonVisitsAllOpen = await resVisitsAllOpen.json()
+    expect(jsonVisitsAllOpen.success).toBe(true)
+    expect(jsonVisitsAllOpen.data.counts.allOpen).toBeGreaterThanOrEqual(1)
+    const itemInAllOpen = jsonVisitsAllOpen.data.items.find((item: any) => item.id === followUpInDb?.id)
+    expect(itemInAllOpen).toBeTruthy()
+    expect(itemInAllOpen.assignedStaffName).toBe('Principal Meenakshi')
+    expect(itemInAllOpen.lead.parentName).toBe('Sneha Patel')
+
+    // 6. Query Follow-up workspace queues under UPCOMING queue
+    const reqVisitsUpcoming = new NextRequest(`http://localhost:3000/api/v1/visits?branchId=${branchA.id}&queue=UPCOMING`, {
+      headers: { cookie: adminCookie },
+    })
+    const resVisitsUpcoming = await visitsGet(reqVisitsUpcoming)
+    expect(resVisitsUpcoming.status).toBe(200)
+    const jsonVisitsUpcoming = await resVisitsUpcoming.json()
+    expect(jsonVisitsUpcoming.success).toBe(true)
+    const itemInUpcoming = jsonVisitsUpcoming.data.items.find((item: any) => item.id === followUpInDb?.id)
+    expect(itemInUpcoming).toBeTruthy()
   })
 })

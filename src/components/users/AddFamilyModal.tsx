@@ -251,15 +251,27 @@ export function AddFamilyModal({
     if (step === 3) setStep(2)
   }
 
+  const validateStep3 = () => {
+    if (password && password.trim().length < 6) {
+      toast.error('Validation Error', 'Password must be at least 6 characters')
+      return false
+    }
+    if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
+      toast.error('Invalid PIN', 'Pickup PIN must be 4 to 6 numeric digits')
+      return false
+    }
+    return true
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateStep1() || !validateStep2()) return
-
-    if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
-      toast.error('Invalid PIN', 'Pickup PIN must be 4 to 6 numeric digits')
+    if (step !== 3) {
+      handleNext()
       return
     }
+
+    if (!validateStep1() || !validateStep2() || !validateStep3()) return
 
     setSubmitting(true)
     try {
@@ -307,7 +319,13 @@ export function AddFamilyModal({
 
       const json = await res.json()
       if (!res.ok) {
-        throw new Error(json.error || json.message || 'Failed to create family user')
+        const errorMsg =
+          typeof json.error === 'object'
+            ? json.error?.message
+            : typeof json.error === 'string'
+            ? json.error
+            : json.message || 'Failed to create family user'
+        throw new Error(errorMsg)
       }
 
       toast.success(
@@ -465,7 +483,17 @@ export function AddFamilyModal({
           </button>
         </div>
 
-        <form id="add-family-form" onSubmit={handleSubmit} autoComplete="off">
+        <form
+          id="add-family-form"
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && step < 3) {
+              e.preventDefault()
+              handleNext()
+            }
+          }}
+          autoComplete="off"
+        >
           {/* ──────────────── STEP 1: CAREGIVER DETAILS ──────────────── */}
           {step === 1 && (
             <div className="space-y-4">

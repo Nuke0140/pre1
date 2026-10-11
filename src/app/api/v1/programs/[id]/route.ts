@@ -21,11 +21,33 @@ async function _PATCH(
     const body = await req.json()
     const allowed = ['name', 'description', 'ageMinMonths', 'ageMaxMonths', 'durationMonths', 'capacity', 'isActive'] as const
     const data: Record<string, unknown> = {}
-    for (const k of allowed) if (k in body) {
-      const v = body[k]
-      data[k] = v === '' ? null : (['ageMinMonths', 'ageMaxMonths', 'durationMonths', 'capacity'].includes(k) ? Number(v) : v)
+    for (const k of allowed) {
+      if (k in body) {
+        const v = body[k]
+        data[k] = v === '' ? null : (['ageMinMonths', 'ageMaxMonths', 'durationMonths', 'capacity'].includes(k) ? Number(v) : v)
+      }
     }
     if (Object.keys(data).length === 0) return Errors.validation('No editable fields provided')
+
+    // Age limits validation
+    const targetMin = 'ageMinMonths' in data ? (data.ageMinMonths as number | null) : program.ageMinMonths
+    const targetMax = 'ageMaxMonths' in data ? (data.ageMaxMonths as number | null) : program.ageMaxMonths
+
+    if (targetMin !== null && targetMin !== undefined && (isNaN(targetMin) || targetMin < 0)) {
+      return Errors.validation('Minimum age (months) must be a non-negative number')
+    }
+    if (targetMax !== null && targetMax !== undefined && (isNaN(targetMax) || targetMax < 0)) {
+      return Errors.validation('Maximum age (months) must be a non-negative number')
+    }
+    if (
+      targetMin !== null &&
+      targetMin !== undefined &&
+      targetMax !== null &&
+      targetMax !== undefined &&
+      targetMin > targetMax
+    ) {
+      return Errors.validation(`Minimum age (${targetMin} months) cannot exceed maximum age (${targetMax} months)`)
+    }
 
     // Safety dependency check if deactivating
     if (data.isActive === false) {

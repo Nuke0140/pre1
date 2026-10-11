@@ -114,8 +114,8 @@ export function StartApplicationModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Start Admission Application"
-      subtitle={`Enquiry ${enquiry.leadNumber} • Seamless handoff with zero data re-entry`}
+      title="Assign Staff & Schedule Follow-up"
+      subtitle={`Enquiry ${enquiry.leadNumber} • Schedule parent consultation and add to Follow-ups queue`}
       icon={<FileText size={20} className="text-primary" />}
       size="md"
     >
@@ -124,7 +124,20 @@ export function StartApplicationModal({
         <div className="p-3 rounded-xl bg-muted/40 border border-border/70 text-xs space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Prospective Pupil:</span>
-            <span className="font-semibold text-foreground">{enquiry.childName || 'Child'}</span>
+            <span className="font-semibold text-foreground">
+              {enquiry.childName || 'Child'}
+              {enquiry.childDob && (() => {
+                const birth = new Date(enquiry.childDob)
+                if (isNaN(birth.getTime())) return ''
+                const now = new Date()
+                let y = now.getFullYear() - birth.getFullYear()
+                let m = now.getMonth() - birth.getMonth()
+                let d = now.getDate() - birth.getDate()
+                let age = y * 12 + m
+                if (d < 0) age -= 1
+                return ` (${Math.max(0, age)} mos old)`
+              })()}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Parent / Guardian:</span>
@@ -156,7 +169,7 @@ export function StartApplicationModal({
             ))}
           </select>
           <p className="text-[11px] text-muted-foreground">
-            This staff member will own the application follow-up task and parent outreach.
+            This staff member will receive an in-app notification and own the follow-up outreach.
           </p>
         </div>
 
@@ -208,9 +221,11 @@ export function StartApplicationModal({
 
         {/* Error Notice */}
         {errorMessage && (
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-destructive/10 text-destructive text-xs">
-            <AlertCircle size={14} className="shrink-0" />
-            <span>{errorMessage}</span>
+          <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-xs space-y-1.5 border border-destructive/20">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
           </div>
         )}
 
@@ -230,11 +245,11 @@ export function StartApplicationModal({
             className="btn btn-primary btn-sm h-9 px-4 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5"
           >
             {isSubmitting ? (
-              <span>Starting Application...</span>
+              <span>Assigning Follow-up...</span>
             ) : (
               <>
                 <CheckCircle2 size={13} />
-                <span>Confirm & Start Form</span>
+                <span>Assign & Schedule Follow-up</span>
               </>
             )}
           </button>

@@ -6,7 +6,7 @@ import type { SemanticThemeTokens } from '@/lib/modules'
 export interface AnimatedModuleIconProps {
   moduleKey: string
   label: string
-  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>
+  icon: React.ComponentType<{ size?: number | string; className?: string; strokeWidth?: number }>
   animation?: string
   theme: SemanticThemeTokens
   triggerAnimation?: boolean

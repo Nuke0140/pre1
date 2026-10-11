@@ -1,6 +1,6 @@
-import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { S3StorageService } from './storage/s3-storage-service'
 
 export type BrandingAssetType = 'logo' | 'banner'
 
@@ -43,8 +43,10 @@ export function isDurableAssetUrl(url: string | null | undefined): boolean {
 }
 
 /**
- * Durably saves an uploaded branding asset (logo or banner) to public storage.
- * Returns the durable relative URL (e.g. /uploads/branding/<filename>).
+ * Durably saves an uploaded branding asset (logo or banner) to S3 object storage.
+ * In production or S3-configured environments, uploads directly to AWS S3.
+ * In development/test environments, uses in-memory S3 storage (never writing binaries to Git or disk).
+ * Returns the durable public URL.
  */
 export async function saveBrandingAsset({
   tenantId,
@@ -71,46 +73,30 @@ export async function saveBrandingAsset({
     throw new Error(`File exceeds maximum allowed size of ${maxMb}MB for ${type}.`)
   }
 
-  let ext = EXTENSION_MAP[normalizedMime]
-  if (!ext && originalName) {
-    const parsedExt = path.extname(originalName).replace('.', '').toLowerCase()
-    if (parsedExt) ext = parsedExt
-  }
-  if (!ext) ext = 'png'
-
-  const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '')
-  const randomSuffix = crypto.randomBytes(4).toString('hex')
-  const filename = `${sanitizedTenantId}-${type}-${Date.now()}-${randomSuffix}.${ext}`
-
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'branding')
-  await fs.promises.mkdir(uploadDir, { recursive: true })
-
-  const filePath = path.join(uploadDir, filename)
-  await fs.promises.writeFile(filePath, buffer)
-
-  const durableUrl = `/uploads/branding/${filename}`
-  return {
-    url: durableUrl,
-    size: buffer.length,
+  const uploadResult = await S3StorageService.uploadBufferToS3({
+    tenantId,
+    category: 'branding',
+    buffer,
     mimeType: normalizedMime,
+    originalName,
+  })
+
+  return {
+    url: uploadResult.url,
+    size: uploadResult.size,
+    mimeType: uploadResult.mimeType,
   }
 }
 
 /**
- * Safely removes a previously uploaded branding asset from disk if it exists in /uploads/branding.
+ * Safely removes a previously uploaded branding asset from S3 object storage.
  */
 export async function deleteBrandingAsset(url: string | null | undefined): Promise<void> {
   if (!url || typeof url !== 'string') return
-  if (!url.startsWith('/uploads/branding/')) return
 
   try {
-    const filename = path.basename(url)
-    const filePath = path.join(process.cwd(), 'public', 'uploads', 'branding', filename)
-    if (fs.existsSync(filePath)) {
-      await fs.promises.unlink(filePath)
-    }
+    await S3StorageService.deleteObject(url)
   } catch (err) {
-    // Non-blocking cleanup error
     console.warn(`Failed to cleanup branding asset at ${url}:`, err)
   }
 }
@@ -119,8 +105,9 @@ const ALLOWED_PHOTO_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024 // 5MB
 
 /**
- * Durably saves an uploaded user profile photo to public storage.
- * Returns the durable relative URL (e.g. /uploads/avatars/<filename>).
+ * Durably saves an uploaded user profile photo to S3 object storage.
+ * Eliminates local filesystem writes in favor of centralized AWS S3 storage.
+ * Returns the durable public URL.
  */
 export async function saveUserProfilePhoto({
   tenantId,
@@ -144,44 +131,30 @@ export async function saveUserProfilePhoto({
     throw new Error('This photo is too large. Please choose an image smaller than 5MB.')
   }
 
-  let ext = EXTENSION_MAP[normalizedMime]
-  if (!ext && originalName) {
-    const parsedExt = path.extname(originalName).replace('.', '').toLowerCase()
-    if (parsedExt) ext = parsedExt
-  }
-  if (!ext) ext = 'jpg'
-
-  const sanitizedTenantId = tenantId.replace(/[^a-zA-Z0-9_-]/g, '')
-  const sanitizedUserId = (userId || crypto.randomUUID()).replace(/[^a-zA-Z0-9_-]/g, '')
-  const randomSuffix = crypto.randomBytes(4).toString('hex')
-  const filename = `${sanitizedTenantId}-${sanitizedUserId}-${Date.now()}-${randomSuffix}.${ext}`
-
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'avatars')
-  await fs.promises.mkdir(uploadDir, { recursive: true })
-
-  const filePath = path.join(uploadDir, filename)
-  await fs.promises.writeFile(filePath, buffer)
+  const uploadResult = await S3StorageService.uploadBufferToS3({
+    tenantId,
+    category: 'avatars',
+    buffer,
+    mimeType: normalizedMime,
+    originalName,
+    userId,
+  })
 
   return {
-    url: `/uploads/avatars/${filename}`,
-    size: buffer.length,
-    mimeType: normalizedMime,
+    url: uploadResult.url,
+    size: uploadResult.size,
+    mimeType: uploadResult.mimeType,
   }
 }
 
 /**
- * Safely removes a previously uploaded profile photo from disk.
+ * Safely removes a previously uploaded profile photo from S3 storage.
  */
 export async function deleteUserProfilePhoto(url: string | null | undefined): Promise<void> {
   if (!url || typeof url !== 'string') return
-  if (!url.startsWith('/uploads/avatars/')) return
 
   try {
-    const filename = path.basename(url)
-    const filePath = path.join(process.cwd(), 'public', 'uploads', 'avatars', filename)
-    if (fs.existsSync(filePath)) {
-      await fs.promises.unlink(filePath)
-    }
+    await S3StorageService.deleteObject(url)
   } catch (err) {
     console.warn(`Failed to cleanup avatar at ${url}:`, err)
   }

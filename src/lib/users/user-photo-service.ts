@@ -1,10 +1,9 @@
-import fs from 'fs'
 import path from 'path'
 import { db } from '@/lib/db'
 import { recordAudit } from '@/lib/audit'
 import { UsernameService } from './username-service'
+import { S3StorageService } from '@/lib/storage/s3-storage-service'
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'avatars')
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -19,15 +18,6 @@ export interface PhotoUploadResult {
 
 export class UserPhotoService {
   /**
-   * Ensures the local storage directory exists.
-   */
-  private static ensureUploadDirectory() {
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true })
-    }
-  }
-
-  /**
    * Validates file buffer, mime type, and file size.
    */
   static validateImage(mimeType: string, sizeBytes: number): { valid: boolean; error?: string } {
@@ -41,7 +31,7 @@ export class UserPhotoService {
   }
 
   /**
-   * Saves a single user photo to local storage and updates User.avatarUrl in database.
+   * Saves a single user photo to S3 object storage and updates User.avatarUrl in database.
    */
   static async saveSingleUserPhoto(params: {
     userId: string
@@ -51,14 +41,6 @@ export class UserPhotoService {
     originalFilename: string
     actor: { id: string; name: string; role: string; ipAddress?: string; userAgent?: string }
   }): Promise<{ success: boolean; avatarUrl: string }> {
-    this.ensureUploadDirectory()
-
-    const ext = path.extname(params.originalFilename).toLowerCase() || '.png'
-    const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.png'
-    const fileName = `avatar-${params.userId}-${Date.now()}${safeExt}`
-    const filePath = path.join(UPLOAD_DIR, fileName)
-    const avatarUrl = `/uploads/avatars/${fileName}`
-
     // 1. Fetch user to verify tenant membership and clean up old avatar file
     const member = await db.tenantUser.findFirst({
       where: { tenantId: params.tenantId, userId: params.userId, deletedAt: null },
@@ -69,21 +51,26 @@ export class UserPhotoService {
       throw new Error('User not found in this school context')
     }
 
-    // 2. Remove old photo if stored in /uploads/avatars/
-    if (member.user.avatarUrl && member.user.avatarUrl.startsWith('/uploads/avatars/')) {
-      const oldFilename = path.basename(member.user.avatarUrl)
-      const oldPath = path.join(UPLOAD_DIR, oldFilename)
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath)
-        } catch {
-          // Non-blocking cleanup warning
-        }
+    // 2. Remove old photo if exists in S3 or legacy path
+    if (member.user.avatarUrl) {
+      try {
+        await S3StorageService.deleteObject(member.user.avatarUrl)
+      } catch {
+        // Non-blocking cleanup warning
       }
     }
 
-    // 3. Write new image buffer
-    fs.writeFileSync(filePath, params.fileBuffer)
+    // 3. Upload binary to S3
+    const uploadResult = await S3StorageService.uploadBufferToS3({
+      tenantId: params.tenantId,
+      category: 'avatars',
+      buffer: params.fileBuffer,
+      mimeType: params.mimeType,
+      originalName: params.originalFilename,
+      userId: params.userId,
+    })
+
+    const avatarUrl = uploadResult.url
 
     // 4. Update database
     await db.user.update({
@@ -111,7 +98,7 @@ export class UserPhotoService {
   }
 
   /**
-   * Removes user photo from storage and database.
+   * Removes user photo from S3 storage and database.
    */
   static async removeUserPhoto(params: {
     userId: string
@@ -127,15 +114,11 @@ export class UserPhotoService {
       throw new Error('User not found in this school context')
     }
 
-    if (member.user.avatarUrl && member.user.avatarUrl.startsWith('/uploads/avatars/')) {
-      const filename = path.basename(member.user.avatarUrl)
-      const filePath = path.join(UPLOAD_DIR, filename)
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath)
-        } catch {
-          // ignore
-        }
+    if (member.user.avatarUrl) {
+      try {
+        await S3StorageService.deleteObject(member.user.avatarUrl)
+      } catch {
+        // ignore
       }
     }
 
@@ -173,8 +156,6 @@ export class UserPhotoService {
     summary: { totalFiles: number; successful: number; failed: number }
     results: PhotoUploadResult[]
   }> {
-    this.ensureUploadDirectory()
-
     const results: PhotoUploadResult[] = []
     let successfulCount = 0
 

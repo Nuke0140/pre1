@@ -19,7 +19,7 @@ async function _POST(
 
   try {
     const body = await req.json()
-    const { lostReason, lostNotes, branchId, academicYearId } = body
+    const { lostReason, lostNotes, notes, branchId, academicYearId } = body
 
     if (!lostReason || !String(lostReason).trim()) {
       return Errors.badRequest('lostReason is mandatory to close an enquiry as LOST')
@@ -36,7 +36,7 @@ async function _POST(
       },
       id,
       lostReason,
-      lostNotes
+      lostNotes || notes
     )
 
     return ok(updated)

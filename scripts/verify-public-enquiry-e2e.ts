@@ -152,6 +152,9 @@ async function run() {
       }),
     })
 
+    if (postRes1.status !== 200) {
+      console.error('postRes1 error:', postRes1.status, await postRes1.text())
+    }
     assert(postRes1.status === 200, 'POST /api/v1/public/enquiry responds 200 OK without session')
     const postData1 = await postRes1.json()
     assert(postData1.success === true, 'Enquiry submission response is success: true')

@@ -62,14 +62,53 @@ export default function ApplicationsPage() {
   const [formParentEmail, setFormParentEmail] = useState('')
   const [formProgram, setFormProgram] = useState('NURSERY')
 
+  // Live program age eligibility check for Direct Application Wizard
+  const directAppAgeCheck = useMemo(() => {
+    if (!formChildDob || !formProgram) return null
+    const birth = new Date(formChildDob)
+    if (isNaN(birth.getTime())) return null
+    const now = new Date()
+    let y = now.getFullYear() - birth.getFullYear()
+    let m = now.getMonth() - birth.getMonth()
+    let d = now.getDate() - birth.getDate()
+    let ageMonths = y * 12 + m
+    if (d < 0) ageMonths -= 1
+    ageMonths = Math.max(0, ageMonths)
+
+    const prog = programs.find((p) => (p.programType || p.code) === formProgram || p.id === formProgram)
+    if (!prog) return null
+
+    const min = prog.ageMinMonths
+    const max = prog.ageMaxMonths
+
+    if (min != null && ageMonths < min) {
+      return {
+        eligible: false,
+        ageMonths,
+        reason: `Child is ${ageMonths} months old; minimum required for ${prog.name} is ${min} months.`,
+      }
+    }
+    if (max != null && ageMonths > max) {
+      return {
+        eligible: false,
+        ageMonths,
+        reason: `Child is ${ageMonths} months old; maximum permitted for ${prog.name} is ${max} months.`,
+      }
+    }
+    return {
+      eligible: true,
+      ageMonths,
+      reason: `Child is ${ageMonths} months old (Eligible for ${prog.name}).`,
+    }
+  }, [formChildDob, formProgram, programs])
+
   // Load masters on mount
   useEffect(() => {
     async function loadMasters() {
       try {
-        const [brRes, sesRes, progRes] = await Promise.all([
+        const [brRes, sesRes] = await Promise.all([
           fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
           fetch('/api/v1/academic-years').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-          fetch('/api/v1/programs').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
@@ -78,6 +117,7 @@ export default function ApplicationsPage() {
           } else {
             const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
             setSelectedBranchId(main.id)
+            setFormBranchId(main.id)
           }
         }
         if (sesRes.success && sesRes.data?.length > 0) {
@@ -85,15 +125,35 @@ export default function ApplicationsPage() {
           const curr = sesRes.data.find((s: any) => s.isCurrent) || sesRes.data[0]
           setSelectedSessionId(curr.id)
         }
-        if (progRes.success && progRes.data) {
-          setPrograms(progRes.data)
-        }
       } catch (e) {
         console.error('Failed to load application masters:', e)
       }
     }
     loadMasters()
   }, [])
+
+  // Dynamically load branch programs whenever formBranchId or selectedBranchId changes
+  useEffect(() => {
+    const targetBranch = formBranchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : '')
+    let active = true
+    const param = targetBranch ? `?branchId=${encodeURIComponent(targetBranch)}` : ''
+    fetch(`/api/v1/programs${param}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return
+        if (json.success && Array.isArray(json.data)) {
+          setPrograms(json.data)
+          setFormProgram((prev) => {
+            const match = json.data.find((p: any) => (p.programType || p.code) === prev || p.id === prev)
+            return match ? prev : (json.data[0]?.programType || json.data[0]?.code || '')
+          })
+        }
+      })
+      .catch((e) => console.error('Failed to load branch programs:', e))
+    return () => {
+      active = false
+    }
+  }, [formBranchId, selectedBranchId])
 
   // Load applications
   const loadApplications = useCallback(async () => {
@@ -231,8 +291,13 @@ export default function ApplicationsPage() {
       toast.show('Please select a specific school branch for this application', { type: 'error' })
       return
     }
+    if (directAppAgeCheck && !directAppAgeCheck.eligible) {
+      toast.show(`${directAppAgeCheck.reason} To allow admission, adjust program limits in Setup > Programs.`, { type: 'error' })
+      return
+    }
     setBusy(true)
     try {
+      const selectedProg = programs.find((p) => (p.programType || p.code) === formProgram || p.id === formProgram)
       const res = await fetch('/api/v1/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,7 +309,8 @@ export default function ApplicationsPage() {
           parentName: formParentName,
           parentPhone: formParentPhone,
           parentEmail: formParentEmail || undefined,
-          programType: formProgram,
+          programId: selectedProg?.id || null,
+          programType: selectedProg?.programType || formProgram,
           branchId: targetBranch,
           academicYearId: selectedSessionId,
         }),
@@ -262,7 +328,8 @@ export default function ApplicationsPage() {
         setFormParentEmail('')
         loadApplications()
       } else {
-        toast.show(res.error || 'Failed to submit application', { type: 'error' })
+        const errMsg = typeof res.error === 'string' ? res.error : res.error?.message || 'Failed to submit application'
+        toast.show(errMsg, { type: 'error' })
       }
     } catch {
       setBusy(false)
@@ -766,13 +833,39 @@ export default function ApplicationsPage() {
                 onChange={(e) => setFormProgram(e.target.value)}
                 className="input text-xs h-9 w-full rounded-xl"
               >
-                <option value="PLAYGROUP">Playgroup</option>
-                <option value="NURSERY">Nursery</option>
-                <option value="LKG">LKG / Junior KG</option>
-                <option value="UKG">UKG / Senior KG</option>
+                {programs.length > 0 ? (
+                  programs.map((p) => (
+                    <option key={p.id} value={p.programType || p.code}>
+                      {p.name} {p.ageMinMonths != null || p.ageMaxMonths != null ? `(${p.ageMinMonths ?? 0}–${p.ageMaxMonths ?? '∞'} mo)` : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No programs configured for this campus</option>
+                )}
               </select>
             </div>
           </div>
+
+          {/* Live Age Eligibility Banner */}
+          {directAppAgeCheck && (
+            <div
+              className={`p-2.5 rounded-xl text-xs space-y-1 ${
+                directAppAgeCheck.eligible
+                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-destructive/10 border border-destructive/20 text-destructive'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-medium">
+                {directAppAgeCheck.eligible ? <CheckCircle2 size={14} className="shrink-0" /> : <AlertCircle size={14} className="shrink-0" />}
+                <span>{directAppAgeCheck.reason}</span>
+              </div>
+              {!directAppAgeCheck.eligible && (
+                <div className="text-[11px] text-muted-foreground pl-5 leading-normal">
+                  Child does not satisfy program age limits. Authorized administrators can adjust minimum/maximum permitted age in <strong>Setup &rarr; Programs</strong>.
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/70">
             <button

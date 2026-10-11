@@ -77,14 +77,14 @@ export interface FamilyCreateInput {
  * parentGuardian* and student*
  */
 export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
-  const fullName = (body.fullName || body.parentGuardianFullName || '').trim()
-  const email = (body.email || body.parentGuardianEmail || '').trim().toLowerCase()
-  const phone = (body.phone || body.parentGuardianPhone || '').trim()
-  const avatarUrl = body.avatarUrl || body.parentGuardianPhoto || null
+  const fullName = (body.fullName || body.parentName || body.parentGuardianFullName || '').trim()
+  const email = (body.email || body.parentEmail || body.parentGuardianEmail || '').trim().toLowerCase()
+  const phone = (body.phone || body.parentPhone || body.parentGuardianPhone || '').trim()
+  const avatarUrl = body.avatarUrl || body.parentPhoto || body.parentGuardianPhoto || null
   const rawRole = (body.role || body.parentGuardianRole || 'PARENT').toUpperCase()
   const role: 'PARENT' | 'GUARDIAN' = rawRole === 'GUARDIAN' ? 'GUARDIAN' : 'PARENT'
-  const gender = body.gender || body.parentGuardianGender || null
-  const username = body.username || body.parentGuardianUsername || undefined
+  const gender = body.gender || body.parentGender || body.parentGuardianGender || null
+  const username = body.username || body.parentUsername || body.parentGuardianUsername || undefined
   const password = body.password || undefined
   const relationship = (body.relationship || body.relationToChild || (role === 'PARENT' ? 'FATHER' : 'GUARDIAN')) as Relationship
   const isPrimaryContact =
@@ -94,14 +94,24 @@ export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
       ? Boolean(body.isPrimaryContact)
       : true
 
+  const rawChildMode = typeof body.childMode === 'string' ? body.childMode.toUpperCase().trim() : undefined
   const hasNewChildSignals =
-    body.childMode === 'CREATE' ||
+    rawChildMode === 'CREATE' ||
+    rawChildMode === 'NEW' ||
     Boolean(body.newChild) ||
     Boolean(body.studentFullName) ||
     Boolean(body.studentDateOfBirth) ||
-    Boolean(body.childFirstName)
+    Boolean(body.childFirstName) ||
+    Boolean(body.childDob)
 
-  const childMode: 'CREATE' | 'EXISTING' = hasNewChildSignals ? 'CREATE' : 'EXISTING'
+  const childMode: 'CREATE' | 'EXISTING' =
+    rawChildMode === 'EXISTING'
+      ? 'EXISTING'
+      : rawChildMode === 'CREATE' || rawChildMode === 'NEW'
+      ? 'CREATE'
+      : hasNewChildSignals
+      ? 'CREATE'
+      : 'EXISTING'
 
   let newChild = body.newChild
   if (childMode === 'CREATE') {
@@ -114,16 +124,16 @@ export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
       newChild?.lastName ||
       (names.length > 1 ? names.slice(1).join(' ') : undefined)
     )?.trim() || undefined
-    const dob = body.studentDateOfBirth || body.childDOB || body.dob || newChild?.dob || ''
-    const studentGender = (body.studentGender || body.childGender || body.gender || newChild?.gender || 'MALE') as Gender
-    const bloodGroup = (body.studentBloodGroup || body.childBloodGroup || body.bloodGroup || newChild?.bloodGroup || undefined) as BloodGroup | undefined
-    const branchId = body.studentBranch || body.childBranchId || body.branchId || newChild?.branchId || undefined
-    const classroomId = body.studentClass || body.childClassroomId || body.classroomId || newChild?.classroomId || undefined
-    const seatNumber = body.studentSeatNumber || body.childSeatNumber || body.seatNumber || newChild?.seatNumber || undefined
-    const admissionNo = body.childAdmissionNo || body.admissionNo || newChild?.admissionNo || undefined
-    const programType = body.programType || newChild?.programType || undefined
-    const photoUrl = body.studentPhoto || body.photoUrl || newChild?.photoUrl || undefined
-    const childUsername = body.studentUsername || body.username || newChild?.username || undefined
+    const dob = body.childDob || body.childDOB || body.studentDateOfBirth || body.dob || newChild?.dob || ''
+    const studentGender = (newChild?.gender || body.childGender || body.studentGender || body.gender || 'MALE') as Gender
+    const bloodGroup = (newChild?.bloodGroup || body.childBloodGroup || body.studentBloodGroup || body.bloodGroup || undefined) as BloodGroup | undefined
+    const branchId = newChild?.branchId || body.childBranchId || body.studentBranch || body.branchId || undefined
+    const classroomId = newChild?.classroomId || body.childClassroomId || body.studentClass || body.classroomId || undefined
+    const seatNumber = newChild?.seatNumber || body.childSeatNumber || body.studentSeatNumber || body.seatNumber || undefined
+    const admissionNo = newChild?.admissionNo || body.childAdmissionNo || body.admissionNo || undefined
+    const programType = newChild?.programType || body.programType || undefined
+    const photoUrl = newChild?.photoUrl || body.childPhotoUrl || body.studentPhoto || body.photoUrl || undefined
+    const childUsername = newChild?.username || body.studentUsername || body.username || undefined
 
     newChild = {
       firstName,
@@ -143,8 +153,11 @@ export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
 
   const existingChild =
     body.existingChild ||
-    (body.studentId || body.studentAdmissionNo
-      ? { studentId: body.studentId, admissionNo: body.studentAdmissionNo }
+    (body.studentId || body.studentAdmissionNo || body.existingStudentId
+      ? {
+          studentId: body.studentId || body.existingStudentId,
+          admissionNo: body.studentAdmissionNo,
+        }
       : undefined)
 
   const permissions = {

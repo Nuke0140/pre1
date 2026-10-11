@@ -111,7 +111,7 @@ export const STATUS_SEMANTIC_MAP: Record<string, StatusPillConfig> = {
   // leads
   NEW: { variant: 'info', cls: 'status-pill-info', dot: true },
   CONTACTED: { variant: 'primary', cls: 'status-pill-primary' },
-  QUALIFIED: { variant: 'pending', cls: 'status-pill-pending' },
+  QUALIFIED: { variant: 'success', cls: 'status-pill-success', dot: true, label: 'Qualified (Positive)' },
   NURTURE: { variant: 'neutral', cls: 'status-pill-neutral' },
   APPLICATION_STARTED: { variant: 'warning', cls: 'status-pill-warning' },
   CONVERTED: { variant: 'success', cls: 'status-pill-success', dot: true },
@@ -417,9 +417,9 @@ export function DataValue({
 }) {
   return (
     <div className={`data-value-wrap ${className}`.trim()}>
-      {label && <div className="micro-eyebrow">{label}</div>}
-      <div className="font-tabular font-semibold text-foreground text-sm">{value}</div>
-      {meta && <div className="text-xs text-muted-foreground">{meta}</div>}
+      {label && <div className="field-label text-[12px] text-muted-foreground uppercase tracking-wider mb-1 font-heading">{label}</div>}
+      <div className="data-copy font-tabular font-medium text-foreground text-sm">{value}</div>
+      {meta && <div className="meta-copy text-xs text-muted-foreground mt-0.5">{meta}</div>}
     </div>
   )
 }
@@ -442,7 +442,7 @@ export function SectionHeader({
       <div>
         {eyebrow && <div className="micro-eyebrow">{eyebrow}</div>}
         <h2 className="section-title">{title}</h2>
-        {description && <p className="section-description">{description}</p>}
+        {description && <p className="section-description body-copy-sm">{description}</p>}
       </div>
       {actions && <div className="section-actions">{actions}</div>}
     </div>
@@ -488,7 +488,7 @@ export function PageHead({
                 height: 34,
                 padding: 0,
                 borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-default)',
+                border: '1px solid var(--border-subtle)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -507,7 +507,7 @@ export function PageHead({
             {badge && <span className="page-head-badge">{badge}</span>}
           </h1>
         </div>
-        {desc && <p className="page-description sub">{desc}</p>}
+        {desc && <p className="page-description body-copy-sm sub">{desc}</p>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}
     </div>

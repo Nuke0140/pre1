@@ -200,11 +200,11 @@ export function BottomSheet({
                 </div>
               )}
               <div>
-                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <h3 className="section-title font-heading text-base sm:text-lg font-semibold" style={{ margin: 0, color: 'var(--text-primary)' }}>
                   {title}
                 </h3>
                 {subtitle && (
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div className="body-copy-sm" style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: 2 }}>
                     {subtitle}
                   </div>
                 )}

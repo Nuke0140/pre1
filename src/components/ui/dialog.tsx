@@ -60,7 +60,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-white/98 dark:bg-slate-900/98 text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_24px_48px_-12px_rgba(15,23,42,0.18)] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-98 data-[state=open]:zoom-in-98 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 duration-150 sm:max-w-lg",
+          "bg-white/98 dark:bg-slate-900/98 text-slate-900 dark:text-white border border-border/60 dark:border-border/40 rounded-2xl p-6 shadow-2xl [box-shadow:inset_0_1px_0_rgba(255,255,255,0.9),0_24px_48px_-12px_rgba(15,23,42,0.18)] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-98 data-[state=open]:zoom-in-98 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 duration-150 sm:max-w-lg",
           className
         )}
         {...props}
@@ -110,7 +110,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg font-bold text-slate-900 dark:text-white leading-tight tracking-tight", className)}
+      className={cn("section-title font-heading text-lg sm:text-xl font-semibold text-foreground leading-tight tracking-tight", className)}
       {...props}
     />
   )
@@ -123,7 +123,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-xs sm:text-sm font-normal text-slate-500 dark:text-slate-400 leading-normal", className)}
+      className={cn("body-copy-sm font-sans text-xs sm:text-sm font-normal text-muted-foreground leading-normal", className)}
       {...props}
     />
   )

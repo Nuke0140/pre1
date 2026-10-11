@@ -751,6 +751,23 @@ export default function SetupPage() {
           <form onSubmit={async (e) => {
             e.preventDefault(); setBusy(true)
             const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+            const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
+            const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
+            if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
+              toast.error('Validation error', 'Min age cannot be negative')
+              setBusy(false)
+              return
+            }
+            if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
+              toast.error('Validation error', 'Max age cannot be negative')
+              setBusy(false)
+              return
+            }
+            if (minAge !== null && maxAge !== null && minAge > maxAge) {
+              toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
+              setBusy(false)
+              return
+            }
             const res = await fetch('/api/v1/programs', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -792,13 +809,30 @@ export default function SetupPage() {
           <form onSubmit={async (e) => {
             e.preventDefault(); setBusy(true)
             const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+            const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
+            const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
+            if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
+              toast.error('Validation error', 'Min age cannot be negative')
+              setBusy(false)
+              return
+            }
+            if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
+              toast.error('Validation error', 'Max age cannot be negative')
+              setBusy(false)
+              return
+            }
+            if (minAge !== null && maxAge !== null && minAge > maxAge) {
+              toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
+              setBusy(false)
+              return
+            }
             const res = await fetch(`/api/v1/programs/${editingItem.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 name: fd.name,
-                ageMinMonths: fd.ageMinMonths ? Number(fd.ageMinMonths) : null,
-                ageMaxMonths: fd.ageMaxMonths ? Number(fd.ageMaxMonths) : null,
+                ageMinMonths: minAge,
+                ageMaxMonths: maxAge,
                 capacity: Number(fd.capacity || 20),
                 description: fd.description || null,
                 isActive: fd.isActive === 'on',

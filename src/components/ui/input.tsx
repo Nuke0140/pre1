@@ -64,7 +64,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                   : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 dark:focus:border-purple-500"
               )
             : cn(
-                "border border-input bg-transparent dark:bg-input/30 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground shadow-2xs",
+                "border border-border/60 dark:border-border/40 bg-transparent dark:bg-input/30 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground shadow-2xs hover:border-border/80 dark:hover:border-border/60",
                 "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
                 hasError
                   ? "border-destructive ring-destructive/20"

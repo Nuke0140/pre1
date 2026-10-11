@@ -8,17 +8,17 @@ const cardVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)]",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-xs",
         interactive:
-          "bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-xs cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]",
         elevated:
-          "bg-white/98 dark:bg-slate-900/98 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-md",
+          "bg-white/98 dark:bg-slate-900/98 border border-border/60 dark:border-border/40 rounded-2xl shadow-sm",
         flat:
-          "bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60 rounded-2xl",
+          "bg-slate-50/60 dark:bg-slate-900/40 border border-border/40 dark:border-border/40 rounded-2xl",
         premium:
           "premium-card p-5 sm:p-6",
         auth:
-          "w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-slate-800 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.12),0_8px_24px_-8px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] p-7 sm:p-9 relative overflow-hidden",
+          "w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-border/60 dark:border-border/40 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.12),0_8px_24px_-8px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] p-7 sm:p-9 relative overflow-hidden",
       },
     },
     defaultVariants: {
@@ -55,7 +55,7 @@ function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElem
   return (
     <h3
       data-slot="card-title"
-      className={cn("font-bold text-slate-900 dark:text-white leading-tight tracking-tight text-base sm:text-lg", className)}
+      className={cn("card-title font-heading font-semibold text-foreground leading-snug tracking-tight text-base", className)}
       {...props}
     />
   )
@@ -65,7 +65,7 @@ function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParag
   return (
     <p
       data-slot="card-description"
-      className={cn("text-xs sm:text-sm font-normal text-slate-500 dark:text-slate-400", className)}
+      className={cn("body-copy-sm font-sans font-normal text-muted-foreground text-sm leading-normal", className)}
       {...props}
     />
   )

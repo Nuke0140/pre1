@@ -2,12 +2,10 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { db } from '@/lib/db'
-import { AdmissionService } from '@/lib/admissions/admission-service'
-import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { LeadService } from '@/lib/admissions/lead-service'
 
 /**
- * POST /api/v1/leads/{id}/convert — Start Admission Form from Enquiry
+ * POST /api/v1/leads/{id}/convert — Explicitly convert a Qualified Enquiry into an Admission Application
  */
 async function _POST(
   req: NextRequest,
@@ -20,36 +18,27 @@ async function _POST(
   const { id } = await params
 
   try {
-    const lead = await db.lead.findFirst({
-      where: tenantScopedIdWhere(id, session.tenantId, { deletedAt: null }),
-    })
-    if (!lead) return Errors.notFound('Enquiry')
-    if (lead.status === 'CONVERTED') {
-      return Errors.conflict('Enquiry is already converted')
+    let body: any = {}
+    try {
+      body = await req.json()
+    } catch {
+      body = {}
     }
 
-    const app = await AdmissionService.submitApplication(
+    const result = await LeadService.convertToApplication(
       {
         tenantId: session.tenantId,
-        branchId: lead.branchId || session.branchId || '',
-        academicYearId: '',
+        branchId: body.branchId || session.branchId || '',
+        academicYearId: body.academicYearId || '',
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
-      {
-        leadId: lead.id,
-        programType: lead.interestedProgram || 'NURSERY',
-        childFirstName: lead.childName || lead.parentName.split(' ')[0] || 'Child',
-        childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
-        parentName: lead.parentName,
-        parentPhone: lead.phone,
-        parentEmail: lead.email,
-        notes: `Converted from Enquiry ${lead.leadNumber}`,
-      }
+      id,
+      body
     )
 
-    return ok({ applicationId: app.id, applicationNumber: app.applicationNumber }, undefined, 201)
+    return ok(result, undefined, 201)
   } catch (e: any) {
     return Errors.business('CONVERT_FAILED', e.message || 'Failed to convert enquiry to application', 422)
   }

@@ -71,6 +71,19 @@ async function _POST(req: NextRequest) {
     if (!PROGRAM_TYPES.includes(programType)) {
       return Errors.validation(`programType must be one of: ${PROGRAM_TYPES.join(', ')}`)
     }
+    const parsedMin = ageMinMonths != null && ageMinMonths !== '' ? Number(ageMinMonths) : null
+    const parsedMax = ageMaxMonths != null && ageMaxMonths !== '' ? Number(ageMaxMonths) : null
+
+    if (parsedMin !== null && (isNaN(parsedMin) || parsedMin < 0)) {
+      return Errors.validation('Minimum age (months) must be a non-negative number')
+    }
+    if (parsedMax !== null && (isNaN(parsedMax) || parsedMax < 0)) {
+      return Errors.validation('Maximum age (months) must be a non-negative number')
+    }
+    if (parsedMin !== null && parsedMax !== null && parsedMin > parsedMax) {
+      return Errors.validation(`Minimum age (${parsedMin} months) cannot exceed maximum age (${parsedMax} months)`)
+    }
+
     const dup = await db.program.findFirst({ where: { tenantId: session.tenantId, code: String(code).toUpperCase(), deletedAt: null } })
     if (dup) return Errors.conflict(`Program code "${code}" already exists`)
 
@@ -79,8 +92,8 @@ async function _POST(req: NextRequest) {
         tenantId: session.tenantId,
         name, code: String(code).toUpperCase(), programType,
         description: description || null,
-        ageMinMonths: ageMinMonths != null && ageMinMonths !== '' ? Number(ageMinMonths) : null,
-        ageMaxMonths: ageMaxMonths != null && ageMaxMonths !== '' ? Number(ageMaxMonths) : null,
+        ageMinMonths: parsedMin,
+        ageMaxMonths: parsedMax,
         durationMonths: durationMonths != null && durationMonths !== '' ? Number(durationMonths) : null,
         capacity: capacity ? Number(capacity) : 20,
       },

@@ -15,6 +15,43 @@
 import { db } from '@/lib/db'
 import type { ProgramType } from '@prisma/client'
 
+export type ProgramAgeValidationCode =
+  | 'ELIGIBLE'
+  | 'AGE_BELOW_MINIMUM'
+  | 'AGE_ABOVE_MAXIMUM'
+  | 'INVALID_DOB'
+  | 'PROGRAM_NOT_FOUND'
+  | 'BRANCH_NOT_MAPPED'
+
+export interface ProgramAgeValidationResult {
+  eligible: boolean
+  ageMonths: number
+  minMonths: number | null
+  maxMonths: number | null
+  code: ProgramAgeValidationCode
+  reason?: string
+  programId?: string
+  programName?: string
+  programType?: string
+}
+
+/**
+ * Authoritative calculation of a child's age in completed months.
+ * Uses exact calendar months and accounts for day-of-month (subtracting 1 month if
+ * the reference day has not reached or passed the birth day of the month).
+ */
+export function calculateAgeMonths(dob: Date | string, referenceDate: Date = new Date()): number {
+  const birth = new Date(dob)
+  if (isNaN(birth.getTime())) return 0
+  const ref = new Date(referenceDate)
+  let years = ref.getFullYear() - birth.getFullYear()
+  let months = ref.getMonth() - birth.getMonth()
+  let days = ref.getDate() - birth.getDate()
+  let total = years * 12 + months
+  if (days < 0) total -= 1
+  return Math.max(0, total)
+}
+
 export class ConfigurationService {
   /** Get current active academic session for the tenant */
   static async getActiveAcademicYear(tenantId: string) {
@@ -46,28 +83,37 @@ export class ConfigurationService {
   }
 
   /**
-   * Validate age eligibility for a program based on child date of birth
-   * Returns: { eligible: boolean, ageMonths: number, minMonths: number | null, maxMonths: number | null, reason?: string }
+   * Authoritative program age validation.
+   * Compares the child's birth date against the program's configured `ageMinMonths` and `ageMaxMonths`.
+   * Programs with null limits are considered flexible (open to any age).
    */
   static async validateProgramAge(
     tenantId: string,
     programTypeOrId: string,
     dob: Date | string,
-    branchId?: string
-  ) {
+    branchId?: string,
+    referenceDate: Date = new Date()
+  ): Promise<ProgramAgeValidationResult> {
     const birthDate = new Date(dob)
     if (isNaN(birthDate.getTime())) {
-      return { eligible: false, ageMonths: 0, minMonths: null, maxMonths: null, reason: 'Invalid date of birth' }
+      return {
+        eligible: false,
+        ageMonths: 0,
+        minMonths: null,
+        maxMonths: null,
+        code: 'INVALID_DOB',
+        reason: 'Invalid date of birth',
+      }
     }
 
-    // Calculate age in months as of today
-    const now = new Date()
-    const ageMonths = (now.getFullYear() - birthDate.getFullYear()) * 12 + (now.getMonth() - birthDate.getMonth())
+    // Authoritative calendar-accurate age in months
+    const ageMonths = calculateAgeMonths(birthDate, referenceDate)
 
     const validProgramTypes = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
     const orConditions: any[] = [
       { id: programTypeOrId },
       { code: programTypeOrId.toUpperCase() },
+      { name: { equals: programTypeOrId, mode: 'insensitive' } },
     ]
     if (validProgramTypes.includes(programTypeOrId.toUpperCase())) {
       orConditions.push({ programType: programTypeOrId.toUpperCase() as ProgramType })
@@ -134,6 +180,7 @@ export class ConfigurationService {
         ageMonths,
         minMonths: null,
         maxMonths: null,
+        code: 'PROGRAM_NOT_FOUND',
         reason: `Program "${programTypeOrId}" is not configured for this school. Configure programs in Setup first.`,
       }
     }
@@ -142,14 +189,18 @@ export class ConfigurationService {
     if (hasBranch) {
       const mappings = program.branchMappings || []
       if (mappings.length > 0) {
-        const isMapped = mappings.some((m) => m.branchId === branchId && m.isActive)
+        const isMapped = mappings.some((m: any) => m.branchId === branchId && m.isActive)
         if (!isMapped) {
           return {
             eligible: false,
             ageMonths,
             minMonths: program.ageMinMonths,
             maxMonths: program.ageMaxMonths,
+            code: 'BRANCH_NOT_MAPPED',
             reason: `Program "${program.name}" is not offered at the selected branch campus.`,
+            programId: program.id,
+            programName: program.name,
+            programType: program.programType,
           }
         }
       }
@@ -164,7 +215,11 @@ export class ConfigurationService {
         ageMonths,
         minMonths: min,
         maxMonths: max,
+        code: 'AGE_BELOW_MINIMUM',
         reason: `Child is ${ageMonths} months old; minimum required for ${program.name} is ${min} months.`,
+        programId: program.id,
+        programName: program.name,
+        programType: program.programType,
       }
     }
 
@@ -174,11 +229,24 @@ export class ConfigurationService {
         ageMonths,
         minMonths: min,
         maxMonths: max,
+        code: 'AGE_ABOVE_MAXIMUM',
         reason: `Child is ${ageMonths} months old; maximum permitted for ${program.name} is ${max} months.`,
+        programId: program.id,
+        programName: program.name,
+        programType: program.programType,
       }
     }
 
-    return { eligible: true, ageMonths, minMonths: min, maxMonths: max }
+    return {
+      eligible: true,
+      ageMonths,
+      minMonths: min,
+      maxMonths: max,
+      code: 'ELIGIBLE',
+      programId: program.id,
+      programName: program.name,
+      programType: program.programType,
+    }
   }
 
   /** Get all academic sessions for the tenant */

@@ -49,7 +49,7 @@ async function _POST(
 
   try {
     const body = await req.json()
-    const { type, note, dueAt, outcome, branchId, academicYearId } = body
+    const { type, note, dueAt, outcome, branchId, academicYearId, followUpId, lostReason } = body
 
     if (!note?.trim()) {
       return Errors.validation('Note is required')
@@ -70,7 +70,9 @@ async function _POST(
         note: note.trim(),
         dueAt,
         outcome,
-      }
+        followUpId,
+        lostReason,
+      } as any
     )
 
     return ok(fu, undefined, 201)

@@ -1,7 +1,18 @@
 import React from 'react'
 
 export type TypographyRole =
+  // Canonical PreOne Hierarchy Roles (§3)
+  | 'type-display'
   | 'display'
+  | 'page-title'
+  | 'section-title'
+  | 'card-title'
+  | 'body-copy'
+  | 'body-copy-sm'
+  | 'field-label'
+  | 'meta-copy'
+  | 'data-copy'
+  // Backward Compatible Aliases
   | 'h1'
   | 'h2'
   | 'h3'
@@ -23,34 +34,68 @@ export interface TypographyProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 const DEFAULT_TAG_MAP: Record<TypographyRole, React.ElementType> = {
+  'type-display': 'h1',
   display: 'h1',
+  'page-title': 'h1',
   h1: 'h1',
+  'section-title': 'h2',
   h2: 'h2',
+  'card-title': 'h3',
   h3: 'h3',
   h4: 'h4',
   'body-lg': 'p',
+  'body-copy': 'p',
   body: 'p',
+  'body-copy-sm': 'p',
   'body-sm': 'p',
   caption: 'span',
+  'meta-copy': 'span',
+  'field-label': 'span',
   label: 'span',
   btn: 'span',
   kpi: 'div',
+  'data-copy': 'span',
   data: 'span',
 }
 
+const ROLE_CLASS_MAP: Record<TypographyRole, string> = {
+  'type-display': 'type-display t-display',
+  display: 'type-display t-display',
+  'page-title': 'page-title t-h1',
+  h1: 'page-title t-h1',
+  'section-title': 'section-title t-h2',
+  h2: 'section-title t-h2',
+  'card-title': 'card-title t-h3',
+  h3: 'card-title t-h3',
+  h4: 'card-title t-h4',
+  'body-lg': 'body-copy t-body-lg',
+  'body-copy': 'body-copy t-body',
+  body: 'body-copy t-body',
+  'body-copy-sm': 'body-copy-sm t-body-sm',
+  'body-sm': 'body-copy-sm t-body-sm',
+  caption: 'meta-copy t-caption',
+  'meta-copy': 'meta-copy t-caption',
+  'field-label': 'field-label t-label',
+  label: 'field-label t-label',
+  btn: 't-btn',
+  kpi: 't-kpi',
+  'data-copy': 'data-copy t-data',
+  data: 'data-copy t-data',
+}
+
 /**
- * Canonical 12-Role Typography Component (Design System v4.1 Section 5.2)
+ * Canonical Typography Component (PreOne Global Design System)
  */
 export function Typography({
   as,
-  role = 'body',
+  role = 'body-copy',
   className = '',
   children,
   ...props
 }: TypographyProps) {
   const Component = as || DEFAULT_TAG_MAP[role] || 'span'
-  const roleClass = `t-${role}`
-  const combinedClass = [roleClass, className].filter(Boolean).join(' ')
+  const roleClasses = ROLE_CLASS_MAP[role] || `t-${role}`
+  const combinedClass = [roleClasses, className].filter(Boolean).join(' ')
 
   return (
     <Component className={combinedClass} {...props}>
@@ -59,45 +104,53 @@ export function Typography({
   )
 }
 
-export function Display({ as = 'h1', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="display" as={as} className={className} {...props}>{children}</Typography>
+// ── Canonical Semantic Component Exports ──────────────────────────────────
+export function TypeDisplay({ as = 'h1', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="type-display" as={as} className={className} {...props}>{children}</Typography>
 }
+export const Display = TypeDisplay
 
-export function H1({ as = 'h1', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="h1" as={as} className={className} {...props}>{children}</Typography>
+export function PageTitle({ as = 'h1', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="page-title" as={as} className={className} {...props}>{children}</Typography>
 }
+export const H1 = PageTitle
 
-export function H2({ as = 'h2', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="h2" as={as} className={className} {...props}>{children}</Typography>
+export function SectionTitle({ as = 'h2', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="section-title" as={as} className={className} {...props}>{children}</Typography>
 }
+export const H2 = SectionTitle
 
-export function H3({ as = 'h3', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="h3" as={as} className={className} {...props}>{children}</Typography>
+export function CardTitle({ as = 'h3', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="card-title" as={as} className={className} {...props}>{children}</Typography>
 }
+export const H3 = CardTitle
+export const H4 = CardTitle
 
-export function H4({ as = 'h4', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="h4" as={as} className={className} {...props}>{children}</Typography>
+export function BodyCopy({ as = 'p', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="body-copy" as={as} className={className} {...props}>{children}</Typography>
 }
+export const Body = BodyCopy
+export const BodyLg = BodyCopy
 
-export function BodyLg({ as = 'p', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="body-lg" as={as} className={className} {...props}>{children}</Typography>
+export function BodyCopySm({ as = 'p', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="body-copy-sm" as={as} className={className} {...props}>{children}</Typography>
 }
+export const BodySm = BodyCopySm
 
-export function Body({ as = 'p', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="body" as={as} className={className} {...props}>{children}</Typography>
+export function FieldLabel({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="field-label" as={as} className={className} {...props}>{children}</Typography>
 }
+export const LabelText = FieldLabel
 
-export function BodySm({ as = 'p', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="body-sm" as={as} className={className} {...props}>{children}</Typography>
+export function MetaCopy({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="meta-copy" as={as} className={className} {...props}>{children}</Typography>
 }
+export const Caption = MetaCopy
 
-export function Caption({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="caption" as={as} className={className} {...props}>{children}</Typography>
+export function DataCopy({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
+  return <Typography role="data-copy" as={as} className={className} {...props}>{children}</Typography>
 }
-
-export function LabelText({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="label" as={as} className={className} {...props}>{children}</Typography>
-}
+export const DataText = DataCopy
 
 export function BtnText({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
   return <Typography role="btn" as={as} className={className} {...props}>{children}</Typography>
@@ -105,8 +158,4 @@ export function BtnText({ as = 'span', className = '', children, ...props }: Omi
 
 export function KPI({ as = 'div', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
   return <Typography role="kpi" as={as} className={className} {...props}>{children}</Typography>
-}
-
-export function DataText({ as = 'span', className = '', children, ...props }: Omit<TypographyProps, 'role'>) {
-  return <Typography role="data" as={as} className={className} {...props}>{children}</Typography>
 }

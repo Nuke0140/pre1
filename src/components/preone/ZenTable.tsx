@@ -385,7 +385,7 @@ export function ZenTableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={`zen-thead bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 ${className}`.trim()}
+      className={`zen-thead bg-slate-50/70 dark:bg-slate-800/50 border-b border-border/60 dark:border-border/40 ${className}`.trim()}
       {...rest}
     >
       {children}
@@ -411,7 +411,7 @@ export function ZenTableHeadCell({
       } ${className}`.trim()}
       style={{
         fontFamily: 'var(--font-heading), Poppins, sans-serif',
-        fontSize: '11.5px',
+        fontSize: '12px',
         fontWeight: 600,
         letterSpacing: '0.04em',
         textTransform: 'uppercase',
@@ -438,7 +438,7 @@ export function ZenTableRow({
 }: ZenTableRowProps) {
   return (
     <tr
-      className={`zen-tr group transition-[background-color,box-shadow] duration-140 ease-out border-b border-slate-100 dark:border-slate-800/60 last:border-b-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+      className={`zen-tr group transition-[background-color,box-shadow] duration-140 ease-out border-b border-border/40 dark:border-border/40 last:border-b-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
         selected ? 'bg-primary/5 dark:bg-primary/10 shadow-[inset_3px_0_0_var(--primary)]' : ''
       } ${clickable ? 'cursor-pointer' : ''} ${className}`.trim()}
       style={{ minHeight: '56px' }}
@@ -462,10 +462,11 @@ export function ZenTableCell({
 }: ZenTableCellProps) {
   return (
     <td
-      className={`zen-td px-4 py-3.5 align-middle text-slate-700 dark:text-slate-200 text-[13.5px] first:rounded-l-lg last:rounded-r-lg ${
+      className={`zen-td data-copy px-4 py-3.5 align-middle text-slate-700 dark:text-slate-200 text-[13.5px] first:rounded-l-lg last:rounded-r-lg ${
         align === 'right' ? 'text-right tabular-nums' : align === 'center' ? 'text-center' : 'text-left'
       } ${className}`.trim()}
       style={{
+        fontFamily: 'var(--font-body), Nunito, sans-serif',
         minHeight: '56px',
         ...style,
       }}

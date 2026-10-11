@@ -685,9 +685,9 @@ export class LeadService {
     // Validate canonical transition rules
     const allowedTransitions: Record<LeadStatus, LeadStatus[]> = {
       NEW: ['CONTACTED', 'QUALIFIED', 'NURTURE', 'LOST', 'DUPLICATE'],
-      CONTACTED: ['QUALIFIED', 'NURTURE', 'APPLICATION_STARTED', 'LOST', 'DUPLICATE'],
-      QUALIFIED: ['APPLICATION_STARTED', 'NURTURE', 'LOST', 'DUPLICATE'],
-      NURTURE: ['CONTACTED', 'QUALIFIED', 'APPLICATION_STARTED', 'LOST', 'DUPLICATE'],
+      CONTACTED: ['QUALIFIED', 'NURTURE', 'APPLICATION_STARTED', 'CONVERTED', 'LOST', 'DUPLICATE'],
+      QUALIFIED: ['APPLICATION_STARTED', 'CONVERTED', 'NURTURE', 'LOST', 'DUPLICATE'],
+      NURTURE: ['CONTACTED', 'QUALIFIED', 'APPLICATION_STARTED', 'CONVERTED', 'LOST', 'DUPLICATE'],
       APPLICATION_STARTED: ['CONVERTED', 'LOST', 'DUPLICATE'],
       CONVERTED: [],
       LOST: ['NURTURE', 'CONTACTED', 'QUALIFIED'],
@@ -753,6 +753,20 @@ export class LeadService {
       },
     })
 
+    // Automatically close any open follow-ups for this lead so active queues stay clean
+    await db.followUp.updateMany({
+      where: {
+        tenantId: scope.tenantId,
+        sourceId: id,
+        status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+      },
+      data: {
+        status: 'CLOSED',
+        closedAt: new Date(),
+        outcome: `Lost: ${lostReason}${lostNotes ? ` - ${lostNotes}` : ''}`,
+      },
+    })
+
     await audit({
       tenantId: scope.tenantId,
       branchId: scope.branchId,
@@ -815,6 +829,10 @@ export class LeadService {
   }
 
   /**
+   * Assign staff member & schedule initial follow-up for an Enquiry.
+   * Advances Lead from NEW to CONTACTED.
+   * Creates a linked FollowUp task and InAppNotification for the assigned staff member.
+  /**
    * Start Admission Application with ZERO DATA RE-ENTRY.
    * Auto-copies child name, DOB, gender, parent contact, program, branch, session.
    * Creates a linked FollowUp task assigned to staff, updates lead to APPLICATION_STARTED,
@@ -856,7 +874,6 @@ export class LeadService {
       let targetProgramType = extraData?.programType || lead.interestedProgram
       let targetProgramId = extraData?.programId || null
 
-      // If program isn't explicitly known, discover first active program configured for this branch
       if (!targetProgramType && !targetProgramId) {
         const branchProgram = await db.program.findFirst({
           where: {
@@ -943,6 +960,29 @@ export class LeadService {
       actorName: ctx.actorName,
     })
 
+    // Create In-App Notification for assigned staff
+    if (assignedStaffId) {
+      await db.inAppNotification.create({
+        data: {
+          tenantId: scope.tenantId,
+          userId: assignedStaffId,
+          title: `Application Started: ${lead.childName || lead.parentName}`,
+          body: `Application ${application.applicationNumber} initiated from enquiry ${lead.leadNumber}. Scheduled follow-up: ${followUpDate.toLocaleDateString('en-IN')}.`,
+          category: 'ADMISSION',
+          severity: 'INFO',
+          linkUrl: '/app/admissions/applications',
+          metadata: {
+            leadId: lead.id,
+            leadNumber: lead.leadNumber,
+            applicationId: application.id,
+            followUpId: fu.followUp.id,
+          },
+        },
+      }).catch((err) => {
+        console.error('Failed to create in-app notification:', err)
+      })
+    }
+
     // Update lead status to APPLICATION_STARTED, record assignment, and set next follow up
     await db.lead.update({
       where: { id },
@@ -984,6 +1024,147 @@ export class LeadService {
       followUpId: fu.followUp.id,
       assignedToId: assignedStaffId,
       assignedStaffName,
+    }
+  }
+
+  /**
+   * Explicitly convert a QUALIFIED Lead into an AdmissionApplication with ZERO DATA RE-ENTRY.
+   * Auto-copies child name, DOB, gender, parent contact, program, branch, session.
+   * Marks Lead as CONVERTED, resolves active follow-up tasks, and prevents duplicate conversions.
+   */
+  static async convertToApplication(ctx: ScopeContext, id: string, extraData?: any) {
+    const scope = await this.verifyScope(ctx)
+
+    const lead = await db.lead.findFirst({
+      where: { id, tenantId: scope.tenantId, deletedAt: null },
+    })
+    if (!lead) throw new Error('Enquiry not found')
+
+    // Idempotency: If already converted, return existing application
+    if (lead.status === 'CONVERTED' && lead.convertedApplicationId) {
+      const existingApp = await db.admissionApplication.findFirst({
+        where: { id: lead.convertedApplicationId, tenantId: scope.tenantId },
+      })
+      if (existingApp) {
+        return {
+          application: existingApp,
+          applicationId: existingApp.id,
+          applicationNumber: existingApp.applicationNumber,
+          leadId: lead.id,
+          leadNumber: lead.leadNumber,
+          isAlreadyConverted: true,
+        }
+      }
+    }
+
+    // Submit Application using AdmissionService with zero data re-entry
+    let childFirstName = 'Child'
+    let childLastName: string | null = null
+    if (lead.childName?.trim()) {
+      const parts = lead.childName.trim().split(/\s+/)
+      childFirstName = parts[0]
+      childLastName = parts.slice(1).join(' ') || null
+    } else if (lead.parentName?.trim()) {
+      childFirstName = lead.parentName.trim().split(/\s+/)[0]
+    }
+
+    const targetBranchId = lead.branchId || scope.branchId
+    let targetProgramType = extraData?.programType || lead.interestedProgram
+    let targetProgramId = extraData?.programId || null
+
+    if (!targetProgramType && !targetProgramId) {
+      const branchProgram = await db.program.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          deletedAt: null,
+          isActive: true,
+          OR: [
+            { branchMappings: { some: { branchId: targetBranchId, deletedAt: null, isActive: true } } },
+            { branchMappings: { none: {} } },
+          ],
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+      if (branchProgram) {
+        targetProgramId = branchProgram.id
+        targetProgramType = branchProgram.programType
+      }
+    }
+
+    const application = await AdmissionService.submitApplication(
+      {
+        tenantId: scope.tenantId,
+        branchId: targetBranchId,
+        academicYearId: scope.academicYearId,
+        actorId: ctx.actorId,
+        actorName: ctx.actorName,
+        actorRole: ctx.actorRole,
+      },
+      {
+        leadId: lead.id,
+        programId: targetProgramId,
+        programType: targetProgramType || 'NURSERY',
+        childFirstName,
+        childLastName,
+        childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
+        childGender: extraData?.childGender || 'UNSPECIFIED',
+        parentName: lead.parentName,
+        parentPhone: lead.phone,
+        parentEmail: lead.email,
+        notes: `Converted from Enquiry ${lead.leadNumber}`,
+        isDuplicateConfirmed: true,
+      }
+    )
+
+    // Mark Lead as CONVERTED
+    await db.lead.update({
+      where: { id },
+      data: {
+        status: 'CONVERTED',
+        convertedApplicationId: application.id,
+      },
+    })
+
+    // Resolve any open follow-up tasks for this lead
+    await db.followUp.updateMany({
+      where: {
+        tenantId: scope.tenantId,
+        sourceId: id,
+        status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+      },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+        resolvedByName: ctx.actorName || 'System',
+        outcome: `Converted to Application (${application.applicationNumber})`,
+      },
+    })
+
+    await audit({
+      tenantId: scope.tenantId,
+      branchId: scope.branchId,
+      academicSessionId: scope.academicYearId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'LEAD_CONVERTED_TO_APPLICATION',
+      entity: 'Lead',
+      entityId: id,
+      summary: `Enquiry ${lead.leadNumber} successfully converted to Application ${application.applicationNumber}`,
+      oldValues: { status: lead.status },
+      newValues: {
+        status: 'CONVERTED',
+        applicationId: application.id,
+        applicationNumber: application.applicationNumber,
+      },
+    })
+
+    return {
+      application,
+      applicationId: application.id,
+      applicationNumber: application.applicationNumber,
+      leadId: lead.id,
+      leadNumber: lead.leadNumber,
     }
   }
 

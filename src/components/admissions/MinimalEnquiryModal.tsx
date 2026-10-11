@@ -46,6 +46,55 @@ export function MinimalEnquiryModal({
   const [programsLoading, setProgramsLoading] = useState(false)
   const [programFetchError, setProgramFetchError] = useState<string | null>(null)
 
+  // Live age eligibility advisory calculation
+  const selectedProgramObj = React.useMemo(() => {
+    if (!interestedProgram || !branchPrograms.length) return null
+    return (
+      branchPrograms.find(
+        (p) =>
+          p.id === interestedProgram ||
+          (p.programType || p.code) === interestedProgram ||
+          p.programType === interestedProgram.toUpperCase()
+      ) || null
+    )
+  }, [interestedProgram, branchPrograms])
+
+  const ageAdvisory = React.useMemo(() => {
+    if (!childDob || !selectedProgramObj) return null
+    const birth = new Date(childDob)
+    if (isNaN(birth.getTime())) return null
+    const now = new Date()
+    let y = now.getFullYear() - birth.getFullYear()
+    let m = now.getMonth() - birth.getMonth()
+    let d = now.getDate() - birth.getDate()
+    let age = y * 12 + m
+    if (d < 0) age -= 1
+    age = Math.max(0, age)
+
+    const min = selectedProgramObj.ageMinMonths
+    const max = selectedProgramObj.ageMaxMonths
+
+    if (min != null && age < min) {
+      return {
+        type: 'warning' as const,
+        message: `Age Advisory: Child is ${age} months old (Minimum recommended for ${selectedProgramObj.name} is ${min} months). Enquiries can still be submitted.`,
+      }
+    }
+    if (max != null && age > max) {
+      return {
+        type: 'warning' as const,
+        message: `Age Advisory: Child is ${age} months old (Maximum recommended for ${selectedProgramObj.name} is ${max} months). Enquiries can still be submitted.`,
+      }
+    }
+    if (min != null || max != null) {
+      return {
+        type: 'success' as const,
+        message: `Age Eligible: Child is ${age} months old (Matches ${selectedProgramObj.name} criteria).`,
+      }
+    }
+    return null
+  }, [childDob, selectedProgramObj])
+
   // Track if modal was already opened to only initialize defaults on first open
   const prevOpenRef = React.useRef(false)
 
@@ -153,7 +202,7 @@ export function MinimalEnquiryModal({
 
         toast.success(
           'Enquiry Registered! 🎉',
-          `Reference #${json.data.leadNumber || json.data.id?.slice(0, 8)} recorded.`
+          `Reference #${json.data.leadNumber} recorded.`
         )
         // Reset form
         setParentName('')
@@ -364,10 +413,22 @@ export function MinimalEnquiryModal({
                 </option>
                 {branchPrograms.map((p) => (
                   <option key={p.id} value={p.programType || p.code}>
-                    {p.name}
+                    {p.name} {p.ageMinMonths != null || p.ageMaxMonths != null ? `(${p.ageMinMonths ?? 0}–${p.ageMaxMonths ?? '∞'} mo)` : ''}
                   </option>
                 ))}
               </select>
+              {ageAdvisory && (
+                <div
+                  className={`p-2 rounded-lg text-[11px] flex items-center gap-1.5 mt-1.5 ${
+                    ageAdvisory.type === 'warning'
+                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400'
+                      : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                  }`}
+                >
+                  {ageAdvisory.type === 'warning' ? <AlertTriangle size={13} className="shrink-0" /> : <Check size={13} className="shrink-0" />}
+                  <span>{ageAdvisory.message}</span>
+                </div>
+              )}
               {programFetchError && (
                 <p className="text-[11px] text-destructive font-medium">{programFetchError}</p>
               )}

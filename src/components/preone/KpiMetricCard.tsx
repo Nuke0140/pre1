@@ -75,7 +75,7 @@ export function KpiMetricCard({
   if (loading) {
     return (
       <div
-        className={`rounded-2xl border border-slate-200/80 bg-white/96 p-4 sm:p-5 shadow-xs dark:border-slate-800/80 dark:bg-slate-900/96 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] ${className}`}
+        className={`rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 shadow-xs dark:border-border/40 dark:bg-slate-900/96 ${className}`}
         style={style}
       >
         <div className="flex items-center justify-between gap-3">
@@ -95,13 +95,13 @@ export function KpiMetricCard({
         className={`rounded-2xl border border-rose-200/80 bg-rose-50/50 p-4 sm:p-5 shadow-xs dark:border-rose-900/50 dark:bg-rose-950/20 ${className}`}
         style={style}
       >
-        <div className="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+        <div className="font-heading text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
           {label}
         </div>
         <div className="mt-1 text-sm font-semibold text-rose-900 dark:text-rose-200">
           Data Unavailable
         </div>
-        <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+        <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400 font-sans">
           {error}
         </p>
       </div>
@@ -114,9 +114,9 @@ export function KpiMetricCard({
 
   return (
     <div
-      className={`group relative rounded-2xl border border-slate-200/80 bg-white/96 p-4 sm:p-5 shadow-xs transition-all duration-200 dark:border-slate-800/80 dark:bg-slate-900/96 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] ${
+      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 shadow-xs transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
         isInteractive
-          ? 'cursor-pointer hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
+          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
           : ''
       } ${
         active
@@ -141,7 +141,7 @@ export function KpiMetricCard({
     >
       {/* Top Row: Metric Label & Optional Icon */}
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
+        <span className="font-heading text-[11.5px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
           {label}
         </span>
         {icon && (
@@ -156,11 +156,11 @@ export function KpiMetricCard({
 
       {/* Primary Value Row: Tabular Numeral */}
       <div className="mt-1 flex items-baseline gap-1.5">
-        <span className="font-mono text-2xl font-black tracking-tight tabular-nums text-slate-900 dark:text-white">
+        <span className="font-mono text-2xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white">
           {displayValue}
         </span>
         {unit && (
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <span className="font-sans text-xs font-semibold text-slate-500 dark:text-slate-400">
             {unit}
           </span>
         )}

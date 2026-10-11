@@ -1960,6 +1960,25 @@ function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; on
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true)
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+
+    const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
+    const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
+    if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
+      toast.error('Validation error', 'Min age cannot be negative')
+      setBusy(false)
+      return
+    }
+    if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
+      toast.error('Validation error', 'Max age cannot be negative')
+      setBusy(false)
+      return
+    }
+    if (minAge !== null && maxAge !== null && minAge > maxAge) {
+      toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
+      setBusy(false)
+      return
+    }
+
     const j = await api('/api/v1/programs', 'POST', fd)
     if (j.success) {
       // Map program to selected campuses
@@ -2409,12 +2428,29 @@ function EditProgramModal({ item, onClose, onDone, api, toast }: { item: Dict; o
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true); setImpactWarning(null)
-    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
+    const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
+    const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
+    if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
+      toast.error('Validation error', 'Min age cannot be negative')
+      setBusy(false)
+      return
+    }
+    if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
+      toast.error('Validation error', 'Max age cannot be negative')
+      setBusy(false)
+      return
+    }
+    if (minAge !== null && maxAge !== null && minAge > maxAge) {
+      toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
+      setBusy(false)
+      return
+    }
+
     const payload = {
       name: fd.name,
       description: fd.description || null,
-      ageMinMonths: fd.ageMinMonths ? Number(fd.ageMinMonths) : null,
-      ageMaxMonths: fd.ageMaxMonths ? Number(fd.ageMaxMonths) : null,
+      ageMinMonths: minAge,
+      ageMaxMonths: maxAge,
       capacity: Number(fd.capacity || 20),
       isActive: fd.isActive === 'on',
     }
