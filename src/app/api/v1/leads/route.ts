@@ -156,16 +156,23 @@ async function _POST(req: NextRequest) {
     // Program mapping validation against target branch if program is provided
     let validatedProgramType: ProgramType | null = null
     if (interestedProgram) {
+      const validPrograms: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
+      const normalizedProgram = String(interestedProgram).toUpperCase()
+      const orConditions: any[] = [
+        { id: interestedProgram },
+        { code: normalizedProgram },
+        { name: { equals: interestedProgram, mode: 'insensitive' } },
+      ]
+      if (validPrograms.includes(normalizedProgram as ProgramType)) {
+        orConditions.push({ programType: normalizedProgram as ProgramType })
+      }
+
       const prog = await db.program.findFirst({
         where: {
           tenantId: session.tenantId,
           deletedAt: null,
           isActive: true,
-          OR: [
-            { id: interestedProgram },
-            { code: String(interestedProgram).toUpperCase() },
-            { programType: String(interestedProgram).toUpperCase() as ProgramType },
-          ],
+          OR: orConditions,
         },
         include: {
           branchMappings: {

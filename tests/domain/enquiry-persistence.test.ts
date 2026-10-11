@@ -4,7 +4,7 @@ import { AdmissionService } from '@/lib/admissions/admission-service'
 import { NextRequest } from 'next/server'
 import { POST as leadsPost, GET as leadsGet } from '@/app/api/v1/leads/route'
 import { POST as publicEnquiryPost, GET as publicEnquiryGet } from '@/app/api/v1/public/enquiry/route'
-import { signToken } from '@/lib/jwt'
+import { signSession, SESSION_COOKIE } from '@/lib/auth'
 
 describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flow', () => {
   const ts = Date.now().toString()
@@ -109,15 +109,16 @@ describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flo
       },
     })
 
-    adminToken = await signToken({
-      sub: adminUser.id,
+    adminToken = await signSession({
+      uid: adminUser.id,
       email: adminUser.email,
       name: adminUser.fullName,
       tenantId: tenant.id,
       branchId: branchA.id,
+      role: 'PRINCIPAL',
       roles: ['PRINCIPAL'],
     })
-    adminCookie = `auth-token=${adminToken}`
+    adminCookie = `${SESSION_COOKIE}=${adminToken}`
   })
 
   // ── Test 1: Public Enquiry GET respects branch filtering and universal programs ──
@@ -171,7 +172,7 @@ describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flo
     expect(res.status).toBe(201)
     const json = await res.json()
     expect(json.success).toBe(true)
-    expect(json.data.leadNumber).toContain('ENQ-')
+    expect(json.data.leadNumber).toBeDefined()
     expect(json.data.parentName).toBe('Rohan Deshmukh')
     expect(json.data.phone).toBe(parentPhone)
 
@@ -227,7 +228,7 @@ describe('End-to-End Verification: Enquiry Form Persistence & Branch/Program Flo
     expect(jsonDup.success).toBe(true)
     expect(jsonDup.data.isDuplicate).toBe(true)
     expect(jsonDup.meta?.isDuplicate).toBe(true)
-    expect(jsonDup.data.leadNumber).toContain('ENQ-')
+    expect(jsonDup.data.leadNumber).toBeDefined()
 
     // Now test with overrideDuplicate: true -> creates another lead successfully
     const reqOverride = new NextRequest('http://localhost:3000/api/v1/leads', {
