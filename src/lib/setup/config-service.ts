@@ -52,7 +52,8 @@ export class ConfigurationService {
   static async validateProgramAge(
     tenantId: string,
     programTypeOrId: string,
-    dob: Date | string
+    dob: Date | string,
+    branchId?: string
   ) {
     const birthDate = new Date(dob)
     if (isNaN(birthDate.getTime())) {
@@ -72,13 +73,60 @@ export class ConfigurationService {
       orConditions.push({ programType: programTypeOrId.toUpperCase() as ProgramType })
     }
 
-    const program = await db.program.findFirst({
-      where: {
-        tenantId,
-        deletedAt: null,
-        OR: orConditions,
-      },
-    })
+    let program: any = null
+    const hasBranch = branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all'
+
+    if (hasBranch) {
+      // 1. First attempt: program with active branch mapping for the requested branch
+      program = await db.program.findFirst({
+        where: {
+          tenantId,
+          deletedAt: null,
+          OR: orConditions,
+          branchMappings: {
+            some: { branchId, deletedAt: null, isActive: true },
+          },
+        },
+        include: {
+          branchMappings: {
+            where: { deletedAt: null },
+          },
+        },
+      })
+
+      // 2. Second attempt: universal program (no branch-specific mappings assigned)
+      if (!program) {
+        program = await db.program.findFirst({
+          where: {
+            tenantId,
+            deletedAt: null,
+            OR: orConditions,
+            branchMappings: { none: {} },
+          },
+          include: {
+            branchMappings: {
+              where: { deletedAt: null },
+            },
+          },
+        })
+      }
+    }
+
+    // 3. Fallback or no branch specified: query tenant-wide
+    if (!program) {
+      program = await db.program.findFirst({
+        where: {
+          tenantId,
+          deletedAt: null,
+          OR: orConditions,
+        },
+        include: {
+          branchMappings: {
+            where: { deletedAt: null },
+          },
+        },
+      })
+    }
 
     if (!program) {
       return {
@@ -87,6 +135,23 @@ export class ConfigurationService {
         minMonths: null,
         maxMonths: null,
         reason: `Program "${programTypeOrId}" is not configured for this school. Configure programs in Setup first.`,
+      }
+    }
+
+    // If branch was specified, verify branch eligibility
+    if (hasBranch) {
+      const mappings = program.branchMappings || []
+      if (mappings.length > 0) {
+        const isMapped = mappings.some((m) => m.branchId === branchId && m.isActive)
+        if (!isMapped) {
+          return {
+            eligible: false,
+            ageMonths,
+            minMonths: program.ageMinMonths,
+            maxMonths: program.ageMaxMonths,
+            reason: `Program "${program.name}" is not offered at the selected branch campus.`,
+          }
+        }
       }
     }
 

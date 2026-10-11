@@ -56,14 +56,11 @@ export default function EnquiriesPage() {
     enquiry: null,
   })
 
-  // Load masters on mount
+  // Load branches on mount
   useEffect(() => {
-    async function loadMasters() {
+    async function loadBranches() {
       try {
-        const [brRes, progRes] = await Promise.all([
-          fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-          fetch('/api/v1/programs').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-        ])
+        const brRes = await fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] }))
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
           // For multi-branch owners, default to All Branches for holistic visibility
@@ -74,15 +71,38 @@ export default function EnquiriesPage() {
             setSelectedBranchId(main.id)
           }
         }
-        if (progRes.success && progRes.data) {
-          setPrograms(progRes.data)
-        }
       } catch (e) {
-        console.error('Failed to load branches & programs:', e)
+        console.error('Failed to load branches:', e)
       }
     }
-    loadMasters()
+    loadBranches()
   }, [])
+
+  // Dynamically update programs when branch filter changes
+  useEffect(() => {
+    let active = true
+    const branchParam = selectedBranchId && selectedBranchId !== '__ALL_BRANCHES__'
+      ? `?branchId=${encodeURIComponent(selectedBranchId)}`
+      : ''
+    fetch(`/api/v1/programs${branchParam}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!active) return
+        if (res.success && Array.isArray(res.data)) {
+          setPrograms(res.data)
+          // Invalidate selected filterProgram if it doesn't exist in the new branch's programs
+          setFilterProgram((prev) => {
+            if (!prev) return ''
+            const exists = res.data.some((p: any) => (p.programType || p.code) === prev || p.id === prev)
+            return exists ? prev : ''
+          })
+        }
+      })
+      .catch((e) => console.error('Failed to load programs for branch:', e))
+    return () => {
+      active = false
+    }
+  }, [selectedBranchId])
 
   // Load enquiries
   const loadEnquiries = useCallback(async () => {

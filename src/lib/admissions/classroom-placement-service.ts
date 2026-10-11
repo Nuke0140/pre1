@@ -265,7 +265,7 @@ export class ClassroomPlacementService {
       const hasRejectedDocs = app.documents.some((d) => d.status === 'REJECTED')
       const hasVerifiedDocs = verifiedDocs.length === app.documents.length && !hasRejectedDocs
 
-      const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programType, app.childDob)
+      const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programId || app.programType, app.childDob, app.branchId || scope.branchId)
 
       const latestOffer = app.offers[0]
       const isOfferAccepted = latestOffer ? latestOffer.status === 'ACCEPTED' : app.status === 'APPROVED'

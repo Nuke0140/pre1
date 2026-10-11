@@ -41,6 +41,11 @@ export function MinimalEnquiryModal({
   // Pre-flight duplicate prompt state
   const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null)
 
+  // Branch-dependent dynamic programs state
+  const [branchPrograms, setBranchPrograms] = useState<any[]>(programs || [])
+  const [programsLoading, setProgramsLoading] = useState(false)
+  const [programFetchError, setProgramFetchError] = useState<string | null>(null)
+
   useEffect(() => {
     if (defaultBranchId && defaultBranchId !== '__ALL_BRANCHES__' && !branchId) {
       setBranchId(defaultBranchId)
@@ -51,8 +56,57 @@ export function MinimalEnquiryModal({
   useEffect(() => {
     if (open) {
       setDuplicateWarning(null)
+      const initBranch = defaultBranchId === '__ALL_BRANCHES__' ? (branches[0]?.id || '') : (defaultBranchId || branches[0]?.id || '')
+      setBranchId(initBranch)
     }
-  }, [open])
+  }, [open, defaultBranchId, branches])
+
+  // Dynamic branch-dependent program fetching with race condition prevention
+  useEffect(() => {
+    if (!open) return
+    if (!branchId || branchId === '__ALL_BRANCHES__' || branchId === 'all') {
+      setBranchPrograms([])
+      setInterestedProgram('')
+      setProgramFetchError(null)
+      return
+    }
+
+    let active = true
+    setProgramsLoading(true)
+    setProgramFetchError(null)
+
+    fetch(`/api/v1/programs?branchId=${encodeURIComponent(branchId)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return
+        setProgramsLoading(false)
+        if (json.success && Array.isArray(json.data)) {
+          setBranchPrograms(json.data)
+          // Keep selection only if it exists in the newly fetched branch programs
+          setInterestedProgram((prev) => {
+            const stillValid = json.data.some(
+              (p: any) => (p.programType || p.code) === prev || p.id === prev
+            )
+            return stillValid ? prev : ''
+          })
+        } else {
+          setBranchPrograms([])
+          setInterestedProgram('')
+          setProgramFetchError(json.error?.message || 'Failed to load programs for this campus.')
+        }
+      })
+      .catch(() => {
+        if (!active) return
+        setProgramsLoading(false)
+        setBranchPrograms([])
+        setInterestedProgram('')
+        setProgramFetchError('Unable to load programs for this campus. Please try again.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [open, branchId])
 
   const handleSubmit = async (e: React.FormEvent, overrideDuplicate: boolean = false) => {
     e.preventDefault()
@@ -280,21 +334,43 @@ export function MinimalEnquiryModal({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Interested Program <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-foreground">
+                  Interested Program <span className="text-[10px] text-muted-foreground font-normal">(Optional)</span>
+                </label>
+                {programsLoading && (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">Loading programs...</span>
+                )}
+              </div>
               <select
                 value={interestedProgram}
                 onChange={(e) => setInterestedProgram(e.target.value)}
-                className="input text-xs w-full h-8.5 rounded-xl bg-card"
+                disabled={programsLoading || !branchId || branchPrograms.length === 0}
+                className="input text-xs w-full h-8.5 rounded-xl bg-card disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <option value="">Select Program...</option>
-                {programs.map((p) => (
+                <option value="">
+                  {!branchId
+                    ? 'Select a branch first...'
+                    : programsLoading
+                    ? 'Loading campus programs...'
+                    : branchPrograms.length === 0
+                    ? 'No programs available for this campus'
+                    : 'Select Program...'}
+                </option>
+                {branchPrograms.map((p) => (
                   <option key={p.id} value={p.programType || p.code}>
                     {p.name}
                   </option>
                 ))}
               </select>
+              {programFetchError && (
+                <p className="text-[11px] text-destructive font-medium">{programFetchError}</p>
+              )}
+              {!programsLoading && branchId && branchPrograms.length === 0 && !programFetchError && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  No programs configured for this campus. Configure in Setup.
+                </p>
+              )}
             </div>
           </div>
 

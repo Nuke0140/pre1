@@ -56,9 +56,21 @@ export async function GET(req: NextRequest) {
       orderBy: [{ isMain: 'desc' }, { name: 'asc' }],
     })
 
-    // Load available programs
+    // Load available programs (respecting branch filtering if branchId is supplied)
     const programs = await db.program.findMany({
-      where: { tenantId: tenant.id, isActive: true, deletedAt: null },
+      where: {
+        tenantId: tenant.id,
+        isActive: true,
+        deletedAt: null,
+        ...(branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all'
+          ? {
+              OR: [
+                { branchMappings: { some: { branchId, deletedAt: null, isActive: true } } },
+                { branchMappings: { none: {} } }, // Programs with no specific branch mappings are offered universally across branches
+              ],
+            }
+          : {}),
+      },
       select: { id: true, code: true, name: true, programType: true },
       orderBy: { name: 'asc' },
     })
@@ -175,13 +187,60 @@ export async function POST(req: NextRequest) {
       targetBranchId = mainBranch?.id || null
     }
 
-    // 4. Validate program if specified
+    // 4. Validate program against target branch if specified
     let validatedProgram: ProgramType | null = null
     if (interestedProgram) {
       const validPrograms: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
+      let progCandidate: any = null
+
       if (validPrograms.includes(interestedProgram as ProgramType)) {
-        validatedProgram = interestedProgram as ProgramType
+        progCandidate = await db.program.findFirst({
+          where: {
+            tenantId: targetTenantId,
+            programType: interestedProgram as ProgramType,
+            deletedAt: null,
+            isActive: true,
+          },
+          include: {
+            branchMappings: {
+              where: targetBranchId ? { branchId: targetBranchId, deletedAt: null, isActive: true } : { deletedAt: null, isActive: true },
+            },
+          },
+        })
+      } else {
+        progCandidate = await db.program.findFirst({
+          where: {
+            tenantId: targetTenantId,
+            deletedAt: null,
+            isActive: true,
+            OR: [
+              { id: interestedProgram },
+              { code: String(interestedProgram).toUpperCase() },
+            ],
+          },
+          include: {
+            branchMappings: {
+              where: targetBranchId ? { branchId: targetBranchId, deletedAt: null, isActive: true } : { deletedAt: null, isActive: true },
+            },
+          },
+        })
       }
+
+      if (!progCandidate) {
+        return Errors.validation([{ field: 'interestedProgram', message: `Selected program is not configured for this school.` }])
+      }
+
+      // Check branch association if targetBranchId is resolved
+      if (targetBranchId && progCandidate.branchMappings.length === 0) {
+        const totalBranchMappings = await db.programBranch.count({
+          where: { programId: progCandidate.id, tenantId: targetTenantId, deletedAt: null, isActive: true },
+        })
+        if (totalBranchMappings > 0) {
+          return Errors.validation([{ field: 'interestedProgram', message: `Program ${progCandidate.name} is not offered at the selected campus.` }])
+        }
+      }
+
+      validatedProgram = progCandidate.programType
     }
 
     // 5. Duplicate protection check (10-digit normalized phone match within tenant)

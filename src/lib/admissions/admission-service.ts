@@ -60,6 +60,7 @@ export interface CreateEnquiryInput {
 
 export interface CreateApplicationInput {
   leadId?: string | null
+  programId?: string | null
   programType: ProgramType | string
   childFirstName?: string
   childLastName?: string | null
@@ -216,7 +217,8 @@ export class AdmissionService {
       const ageCheck = await ConfigurationService.validateProgramAge(
         scope.tenantId,
         String(input.interestedProgram),
-        input.childDob
+        input.childDob,
+        scope.branchId
       )
       if (!ageCheck.eligible) {
         // We log warning in notes but allow enquiry capture with flag
@@ -607,26 +609,86 @@ export class AdmissionService {
       throw err
     }
 
-    const validProgramType = (['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE'] as ProgramType[]).includes(
-      input.programType as ProgramType
-    )
-      ? (input.programType as ProgramType)
-      : 'NURSERY'
+    // Authoritatively resolve Program record matching branch scope
+    let programRecord: any = null
+    if (input.programId) {
+      programRecord = await db.program.findFirst({
+        where: {
+          id: input.programId,
+          tenantId: scope.tenantId,
+          deletedAt: null,
+          isActive: true,
+          OR: [
+            { branchMappings: { some: { branchId: scope.branchId, deletedAt: null, isActive: true } } },
+            { branchMappings: { none: {} } },
+          ],
+        },
+      })
+    }
 
-    // Age validation using authoritative ConfigurationService
+    if (!programRecord && input.programType) {
+      const typeStr = String(input.programType).toUpperCase()
+      const isKnownType = (['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE'] as const).includes(typeStr as any)
+      programRecord = await db.program.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          deletedAt: null,
+          isActive: true,
+          OR: [
+            { id: input.programType },
+            { code: typeStr },
+            ...(isKnownType ? [{ programType: typeStr as ProgramType }] : []),
+          ],
+          AND: [
+            {
+              OR: [
+                { branchMappings: { some: { branchId: scope.branchId, deletedAt: null, isActive: true } } },
+                { branchMappings: { none: {} } },
+              ],
+            },
+          ],
+        },
+      })
+    }
+
+    // If still not resolved, query tenant program to see if it exists but is unmapped or unconfigured
+    if (!programRecord && input.programType) {
+      const typeStr = String(input.programType).toUpperCase()
+      const isKnownType = (['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE'] as const).includes(typeStr as any)
+      const tenantProg = await db.program.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          deletedAt: null,
+          OR: [
+            { id: input.programType },
+            { code: typeStr },
+            ...(isKnownType ? [{ programType: typeStr as ProgramType }] : []),
+          ],
+        },
+      })
+      if (tenantProg) {
+        throw new Error(`Program "${tenantProg.name}" is not offered at the selected branch campus.`)
+      } else {
+        throw new Error(`Program "${input.programType}" is not configured for this school. Configure programs in Setup first.`)
+      }
+    }
+
+    if (!programRecord) {
+      throw new Error('Please select a valid program offered at this branch campus.')
+    }
+
+    const validProgramType = programRecord.programType
+
+    // Age validation using authoritative ConfigurationService with branch awareness
     const ageCheck = await ConfigurationService.validateProgramAge(
       scope.tenantId,
-      validProgramType,
-      input.childDob
+      programRecord.id,
+      input.childDob,
+      scope.branchId
     )
     if (!ageCheck.eligible) {
       throw new Error(ageCheck.reason || 'Child does not satisfy age eligibility for this program')
     }
-
-    // Find configured Program record from Setup if available
-    const programRecord = await db.program.findFirst({
-      where: { tenantId: scope.tenantId, programType: validProgramType, deletedAt: null, isActive: true },
-    })
 
     // Find or create Guardian by phone to avoid duplicates
     let guardian = await db.guardian.findFirst({
@@ -945,8 +1007,9 @@ export class AdmissionService {
     // 1. Age check
     const ageCheck = await ConfigurationService.validateProgramAge(
       scope.tenantId,
-      app.programType,
-      app.childDob
+      app.programId || app.programType,
+      app.childDob,
+      app.branchId || scope.branchId
     )
 
     // 2. Document checklist check
@@ -1116,7 +1179,7 @@ export class AdmissionService {
     }
 
     // Age validation
-    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programType, app.childDob)
+    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programId || app.programType, app.childDob, app.branchId || scope.branchId)
     if (!ageCheck.eligible) {
       throw new Error(`Cannot approve application: ${ageCheck.reason}`)
     }
@@ -1607,7 +1670,7 @@ export class AdmissionService {
     }
 
     // Gate: Age validation
-    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programType, app.childDob)
+    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programId || app.programType, app.childDob, app.branchId || scope.branchId)
     if (!ageCheck.eligible) {
       throw new Error(`Age check failed: ${ageCheck.reason}`)
     }
@@ -1831,7 +1894,7 @@ export class AdmissionService {
     }
 
     // Age validation gate
-    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programType, app.childDob)
+    const ageCheck = await ConfigurationService.validateProgramAge(scope.tenantId, app.programId || app.programType, app.childDob, app.branchId || scope.branchId)
     if (!ageCheck.eligible) {
       throw new Error(`Cannot enroll application: ${ageCheck.reason}`)
     }

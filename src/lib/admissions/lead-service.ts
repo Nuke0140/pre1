@@ -260,7 +260,8 @@ export class AgeEligibilityService {
   static async checkAge(
     tenantId: string,
     programTypeOrId: string,
-    dob: Date | string
+    dob: Date | string,
+    branchId?: string
   ): Promise<AgeEligibilityResult> {
     const birthDate = new Date(dob)
     if (isNaN(birthDate.getTime())) {
@@ -274,7 +275,7 @@ export class AgeEligibilityService {
       }
     }
 
-    const ageCheck = await ConfigurationService.validateProgramAge(tenantId, programTypeOrId, dob)
+    const ageCheck = await ConfigurationService.validateProgramAge(tenantId, programTypeOrId, dob, branchId)
     return {
       ageInMonths: ageCheck.ageMonths || 0,
       withinRecommendedRange: ageCheck.eligible,
@@ -338,7 +339,8 @@ export class LeadService {
       ageAdvisoryData = await AgeEligibilityService.checkAge(
         scope.tenantId,
         String(input.interestedProgram),
-        input.childDob
+        input.childDob,
+        scope.branchId
       )
       if (ageAdvisoryData.ageAdvisory && ageAdvisoryData.message) {
         ageAdvisoryTag = `[Age Advisory: ${ageAdvisoryData.message}]`
@@ -850,10 +852,34 @@ export class LeadService {
         childFirstName = lead.parentName.trim().split(/\s+/)[0]
       }
 
+      const targetBranchId = lead.branchId || scope.branchId
+      let targetProgramType = extraData?.programType || lead.interestedProgram
+      let targetProgramId = extraData?.programId || null
+
+      // If program isn't explicitly known, discover first active program configured for this branch
+      if (!targetProgramType && !targetProgramId) {
+        const branchProgram = await db.program.findFirst({
+          where: {
+            tenantId: scope.tenantId,
+            deletedAt: null,
+            isActive: true,
+            OR: [
+              { branchMappings: { some: { branchId: targetBranchId, deletedAt: null, isActive: true } } },
+              { branchMappings: { none: {} } },
+            ],
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+        if (branchProgram) {
+          targetProgramId = branchProgram.id
+          targetProgramType = branchProgram.programType
+        }
+      }
+
       application = await AdmissionService.submitApplication(
         {
           tenantId: scope.tenantId,
-          branchId: lead.branchId || scope.branchId,
+          branchId: targetBranchId,
           academicYearId: scope.academicYearId,
           actorId: ctx.actorId,
           actorName: ctx.actorName,
@@ -861,7 +887,8 @@ export class LeadService {
         },
         {
           leadId: lead.id,
-          programType: (lead.interestedProgram || extraData?.programType || 'NURSERY') as ProgramType,
+          programId: targetProgramId,
+          programType: targetProgramType || 'NURSERY',
           childFirstName,
           childLastName,
           childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),

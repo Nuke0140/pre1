@@ -28,19 +28,17 @@ function PublicEnquiryForm() {
   const [notes, setNotes] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  const [programsLoading, setProgramsLoading] = useState(false)
+  const [programFetchError, setProgramFetchError] = useState<string | null>(null)
+
+  // 1. Fetch initial school and branch metadata on mount
   useEffect(() => {
-    // Fetch initial school and branch metadata
     const query = new URLSearchParams()
-    if (initialBranchParam && initialBranchParam !== '__ALL_BRANCHES__' && initialBranchParam !== 'all') {
-      query.set('branchId', initialBranchParam)
-    }
     if (initialSchoolCode) {
       query.set('schoolCode', initialSchoolCode)
     }
 
-    const endpoint = query.toString() ? `/api/v1/public/enquiry?${query.toString()}` : '/api/v1/public/enquiry'
-
-    fetch(endpoint)
+    fetch(`/api/v1/public/enquiry?${query.toString()}`)
       .then((r) => r.json())
       .then((json) => {
         setLoading(false)
@@ -48,7 +46,6 @@ function PublicEnquiryForm() {
           if (json.data.schoolName) setSchoolName(json.data.schoolName)
           if (json.data.branches) {
             setBranches(json.data.branches)
-            // If branch parameter is specified and matches a valid branch, keep it; otherwise default to first branch
             const matchedBranch = json.data.branches.find((b: any) => b.id === initialBranchParam)
             if (matchedBranch) {
               setBranchId(matchedBranch.id)
@@ -56,11 +53,62 @@ function PublicEnquiryForm() {
               setBranchId(json.data.branches[0].id)
             }
           }
-          if (json.data.programs) setPrograms(json.data.programs)
         }
       })
       .catch(() => setLoading(false))
   }, [initialBranchParam, initialSchoolCode])
+
+  // 2. Dynamic branch-dependent program fetching with race-condition prevention
+  useEffect(() => {
+    if (!branchId || branchId === '__ALL_BRANCHES__' || branchId === 'all') {
+      setPrograms([])
+      setInterestedProgram('')
+      setProgramFetchError(null)
+      return
+    }
+
+    let active = true
+    setProgramsLoading(true)
+    setProgramFetchError(null)
+
+    const query = new URLSearchParams({ branchId })
+    if (initialSchoolCode) {
+      query.set('schoolCode', initialSchoolCode)
+    }
+
+    fetch(`/api/v1/public/enquiry?${query.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!active) return
+        setProgramsLoading(false)
+        if (json.success && json.data?.programs) {
+          const fetchedPrograms = json.data.programs
+          setPrograms(fetchedPrograms)
+          // Keep current selection only if it exists in the newly fetched branch programs
+          setInterestedProgram((prev) => {
+            const stillValid = fetchedPrograms.some(
+              (p: any) => (p.programType || p.code) === prev || p.id === prev
+            )
+            return stillValid ? prev : ''
+          })
+        } else {
+          setPrograms([])
+          setInterestedProgram('')
+          setProgramFetchError(json.error?.message || 'Failed to load programs for this campus.')
+        }
+      })
+      .catch(() => {
+        if (!active) return
+        setProgramsLoading(false)
+        setPrograms([])
+        setInterestedProgram('')
+        setProgramFetchError('Unable to load programs for this campus. Please try again.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [branchId, initialSchoolCode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -258,21 +306,43 @@ function PublicEnquiryForm() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-foreground">
-                    Interested Program
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-foreground">
+                      Interested Program
+                    </label>
+                    {programsLoading && (
+                      <span className="text-[10px] text-muted-foreground animate-pulse">Loading programs...</span>
+                    )}
+                  </div>
                   <select
                     value={interestedProgram}
                     onChange={(e) => setInterestedProgram(e.target.value)}
-                    className="input text-xs w-full h-9 rounded-xl bg-card"
+                    disabled={programsLoading || !branchId || programs.length === 0}
+                    className="input text-xs w-full h-9 rounded-xl bg-card disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <option value="">Select Program...</option>
+                    <option value="">
+                      {!branchId
+                        ? 'Select a branch first...'
+                        : programsLoading
+                        ? 'Loading campus programs...'
+                        : programs.length === 0
+                        ? 'No programs available for this campus'
+                        : 'Select Program...'}
+                    </option>
                     {programs.map((p) => (
                       <option key={p.id} value={p.programType || p.code}>
                         {p.name}
                       </option>
                     ))}
                   </select>
+                  {programFetchError && (
+                    <p className="text-[11px] text-destructive font-medium">{programFetchError}</p>
+                  )}
+                  {!programsLoading && branchId && programs.length === 0 && !programFetchError && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                      No programs are currently configured for this campus. Please select another campus.
+                    </p>
+                  )}
                 </div>
               </div>
 
