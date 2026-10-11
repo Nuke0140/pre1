@@ -479,8 +479,12 @@ export default function EnquiriesPage() {
         branches={branches}
         defaultBranchId={selectedBranchId}
         programs={programs}
-        onSuccess={() => {
-          loadEnquiries()
+        onSuccess={(created) => {
+          if (created?.branchId && selectedBranchId !== '__ALL_BRANCHES__' && created.branchId !== selectedBranchId) {
+            setSelectedBranchId(created.branchId)
+          } else {
+            loadEnquiries()
+          }
         }}
       />
 

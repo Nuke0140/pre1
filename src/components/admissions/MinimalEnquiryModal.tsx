@@ -46,22 +46,22 @@ export function MinimalEnquiryModal({
   const [programsLoading, setProgramsLoading] = useState(false)
   const [programFetchError, setProgramFetchError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (defaultBranchId && defaultBranchId !== '__ALL_BRANCHES__' && !branchId) {
-      setBranchId(defaultBranchId)
-    }
-  }, [defaultBranchId, branchId])
+  // Track if modal was already opened to only initialize defaults on first open
+  const prevOpenRef = React.useRef(false)
 
-  // Reset when dialog opens
+  // Initialize defaults only when modal transitions from closed to open
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpenRef.current) {
       setDuplicateWarning(null)
-      const initBranch = defaultBranchId === '__ALL_BRANCHES__' ? (branches[0]?.id || '') : (defaultBranchId || branches[0]?.id || '')
+      const initBranch = defaultBranchId && defaultBranchId !== '__ALL_BRANCHES__' && defaultBranchId !== 'all'
+        ? defaultBranchId
+        : (branches[0]?.id || '')
       setBranchId(initBranch)
     }
+    prevOpenRef.current = open
   }, [open, defaultBranchId, branches])
 
-  // Dynamic branch-dependent program fetching with race condition prevention
+  // Dynamic branch-dependent program fetching with AbortController and race condition prevention
   useEffect(() => {
     if (!open) return
     if (!branchId || branchId === '__ALL_BRANCHES__' || branchId === 'all') {
@@ -71,21 +71,21 @@ export function MinimalEnquiryModal({
       return
     }
 
-    let active = true
+    const controller = new AbortController()
     setProgramsLoading(true)
     setProgramFetchError(null)
 
-    fetch(`/api/v1/programs?branchId=${encodeURIComponent(branchId)}`)
+    fetch(`/api/v1/programs?branchId=${encodeURIComponent(branchId)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((json) => {
-        if (!active) return
         setProgramsLoading(false)
         if (json.success && Array.isArray(json.data)) {
           setBranchPrograms(json.data)
           // Keep selection only if it exists in the newly fetched branch programs
           setInterestedProgram((prev) => {
+            if (!prev) return ''
             const stillValid = json.data.some(
-              (p: any) => (p.programType || p.code) === prev || p.id === prev
+              (p: any) => (p.programType || p.code) === prev || p.id === prev || p.programType === prev.toUpperCase()
             )
             return stillValid ? prev : ''
           })
@@ -95,8 +95,8 @@ export function MinimalEnquiryModal({
           setProgramFetchError(json.error?.message || 'Failed to load programs for this campus.')
         }
       })
-      .catch(() => {
-        if (!active) return
+      .catch((err) => {
+        if (err.name === 'AbortError') return
         setProgramsLoading(false)
         setBranchPrograms([])
         setInterestedProgram('')
@@ -104,7 +104,7 @@ export function MinimalEnquiryModal({
       })
 
     return () => {
-      active = false
+      controller.abort()
     }
   }, [open, branchId])
 
@@ -140,9 +140,14 @@ export function MinimalEnquiryModal({
       setBusy(false)
 
       if (json.success) {
-        if (json.data.isDuplicate) {
+        const isDuplicate = Boolean(json.data?.isDuplicate || json.meta?.isDuplicate)
+        if (isDuplicate) {
           // Duplicate detected and not overridden
-          setDuplicateWarning(json.data)
+          setDuplicateWarning({
+            ...json.data,
+            message: json.meta?.warning || json.data?.message || 'Existing enquiry record found with this phone number.',
+            enquiry: json.data?.enquiry || json.data,
+          })
           return
         }
 

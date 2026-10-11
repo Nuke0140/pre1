@@ -1,10 +1,12 @@
 import { PrismaClient } from '@prisma/client'
 
-const rawUrl =
-  process.env.PREONE_PG_URL ||
+const rawUrl = (
+  process.env.PRISMA_DATABASE_URL ||
   process.env.DATABASE_URL ||
   process.env.POSTGRES_URL ||
+  process.env.PREONE_PG_URL ||
   'postgresql://preone:preone@127.0.0.1:54329/preone'
+).trim()
 
 // Prisma Postgres: direct host (db.prisma.io) has ~5 usable connections;
 // pooled host (pooled.db.prisma.io) supports 50+. Auto-upgrade the direct

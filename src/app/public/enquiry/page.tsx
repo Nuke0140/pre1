@@ -58,7 +58,7 @@ function PublicEnquiryForm() {
       .catch(() => setLoading(false))
   }, [initialBranchParam, initialSchoolCode])
 
-  // 2. Dynamic branch-dependent program fetching with race-condition prevention
+  // 2. Dynamic branch-dependent program fetching with AbortController and race-condition prevention
   useEffect(() => {
     if (!branchId || branchId === '__ALL_BRANCHES__' || branchId === 'all') {
       setPrograms([])
@@ -67,7 +67,7 @@ function PublicEnquiryForm() {
       return
     }
 
-    let active = true
+    const controller = new AbortController()
     setProgramsLoading(true)
     setProgramFetchError(null)
 
@@ -76,18 +76,21 @@ function PublicEnquiryForm() {
       query.set('schoolCode', initialSchoolCode)
     }
 
-    fetch(`/api/v1/public/enquiry?${query.toString()}`)
+    fetch(`/api/v1/public/enquiry?${query.toString()}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((json) => {
-        if (!active) return
         setProgramsLoading(false)
         if (json.success && json.data?.programs) {
           const fetchedPrograms = json.data.programs
           setPrograms(fetchedPrograms)
           // Keep current selection only if it exists in the newly fetched branch programs
           setInterestedProgram((prev) => {
+            if (!prev) return ''
             const stillValid = fetchedPrograms.some(
-              (p: any) => (p.programType || p.code) === prev || p.id === prev
+              (p: any) =>
+                (p.programType || p.code) === prev ||
+                p.id === prev ||
+                p.programType === prev.toUpperCase()
             )
             return stillValid ? prev : ''
           })
@@ -97,8 +100,8 @@ function PublicEnquiryForm() {
           setProgramFetchError(json.error?.message || 'Failed to load programs for this campus.')
         }
       })
-      .catch(() => {
-        if (!active) return
+      .catch((err) => {
+        if (err.name === 'AbortError') return
         setProgramsLoading(false)
         setPrograms([])
         setInterestedProgram('')
@@ -106,7 +109,7 @@ function PublicEnquiryForm() {
       })
 
     return () => {
-      active = false
+      controller.abort()
     }
   }, [branchId, initialSchoolCode])
 

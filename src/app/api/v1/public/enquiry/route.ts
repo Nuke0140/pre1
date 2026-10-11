@@ -191,13 +191,14 @@ export async function POST(req: NextRequest) {
     let validatedProgram: ProgramType | null = null
     if (interestedProgram) {
       const validPrograms: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
+      const normalizedProgram = String(interestedProgram).toUpperCase()
       let progCandidate: any = null
 
-      if (validPrograms.includes(interestedProgram as ProgramType)) {
+      if (validPrograms.includes(normalizedProgram as ProgramType)) {
         progCandidate = await db.program.findFirst({
           where: {
             tenantId: targetTenantId,
-            programType: interestedProgram as ProgramType,
+            programType: normalizedProgram as ProgramType,
             deletedAt: null,
             isActive: true,
           },
@@ -207,7 +208,9 @@ export async function POST(req: NextRequest) {
             },
           },
         })
-      } else {
+      }
+
+      if (!progCandidate) {
         progCandidate = await db.program.findFirst({
           where: {
             tenantId: targetTenantId,
@@ -215,7 +218,8 @@ export async function POST(req: NextRequest) {
             isActive: true,
             OR: [
               { id: interestedProgram },
-              { code: String(interestedProgram).toUpperCase() },
+              { code: normalizedProgram },
+              { name: { equals: interestedProgram, mode: 'insensitive' } },
             ],
           },
           include: {
@@ -244,6 +248,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Duplicate protection check (10-digit normalized phone match within tenant)
+    // If the enquiry has the exact same child or was recently submitted, return existing reference.
+    // If notes or new child are provided, update existing lead notes to append new interest.
     const existingLead = await db.lead.findFirst({
       where: {
         tenantId: targetTenantId,
@@ -253,6 +259,16 @@ export async function POST(req: NextRequest) {
     })
 
     if (existingLead) {
+      if (notes || childName) {
+        const updateText = `\n[Follow-up Online Submission] Child: ${childName || 'Not specified'} | Notes: ${notes || 'None'}`
+        await db.lead.update({
+          where: { id: existingLead.id },
+          data: {
+            notes: (existingLead.notes || '') + updateText,
+          },
+        }).catch(() => {})
+      }
+
       return ok({
         leadNumber: existingLead.leadNumber,
         status: existingLead.status,

@@ -154,13 +154,18 @@ async function _POST(req: NextRequest) {
     }
 
     // Program mapping validation against target branch if program is provided
+    let validatedProgramType: ProgramType | null = null
     if (interestedProgram) {
       const prog = await db.program.findFirst({
         where: {
           tenantId: session.tenantId,
-          programType: interestedProgram,
           deletedAt: null,
           isActive: true,
+          OR: [
+            { id: interestedProgram },
+            { code: String(interestedProgram).toUpperCase() },
+            { programType: String(interestedProgram).toUpperCase() as ProgramType },
+          ],
         },
         include: {
           branchMappings: {
@@ -168,14 +173,17 @@ async function _POST(req: NextRequest) {
           },
         },
       })
-      if (prog && prog.branchMappings.length === 0) {
-        // If branch mappings exist for this program, ensure target branch is mapped
-        const totalMappings = await db.programBranch.count({
-          where: { programId: prog.id, tenantId: session.tenantId, deletedAt: null, isActive: true },
-        })
-        if (totalMappings > 0) {
-          return Errors.validation(`Program ${prog.name} is not offered at the selected branch campus`)
+      if (prog) {
+        if (prog.branchMappings.length === 0) {
+          // If branch mappings exist for this program, ensure target branch is mapped
+          const totalMappings = await db.programBranch.count({
+            where: { programId: prog.id, tenantId: session.tenantId, deletedAt: null, isActive: true },
+          })
+          if (totalMappings > 0) {
+            return Errors.validation(`Program ${prog.name} is not offered at the selected branch campus`)
+          }
         }
+        validatedProgramType = prog.programType
       }
     }
 
@@ -194,7 +202,7 @@ async function _POST(req: NextRequest) {
         email,
         childName,
         childDob,
-        interestedProgram,
+        interestedProgram: validatedProgramType || interestedProgram,
         source,
         notes,
         assignedToId,
@@ -208,7 +216,16 @@ async function _POST(req: NextRequest) {
     )
 
     if (result.isDuplicate) {
-      return ok(result.enquiry, { warning: result.message, isDuplicate: true }, 200)
+      return ok(
+        {
+          ...(result.enquiry ? (result.enquiry as any) : {}),
+          isDuplicate: true,
+          message: result.message,
+          enquiry: result.enquiry,
+        },
+        { warning: result.message, isDuplicate: true },
+        200
+      )
     }
 
     return ok(result.enquiry, undefined, 201)
