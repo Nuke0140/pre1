@@ -858,17 +858,42 @@ export class FollowUpVisitService {
 
     // Fetch associated leads
     const leadIds = Array.from(new Set(allRecords.map((r) => r.sourceId).filter(Boolean))) as string[]
-    const leads = await db.lead.findMany({
-      where: { id: { in: leadIds }, deletedAt: null },
-    })
+    const assignedUserIds = Array.from(new Set(allRecords.map((r) => r.assignedToId).filter(Boolean))) as string[]
+    const branchIds = Array.from(new Set(allRecords.map((r) => r.branchId).filter(Boolean))) as string[]
+
+    const [leads, assignedUsers, branches] = await Promise.all([
+      db.lead.findMany({
+        where: { id: { in: leadIds }, deletedAt: null },
+      }),
+      assignedUserIds.length > 0
+        ? db.user.findMany({
+            where: { id: { in: assignedUserIds } },
+            select: { id: true, fullName: true, email: true },
+          })
+        : Promise.resolve([]),
+      branchIds.length > 0
+        ? db.branch.findMany({
+            where: { id: { in: branchIds } },
+            select: { id: true, name: true, code: true },
+          })
+        : Promise.resolve([]),
+    ])
+
     const leadMap = new Map<string, any>(leads.map((l) => [l.id, l]))
+    const userMap = new Map<string, any>(assignedUsers.map((u) => [u.id, u]))
+    const branchMap = new Map<string, any>(branches.map((b) => [b.id, b]))
 
     const enrichedRecords = allRecords.map((r) => {
       const parsed = this.parseVisitDetail(r.detail)
       const lead = r.sourceId ? leadMap.get(r.sourceId) : null
+      const assignedUser = r.assignedToId ? userMap.get(r.assignedToId) : null
+      const branch = r.branchId ? branchMap.get(r.branchId) : null
+
       return {
         ...r,
         parsedDetail: parsed,
+        assignedStaffName: assignedUser ? (assignedUser.fullName || assignedUser.email) : null,
+        branchName: branch?.name || null,
         lead: lead
           ? {
               id: lead.id,
@@ -900,9 +925,8 @@ export class FollowUpVisitService {
       return new Date(r.dueAt) < startOfToday
     })
 
-    // UPCOMING: OPEN visits with dueAt > now
-    const upcomingVisits = enrichedRecords.filter((r) => {
-      if (r.sourceType !== 'SchoolVisit') return false
+    // UPCOMING: OPEN items with dueAt > now
+    const upcoming = enrichedRecords.filter((r) => {
       if (r.status !== 'OPEN') return false
       if (!r.dueAt) return false
       return new Date(r.dueAt) > now
@@ -914,14 +938,15 @@ export class FollowUpVisitService {
     const counts = {
       dueToday: dueToday.length,
       overdue: overdue.length,
-      upcomingVisits: upcomingVisits.length,
+      upcomingVisits: upcoming.length,
       completed: completed.length,
     }
 
     let items = dueToday
     if (params?.queue === 'OVERDUE') items = overdue
-    else if (params?.queue === 'UPCOMING') items = upcomingVisits
+    else if (params?.queue === 'UPCOMING') items = upcoming
     else if (params?.queue === 'COMPLETED') items = completed
+    else if ((params?.queue as string) === 'ALL') items = enrichedRecords
 
     return {
       counts,

@@ -15,6 +15,7 @@ import { db } from '@/lib/db'
 import { audit, nextNumber } from '@/lib/sequence'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { AdmissionService, ScopeContext } from '@/lib/admissions/admission-service'
+import { raiseFollowUp } from '@/lib/followups'
 import type { LeadStatus, LeadSource, ProgramType, Gender, Prisma } from '@prisma/client'
 
 export const CANONICAL_LEAD_SOURCES: LeadSource[] = [
@@ -814,6 +815,8 @@ export class LeadService {
   /**
    * Start Admission Application with ZERO DATA RE-ENTRY.
    * Auto-copies child name, DOB, gender, parent contact, program, branch, session.
+   * Creates a linked FollowUp task assigned to staff, updates lead to APPLICATION_STARTED,
+   * and preserves audit trails idempotently.
    */
   static async startApplication(ctx: ScopeContext, id: string, extraData?: any) {
     const scope = await this.verifyScope(ctx)
@@ -827,48 +830,100 @@ export class LeadService {
       throw new Error('This enquiry is already converted to an active admission.')
     }
 
-    // Submit Application using AdmissionService with zero data re-entry
-    let childFirstName = 'Child'
-    let childLastName: string | null = null
-    if (lead.childName?.trim()) {
-      const parts = lead.childName.trim().split(/\s+/)
-      childFirstName = parts[0]
-      childLastName = parts.slice(1).join(' ') || null
-    } else if (lead.parentName?.trim()) {
-      childFirstName = lead.parentName.trim().split(/\s+/)[0]
+    // Idempotency check: if application was already started for this lead
+    let application: any = null
+    if (lead.status === 'APPLICATION_STARTED' && lead.convertedApplicationId) {
+      application = await db.admissionApplication.findFirst({
+        where: { id: lead.convertedApplicationId, tenantId: scope.tenantId },
+      })
     }
 
-    // Submit Application using AdmissionService with zero data re-entry
-    const application = await AdmissionService.submitApplication(
-      {
-        tenantId: scope.tenantId,
-        branchId: lead.branchId || scope.branchId,
-        academicYearId: scope.academicYearId,
-        actorId: ctx.actorId,
-        actorName: ctx.actorName,
-        actorRole: ctx.actorRole,
-      },
-      {
-        leadId: lead.id,
-        programType: (lead.interestedProgram || extraData?.programType || 'NURSERY') as ProgramType,
-        childFirstName,
-        childLastName,
-        childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
-        childGender: extraData?.childGender || 'UNSPECIFIED',
-        parentName: lead.parentName,
-        parentPhone: lead.phone,
-        parentEmail: lead.email,
-        notes: `Converted from Enquiry ${lead.leadNumber}`,
-        isDuplicateConfirmed: true,
+    if (!application) {
+      // Submit Application using AdmissionService with zero data re-entry
+      let childFirstName = 'Child'
+      let childLastName: string | null = null
+      if (lead.childName?.trim()) {
+        const parts = lead.childName.trim().split(/\s+/)
+        childFirstName = parts[0]
+        childLastName = parts.slice(1).join(' ') || null
+      } else if (lead.parentName?.trim()) {
+        childFirstName = lead.parentName.trim().split(/\s+/)[0]
       }
-    )
 
-    // Update lead status to APPLICATION_STARTED and link convertedApplicationId
+      application = await AdmissionService.submitApplication(
+        {
+          tenantId: scope.tenantId,
+          branchId: lead.branchId || scope.branchId,
+          academicYearId: scope.academicYearId,
+          actorId: ctx.actorId,
+          actorName: ctx.actorName,
+          actorRole: ctx.actorRole,
+        },
+        {
+          leadId: lead.id,
+          programType: (lead.interestedProgram || extraData?.programType || 'NURSERY') as ProgramType,
+          childFirstName,
+          childLastName,
+          childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
+          childGender: extraData?.childGender || 'UNSPECIFIED',
+          parentName: lead.parentName,
+          parentPhone: lead.phone,
+          parentEmail: lead.email,
+          notes: `Converted from Enquiry ${lead.leadNumber}`,
+          isDuplicateConfirmed: true,
+        }
+      )
+    }
+
+    // Staff assignment & Follow-up scheduling
+    const assignedStaffId = extraData?.assignedStaffId || extraData?.assignedToId || lead.assignedToId || null
+    const followUpDateRaw = extraData?.followUpDate || extraData?.dueAt || extraData?.nextFollowUpAt
+    const followUpDate = followUpDateRaw ? new Date(followUpDateRaw) : new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const followUpType = extraData?.followUpType || 'Phone Call'
+    const followUpNotes = extraData?.followUpNotes || extraData?.notes || `Follow-up regarding admission dossier & required documents.`
+
+    // Verify assigned staff member if provided
+    let assignedStaffName = ''
+    if (assignedStaffId) {
+      const staffUser = await db.user.findFirst({
+        where: {
+          id: assignedStaffId,
+          deletedAt: null,
+          memberships: { some: { tenantId: scope.tenantId, deletedAt: null } },
+        },
+      })
+      if (staffUser) {
+        assignedStaffName = staffUser.fullName || staffUser.email || ''
+      }
+    }
+
+    // Create or link Follow-up task in admissions domain
+    const fu = await raiseFollowUp({
+      tenantId: scope.tenantId,
+      branchId: lead.branchId || scope.branchId,
+      academicSessionId: scope.academicYearId,
+      domain: 'ADMISSION',
+      severity: 'INFO',
+      title: `Application Started: ${lead.childName || lead.parentName} (${application.applicationNumber})`,
+      detail: followUpNotes,
+      sourceType: 'EnquiryFollowUp',
+      sourceId: lead.id,
+      dedupeKey: `app-start-fu:${lead.id}:${application.id}`,
+      dueAt: followUpDate,
+      assignedToId: assignedStaffId,
+      responsibleRole: 'PRINCIPAL',
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+    })
+
+    // Update lead status to APPLICATION_STARTED, record assignment, and set next follow up
     await db.lead.update({
       where: { id },
       data: {
         status: 'APPLICATION_STARTED',
         convertedApplicationId: application.id,
+        ...(assignedStaffId ? { assignedToId: assignedStaffId } : {}),
+        nextFollowUpAt: followUpDate,
       },
     })
 
@@ -882,8 +937,14 @@ export class LeadService {
       action: 'LEAD_APPLICATION_STARTED',
       entity: 'Lead',
       entityId: id,
-      summary: `Application ${application.applicationNumber} initiated from Enquiry ${lead.leadNumber} with zero data re-entry`,
-      newValues: { applicationId: application.id, applicationNumber: application.applicationNumber },
+      summary: `Application ${application.applicationNumber} initiated from Enquiry ${lead.leadNumber} with zero data re-entry${assignedStaffName ? ` (assigned to ${assignedStaffName})` : ''}`,
+      newValues: {
+        applicationId: application.id,
+        applicationNumber: application.applicationNumber,
+        assignedToId: assignedStaffId,
+        followUpId: fu.followUp.id,
+        nextFollowUpAt: followUpDate.toISOString(),
+      },
     })
 
     return {
@@ -892,6 +953,10 @@ export class LeadService {
       applicationNumber: application.applicationNumber,
       leadId: lead.id,
       leadNumber: lead.leadNumber,
+      followUp: fu.followUp,
+      followUpId: fu.followUp.id,
+      assignedToId: assignedStaffId,
+      assignedStaffName,
     }
   }
 

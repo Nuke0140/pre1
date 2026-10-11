@@ -1,9 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { CheckCircle2, Building, Heart, Sparkles, Send, Phone, Mail, User, Calendar } from 'lucide-react'
+import React, { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { CheckCircle2, Building, Heart, Sparkles, Send, Phone, Mail, User, Calendar, AlertCircle } from 'lucide-react'
 
-export default function PublicEnquiryPage() {
+function PublicEnquiryForm() {
+  const searchParams = useSearchParams()
+  const initialBranchParam = searchParams.get('branchId') || ''
+  const initialSchoolCode = searchParams.get('schoolCode') || searchParams.get('code') || ''
+
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState<any | null>(null)
@@ -18,14 +23,24 @@ export default function PublicEnquiryPage() {
   const [email, setEmail] = useState('')
   const [childName, setChildName] = useState('')
   const [childDob, setChildDob] = useState('')
-  const [branchId, setBranchId] = useState('')
+  const [branchId, setBranchId] = useState(initialBranchParam)
   const [interestedProgram, setInterestedProgram] = useState('')
   const [notes, setNotes] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    // Fetch initial school metadata
-    fetch('/api/v1/public/enquiry')
+    // Fetch initial school and branch metadata
+    const query = new URLSearchParams()
+    if (initialBranchParam && initialBranchParam !== '__ALL_BRANCHES__' && initialBranchParam !== 'all') {
+      query.set('branchId', initialBranchParam)
+    }
+    if (initialSchoolCode) {
+      query.set('schoolCode', initialSchoolCode)
+    }
+
+    const endpoint = query.toString() ? `/api/v1/public/enquiry?${query.toString()}` : '/api/v1/public/enquiry'
+
+    fetch(endpoint)
       .then((r) => r.json())
       .then((json) => {
         setLoading(false)
@@ -33,13 +48,19 @@ export default function PublicEnquiryPage() {
           if (json.data.schoolName) setSchoolName(json.data.schoolName)
           if (json.data.branches) {
             setBranches(json.data.branches)
-            if (json.data.branches.length > 0) setBranchId(json.data.branches[0].id)
+            // If branch parameter is specified and matches a valid branch, keep it; otherwise default to first branch
+            const matchedBranch = json.data.branches.find((b: any) => b.id === initialBranchParam)
+            if (matchedBranch) {
+              setBranchId(matchedBranch.id)
+            } else if (json.data.branches.length > 0) {
+              setBranchId(json.data.branches[0].id)
+            }
           }
           if (json.data.programs) setPrograms(json.data.programs)
         }
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [initialBranchParam, initialSchoolCode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,6 +84,7 @@ export default function PublicEnquiryPage() {
           childName: childName.trim() || undefined,
           childDob: childDob || undefined,
           branchId: branchId || undefined,
+          schoolCode: initialSchoolCode || undefined,
           interestedProgram: interestedProgram || undefined,
           notes: notes.trim() || undefined,
         }),
@@ -137,8 +159,9 @@ export default function PublicEnquiryPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {errorMsg && (
-                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
-                  {errorMsg}
+                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium flex items-start gap-2">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <span>{errorMsg}</span>
                 </div>
               )}
 
@@ -280,5 +303,21 @@ export default function PublicEnquiryPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function PublicEnquiryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50/60 dark:bg-slate-950">
+          <div className="text-xs font-semibold text-muted-foreground animate-pulse">
+            Loading Enquiry Portal...
+          </div>
+        </div>
+      }
+    >
+      <PublicEnquiryForm />
+    </Suspense>
   )
 }

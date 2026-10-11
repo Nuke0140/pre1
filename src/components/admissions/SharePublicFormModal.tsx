@@ -23,7 +23,8 @@ export function SharePublicFormModal({
 
   // Construct absolute URL
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
-  const publicUrl = `${origin}/public/enquiry${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ''}`
+  const isSpecificBranch = branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all'
+  const publicUrl = `${origin}/public/enquiry${isSpecificBranch ? `?branchId=${encodeURIComponent(branchId)}` : ''}`
 
   const handleCopy = () => {
     if (navigator?.clipboard) {
@@ -47,7 +48,9 @@ export function SharePublicFormModal({
         <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5">
           <div className="text-xs font-bold text-foreground flex items-center justify-between">
             <span>Target Campus / Branch</span>
-            <span className="text-[11px] font-semibold text-primary">{branchName || 'All Branches'}</span>
+            <span className="text-[11px] font-semibold text-primary">
+              {isSpecificBranch && branchName ? branchName : 'All Branches (Institution-Wide)'}
+            </span>
           </div>
           <p className="text-[11px] text-muted-foreground leading-relaxed">
             Parents visiting this link will be presented with a clean, branded mobile-friendly enquiry form without requiring staff login. Submissions appear instantly in your authoritative Enquiries Ledger.

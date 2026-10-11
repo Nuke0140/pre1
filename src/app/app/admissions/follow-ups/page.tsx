@@ -26,6 +26,8 @@ export default function FollowUpsPage() {
   const [activeQueue, setActiveQueue] = useState<'DUE_TODAY' | 'OVERDUE' | 'COMPLETED'>('DUE_TODAY')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterProgram, setFilterProgram] = useState('')
+  const [filterStaff, setFilterStaff] = useState('')
+  const [staffOptions, setStaffOptions] = useState<{ id: string; fullName: string }[]>([])
 
   // Data states
   const [workspaceData, setWorkspaceData] = useState<{ counts: any; items: any[] } | null>(null)
@@ -48,9 +50,10 @@ export default function FollowUpsPage() {
   useEffect(() => {
     async function loadMasters() {
       try {
-        const [brRes, progRes] = await Promise.all([
+        const [brRes, progRes, staffRes] = await Promise.all([
           fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
           fetch('/api/v1/programs').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+          fetch('/api/v1/users?userType=STAFF&limit=100').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
@@ -64,8 +67,14 @@ export default function FollowUpsPage() {
         if (progRes.success && progRes.data) {
           setPrograms(progRes.data)
         }
+        if (staffRes.success && Array.isArray(staffRes.data)) {
+          setStaffOptions(staffRes.data.map((u: any) => ({
+            id: u.id,
+            fullName: u.fullName || u.email,
+          })))
+        }
       } catch (e) {
-        console.error('Failed to load branches:', e)
+        console.error('Failed to load branches and staff:', e)
       }
     }
     loadMasters()
@@ -143,19 +152,21 @@ export default function FollowUpsPage() {
       
       const lead = item.lead
       if (filterProgram && lead?.interestedProgram !== filterProgram) return false
+      if (filterStaff && item.assignedToId !== filterStaff) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const parentName = (lead?.parentName || item.title || '').toLowerCase()
         const childName = (lead?.childName || '').toLowerCase()
         const phone = (lead?.phone || '').toLowerCase()
         const leadNo = (lead?.leadNumber || '').toLowerCase()
-        if (!parentName.includes(q) && !childName.includes(q) && !phone.includes(q) && !leadNo.includes(q)) {
+        const staff = (item.assignedStaffName || '').toLowerCase()
+        if (!parentName.includes(q) && !childName.includes(q) && !phone.includes(q) && !leadNo.includes(q) && !staff.includes(q)) {
           return false
         }
       }
       return true
     })
-  }, [workspaceData, filterProgram, searchQuery])
+  }, [workspaceData, filterProgram, filterStaff, searchQuery])
 
   const counts = workspaceData?.counts || {
     dueToday: 0,
@@ -247,6 +258,20 @@ export default function FollowUpsPage() {
                 ))}
               </select>
             )}
+            {staffOptions.length > 0 && (
+              <select
+                value={filterStaff}
+                onChange={(e) => setFilterStaff(e.target.value)}
+                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[140px]"
+              >
+                <option value="">All Counselors</option>
+                {staffOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.fullName}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -304,6 +329,14 @@ export default function FollowUpsPage() {
                           {item.dueAt ? fmtDate(item.dueAt) : 'Today'}
                         </span>
                       </div>
+                      {item.assignedStaffName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Assigned:</span>
+                          <span className="font-semibold text-primary">
+                            {item.assignedStaffName}
+                          </span>
+                        </div>
+                      )}
                       {item.detail && (
                         <p className="text-[11px] text-muted-foreground line-clamp-2 pt-0.5 italic">
                           &ldquo;{item.detail}&rdquo;

@@ -31,10 +31,23 @@ async function _GET(req: NextRequest) {
       return Errors.forbidden('No authorized branch access for active user')
     }
 
+    const view = sp.get('view') // 'active' | 'all'
+
+    // Status filter:
+    // If status is 'ACTIVE', or if status is not passed and view === 'active': only return active un-converted enquiries
+    // If status is 'ALL': return all leads regardless of status
+    // If a specific status is provided: return that status
+    let statusFilter: any = undefined
+    if (status === 'ACTIVE' || (!status && view === 'active')) {
+      statusFilter = { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE'] }
+    } else if (status && status !== 'ALL') {
+      statusFilter = status
+    }
+
     const where: any = {
       tenantId: branchScope.tenantId,
       deletedAt: null,
-      ...(status ? { status } : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
       ...(program ? { interestedProgram: program } : {}),
       ...(source ? { source } : {}),
     }

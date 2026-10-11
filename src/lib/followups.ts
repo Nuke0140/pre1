@@ -44,6 +44,7 @@ export interface RaiseFollowUpInput {
   branchId?: string | null
   academicSessionId?: string | null
   responsibleRole?: SchoolRole
+  assignedToId?: string | null
   dueAt?: Date | null
   actorId?: string | null
   actorName?: string | null
@@ -69,6 +70,7 @@ export async function raiseFollowUp(input: RaiseFollowUpInput) {
           severity: input.severity,
           title: input.title,
           detail: input.detail,
+          assignedToId: input.assignedToId ?? undefined,
           resolvedAt: null,
           resolvedByName: null,
           closedAt: null,
@@ -95,6 +97,7 @@ export async function raiseFollowUp(input: RaiseFollowUpInput) {
       branchId: input.branchId ?? undefined,
       academicSessionId: input.academicSessionId ?? undefined,
       responsibleRole: (input.responsibleRole ?? RESPONSIBLE_ROLE[input.severity] ?? 'TEACHER') as any,
+      assignedToId: input.assignedToId ?? undefined,
       dueAt: input.dueAt ?? undefined,
       status: 'OPEN',
       createdById: input.actorId ?? undefined,

@@ -1,23 +1,49 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { LeadSource } from '@prisma/client'
+import { LeadSource, ProgramType } from '@prisma/client'
 import { emailService } from '@/lib/email/email-service'
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
  * Public Enquiry API
  * Accessible without staff authentication.
- * Safely resolves tenant, branch, generates sequential Lead, and runs duplicate protection.
+ * Safely resolves tenant, branch, validates inputs, checks rate limits,
+ * generates sequential Lead, and enforces duplicate protection.
  */
 export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams
-    const tenantSlug = sp.get('tenant')
+    const tenantCode = sp.get('schoolCode') || sp.get('tenantCode') || sp.get('code')
+    const branchId = sp.get('branchId')
 
-    // Find tenant by slug or take default first active tenant
-    const tenant = tenantSlug
-      ? await db.tenant.findUnique({ where: { slug: tenantSlug } })
-      : await db.tenant.findFirst({ orderBy: { createdAt: 'asc' } })
+    let tenant = null
+
+    // 1. If branchId is provided, resolve tenant securely from the branch
+    if (branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all') {
+      const branch = await db.branch.findFirst({
+        where: { id: branchId, deletedAt: null },
+        include: { tenant: true },
+      })
+      if (branch) {
+        tenant = branch.tenant
+      }
+    }
+
+    // 2. If schoolCode is provided, resolve tenant by unique school code
+    if (!tenant && tenantCode) {
+      tenant = await db.tenant.findUnique({
+        where: { code: tenantCode.trim().toUpperCase() },
+      })
+    }
+
+    // 3. Fallback to default active tenant
+    if (!tenant) {
+      tenant = await db.tenant.findFirst({
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      })
+    }
 
     if (!tenant) {
       return Errors.notFound('School not found')
@@ -25,19 +51,21 @@ export async function GET(req: NextRequest) {
 
     // Load available branches for parent selection
     const branches = await db.branch.findMany({
-      where: { tenantId: tenant.id, deletedAt: null },
-      select: { id: true, name: true, isMain: true },
-      orderBy: { isMain: 'desc' },
+      where: { tenantId: tenant.id, deletedAt: null, isActive: true },
+      select: { id: true, name: true, code: true, isMain: true },
+      orderBy: [{ isMain: 'desc' }, { name: 'asc' }],
     })
 
     // Load available programs
     const programs = await db.program.findMany({
-      where: { tenantId: tenant.id, isActive: true },
+      where: { tenantId: tenant.id, isActive: true, deletedAt: null },
       select: { id: true, code: true, name: true, programType: true },
+      orderBy: { name: 'asc' },
     })
 
     return ok({
       schoolName: tenant.name,
+      schoolCode: tenant.code,
       branches,
       programs,
     })
@@ -48,6 +76,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Rate limiting: 10 submissions per minute per IP to prevent spam & abuse
+    const rl = await checkRateLimit(req, {
+      windowMs: 60 * 1000,
+      max: 10,
+      keyPrefix: 'rl:public-enquiry',
+    })
+    if (!rl.allowed) {
+      return rateLimitResponse(rl.retryAfterSeconds, 'Too many enquiry submissions. Please wait a moment before trying again.')
+    }
+
     const body = await req.json()
     const {
       parentName,
@@ -56,25 +94,43 @@ export async function POST(req: NextRequest) {
       childName,
       childDob,
       branchId,
+      schoolCode,
       interestedProgram,
       notes,
-      source,
     } = body
 
-    if (!parentName?.trim()) {
+    // 2. Server-side validation of required fields
+    if (!parentName || typeof parentName !== 'string' || !parentName.trim()) {
       return Errors.validation([{ field: 'parentName', message: 'Parent name is required' }])
     }
+    if (parentName.trim().length > 150) {
+      return Errors.validation([{ field: 'parentName', message: 'Parent name cannot exceed 150 characters' }])
+    }
 
-    const cleanPhone = (phone || '').trim().replace(/\D/g, '')
+    const cleanPhone = (phone || '').toString().trim().replace(/\D/g, '')
     if (cleanPhone.length < 10) {
       return Errors.validation([{ field: 'phone', message: 'Valid 10-digit mobile number is required' }])
     }
+    if (cleanPhone.length > 15) {
+      return Errors.validation([{ field: 'phone', message: 'Phone number cannot exceed 15 digits' }])
+    }
 
-    // Resolve tenant safely from branchId or first active tenant
+    // Validate email format if provided
+    let normEmail: string | null = null
+    if (email && typeof email === 'string' && email.trim()) {
+      normEmail = email.trim().toLowerCase()
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(normEmail) || normEmail.length > 255) {
+        return Errors.validation([{ field: 'email', message: 'Please provide a valid email address' }])
+      }
+    }
+
+    // 3. Resolve tenant & branch securely
     let targetTenantId: string | null = null
     let targetBranchId: string | null = null
 
-    if (branchId) {
+    // If branchId is supplied, verify it exists and derive tenantId from the database
+    if (branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all') {
       const branch = await db.branch.findFirst({
         where: { id: branchId, deletedAt: null },
         select: { id: true, tenantId: true },
@@ -85,18 +141,50 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // If schoolCode is supplied and tenant is not resolved yet, verify school code
+    if (!targetTenantId && schoolCode && typeof schoolCode === 'string' && schoolCode.trim()) {
+      const tenant = await db.tenant.findUnique({
+        where: { code: schoolCode.trim().toUpperCase() },
+        select: { id: true },
+      })
+      if (tenant) {
+        targetTenantId = tenant.id
+      }
+    }
+
+    // Fallback: resolve to default active school
     if (!targetTenantId) {
-      const tenant = await db.tenant.findFirst({ orderBy: { createdAt: 'asc' } })
-      if (!tenant) return Errors.badRequest('No school configured')
-      targetTenantId = tenant.id
+      const defaultTenant = await db.tenant.findFirst({
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      })
+      if (!defaultTenant) {
+        return Errors.badRequest('No school configured')
+      }
+      targetTenantId = defaultTenant.id
+    }
+
+    // If targetBranchId is not set, resolve to tenant's main branch or first active branch
+    if (!targetBranchId) {
       const mainBranch = await db.branch.findFirst({
-        where: { tenantId: tenant.id, deletedAt: null },
-        orderBy: { isMain: 'desc' },
+        where: { tenantId: targetTenantId, deletedAt: null, isActive: true },
+        orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+        select: { id: true },
       })
       targetBranchId = mainBranch?.id || null
     }
 
-    // Duplicate protection check
+    // 4. Validate program if specified
+    let validatedProgram: ProgramType | null = null
+    if (interestedProgram) {
+      const validPrograms: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
+      if (validPrograms.includes(interestedProgram as ProgramType)) {
+        validatedProgram = interestedProgram as ProgramType
+      }
+    }
+
+    // 5. Duplicate protection check (10-digit normalized phone match within tenant)
     const existingLead = await db.lead.findFirst({
       where: {
         tenantId: targetTenantId,
@@ -106,7 +194,6 @@ export async function POST(req: NextRequest) {
     })
 
     if (existingLead) {
-      // Append follow-up / note rather than creating unwanted duplicate
       return ok({
         leadNumber: existingLead.leadNumber,
         status: existingLead.status,
@@ -115,7 +202,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Generate sequential lead number
+    // 6. Generate sequential lead number
     const year = new Date().getFullYear()
     const count = await db.lead.count({ where: { tenantId: targetTenantId } })
     const leadNumber = `ENQ-${year}-${String(count + 1).padStart(4, '0')}`
@@ -123,6 +210,7 @@ export async function POST(req: NextRequest) {
     const parsedDob = childDob ? new Date(childDob) : null
     const validDob = parsedDob && !isNaN(parsedDob.getTime()) ? parsedDob : null
 
+    // 7. Persist lead under resolved tenant and branch
     const lead = await db.lead.create({
       data: {
         tenantId: targetTenantId,
@@ -130,16 +218,19 @@ export async function POST(req: NextRequest) {
         leadNumber,
         parentName: parentName.trim(),
         phone: cleanPhone,
-        email: email?.trim() || null,
-        childName: childName?.trim() || null,
+        email: normEmail,
+        childName: childName && typeof childName === 'string' ? childName.trim().slice(0, 150) : null,
         childDob: validDob,
-        interestedProgram: interestedProgram || null,
+        interestedProgram: validatedProgram,
         source: LeadSource.WEBSITE,
         status: 'NEW',
-        notes: notes ? `[Public Form Submission] ${notes.trim()}` : '[Public Form Submission]',
+        notes: notes && typeof notes === 'string' && notes.trim()
+          ? `[Public Form Submission] ${notes.trim().slice(0, 1000)}`
+          : '[Public Form Submission]',
       },
     })
 
+    // 8. Asynchronous email acknowledgement
     if (lead.email) {
       emailService
         .send({

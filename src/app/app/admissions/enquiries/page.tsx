@@ -4,11 +4,12 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Users, Plus, Download, Search, X, Filter, Phone, Calendar,
   ClipboardList, CheckCircle2, AlertTriangle, ArrowRight, Check,
-  RefreshCw, Building, Eye, Clock, MessageCircle, FileText
+  RefreshCw, Building, Eye, Clock, MessageCircle, FileText, Edit2
 } from 'lucide-react'
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
+import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
@@ -25,7 +26,7 @@ export default function EnquiriesPage() {
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('')
   const [filterProgram, setFilterProgram] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterStatus, setFilterStatus] = useState('ACTIVE')
   const [filterSource, setFilterSource] = useState('')
 
   // Data states
@@ -48,6 +49,12 @@ export default function EnquiriesPage() {
   const [followUpNote, setFollowUpNote] = useState('')
   const [followUpType, setFollowUpType] = useState('Phone Call')
   const [nextFollowUpDate, setNextFollowUpDate] = useState('')
+
+  // Start Application Modal (staff assignment + follow-up scheduling)
+  const [startAppModal, setStartAppModal] = useState<{ open: boolean; enquiry: any | null }>({
+    open: false,
+    enquiry: null,
+  })
 
   // Load masters on mount
   useEffect(() => {
@@ -155,25 +162,21 @@ export default function EnquiriesPage() {
     }
   }
 
-  // Handle Start Application
-  const handleStartApplication = async (enquiryId: string) => {
-    setBusy(true)
-    try {
-      const res = await fetch(`/api/v1/leads/${enquiryId}/start-application`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const json = await res.json()
-      setBusy(false)
-      if (json.success) {
-        toast.success('Application Dossier Initialized! 📋', 'Lead data seamlessly converted without re-entry.')
-        loadEnquiries()
-      } else {
-        toast.error('Could not start application', json.error?.message)
-      }
-    } catch {
-      setBusy(false)
-      toast.error('Failed to start application')
+  // Open Start Application modal
+  const handleStartApplication = (enquiry: any) => {
+    setStartAppModal({ open: true, enquiry })
+  }
+
+  // Handle successful application start
+  const handleApplicationStarted = (data: any) => {
+    toast.success(
+      'Application Dossier Started! 📋',
+      `Application ${data.applicationNumber || ''} created and follow-up assigned.`
+    )
+    loadEnquiries()
+    if (selectedEnquiry?.id === data.leadId) {
+      setDrawerOpen(false)
+      setSelectedEnquiry(null)
     }
   }
 
@@ -234,9 +237,10 @@ export default function EnquiriesPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[160px] font-medium"
+              className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[170px] font-medium"
             >
-              <option value="">All Statuses</option>
+              <option value="ACTIVE">Active Enquiries</option>
+              <option value="ALL">All Statuses (History)</option>
               <option value="NEW">New (Uncontacted)</option>
               <option value="CONTACTED">Contacted</option>
               <option value="QUALIFIED">Campus Tour Scheduled</option>
@@ -392,6 +396,15 @@ export default function EnquiriesPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
+                              onClick={() => openDossier(e)}
+                              className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
+                              title="View Dossier"
+                            >
+                              <Eye size={12} />
+                              <span className="hidden sm:inline">View</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => setFollowUpModal({ open: true, enquiry: e })}
                               className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
                               title="Log Follow-up Call"
@@ -402,7 +415,7 @@ export default function EnquiriesPage() {
                             {e.status !== 'APPLICATION_STARTED' && e.status !== 'CONVERTED' && e.status !== 'LOST' && (
                               <button
                                 type="button"
-                                onClick={() => handleStartApplication(e.id)}
+                                onClick={() => handleStartApplication(e)}
                                 className="btn btn-primary btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shadow-xs"
                               >
                                 Start Form
@@ -457,6 +470,14 @@ export default function EnquiriesPage() {
         onClose={() => setShareModalOpen(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── MODAL: Start Application & Staff Assignment ── */}
+      <StartApplicationModal
+        open={startAppModal.open}
+        onClose={() => setStartAppModal({ open: false, enquiry: null })}
+        enquiry={startAppModal.enquiry}
+        onSuccess={handleApplicationStarted}
       />
 
       {/* ── MODAL: Fast Follow-up Action ── */}
@@ -524,95 +545,98 @@ export default function EnquiriesPage() {
         </form>
       </Modal>
 
-      {/* ── Slide-Over Lead Dossier Inspector ── */}
-      {drawerOpen && selectedEnquiry && (
-        <div className="adm-drawer-backdrop" onClick={() => setDrawerOpen(false)}>
-          <div
-            className="adm-drawer-panel"
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(800px, 92vw)' }}
-          >
-            {/* Header */}
-            <div className="adm-drawer-header">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                    ENQUIRY DOSSIER
-                  </span>
-                  <span className="badge text-[10px]">
-                    {selectedEnquiry.status.replace(/_/g, ' ')}
-                  </span>
-                </div>
-                <h2 className="text-lg font-bold text-foreground mt-1 flex items-center gap-2">
-                  <span>{selectedEnquiry.leadNumber}</span>
-                  <span className="text-muted-foreground font-normal">—</span>
-                  <span>{selectedEnquiry.parentName}</span>
-                </h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(false)}
-                  className="btn btn-ghost btn-sm h-8 w-8 p-0 rounded-xl"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-
-            {/* Content Tabs */}
-            <div className="adm-drawer-tabs">
+      {/* ── Pop-Up Lead Dossier Modal ── */}
+      {selectedEnquiry && (
+        <Modal
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          title={`Enquiry Dossier — ${selectedEnquiry.leadNumber}`}
+          subtitle={`${selectedEnquiry.parentName} • ${selectedEnquiry.branchName || 'Main Campus'} • Status: ${selectedEnquiry.status.replace(/_/g, ' ')}`}
+          icon={<FileText size={20} className="text-primary" />}
+          size="lg"
+        >
+          <div className="space-y-4">
+            {/* Navigation Tabs */}
+            <div className="flex items-center gap-2 border-b border-border/80 pb-2">
               <button
                 type="button"
-                className={`adm-drawer-tab ${drawerTab === 'overview' ? 'active' : ''}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  drawerTab === 'overview'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
                 onClick={() => setDrawerTab('overview')}
               >
                 Lead Overview
               </button>
               <button
                 type="button"
-                className={`adm-drawer-tab ${drawerTab === 'timeline' ? 'active' : ''}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                  drawerTab === 'timeline'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
                 onClick={() => setDrawerTab('timeline')}
               >
-                Activity Timeline ({timelineEvents.length})
+                <span>Activity Timeline</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${drawerTab === 'timeline' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'}`}>
+                  {timelineEvents.length}
+                </span>
               </button>
             </div>
 
-            {/* Body */}
-            <div className="adm-drawer-body space-y-4 p-5">
-              {drawerTab === 'overview' ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
-                      <div className="text-muted-foreground">Mobile Phone</div>
-                      <div className="font-bold text-foreground font-mono">{selectedEnquiry.phone}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
-                      <div className="text-muted-foreground">Email Address</div>
-                      <div className="font-bold text-foreground">{selectedEnquiry.email || 'None provided'}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
-                      <div className="text-muted-foreground">Child Name</div>
-                      <div className="font-bold text-foreground">{selectedEnquiry.childName || 'Unspecified'}</div>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/30 border border-border/60 space-y-1">
-                      <div className="text-muted-foreground">Target Program</div>
-                      <div className="font-bold text-foreground">{selectedEnquiry.interestedProgram || 'Nursery'}</div>
-                    </div>
+            {/* Modal Body */}
+            {drawerTab === 'overview' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-1">
+                    <div className="text-muted-foreground font-medium">Parent / Guardian Contact</div>
+                    <div className="font-bold text-foreground">{selectedEnquiry.parentName}</div>
+                    <div className="font-mono text-muted-foreground">{selectedEnquiry.phone}</div>
                   </div>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-1">
+                    <div className="text-muted-foreground font-medium">Email Address</div>
+                    <div className="font-bold text-foreground truncate">{selectedEnquiry.email || 'None provided'}</div>
+                    <div className="text-muted-foreground">Source: <span className="font-semibold text-foreground">{selectedEnquiry.source || 'Walk-in'}</span></div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-1">
+                    <div className="text-muted-foreground font-medium">Prospective Pupil</div>
+                    <div className="font-bold text-foreground text-sm">{selectedEnquiry.childName || 'Unspecified'}</div>
+                    {selectedEnquiry.childDob && (
+                      <div className="text-muted-foreground">DOB: <span className="font-semibold text-foreground">{fmtDate(selectedEnquiry.childDob)}</span></div>
+                    )}
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-1">
+                    <div className="text-muted-foreground font-medium">Target Program & Branch</div>
+                    <div className="font-bold text-primary text-sm">{selectedEnquiry.interestedProgram || 'Nursery'}</div>
+                    <div className="text-muted-foreground">Campus: <span className="font-semibold text-foreground">{selectedEnquiry.branchName || 'Main Campus'}</span></div>
+                  </div>
+                </div>
 
-                  {selectedEnquiry.notes && (
-                    <div className="p-3.5 rounded-xl bg-muted/20 border border-border/60 space-y-1 text-xs">
-                      <div className="font-semibold text-foreground">Intake Notes:</div>
-                      <p className="text-muted-foreground leading-relaxed">{selectedEnquiry.notes}</p>
-                    </div>
-                  )}
+                {selectedEnquiry.notes && (
+                  <div className="p-3.5 rounded-xl bg-muted/20 border border-border/70 space-y-1 text-xs">
+                    <div className="font-semibold text-foreground">Intake Notes & Observations:</div>
+                    <p className="text-muted-foreground leading-relaxed">{selectedEnquiry.notes}</p>
+                  </div>
+                )}
 
-                  <div className="flex items-center gap-2 pt-2">
+                {/* Modal Action Bar */}
+                <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/80">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    className="btn btn-ghost btn-sm h-8.5 px-3 rounded-xl text-xs font-medium"
+                  >
+                    Close
+                  </button>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setFollowUpModal({ open: true, enquiry: selectedEnquiry })}
-                      className="btn btn-outline btn-sm h-8.5 rounded-xl text-xs font-semibold gap-1.5 flex-1 justify-center"
+                      onClick={() => {
+                        setDrawerOpen(false)
+                        setFollowUpModal({ open: true, enquiry: selectedEnquiry })
+                      }}
+                      className="btn btn-outline btn-sm h-8.5 px-3 rounded-xl text-xs font-semibold gap-1.5"
                     >
                       <Phone size={13} />
                       <span>Log Follow-up</span>
@@ -620,8 +644,11 @@ export default function EnquiriesPage() {
                     {selectedEnquiry.status !== 'APPLICATION_STARTED' && selectedEnquiry.status !== 'CONVERTED' && selectedEnquiry.status !== 'LOST' && (
                       <button
                         type="button"
-                        onClick={() => handleStartApplication(selectedEnquiry.id)}
-                        className="btn btn-primary btn-sm h-8.5 rounded-xl text-xs font-semibold gap-1.5 flex-1 justify-center shadow-xs"
+                        onClick={() => {
+                          setDrawerOpen(false)
+                          handleStartApplication(selectedEnquiry)
+                        }}
+                        className="btn btn-primary btn-sm h-8.5 px-3.5 rounded-xl text-xs font-semibold gap-1.5 shadow-xs"
                       >
                         <ClipboardList size={13} />
                         <span>Start Application</span>
@@ -629,30 +656,39 @@ export default function EnquiriesPage() {
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {timelineEvents.length > 0 ? (
-                    timelineEvents.map((ev, i) => (
-                      <div key={i} className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs space-y-1">
-                        <div className="flex items-center justify-between font-semibold text-foreground">
-                          <span>{ev.summary || ev.action}</span>
-                          <span className="text-[10px] font-mono text-muted-foreground">{fmtDate(ev.createdAt)}</span>
-                        </div>
-                        {ev.actorName && (
-                          <div className="text-[11px] text-muted-foreground">By {ev.actorName}</div>
-                        )}
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                {timelineEvents.length > 0 ? (
+                  timelineEvents.map((ev, i) => (
+                    <div key={i} className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs space-y-1">
+                      <div className="flex items-center justify-between font-semibold text-foreground">
+                        <span>{ev.summary || ev.action}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground">{fmtDate(ev.createdAt)}</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center text-xs text-muted-foreground">
-                      No communications logged yet for this enquiry.
+                      {ev.actorName && (
+                        <div className="text-[11px] text-muted-foreground">By {ev.actorName}</div>
+                      )}
                     </div>
-                  )}
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    No communications or events logged yet for this enquiry.
+                  </div>
+                )}
+                <div className="flex items-center justify-end pt-3 border-t border-border/80">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(false)}
+                    className="btn btn-ghost btn-sm h-8.5 px-3 rounded-xl text-xs font-medium"
+                  >
+                    Close
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        </div>
+        </Modal>
       )}
     </AdmissionsShell>
   )
