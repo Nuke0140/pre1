@@ -54,8 +54,12 @@ export default function FollowUpsPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (progRes.success && progRes.data) {
           setPrograms(progRes.data)
@@ -261,9 +265,17 @@ export default function FollowUpsPage() {
                   <div className="space-y-2.5">
                     {/* Top Identity Row */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-mono font-bold text-primary">
-                        {lead?.leadNumber || 'ENQ-LEAD'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-mono font-bold text-primary">
+                          {lead?.leadNumber || 'ENQ-LEAD'}
+                        </span>
+                        {(selectedBranchId === '__ALL_BRANCHES__' || !selectedBranchId) && (item.branchName || lead?.branchName) && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-secondary/80 text-[10px] font-semibold text-foreground border border-border/70">
+                            <Building size={9} className="text-primary" />
+                            <span>{item.branchName || lead?.branchName}</span>
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                         {lead?.interestedProgram || 'Nursery'}
                       </span>

@@ -3,16 +3,36 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
+import { resolveAuthorizedBranchScope } from '@/lib/admissions/branch-context'
 
-/** GET /api/v1/classrooms — list classrooms for tenant (with student counts) */
+/** GET /api/v1/classrooms — list classrooms for tenant (with student counts and branch filter) */
 async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
+    const sp = req.nextUrl.searchParams
+    const requestedBranchId = sp.get('branchId')
+
+    const branchScope = await resolveAuthorizedBranchScope(session, requestedBranchId)
+    if (branchScope.mode === 'NO_BRANCH_ACCESS') {
+      return Errors.forbidden('No authorized branch access for active user')
+    }
+
+    const where: any = {
+      tenantId: branchScope.tenantId,
+      isActive: true,
+    }
+
+    if (branchScope.mode === 'SINGLE_BRANCH') {
+      where.branchId = branchScope.selectedBranchId
+    } else {
+      where.branchId = { in: branchScope.authorizedBranchIds }
+    }
+
     const classrooms = await db.classroom.findMany({
-      where: { tenantId: session.tenantId, isActive: true },
+      where,
       include: {
         primaryTeacher: { select: { fullName: true } },
         program: { select: { name: true, code: true } },
@@ -20,21 +40,29 @@ async function _GET(req: NextRequest) {
       },
       orderBy: [{ programType: 'asc' }, { name: 'asc' }],
     })
+
+    const branchMap = new Map(branchScope.branches.map((b) => [b.id, b]))
+
     return ok(
-      classrooms.map((c) => ({
-        id: c.id,
-        name: c.name,
-        code: c.code,
-        programType: c.programType,
-        programId: c.programId,
-        programName: c.program?.name ?? null,
-        branchId: c.branchId,
-        academicSessionId: c.academicSessionId,
-        primaryTeacherId: c.primaryTeacherId,
-        capacity: c.capacity,
-        teacher: c.primaryTeacher?.fullName ?? null,
-        students: c._count.students,
-      }))
+      classrooms.map((c) => {
+        const b = branchMap.get(c.branchId)
+        return {
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          programType: c.programType,
+          programId: c.programId,
+          programName: c.program?.name ?? null,
+          branchId: c.branchId,
+          branchName: b ? b.name : 'Main Campus',
+          branchCode: b?.code,
+          academicSessionId: c.academicSessionId,
+          primaryTeacherId: c.primaryTeacherId,
+          capacity: c.capacity,
+          teacher: c.primaryTeacher?.fullName ?? null,
+          students: c._count.students,
+        }
+      })
     )
   } catch (e) {
     return Errors.system(e)

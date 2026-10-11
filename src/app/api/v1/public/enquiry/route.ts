@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { LeadSource } from '@prisma/client'
+import { emailService } from '@/lib/email/email-service'
 
 /**
  * Public Enquiry API
@@ -138,6 +139,18 @@ export async function POST(req: NextRequest) {
         notes: notes ? `[Public Form Submission] ${notes.trim()}` : '[Public Form Submission]',
       },
     })
+
+    if (lead.email) {
+      emailService
+        .send({
+          to: lead.email,
+          subject: `Enquiry Acknowledgement — ${lead.leadNumber}`,
+          html: `<div style="font-family:sans-serif;padding:24px;"><h2>Thank You for Your Enquiry</h2><p>Dear ${lead.parentName},</p><p>We have received your admission enquiry for <strong>${lead.childName || 'your child'}</strong> (Reference: <strong>${lead.leadNumber}</strong>).</p><p>Our admissions counselor will review the details and contact you shortly.</p></div>`,
+          text: `Dear ${lead.parentName},\n\nWe have received your enquiry (Ref: ${lead.leadNumber}). Our counselor will contact you shortly.`,
+          tenantId: targetTenantId,
+        })
+        .catch(() => {})
+    }
 
     return ok({
       leadNumber: lead.leadNumber,

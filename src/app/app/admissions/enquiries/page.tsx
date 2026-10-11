@@ -12,7 +12,7 @@ import { SharePublicFormModal } from '@/components/admissions/SharePublicFormMod
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState } from '@/components/preone'
+import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
 
 export default function EnquiriesPage() {
   const toast = useToast()
@@ -59,8 +59,13 @@ export default function EnquiriesPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          // For multi-branch owners, default to All Branches for holistic visibility
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (progRes.success && progRes.data) {
           setPrograms(progRes.data)
@@ -305,16 +310,18 @@ export default function EnquiriesPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="py-3 px-4">Ref #</th>
-                  <th className="py-3 px-4">Parent / Guardian</th>
-                  <th className="py-3 px-4">Phone Number</th>
-                  <th className="py-3 px-4">Child</th>
-                  <th className="py-3 px-4">Program</th>
-                  <th className="py-3 px-4">Source</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Next Reminder</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Ref #</th>
+                  {selectedBranchId === '__ALL_BRANCHES__' && (
+                    <th className="py-3.5 px-4 font-semibold text-foreground">Branch</th>
+                  )}
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Parent / Contact</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Child</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Program</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Source</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Date</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Next Reminder</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground">Status</th>
+                  <th className="py-3.5 px-4 font-semibold text-foreground text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -325,65 +332,72 @@ export default function EnquiriesPage() {
                     return (
                       <tr
                         key={e.id}
-                        className="hover:bg-muted/40 transition-colors group cursor-pointer"
+                        className="hover:bg-muted/40 transition-colors group cursor-pointer text-xs"
                         onClick={() => openDossier(e)}
                       >
-                        <td className="py-3 px-4 font-mono font-bold text-primary">
+                        <td className="py-3 px-4 font-mono font-bold text-primary whitespace-nowrap">
                           {e.leadNumber}
                         </td>
-                        <td className="py-3 px-4 font-bold text-foreground">
-                          {e.parentName}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-muted-foreground">
-                          {e.phone}
-                        </td>
-                        <td className="py-3 px-4 font-medium text-foreground">
-                          {e.childName || <span className="text-muted-foreground italic">Not specified</span>}
+                        {selectedBranchId === '__ALL_BRANCHES__' && (
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                              <Building size={11} />
+                              <span>{e.branchName || 'Main'}</span>
+                            </span>
+                          </td>
+                        )}
+                        <td className="py-3 px-4">
+                          <FamilyIdentityChip
+                            name={e.parentName}
+                            phone={e.phone}
+                            email={e.email}
+                          />
                         </td>
                         <td className="py-3 px-4">
-                          <span className="badge b-purple text-[10px]">
+                          {e.childName ? (
+                            <StudentIdentityChip
+                              name={e.childName}
+                              size="sm"
+                            />
+                          ) : (
+                            <span className="text-muted-foreground/70 italic text-[11px]">Not specified</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/20">
                             {e.interestedProgram || 'Nursery'}
                           </span>
                         </td>
-                        <td className="py-3 px-4">
-                          <span className="badge b-gray text-[10px]">
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-medium bg-muted text-foreground border border-border/60">
                             {e.source}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap">
+                        <td className="py-3 px-4 text-muted-foreground text-[11px] whitespace-nowrap font-medium">
                           {fmtDate(e.createdAt)}
                         </td>
                         <td className="py-3 px-4 text-[11px] whitespace-nowrap">
                           {e.nextFollowUpAt ? (
-                            <span className={isOverdue ? 'text-destructive font-bold' : 'text-muted-foreground'}>
+                            <span className={isOverdue ? 'text-destructive font-bold bg-destructive/10 px-2 py-0.5 rounded-lg' : 'text-foreground font-medium'}>
                               {fmtDate(e.nextFollowUpAt)}
                             </span>
                           ) : (
-                            <span className="text-muted-foreground/70 italic">—</span>
+                            <span className="text-muted-foreground/60 italic">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`badge text-[10px] ${
-                            e.status === 'NEW' ? 'b-blue' :
-                            e.status === 'CONTACTED' ? 'b-amber' :
-                            e.status === 'QUALIFIED' ? 'b-purple' :
-                            e.status === 'APPLICATION_STARTED' ? 'b-success' :
-                            e.status === 'CONVERTED' ? 'b-success' :
-                            e.status === 'LOST' ? 'b-danger' :
-                            'b-gray'
-                          }`}>
-                            {e.status.replace(/_/g, ' ')}
-                          </span>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <StatusPill status={e.status} size="sm" />
                         </td>
-                        <td className="py-3 px-4 text-right" onClick={(ev) => ev.stopPropagation()}>
+                        <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setFollowUpModal({ open: true, enquiry: e })}
-                              className="btn btn-ghost btn-sm h-7.5 w-7.5 p-0 rounded-lg hover:bg-primary/10 hover:text-primary"
+                              className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
                               title="Log Follow-up Call"
                             >
-                              <Phone size={13} />
+                              <Phone size={12} />
+                              <span className="hidden sm:inline">Call</span>
                             </button>
                             {e.status !== 'APPLICATION_STARTED' && e.status !== 'CONVERTED' && e.status !== 'LOST' && (
                               <button
@@ -401,7 +415,7 @@ export default function EnquiriesPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} className="py-8">
+                    <td colSpan={selectedBranchId === '__ALL_BRANCHES__' ? 11 : 10} className="py-8">
                       <EmptyState
                         illustration="enquiries"
                         eyebrow="Admissions"

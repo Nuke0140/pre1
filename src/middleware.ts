@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession, SESSION_COOKIE } from '@/lib/auth'
 
-const PUBLIC_PATHS = ['/api/v1/auth/login', '/api/v1/auth/branding']
+const PUBLIC_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/branding',
+  '/api/v1/auth/reset-password',
+  '/api/v1/public',
+  '/api/v1/webhooks',
+]
 
 function resolveTraceId(req: NextRequest): string {
   const incoming = req.headers.get('x-trace-id') || req.headers.get('traceparent')

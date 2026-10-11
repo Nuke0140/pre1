@@ -54,8 +54,12 @@ export default function ClassroomPlacementsPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (sesRes.success && sesRes.data?.length > 0) {
           setSessions(sesRes.data)
@@ -81,9 +85,12 @@ export default function ClassroomPlacementsPage() {
         branchId: selectedBranchId,
         ...(selectedSessionId ? { academicSessionId: selectedSessionId } : {}),
       })
+      const clsParams = new URLSearchParams({
+        ...(selectedBranchId ? { branchId: selectedBranchId } : {}),
+      })
       const [appRes, clsRes] = await Promise.all([
         fetch(`/api/v1/applications?${qParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-        fetch(`/api/v1/classrooms?branchId=${selectedBranchId}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+        fetch(`/api/v1/classrooms?${clsParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
       ])
       setBusy(false)
       if (appRes.success && appRes.data) {
@@ -241,6 +248,9 @@ export default function ClassroomPlacementsPage() {
               <thead>
                 <tr className="border-b border-border/80 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">App Number</th>
+                  {selectedBranchId === '__ALL_BRANCHES__' && (
+                    <th className="px-4 py-3">Campus</th>
+                  )}
                   <th className="px-4 py-3">Child Name</th>
                   <th className="px-4 py-3">Parent Contact</th>
                   <th className="px-4 py-3">Program</th>
@@ -255,6 +265,13 @@ export default function ClassroomPlacementsPage() {
                       <td className="px-4 py-3 font-mono font-bold text-primary">
                         {cand.applicationNumber}
                       </td>
+                      {selectedBranchId === '__ALL_BRANCHES__' && (
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/80 text-[10px] font-semibold text-foreground border border-border/70">
+                            {cand.branch?.name || cand.branchName || 'Branch'}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <StudentIdentityChip
                           name={`${cand.childFirstName} ${cand.childLastName || ''}`}
@@ -335,13 +352,18 @@ export default function ClassroomPlacementsPage() {
             >
               <option value="">Select Section...</option>
               {classrooms
-                .filter((c) => !allocateModal.candidate?.programType || c.programType === allocateModal.candidate.programType)
+                .filter((c) => {
+                  const matchProg = !allocateModal.candidate?.programType || c.programType === allocateModal.candidate.programType
+                  const candBranch = allocateModal.candidate?.branchId || allocateModal.candidate?.branch?.id
+                  const matchBranch = !candBranch || c.branchId === candBranch
+                  return matchProg && matchBranch
+                })
                 .map((cls) => {
                   const enrolled = cls._count?.students || 0
                   const available = Math.max(0, cls.capacity - enrolled)
                   return (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name} ({available} available / {cls.capacity} capacity)
+                      {cls.name} {cls.branch?.name ? `(${cls.branch.name})` : ''} - {available} available / {cls.capacity} capacity
                     </option>
                   )
                 })}

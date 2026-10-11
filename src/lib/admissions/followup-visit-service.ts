@@ -845,6 +845,8 @@ export class FollowUpVisitService {
     }
     if (params?.branchId) {
       baseWhere.branchId = params.branchId
+    } else if ((params as any)?.branchIds && Array.isArray((params as any).branchIds)) {
+      baseWhere.branchId = { in: (params as any).branchIds }
     }
 
     // Fetch all relevant admission follow-ups to compute accurate counts & active lists

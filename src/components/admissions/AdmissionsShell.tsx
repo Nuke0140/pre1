@@ -173,11 +173,16 @@ export function AdmissionsShell({
               <select
                 value={selectedBranchId}
                 onChange={(e) => onBranchChange(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[160px] truncate"
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[190px] truncate"
               >
-                {branches.map((b) => (
+                {branches.length > 1 && (
+                  <option value="__ALL_BRANCHES__">
+                    All Branches ({branches.length})
+                  </option>
+                )}
+                {branches.map((b: any) => (
                   <option key={b.id} value={b.id}>
-                    {b.name} {b.isMain ? '★' : ''}
+                    {b.name} {b.code ? `(${b.code})` : ''} {b.isMain ? '★' : ''}
                   </option>
                 ))}
               </select>

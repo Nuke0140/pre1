@@ -61,8 +61,12 @@ export default function CampusVisitsPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (progRes.success && progRes.data) {
           setPrograms(progRes.data)
@@ -295,9 +299,16 @@ export default function CampusVisitsPage() {
                   <div className="space-y-2.5">
                     {/* Header */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-mono font-bold text-primary">
-                        {lead?.leadNumber || 'TOUR-SLOT'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-mono font-bold text-primary">
+                          {lead?.leadNumber || 'TOUR-SLOT'}
+                        </span>
+                        {(selectedBranchId === '__ALL_BRANCHES__' || !selectedBranchId) && (item.branchName || lead?.branchName) && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-secondary/80 text-[10px] font-semibold text-foreground border border-border/70">
+                            <span>{item.branchName || lead?.branchName}</span>
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
                         {lead?.interestedProgram || 'Preschool Tour'}
                       </span>

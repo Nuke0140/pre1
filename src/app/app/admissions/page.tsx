@@ -960,8 +960,12 @@ export default function AdmissionsPage() {
         }
         if (brRes.success && brRes.data.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: BranchOption) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: BranchOption) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (progRes.success) setPrograms(progRes.data)
         if (clsRes.success) setClassrooms(clsRes.data)
@@ -2291,6 +2295,11 @@ export default function AdmissionsPage() {
               onChange={(e) => setSelectedBranchId(e.target.value)}
               className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1"
             >
+              {branches.length > 1 && (
+                <option value="__ALL_BRANCHES__">
+                  All Branches ({branches.length})
+                </option>
+              )}
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} {b.isMain ? '(Main Campus)' : ''}
@@ -2315,10 +2324,6 @@ export default function AdmissionsPage() {
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="text-[11px] text-muted-foreground font-medium px-2 hidden sm:block">
-          Preschool Admissions Hub
         </div>
       </div>
 

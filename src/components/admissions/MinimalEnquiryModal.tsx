@@ -32,7 +32,8 @@ export function MinimalEnquiryModal({
   const [email, setEmail] = useState('')
   const [childName, setChildName] = useState('')
   const [childDob, setChildDob] = useState('')
-  const [branchId, setBranchId] = useState(defaultBranchId || '')
+  const initialBranchId = defaultBranchId === '__ALL_BRANCHES__' ? '' : (defaultBranchId || '')
+  const [branchId, setBranchId] = useState(initialBranchId)
   const [interestedProgram, setInterestedProgram] = useState('')
   const [source, setSource] = useState('WALK_IN')
   const [notes, setNotes] = useState('')
@@ -41,7 +42,7 @@ export function MinimalEnquiryModal({
   const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null)
 
   useEffect(() => {
-    if (defaultBranchId && !branchId) {
+    if (defaultBranchId && defaultBranchId !== '__ALL_BRANCHES__' && !branchId) {
       setBranchId(defaultBranchId)
     }
   }, [defaultBranchId, branchId])

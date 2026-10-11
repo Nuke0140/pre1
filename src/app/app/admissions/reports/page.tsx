@@ -27,7 +27,7 @@ export default function AdmissionsReportsPage() {
 
   // Date Range filter
   const [dateRange, setDateRange] = useState<'all' | '30d' | '90d' | 'session'>('all')
-  const [activeTab, setActiveTab] = useState<'funnel' | 'sources' | 'programs' | 'pipeline'>('funnel')
+  const [activeTab, setActiveTab] = useState<'funnel' | 'sources' | 'programs' | 'pipeline' | 'comparison'>('funnel')
 
   // Raw data from APIs
   const [leads, setLeads] = useState<any[]>([])
@@ -50,8 +50,12 @@ export default function AdmissionsReportsPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (sesRes.success && sesRes.data?.length > 0) {
           setSessions(sesRes.data)
@@ -248,6 +252,41 @@ export default function AdmissionsReportsPage() {
     return { list, barData }
   }, [filteredLeads, filteredApps])
 
+  // Branch-Wise Comparative Performance Breakdown
+  const campusComparison = useMemo(() => {
+    const map: Record<string, { id: string; name: string; enquiries: number; applications: number; offers: number; enrolled: number }> = {}
+
+    branches.forEach((b) => {
+      map[b.id] = { id: b.id, name: b.name, enquiries: 0, applications: 0, offers: 0, enrolled: 0 }
+    })
+
+    filteredLeads.forEach((l) => {
+      const bId = l.branchId
+      if (bId && map[bId]) {
+        map[bId].enquiries += 1
+      }
+    })
+
+    filteredApps.forEach((a) => {
+      const bId = a.branchId
+      if (bId && map[bId]) {
+        map[bId].applications += 1
+        if (['APPROVED', 'OFFER_GENERATED', 'OFFER_SENT', 'OFFER_ACCEPTED', 'ENROLLED', 'ADMITTED'].includes(a.status)) {
+          map[bId].offers += 1
+        }
+        if (['ENROLLED', 'ADMITTED'].includes(a.status) || a.studentId) {
+          map[bId].enrolled += 1
+        }
+      }
+    })
+
+    return Object.values(map).map((row) => ({
+      ...row,
+      enquiryToAppRate: row.enquiries > 0 ? Math.round((row.applications / row.enquiries) * 100) : 0,
+      conversionYield: row.enquiries > 0 ? Math.round((row.enrolled / row.enquiries) * 100) : 0,
+    })).sort((a, b) => b.enquiries - a.enquiries)
+  }, [branches, filteredLeads, filteredApps])
+
   // Pipeline status breakdown
   const statusBreakdown = useMemo(() => {
     const map: Record<string, number> = {}
@@ -264,7 +303,7 @@ export default function AdmissionsReportsPage() {
 
   // Export CSV
   const handleExportCsv = () => {
-    const branchName = branches.find((b) => b.id === selectedBranchId)?.name || 'Branch'
+    const branchName = selectedBranchId === '__ALL_BRANCHES__' ? 'All Branches' : (branches.find((b) => b.id === selectedBranchId)?.name || 'Branch')
     const csvRows = [
       ['PreOne Preschool Admissions Report'],
       [`Branch: ${branchName}`, `Generated: ${new Date().toLocaleString()}`, `Range: ${dateRange}`],
@@ -273,6 +312,20 @@ export default function AdmissionsReportsPage() {
       ['Stage', 'Count', 'Conversion Yield'],
       ...metrics.funnel.map((s) => [s.label, s.value.toString(), `${metrics.overallYield}%`]),
       [],
+      ...(branches.length > 1 ? [
+        ['--- CAMPUS-WISE PERFORMANCE COMPARISON ---'],
+        ['Campus / Branch', 'Enquiries', 'Applications', 'Offers Issued', 'Enrolled', 'Enquiry-to-App %', 'Overall Yield %'],
+        ...campusComparison.map((c) => [
+          c.name,
+          c.enquiries.toString(),
+          c.applications.toString(),
+          c.offers.toString(),
+          c.enrolled.toString(),
+          `${c.enquiryToAppRate}%`,
+          `${c.conversionYield}%`,
+        ]),
+        [],
+      ] : []),
       ['--- LEAD SOURCES ATTRIBUTION ---'],
       ['Source', 'Leads Received', 'Converted', 'Conversion Rate %'],
       ...sourceStats.list.map((s) => [s.source, s.count.toString(), s.converted.toString(), `${s.conversionRate}%`]),
@@ -373,6 +426,19 @@ export default function AdmissionsReportsPage() {
           >
             Pipeline Health
           </button>
+          {branches.length > 1 && (
+            <button
+              onClick={() => setActiveTab('comparison')}
+              className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${
+                activeTab === 'comparison'
+                  ? 'bg-primary text-primary-foreground shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Building size={13} />
+              <span>Campus Comparison</span>
+            </button>
+          )}
         </div>
 
         {/* Date presets */}
@@ -763,6 +829,74 @@ export default function AdmissionsReportsPage() {
               <p className="text-xs text-muted-foreground">
                 <strong className="text-emerald-600">{metrics.appToEnrollRate}%</strong> of parents who submit formal preschool applications proceed to pay enrollment deposits and complete student onboarding.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 5: CAMPUS COMPARISON ── */}
+      {activeTab === 'comparison' && (
+        <div className="space-y-4">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Building size={16} className="text-primary" />
+                  <span>Branch-Level Admissions Performance Matrix</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Comparative intake volume, conversion efficiency, and enrollment yields across authorized campuses
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-secondary/80 text-foreground border border-border/70">
+                {branches.length} Campuses Monitored
+              </span>
+            </div>
+
+            <div className="overflow-x-auto border border-border rounded-lg">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                  <tr>
+                    <th className="py-2.5 px-3">Campus / Branch</th>
+                    <th className="py-2.5 px-3 text-right">Inquiries</th>
+                    <th className="py-2.5 px-3 text-right">Applications</th>
+                    <th className="py-2.5 px-3 text-right">Offers Issued</th>
+                    <th className="py-2.5 px-3 text-right">Confirmed Students</th>
+                    <th className="py-2.5 px-3 text-right">Inquiry-to-App %</th>
+                    <th className="py-2.5 px-3 text-right">Overall Yield %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {campusComparison.map((row) => (
+                    <tr key={row.id} className="hover:bg-muted/20">
+                      <td className="py-3 px-3 font-bold text-foreground flex items-center gap-2">
+                        <Building size={14} className="text-primary shrink-0" />
+                        <span>{row.name}</span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-medium text-foreground">
+                        {row.enquiries}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-medium text-foreground">
+                        {row.applications}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-medium text-foreground">
+                        {row.offers}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {row.enrolled}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-semibold text-foreground">
+                        {row.enquiryToAppRate}%
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <span className="inline-flex items-center gap-1 font-mono font-bold text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          {row.conversionYield}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -973,6 +973,11 @@ export class WaitingListService {
     if (filters?.branchId) {
       conditions.push(`branch_id = $${paramIdx++}`)
       params.push(filters.branchId)
+    } else if ((filters as any)?.branchIds && Array.isArray((filters as any).branchIds) && (filters as any).branchIds.length > 0) {
+      const bIds: string[] = (filters as any).branchIds
+      const placeholders = bIds.map(() => `$${paramIdx++}`).join(', ')
+      conditions.push(`branch_id IN (${placeholders})`)
+      params.push(...bIds)
     }
 
     if (filters?.academicSessionId) {
@@ -1035,11 +1040,24 @@ export class WaitingListService {
     }
 
     // Capacity summaries
-    const capacitySummaries = await this.getProgramCapacity(
-      ctx.tenantId,
-      filters?.branchId || ctx.branchId || '',
-      filters?.academicSessionId || ctx.academicYearId || ''
-    )
+    let capacitySummaries: ProgramCapacitySummary[] = []
+    if (filters?.branchId) {
+      capacitySummaries = await this.getProgramCapacity(
+        ctx.tenantId,
+        filters.branchId,
+        filters?.academicSessionId || ctx.academicYearId || ''
+      )
+    } else if ((filters as any)?.branchIds && (filters as any).branchIds.length > 0) {
+      const bIds: string[] = (filters as any).branchIds
+      for (const bId of bIds) {
+        const caps = await this.getProgramCapacity(
+          ctx.tenantId,
+          bId,
+          filters?.academicSessionId || ctx.academicYearId || ''
+        )
+        capacitySummaries.push(...caps)
+      }
+    }
 
     return { entries, total, capacitySummaries }
   }

@@ -59,8 +59,12 @@ export default function ConfirmedAdmissionsPage() {
         ])
         if (brRes.success && brRes.data?.length > 0) {
           setBranches(brRes.data)
-          const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-          setSelectedBranchId(main.id)
+          if (brRes.data.length > 1) {
+            setSelectedBranchId('__ALL_BRANCHES__')
+          } else {
+            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
+            setSelectedBranchId(main.id)
+          }
         }
         if (sesRes.success && sesRes.data?.length > 0) {
           setSessions(sesRes.data)
@@ -267,6 +271,9 @@ export default function ConfirmedAdmissionsPage() {
               <thead>
                 <tr className="border-b border-border/80 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">App Number</th>
+                  {selectedBranchId === '__ALL_BRANCHES__' && (
+                    <th className="px-4 py-3">Campus</th>
+                  )}
                   <th className="px-4 py-3">Student Name</th>
                   <th className="px-4 py-3">Parent / Contact</th>
                   <th className="px-4 py-3">Program</th>
@@ -282,6 +289,13 @@ export default function ConfirmedAdmissionsPage() {
                       <td className="px-4 py-3 font-mono font-bold text-primary">
                         {app.applicationNumber}
                       </td>
+                      {selectedBranchId === '__ALL_BRANCHES__' && (
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/80 text-[10px] font-semibold text-foreground border border-border/70">
+                            {app.branch?.name || app.branchName || 'Branch'}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <StudentIdentityChip
                           name={`${app.childFirstName} ${app.childLastName || ''}`}
