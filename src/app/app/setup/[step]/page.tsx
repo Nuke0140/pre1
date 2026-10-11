@@ -5,7 +5,7 @@ import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, RotateCw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
-  ArrowUpRight, ShieldCheck,
+  ArrowUpRight, ShieldCheck, Download, Filter, X,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -180,7 +180,6 @@ export default function SetupStepPage() {
     if (CONFIG_STEP_DOMAIN[def.key]) return 'config'
     switch (def.key) {
       case 'branch': return 'branches'
-      case 'classroom_foundation': return 'infrastructure'
       case 'programs': return 'programs'
       case 'roles': return 'roles'
       case 'academic_year': return 'years'
@@ -189,7 +188,6 @@ export default function SetupStepPage() {
       case 'subject': return 'subjects'
       case 'fees_setup': return 'fees'
       case 'fees': return 'fees'
-      case 'infrastructure': return 'infrastructure'
       case 'staff': return 'staff'
       case 'teacher_assignment': return 'teachers'
       case 'calendar': return 'calendar'
@@ -582,37 +580,15 @@ export default function SetupStepPage() {
             )}
 
             {kind === 'years' && (
-              <>
-                <TableToolbar title="Academic years" count={list.length} onAdd={() => setModal('year')} addLabel="Create Academic Year" />
-                {list.length === 0 ? <EmptyState icon={<CalendarPlus size={40} />} title="No academic year exists" message="Create the operating year — enrolment, attendance, fees and reports all hang from it. Historical years stay queryable forever." /> : (
-                  <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
-                    <tbody>{list.map((y: any) => (
-                      <tr key={String(y.id)}>
-                        <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
-                        <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
-                        <td>{String(y.classrooms ?? 0)}</td>
-                        <td><StatusBadge status={String(y.status)} /></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(y); setEditType('year'); }} title="Edit academic year dates">
-                              <Edit3 size={13} /> Edit
-                            </button>
-                            {!y.isCurrent && (
-                              <button className="btn btn-sm btn-outline" onClick={async () => {
-                                const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true });
-                                if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message)
-                              }}>
-                                Set current
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}</tbody>
-                  </table></div>
-                )}
-              </>
+              <AcademicYearsSection
+                years={list}
+                onAdd={() => setModal('year')}
+                onEdit={(y) => { setEditItem(y); setEditType('year'); }}
+                onSetCurrent={async (y) => {
+                  const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true });
+                  if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message)
+                }}
+              />
             )}
 
             {kind === 'calendar' && (
@@ -762,30 +738,272 @@ function InfraSection({ rooms, onDone, onAddFacility, onEditFacility, onEditClas
   )
 }
 
+function AcademicYearsSection({
+  years,
+  onAdd,
+  onEdit,
+  onSetCurrent,
+}: {
+  years: Dict[]
+  onAdd: () => void
+  onEdit: (y: Dict) => void
+  onSetCurrent: (y: Dict) => void
+}) {
+  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+
+  const filteredYears = useMemo(() => {
+    return years.filter((y: any) => {
+      if (statusFilter !== 'ALL' && y.status !== statusFilter) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const nameMatch = String(y.name || '').toLowerCase().includes(q)
+        if (!nameMatch) return false
+      }
+      return true
+    })
+  }, [years, statusFilter, searchQuery])
+
+  return (
+    <>
+      <TableToolbar title="Academic years" count={years.length} onAdd={onAdd} addLabel="Create Academic Year" />
+
+      {/* ── Status & Search Filters ── */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Filter size={14} style={{ color: 'var(--foreground-muted)' }} />
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>Status:</span>
+          <select className="select" style={{ height: 32, fontSize: 12.5, minWidth: 140 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="ALL">All Statuses ({years.length})</option>
+            <option value="PLANNED">PLANNED</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="CLOSING">CLOSING</option>
+            <option value="CLOSED">CLOSED</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 200 }}>
+          <input
+            type="text"
+            className="input"
+            style={{ height: 32, fontSize: 12.5 }}
+            placeholder="Search academic years by name…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        {(statusFilter !== 'ALL' || searchQuery.trim()) && (
+          <button className="btn btn-sm btn-ghost" onClick={() => { setStatusFilter('ALL'); setSearchQuery('') }}>
+            <X size={13} /> Clear
+          </button>
+        )}
+      </div>
+
+      {filteredYears.length === 0 ? (
+        <EmptyState icon={<CalendarPlus size={40} />} title="No matching academic years" message="No academic years match your status or search criteria." />
+      ) : (
+        <div className="dtable-scroll"><table className="dtable">
+          <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>{filteredYears.map((y: any) => (
+            <tr key={String(y.id)}>
+              <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
+              <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
+              <td>{String(y.classrooms ?? 0)}</td>
+              <td><StatusBadge status={String(y.status)} /></td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button className="btn btn-sm btn-outline" onClick={() => onEdit(y)} title="Edit academic year details and status">
+                    <Edit3 size={13} /> Edit
+                  </button>
+                  {!y.isCurrent && (
+                    <button className="btn btn-sm btn-outline" onClick={() => onSetCurrent(y)}>
+                      Set current
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      )}
+    </>
+  )
+}
+
 function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dict[]; onDone: () => void; onEditClass: (c: Dict) => void; onAddClass: () => void }) {
   const toast = useToast()
   const [programs, setPrograms] = useState<Dict[]>([])
-  useEffect(() => { fetch('/api/v1/programs').then((r) => r.json()).then((j) => { if (j.success) setPrograms(j.data) }) }, [])
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [academicYears, setAcademicYears] = useState<Dict[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [selectedProgramId, setSelectedProgramId] = useState<string>('ALL')
+  const [selectedYearId, setSelectedYearId] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/programs', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/branches', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/academic-years', { cache: 'no-store' }).then((r) => r.json()),
+    ]).then(([prRes, brRes, yrRes]) => {
+      if (prRes.success && Array.isArray(prRes.data)) setPrograms(prRes.data)
+      if (brRes.success && Array.isArray(brRes.data)) setBranches(brRes.data)
+      if (yrRes.success && Array.isArray(yrRes.data)) setAcademicYears(yrRes.data)
+    })
+  }, [])
+
   const link = async (id: string, programId: string) => {
     const j = await fetch(`/api/v1/classrooms/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ programId: programId || null }) }).then((r) => r.json())
     if (j.success) { toast.success('Program linked'); onDone() } else toast.error('Failed', j.error?.message)
   }
+
+  // Branch-dependent program list
+  const applicablePrograms = useMemo(() => {
+    if (selectedBranchId === 'ALL') return programs
+    return programs.filter((p: any) => {
+      const bm = p.branchMappings || p.branches || []
+      return bm.length === 0 || bm.some((b: any) => (b.branchId || b.id) === selectedBranchId && b.isActive !== false)
+    })
+  }, [programs, selectedBranchId])
+
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((c: any) => {
+      if (selectedBranchId !== 'ALL' && c.branchId !== selectedBranchId) return false
+      if (selectedProgramId !== 'ALL' && c.programId !== selectedProgramId) return false
+      if (selectedYearId !== 'ALL' && c.academicSessionId !== selectedYearId) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = String(c.name || '').toLowerCase().includes(q)
+        const matchCode = String(c.code || '').toLowerCase().includes(q)
+        const matchBranch = String(c.branchName || '').toLowerCase().includes(q)
+        const matchProg = String(c.programName || '').toLowerCase().includes(q)
+        if (!matchName && !matchCode && !matchBranch && !matchProg) return false
+      }
+      return true
+    })
+  }, [rooms, selectedBranchId, selectedProgramId, selectedYearId, searchQuery])
+
+  const emptyCampuses = useMemo(() => {
+    return branches.filter((b: any) => !rooms.some((r: any) => r.branchId === b.id))
+  }, [branches, rooms])
+
+  const hasActiveFilters = selectedBranchId !== 'ALL' || selectedProgramId !== 'ALL' || selectedYearId !== 'ALL' || searchQuery.trim() !== ''
+
+  const clearFilters = () => {
+    setSelectedBranchId('ALL')
+    setSelectedProgramId('ALL')
+    setSelectedYearId('ALL')
+    setSearchQuery('')
+  }
+
   return (
     <>
-      <TableToolbar title="Class-sections (current year)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
-      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Here you link each class-section to its program — capacity guards prevent over-allocation.</p>
+      <TableToolbar title="Class-sections (current year)" count={filteredRooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
+
+      {emptyCampuses.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--amber-bg, #fef3c7)', color: 'var(--amber-text, #92400e)', borderRadius: 8, marginBottom: 14, fontSize: 13, border: '1px solid #fde68a' }}>
+          <span>
+            <strong>Campus pending classroom:</strong> {emptyCampuses.map((b) => b.name).join(', ')} does not have any classrooms yet. Each active campus requires at least one classroom in the operating year.
+          </span>
+          <button className="btn btn-sm btn-outline" onClick={onAddClass}>
+            + Add Classroom
+          </button>
+        </div>
+      )}
+
+      {/* ── Context & Multi-Dimensional Filters Bar ── */}
+      <div style={{ padding: '12px 14px', background: 'var(--surface-muted)', borderRadius: 10, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Building2 size={15} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Campus:</span>
+            <select
+              className="select"
+              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+              value={selectedBranchId}
+              onChange={(e) => {
+                setSelectedBranchId(e.target.value)
+                setSelectedProgramId('ALL')
+              }}
+            >
+              <option value="ALL">All Campuses ({branches.length})</option>
+              {branches.map((b: any) => (
+                <option key={String(b.id)} value={String(b.id)}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Blocks size={15} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Program:</span>
+            <select
+              className="select"
+              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+              value={selectedProgramId}
+              onChange={(e) => setSelectedProgramId(e.target.value)}
+            >
+              <option value="ALL">All Programs ({applicablePrograms.length})</option>
+              {applicablePrograms.map((p: any) => (
+                <option key={String(p.id)} value={String(p.id)}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {academicYears.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CalendarDays size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontSize: 12.5, fontWeight: 700 }}>Year:</span>
+              <select
+                className="select"
+                style={{ height: 32, fontSize: 12.5, minWidth: 130 }}
+                value={selectedYearId}
+                onChange={(e) => setSelectedYearId(e.target.value)}
+              >
+                <option value="ALL">All Years ({academicYears.length})</option>
+                {academicYears.map((y: any) => (
+                  <option key={String(y.id)} value={String(y.id)}>{y.name}{y.isCurrent ? ' (current)' : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <input
+              className="input"
+              style={{ height: 32, fontSize: 12.5 }}
+              placeholder="Search by class name, code, teacher…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={clearFilters}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
+            >
+              <X size={13} /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Each class-section is mapped to its owning campus and academic program.</p>
       <div className="dtable-scroll"><table className="dtable">
-        <thead><tr><th>Class</th><th>Linked program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link program</th><th>Actions</th></tr></thead>
-        <tbody>{rooms.map((c: any) => (
+        <thead><tr><th>Owning Campus</th><th>Class</th><th>Linked Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link Program</th><th>Actions</th></tr></thead>
+        <tbody>{filteredRooms.map((c: any) => (
           <tr key={String(c.id)}>
-            <td><span className="cell-strong">{c.branchName ? `${c.branchName} — ${c.name}` : c.name}</span><span className="cell-sub">{c.code}</span></td>
-            <td>{c.programName ?? <span className="badge b-warning">not linked</span>}</td>
-            <td>{String(c.capacity)}</td>
+            <td><span className="badge b-primary">{c.branchName || 'Main Campus'}</span></td>
+            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+            <td>{c.programName ? <span className="badge b-neutral">{c.programName}</span> : <span className="badge b-warning">not linked</span>}</td>
+            <td>{String(c.capacity)} seats</td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
-            <td>{String(c.students)}</td>
+            <td>{String(c.students ?? 0)}</td>
             <td>
-              <select className="select" style={{ maxWidth: 180 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
-                <option value="">— choose —</option>
+              <select className="select" style={{ maxWidth: 170 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
+                <option value="">— choose program —</option>
                 {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
               </select>
             </td>
@@ -797,7 +1015,13 @@ function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dic
           </tr>
         ))}</tbody>
       </table></div>
-      {rooms.length === 0 && <EmptyState icon={<LayoutGrid size={36} />} title="No classes for the current year" message="Add class-sections in Settings → Classes — each needs a program link and capacity." />}
+      {filteredRooms.length === 0 && (
+        <EmptyState
+          icon={<LayoutGrid size={36} />}
+          title={hasActiveFilters ? "No classes match filters" : "No classes for the current year"}
+          message={hasActiveFilters ? "Try clearing or adjusting your branch or program filters." : "Add class-sections in Settings → Classes — each needs a program link and capacity."}
+        />
+      )}
     </>
   )
 }
@@ -1592,6 +1816,135 @@ function CreateFeeStructureModal({
   )
 }
 
+function DownloadFeeCollectionModal({
+  branches,
+  programs,
+  academicYears,
+  onClose,
+  toast,
+}: {
+  branches: any[]
+  programs: any[]
+  academicYears: any[]
+  onClose: () => void
+  toast: ToastFn
+}) {
+  const [branchId, setBranchId] = useState<string>('ALL')
+  const [academicYearId, setAcademicYearId] = useState<string>('ALL')
+  const [programId, setProgramId] = useState<string>('ALL')
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    try {
+      setDownloading(true)
+      const params = new URLSearchParams()
+      if (branchId !== 'ALL') params.set('branchId', branchId)
+      if (academicYearId !== 'ALL') params.set('academicYearId', academicYearId)
+      if (programId !== 'ALL') params.set('programId', programId)
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+
+      const url = `/api/v1/fees/export-collection?${params.toString()}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.error?.message || `Export failed with status ${res.status}`)
+      }
+
+      const blob = await res.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      const disposition = res.headers.get('content-disposition')
+      let filename = `fee-collections-${new Date().toISOString().slice(0, 10)}.csv`
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/)
+        if (match && match[1]) filename = match[1]
+      }
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(downloadUrl)
+
+      toast.success('Export Successful', `Saved ${filename}`)
+      onClose()
+    } catch (err: any) {
+      toast.error('Export Failed', err.message || 'Could not download collection CSV')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Download Fee Collection CSV" icon={<Download size={22} />} iconClass="ic-blue">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p className="helper" style={{ margin: 0 }}>
+          Export actual, reconciled fee collection records. Filter by branch, academic year, program, or date range. Calculates only successful persisted payments with formula-injection protection.
+        </p>
+
+        <div className="field">
+          <label>Campus / Branch</label>
+          <select className="select" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            <option value="ALL">All Campuses ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="field">
+            <label>Academic Year</label>
+            <select className="select" value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
+              <option value="ALL">All Academic Years</option>
+              {academicYears.map((ay) => (
+                <option key={ay.id} value={ay.id}>{ay.name}{ay.isCurrent ? ' (Current)' : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Program</label>
+            <select className="select" value={programId} onChange={(e) => setProgramId(e.target.value)}>
+              <option value="ALL">All Programs</option>
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="field">
+            <label>From Date</label>
+            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>To Date</label>
+            <input type="date" className="input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={downloading}>Cancel</button>
+          <button
+            type="button"
+            className={`btn btn-primary ${downloading ? 'is-loading' : ''}`}
+            onClick={handleDownload}
+            disabled={downloading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} />
+            <span>{downloading ? 'Exporting…' : 'Export Collection CSV'}</span>
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function FeeSetupSection({
   onDone,
   api,
@@ -1616,6 +1969,7 @@ function FeeSetupSection({
   const [loadingExtra, setLoadingExtra] = useState(false)
   const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showDownloadModal, setShowDownloadModal] = useState(false)
 
   const loadFeeData = useCallback(async () => {
     try {
@@ -1777,6 +2131,16 @@ function FeeSetupSection({
           <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>Finance Portal</span> <ArrowUpRight size={13} />
           </a>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowDownloadModal(true)}
+            title="Download fee collection records as CSV"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={13} />
+            <span>Download Fee Collection CSV</span>
+          </button>
           {feeSubTab === 'STRUCTURES' && (
             <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
               <Plus size={14} /> Create Fee Structure
@@ -2222,6 +2586,16 @@ function FeeSetupSection({
           toast={toast}
         />
       )}
+
+      {showDownloadModal && (
+        <DownloadFeeCollectionModal
+          branches={branches}
+          programs={programs}
+          academicYears={academicYears}
+          onClose={() => setShowDownloadModal(false)}
+          toast={toast}
+        />
+      )}
     </>
   )
 }
@@ -2564,6 +2938,16 @@ function YearModal({ onClose, onDone, api, toast }: { onClose: () => void; onDon
           <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required placeholder="2026-27" /></div>
           <div className="field"><label>Start date <span className="req">*</span></label><input className="input" name="startDate" type="date" required /></div>
           <div className="field"><label>End date <span className="req">*</span></label><input className="input" name="endDate" type="date" required /></div>
+          <div className="field">
+            <label>Initial Status</label>
+            <select className="select" name="status" defaultValue="ACTIVE">
+              <option value="PLANNED">Planned</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSING">Closing</option>
+              <option value="CLOSED">Closed</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
         </div>
         <p className="helper">The first academic year is automatically marked current. Terms can be added in Operating Configuration.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
@@ -2816,6 +3200,7 @@ function EditYearModal({ item, onClose, onDone, api, toast }: { item: Dict; onCl
       name: fd.name,
       startDate: fd.startDate,
       endDate: fd.endDate,
+      status: fd.status,
     }
     if (fd.setStatusCurrent === 'on') payload.setStatusCurrent = true
 
@@ -2839,6 +3224,16 @@ function EditYearModal({ item, onClose, onDone, api, toast }: { item: Dict; onCl
           <div className="field"><label>Year Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
           <div className="field"><label>Start Date <span className="req">*</span></label><input className="input" name="startDate" type="date" defaultValue={sDate} required /></div>
           <div className="field"><label>End Date <span className="req">*</span></label><input className="input" name="endDate" type="date" defaultValue={eDate} required /></div>
+          <div className="field">
+            <label>Status <span className="req">*</span></label>
+            <select className="select" name="status" defaultValue={String(item.status || 'ACTIVE')}>
+              <option value="PLANNED">Planned</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSING">Closing</option>
+              <option value="CLOSED">Closed</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" name="setStatusCurrent" defaultChecked={item.isCurrent === true} />
@@ -3174,61 +3569,167 @@ function ProgramWiseSubjectSection({
   setSelectedProgramId: (id: string) => void
 }) {
   const [programs, setPrograms] = useState<Dict[]>([])
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
-      if (j.success && Array.isArray(j.data)) setPrograms(j.data)
+    Promise.all([
+      fetch('/api/v1/programs', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/branches', { cache: 'no-store' }).then((r) => r.json()),
+    ]).then(([prRes, brRes]) => {
+      if (prRes.success && Array.isArray(prRes.data)) setPrograms(prRes.data)
+      if (brRes.success && Array.isArray(brRes.data)) setBranches(brRes.data)
     })
   }, [])
 
+  // Narrow down programs based on selected branch
+  const applicablePrograms = useMemo(() => {
+    if (selectedBranchId === 'ALL') return programs
+    return programs.filter((p: any) => {
+      const bm = p.branchMappings || p.branches || []
+      return bm.length === 0 || bm.some((b: any) => (b.branchId || b.id) === selectedBranchId && b.isActive !== false)
+    })
+  }, [programs, selectedBranchId])
+
   const selectedProgramObj = programs.find((p: any) => String(p.id) === selectedProgramId)
+  const selectedBranchObj = branches.find((b: any) => String(b.id) === selectedBranchId)
 
   const filteredList = useMemo(() => {
-    if (selectedProgramId === 'ALL') return list
     return list.filter((s: any) => {
-      const pm = s.programSubjects || s.programMappings || []
-      return pm.some((p: any) => String(p.programId) === selectedProgramId)
+      // Program filter
+      if (selectedProgramId !== 'ALL') {
+        const pm = s.programSubjects || s.programMappings || []
+        const hasProg = pm.some((p: any) => String(p.programId) === selectedProgramId)
+        if (!hasProg) return false
+      } else if (selectedBranchId !== 'ALL') {
+        // If branch selected, ensure subject belongs to an applicable program in that branch
+        const applicableProgIds = new Set(applicablePrograms.map((p) => String(p.id)))
+        const pm = s.programSubjects || s.programMappings || []
+        const hasBranchProg = pm.some((p: any) => applicableProgIds.has(String(p.programId)))
+        if (pm.length > 0 && !hasBranchProg) return false
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = String(s.name || '').toLowerCase().includes(q)
+        const matchCode = String(s.code || '').toLowerCase().includes(q)
+        if (!matchName && !matchCode) return false
+      }
+
+      return true
     })
-  }, [list, selectedProgramId])
+  }, [list, selectedProgramId, selectedBranchId, applicablePrograms, searchQuery])
+
+  const hasActiveFilters = selectedBranchId !== 'ALL' || selectedProgramId !== 'ALL' || searchQuery.trim() !== ''
+
+  const clearFilters = () => {
+    setSelectedBranchId('ALL')
+    setSelectedProgramId('ALL')
+    setSearchQuery('')
+  }
 
   return (
     <>
-      {/* Program Selection Priority Bar */}
+      {/* ── Branch & Program Context Bar ── */}
       <div style={{ padding: '14px 16px', background: 'var(--surface-muted)', borderRadius: 12, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'between', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
-              Select Program (Priority):
-            </span>
-            <select
-              className="select"
-              style={{ fontSize: 13, fontWeight: 700, minWidth: 200, borderColor: 'var(--primary)' }}
-              value={selectedProgramId}
-              onChange={(e) => setSelectedProgramId(e.target.value)}
-            >
-              <option value="ALL">All Programs ({list.length} subjects)</option>
-              {programs.map((p: any) => (
-                <option key={String(p.id)} value={String(p.id)}>
-                  {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
-                </option>
-              ))}
-            </select>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+            {/* Campus Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Building2 size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
+                Campus:
+              </span>
+              <select
+                className="select"
+                style={{ fontSize: 13, minWidth: 160 }}
+                value={selectedBranchId}
+                onChange={(e) => {
+                  setSelectedBranchId(e.target.value)
+                  setSelectedProgramId('ALL')
+                }}
+              >
+                <option value="ALL">All Campuses ({branches.length})</option>
+                {branches.map((b: any) => (
+                  <option key={String(b.id)} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Program Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Blocks size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
+                Program:
+              </span>
+              <select
+                className="select"
+                style={{ fontSize: 13, fontWeight: 700, minWidth: 200, borderColor: 'var(--primary)' }}
+                value={selectedProgramId}
+                onChange={(e) => setSelectedProgramId(e.target.value)}
+              >
+                <option value="ALL">All Programs ({applicablePrograms.length})</option>
+                {applicablePrograms.map((p: any) => (
+                  <option key={String(p.id)} value={String(p.id)}>
+                    {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <div style={{ minWidth: 150 }}>
+              <input
+                className="input"
+                style={{ height: 32, fontSize: 12.5 }}
+                placeholder="Search subject…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={clearFilters}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
+              >
+                <X size={13} /> Clear
+              </button>
+            )}
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          <div>
             <button className="btn btn-primary" onClick={onAddSubject}>
               <Plus size={15} style={{ marginRight: 4 }} />
               {selectedProgramObj ? `Add Subject for ${selectedProgramObj.name}` : 'Add Subject'}
             </button>
           </div>
         </div>
-        <p className="helper" style={{ marginTop: 6, marginBottom: 0 }}>
-          Subjects are created program-wise. Select a target program first to view or add subjects for that specific program.
-        </p>
+
+        {/* Clear Branch & Program Identification Line */}
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
+          <span style={{ color: 'var(--foreground-muted)' }}>Configuring Context:</span>
+          <span className="badge b-primary">
+            {selectedBranchObj ? `Campus: ${selectedBranchObj.name}` : 'All Campuses (Shared Master)'}
+          </span>
+          <span>→</span>
+          <span className="badge b-neutral">
+            {selectedProgramObj ? `Program: ${selectedProgramObj.name}` : 'All Programs'}
+          </span>
+          <span className="helper" style={{ margin: 0 }}>
+            Subjects map to academic programs and are operational across campuses serving those programs.
+          </span>
+        </div>
       </div>
 
       <TableToolbar
-        title={selectedProgramObj ? `Subjects for ${selectedProgramObj.name}` : 'All Program Subjects'}
+        title={selectedProgramObj ? `Subjects for ${selectedProgramObj.name}` : selectedBranchObj ? `Subjects for ${selectedBranchObj.name}` : 'All Program Subjects'}
         count={filteredList.length}
         icon={<BookOpen size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
         onAdd={onAddSubject}
@@ -3238,8 +3739,8 @@ function ProgramWiseSubjectSection({
       {filteredList.length === 0 ? (
         <EmptyState
           icon={<BookOpen size={40} />}
-          title={selectedProgramObj ? `No subjects created for ${selectedProgramObj.name} yet` : 'No subjects configured'}
-          message={selectedProgramObj ? `Click "+ Add Subject for ${selectedProgramObj.name}" to create subjects for this program.` : 'Add subjects program-wise.'}
+          title={hasActiveFilters ? "No subjects match current filters" : "No subjects configured"}
+          message={hasActiveFilters ? "Try clearing or selecting a different campus or program." : "Add subjects program-wise."}
         />
       ) : (
         <div className="dtable-scroll">
@@ -3249,6 +3750,7 @@ function ProgramWiseSubjectSection({
                 <th>Subject</th>
                 <th>Type</th>
                 <th>Programs Mapped</th>
+                <th>Campus Availability</th>
                 <th>Classes</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -3278,6 +3780,11 @@ function ProgramWiseSubjectSection({
                     ) : (
                       <span className="badge b-warning">Unmapped</span>
                     )}
+                  </td>
+                  <td>
+                    <span className="badge b-neutral">
+                      {selectedBranchObj ? selectedBranchObj.name : 'Shared Master'}
+                    </span>
                   </td>
                   <td>{String(s.classroomCount ?? 0)}</td>
                   <td><StatusBadge status={s.status || (s.active ? 'ACTIVE' : 'INACTIVE')} /></td>
