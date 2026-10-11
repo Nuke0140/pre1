@@ -4,6 +4,7 @@ import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 import { AdmissionService } from '@/lib/admissions/admission-service'
+import { tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/leads/{id}/convert — Start Admission Form from Enquiry
@@ -20,7 +21,7 @@ async function _POST(
 
   try {
     const lead = await db.lead.findFirst({
-      where: { id, tenantId: session.tenantId, deletedAt: null },
+      where: tenantScopedIdWhere(id, session.tenantId, { deletedAt: null }),
     })
     if (!lead) return Errors.notFound('Enquiry')
     if (lead.status === 'CONVERTED') {

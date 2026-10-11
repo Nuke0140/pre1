@@ -1495,6 +1495,10 @@ export function TransportClient({ session }: { session: SessionProps }) {
   return (
     <div className="page-shell">
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Transport' },
+        ]}
         title="Transport & Child Safety Operations"
         badge={
           <span

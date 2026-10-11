@@ -60,15 +60,23 @@ async function main() {
   }
 
   // Find or create test users
-  const adminUser = await db.user.findFirst({
+  const adminUser = await db.user.upsert({
     where: { email: 'admin@mypreone.com' },
+    update: { fullName: 'Admin User' },
+    create: {
+      email: 'admin@mypreone.com',
+      username: 'adminuser',
+      passwordHash: '$2a$10$xyz',
+      fullName: 'Admin User',
+    },
     include: { memberships: true },
   })
 
-  if (!adminUser) {
-    console.error('❌ Admin user admin@mypreone.com not found in database!')
-    process.exit(1)
-  }
+  await db.tenantUser.upsert({
+    where: { tenantId_userId: { tenantId: tenant.id, userId: adminUser.id } },
+    update: { role: 'OWNER', status: 'ACTIVE' },
+    create: { tenantId: tenant.id, userId: adminUser.id, role: 'OWNER', status: 'ACTIVE' },
+  })
 
   const testUser1 = await db.user.upsert({
     where: { email: 'bulk.test1@preone.com' },

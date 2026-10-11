@@ -523,6 +523,10 @@ export function CommunicationClient({ session }: { session: SessionProps }) {
     <div className="page-container" style={{ maxWidth: 1240, margin: '0 auto', paddingBottom: 60 }}>
       {/* 1. Header with PageHead */}
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Communication' },
+        ]}
         title="Announcements"
         sub="Important notices, school circulars, holiday alerts, and communications."
         actions={

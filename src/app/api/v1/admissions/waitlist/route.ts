@@ -4,6 +4,7 @@ import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { WaitingListService } from '@/lib/admissions/waiting-list-service'
 import { AdmissionService } from '@/lib/admissions/admission-service'
+import { resolveAuthorizedBranchScope, ALL_BRANCHES_ID } from '@/lib/admissions/branch-context'
 
 /**
  * GET /api/v1/admissions/waitlist
@@ -16,7 +17,7 @@ async function _GET(req: NextRequest) {
 
   try {
     const sp = req.nextUrl.searchParams
-    const branchId = sp.get('branchId') || session.branchId || ''
+    const requestedBranchId = sp.get('branchId')
     const academicSessionId = sp.get('academicSessionId') || sp.get('academicYearId') || ''
     const programType = sp.get('programType') || sp.get('program') || undefined
     const status = sp.get('status') || undefined
@@ -25,17 +26,23 @@ async function _GET(req: NextRequest) {
     const limit = parseInt(sp.get('limit') || '50', 10)
     const offset = parseInt(sp.get('offset') || '0', 10)
 
+    const branchScope = await resolveAuthorizedBranchScope(session, requestedBranchId)
+    if (branchScope.mode === 'NO_BRANCH_ACCESS') {
+      return Errors.forbidden('No authorized branch access for active user')
+    }
+
     const result = await WaitingListService.listWaitingList(
       {
         tenantId: session.tenantId,
-        branchId,
+        branchId: branchScope.selectedBranchId || '',
         academicYearId: academicSessionId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
       },
       {
-        branchId: branchId || undefined,
+        branchId: branchScope.mode === 'SINGLE_BRANCH' ? branchScope.selectedBranchId! : undefined,
+        branchIds: branchScope.mode === 'ALL_BRANCHES' ? branchScope.authorizedBranchIds : undefined,
         academicSessionId: academicSessionId || undefined,
         programType,
         status,
@@ -43,12 +50,28 @@ async function _GET(req: NextRequest) {
         search,
         limit,
         offset,
-      }
+      } as any
     )
 
-    return ok(result.entries, {
+    const branchMap = new Map(branchScope.branches.map((b) => [b.id, b]))
+    const enrichedEntries = result.entries.map((e) => {
+      const b = branchMap.get(e.branchId)
+      return {
+        ...e,
+        branchName: b ? b.name : 'Main Campus',
+        branchCode: b?.code,
+      }
+    })
+
+    return ok(enrichedEntries, {
       total: result.total,
       capacitySummaries: result.capacitySummaries,
+      scope: {
+        tenantId: branchScope.tenantId,
+        mode: branchScope.mode,
+        selectedBranchId: branchScope.selectedBranchId,
+        authorizedBranchIds: branchScope.authorizedBranchIds,
+      },
     })
   } catch (e: any) {
     return Errors.system(e)

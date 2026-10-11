@@ -13,7 +13,7 @@ async function _POST(req: NextRequest) {
   try {
     const result = await goLive(session.tenantId, { id: session.uid, name: session.name })
     if (!result.ok) {
-      return Errors.business('SETUP_001', result.message, 422)
+      return Errors.business('SETUP_001', result.message, 422, { blockers: result.blockers })
     }
     return ok({ message: result.message, goLiveAt: new Date().toISOString() })
   } catch (e) {

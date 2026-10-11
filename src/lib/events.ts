@@ -43,6 +43,7 @@ export type DomainEvent =
   | { type: 'PayrollProcessed'; tenantId: string; cycleId: string; month: number; year: number }
   | { type: 'ResignationSubmitted'; tenantId: string; staffProfileId: string; lwd: string }
   | { type: 'ExitCompleted'; tenantId: string; staffProfileId: string }
+  | { type: 'N8nIntegrationEvent'; tenantId: string; branchId?: string | null; eventType: string; locale?: string; data: Record<string, any> }
 
 type Handler = (e: DomainEvent) => Promise<void>
 
@@ -74,6 +75,24 @@ onDomainEvent(async (e) => {
       await FeeService.applyActiveFeeStructuresToStudent({ tenantId: e.tenantId }, e.studentId)
     } catch (err) {
       console.error(`[events] Failed to apply fee structure for student ${e.studentId}:`, err)
+    }
+  }
+})
+
+// Auto-dispatch Integration events to n8n webhook service
+onDomainEvent(async (e) => {
+  if (e.type === 'N8nIntegrationEvent') {
+    try {
+      const { dispatchN8nEvent } = await import('@/lib/integrations/n8n')
+      await dispatchN8nEvent({
+        eventType: e.eventType,
+        tenantId: e.tenantId,
+        branchId: e.branchId,
+        locale: e.locale,
+        data: e.data,
+      })
+    } catch (err) {
+      console.error(`[events] Failed to dispatch n8n event ${e.eventType}:`, err)
     }
   }
 })

@@ -10,8 +10,9 @@ import { recordAudit } from '@/lib/audit'
  */
 export function sanitizeCsvCell(val: string | null | undefined): string {
   if (val === null || val === undefined) return '""'
-  let s = String(val).trim()
-  if (/^[=+\-@\t\r]/.test(s)) {
+  const raw = String(val)
+  let s = raw.trim()
+  if (/^[=+\-@\t\r]/.test(raw) || /^[=+\-@]/.test(s)) {
     s = `'${s}`
   }
   return `"${s.replace(/"/g, '""')}"`

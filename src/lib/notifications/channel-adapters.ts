@@ -12,6 +12,7 @@
  */
 
 import { db } from '@/lib/db'
+import { emailService } from '@/lib/email/email-service'
 
 export interface ChannelDeliveryInput {
   tenantId: string
@@ -139,35 +140,20 @@ export class ChannelAdapters {
           }
         }
 
-        const hasEmailProvider = !!process.env.SMTP_HOST || !!process.env.SENDGRID_API_KEY
-        if (!hasEmailProvider) {
-          const log = await db.notificationDeliveryLog.create({
-            data: {
-              tenantId: input.tenantId,
-              eventId: input.eventId,
-              eventType: input.eventType,
-              channel: 'EMAIL',
-              recipientType: input.recipientType,
-              recipientId: input.recipientId,
-              recipientAddress: address,
-              title: input.title,
-              body: input.body,
-              status: 'CONFIGURATION_ONLY',
-              failureReason: 'Email gateway (SMTP / SendGrid) not configured on server',
-              metadata: input.metadata,
-            },
-          })
-          return {
-            delivered: false,
-            status: 'CONFIGURATION_ONLY',
-            channel: 'EMAIL',
-            recipientAddress: address,
-            messageId: log.id,
-            failureReason: 'Email gateway not configured on server',
-          }
-        }
+        // Dispatch through central emailService (truthful provider integration)
+        const sendResult = await emailService.send({
+          to: address,
+          subject: input.title,
+          html: `<div style="font-family:sans-serif;padding:16px;"><h2>${input.title}</h2><p>${input.body.replace(/\n/g, '<br/>')}</p></div>`,
+          text: input.body,
+          tenantId: input.tenantId,
+          metadata: {
+            eventId: input.eventId,
+            eventType: input.eventType,
+            ...input.metadata,
+          },
+        })
 
-        // Live provider delivery would execute here.
         const log = await db.notificationDeliveryLog.create({
           data: {
             tenantId: input.tenantId,
@@ -179,16 +165,23 @@ export class ChannelAdapters {
             recipientAddress: address,
             title: input.title,
             body: input.body,
-            status: 'SENT',
-            metadata: input.metadata,
+            status: sendResult.status,
+            failureReason: sendResult.failureReason,
+            metadata: {
+              provider: sendResult.provider,
+              providerMessageId: sendResult.messageId,
+              ...input.metadata,
+            },
           },
         })
+
         return {
-          delivered: true,
-          status: 'SENT',
+          delivered: sendResult.success,
+          status: sendResult.status,
           channel: 'EMAIL',
           recipientAddress: address,
-          messageId: log.id,
+          messageId: sendResult.messageId || log.id,
+          failureReason: sendResult.failureReason,
         }
       }
 

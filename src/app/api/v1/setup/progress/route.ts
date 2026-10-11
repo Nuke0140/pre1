@@ -11,7 +11,9 @@ async function _GET(req: NextRequest) {
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
-    const payload = await syncSetup(session.tenantId, { id: session.uid, name: session.name })
+    const { searchParams } = new URL(req.url)
+    const branchId = searchParams.get('branchId')
+    const payload = await syncSetup(session.tenantId, { id: session.uid, name: session.name }, branchId)
     if (!payload) return Errors.notFound('Tenant')
     const next = payload.steps.find((s) => s.key === payload.nextStepKey)
     return ok({

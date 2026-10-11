@@ -189,6 +189,9 @@ export const GET = withApi(async (req: NextRequest) => {
   let inactiveCount = 0
   let tabAll = 0
   let tabStaff = 0
+  let tabStaffActive = 0
+  let tabFamily = 0
+  let tabFamilyActive = 0
   let tabPending = 0
   const roleCounts: Record<string, number> = {}
 
@@ -201,7 +204,14 @@ export const GET = withApi(async (req: NextRequest) => {
     else if (g.status === 'INACTIVE') inactiveCount += count
 
     if (g.status === 'PENDING') tabPending += count
-    if (!['PARENT', 'GUARDIAN'].includes(g.role)) tabStaff += count
+    const isFamily = ['PARENT', 'GUARDIAN'].includes(g.role)
+    if (!isFamily) {
+      tabStaff += count
+      if (g.status === 'ACTIVE') tabStaffActive += count
+    } else {
+      tabFamily += count
+      if (g.status === 'ACTIVE') tabFamilyActive += count
+    }
 
     roleCounts[g.role] = (roleCounts[g.role] || 0) + count
   }
@@ -273,6 +283,9 @@ export const GET = withApi(async (req: NextRequest) => {
       tabs: {
         ALL: tabAll,
         STAFF: tabStaff,
+        STAFF_ACTIVE: tabStaffActive,
+        FAMILY: tabFamily,
+        FAMILY_ACTIVE: tabFamilyActive,
         TEACHER: roleCounts['TEACHER'] || 0,
         PARENT: roleCounts['PARENT'] || 0,
         GUARDIAN: roleCounts['GUARDIAN'] || 0,

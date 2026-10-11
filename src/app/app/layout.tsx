@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { AppShell } from '@/components/shell/AppShell'
 import { ToastProvider } from '@/components/preone/Toast'
 import { getEffectiveBranding } from '@/lib/branding-service'
+import { I18nProvider } from '@/lib/i18n/context'
+import { normalizeLocale } from '@/lib/i18n/types'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -13,6 +15,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let tenantName = 'PreOne'
   let branchName: string | null = null
   let branding = undefined
+  let initialLocale = 'en-IN'
+
+  const user = await db.user.findUnique({
+    where: { id: session.uid },
+    select: { locale: true },
+  })
+  if (user?.locale) {
+    initialLocale = user.locale
+  }
 
   if (session.tenantId) {
     const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
@@ -21,6 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
     branding = await getEffectiveBranding(session.tenantId)
     tenantName = branding?.schoolName || tenant.name || 'PreOne'
+
+    if (!user?.locale && tenant.locale) {
+      initialLocale = tenant.locale
+    }
 
     if (session.branchId) {
       const branch = await db.branch.findUnique({ where: { id: session.branchId } })
@@ -70,20 +85,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   `
 
   return (
-    <ToastProvider>
-      <style dangerouslySetInnerHTML={{ __html: dynamicThemeCss }} />
-      <AppShell
-        user={{
-          name: session.name,
-          email: session.email,
-          role: session.role,
-          tenantName,
-          branchName,
-        }}
-        branding={branding}
-      >
-        {children}
-      </AppShell>
-    </ToastProvider>
+    <I18nProvider initialLocale={initialLocale}>
+      <ToastProvider>
+        <style dangerouslySetInnerHTML={{ __html: dynamicThemeCss }} />
+        <AppShell
+          user={{
+            name: session.name,
+            email: session.email,
+            role: session.role,
+            tenantName,
+            branchName,
+          }}
+          branding={branding}
+        >
+          {children}
+        </AppShell>
+      </ToastProvider>
+    </I18nProvider>
   )
 }

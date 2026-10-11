@@ -182,15 +182,24 @@ export const POST = withApi(
           role: 'PLATFORM_ADMIN',
           mustChangePassword: Boolean((user as any).mustChangePassword),
         })
-        await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+        // Resilient post-auth updates
+        try {
+          await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+        } catch (dbErr) {
+          // Non-fatal: lastLoginAt update failure should not break active login
+        }
 
         // Register session in user_sessions table
-        await SessionService.createSession({
+        const sessionRecord = await SessionService.createSession({
           userId: user.id,
           tenantId: null,
           token,
           req,
         })
+
+        if (!sessionRecord) {
+          return Errors.system(new Error('Failed to establish user session'))
+        }
 
         await audit({
           tenantId: null,
@@ -223,6 +232,7 @@ export const POST = withApi(
         res.cookies.set(SESSION_COOKIE, token, {
           httpOnly: true,
           sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
           maxAge: SESSION_MAX_AGE,
           path: '/',
         })
@@ -251,15 +261,24 @@ export const POST = withApi(
         mustChangePassword: Boolean((user as any).mustChangePassword),
       })
 
-      await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      // Resilient post-auth updates
+      try {
+        await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      } catch (dbErr) {
+        // Non-fatal: lastLoginAt update failure should not break active login
+      }
 
       // Register session in user_sessions table
-      await SessionService.createSession({
+      const sessionRecord = await SessionService.createSession({
         userId: user.id,
         tenantId: membership.tenantId,
         token,
         req,
       })
+
+      if (!sessionRecord) {
+        return Errors.system(new Error('Failed to establish user session'))
+      }
 
       await audit({
         tenantId: membership.tenantId,
@@ -295,6 +314,7 @@ export const POST = withApi(
       res.cookies.set(SESSION_COOKIE, token, {
         httpOnly: true,
         sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
         maxAge: SESSION_MAX_AGE,
         path: '/',
       })

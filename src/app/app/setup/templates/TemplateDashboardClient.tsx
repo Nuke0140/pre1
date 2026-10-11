@@ -309,6 +309,7 @@ export default function TemplateDashboardClient() {
         title="No-Code Template Studio"
         subtitle="Visual drag-and-drop designer for student ID cards, fee receipts, completion certificates, and school documents."
         breadcrumbs={[
+          { label: 'Home', href: '/app' },
           { label: 'Setup', href: '/app/setup' },
           { label: 'Templates' },
         ]}

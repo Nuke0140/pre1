@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
+import { useI18n } from '@/lib/i18n'
+
 interface ModalProps {
   open: boolean
   onClose: () => void
@@ -21,6 +23,7 @@ interface ModalProps {
 export function Modal({
   open, onClose, title, subtitle, icon, iconClass = 'ic-purple', wide, maxWidth, className, children, footer,
 }: ModalProps) {
+  const { t } = useI18n()
   const panelRef = React.useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
   const onCloseRef = React.useRef(onClose)
@@ -100,7 +103,7 @@ export function Modal({
               {subtitle && <div className="modal-sub">{subtitle}</div>}
             </div>
           </div>
-          <button className="x-btn" onClick={onClose} aria-label="Close">
+          <button className="x-btn" onClick={onClose} aria-label={t('common.close')}>
             <X />
           </button>
         </div>
@@ -113,7 +116,7 @@ export function Modal({
 }
 
 export function ConfirmModal({
-  open, onClose, onConfirm, title, message, confirmLabel = 'Confirm', danger,
+  open, onClose, onConfirm, title, message, confirmLabel, danger,
 }: {
   open: boolean
   onClose: () => void
@@ -123,6 +126,9 @@ export function ConfirmModal({
   confirmLabel?: string
   danger?: boolean
 }) {
+  const { t } = useI18n()
+  const effectiveConfirmLabel = confirmLabel || t('common.confirm')
+
   return (
     <Modal
       open={open}
@@ -132,12 +138,12 @@ export function ConfirmModal({
       iconClass={danger ? 'ic-pink' : 'ic-yellow'}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-ghost" onClick={onClose}>{t('common.cancel')}</button>
           <button
             className={`btn ${danger ? 'btn-destructive' : 'btn-primary'}`}
             onClick={() => { onConfirm(); onClose() }}
           >
-            {confirmLabel}
+            {effectiveConfirmLabel}
           </button>
         </>
       }

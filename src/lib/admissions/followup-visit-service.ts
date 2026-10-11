@@ -128,7 +128,7 @@ export class FollowUpVisitService {
     const fu = await raiseFollowUp({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId,
+      academicSessionId: ctx.academicYearId,
       domain: 'ADMISSION',
       severity: 'INFO',
       title: `${input.type || 'Phone Call'}: ${lead.childName || lead.parentName}`,
@@ -164,7 +164,7 @@ export class FollowUpVisitService {
     await audit({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId || undefined,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+      academicSessionId: ctx.academicYearId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -179,7 +179,7 @@ export class FollowUpVisitService {
       await audit({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId || undefined,
-        academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+        academicSessionId: ctx.academicYearId || undefined,
         actorId: ctx.actorId,
         actorName: ctx.actorName,
         actorRole: ctx.actorRole,
@@ -234,7 +234,7 @@ export class FollowUpVisitService {
     const fu = await raiseFollowUp({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId,
+      academicSessionId: ctx.academicYearId,
       domain: 'ADMISSION',
       severity: 'INFO',
       title: `School Visit: ${lead.childName || lead.parentName}`,
@@ -264,7 +264,7 @@ export class FollowUpVisitService {
     await audit({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId || undefined,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+      academicSessionId: ctx.academicYearId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -283,7 +283,7 @@ export class FollowUpVisitService {
       await audit({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId || undefined,
-        academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+        academicSessionId: ctx.academicYearId || undefined,
         actorId: ctx.actorId,
         actorName: ctx.actorName,
         actorRole: ctx.actorRole,
@@ -382,8 +382,8 @@ export class FollowUpVisitService {
         applicationResult = await LeadService.startApplication(
           {
             tenantId: ctx.tenantId,
-            branchId: ctx.branchId || lead.branchId || undefined,
-            academicYearId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
+            branchId: (ctx.branchId || lead.branchId || '') as string,
+            academicYearId: (ctx.academicYearId || '') as string,
             actorId: ctx.actorId,
             actorName: ctx.actorName,
             actorRole: ctx.actorRole,
@@ -401,7 +401,7 @@ export class FollowUpVisitService {
       await raiseFollowUp({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId,
-        academicSessionId: ctx.academicYearId || (lead as any).academicSessionId,
+        academicSessionId: ctx.academicYearId,
         domain: 'ADMISSION',
         severity: 'INFO',
         title: `Decision Follow-up: ${lead.childName || lead.parentName}`,
@@ -426,7 +426,7 @@ export class FollowUpVisitService {
       await audit({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId || lead.branchId || undefined,
-        academicSessionId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
+        academicSessionId: ctx.academicYearId || undefined,
         actorId: ctx.actorId,
         actorName: ctx.actorName,
         actorRole: ctx.actorRole,
@@ -441,8 +441,8 @@ export class FollowUpVisitService {
       await LeadService.markLost(
         {
           tenantId: ctx.tenantId,
-          branchId: ctx.branchId || lead.branchId || undefined,
-          academicYearId: ctx.academicYearId || (lead as any).academicSessionId || undefined,
+          branchId: (ctx.branchId || lead.branchId || '') as string,
+          academicYearId: (ctx.academicYearId || '') as string,
           actorId: ctx.actorId,
           actorName: ctx.actorName,
           actorRole: ctx.actorRole,
@@ -456,7 +456,7 @@ export class FollowUpVisitService {
     await audit({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId || undefined,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+      academicSessionId: ctx.academicYearId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -545,7 +545,7 @@ export class FollowUpVisitService {
     const recoveryTask = await raiseFollowUp({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId,
+      academicSessionId: ctx.academicYearId,
       domain: 'ADMISSION',
       severity: 'WARNING',
       title: `No-Show Recovery Call: ${lead.childName || lead.parentName}`,
@@ -562,7 +562,7 @@ export class FollowUpVisitService {
     await audit({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId || undefined,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+      academicSessionId: ctx.academicYearId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -649,7 +649,7 @@ export class FollowUpVisitService {
     const newVisit = await raiseFollowUp({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId,
+      academicSessionId: ctx.academicYearId,
       domain: 'ADMISSION',
       severity: 'INFO',
       title: `School Visit (Rescheduled): ${lead.childName || lead.parentName}`,
@@ -672,7 +672,7 @@ export class FollowUpVisitService {
     await audit({
       tenantId: ctx.tenantId,
       branchId: ctx.branchId || lead.branchId || undefined,
-      academicSessionId: ctx.academicYearId || lead.academicSessionId || undefined,
+      academicSessionId: ctx.academicYearId || undefined,
       actorId: ctx.actorId,
       actorName: ctx.actorName,
       actorRole: ctx.actorRole,
@@ -845,6 +845,8 @@ export class FollowUpVisitService {
     }
     if (params?.branchId) {
       baseWhere.branchId = params.branchId
+    } else if ((params as any)?.branchIds && Array.isArray((params as any).branchIds)) {
+      baseWhere.branchId = { in: (params as any).branchIds }
     }
 
     // Fetch all relevant admission follow-ups to compute accurate counts & active lists
@@ -856,17 +858,42 @@ export class FollowUpVisitService {
 
     // Fetch associated leads
     const leadIds = Array.from(new Set(allRecords.map((r) => r.sourceId).filter(Boolean))) as string[]
-    const leads = await db.lead.findMany({
-      where: { id: { in: leadIds }, deletedAt: null },
-    })
+    const assignedUserIds = Array.from(new Set(allRecords.map((r) => r.assignedToId).filter(Boolean))) as string[]
+    const branchIds = Array.from(new Set(allRecords.map((r) => r.branchId).filter(Boolean))) as string[]
+
+    const [leads, assignedUsers, branches] = await Promise.all([
+      db.lead.findMany({
+        where: { id: { in: leadIds }, deletedAt: null },
+      }),
+      assignedUserIds.length > 0
+        ? db.user.findMany({
+            where: { id: { in: assignedUserIds } },
+            select: { id: true, fullName: true, email: true },
+          })
+        : Promise.resolve([]),
+      branchIds.length > 0
+        ? db.branch.findMany({
+            where: { id: { in: branchIds } },
+            select: { id: true, name: true, code: true },
+          })
+        : Promise.resolve([]),
+    ])
+
     const leadMap = new Map<string, any>(leads.map((l) => [l.id, l]))
+    const userMap = new Map<string, any>(assignedUsers.map((u) => [u.id, u]))
+    const branchMap = new Map<string, any>(branches.map((b) => [b.id, b]))
 
     const enrichedRecords = allRecords.map((r) => {
       const parsed = this.parseVisitDetail(r.detail)
       const lead = r.sourceId ? leadMap.get(r.sourceId) : null
+      const assignedUser = r.assignedToId ? userMap.get(r.assignedToId) : null
+      const branch = r.branchId ? branchMap.get(r.branchId) : null
+
       return {
         ...r,
         parsedDetail: parsed,
+        assignedStaffName: assignedUser ? (assignedUser.fullName || assignedUser.email) : null,
+        branchName: branch?.name || null,
         lead: lead
           ? {
               id: lead.id,
@@ -898,9 +925,8 @@ export class FollowUpVisitService {
       return new Date(r.dueAt) < startOfToday
     })
 
-    // UPCOMING: OPEN visits with dueAt > now
-    const upcomingVisits = enrichedRecords.filter((r) => {
-      if (r.sourceType !== 'SchoolVisit') return false
+    // UPCOMING: OPEN items with dueAt > now
+    const upcoming = enrichedRecords.filter((r) => {
       if (r.status !== 'OPEN') return false
       if (!r.dueAt) return false
       return new Date(r.dueAt) > now
@@ -912,14 +938,15 @@ export class FollowUpVisitService {
     const counts = {
       dueToday: dueToday.length,
       overdue: overdue.length,
-      upcomingVisits: upcomingVisits.length,
+      upcomingVisits: upcoming.length,
       completed: completed.length,
     }
 
     let items = dueToday
     if (params?.queue === 'OVERDUE') items = overdue
-    else if (params?.queue === 'UPCOMING') items = upcomingVisits
+    else if (params?.queue === 'UPCOMING') items = upcoming
     else if (params?.queue === 'COMPLETED') items = completed
+    else if ((params?.queue as string) === 'ALL') items = enrichedRecords
 
     return {
       counts,

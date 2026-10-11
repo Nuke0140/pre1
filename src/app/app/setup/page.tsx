@@ -10,7 +10,7 @@ import {
   Sliders, Activity, Check, RefreshCw, Layers, ExternalLink, AlertCircle, Info,
 } from 'lucide-react'
 import {
-  PageHead, Segmented, Skeleton, EmptyState, StatusBadge,
+  PageHead, Skeleton, EmptyState, StatusBadge,
   SetupPhaseCard, SetupStepTile,
 } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -43,11 +43,24 @@ interface StepRow {
   locked: boolean
 }
 
+interface BranchReadiness {
+  branchId: string
+  branchName: string
+  branchCode: string
+  status: 'READY' | 'IN_PROGRESS' | 'BLOCKED'
+  progress: number
+  completedSteps: number
+  totalSteps: number
+  blockers: string[]
+}
+
 interface StatusPayload {
   status: 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'READY_FOR_REVIEW' | 'READY_FOR_GO_LIVE' | 'LIVE'
   progress: number
   startedAt: string | null
   goLiveAt: string | null
+  currentBranchId: string | null
+  branchReadiness?: BranchReadiness[]
   steps: StepRow[]
   nextStepKey: string | null
   guidance: { level: 'info' | 'warning'; message: string; stepKey: string }[]
@@ -57,12 +70,23 @@ interface ValidationCategory {
   key: string
   label: string
   status: 'PASS' | 'WARNING' | 'BLOCKED'
-  findings: { status: 'PASS' | 'WARNING' | 'BLOCKED'; message: string }[]
+  findings: { status: 'PASS' | 'WARNING' | 'BLOCKED'; message: string; branchName?: string | null }[]
+}
+
+interface BranchValidationSummary {
+  branchId: string
+  branchName: string
+  status: 'PASS' | 'WARNING' | 'BLOCKED'
+  blockedCount: number
+  warningCount: number
+  blockers: string[]
 }
 
 interface ValidationPayload {
   overall: 'PASS' | 'WARNING' | 'BLOCKED'
   categories: ValidationCategory[]
+  branchSummaries?: BranchValidationSummary[]
+  blockers?: { category: string; message: string; branchName?: string | null }[]
   setupStatus?: string
 }
 
@@ -93,7 +117,7 @@ type Dict = Record<string, any>
 const STEP_STATUS_MAP: Record<string, { cls: string; label: string }> = {
   COMPLETE: { cls: 'b-success', label: 'Complete' },
   PENDING: { cls: 'b-info', label: 'Pending' },
-  BLOCKED: { cls: 'b-danger', label: 'Blocked' },
+  BLOCKED: { cls: 'b-info', label: 'Pending' },
   SKIPPED: { cls: 'b-neutral', label: 'Skipped' },
 }
 
@@ -115,6 +139,7 @@ const CAT_STATUS_MAP: Record<string, { cls: string; label: string }> = {
 export default function SetupPage() {
   const toast = useToast()
   const [status, setStatus] = useState<StatusPayload | null>(null)
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
   const [metroFilter, setMetroFilter] = useState<'ALL' | 'MANDATORY' | 'RECOMMENDED' | 'REMAINING'>('ALL')
   const [validation, setValidation] = useState<ValidationPayload | null>(null)
   const [validating, setValidating] = useState(false)
@@ -141,9 +166,11 @@ export default function SetupPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<Dict | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (bId?: string) => {
     try {
-      const res = await fetch('/api/v1/setup/status')
+      const activeBId = bId !== undefined ? bId : selectedBranchId
+      const q = activeBId && activeBId !== 'ALL' ? `?branchId=${activeBId}` : ''
+      const res = await fetch(`/api/v1/setup/status${q}`)
       const j = await res.json()
       if (j.success) {
         setStatus(j.data)
@@ -154,7 +181,7 @@ export default function SetupPage() {
     } catch {
       // ignore network errors on unmount
     }
-  }, [])
+  }, [selectedBranchId])
 
   const loadHubData = useCallback(async () => {
     try {
@@ -314,7 +341,6 @@ export default function SetupPage() {
     return (
       <div className="page-container">
         <PageHead
-          eyebrow="PRESCHOOL SETUP & READINESS"
           title="Preschool Setup & Configuration"
         />
         <div className="table-workspace"><div style={{ padding: 24 }}><Skeleton h={240} /></div></div>
@@ -326,64 +352,136 @@ export default function SetupPage() {
     <div className="page-container">
       {/* ── 1. CANONICAL PAGE HEADER ── */}
       <PageHead
-        eyebrow="PRESCHOOL SETUP & READINESS"
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Setup' },
+        ]}
         title="Preschool Setup & Configuration"
-        sub="Configure foundation, academic structure, daily operations, and business rules."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {branches.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-card)', padding: '3px 8px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                <Building2 size={14} style={{ color: 'var(--text-secondary)' }} />
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>Campus:</span>
+                <select
+                  className="select"
+                  style={{ minWidth: 150, height: 28, fontSize: 12, padding: '2px 8px' }}
+                  value={selectedBranchId}
+                  onChange={(e) => {
+                    setSelectedBranchId(e.target.value)
+                    load(e.target.value)
+                  }}
+                >
+                  <option value="ALL">All Campuses (Aggregated)</option>
+                  {branches.map((b: any) => (
+                    <option key={String(b.id)} value={String(b.id)}>
+                      {b.name} ({b.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>
               <LayoutList size={14} /> Dependency Graph
-            </button>
-            <button className="btn btn-outline" onClick={runValidation} disabled={validating}>
-              <ClipboardCheck size={14} /> {validating ? 'Verifying…' : 'Run Health Check'}
-            </button>
-            <button className="btn btn-outline" onClick={() => setGoLiveOpen(true)}>
-              <Rocket size={14} /> Go-Live Checklist
             </button>
             {status.status !== 'LIVE' && mandatoryLeft === 0 && (
               <button className="btn btn-primary" onClick={() => setGoLiveOpen(true)}>
                 <Rocket size={14} /> Launch Preschool (Go Live)
               </button>
             )}
-            {nextStep && (
-              <a
-                className="btn btn-primary"
-                href={
-                  nextStep.key === 'branding'
-                    ? '/app/setup/branding'
-                    : nextStep.key === 'templates'
-                    ? '/app/setup/templates'
-                    : `/app/setup/${nextStep.key}`
-                }
-              >
-                <PlayCircle size={14} /> Step Guide ({nextStep.label}) <ChevronRight size={14} />
-              </a>
-            )}
           </div>
         }
       />
 
-      {/* ── 2. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
-      <div style={{ marginTop: 8 }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            marginBottom: 16,
-          }}
-        >
-          <Segmented
-            value={metroFilter}
-            onChange={(v) => setMetroFilter(v as typeof metroFilter)}
-            options={[
-              { key: 'ALL', label: `All (${status.steps.length})` },
-              { key: 'MANDATORY', label: `Mandatory (${mandatorySteps.length})` },
-              { key: 'RECOMMENDED', label: `Recommended (${recommendedSteps.length})` },
-              { key: 'REMAINING', label: `Remaining (${remainingCount})` },
-            ]}
-          />
+      {/* ── 2. CAMPUS READINESS MATRIX OVERVIEW ── */}
+      {status.branchReadiness && status.branchReadiness.length > 0 && (
+        <div style={{ marginTop: 8, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
+              <Building2 size={15} style={{ color: 'var(--primary)' }} />
+              <span>Campus Readiness Matrix</span>
+              <span className="badge b-neutral" style={{ fontSize: 10.5 }}>{status.branchReadiness.length} Campuses</span>
+            </div>
+            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+              {selectedBranchId !== 'ALL' ? 'Showing filtered campus — click a card or select All Campuses to see full school' : 'All operating campuses must pass operational readiness before Go-Live'}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+            {status.branchReadiness.map((br) => {
+              const isReady = br.status === 'READY'
+              const isBlocked = br.status === 'BLOCKED'
+              const badgeCls = isReady ? 'b-success' : isBlocked ? 'b-danger' : 'b-orange'
+              const isSelected = selectedBranchId === br.branchId
+              return (
+                <div
+                  key={br.branchId}
+                  className="card"
+                  style={{
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    border: isSelected
+                      ? '2px solid var(--primary)'
+                      : isBlocked
+                      ? '1px solid var(--danger, #ef4444)'
+                      : '1px solid var(--border-subtle)',
+                    background: isSelected ? 'var(--bg-subtle)' : 'var(--bg-card)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onClick={() => {
+                    const next = selectedBranchId === br.branchId ? 'ALL' : br.branchId
+                    setSelectedBranchId(next)
+                    load(next)
+                  }}
+                  title={`Click to filter setup steps for ${br.branchName}`}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 13.5 }}>{br.branchName}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({br.branchCode})</span>
+                    </div>
+                    <span className={`badge ${badgeCls}`} style={{ fontSize: 10.5 }}>
+                      {br.status.replaceAll('_', ' ')}
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>Ready: {br.completedSteps}/{br.totalSteps}</span>
+                      <span style={{ fontWeight: 600 }}>{br.progress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: 5, background: 'var(--bg-subtle)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${br.progress}%`,
+                          height: '100%',
+                          background: isReady ? 'var(--success, #16a34a)' : isBlocked ? 'var(--danger, #dc2626)' : 'var(--primary)',
+                          borderRadius: 99,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {br.blockers.length > 0 ? (
+                    <div style={{ fontSize: 11, color: 'var(--danger, #b91c1c)', background: 'var(--danger-bg, #fef2f2)', padding: '5px 8px', borderRadius: 6, marginTop: 4 }}>
+                      <div style={{ fontWeight: 600 }}>Blocker:</div>
+                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{br.blockers[0]}</div>
+                      {br.blockers.length > 1 && <div style={{ fontSize: 10, opacity: 0.8 }}>+{br.blockers.length - 1} more</div>}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--success, #16a34a)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <CheckCircle2 size={12} />
+                      <span>All campus checks ready</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
+      )}
+
+      {/* ── 3. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
+      <div style={{ marginTop: 8 }}>
 
         {/* 4 Phase Columns */}
         <div className="setup-phases-grid">
@@ -404,7 +502,7 @@ export default function SetupPage() {
                 phaseNumber={idx + 1}
                 phaseKey={phaseKey}
                 title={phase.label}
-                description={phase.sub}
+                description=""
                 completedCount={counts.completed}
                 totalCount={counts.total}
               >
@@ -428,7 +526,7 @@ export default function SetupPage() {
                             : `/app/setup/${s.key}`
                         }
                         name={s.label}
-                        status={s.status}
+                        status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
                         icon={<Icon size={16} />}
                         applicability={s.applicability}
                         statusBadge={
@@ -439,9 +537,7 @@ export default function SetupPage() {
                         helper={
                           isDrifted
                             ? 'Configuration drifted — underlying data modified since completion'
-                            : s.status === 'BLOCKED'
-                              ? (s.blockedReason || 'Blocked by prerequisites')
-                              : (s.detail || s.description)
+                            : (s.detail || s.description)
                         }
                       />
                     )
@@ -488,6 +584,21 @@ export default function SetupPage() {
                 <RefreshCw size={13} /> Re-verify
               </button>
             </div>
+            {validation.branchSummaries && validation.branchSummaries.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                <span className="cell-strong" style={{ fontSize: 13 }}>Campus Health Breakdown:</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                  {validation.branchSummaries.map((bs) => (
+                    <div key={bs.branchId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--bg-card)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 500 }}>{bs.branchName}</span>
+                      <span className={`badge ${CAT_STATUS_MAP[bs.status]?.cls || 'b-neutral'}`} style={{ fontSize: 10.5 }}>
+                        {bs.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {validation.categories.map((c) => (
               <div key={c.key} style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-card)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -574,8 +685,6 @@ export default function SetupPage() {
               <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="KRM" /></div>
               <div className="field"><label>City</label><input className="input" name="city" placeholder="Bengaluru" /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-              <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue="08:30" /></div>
-              <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue="16:00" /></div>
               <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" placeholder="60" /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
             </div>
@@ -600,8 +709,6 @@ export default function SetupPage() {
                 name: fd.name,
                 city: fd.city || null,
                 phone: fd.phone || null,
-                timingOpen: fd.timingOpen,
-                timingClose: fd.timingClose,
                 capacity: fd.capacity ? Number(fd.capacity) : null,
                 address: fd.address || null,
                 isActive: fd.isActive === 'on',
@@ -621,8 +728,6 @@ export default function SetupPage() {
               <div className="field"><label>Code</label><input className="input" value={editingItem.code} disabled /></div>
               <div className="field"><label>City</label><input className="input" name="city" defaultValue={editingItem.city || ''} /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" defaultValue={editingItem.phone || ''} /></div>
-              <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue={editingItem.timingOpen || '08:30'} /></div>
-              <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue={editingItem.timingClose || '16:00'} /></div>
               <div className="field"><label>Capacity</label><input className="input" name="capacity" type="number" defaultValue={editingItem.capacity || ''} /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" defaultValue={editingItem.address || ''} /></div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>

@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { ok, withApi, errPermission } from '@/lib/api'
+import { ok, withApi, errPermission, errValidation } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
+import { resolveAuthorizedBranchScope, ALL_BRANCHES_ID } from '@/lib/admissions/branch-context'
 
 /**
  * GET /api/v1/applications — Admission Forms list
- * Required Scopes: tenantId (from session), branchId, academicYearId
+ * Supports: Single branch (branchId=<id>) OR All Branches (branchId=__ALL_BRANCHES__)
  * Filters: status, programType, search (child/parent/phone/applicationNumber)
  */
 export const GET = withApi(async (req: NextRequest) => {
@@ -17,20 +18,29 @@ export const GET = withApi(async (req: NextRequest) => {
   }
 
   const sp = req.nextUrl.searchParams
-  const branchId = sp.get('branchId') || session.branchId
+  const requestedBranchId = sp.get('branchId')
   const academicYearId = sp.get('academicYearId') || sp.get('academicSessionId')
   const status = sp.get('status')
   const programType = sp.get('programType')
   const search = sp.get('q')?.trim()
 
-  const scope = await AdmissionService.verifyScope(session.tenantId, branchId, academicYearId)
+  const branchScope = await resolveAuthorizedBranchScope(session, requestedBranchId)
+  if (branchScope.mode === 'NO_BRANCH_ACCESS') {
+    throw errPermission('No authorized branch access for active user')
+  }
 
   const where: any = {
-    tenantId: scope.tenantId,
+    tenantId: branchScope.tenantId,
     deletedAt: null,
-    branchId: scope.branchId,
     ...(status ? { status } : {}),
     ...(programType ? { programType } : {}),
+    ...(academicYearId ? { academicSessionId: academicYearId } : {}),
+  }
+
+  if (branchScope.mode === 'SINGLE_BRANCH') {
+    where.branchId = branchScope.selectedBranchId
+  } else {
+    where.branchId = { in: branchScope.authorizedBranchIds }
   }
 
   if (search) {
@@ -53,44 +63,54 @@ export const GET = withApi(async (req: NextRequest) => {
     orderBy: { createdAt: 'desc' },
   })
 
+  const branchMap = new Map(branchScope.branches.map((b) => [b.id, b]))
+
   return ok(
-    apps.map((a) => ({
-      id: a.id,
-      applicationNumber: a.applicationNumber,
-      childName: `${a.childFirstName} ${a.childLastName || ''}`.trim(),
-      childFirstName: a.childFirstName,
-      childLastName: a.childLastName,
-      childDob: a.childDob,
-      childGender: a.childGender,
-      programType: a.programType,
-      parentName: a.parentName,
-      parentPhone: a.parentPhone,
-      parentEmail: a.parentEmail,
-      status: a.status,
-      submittedAt: a.submittedAt || a.createdAt,
-      verifiedAt: a.verifiedAt,
-      approvedAt: a.approvedAt,
-      studentId: a.studentId,
-      classroomId: a.classroomId,
-      leadNumber: a.lead?.leadNumber ?? null,
-      leadId: a.leadId,
-      offers: a.offers,
-      documents: a.documents.map((d) => ({
-        id: d.id,
-        docType: d.docType,
-        fileName: d.fileName,
-        status: d.status,
-        verified: d.verified,
-        remarks: d.remarks,
-        rejectionReason: d.rejectionReason,
-      })),
-    })),
+    apps.map((a) => {
+      const b = branchMap.get(a.branchId)
+      return {
+        id: a.id,
+        applicationNumber: a.applicationNumber,
+        branchId: a.branchId,
+        branchName: b ? b.name : 'Main Campus',
+        branchCode: b?.code,
+        childName: `${a.childFirstName} ${a.childLastName || ''}`.trim(),
+        childFirstName: a.childFirstName,
+        childLastName: a.childLastName,
+        childDob: a.childDob,
+        childGender: a.childGender,
+        programType: a.programType,
+        parentName: a.parentName,
+        parentPhone: a.parentPhone,
+        parentEmail: a.parentEmail,
+        status: a.status,
+        submittedAt: a.submittedAt || a.createdAt,
+        verifiedAt: a.verifiedAt,
+        approvedAt: a.approvedAt,
+        studentId: a.studentId,
+        classroomId: a.classroomId,
+        leadNumber: a.lead?.leadNumber ?? null,
+        leadId: a.leadId,
+        offers: a.offers,
+        documents: a.documents.map((d) => ({
+          id: d.id,
+          docType: d.docType,
+          fileName: d.fileName,
+          status: d.status,
+          verified: d.verified,
+          remarks: d.remarks,
+          rejectionReason: d.rejectionReason,
+        })),
+      }
+    }),
     {
       total: apps.length,
       scope: {
-        tenantId: scope.tenantId,
-        branchId: scope.branchId,
-        academicYearId: scope.academicYearId,
+        tenantId: branchScope.tenantId,
+        mode: branchScope.mode,
+        selectedBranchId: branchScope.selectedBranchId,
+        authorizedBranchIds: branchScope.authorizedBranchIds,
+        academicYearId,
       },
     }
   )
@@ -133,10 +153,21 @@ export const POST = withApi(async (req: NextRequest) => {
     additionalGuardians,
   } = body
 
+  // Enforce specific valid target branch
+  const targetBranchId = branchId || session.branchId
+  if (!targetBranchId || targetBranchId === ALL_BRANCHES_ID || targetBranchId === 'all') {
+    throw errValidation('Target branch is required to create an application. Please select a specific campus.')
+  }
+
+  const branchScope = await resolveAuthorizedBranchScope(session, targetBranchId)
+  if (!branchScope.authorizedBranchIds.includes(targetBranchId)) {
+    throw errPermission('Selected branch is not in your authorized scope')
+  }
+
   const app = await AdmissionService.submitApplication(
     {
       tenantId: session.tenantId,
-      branchId: branchId || session.branchId,
+      branchId: targetBranchId,
       academicYearId,
       actorId: session.uid,
       actorName: session.name,

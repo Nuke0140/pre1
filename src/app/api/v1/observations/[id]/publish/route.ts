@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { audit } from '@/lib/sequence'
+import { assertResourceScope, tenantScopedIdWhere } from '@/lib/security/resource-scope'
 
 /**
  * POST /api/v1/observations/{id}/publish — teacher approves & publishes
@@ -18,16 +18,25 @@ async function _POST(
   const { id } = await params
 
   try {
-    const observation = await db.observation.findUnique({
-      where: { id },
-      include: { student: true },
+    const observation = await db.observation.findFirst({
+      where: tenantScopedIdWhere(id, session.tenantId!),
+      include: { student: true, classroom: { select: { branchId: true } } },
     })
     if (!observation) return Errors.notFound('Observation')
+
+    assertResourceScope(session, {
+      tenantId: observation.tenantId,
+      branchId: observation.classroom?.branchId,
+    })
+
     if (observation.status === 'PUBLISHED') {
       return Errors.conflict('Observation already published')
     }
-    if (session.role === 'TEACHER' && observation.teacherId !== session.uid) {
-      return Errors.forbidden('You can only publish your own observations')
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    if (effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL'].includes(r))) {
+      if (observation.teacherId !== session.uid) {
+        return Errors.forbidden('You can only publish your own observations')
+      }
     }
 
     const published = await db.$transaction(async (tx) => {

@@ -8,16 +8,36 @@ import type { ProgramType } from '@prisma/client'
 
 const PROGRAM_TYPES: ProgramType[] = ['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE']
 
-/** GET /api/v1/programs — program master data with classroom/fee coverage */
+/** GET /api/v1/programs — program master data with classroom/fee coverage and optional branch filtering */
 async function _GET(req: NextRequest) {
   const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
+    const sp = req.nextUrl.searchParams
+    const branchId = sp.get('branchId')
+
     const programs = await db.program.findMany({
-      where: { tenantId: session.tenantId, deletedAt: null },
-      include: { _count: { select: { classrooms: true } } },
+      where: {
+        tenantId: session.tenantId,
+        deletedAt: null,
+        ...(branchId && branchId !== '__ALL_BRANCHES__' && branchId !== 'all'
+          ? {
+              OR: [
+                { branchMappings: { some: { branchId, deletedAt: null, isActive: true } } },
+                { branchMappings: { none: {} } }, // Programs with no specific branch mappings are offered universally
+              ],
+            }
+          : {}),
+      },
+      include: {
+        _count: { select: { classrooms: true } },
+        branchMappings: {
+          where: { deletedAt: null },
+          select: { id: true, branchId: true, isActive: true, capacity: true },
+        },
+      },
       orderBy: { createdAt: 'asc' },
     })
     const feePlans = await db.feePlan.findMany({
@@ -31,6 +51,7 @@ async function _GET(req: NextRequest) {
       durationMonths: p.durationMonths, capacity: p.capacity, isActive: p.isActive,
       classrooms: p._count.classrooms,
       hasFeePlan: feeTypes.has(p.programType),
+      branchMappings: p.branchMappings,
     })))
   } catch (e) {
     return Errors.system(e)

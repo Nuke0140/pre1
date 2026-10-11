@@ -1,6 +1,6 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, bad, notFound, serverError } from '@/lib/api'
+import { ok, bad, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { UserPhotoService } from '@/lib/users/user-photo-service'
 
@@ -18,10 +18,10 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
   try {
     const formData = await req.formData()
-    const file = formData.get('file') as File | null
+    const file = (formData.get('file') || formData.get('photo')) as File | null
 
     if (!file || typeof file === 'string') {
-      return bad('Image file is required under "file" field', 'FILE_REQUIRED')
+      return bad('Image file is required under "file" or "photo" field', 'FILE_REQUIRED')
     }
 
     const mimeType = file.type || 'image/png'
@@ -55,6 +55,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     return ok({
       userId: id,
       avatarUrl: result.avatarUrl,
+      success: true,
       message: 'Profile photo updated successfully',
     })
   } catch (err: any) {
@@ -92,6 +93,7 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
     return ok({
       userId: id,
       avatarUrl: null,
+      success: true,
       message: 'Profile photo removed successfully',
     })
   } catch (err: any) {

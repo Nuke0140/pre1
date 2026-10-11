@@ -2,9 +2,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, Save,
+  ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, RotateCw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
+  ArrowUpRight, ShieldCheck,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -165,10 +166,11 @@ export default function SetupStepPage() {
   const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<Dict | null>(null)
-  const [editType, setEditType] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<Dict | null>(null)
   const [csv, setCsv] = useState('')
   const [selectedProgramForSubject, setSelectedProgramForSubject] = useState<string>('ALL')
+  const [reloading, setReloading] = useState(false)
+  const [reloadTrigger, setReloadTrigger] = useState(0)
 
   const kind = useMemo(() => {
     if (!def) return 'unknown'
@@ -205,10 +207,14 @@ export default function SetupStepPage() {
   }, [])
 
   const loadStatus = useCallback(async () => {
-    const j = await fetch('/api/v1/setup/status').then((r) => r.json())
-    if (j.success) {
-      setStatus(j.data)
-      setMe(j.data.steps.find((s: StepRow) => s.key === stepKey) ?? null)
+    try {
+      const j = await fetch('/api/v1/setup/status', { cache: 'no-store' }).then((r) => r.json())
+      if (j.success) {
+        setStatus(j.data)
+        setMe(j.data.steps.find((s: StepRow) => s.key === stepKey) ?? null)
+      }
+    } catch (e: any) {
+      console.error('Failed to load setup status', e)
     }
   }, [stepKey])
 
@@ -229,21 +235,29 @@ export default function SetupStepPage() {
     }
     const url = kind === 'config' || kind === 'branding' ? `/api/v1/setup/config/${configDomain}` : urls[kind]
     if (!url) return
-    const j = await fetch(url).then((r) => r.json())
-    if (j.success) {
-      if (kind === 'config' || kind === 'branding') {
-        // seed the form with schema defaults so a first-time Save persists sensible values
-        const formKey = kind === 'branding' ? 'BRANDING' : configDomain
-        const defaults = CONFIG_FORMS[formKey]?.defaults ?? {}
-        setConfigData({ ...defaults, ...((j.data.data as Dict) ?? {}) })
-      } else setPayload(j.data as Dict[])
+    try {
+      const j = await fetch(url, { cache: 'no-store' }).then((r) => r.json())
+      if (j.success) {
+        if (kind === 'config' || kind === 'branding') {
+          // seed the form with schema defaults so a first-time Save persists sensible values
+          const formKey = kind === 'branding' ? 'BRANDING' : configDomain
+          const defaults = CONFIG_FORMS[formKey]?.defaults ?? {}
+          setConfigData({ ...defaults, ...((j.data.data as Dict) ?? {}) })
+        } else setPayload(j.data as Dict[])
+      }
+    } catch (e: any) {
+      console.error('Failed to load step body', e)
     }
   }, [kind, configDomain])
 
-
   useEffect(() => { Promise.resolve().then(loadStatus); Promise.resolve().then(loadBody) }, [loadStatus, loadBody])
 
-  const refreshAll = useCallback(() => { loadStatus(); loadBody() }, [loadStatus, loadBody])
+  const refreshAll = useCallback(async () => {
+    setReloading(true)
+    await Promise.all([loadStatus(), loadBody()])
+    setReloadTrigger((p) => p + 1)
+    setReloading(false)
+  }, [loadStatus, loadBody])
 
   const saveConfig = async (): Promise<boolean> => {
     if (kind === 'config') {
@@ -314,25 +328,42 @@ export default function SetupStepPage() {
   }
 
   const isOptional = def.applicability !== 'MANDATORY'
+  const displayStatus = me?.status === 'BLOCKED' ? 'PENDING' : (me?.status ?? 'PENDING')
   const statusBadgeCls: Record<string, string> = { COMPLETE: 'b-success', PENDING: 'b-info', BLOCKED: 'b-danger', SKIPPED: 'b-neutral' }
   const list = Array.isArray(payload) ? payload : []
 
   return (
     <>
       <PageHead
+        breadcrumbs={[
+          { label: 'Home', href: '/app' },
+          { label: 'Setup', href: '/app/setup' },
+          { label: def.label },
+        ]}
         title={def.label}
         sub={def.description}
         actions={
           <>
             <a className="btn btn-ghost" href="/app/setup"><ArrowLeft size={15} /> Back to Setup</a>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={refreshAll}
+              disabled={reloading}
+              title="Reload live operational data and recalculate setup status"
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <RotateCw size={14} className={reloading ? 'animate-spin' : ''} />
+              <span>{reloading ? 'Reloading…' : 'Reload'}</span>
+            </button>
             {me?.status !== 'COMPLETE' && isOptional && me?.status !== 'SKIPPED' && (
               <button className="btn btn-outline" onClick={skipStep}>Skip for now</button>
             )}
             {me?.status === 'COMPLETE' ? (
               <button className="btn btn-outline" onClick={reopenStep}><RotateCcw size={15} /> Reopen</button>
             ) : me?.status !== 'SKIPPED' && !me?.locked && (
-              <button className="btn btn-primary" onClick={() => completeStep(false)} disabled={saving}>
-                <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save Changes'}
+              <button className="btn btn-primary" onClick={() => completeStep(true)} disabled={saving}>
+                <CheckCircle2 size={15} /> {saving ? 'Saving…' : 'Save & Continue'}
               </button>
             )}
           </>
@@ -341,39 +372,36 @@ export default function SetupStepPage() {
 
       {/* status strip */}
       <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className={`badge ${statusBadgeCls[me?.status ?? 'PENDING']}`}>{me?.status}</span>
+        <span className={`badge ${statusBadgeCls[displayStatus]}`}>{displayStatus}</span>
         {me?.applicability !== 'MANDATORY' && <span className="badge b-neutral">{me?.applicability}</span>}
         {me?.changedAfterCompletion && <span className="badge b-orange">edited after completion</span>}
         <span className="card-sub" style={{ flex: 1 }}>{me?.detail || def.description}</span>
         {me?.completedByName && <span className="t-caption">completed by {me.completedByName}</span>}
       </div>
 
-      {/* blocked banner — why is this blocked? */}
-      {(me?.locked || me?.status === 'BLOCKED') && me?.status !== 'COMPLETE' && (
-        <div className="card" style={{ borderColor: 'var(--danger)', marginBottom: 14 }}>
+      {/* prerequisite notice if dependencies pending */}
+      {me?.missingDeps && me.missingDeps.length > 0 && me?.status !== 'COMPLETE' && (
+        <div className="card" style={{ borderColor: 'var(--border-subtle)', marginBottom: 14 }}>
           <div style={{ display: 'flex', gap: 10 }}>
-            <Lock size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: 2 }} />
+            <Lock size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>Why is this blocked?</div>
-              <div style={{ fontSize: 13 }}>{me?.blockedReason ?? 'Complete the dependency steps first.'}</div>
-              {(me?.missingDeps.length ?? 0) > 0 && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                  {me!.missingDeps.map((d) => (
-                    <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
-                      ✗ {d.label} <span style={{ opacity: 0.6 }}>— fix configuration</span>
-                    </a>
-                  ))}
-                </div>
-              )}
+              <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Prerequisite Steps Pending</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{me?.blockedReason ?? 'You can configure this step now. Marking it complete will verify prerequisite steps.'}</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                {me.missingDeps.map((d) => (
+                  <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
+                    → {d.label}
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── BODY ── */}
-      {(!me?.locked || me?.status === 'COMPLETE') && (
-        <div className="card">
-          <div style={{ padding: 16 }}>
+      {/* ── BODY (Always accessible for editing) ── */}
+      <div className="card">
+        <div style={{ padding: 16 }}>
             {(kind === 'config' || kind === 'branding') && CONFIG_FORMS[configDomain] && (
               <>
                 <p className="card-sub" style={{ marginBottom: 14 }}>{CONFIG_FORMS[configDomain].intro}</p>
@@ -441,11 +469,10 @@ export default function SetupStepPage() {
                 <TableToolbar title="Branches" count={list.length} onAdd={() => setModal('branch')} addLabel="Add Branch" />
                 {list.length === 0 ? <EmptyState icon={<Building2 size={40} />} title="No branches configured yet" message="Add your first campus — classrooms, staff, students and operations all hang from a branch." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Branch</th><th>Timings</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Branch</th><th>Capacity</th><th>Facilities</th><th>Staff</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>{list.map((b: any) => (
                       <tr key={String(b.id)}>
                         <td><span className="cell-strong">{b.name}</span><span className="cell-sub">{b.code} · {b.city ?? '—'}</span></td>
-                        <td>{b.timingOpen || '08:30'}–{b.timingClose || '16:00'}</td>
                         <td>{b.capacity ? (b.capacity + ' seats') : 'Flexible'}</td>
                         <td>{String(b.facilities ?? 0)}</td>
                         <td>{String(b.staff ?? 0)}</td>
@@ -464,10 +491,10 @@ export default function SetupStepPage() {
 
             {kind === 'programs' && (
               <>
-                <TableToolbar title="Programs" count={list.length} onAdd={() => setModal('program')} addLabel="Add Program" />
-                {list.length === 0 ? <EmptyState icon={<Blocks size={40} />} title="No programs configured" message="Define the programs your preschool runs — Playgroup, Nursery, Jr KG, Sr KG, Daycare or fully custom programs." /> : (
+                <TableToolbar title="Master Programs" count={list.length} onAdd={() => setModal('program')} addLabel="Add Program" />
+                {list.length === 0 ? <EmptyState icon={<Blocks size={40} />} title="No programs configured" message="Define the master programs your preschool runs — Playgroup, Nursery, Jr KG, Sr KG, Daycare. Mappings below will make them operational across campuses." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Program</th><th>Age band</th><th>Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Program</th><th>Age band</th><th>Master Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>{list.map((p: any) => (
                       <tr key={String(p.id)}>
                         <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code} · {String(p.programType).toLowerCase()}</span></td>
@@ -485,6 +512,7 @@ export default function SetupStepPage() {
                     ))}</tbody>
                   </table></div>
                 )}
+                <ProgramCampusMappingSection programs={list} onDone={refreshAll} api={api} toast={toast} />
               </>
             )}
 
@@ -577,57 +605,11 @@ export default function SetupStepPage() {
             {kind === 'staff' && <StaffSection staff={list} onDone={refreshAll} onAdd={() => setModal('staff')} onEditStaff={(s) => { setEditItem(s); setEditType('staff'); }} />}
 
             {kind === 'fees' && (
-              <>
-                <p className="card-sub" style={{ marginBottom: 14 }}>Every active program needs an active fee plan — invoices can never be generated without valid fee configuration. Fee heads and plan items live in <a href="/app/settings" className="cell-link">Settings → Fees</a> (existing Finance domain).</p>
-                <div className="dtable-scroll"><table className="dtable">
-                  <thead><tr><th>Program</th><th>Fee plan</th><th>Classes</th></tr></thead>
-                  <tbody>{list.map((p: any) => (
-                    <tr key={String(p.id)}>
-                      <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code}</span></td>
-                      <td>{p.hasFeePlan ? <span className="badge b-success">active plan linked</span> : <span className="badge b-danger">no fee plan</span>}</td>
-                      <td>{String(p.classrooms)}</td>
-                    </tr>
-                  ))}</tbody>
-                </table></div>
-                <div style={{ marginTop: 14 }}>
-                  <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
-                  <QuickFinanceConfig onDone={refreshAll} api={api} toast={toast} />
-                </div>
-              </>
+              <FeeSetupSection onDone={refreshAll} api={api} toast={toast} refreshTrigger={reloadTrigger} />
             )}
 
             {kind === 'import' && (
-              <>
-                <p className="card-sub" style={{ marginBottom: 12 }}>
-                  CSV header: <code>firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship</code><br />
-                  Rows are validated first — duplicates are flagged and never silently created. Preview → Import.
-                </p>
-                <textarea className="textarea" rows={6} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={'firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship\nAarav,Sharma,2022-04-12,MALE,IMP-001,Priya Sharma,9876543210,MOTHER'} />
-                <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <button className="btn btn-outline" onClick={async () => { const j = await api('/api/v1/setup/import/students', 'POST', { mode: 'preview', csv }); if (j.success) { setImportPreview(j.data); toast.info('Preview ready', j.data.message) } else toast.error('Preview failed', j.error?.message) }} disabled={!csv.trim()}>
-                    <Upload size={15} /> Validate & Preview
-                  </button>
-                  {importPreview && Number(importPreview.valid) > 0 && (
-                    <button className="btn btn-primary" onClick={async () => { const j = await api('/api/v1/setup/import/students', 'POST', { mode: 'commit', csv }); if (j.success) { toast.success('Import complete', j.data.message); setImportPreview(null); setCsv(''); loadStatus() } else toast.error('Import failed', j.error?.message) }}>
-                      <Upload size={15} /> Import {String(importPreview.valid)} students
-                    </button>
-                  )}
-                </div>
-                {importPreview && (
-                  <div style={{ marginTop: 12, maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
-                    <table className="dtable"><thead><tr><th>Row</th><th>Child</th><th>Admission No</th><th>Guardian</th><th>Status</th></tr></thead>
-                      <tbody>{(importPreview.rows as any[]).map((r: any) => (
-                        <tr key={String(r.row)}>
-                          <td>{String(r.row)}</td>
-                          <td>{r.firstName} {r.lastName}</td>
-                          <td>{r.admissionNo}</td>
-                          <td>{r.guardian}</td>
-                          <td>{r.status === 'READY' ? <span className="badge b-success">READY</span> : <span className="badge b-danger" title={(r.errors as string[])?.join('; ')}>ERROR</span>}</td>
-                        </tr>
-                      ))}</tbody></table>
-                  </div>
-                )}
-              </>
+              <StudentImportSection api={api} toast={toast} onDone={refreshAll} />
             )}
 
             {kind === 'unknown' && <EmptyState icon={<Settings2 size={40} />} title="Nothing to configure" message="This step completes from your existing data — mark it complete below." />}
@@ -641,7 +623,6 @@ export default function SetupStepPage() {
             )}
           </div>
         </div>
-      )}
 
       {/* ── MODALS (rendered from parent with real api/toast) ── */}
       {modal === 'branch' && <BranchModal onClose={() => setModal(null)} onDone={refreshAll} api={api} toast={toast} />}
@@ -860,11 +841,1053 @@ function StaffSection({ staff, onDone, onAdd, onEditStaff }: { staff: Dict[]; on
   )
 }
 
+function StudentImportSection({
+  onDone,
+  api,
+  toast,
+}: {
+  onDone: () => void
+  api: ApiFn
+  toast: ToastFn
+}) {
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [programs, setPrograms] = useState<Dict[]>([])
+  const [classrooms, setClassrooms] = useState<Dict[]>([])
+  const [branchId, setBranchId] = useState<string>('')
+  const [programId, setProgramId] = useState<string>('')
+  const [classroomId, setClassroomId] = useState<string>('')
+  const [csv, setCsv] = useState<string>('')
+  const [preview, setPreview] = useState<Dict | null>(null)
+  const [previewing, setPreviewing] = useState<boolean>(false)
+  const [importing, setImporting] = useState<boolean>(false)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/branches').then((r) => r.json()),
+      fetch('/api/v1/programs').then((r) => r.json()),
+      fetch('/api/v1/classrooms').then((r) => r.json()),
+    ]).then(([bRes, pRes, cRes]) => {
+      if (bRes.success && Array.isArray(bRes.data)) {
+        setBranches(bRes.data)
+        if (bRes.data.length > 0) {
+          const main = bRes.data.find((b: any) => b.isMain) || bRes.data[0]
+          setBranchId(main.id)
+        }
+      }
+      if (pRes.success && Array.isArray(pRes.data)) setPrograms(pRes.data)
+      if (cRes.success && Array.isArray(cRes.data)) setClassrooms(cRes.data)
+    }).catch((err) => console.error('Failed to load import context', err))
+  }, [])
+
+  // Filter programs offered at selected branch
+  const availablePrograms = useMemo(() => {
+    if (!branchId) return programs
+    return programs.filter((p: any) => {
+      if (!p.branchMappings || p.branchMappings.length === 0) return true
+      return p.branchMappings.some((bm: any) => bm.branchId === branchId && bm.isActive)
+    })
+  }, [programs, branchId])
+
+  // Filter classrooms at selected branch and program
+  const availableClassrooms = useMemo(() => {
+    return classrooms.filter((c: any) => {
+      if (branchId && c.branchId && c.branchId !== branchId) return false
+      if (programId && c.programId && c.programId !== programId) return false
+      return true
+    })
+  }, [classrooms, branchId, programId])
+
+  const loadSample = () => {
+    const sample = `firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship\nAarav,Sharma,2022-04-12,MALE,IMP-001,Priya Sharma,9876543210,MOTHER\nDiya,Patel,2021-11-20,FEMALE,IMP-002,Kiran Patel,9876543211,FATHER\nVihaan,Deshmukh,2022-01-15,MALE,IMP-003,Sunita Deshmukh,9876543212,MOTHER`
+    setCsv(sample)
+    setPreview(null)
+  }
+
+  const handlePreview = async () => {
+    if (!branchId) {
+      toast.error('Branch Required', 'Please select a destination campus branch')
+      return
+    }
+    if (!csv.trim()) {
+      toast.error('CSV Required', 'Please enter or paste CSV data')
+      return
+    }
+    setPreviewing(true)
+    const payload = {
+      mode: 'preview',
+      csv,
+      branchId,
+      programId: programId || undefined,
+      classroomId: classroomId || undefined,
+    }
+    const res = await api('/api/v1/setup/import/students', 'POST', payload)
+    setPreviewing(false)
+    if (res.success) {
+      setPreview(res.data)
+      toast.info('Validation complete', res.data.message)
+    } else {
+      toast.error('Preview failed', res.error?.message)
+    }
+  }
+
+  const handleCommit = async () => {
+    if (!branchId) {
+      toast.error('Branch Required', 'Please select a destination campus branch')
+      return
+    }
+    setImporting(true)
+    const payload = {
+      mode: 'commit',
+      csv,
+      branchId,
+      programId: programId || undefined,
+      classroomId: classroomId || undefined,
+    }
+    const res = await api('/api/v1/setup/import/students', 'POST', payload)
+    setImporting(false)
+    if (res.success) {
+      toast.success('Import complete', res.data.message)
+      setPreview(null)
+      setCsv('')
+      onDone()
+    } else {
+      toast.error('Import failed', res.error?.message)
+    }
+  }
+
+  const selectedBranch = branches.find((b) => b.id === branchId)
+  const selectedProg = programs.find((p) => p.id === programId)
+  const selectedRoom = classrooms.find((c) => c.id === classroomId)
+
+  return (
+    <>
+      <div style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Building2 size={16} style={{ color: 'var(--primary)' }} />
+          <span style={{ fontWeight: 600, fontSize: 13.5 }}>Destination Campus & Academic Target</span>
+        </div>
+        <p className="card-sub" style={{ marginBottom: 12 }}>
+          Select the campus branch where newly imported students and guardians will be enrolled. Optionally choose an entry program and classroom.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div className="field">
+            <label>Campus Branch <span className="req">*</span></label>
+            <select
+              className="select"
+              value={branchId}
+              onChange={(e) => {
+                setBranchId(e.target.value)
+                setProgramId('')
+                setClassroomId('')
+                setPreview(null)
+              }}
+              required
+            >
+              {branches.map((b: any) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.code}){b.isMain ? ' — Main Campus' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Entry Program (Optional)</label>
+            <select
+              className="select"
+              value={programId}
+              onChange={(e) => {
+                setProgramId(e.target.value)
+                setClassroomId('')
+                setPreview(null)
+              }}
+            >
+              <option value="">— Unassigned / Match on Classroom —</option>
+              {availablePrograms.map((p: any) => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Target Classroom (Optional)</label>
+            <select
+              className="select"
+              value={classroomId}
+              onChange={(e) => {
+                setClassroomId(e.target.value)
+                setPreview(null)
+              }}
+            >
+              <option value="">— Assign Later in Classes —</option>
+              {availableClassrooms.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          CSV format: <code>firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship</code>
+        </span>
+        <button type="button" className="btn btn-sm btn-outline" onClick={loadSample}>
+          Load Sample Data
+        </button>
+      </div>
+
+      <textarea
+        className="textarea"
+        rows={6}
+        value={csv}
+        onChange={(e) => {
+          setCsv(e.target.value)
+          if (preview) setPreview(null)
+        }}
+        placeholder={'firstName,lastName,dob,gender,admissionNo,guardianName,guardianPhone,relationship\nAarav,Sharma,2022-04-12,MALE,IMP-001,Priya Sharma,9876543210,MOTHER'}
+        style={{ fontFamily: 'monospace', fontSize: 12.5 }}
+      />
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          className={`btn btn-outline ${previewing ? 'is-loading' : ''}`}
+          onClick={handlePreview}
+          disabled={!csv.trim() || !branchId || previewing}
+        >
+          <Upload size={15} /> Validate & Preview
+        </button>
+
+        {preview && Number(preview.valid) > 0 && (
+          <button
+            className={`btn btn-primary ${importing ? 'is-loading' : ''}`}
+            onClick={handleCommit}
+            disabled={importing}
+          >
+            <CheckCircle2 size={15} /> Commit & Import {String(preview.valid)} Students to {selectedBranch?.name || 'Campus'}
+          </button>
+        )}
+      </div>
+
+      {preview && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', fontSize: 13 }}>
+            <span className="badge b-success">{String(preview.valid)} Valid</span>
+            {Number(preview.invalid) > 0 && <span className="badge b-danger">{String(preview.invalid)} Invalid</span>}
+            <span style={{ color: 'var(--text-muted)' }}>
+              Target: <strong>{selectedBranch?.name}</strong>
+              {selectedProg ? ` · ${selectedProg.name}` : ''}
+              {selectedRoom ? ` · Room: ${selectedRoom.name}` : ''}
+            </span>
+          </div>
+          <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
+            <table className="dtable" style={{ margin: 0, fontSize: 12.5 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 50 }}>Row</th>
+                  <th>Student Name</th>
+                  <th>Admission No</th>
+                  <th>DOB & Gender</th>
+                  <th>Primary Guardian</th>
+                  <th>Validation Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(preview.rows as any[]).map((r: any) => (
+                  <tr key={String(r.row)}>
+                    <td>{String(r.row)}</td>
+                    <td><span className="cell-strong">{r.firstName} {r.lastName}</span></td>
+                    <td><code>{r.admissionNo}</code></td>
+                    <td><span className="cell-sub">{r.dob} · {r.gender}</span></td>
+                    <td>{r.guardian}</td>
+                    <td>
+                      {r.status === 'READY' ? (
+                        <span className="badge b-success">READY</span>
+                      ) : (
+                        <span className="badge b-danger" title={(r.errors as string[])?.join('; ')}>
+                          ERROR: {(r.errors as string[])?.join('; ')}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+interface FeeItemRow {
+  name: string
+  feeType: 'REGULAR' | 'REFUNDABLE_DEPOSIT'
+  amountRupees: number | string
+  frequency: 'ONE_TIME' | 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'ANNUALLY'
+  dueRule: string
+  lateFeeApplicable: boolean
+  lateFeeRupees: number | string
+  isRefundable: boolean
+}
+
+function CreateFeeStructureModal({
+  branches,
+  programs,
+  academicYears,
+  onClose,
+  onDone,
+  api,
+  toast,
+}: {
+  branches: any[]
+  programs: any[]
+  academicYears: any[]
+  onClose: () => void
+  onDone: () => void
+  api: ApiFn
+  toast: ToastFn
+}) {
+  const [step, setStep] = useState<1 | 2>(1)
+  const [branchId, setBranchId] = useState(branches[0]?.id || '')
+  const [academicSessionId, setAcademicSessionId] = useState(
+    academicYears.find((y) => y.isCurrent)?.id || academicYears[0]?.id || ''
+  )
+  const [programId, setProgramId] = useState('')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [status, setStatus] = useState<'ACTIVE' | 'DRAFT'>('ACTIVE')
+  const [busy, setBusy] = useState(false)
+
+  const [items, setItems] = useState<FeeItemRow[]>([
+    { name: 'Admission Fee', feeType: 'REGULAR', amountRupees: 5000, frequency: 'ONE_TIME', dueRule: 'On Admission', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: false },
+    { name: 'Tuition Fee', feeType: 'REGULAR', amountRupees: 4000, frequency: 'MONTHLY', dueRule: '10th of every month', lateFeeApplicable: true, lateFeeRupees: 200, isRefundable: false },
+    { name: 'Caution / Security Deposit', feeType: 'REFUNDABLE_DEPOSIT', amountRupees: 5000, frequency: 'ONE_TIME', dueRule: 'On Admission', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: true },
+  ])
+
+  // Filter programs mapped to selected branch
+  const availablePrograms = useMemo(() => {
+    if (!branchId) return []
+    return programs.filter((p) => {
+      if (!p.branchMappings || p.branchMappings.length === 0) return true
+      return p.branchMappings.some((bm: any) => bm.branchId === branchId && bm.isActive)
+    })
+  }, [programs, branchId])
+
+  useEffect(() => {
+    if (availablePrograms.length > 0 && !availablePrograms.some((p) => p.id === programId)) {
+      setProgramId(availablePrograms[0].id)
+    }
+  }, [availablePrograms, programId])
+
+  const selectedProg = programs.find((p) => p.id === programId)
+  const selectedBranch = branches.find((b) => b.id === branchId)
+  const selectedYear = academicYears.find((y) => y.id === academicSessionId)
+
+  // Auto-generate name when parameters change if name was default
+  useEffect(() => {
+    if (selectedProg && selectedBranch && selectedYear) {
+      setName(`${selectedProg.name} Fee Structure — ${selectedYear.name || 'AY'}`)
+    }
+  }, [selectedProg?.name, selectedBranch?.name, selectedYear?.name])
+
+  const addItem = () => {
+    setItems((prev) => [
+      ...prev,
+      { name: 'Activity & Learning Kit', feeType: 'REGULAR', amountRupees: 1500, frequency: 'ANNUALLY', dueRule: 'Term Start', lateFeeApplicable: false, lateFeeRupees: 0, isRefundable: false },
+    ])
+  }
+
+  const removeItem = (index: number) => {
+    if (items.length <= 1) {
+      toast.error('Validation', 'A fee structure must have at least one fee head')
+      return
+    }
+    setItems((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const updateItem = (index: number, patch: Partial<FeeItemRow>) => {
+    setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  }
+
+  const totalAnnualRupees = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const amt = Number(item.amountRupees) || 0
+      const mult = item.frequency === 'MONTHLY' ? 12 : item.frequency === 'QUARTERLY' ? 4 : item.frequency === 'HALF_YEARLY' ? 2 : 1
+      return sum + amt * mult
+    }, 0)
+  }, [items])
+
+  const handleSubmit = async () => {
+    if (!branchId) { toast.error('Branch Required', 'Please select a campus branch'); return }
+    if (!academicSessionId) { toast.error('Academic Year Required', 'Please select an academic year'); return }
+    if (!programId) { toast.error('Program Required', 'Please select a program mapped to this branch'); return }
+    if (!name.trim()) { toast.error('Name Required', 'Please provide a name for this fee structure'); return }
+    if (items.length === 0) { toast.error('Fee Items Required', 'Please configure at least one fee head'); return }
+
+    for (const item of items) {
+      if (!item.name.trim()) {
+        toast.error('Validation', 'All fee heads must have a name')
+        return
+      }
+      if (Number(item.amountRupees) <= 0) {
+        toast.error('Validation', `Amount for "${item.name}" must be greater than zero`)
+        return
+      }
+    }
+
+    setBusy(true)
+    const payload = {
+      branchId,
+      academicSessionId,
+      programId,
+      name: name.trim(),
+      description: description.trim() || null,
+      status,
+      items: items.map((it, idx) => ({
+        name: it.name.trim(),
+        feeType: it.feeType,
+        amountCents: Math.round(Number(it.amountRupees) * 100),
+        currency: 'INR',
+        frequency: it.frequency,
+        dueRule: it.dueRule?.trim() || null,
+        lateFeeApplicable: Boolean(it.lateFeeApplicable),
+        lateFeeAmountCents: it.lateFeeApplicable ? Math.round(Number(it.lateFeeRupees) * 100) : 0,
+        isRefundable: Boolean(it.isRefundable || it.feeType === 'REFUNDABLE_DEPOSIT'),
+        sortOrder: idx,
+      })),
+    }
+
+    const res = await api('/api/v1/fee-structures', 'POST', payload)
+    setBusy(false)
+
+    if (res.success) {
+      toast.success('Fee Structure Created', `Configured "${name}" for ${selectedProg?.name} (${selectedBranch?.name})`)
+      onDone()
+      onClose()
+    } else {
+      toast.error('Failed to create fee structure', res.error?.message || 'Database error')
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={step === 1 ? 'Configure Canonical Fee Structure' : 'Review & Confirm Fee Structure'}
+      icon={<IndianRupee size={22} />}
+      iconClass="ic-blue"
+      wide
+    >
+      {step === 1 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, fontSize: 13, color: 'var(--foreground-muted)' }}>
+            This configuration writes directly to canonical Finance records. Finance operations (invoicing, collections, student fee schedules) consume this exact structure.
+          </div>
+
+          <div className="form-grid">
+            <div className="field">
+              <label>Campus Branch <span className="req">*</span></label>
+              <select className="select" value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Academic Year <span className="req">*</span></label>
+              <select className="select" value={academicSessionId} onChange={(e) => setAcademicSessionId(e.target.value)} required>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={y.id}>{y.name} {y.isCurrent ? '(Current)' : ''}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Program <span className="req">*</span></label>
+              <select className="select" value={programId} onChange={(e) => setProgramId(e.target.value)} required disabled={availablePrograms.length === 0}>
+                {availablePrograms.length === 0 ? (
+                  <option value="">No programs mapped to this campus</option>
+                ) : (
+                  availablePrograms.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                  ))
+                )}
+              </select>
+              {availablePrograms.length === 0 && (
+                <span className="helper" style={{ color: 'var(--danger)' }}>
+                  Map programs to this campus in Program Setup first.
+                </span>
+              )}
+            </div>
+
+            <div className="field">
+              <label>Initial Status</label>
+              <select className="select" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+                <option value="ACTIVE">ACTIVE (Ready for Student Invoicing)</option>
+                <option value="DRAFT">DRAFT (Review / Under Configuration)</option>
+              </select>
+            </div>
+
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Structure Name <span className="req">*</span></label>
+              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Nursery Annual Fee Plan — AY 2026-27" required />
+            </div>
+
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Description / Notes</label>
+              <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional administrative remarks or schedule notes" />
+            </div>
+          </div>
+
+          {/* Fee Items Table */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>Fee Heads & Installment Rules</span>
+                <span className="helper" style={{ display: 'block' }}>Configured amounts stored in exact integer paise</span>
+              </div>
+              <button type="button" className="btn btn-sm btn-outline" onClick={addItem}>
+                <Plus size={13} /> Add Fee Head
+              </button>
+            </div>
+
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+              <table className="dtable" style={{ margin: 0, fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th>Fee Head Name</th>
+                    <th>Type</th>
+                    <th>Frequency</th>
+                    <th style={{ width: 110 }}>Amount (₹)</th>
+                    <th>Due Rule</th>
+                    <th style={{ width: 70 }}>Late Fee</th>
+                    <th style={{ width: 40 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <input
+                          className="input"
+                          style={{ height: 32, fontSize: 12.5 }}
+                          value={it.name}
+                          onChange={(e) => updateItem(idx, { name: e.target.value })}
+                          placeholder="e.g. Tuition"
+                          required
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="select"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.feeType}
+                          onChange={(e) => {
+                            const ft = e.target.value as any
+                            updateItem(idx, { feeType: ft, isRefundable: ft === 'REFUNDABLE_DEPOSIT' })
+                          }}
+                        >
+                          <option value="REGULAR">Regular Fee</option>
+                          <option value="REFUNDABLE_DEPOSIT">Refundable Deposit</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          className="select"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.frequency}
+                          onChange={(e) => updateItem(idx, { frequency: e.target.value as any })}
+                        >
+                          <option value="ONE_TIME">One Time</option>
+                          <option value="MONTHLY">Monthly</option>
+                          <option value="QUARTERLY">Quarterly</option>
+                          <option value="HALF_YEARLY">Half Yearly</option>
+                          <option value="ANNUALLY">Annually</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          className="input"
+                          type="number"
+                          min="1"
+                          style={{ height: 32, fontSize: 12.5, fontWeight: 600 }}
+                          value={it.amountRupees}
+                          onChange={(e) => updateItem(idx, { amountRupees: e.target.value })}
+                          required
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="input"
+                          style={{ height: 32, fontSize: 12 }}
+                          value={it.dueRule}
+                          onChange={(e) => updateItem(idx, { dueRule: e.target.value })}
+                          placeholder="e.g. 5th of Month"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={it.lateFeeApplicable}
+                          onChange={(e) => updateItem(idx, { lateFeeApplicable: e.target.checked })}
+                          title="Apply late fee penalty"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: 4, color: 'var(--danger)' }}
+                          onClick={() => removeItem(idx)}
+                          title="Remove item"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>
+                Estimated Annualised Total: <strong style={{ color: 'var(--foreground)' }}>₹{totalAnnualRupees.toLocaleString('en-IN')}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                if (!branchId || !academicSessionId || !programId || !name.trim()) {
+                  toast.error('Validation', 'Please complete all required fields')
+                  return
+                }
+                setStep(2)
+              }}
+              disabled={availablePrograms.length === 0}
+            >
+              Continue to Review →
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* STEP 2: REVIEW & CONFIRM */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 16, background: 'var(--surface-muted)' }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 16, fontWeight: 700 }}>{name}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, fontSize: 13 }}>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Campus:</span> <strong>{selectedBranch?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Program:</span> <strong>{selectedProg?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Academic Year:</span> <strong>{selectedYear?.name}</strong></div>
+              <div><span style={{ color: 'var(--foreground-muted)' }}>Status:</span> <span className={`badge ${status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>{status}</span></div>
+            </div>
+            {description && <p style={{ margin: '10px 0 0 0', fontSize: 12.5, color: 'var(--foreground-muted)' }}>{description}</p>}
+          </div>
+
+          <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 8, overflow: 'hidden' }}>
+            <table className="dtable" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Fee Head</th>
+                  <th>Type</th>
+                  <th>Frequency</th>
+                  <th>Due Rule</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, idx) => (
+                  <tr key={idx}>
+                    <td><strong style={{ fontSize: 13 }}>{it.name}</strong></td>
+                    <td>
+                      {it.feeType === 'REFUNDABLE_DEPOSIT' ? (
+                        <span className="badge b-orange">Refundable Deposit</span>
+                      ) : (
+                        <span className="badge b-primary">Regular Fee</span>
+                      )}
+                    </td>
+                    <td><span className="badge b-neutral">{it.frequency.replace('_', ' ')}</span></td>
+                    <td><span className="cell-sub">{it.dueRule || '—'}</span></td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, fontFamily: 'monospace' }}>
+                      ₹{Number(it.amountRupees).toLocaleString('en-IN')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setStep(1)} disabled={busy}>
+              ← Back to Edit
+            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" className="btn btn-ghost" onClick={onClose} disabled={busy}>Cancel</button>
+              <button
+                type="button"
+                className={`btn btn-primary ${busy ? 'is-loading' : ''}`}
+                onClick={handleSubmit}
+                disabled={busy}
+              >
+                <CheckCircle2 size={15} /> {busy ? 'Persisting to Finance…' : 'Save & Publish to Finance'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function FeeSetupSection({
+  onDone,
+  api,
+  toast,
+  refreshTrigger,
+}: {
+  onDone: () => void
+  api: ApiFn
+  toast: ToastFn
+  refreshTrigger?: number
+}) {
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [branches, setBranches] = useState<any[]>([])
+  const [programs, setPrograms] = useState<any[]>([])
+  const [academicYears, setAcademicYears] = useState<any[]>([])
+  const [structures, setStructures] = useState<any[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
+  const loadFeeData = useCallback(async () => {
+    try {
+      const [brRes, prRes, yrRes, stRes] = await Promise.all([
+        fetch('/api/v1/branches', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/v1/programs', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/v1/academic-years', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/v1/fee-structures', { cache: 'no-store' }).then((r) => r.json()),
+      ])
+
+      if (brRes.success) setBranches(brRes.data || [])
+      if (prRes.success) setPrograms(prRes.data || [])
+      if (yrRes.success) setAcademicYears(yrRes.data || [])
+      if (stRes.success) {
+        setStructures(stRes.data || [])
+      } else if (stRes.error) {
+        toast.error('Failed to load fee structures', stRes.error.message)
+      }
+    } catch (err: any) {
+      toast.error('Failed to load fee configuration', err.message)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    loadFeeData()
+  }, [loadFeeData, refreshTrigger])
+
+  const handleManualReload = async () => {
+    setRefreshing(true)
+    await loadFeeData()
+    onDone()
+    toast.success('Reload complete', 'Fee structures and coverage data updated')
+  }
+
+  // Filter structures by branch
+  const filteredStructures = useMemo(() => {
+    if (selectedBranchId === 'ALL') return structures
+    return structures.filter((s) => !s.branchId || s.branchId === selectedBranchId)
+  }, [structures, selectedBranchId])
+
+  // Build Program x Campus coverage matrix
+  const coverageMatrix = useMemo(() => {
+    const activeBranches = branches.filter((b) => b.isActive)
+    const activeProgs = programs.filter((p) => p.isActive)
+    const rows: Array<{
+      program: any
+      branch: any
+      activeStructure: any | null
+      status: 'CONFIGURED' | 'MISSING'
+    }> = []
+
+    for (const prog of activeProgs) {
+      for (const branch of activeBranches) {
+        // Only include if mapped
+        const isMapped = !prog.branchMappings || prog.branchMappings.length === 0 ||
+          prog.branchMappings.some((bm: any) => bm.branchId === branch.id && bm.isActive)
+
+        if (isMapped) {
+          const activeSt = structures.find(
+            (st) =>
+              st.status === 'ACTIVE' &&
+              (st.programId === prog.id || st.programType === prog.programType) &&
+              (!st.branchId || st.branchId === branch.id)
+          )
+          rows.push({
+            program: prog,
+            branch,
+            activeStructure: activeSt || null,
+            status: activeSt ? 'CONFIGURED' : 'MISSING',
+          })
+        }
+      }
+    }
+
+    if (selectedBranchId === 'ALL') return rows
+    return rows.filter((r) => r.branch.id === selectedBranchId)
+  }, [branches, programs, structures, selectedBranchId])
+
+  const missingCoverageCount = coverageMatrix.filter((r) => r.status === 'MISSING').length
+
+  if (loading) {
+    return <div style={{ padding: 16 }}><Skeleton h={220} /></div>
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <p className="card-sub" style={{ margin: 0 }}>
+            Create and govern canonical fee structures. Invoices, dues, payment tracking, and receipts in <strong>Finance</strong> directly consume these exact structures.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={handleManualReload}
+            disabled={refreshing || loading}
+            title="Reload live fee structures and update coverage matrix"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <RotateCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            <span>{refreshing ? 'Reloading…' : 'Reload Data'}</span>
+          </button>
+          <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span>View in Finance</span> <ArrowUpRight size={13} />
+          </a>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+            <Plus size={14} /> Create Fee Structure
+          </button>
+        </div>
+      </div>
+
+      {/* Campus Branch Filter & Readiness Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Building2 size={16} style={{ color: 'var(--foreground-muted)' }} />
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Filter by Campus:</span>
+          <select
+            className="select"
+            style={{ height: 32, fontSize: 12.5, minWidth: 160 }}
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+          >
+            <option value="ALL">All Campuses ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          {missingCoverageCount === 0 ? (
+            <span className="badge b-success" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <ShieldCheck size={13} /> 100% Fee Coverage — Go-Live Ready
+            </span>
+          ) : (
+            <span className="badge b-danger">
+              {missingCoverageCount} program mapping(s) lack active fee structure
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Program Coverage Matrix Table */}
+      <div style={{ marginBottom: 20 }}>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+          Campus Program Pricing Coverage
+        </h4>
+        <div className="dtable-scroll">
+          <table className="dtable">
+            <thead>
+              <tr>
+                <th>Campus Branch</th>
+                <th>Program</th>
+                <th>Active Fee Structure</th>
+                <th>Annual Amount</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coverageMatrix.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--foreground-muted)' }}>
+                    No programs mapped to the selected campus filter.
+                  </td>
+                </tr>
+              ) : (
+                coverageMatrix.map((row, idx) => (
+                  <tr key={idx}>
+                    <td>
+                      <span className="cell-strong">{row.branch.name}</span>
+                      <span className="cell-sub">{row.branch.code}</span>
+                    </td>
+                    <td>
+                      <span className="cell-strong">{row.program.name}</span>
+                      <span className="cell-sub">{row.program.code}</span>
+                    </td>
+                    <td>
+                      {row.activeStructure ? (
+                        <div>
+                          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{row.activeStructure.name}</span>
+                          <span className="cell-sub">{row.activeStructure.academicSession?.name || 'AY'}</span>
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>Not configured</span>
+                      )}
+                    </td>
+                    <td>
+                      {row.activeStructure ? (
+                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                          ₹{(
+                            row.activeStructure.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) / 100
+                          ).toLocaleString('en-IN')}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      {row.status === 'CONFIGURED' ? (
+                        <span className="badge b-success">Active</span>
+                      ) : (
+                        <span className="badge b-danger">Missing Fee Structure</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {row.status === 'MISSING' ? (
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => {
+                            setSelectedBranchId(row.branch.id)
+                            setShowCreateModal(true)
+                          }}
+                        >
+                          <Plus size={12} /> Configure
+                        </button>
+                      ) : (
+                        <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" title="View details in Finance">
+                          Finance <ArrowUpRight size={12} />
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Configured Structures List */}
+      <div>
+        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+          Configured Canonical Fee Structures ({filteredStructures.length})
+        </h4>
+        {filteredStructures.length === 0 ? (
+          <EmptyState
+            icon={<IndianRupee size={36} />}
+            title="No fee structures found"
+            message="Click 'Create Fee Structure' to define tuition, admission fees, and deposit rules for your programs."
+          />
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+            {filteredStructures.map((st) => {
+              const totalRupees =
+                (st.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) || 0) / 100
+              const branchName = branches.find((b) => b.id === st.branchId)?.name || 'All Campuses'
+
+              return (
+                <div key={st.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <h5 style={{ margin: '0 0 2px 0', fontSize: 14, fontWeight: 700 }}>{st.name}</h5>
+                      <span className="cell-sub">{branchName} · {st.academicSession?.name || 'AY'}</span>
+                    </div>
+                    <span className={`badge ${st.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>
+                      {st.status}
+                    </span>
+                  </div>
+
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 10px', fontSize: 12, background: 'var(--surface-muted)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600 }}>
+                      <span>Fee Heads ({st.items?.length || 0})</span>
+                      <span style={{ fontFamily: 'monospace' }}>Total: ₹{totalRupees.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      {st.items?.slice(0, 3).map((item: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--foreground-muted)' }}>
+                          <span>{item.name}</span>
+                          <span style={{ fontFamily: 'monospace' }}>₹{((item.amountCents || 0) / 100).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                      {st.items?.length > 3 && (
+                        <span style={{ fontSize: 11, color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+                          +{st.items.length - 3} more head(s)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto' }}>
+                    <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" style={{ fontSize: 12 }}>
+                      Inspect in Finance <ArrowUpRight size={12} />
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
+        <QuickFinanceConfig onDone={() => { onDone(); loadFeeData() }} api={api} toast={toast} />
+      </div>
+
+      {showCreateModal && (
+        <CreateFeeStructureModal
+          branches={branches}
+          programs={programs}
+          academicYears={academicYears}
+          onClose={() => setShowCreateModal(false)}
+          onDone={() => {
+            loadFeeData()
+            onDone()
+          }}
+          api={api}
+          toast={toast}
+        />
+      )}
+    </>
+  )
+}
+
 function QuickFinanceConfig({ onDone, api, toast }: { onDone: () => void; api: ApiFn; toast: ToastFn }) {
   const [methods, setMethods] = useState<string[]>([])
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {
-    fetch('/api/v1/setup/config/FINANCE').then((r) => r.json()).then((j) => {
+    fetch('/api/v1/setup/config/FINANCE', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
       if (j.success) setMethods((j.data.data?.paymentMethods as string[]) ?? ['CASH', 'UPI', 'BANK_TRANSFER'])
       setLoaded(true)
     })
@@ -904,8 +1927,6 @@ function BranchModal({ onClose, onDone, api, toast }: { onClose: () => void; onD
           <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="MAIN2" /></div>
           <div className="field"><label>City</label><input className="input" name="city" /></div>
           <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue="08:30" /></div>
-          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue="16:00" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
           <div className="field"><label>Capacity (seats)</label><input className="input" name="capacity" type="number" min="1" /></div>
         </div>
@@ -920,15 +1941,50 @@ function BranchModal({ onClose, onDone, api, toast }: { onClose: () => void; onD
 
 function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; onDone: () => void; api: ApiFn; toast: ToastFn }) {
   const [busy, setBusy] = useState(false)
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [selectedBranches, setSelectedBranches] = useState<Record<string, { enabled: boolean; capacity: number }>>({})
+
+  useEffect(() => {
+    fetch('/api/v1/branches').then((r) => r.json()).then((j) => {
+      if (j.success && Array.isArray(j.data)) {
+        setBranches(j.data)
+        const init: Record<string, { enabled: boolean; capacity: number }> = {}
+        j.data.forEach((b: any) => {
+          init[b.id] = { enabled: true, capacity: 20 }
+        })
+        setSelectedBranches(init)
+      }
+    })
+  }, [])
+
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true)
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
     const j = await api('/api/v1/programs', 'POST', fd)
-    setBusy(false)
-    if (j.success) { toast.success('Program created', String(j.data.name)); onDone() } else toast.error('Failed', j.error?.message)
+    if (j.success) {
+      // Map program to selected campuses
+      const mappings = Object.entries(selectedBranches)
+        .filter(([_, conf]) => conf.enabled)
+        .map(([branchId, conf]) => ({
+          programId: j.data.id,
+          branchId,
+          isActive: true,
+          capacity: conf.capacity,
+        }))
+      if (mappings.length > 0) {
+        await api('/api/v1/programs/branches', 'POST', { mappings })
+      }
+      setBusy(false)
+      toast.success('Program created', String(j.data.name))
+      onClose(); onDone()
+    } else {
+      setBusy(false)
+      toast.error('Failed', j.error?.message)
+    }
   }
+
   return (
-    <Modal open onClose={onClose} title="Add Program" icon={<Blocks size={22} />} iconClass="ic-violet">
+    <Modal open onClose={onClose} title="Add Program Master" icon={<Blocks size={22} />} iconClass="ic-violet" wide>
       <form onSubmit={submit}>
         <div className="form-grid">
           <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Jr KG" /></div>
@@ -937,20 +1993,215 @@ function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; on
             <select className="select" name="programType" required>
               {['PLAYGROUP', 'NURSERY', 'LKG', 'UKG', 'DAYCARE'].map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <div className="helper">Links the program to fee plans and existing integrations — name and code stay fully custom.</div>
+            <div className="helper">Links the program to fee plans and canonical integrations — name and code stay custom.</div>
           </div>
-          <div className="field"><label>Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
+          <div className="field"><label>Master Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
           <div className="field"><label>Min age (months)</label><input className="input" name="ageMinMonths" type="number" /></div>
           <div className="field"><label>Max age (months)</label><input className="input" name="ageMaxMonths" type="number" /></div>
           <div className="field"><label>Duration (months)</label><input className="input" name="durationMonths" type="number" placeholder="12" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" /></div>
+
+          {branches.length > 0 && (
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Campus Availability & Capacity Mapping</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                {branches.map((b: any) => {
+                  const conf = selectedBranches[b.id] || { enabled: false, capacity: 20 }
+                  return (
+                    <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, fontSize: 13 }}>
+                        <input
+                          type="checkbox"
+                          checked={conf.enabled}
+                          onChange={(e) => {
+                            setSelectedBranches((prev) => ({
+                              ...prev,
+                              [b.id]: { ...conf, enabled: e.target.checked },
+                            }))
+                          }}
+                        />
+                        <span style={{ fontWeight: 500 }}>{b.name}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>({b.code})</span>
+                      </label>
+                      {conf.enabled && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>Capacity:</span>
+                          <input
+                            type="number"
+                            className="input"
+                            style={{ width: 80, height: 28, fontSize: 12, padding: '2px 8px' }}
+                            value={conf.capacity}
+                            min={1}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 20
+                              setSelectedBranches((prev) => ({
+                                ...prev,
+                                [b.id]: { ...conf, capacity: val },
+                              }))
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Program</button>
+          <button type="submit" className={`btn btn-primary ${busy ? 'is-loading' : ''}`} disabled={busy}>Create Program Master</button>
         </div>
       </form>
     </Modal>
+  )
+}
+
+function ProgramCampusMappingSection({
+  programs,
+  onDone,
+  api,
+  toast,
+}: {
+  programs: Dict[]
+  onDone: () => void
+  api: ApiFn
+  toast: ToastFn
+}) {
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [mappings, setMappings] = useState<Dict[]>([])
+  const [updating, setUpdating] = useState<string | null>(null)
+
+  const loadData = useCallback(async () => {
+    const [bRes, mRes] = await Promise.all([
+      fetch('/api/v1/branches').then((r) => r.json()),
+      fetch('/api/v1/programs/branches').then((r) => r.json()),
+    ])
+    if (bRes.success) setBranches(bRes.data || [])
+    if (mRes.success) setMappings(mRes.data || [])
+  }, [])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  const toggleMapping = async (programId: string, branchId: string, currentActive: boolean, currentCap: number | null) => {
+    const key = `${programId}-${branchId}`
+    setUpdating(key)
+    const res = await api('/api/v1/programs/branches', 'POST', {
+      programId,
+      branchId,
+      isActive: !currentActive,
+      capacity: currentCap,
+    })
+    setUpdating(null)
+    if (res.success) {
+      toast.success(currentActive ? 'Campus unmapped' : 'Campus mapped')
+      loadData()
+      onDone()
+    } else {
+      toast.error('Update failed', res.error?.message)
+    }
+  }
+
+  const updateCapacity = async (programId: string, branchId: string, capacity: number) => {
+    const key = `${programId}-${branchId}`
+    setUpdating(key)
+    const res = await api('/api/v1/programs/branches', 'POST', {
+      programId,
+      branchId,
+      isActive: true,
+      capacity,
+    })
+    setUpdating(null)
+    if (res.success) {
+      toast.success('Capacity updated')
+      loadData()
+      onDone()
+    } else {
+      toast.error('Update failed', res.error?.message)
+    }
+  }
+
+  if (programs.length === 0 || branches.length === 0) return null
+
+  return (
+    <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div>
+          <div className="card-title" style={{ fontSize: 14 }}>
+            <Building2 size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
+            Campus Availability & Capacity Matrix
+          </div>
+          <p className="helper" style={{ margin: '2px 0 0' }}>
+            Map master programs to operating campuses. Preschools maintain ONE program master with branch-specific allocations.
+          </p>
+        </div>
+      </div>
+
+      <div className="dtable-scroll">
+        <table className="dtable">
+          <thead>
+            <tr>
+              <th>Master Program</th>
+              {branches.map((b: any) => (
+                <th key={b.id} style={{ textAlign: 'center' }}>
+                  {b.name} <span style={{ fontSize: 10.5, opacity: 0.7 }}>({b.code})</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {programs.map((p: any) => (
+              <tr key={p.id}>
+                <td>
+                  <span className="cell-strong">{p.name}</span>
+                  <span className="cell-sub">{p.code} · {String(p.programType).toLowerCase()}</span>
+                </td>
+                {branches.map((b: any) => {
+                  const m = mappings.find((item: any) => item.programId === p.id && item.branchId === b.id)
+                  const isActive = m ? m.isActive : false
+                  const cap = m?.capacity ?? p.capacity ?? 20
+                  const isBusy = updating === `${p.id}-${b.id}`
+
+                  return (
+                    <td key={b.id} style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline'}`}
+                          style={{ minWidth: 80, height: 26, padding: '2px 8px', fontSize: 11.5 }}
+                          disabled={isBusy}
+                          onClick={() => toggleMapping(p.id, b.id, isActive, cap)}
+                        >
+                          {isActive ? '✓ Offered' : '+ Offer'}
+                        </button>
+                        {isActive && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: 'var(--text-muted)' }}>
+                            <span>Cap:</span>
+                            <input
+                              type="number"
+                              className="input"
+                              style={{ width: 50, height: 22, fontSize: 11, padding: '1px 4px', textAlign: 'center' }}
+                              defaultValue={cap}
+                              onBlur={(e) => {
+                                const val = Number(e.target.value)
+                                if (val > 0 && val !== cap) {
+                                  updateCapacity(p.id, b.id, val)
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 
@@ -1134,8 +2385,6 @@ function EditBranchModal({ item, onClose, onDone, api, toast }: { item: Dict; on
           <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Branch code is permanent" /></div>
           <div className="field"><label>City</label><input className="input" name="city" defaultValue={String(item.city || '')} /></div>
           <div className="field"><label>Contact Phone</label><input className="input" name="phone" defaultValue={String(item.phone || '')} /></div>
-          <div className="field"><label>Opens at</label><input className="input" name="timingOpen" type="time" defaultValue={String(item.timingOpen || '08:30')} /></div>
-          <div className="field"><label>Closes at</label><input className="input" name="timingClose" type="time" defaultValue={String(item.timingClose || '16:00')} /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Campus Address</label><input className="input" name="address" defaultValue={String(item.address || '')} /></div>
           <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" defaultValue={item.capacity ? Number(item.capacity) : ''} min="1" /></div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
@@ -1352,19 +2601,37 @@ function ClassroomModal({ onClose, onDone, api, toast }: { onClose: () => void; 
   const [busy, setBusy] = useState(false)
   const [branches, setBranches] = useState<Dict[]>([])
   const [programs, setPrograms] = useState<Dict[]>([])
+  const [mappings, setMappings] = useState<Dict[]>([])
   const [members, setMembers] = useState<Dict[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState('')
 
   useEffect(() => {
     Promise.all([
       fetch('/api/v1/branches').then((r) => r.json()),
       fetch('/api/v1/programs').then((r) => r.json()),
+      fetch('/api/v1/programs/branches').then((r) => r.json()),
       fetch('/api/v1/users').then((r) => r.json()),
-    ]).then(([b, p, u]) => {
-      if (b.success) setBranches(b.data)
+    ]).then(([b, p, pb, u]) => {
+      if (b.success && Array.isArray(b.data)) {
+        setBranches(b.data)
+        if (b.data.length > 0) setSelectedBranchId(String(b.data[0].id))
+      }
       if (p.success) setPrograms(p.data)
+      if (pb.success) setMappings(pb.data)
       if (u.success) setMembers(u.data)
     })
   }, [])
+
+  const availablePrograms = useMemo(() => {
+    if (!selectedBranchId) return programs
+    const branchMappingProgIds = new Set(
+      mappings
+        .filter((m: any) => m.branchId === selectedBranchId && m.isActive)
+        .map((m: any) => m.programId)
+    )
+    if (branchMappingProgIds.size === 0) return programs
+    return programs.filter((p: any) => branchMappingProgIds.has(p.id))
+  }, [programs, mappings, selectedBranchId])
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true)
@@ -1375,7 +2642,7 @@ function ClassroomModal({ onClose, onDone, api, toast }: { onClose: () => void; 
       programType: selectedProgram ? selectedProgram.programType : 'PLAYGROUP',
       programId: fd.programId || null,
       capacity: Number(fd.capacity || 20),
-      branchId: fd.branchId || null,
+      branchId: selectedBranchId || fd.branchId || null,
       primaryTeacherId: fd.primaryTeacherId || null,
     }
 
@@ -1393,18 +2660,27 @@ function ClassroomModal({ onClose, onDone, api, toast }: { onClose: () => void; 
     <Modal open onClose={onClose} title="Add Classroom / Section" icon={<LayoutGrid size={22} />} iconClass="ic-blue">
       <form onSubmit={submit}>
         <div className="form-grid">
-          <div className="field"><label>Class Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Nursery - Sunflower" /></div>
-          <div className="field"><label>Program <span className="req">*</span></label>
-            <select className="select" name="programId" required>
-              <option value="">Select program…</option>
-              {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name} ({String(p.programType)})</option>)}
-            </select>
-          </div>
           <div className="field"><label>Campus Branch <span className="req">*</span></label>
-            <select className="select" name="branchId" required>
+            <select
+              className="select"
+              name="branchId"
+              value={selectedBranchId}
+              onChange={(e) => setSelectedBranchId(e.target.value)}
+              required
+            >
               {branches.map((b: any) => <option key={String(b.id)} value={String(b.id)}>{b.name}</option>)}
             </select>
           </div>
+          <div className="field"><label>Program Offering <span className="req">*</span></label>
+            <select className="select" name="programId" required>
+              <option value="">Select program offered at this campus…</option>
+              {availablePrograms.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name} ({String(p.programType)})</option>)}
+            </select>
+            {availablePrograms.length < programs.length && (
+              <div className="helper">Showing programs mapped to this campus. Map others in Programs step.</div>
+            )}
+          </div>
+          <div className="field"><label>Class Name <span className="req">*</span></label><input className="input" name="name" required placeholder="Nursery - Sunflower" /></div>
           <div className="field"><label>Seat Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Primary Teacher</label>
             <select className="select" name="primaryTeacherId">

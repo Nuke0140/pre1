@@ -24,6 +24,7 @@ import { raiseFollowUp } from '@/lib/followups'
 import { SchoolRole } from '@/lib/auth'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { getDomainConfig, getAdmissionConfig } from '@/lib/config'
+import { assertActorResourceScope } from '@/lib/security/resource-scope'
 import bcrypt from 'bcryptjs'
 import { FollowUpVisitService } from './followup-visit-service'
 import type { ProgramType, Gender, LeadSource, LeadStatus, ApplicationStatus, DocumentType, OfferStatus, DocumentStatus } from '@prisma/client'
@@ -35,6 +36,7 @@ export interface ScopeContext {
   actorId?: string | null
   actorName?: string | null
   actorRole?: string | null
+  actorRoles?: string[] | null
 }
 
 export interface CreateEnquiryInput {
@@ -761,6 +763,21 @@ export class AdmissionService {
     if (!doc || doc.application.tenantId !== scope.tenantId) {
       throw new Error('Document not found')
     }
+
+    assertActorResourceScope(
+      {
+        tenantId: scope.tenantId,
+        branchId: ctx.branchId,
+        role: (ctx.actorRole || 'OWNER') as any,
+        roles: (ctx.actorRoles && ctx.actorRoles.length > 0
+          ? ctx.actorRoles
+          : (ctx.actorRole ? [ctx.actorRole] : ['OWNER'])) as any,
+      },
+      {
+        tenantId: doc.application.tenantId,
+        branchId: doc.application.branchId,
+      }
+    )
 
     if ((action === 'NEEDS_CORRECTION' || action === 'REJECT') && !remarks?.trim()) {
       throw new Error(`A specific reason is required when marking a document as ${action === 'REJECT' ? 'Rejected' : 'Needs Correction'}`)

@@ -1,29 +1,24 @@
-/** PreOne formatting utilities — Indian rupee, dates, labels */
+import { formatCurrencyLocale, formatDateLocale, formatDateTimeLocale, getTranslation, getGlobalLocale } from './i18n'
 
-/** Money is stored as integer paise. Display in ₹ (en-IN). */
+/** Money is stored as integer paise. Display in ₹ according to active locale. */
 export function inr(paise: number, opts?: { compact?: boolean }): string {
+  const currentLocale = getGlobalLocale()
   const rupees = paise / 100
   if (opts?.compact && rupees >= 100000) {
     if (rupees >= 10000000) return `₹${(rupees / 10000000).toFixed(2)} Cr`
     return `₹${(rupees / 100000).toFixed(2)} L`
   }
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: rupees % 1 === 0 ? 0 : 2,
-  }).format(rupees)
+  return formatCurrencyLocale(paise, currentLocale)
 }
 
 export function fmtDate(d: string | Date | null | undefined): string {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  return formatDateLocale(d, getGlobalLocale())
 }
 
 export function fmtDateTime(d: string | Date | null | undefined): string {
   if (!d) return '—'
-  return new Date(d).toLocaleString('en-IN', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-  })
+  return formatDateTimeLocale(d, getGlobalLocale())
 }
 
 export function timeAgo(d: string | Date): string {
@@ -42,9 +37,18 @@ export function isoDate(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10)
 }
 
-/** Title-case an UPPER_SNAKE enum value → "PARTIALLY_PAID" → "Partially Paid" */
+/**
+ * Localized enum label:
+ * 1. Looks up `status.${v}` in active translation dictionary
+ * 2. Falls back to Title Case English ("PARTIALLY_PAID" -> "Partially Paid")
+ */
 export function enumLabel(v: string | null | undefined): string {
   if (!v) return '—'
+  const cleanKey = v.trim().toUpperCase()
+  const translated = getTranslation(`status.${cleanKey}`)
+  if (translated && translated !== `status.${cleanKey}`) {
+    return translated
+  }
   return v
     .toLowerCase()
     .split('_')

@@ -31,10 +31,11 @@ import {
   UserCheck,
   Download,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton } from '@/components/preone/ui'
+import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, SearchFilterBar } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
+import { useI18n } from '@/lib/i18n'
 
 interface FeeStructureItem {
   id?: string
@@ -62,6 +63,8 @@ interface FeeStructure {
   classroom?: { id: string; name: string } | null
   program?: { id: string; name: string } | null
   programType?: string | null
+  branchId?: string | null
+  branch?: { id: string; name: string } | null
   items: FeeStructureItem[]
   _count?: { schedules: number }
   createdAt: string
@@ -72,6 +75,9 @@ interface StudentFeeSchedule {
   studentId: string
   studentName?: string
   admissionNo?: string
+  branchName?: string
+  classroomName?: string
+  programName?: string
   itemName: string
   feeType: 'REGULAR' | 'REFUNDABLE_DEPOSIT'
   period: string
@@ -132,6 +138,7 @@ interface ChildFeeProfile {
 
 export default function FeesPage() {
   const toast = useToast()
+  const { t } = useI18n()
 
   // User Role State
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -141,7 +148,10 @@ export default function FeesPage() {
   const [activeTab, setActiveTab] = useState<'STRUCTURES' | 'SCHEDULES' | 'DEPOSITS' | 'PAYMENTS'>('STRUCTURES')
 
   // Master Options
-  const [classrooms, setClassrooms] = useState<{ id: string; name: string }[]>([])
+  const [branches, setBranches] = useState<{ id: string; name: string; code: string }[]>([])
+  const [programs, setPrograms] = useState<{ id: string; name: string; code: string; programType: string }[]>([])
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('ALL')
+  const [classrooms, setClassrooms] = useState<{ id: string; name: string; branchId?: string; programId?: string }[]>([])
   const [academicSessions, setAcademicSessions] = useState<{ id: string; name: string }[]>([])
   const [students, setStudents] = useState<{ id: string; name: string; admissionNo: string }[]>([])
 
@@ -168,6 +178,8 @@ export default function FeesPage() {
 
   // Form States
   const [structForm, setStructForm] = useState({
+    branchId: '',
+    programId: '',
     name: '',
     description: '',
     academicSessionId: '',
@@ -257,14 +269,24 @@ export default function FeesPage() {
   useEffect(() => {
     async function loadOptions() {
       try {
-        const [clsRes, sessRes, stdRes] = await Promise.all([
+        const [clsRes, sessRes, stdRes, brRes, prRes] = await Promise.all([
           fetch('/api/v1/classrooms').catch(() => null),
           fetch('/api/v1/academic-years').catch(() => fetch('/api/v1/academics/sessions')).catch(() => null),
           fetch('/api/v1/students').catch(() => null),
+          fetch('/api/v1/branches').catch(() => null),
+          fetch('/api/v1/programs').catch(() => null),
         ])
         if (clsRes && clsRes.ok) {
           const d = await clsRes.json()
           setClassrooms(d.data || d || [])
+        }
+        if (brRes && brRes.ok) {
+          const d = await brRes.json()
+          setBranches(d.data || d || [])
+        }
+        if (prRes && prRes.ok) {
+          const d = await prRes.json()
+          setPrograms(d.data || d || [])
         }
         if (sessRes && sessRes.ok) {
           const d = await sessRes.json()
@@ -297,10 +319,11 @@ export default function FeesPage() {
           setParentChildren(d.data || [])
         }
       } else {
-        const [structRes, depRes, payRes] = await Promise.all([
+        const [structRes, depRes, payRes, schedRes] = await Promise.all([
           fetch('/api/v1/fee-structures'),
           fetch('/api/v1/deposits'),
           fetch('/api/v1/payments'),
+          fetch('/api/v1/fee-schedules'),
         ])
 
         if (structRes.ok) {
@@ -314,6 +337,10 @@ export default function FeesPage() {
         if (payRes.ok) {
           const d = await payRes.json()
           setPayments(d.data || [])
+        }
+        if (schedRes && schedRes.ok) {
+          const d = await schedRes.json()
+          setSchedules(d.data || [])
         }
       }
     } catch (e: any) {
@@ -342,6 +369,8 @@ export default function FeesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          branchId: structForm.branchId || undefined,
+          programId: structForm.programId || undefined,
           name: structForm.name,
           description: structForm.description,
           academicSessionId: structForm.academicSessionId || undefined,
@@ -427,6 +456,19 @@ export default function FeesPage() {
     } catch (e: any) {
       toast.error(e.message)
     }
+  }
+
+  // Quick Action: Pre-populate payment modal from specific student fee schedule
+  const handleQuickCollect = (sc: StudentFeeSchedule) => {
+    setPaymentForm({
+      studentId: sc.studentId,
+      feeScheduleId: sc.id,
+      amountRupees: sc.remainingRupees,
+      method: 'CASH',
+      transactionRef: '',
+      notes: `Payment for ${sc.itemName} (${sc.period})`,
+    })
+    setShowPaymentModal(true)
   }
 
   // Process Refund Handler
@@ -541,6 +583,41 @@ export default function FeesPage() {
     toast.success('Payment transactions exported to CSV successfully!')
   }
 
+  // Export Fee Schedules to CSV
+  const handleExportSchedulesCSV = () => {
+    if (!filteredSchedules.length) {
+      toast.error('No fee schedules to export.')
+      return
+    }
+
+    const headers = ['Student Name', 'Admission No', 'Branch', 'Class', 'Fee Item', 'Period', 'Due Date', 'Amount Due (INR)', 'Amount Paid (INR)', 'Remaining (INR)', 'Status']
+    const rows = filteredSchedules.map((sc) => [
+      `"${(sc.studentName || '').replace(/"/g, '""')}"`,
+      `"${(sc.admissionNo || '').replace(/"/g, '""')}"`,
+      `"${(sc.branchName || '').replace(/"/g, '""')}"`,
+      `"${(sc.classroomName || '').replace(/"/g, '""')}"`,
+      `"${(sc.itemName || '').replace(/"/g, '""')}"`,
+      `"${(sc.period || '').replace(/"/g, '""')}"`,
+      `"${fmtDate(sc.dueDate)}"`,
+      `"${sc.amountDueRupees || 0}"`,
+      `"${sc.amountPaidRupees || 0}"`,
+      `"${sc.remainingRupees || 0}"`,
+      `"${(sc.status || '').replace(/"/g, '""')}"`,
+    ])
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `fee_schedules_${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success('Fee schedules exported to CSV successfully!')
+  }
+
   // Calculate Metrics Aggregates
   const totalStructuresCount = structures.length
   const activeStructuresCount = structures.filter((s) => s.status === 'ACTIVE').length
@@ -550,6 +627,31 @@ export default function FeesPage() {
   const totalCollectedRupees = payments
     .filter((p) => p.status === 'SUCCESS')
     .reduce((acc, p) => acc + parseFloat(p.amountRupees || '0'), 0)
+
+  const filteredSchedules = schedules.filter((sc) => {
+    if (selectedBranchFilter !== 'ALL') {
+      const matchBranch = branches.find((b) => b.id === selectedBranchFilter)
+      if (matchBranch && sc.branchName && sc.branchName !== matchBranch.name) {
+        return false
+      }
+    }
+    if (statusFilter !== 'ALL' && sc.status !== statusFilter) {
+      return false
+    }
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase()
+      const matchName = (sc.studentName || '').toLowerCase().includes(term)
+      const matchAdm = (sc.admissionNo || '').toLowerCase().includes(term)
+      const matchItem = (sc.itemName || '').toLowerCase().includes(term)
+      if (!matchName && !matchAdm && !matchItem) return false
+    }
+    return true
+  })
+
+  const totalScheduleDuesRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.amountDueRupees || '0'), 0)
+  const totalSchedulePaidRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.amountPaidRupees || '0'), 0)
+  const totalScheduleRemainingRupees = filteredSchedules.reduce((acc, sc) => acc + parseFloat(sc.remainingRupees || '0'), 0)
+  const overdueSchedulesCount = filteredSchedules.filter((sc) => sc.status === 'OVERDUE').length
 
   if (loadingUser) {
     return (
@@ -569,6 +671,10 @@ export default function FeesPage() {
     return (
       <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
         <PageHead
+          breadcrumbs={[
+            { label: t('nav.home'), href: '/app' },
+            { label: 'Child Fee Portal' },
+          ]}
           title="Child Fee Portal"
           sub="View fee schedules, payment history, receipts, and deposit status"
         />
@@ -751,21 +857,25 @@ export default function FeesPage() {
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       <PageHead
-        title="Fees & Finance Management"
-        sub="Manage fee structures, class assignments, payments, receipts, and refundable deposits"
+        breadcrumbs={[
+          { label: t('nav.home'), href: '/app' },
+          { label: t('fees.title') },
+        ]}
+        title={t('fees.title')}
+        sub={t('fees.subtitle')}
         actions={
           <div className="flex gap-2">
             <button
               onClick={() => setShowStructureModal(true)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm flex items-center gap-1.5 shadow-sm"
             >
-              <Plus className="size-4" /> Create Fee Structure
+              <Plus className="size-4" /> {t('fees.createFeeStructure')}
             </button>
             <button
               onClick={() => setShowPaymentModal(true)}
               className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium text-sm flex items-center gap-1.5 shadow-sm"
             >
-              <IndianRupee className="size-4" /> Record Payment
+              <IndianRupee className="size-4" /> {t('fees.recordPayment')}
             </button>
           </div>
         }
@@ -774,28 +884,28 @@ export default function FeesPage() {
       {/* Admin Top KPI Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiTile
-          label="Active Fee Structures"
+          label={t('fees.activeStructures')}
           value={activeStructuresCount.toString()}
           meta={`${totalStructuresCount} total configured`}
           icon={<Layers className="size-5 text-indigo-600" />}
           iconClass="ic-purple"
         />
         <KpiTile
-          label="Total Collected Fees"
+          label={t('fees.totalCollected')}
           value={inr(totalCollectedRupees * 100)}
           meta="Verified payment transactions"
           icon={<IndianRupee className="size-5 text-emerald-600" />}
           iconClass="ic-emerald"
         />
         <KpiTile
-          label="Refundable Deposits Held"
+          label={t('fees.refundableDeposits')}
           value={inr(totalHeldDepositsRupees * 100)}
           meta={`${deposits.length} security deposits active`}
           icon={<ShieldCheck className="size-5 text-amber-600" />}
           iconClass="ic-amber"
         />
         <KpiTile
-          label="Recorded Payments"
+          label={t('fees.recordedPayments')}
           value={payments.length.toString()}
           meta="Official receipts issued"
           icon={<Receipt className="size-5 text-purple-600" />}
@@ -806,16 +916,17 @@ export default function FeesPage() {
       {/* Tab Navigation */}
       <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
         {[
-          { key: 'STRUCTURES', label: 'Fee Structures & Activation', icon: Layers },
-          { key: 'DEPOSITS', label: 'Refundable Security Deposits', icon: ShieldCheck },
-          { key: 'PAYMENTS', label: 'Payment Transactions & Receipts', icon: Receipt },
-        ].map((t) => {
-          const Icon = t.icon
-          const isActive = activeTab === t.key
+          { key: 'STRUCTURES', label: t('fees.feeStructuresTab'), icon: Layers },
+          { key: 'SCHEDULES', label: 'Student Dues & Schedules', icon: Calendar },
+          { key: 'DEPOSITS', label: t('fees.securityDepositsTab'), icon: ShieldCheck },
+          { key: 'PAYMENTS', label: t('fees.paymentReceiptsTab'), icon: Receipt },
+        ].map((tItem) => {
+          const Icon = tItem.icon
+          const isActive = activeTab === tItem.key
           return (
             <button
-              key={t.key}
-              onClick={() => setActiveTab(t.key as any)}
+              key={tItem.key}
+              onClick={() => setActiveTab(tItem.key as any)}
               className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 ${
                 isActive
                   ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
@@ -823,7 +934,7 @@ export default function FeesPage() {
               }`}
             >
               <Icon className="size-4" />
-              {t.label}
+              {tItem.label}
             </button>
           )
         })}
@@ -832,30 +943,89 @@ export default function FeesPage() {
       {/* TAB 1: FEE STRUCTURES */}
       {activeTab === 'STRUCTURES' && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Configured Fee Structures</h3>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Activating a structure automatically applies it to all eligible class students
-            </span>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Configured Fee Structures</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Canonical fee configuration governed in Setup. Activating a structure applies it to enrolled class students.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="/app/setup/fees_setup"
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
+              >
+                <span>Setup & Governance</span>
+              </a>
+              <button
+                onClick={() => setShowStructureModal(true)}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 flex items-center gap-1 transition-all duration-150 active:scale-[0.98]"
+              >
+                <Plus className="size-3.5" />
+                <span>New Structure</span>
+              </button>
+            </div>
           </div>
 
-          {!structures.length ? (
+          {/* Campus Branch Filter Toolbar */}
+          {branches.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-2">
+                <Building2 className="size-4 text-slate-500" />
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Filter by Campus:</span>
+                <select
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                  value={selectedBranchFilter}
+                  onChange={(e) => setSelectedBranchFilter(e.target.value)}
+                >
+                  <option value="ALL">All Campuses ({branches.length})</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="text-slate-500 dark:text-slate-400">
+                Showing{' '}
+                <strong className="text-slate-900 dark:text-white font-mono">
+                  {structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length}
+                </strong>{' '}
+                structure(s)
+              </div>
+            </div>
+          )}
+
+          {!(structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length) ? (
             <EmptyState
               icon={<Sparkles className="size-8 text-indigo-500" />}
-              title="No Fee Structures Configured"
-              message="Create a fee structure for Nursery or Playgroup to configure tuition and deposit rules."
+              title="No Fee Structures Found"
+              message={
+                selectedBranchFilter !== 'ALL'
+                  ? 'No fee structures configured for the selected campus. Configure fee pricing in Setup.'
+                  : 'No fee structures configured yet. Create a fee structure in Setup or right here.'
+              }
               action={
-                <button
-                  onClick={() => setShowStructureModal(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all duration-150 active:scale-[0.98]"
-                >
-                  Create Fee Structure
-                </button>
+                <div className="flex gap-2">
+                  <a
+                    href="/app/setup/fees_setup"
+                    className="px-4 py-2 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150"
+                  >
+                    Configure in Setup
+                  </a>
+                  <button
+                    onClick={() => setShowStructureModal(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-all duration-150 active:scale-[0.98]"
+                  >
+                    Create Fee Structure
+                  </button>
+                </div>
               }
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {structures.map((st) => (
+              {structures
+                .filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter)
+                .map((st) => (
                 <div key={st.id} className="premium-card p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -903,6 +1073,254 @@ export default function FeesPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: STUDENT DUES & SCHEDULES */}
+      {activeTab === 'SCHEDULES' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <Calendar className="size-5 text-indigo-600 dark:text-indigo-400" />
+                Student Fee Schedules & Dues
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Track operational installments, aging dues, overdue follow-ups, and collect payments directly.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportSchedulesCSV}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
+              >
+                <Download className="size-3.5" />
+                <span>Export CSV</span>
+              </button>
+              <button
+                onClick={() => {
+                  setPaymentForm({
+                    studentId: '',
+                    feeScheduleId: '',
+                    amountRupees: '',
+                    method: 'CASH',
+                    transactionRef: '',
+                    notes: '',
+                  })
+                  setShowPaymentModal(true)
+                }}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-xl hover:bg-indigo-700 flex items-center gap-1 transition-all duration-150 active:scale-[0.98]"
+              >
+                <Plus className="size-3.5" />
+                <span>Collect Payment</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Operational KPI summary */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                Total Scheduled Dues
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 block">
+                {inr(Math.round(totalScheduleDuesRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                {filteredSchedules.length} total installment items
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                Collected Amount
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1 block">
+                {inr(Math.round(totalSchedulePaidRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                Paid against schedules
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-sm">
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                Outstanding Balance
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1 block">
+                {inr(Math.round(totalScheduleRemainingRupees * 100))}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                Pending operational collection
+              </span>
+            </div>
+
+            <div className={`p-3.5 rounded-xl border ${
+              overdueSchedulesCount > 0 
+                ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20' 
+                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60'
+            } shadow-sm`}>
+              <span className="text-[11px] font-medium text-red-600 dark:text-red-400 uppercase tracking-wider block">
+                Overdue Installments
+              </span>
+              <span className="text-base font-bold font-mono tabular-nums text-red-600 dark:text-red-400 mt-1 block">
+                {overdueSchedulesCount}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                {overdueSchedulesCount > 0 ? 'Requires immediate follow-up' : 'All schedules on track'}
+              </span>
+            </div>
+          </div>
+
+          {/* Filters Toolbar */}
+          <SearchFilterBar
+            search={{
+              value: searchTerm,
+              onChange: setSearchTerm,
+              placeholder: 'Search by student name, admission #, fee item...',
+              shortcut: '⌘K',
+            }}
+            filters={[
+              ...(branches.length > 0
+                ? [
+                    {
+                      id: 'branch',
+                      label: 'Campus',
+                      type: 'branch' as const,
+                      value: selectedBranchFilter,
+                      defaultValue: 'ALL',
+                      placeholder: `All Campuses (${branches.length})`,
+                      options: [
+                        { value: 'ALL', label: `All Campuses (${branches.length})` },
+                        ...branches.map((b) => ({
+                          value: b.id,
+                          label: `${b.name} (${b.code})`,
+                        })),
+                      ],
+                      onChange: setSelectedBranchFilter,
+                    },
+                  ]
+                : []),
+              {
+                id: 'status',
+                label: 'Status',
+                type: 'status' as const,
+                value: statusFilter,
+                defaultValue: 'ALL',
+                placeholder: 'All Statuses',
+                options: [
+                  { value: 'ALL', label: 'All Statuses' },
+                  { value: 'OVERDUE', label: 'Overdue', colorDot: 'red' },
+                  { value: 'PENDING', label: 'Pending', colorDot: 'amber' },
+                  { value: 'PARTIALLY_PAID', label: 'Partial', colorDot: 'blue' },
+                  { value: 'PAID', label: 'Paid', colorDot: 'green' },
+                ],
+                onChange: setStatusFilter,
+              },
+            ]}
+            onReset={() => {
+              setSearchTerm('')
+              setSelectedBranchFilter('ALL')
+              setStatusFilter('ALL')
+            }}
+          />
+
+          {/* Schedules Table */}
+          {!filteredSchedules.length ? (
+            <EmptyState
+              icon={<Calendar className="size-8 text-indigo-500" />}
+              title="No Fee Schedules Found"
+              message={
+                searchTerm || statusFilter !== 'ALL' || selectedBranchFilter !== 'ALL'
+                  ? 'No fee schedules match the selected filters. Clear filters to view all schedules.'
+                  : 'Fee schedules are automatically generated when active fee structures are applied to classes or newly admitted students.'
+              }
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
+                    <th className="p-3">Student Name</th>
+                    <th className="p-3">Admission #</th>
+                    <th className="p-3">Campus / Class</th>
+                    <th className="p-3">Fee Item & Period</th>
+                    <th className="p-3">Due Date</th>
+                    <th className="p-3">Amount Due</th>
+                    <th className="p-3">Paid</th>
+                    <th className="p-3">Remaining</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {filteredSchedules.map((sc) => {
+                    const isOverdue = sc.status === 'OVERDUE'
+                    const isPaid = sc.status === 'PAID'
+                    return (
+                      <tr key={sc.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="p-3 font-semibold text-slate-900 dark:text-white">
+                          {sc.studentName || 'Student'}
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-400 font-mono text-xs">
+                          {sc.admissionNo || '-'}
+                        </td>
+                        <td className="p-3 text-slate-700 dark:text-slate-300 text-xs">
+                          <div>{sc.classroomName || 'Class'}</div>
+                          {sc.branchName && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                              {sc.branchName}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-700 dark:text-slate-300 text-xs">
+                          <div className="font-medium text-slate-900 dark:text-slate-100">{sc.itemName}</div>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            {sc.period}
+                          </span>
+                        </td>
+                        <td className="p-3 text-xs">
+                          <div className={`flex items-center gap-1 font-mono ${isOverdue ? 'text-red-600 font-bold dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                            {isOverdue && <AlertCircle className="size-3 text-red-500 shrink-0" />}
+                            <span>{fmtDate(sc.dueDate)}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 font-mono tabular-nums font-medium text-slate-900 dark:text-slate-200">
+                          {inr(parseFloat(sc.amountDueRupees || '0') * 100)}
+                        </td>
+                        <td className="p-3 font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">
+                          {inr(parseFloat(sc.amountPaidRupees || '0') * 100)}
+                        </td>
+                        <td className="p-3 font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">
+                          <span className={parseFloat(sc.remainingRupees || '0') > 0 ? (isOverdue ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400') : 'text-slate-500'}>
+                            {inr(parseFloat(sc.remainingRupees || '0') * 100)}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <StatusBadge status={sc.status} />
+                        </td>
+                        <td className="p-3 text-right">
+                          {!isPaid ? (
+                            <button
+                              onClick={() => handleQuickCollect(sc)}
+                              className="px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-semibold flex items-center gap-1 ml-auto transition-all duration-150 active:scale-[0.98]"
+                            >
+                              <CreditCard className="size-3" />
+                              Collect
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium inline-flex items-center gap-1">
+                              <CheckCircle2 className="size-3" /> Settled
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -1090,6 +1508,19 @@ export default function FeesPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Campus Branch</label>
+                <select
+                  value={structForm.branchId}
+                  onChange={(e) => setStructForm({ ...structForm, branchId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Branches / Main Campus</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Academic Session</label>
                 <select
                   value={structForm.academicSessionId}
@@ -1102,14 +1533,30 @@ export default function FeesPage() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Classroom / Program</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Program</label>
+                <select
+                  value={structForm.programId}
+                  onChange={(e) => setStructForm({ ...structForm, programId: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">Select Program (Optional)</option>
+                  {programs.map((p) => (
+                    <option key={p.id} value={p.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{p.name} ({p.code})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Target Classroom (Optional)</label>
                 <select
                   value={structForm.classroomId}
                   onChange={(e) => setStructForm({ ...structForm, classroomId: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Classrooms / All Programs</option>
+                  <option value="" className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">All Classrooms in Program</option>
                   {classrooms.map((c) => (
                     <option key={c.id} value={c.id} className="text-slate-900 bg-white dark:bg-slate-900 dark:text-white">{c.name}</option>
                   ))}

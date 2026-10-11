@@ -18,6 +18,7 @@ import {
   Music,
   GraduationCap,
 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 export interface MediaItem {
   id: string
@@ -61,6 +62,7 @@ export function SharedMediaPlayer({
   hasNext = false,
   className = '',
 }: SharedMediaPlayerProps) {
+  const { t } = useI18n()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(initialPositionSecs)
   const [isMuted, setIsMuted] = useState(false)
@@ -388,9 +390,9 @@ export function SharedMediaPlayer({
               onClick={onNext}
               disabled={!hasNext}
               className="btn btn-secondary btn-sm rounded-xl px-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Next Item"
+              title={t('common.next')}
             >
-              <span className="text-xs hidden sm:inline">Next</span>
+              <span className="text-xs hidden sm:inline">{t('common.next')}</span>
               <ChevronRight size={16} />
             </button>
           </div>
@@ -417,7 +419,7 @@ export function SharedMediaPlayer({
                 }`}
               >
                 <CheckCircle2 size={14} className={completed ? 'text-emerald-600 dark:text-emerald-400' : ''} />
-                <span>{completed ? 'Completed' : 'Mark as Done'}</span>
+                <span>{completed ? t('status.COMPLETED') : t('learning.markCompleted')}</span>
               </button>
             )}
           </div>

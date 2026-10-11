@@ -23,7 +23,7 @@ async function _POST(
     const actor = { id: session.uid, name: session.name }
 
     let result: { ok: boolean; message: string; detail?: string }
-    if (action === 'complete') result = await completeStep(session.tenantId, key, actor)
+    if (action === 'complete') result = await completeStep(session.tenantId, key, actor, (body as { branchId?: string }).branchId)
     else if (action === 'skip') result = await skipStep(session.tenantId, key, actor)
     else if (action === 'reopen') result = await reopenStep(session.tenantId, key, actor)
     else return Errors.validation('action must be complete | skip | reopen')

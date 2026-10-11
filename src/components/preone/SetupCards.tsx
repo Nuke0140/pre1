@@ -127,7 +127,7 @@ export function SetupPhaseCard({
           </span>
         </div>
         <h3 className="setup-phase-title">{title}</h3>
-        <p className="setup-phase-desc">{description}</p>
+        {description && <p className="setup-phase-desc">{description}</p>}
         <div
           className="setup-phase-progress-bar"
           role="progressbar"

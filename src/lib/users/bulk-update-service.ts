@@ -669,4 +669,135 @@ export class BulkUpdateService {
       results,
     }
   }
+
+  /**
+   * Executes or previews bulk field update for a list of user IDs.
+   */
+  static async processBulkFieldUpdate(options: {
+    tenantId: string
+    actorId: string
+    actorName: string
+    actorRole: string
+    actorBranchId?: string | null
+    userIds: string[]
+    fieldKey: string
+    value: any
+    mode?: 'PREVIEW' | 'EXECUTE'
+    reason?: string
+    req?: NextRequest
+  }) {
+    const {
+      tenantId,
+      actorId,
+      actorName,
+      actorRole,
+      userIds,
+      fieldKey,
+      value,
+      mode = 'EXECUTE',
+      reason,
+      req,
+    } = options
+
+    const config = getBulkFieldConfig(fieldKey)
+    if (!config) {
+      throw new Error(`Field '${fieldKey}' is not supported or permitted for bulk update.`)
+    }
+
+    const valResult = validateFieldValue(fieldKey, value)
+    if (!valResult.valid) {
+      throw new Error(`Validation failed for field '${fieldKey}': ${valResult.error}`)
+    }
+    const cleanValue = valResult.cleanValue
+
+    // Fetch tenant users
+    const memberships = await db.tenantUser.findMany({
+      where: {
+        tenantId,
+        userId: { in: userIds },
+        deletedAt: null,
+      },
+      include: {
+        user: true,
+      },
+    })
+
+    const foundUserIds = new Set(memberships.map((m) => m.userId))
+    const validUsers = memberships.map((m) => m.user)
+
+    if (mode === 'PREVIEW') {
+      return {
+        success: true,
+        mode: 'PREVIEW',
+        totalSelected: userIds.length,
+        successCount: validUsers.length,
+        fieldKey,
+        cleanValue,
+        affectedUsers: validUsers.map((u) => ({
+          userId: u.id,
+          name: u.fullName,
+          email: u.email,
+        })),
+      }
+    }
+
+    // EXECUTE MODE
+    let successCount = 0
+    for (const user of validUsers) {
+      if (config.targetEntity === 'user') {
+        await db.user.update({
+          where: { id: user.id },
+          data: { [config.key]: cleanValue },
+        })
+      } else if (config.targetEntity === 'tenantUser') {
+        await db.tenantUser.updateMany({
+          where: { tenantId, userId: user.id },
+          data: { [config.key]: cleanValue },
+        })
+      } else if (config.targetEntity === 'staffProfile') {
+        await db.staffProfile.upsert({
+          where: {
+            userId: user.id,
+          },
+          update: { [config.key]: cleanValue },
+          create: {
+            tenantId,
+            userId: user.id,
+            employeeCode: `EMP-${user.id.slice(0, 6)}`,
+            [config.key]: cleanValue,
+          },
+        })
+      }
+      successCount++
+    }
+
+    // Audit Log
+    const meta = req ? getRequestMeta(req) : { ipAddress: undefined, userAgent: undefined }
+    await recordAudit({
+      tenantId,
+      actorId,
+      actorName,
+      actorRole,
+      action: 'BULK_UPDATE_USER_FIELD',
+      entity: 'User',
+      module: 'Users',
+      severity: 'INFO',
+      summary: `Bulk updated field "${fieldKey}" for ${successCount} user(s)${reason ? ` (${reason})` : ''}`,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      newValues: {
+        fieldKey,
+        value: cleanValue,
+        successCount,
+        userIds: validUsers.map((u) => u.id),
+      },
+    })
+
+    return {
+      success: true,
+      mode: 'EXECUTE',
+      totalSelected: userIds.length,
+      successCount,
+    }
+  }
 }

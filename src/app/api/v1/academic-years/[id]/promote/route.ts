@@ -71,16 +71,18 @@ async function _POST(
           continue
         }
 
-        const capacity = await db.student.count({
-          where: { currentClassroomId: m.to, status: 'ACTIVE', deletedAt: null },
-        })
         const target = targets.find((t) => t.id === m.to)!
-        if (capacity >= target.capacity) {
-          skipped.push({ studentId: student.id, reason: `Target ${target.name} full (${capacity}/${target.capacity})` })
-          continue
-        }
+        let wasFull = false
 
         await db.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT 1 FROM "classrooms" WHERE "id" = ${m.to} AND "tenantId" = ${session.tenantId} AND "academicSessionId" = ${toSession.id} FOR UPDATE`
+          const capacity = await tx.student.count({
+            where: { currentClassroomId: m.to, status: 'ACTIVE', deletedAt: null },
+          })
+          if (capacity >= target.capacity) {
+            wasFull = true
+            return
+          }
           await tx.studentAllocation.updateMany({
             where: { studentId: student.id, academicSessionId: fromSession.id, status: 'ACTIVE' },
             data: { status: 'PROMOTED', endedAt: new Date(), reason: 'Promoted to next academic year' },
@@ -101,6 +103,11 @@ async function _POST(
           })
           await tx.student.update({ where: { id: student.id }, data: { currentClassroomId: m.to } })
         })
+
+        if (wasFull) {
+          skipped.push({ studentId: student.id, reason: `Target ${target.name} full` })
+          continue
+        }
 
         promoted.push({
           studentId: student.id,
