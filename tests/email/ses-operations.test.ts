@@ -191,6 +191,8 @@ describe('B5 — Amazon SES Real Delivery & Secure SNS Webhook Remediation', () 
         SigningCertURL: 'https://sns.ap-south-1.amazonaws.com/cert.pem',
       }
 
+      process.env.SNS_SES_TOPIC_ARN = fakePayload.TopicArn
+
       const req = new NextRequest('http://localhost:3000/api/v1/webhooks/ses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,6 +200,8 @@ describe('B5 — Amazon SES Real Delivery & Secure SNS Webhook Remediation', () 
       })
 
       const res = await handleSesWebhook(req)
+      delete process.env.SNS_SES_TOPIC_ARN
+
       expect(res.status).toBe(401)
       const body = await res.json()
       expect(body.success).toBe(false)
