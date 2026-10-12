@@ -23,7 +23,6 @@ async function runVerification() {
       data: {
         tenantId: tenant.id,
         name: 'AY 2026-27',
-        code: 'AY2627',
         startDate: new Date('2026-06-01'),
         endDate: new Date('2027-04-30'),
         isCurrent: true,

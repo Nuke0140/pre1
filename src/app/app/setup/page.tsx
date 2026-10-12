@@ -893,6 +893,16 @@ export default function SetupPage() {
               <div className="field"><label>Year Name <span className="req">*</span></label><input className="input" name="name" required placeholder="2026-27" /></div>
               <div className="field"><label>Start Date <span className="req">*</span></label><input className="input" name="startDate" type="date" required /></div>
               <div className="field"><label>End Date <span className="req">*</span></label><input className="input" name="endDate" type="date" required /></div>
+              <div className="field">
+                <label>Status</label>
+                <select className="select" name="status" defaultValue="ACTIVE">
+                  <option value="PLANNED">PLANNED</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="CLOSING">CLOSING</option>
+                  <option value="CLOSED">CLOSED</option>
+                  <option value="ARCHIVED">ARCHIVED</option>
+                </select>
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button type="button" className="btn btn-ghost" onClick={() => setActiveModal(null)}>Cancel</button>
@@ -912,6 +922,7 @@ export default function SetupPage() {
               name: fd.name,
               startDate: fd.startDate,
               endDate: fd.endDate,
+              status: fd.status,
             }
             if (fd.setStatusCurrent === 'on') payload.setStatusCurrent = true
             const res = await fetch(`/api/v1/academic-years/${editingItem.id}`, {
@@ -932,6 +943,16 @@ export default function SetupPage() {
               <div className="field"><label>Year Name <span className="req">*</span></label><input className="input" name="name" defaultValue={editingItem.name} required /></div>
               <div className="field"><label>Start Date <span className="req">*</span></label><input className="input" name="startDate" type="date" defaultValue={editingItem.startDate ? new Date(editingItem.startDate).toISOString().split('T')[0] : ''} required /></div>
               <div className="field"><label>End Date <span className="req">*</span></label><input className="input" name="endDate" type="date" defaultValue={editingItem.endDate ? new Date(editingItem.endDate).toISOString().split('T')[0] : ''} required /></div>
+              <div className="field">
+                <label>Status <span className="req">*</span></label>
+                <select className="select" name="status" defaultValue={editingItem.status || 'ACTIVE'}>
+                  <option value="PLANNED">PLANNED</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="CLOSING">CLOSING</option>
+                  <option value="CLOSED">CLOSED</option>
+                  <option value="ARCHIVED">ARCHIVED</option>
+                </select>
+              </div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
                 <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" name="setStatusCurrent" defaultChecked={editingItem.isCurrent === true} />

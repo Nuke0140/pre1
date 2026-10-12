@@ -35,7 +35,7 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, startDate, endDate, terms } = body
+    const { name, startDate, endDate, terms, status } = body
     if (!name || !startDate || !endDate) return Errors.validation('name, startDate and endDate are required')
     const start = new Date(startDate); const end = new Date(endDate)
     if (isNaN(start.getTime()) || isNaN(end.getTime())) return Errors.validation('Invalid dates')
@@ -43,11 +43,14 @@ async function _POST(req: NextRequest) {
     const dup = await db.academicSession.findFirst({ where: { tenantId: session.tenantId, name } })
     if (dup) return Errors.conflict(`Academic year "${name}" already exists`)
 
+    const VALID_STATUSES = ['PLANNED', 'ACTIVE', 'CLOSING', 'CLOSED', 'ARCHIVED']
+    const yearStatus = status && VALID_STATUSES.includes(status) ? status : 'PLANNED'
+
     const count = await db.academicSession.count({ where: { tenantId: session.tenantId } })
     const created = await db.academicSession.create({
       data: {
         tenantId: session.tenantId, name, startDate: start, endDate: end,
-        status: 'PLANNED', isCurrent: count === 0, // first year automatically current
+        status: yearStatus, isCurrent: count === 0, // first year automatically current
       },
     })
     // terms are advisory metadata stored with the operating config

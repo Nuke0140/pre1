@@ -60,7 +60,16 @@ async function _GET(req: NextRequest) {
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
   try {
-    const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
+    const tenant = await db.tenant.findUnique({
+      where: { id: session.tenantId },
+      include: {
+        branches: {
+          where: { deletedAt: null },
+          orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+          select: { id: true, name: true, code: true, city: true, phone: true, address: true, capacity: true, isMain: true, isActive: true },
+        },
+      },
+    })
     if (!tenant) return Errors.notFound('Tenant')
     return ok({
       id: tenant.id, name: tenant.name, legalName: tenant.name, code: tenant.code,
@@ -69,6 +78,7 @@ async function _GET(req: NextRequest) {
       timezone: tenant.timezone, locale: tenant.locale, logoUrl: tenant.logoUrl,
       principalSignatureUrl: tenant.principalSignatureUrl,
       academicYearStartMonth: tenant.academicYearStartMonth,
+      branches: tenant.branches || [],
     })
   } catch (e) {
     return Errors.system(e)

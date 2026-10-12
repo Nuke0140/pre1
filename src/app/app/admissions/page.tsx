@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
 import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
+import { AdmissionsNavigationRibbon } from '@/components/admissions/AdmissionsNavigationRibbon'
 import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
@@ -2336,6 +2337,18 @@ export default function AdmissionsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Multi-Color Windows Navigation Ribbon (Signature Module Glows & Badges) ── */}
+      <AdmissionsNavigationRibbon
+        moduleCounts={{
+          enquiries: enquiries?.length || 0,
+          'follow-ups': pipelineMetrics.cards.followupsDue || 0,
+          applications: applications?.length || 0,
+          admitted: pipelineMetrics.cards.admissionsCompleted || 0,
+          'classroom-placements': classrooms?.length || 0,
+          reports: (enquiries?.length || 0) + (applications?.length || 0),
+        }}
+      />
 
       {/* ── 3. WINDOWS-STYLE 8-MODULE LAUNCHER GRID (CLEAN & EASY TO UNDERSTAND) ── */}
       {tab === 'overview' && (

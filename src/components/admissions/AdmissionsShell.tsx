@@ -18,60 +18,13 @@ import {
 } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone'
 import { useI18n } from '@/lib/i18n'
+import {
+  AdmissionsNavigationRibbon,
+  ADMISSIONS_MODULES,
+  type AdmissionsNavigationModule,
+} from './AdmissionsNavigationRibbon'
 
-export interface AdmissionsNavigationModule {
-  key: string
-  label: string
-  href: string
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  badge?: number | string
-  accent: string // e.g. 'rose' | 'amber' | 'blue' | 'violet' | 'teal' | 'orange' | 'emerald' | 'indigo'
-}
-
-export const ADMISSIONS_MODULES: AdmissionsNavigationModule[] = [
-  {
-    key: 'enquiries',
-    label: 'Enquiries',
-    href: '/app/admissions/enquiries',
-    icon: Users,
-    accent: 'rose',
-  },
-  {
-    key: 'follow-ups',
-    label: 'Follow-ups',
-    href: '/app/admissions/follow-ups',
-    icon: PhoneCall,
-    accent: 'amber',
-  },
-  {
-    key: 'applications',
-    label: 'Applications',
-    href: '/app/admissions/applications',
-    icon: FileSpreadsheet,
-    accent: 'violet',
-  },
-  {
-    key: 'admitted',
-    label: 'Confirmed Admissions',
-    href: '/app/admissions/admitted',
-    icon: GraduationCap,
-    accent: 'teal',
-  },
-  {
-    key: 'classroom-placements',
-    label: 'Classroom Placements',
-    href: '/app/admissions/classroom-placements',
-    icon: LayoutGrid,
-    accent: 'emerald',
-  },
-  {
-    key: 'reports',
-    label: 'Reports',
-    href: '/app/admissions/reports',
-    icon: BarChart3,
-    accent: 'indigo',
-  },
-]
+export { ADMISSIONS_MODULES, type AdmissionsNavigationModule }
 
 export interface AdmissionsShellProps {
   title: string
@@ -240,59 +193,8 @@ export function AdmissionsShell({
         </div>
       </div>
 
-      {/* ── Compact Windows-Style Module Navigation Bar ── */}
-      <div className="w-full overflow-x-auto no-scrollbar py-0.5">
-        <nav
-          className="inline-flex items-center gap-1 p-1 rounded-2xl bg-card border border-border/80 shadow-2xs text-xs"
-          aria-label="Admissions Modules Navigation"
-        >
-          {/* Home Launcher link */}
-          <Link
-            href="/app/admissions"
-            className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap font-medium ${
-              pathname === '/app/admissions'
-                ? 'bg-primary text-white font-bold shadow-xs'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-current opacity-80" />
-            <span>Control Center</span>
-          </Link>
-
-          <div className="h-4 w-px bg-border/80 mx-1" />
-
-          {/* 8 Module Links */}
-          {ADMISSIONS_MODULES.map((mod) => {
-            const Icon = mod.icon
-            const isActive = pathname.startsWith(mod.href)
-            const count = moduleCounts[mod.key]
-
-            return (
-              <Link
-                key={mod.key}
-                href={mod.href}
-                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap text-xs ${
-                  isActive
-                    ? 'bg-primary text-white font-bold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50 font-medium'
-                }`}
-              >
-                <Icon size={14} className={isActive ? 'text-white' : 'text-muted-foreground'} />
-                <span className={isActive ? 'text-white font-bold' : ''}>{mod.label}</span>
-                {typeof count === 'number' && count > 0 && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      isActive ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+      {/* ── Multi-Color Windows Navigation Ribbon (Signature Module Glows & Badges) ── */}
+      <AdmissionsNavigationRibbon moduleCounts={moduleCounts} />
 
       {/* ── Page Content ── */}
       <div className="pt-1">

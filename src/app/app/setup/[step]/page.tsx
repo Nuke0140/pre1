@@ -5,7 +5,7 @@ import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, RotateCw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
-  ArrowUpRight, ShieldCheck,
+  ArrowUpRight, ShieldCheck, Download, Filter, X,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -166,6 +166,7 @@ export default function SetupStepPage() {
   const [saving, setSaving] = useState(false)
   const [modal, setModal] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<Dict | null>(null)
+  const [editType, setEditType] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<Dict | null>(null)
   const [csv, setCsv] = useState('')
   const [selectedProgramForSubject, setSelectedProgramForSubject] = useState<string>('ALL')
@@ -179,7 +180,6 @@ export default function SetupStepPage() {
     if (CONFIG_STEP_DOMAIN[def.key]) return 'config'
     switch (def.key) {
       case 'branch': return 'branches'
-      case 'classroom_foundation': return 'infrastructure'
       case 'programs': return 'programs'
       case 'roles': return 'roles'
       case 'academic_year': return 'years'
@@ -188,7 +188,6 @@ export default function SetupStepPage() {
       case 'subject': return 'subjects'
       case 'fees_setup': return 'fees'
       case 'fees': return 'fees'
-      case 'infrastructure': return 'infrastructure'
       case 'staff': return 'staff'
       case 'teacher_assignment': return 'teachers'
       case 'calendar': return 'calendar'
@@ -456,6 +455,53 @@ export default function SetupStepPage() {
                   </div>
                 </div>
                 <p className="helper" style={{ marginTop: 8 }}>School identity propagates to branding, login, portals, communication, reports, certificates and documents.</p>
+
+                {/* ── Active Campuses & Branches Synchronization (Requirement B1) ── */}
+                <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Active School Campuses & Branches</h4>
+                      <p className="helper" style={{ margin: '2px 0 0' }}>All branches linked to this school profile in real time (single source of truth).</p>
+                    </div>
+                    <button className="btn btn-sm btn-outline" onClick={() => router.push('/app/setup/branch')}>
+                      <Building2 size={13} /> Manage Branches
+                    </button>
+                  </div>
+                  {Array.isArray((payload as any).branches) && (payload as any).branches.length > 0 ? (
+                    <div className="dtable-scroll">
+                      <table className="dtable">
+                        <thead>
+                          <tr>
+                            <th>Branch Name</th>
+                            <th>Code</th>
+                            <th>City / Location</th>
+                            <th>Capacity</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {((payload as any).branches as any[]).map((b: any) => (
+                            <tr key={String(b.id)}>
+                              <td>
+                                <span className="cell-strong">{b.name}</span>
+                                {b.isMain && <span className="badge b-primary" style={{ marginLeft: 6, fontSize: 10 }}>main</span>}
+                              </td>
+                              <td><span className="badge b-neutral">{b.code}</span></td>
+                              <td>{b.city || '—'}</td>
+                              <td>{b.capacity ? `${b.capacity} seats` : 'Flexible'}</td>
+                              <td><StatusBadge status={b.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div style={{ padding: 14, background: 'var(--bg-subtle)', borderRadius: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+                      No branches created yet. Branches added in Setup or Branches module will automatically appear here.
+                    </div>
+                  )}
+                </div>
+
                 <FooterActions
                   busy={saving}
                   onSaveDraft={async () => { if (await saveConfig()) { toast.info('Draft saved'); loadStatus() } }}
@@ -534,37 +580,15 @@ export default function SetupStepPage() {
             )}
 
             {kind === 'years' && (
-              <>
-                <TableToolbar title="Academic years" count={list.length} onAdd={() => setModal('year')} addLabel="Create Academic Year" />
-                {list.length === 0 ? <EmptyState icon={<CalendarPlus size={40} />} title="No academic year exists" message="Create the operating year — enrolment, attendance, fees and reports all hang from it. Historical years stay queryable forever." /> : (
-                  <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
-                    <tbody>{list.map((y: any) => (
-                      <tr key={String(y.id)}>
-                        <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
-                        <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
-                        <td>{String(y.classrooms ?? 0)}</td>
-                        <td><StatusBadge status={String(y.status)} /></td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(y); setEditType('year'); }} title="Edit academic year dates">
-                              <Edit3 size={13} /> Edit
-                            </button>
-                            {!y.isCurrent && (
-                              <button className="btn btn-sm btn-outline" onClick={async () => {
-                                const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true });
-                                if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message)
-                              }}>
-                                Set current
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}</tbody>
-                  </table></div>
-                )}
-              </>
+              <AcademicYearsSection
+                years={list}
+                onAdd={() => setModal('year')}
+                onEdit={(y) => { setEditItem(y); setEditType('year'); }}
+                onSetCurrent={async (y) => {
+                  const j = await api(`/api/v1/academic-years/${y.id}`, 'PATCH', { setStatusCurrent: true });
+                  if (j.success) { toast.success('Current year set', String(y.name)); refreshAll() } else toast.error('Failed', j.error?.message)
+                }}
+              />
             )}
 
             {kind === 'calendar' && (
@@ -673,7 +697,7 @@ function InfraSection({ rooms, onDone, onAddFacility, onEditFacility, onEditClas
         <thead><tr><th>Room</th><th>Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Actions</th></tr></thead>
         <tbody>{rooms.map((c: any) => (
           <tr key={String(c.id)}>
-            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+            <td><span className="cell-strong">{c.branchName ? `${c.branchName} — ${c.name}` : c.name}</span><span className="cell-sub">{c.code}</span></td>
             <td>{c.programName ?? String(c.programType).toLowerCase()}</td>
             <td>{String(c.capacity)}</td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
@@ -714,30 +738,272 @@ function InfraSection({ rooms, onDone, onAddFacility, onEditFacility, onEditClas
   )
 }
 
+function AcademicYearsSection({
+  years,
+  onAdd,
+  onEdit,
+  onSetCurrent,
+}: {
+  years: Dict[]
+  onAdd: () => void
+  onEdit: (y: Dict) => void
+  onSetCurrent: (y: Dict) => void
+}) {
+  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState<string>('')
+
+  const filteredYears = useMemo(() => {
+    return years.filter((y: any) => {
+      if (statusFilter !== 'ALL' && y.status !== statusFilter) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const nameMatch = String(y.name || '').toLowerCase().includes(q)
+        if (!nameMatch) return false
+      }
+      return true
+    })
+  }, [years, statusFilter, searchQuery])
+
+  return (
+    <>
+      <TableToolbar title="Academic years" count={years.length} onAdd={onAdd} addLabel="Create Academic Year" />
+
+      {/* ── Status & Search Filters ── */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Filter size={14} style={{ color: 'var(--foreground-muted)' }} />
+          <span style={{ fontSize: 12.5, fontWeight: 700 }}>Status:</span>
+          <select className="select" style={{ height: 32, fontSize: 12.5, minWidth: 140 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="ALL">All Statuses ({years.length})</option>
+            <option value="PLANNED">PLANNED</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="CLOSING">CLOSING</option>
+            <option value="CLOSED">CLOSED</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 200 }}>
+          <input
+            type="text"
+            className="input"
+            style={{ height: 32, fontSize: 12.5 }}
+            placeholder="Search academic years by name…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        {(statusFilter !== 'ALL' || searchQuery.trim()) && (
+          <button className="btn btn-sm btn-ghost" onClick={() => { setStatusFilter('ALL'); setSearchQuery('') }}>
+            <X size={13} /> Clear
+          </button>
+        )}
+      </div>
+
+      {filteredYears.length === 0 ? (
+        <EmptyState icon={<CalendarPlus size={40} />} title="No matching academic years" message="No academic years match your status or search criteria." />
+      ) : (
+        <div className="dtable-scroll"><table className="dtable">
+          <thead><tr><th>Year</th><th>Range</th><th>Classes</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>{filteredYears.map((y: any) => (
+            <tr key={String(y.id)}>
+              <td><span className="cell-strong">{y.name}</span>{y.isCurrent && <span className="badge b-success" style={{ marginLeft: 6 }}>current</span>}</td>
+              <td>{new Date(String(y.startDate)).toLocaleDateString()} → {new Date(String(y.endDate)).toLocaleDateString()}</td>
+              <td>{String(y.classrooms ?? 0)}</td>
+              <td><StatusBadge status={String(y.status)} /></td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button className="btn btn-sm btn-outline" onClick={() => onEdit(y)} title="Edit academic year details and status">
+                    <Edit3 size={13} /> Edit
+                  </button>
+                  {!y.isCurrent && (
+                    <button className="btn btn-sm btn-outline" onClick={() => onSetCurrent(y)}>
+                      Set current
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      )}
+    </>
+  )
+}
+
 function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dict[]; onDone: () => void; onEditClass: (c: Dict) => void; onAddClass: () => void }) {
   const toast = useToast()
   const [programs, setPrograms] = useState<Dict[]>([])
-  useEffect(() => { fetch('/api/v1/programs').then((r) => r.json()).then((j) => { if (j.success) setPrograms(j.data) }) }, [])
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [academicYears, setAcademicYears] = useState<Dict[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [selectedProgramId, setSelectedProgramId] = useState<string>('ALL')
+  const [selectedYearId, setSelectedYearId] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/programs', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/branches', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/academic-years', { cache: 'no-store' }).then((r) => r.json()),
+    ]).then(([prRes, brRes, yrRes]) => {
+      if (prRes.success && Array.isArray(prRes.data)) setPrograms(prRes.data)
+      if (brRes.success && Array.isArray(brRes.data)) setBranches(brRes.data)
+      if (yrRes.success && Array.isArray(yrRes.data)) setAcademicYears(yrRes.data)
+    })
+  }, [])
+
   const link = async (id: string, programId: string) => {
     const j = await fetch(`/api/v1/classrooms/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ programId: programId || null }) }).then((r) => r.json())
     if (j.success) { toast.success('Program linked'); onDone() } else toast.error('Failed', j.error?.message)
   }
+
+  // Branch-dependent program list
+  const applicablePrograms = useMemo(() => {
+    if (selectedBranchId === 'ALL') return programs
+    return programs.filter((p: any) => {
+      const bm = p.branchMappings || p.branches || []
+      return bm.length === 0 || bm.some((b: any) => (b.branchId || b.id) === selectedBranchId && b.isActive !== false)
+    })
+  }, [programs, selectedBranchId])
+
+  const filteredRooms = useMemo(() => {
+    return rooms.filter((c: any) => {
+      if (selectedBranchId !== 'ALL' && c.branchId !== selectedBranchId) return false
+      if (selectedProgramId !== 'ALL' && c.programId !== selectedProgramId) return false
+      if (selectedYearId !== 'ALL' && c.academicSessionId !== selectedYearId) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = String(c.name || '').toLowerCase().includes(q)
+        const matchCode = String(c.code || '').toLowerCase().includes(q)
+        const matchBranch = String(c.branchName || '').toLowerCase().includes(q)
+        const matchProg = String(c.programName || '').toLowerCase().includes(q)
+        if (!matchName && !matchCode && !matchBranch && !matchProg) return false
+      }
+      return true
+    })
+  }, [rooms, selectedBranchId, selectedProgramId, selectedYearId, searchQuery])
+
+  const emptyCampuses = useMemo(() => {
+    return branches.filter((b: any) => !rooms.some((r: any) => r.branchId === b.id))
+  }, [branches, rooms])
+
+  const hasActiveFilters = selectedBranchId !== 'ALL' || selectedProgramId !== 'ALL' || selectedYearId !== 'ALL' || searchQuery.trim() !== ''
+
+  const clearFilters = () => {
+    setSelectedBranchId('ALL')
+    setSelectedProgramId('ALL')
+    setSelectedYearId('ALL')
+    setSearchQuery('')
+  }
+
   return (
     <>
-      <TableToolbar title="Class-sections (current year)" count={rooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
-      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Here you link each class-section to its program — capacity guards prevent over-allocation.</p>
+      <TableToolbar title="Class-sections (current year)" count={filteredRooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
+
+      {emptyCampuses.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--amber-bg, #fef3c7)', color: 'var(--amber-text, #92400e)', borderRadius: 8, marginBottom: 14, fontSize: 13, border: '1px solid #fde68a' }}>
+          <span>
+            <strong>Campus pending classroom:</strong> {emptyCampuses.map((b) => b.name).join(', ')} does not have any classrooms yet. Each active campus requires at least one classroom in the operating year.
+          </span>
+          <button className="btn btn-sm btn-outline" onClick={onAddClass}>
+            + Add Classroom
+          </button>
+        </div>
+      )}
+
+      {/* ── Context & Multi-Dimensional Filters Bar ── */}
+      <div style={{ padding: '12px 14px', background: 'var(--surface-muted)', borderRadius: 10, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Building2 size={15} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Campus:</span>
+            <select
+              className="select"
+              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+              value={selectedBranchId}
+              onChange={(e) => {
+                setSelectedBranchId(e.target.value)
+                setSelectedProgramId('ALL')
+              }}
+            >
+              <option value="ALL">All Campuses ({branches.length})</option>
+              {branches.map((b: any) => (
+                <option key={String(b.id)} value={String(b.id)}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Blocks size={15} style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Program:</span>
+            <select
+              className="select"
+              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+              value={selectedProgramId}
+              onChange={(e) => setSelectedProgramId(e.target.value)}
+            >
+              <option value="ALL">All Programs ({applicablePrograms.length})</option>
+              {applicablePrograms.map((p: any) => (
+                <option key={String(p.id)} value={String(p.id)}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {academicYears.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CalendarDays size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontSize: 12.5, fontWeight: 700 }}>Year:</span>
+              <select
+                className="select"
+                style={{ height: 32, fontSize: 12.5, minWidth: 130 }}
+                value={selectedYearId}
+                onChange={(e) => setSelectedYearId(e.target.value)}
+              >
+                <option value="ALL">All Years ({academicYears.length})</option>
+                {academicYears.map((y: any) => (
+                  <option key={String(y.id)} value={String(y.id)}>{y.name}{y.isCurrent ? ' (current)' : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <input
+              className="input"
+              style={{ height: 32, fontSize: 12.5 }}
+              placeholder="Search by class name, code, teacher…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={clearFilters}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
+            >
+              <X size={13} /> Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Each class-section is mapped to its owning campus and academic program.</p>
       <div className="dtable-scroll"><table className="dtable">
-        <thead><tr><th>Class</th><th>Linked program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link program</th><th>Actions</th></tr></thead>
-        <tbody>{rooms.map((c: any) => (
+        <thead><tr><th>Owning Campus</th><th>Class</th><th>Linked Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link Program</th><th>Actions</th></tr></thead>
+        <tbody>{filteredRooms.map((c: any) => (
           <tr key={String(c.id)}>
+            <td><span className="badge b-primary">{c.branchName || 'Main Campus'}</span></td>
             <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
-            <td>{c.programName ?? <span className="badge b-warning">not linked</span>}</td>
-            <td>{String(c.capacity)}</td>
+            <td>{c.programName ? <span className="badge b-neutral">{c.programName}</span> : <span className="badge b-warning">not linked</span>}</td>
+            <td>{String(c.capacity)} seats</td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
-            <td>{String(c.students)}</td>
+            <td>{String(c.students ?? 0)}</td>
             <td>
-              <select className="select" style={{ maxWidth: 180 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
-                <option value="">— choose —</option>
+              <select className="select" style={{ maxWidth: 170 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
+                <option value="">— choose program —</option>
                 {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
               </select>
             </td>
@@ -749,7 +1015,13 @@ function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dic
           </tr>
         ))}</tbody>
       </table></div>
-      {rooms.length === 0 && <EmptyState icon={<LayoutGrid size={36} />} title="No classes for the current year" message="Add class-sections in Settings → Classes — each needs a program link and capacity." />}
+      {filteredRooms.length === 0 && (
+        <EmptyState
+          icon={<LayoutGrid size={36} />}
+          title={hasActiveFilters ? "No classes match filters" : "No classes for the current year"}
+          message={hasActiveFilters ? "Try clearing or adjusting your branch or program filters." : "Add class-sections in Settings → Classes — each needs a program link and capacity."}
+        />
+      )}
     </>
   )
 }
@@ -773,7 +1045,7 @@ function TeachersSection({ rooms, onDone }: { rooms: Dict[]; onDone: () => void 
         <thead><tr><th>Class</th><th>Primary teacher</th><th></th></tr></thead>
         <tbody>{rooms.map((c: any) => (
           <tr key={String(c.id)}>
-            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+            <td><span className="cell-strong">{c.branchName ? `${c.branchName} — ${c.name}` : c.name}</span><span className="cell-sub">{c.code}</span></td>
             <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
             <td><button className="btn btn-sm btn-outline" onClick={() => { setSel(c); setTeacherId('') }}><UserPlus size={13} /> Assign</button></td>
           </tr>
@@ -1544,6 +1816,135 @@ function CreateFeeStructureModal({
   )
 }
 
+function DownloadFeeCollectionModal({
+  branches,
+  programs,
+  academicYears,
+  onClose,
+  toast,
+}: {
+  branches: any[]
+  programs: any[]
+  academicYears: any[]
+  onClose: () => void
+  toast: ToastFn
+}) {
+  const [branchId, setBranchId] = useState<string>('ALL')
+  const [academicYearId, setAcademicYearId] = useState<string>('ALL')
+  const [programId, setProgramId] = useState<string>('ALL')
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    try {
+      setDownloading(true)
+      const params = new URLSearchParams()
+      if (branchId !== 'ALL') params.set('branchId', branchId)
+      if (academicYearId !== 'ALL') params.set('academicYearId', academicYearId)
+      if (programId !== 'ALL') params.set('programId', programId)
+      if (startDate) params.set('startDate', startDate)
+      if (endDate) params.set('endDate', endDate)
+
+      const url = `/api/v1/fees/export-collection?${params.toString()}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.error?.message || `Export failed with status ${res.status}`)
+      }
+
+      const blob = await res.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      const disposition = res.headers.get('content-disposition')
+      let filename = `fee-collections-${new Date().toISOString().slice(0, 10)}.csv`
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="?([^";]+)"?/)
+        if (match && match[1]) filename = match[1]
+      }
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(downloadUrl)
+
+      toast.success('Export Successful', `Saved ${filename}`)
+      onClose()
+    } catch (err: any) {
+      toast.error('Export Failed', err.message || 'Could not download collection CSV')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Download Fee Collection CSV" icon={<Download size={22} />} iconClass="ic-blue">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p className="helper" style={{ margin: 0 }}>
+          Export actual, reconciled fee collection records. Filter by branch, academic year, program, or date range. Calculates only successful persisted payments with formula-injection protection.
+        </p>
+
+        <div className="field">
+          <label>Campus / Branch</label>
+          <select className="select" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            <option value="ALL">All Campuses ({branches.length})</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="field">
+            <label>Academic Year</label>
+            <select className="select" value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)}>
+              <option value="ALL">All Academic Years</option>
+              {academicYears.map((ay) => (
+                <option key={ay.id} value={ay.id}>{ay.name}{ay.isCurrent ? ' (Current)' : ''}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Program</label>
+            <select className="select" value={programId} onChange={(e) => setProgramId(e.target.value)}>
+              <option value="ALL">All Programs</option>
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="field">
+            <label>From Date</label>
+            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>To Date</label>
+            <input type="date" className="input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={downloading}>Cancel</button>
+          <button
+            type="button"
+            className={`btn btn-primary ${downloading ? 'is-loading' : ''}`}
+            onClick={handleDownload}
+            disabled={downloading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Download size={14} />
+            <span>{downloading ? 'Exporting…' : 'Export Collection CSV'}</span>
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function FeeSetupSection({
   onDone,
   api,
@@ -1557,12 +1958,18 @@ function FeeSetupSection({
 }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [feeSubTab, setFeeSubTab] = useState<'STRUCTURES' | 'SCHEDULES' | 'DEPOSITS' | 'PAYMENTS'>('STRUCTURES')
   const [branches, setBranches] = useState<any[]>([])
   const [programs, setPrograms] = useState<any[]>([])
   const [academicYears, setAcademicYears] = useState<any[]>([])
   const [structures, setStructures] = useState<any[]>([])
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [deposits, setDeposits] = useState<any[]>([])
+  const [payments, setPayments] = useState<any[]>([])
+  const [loadingExtra, setLoadingExtra] = useState(false)
   const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showDownloadModal, setShowDownloadModal] = useState(false)
 
   const loadFeeData = useCallback(async () => {
     try {
@@ -1589,6 +1996,42 @@ function FeeSetupSection({
     }
   }, [toast])
 
+  const loadSchedules = useCallback(async () => {
+    setLoadingExtra(true)
+    try {
+      const res = await fetch('/api/v1/fee-schedules', { cache: 'no-store' }).then((r) => r.json())
+      if (res.success) setSchedules(res.data || [])
+    } catch (err: any) {
+      toast.error('Failed to load fee schedules', err.message)
+    } finally {
+      setLoadingExtra(false)
+    }
+  }, [toast])
+
+  const loadDeposits = useCallback(async () => {
+    setLoadingExtra(true)
+    try {
+      const res = await fetch('/api/v1/deposits', { cache: 'no-store' }).then((r) => r.json())
+      if (res.success) setDeposits(res.data || [])
+    } catch (err: any) {
+      toast.error('Failed to load deposits', err.message)
+    } finally {
+      setLoadingExtra(false)
+    }
+  }, [toast])
+
+  const loadPayments = useCallback(async () => {
+    setLoadingExtra(true)
+    try {
+      const res = await fetch('/api/v1/payments', { cache: 'no-store' }).then((r) => r.json())
+      if (res.success) setPayments(res.data || [])
+    } catch (err: any) {
+      toast.error('Failed to load payments', err.message)
+    } finally {
+      setLoadingExtra(false)
+    }
+  }, [toast])
+
   useEffect(() => {
     loadFeeData()
   }, [loadFeeData, refreshTrigger])
@@ -1596,8 +2039,24 @@ function FeeSetupSection({
   const handleManualReload = async () => {
     setRefreshing(true)
     await loadFeeData()
+    if (feeSubTab === 'SCHEDULES') await loadSchedules()
+    if (feeSubTab === 'DEPOSITS') await loadDeposits()
+    if (feeSubTab === 'PAYMENTS') await loadPayments()
     onDone()
-    toast.success('Reload complete', 'Fee structures and coverage data updated')
+    toast.success('Reload complete', 'Fee module records refreshed')
+  }
+
+  const applyFeeStructure = async (stId: string) => {
+    setRefreshing(true)
+    const res = await api(`/api/v1/fee-structures/${stId}/apply`, 'POST', {})
+    setRefreshing(false)
+    if (res.success) {
+      toast.success('Applied to Class', `Fee structure applied to ${res.data?.appliedCount ?? 0} students`)
+      loadFeeData()
+      if (feeSubTab === 'SCHEDULES') loadSchedules()
+    } else {
+      toast.error('Apply Failed', res.error?.message)
+    }
   }
 
   // Filter structures by branch
@@ -1619,7 +2078,6 @@ function FeeSetupSection({
 
     for (const prog of activeProgs) {
       for (const branch of activeBranches) {
-        // Only include if mapped
         const isMapped = !prog.branchMappings || prog.branchMappings.length === 0 ||
           prog.branchMappings.some((bm: any) => bm.branchId === branch.id && bm.isActive)
 
@@ -1655,7 +2113,7 @@ function FeeSetupSection({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <p className="card-sub" style={{ margin: 0 }}>
-            Create and govern canonical fee structures. Invoices, dues, payment tracking, and receipts in <strong>Finance</strong> directly consume these exact structures.
+            Unified Fees & Financial Operations — configure canonical fee structures, track student schedules & dues, manage caution deposits, and audit payment receipts.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -1664,206 +2122,455 @@ function FeeSetupSection({
             className="btn btn-outline btn-sm"
             onClick={handleManualReload}
             disabled={refreshing || loading}
-            title="Reload live fee structures and update coverage matrix"
+            title="Reload live fee data"
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <RotateCw size={13} className={refreshing ? 'animate-spin' : ''} />
             <span>{refreshing ? 'Reloading…' : 'Reload Data'}</span>
           </button>
           <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>View in Finance</span> <ArrowUpRight size={13} />
+            <span>Finance Portal</span> <ArrowUpRight size={13} />
           </a>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
-            <Plus size={14} /> Create Fee Structure
-          </button>
-        </div>
-      </div>
-
-      {/* Campus Branch Filter & Readiness Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Building2 size={16} style={{ color: 'var(--foreground-muted)' }} />
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Filter by Campus:</span>
-          <select
-            className="select"
-            style={{ height: 32, fontSize: 12.5, minWidth: 160 }}
-            value={selectedBranchId}
-            onChange={(e) => setSelectedBranchId(e.target.value)}
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowDownloadModal(true)}
+            title="Download fee collection records as CSV"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
           >
-            <option value="ALL">All Campuses ({branches.length})</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          {missingCoverageCount === 0 ? (
-            <span className="badge b-success" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <ShieldCheck size={13} /> 100% Fee Coverage — Go-Live Ready
-            </span>
-          ) : (
-            <span className="badge b-danger">
-              {missingCoverageCount} program mapping(s) lack active fee structure
-            </span>
+            <Download size={13} />
+            <span>Download Fee Collection CSV</span>
+          </button>
+          {feeSubTab === 'STRUCTURES' && (
+            <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+              <Plus size={14} /> Create Fee Structure
+            </button>
           )}
         </div>
       </div>
 
-      {/* Program Coverage Matrix Table */}
-      <div style={{ marginBottom: 20 }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
-          Campus Program Pricing Coverage
-        </h4>
-        <div className="dtable-scroll">
-          <table className="dtable">
-            <thead>
-              <tr>
-                <th>Campus Branch</th>
-                <th>Program</th>
-                <th>Active Fee Structure</th>
-                <th>Annual Amount</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coverageMatrix.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--foreground-muted)' }}>
-                    No programs mapped to the selected campus filter.
-                  </td>
-                </tr>
+      {/* ── Sub-Tab Switcher (Phase D: Unified Fees Management) ── */}
+      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-subtle)', paddingBottom: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button
+          className={`btn btn-sm ${feeSubTab === 'STRUCTURES' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setFeeSubTab('STRUCTURES')}
+        >
+          Fee Structures & Coverage
+        </button>
+        <button
+          className={`btn btn-sm ${feeSubTab === 'SCHEDULES' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => { setFeeSubTab('SCHEDULES'); if (schedules.length === 0) loadSchedules() }}
+        >
+          Student Schedules & Dues {schedules.length > 0 && `(${schedules.length})`}
+        </button>
+        <button
+          className={`btn btn-sm ${feeSubTab === 'DEPOSITS' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => { setFeeSubTab('DEPOSITS'); if (deposits.length === 0) loadDeposits() }}
+        >
+          Caution Deposits {deposits.length > 0 && `(${deposits.length})`}
+        </button>
+        <button
+          className={`btn btn-sm ${feeSubTab === 'PAYMENTS' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => { setFeeSubTab('PAYMENTS'); if (payments.length === 0) loadPayments() }}
+        >
+          Payment History {payments.length > 0 && `(${payments.length})`}
+        </button>
+      </div>
+
+      {/* ── SUB-TAB 1: STRUCTURES & COVERAGE ── */}
+      {feeSubTab === 'STRUCTURES' && (
+        <>
+          {/* Campus Branch Filter & Readiness Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, background: 'var(--surface-muted)', padding: '10px 14px', borderRadius: 8, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Building2 size={16} style={{ color: 'var(--foreground-muted)' }} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Filter by Campus:</span>
+              <select
+                className="select"
+                style={{ height: 32, fontSize: 12.5, minWidth: 160 }}
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+              >
+                <option value="ALL">All Campuses ({branches.length})</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              {missingCoverageCount === 0 ? (
+                <span className="badge b-success" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <ShieldCheck size={13} /> 100% Fee Coverage — Go-Live Ready
+                </span>
               ) : (
-                coverageMatrix.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>
-                      <span className="cell-strong">{row.branch.name}</span>
-                      <span className="cell-sub">{row.branch.code}</span>
-                    </td>
-                    <td>
-                      <span className="cell-strong">{row.program.name}</span>
-                      <span className="cell-sub">{row.program.code}</span>
-                    </td>
-                    <td>
-                      {row.activeStructure ? (
+                <span className="badge b-danger">
+                  {missingCoverageCount} program mapping(s) lack active fee structure
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Program Coverage Matrix Table */}
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+              Campus Program Pricing Coverage
+            </h4>
+            <div className="dtable-scroll">
+              <table className="dtable">
+                <thead>
+                  <tr>
+                    <th>Campus Branch</th>
+                    <th>Program</th>
+                    <th>Active Fee Structure</th>
+                    <th>Annual Amount</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coverageMatrix.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--foreground-muted)' }}>
+                        No programs mapped to the selected campus filter.
+                      </td>
+                    </tr>
+                  ) : (
+                    coverageMatrix.map((row, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <span className="cell-strong">{row.branch.name}</span>
+                          <span className="cell-sub">{row.branch.code}</span>
+                        </td>
+                        <td>
+                          <span className="cell-strong">{row.program.name}</span>
+                          <span className="cell-sub">{row.program.code}</span>
+                        </td>
+                        <td>
+                          {row.activeStructure ? (
+                            <div>
+                              <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{row.activeStructure.name}</span>
+                              <span className="cell-sub">{row.activeStructure.academicSession?.name || 'AY'}</span>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>Not configured</span>
+                          )}
+                        </td>
+                        <td>
+                          {row.activeStructure ? (
+                            <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                              ₹{(
+                                row.activeStructure.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) / 100
+                              ).toLocaleString('en-IN')}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td>
+                          {row.status === 'CONFIGURED' ? (
+                            <span className="badge b-success">Active</span>
+                          ) : (
+                            <span className="badge b-danger">Missing Fee Structure</span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          {row.status === 'MISSING' ? (
+                            <button
+                              className="btn btn-sm btn-outline"
+                              onClick={() => {
+                                setSelectedBranchId(row.branch.id)
+                                setShowCreateModal(true)
+                              }}
+                            >
+                              <Plus size={12} /> Configure
+                            </button>
+                          ) : (
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              <button
+                                className="btn btn-sm btn-outline"
+                                onClick={() => applyFeeStructure(row.activeStructure.id)}
+                                title="Apply this fee structure to enrolled students in this class/program"
+                              >
+                                <CheckCircle2 size={12} /> Apply to Class
+                              </button>
+                              <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" title="View details in Finance">
+                                Finance <ArrowUpRight size={12} />
+                              </a>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Configured Structures List */}
+          <div>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
+              Configured Canonical Fee Structures ({filteredStructures.length})
+            </h4>
+            {filteredStructures.length === 0 ? (
+              <EmptyState
+                icon={<IndianRupee size={36} />}
+                title="No fee structures found"
+                message="Click 'Create Fee Structure' to define tuition, admission fees, and deposit rules for your programs."
+              />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+                {filteredStructures.map((st) => {
+                  const totalRupees =
+                    (st.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) || 0) / 100
+                  const branchName = branches.find((b) => b.id === st.branchId)?.name || 'All Campuses'
+
+                  return (
+                    <div key={st.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                          <span style={{ fontWeight: 600, color: 'var(--foreground)' }}>{row.activeStructure.name}</span>
-                          <span className="cell-sub">{row.activeStructure.academicSession?.name || 'AY'}</span>
+                          <h5 style={{ margin: '0 0 2px 0', fontSize: 14, fontWeight: 700 }}>{st.name}</h5>
+                          <span className="cell-sub">{branchName} · {st.academicSession?.name || 'AY'}</span>
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--foreground-muted)', fontStyle: 'italic' }}>Not configured</span>
-                      )}
-                    </td>
-                    <td>
-                      {row.activeStructure ? (
-                        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          ₹{(
-                            row.activeStructure.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) / 100
-                          ).toLocaleString('en-IN')}
+                        <span className={`badge ${st.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>
+                          {st.status}
                         </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td>
-                      {row.status === 'CONFIGURED' ? (
-                        <span className="badge b-success">Active</span>
-                      ) : (
-                        <span className="badge b-danger">Missing Fee Structure</span>
-                      )}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      {row.status === 'MISSING' ? (
+                      </div>
+
+                      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 10px', fontSize: 12, background: 'var(--surface-muted)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600 }}>
+                          <span>Fee Heads ({st.items?.length || 0})</span>
+                          <span style={{ fontFamily: 'monospace' }}>Total: ₹{totalRupees.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {st.items?.slice(0, 3).map((item: any, i: number) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--foreground-muted)' }}>
+                              <span>{item.name}</span>
+                              <span style={{ fontFamily: 'monospace' }}>₹{((item.amountCents || 0) / 100).toLocaleString('en-IN')}</span>
+                            </div>
+                          ))}
+                          {st.items?.length > 3 && (
+                            <span style={{ fontSize: 11, color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
+                              +{st.items.length - 3} more head(s)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto', flexWrap: 'wrap' }}>
                         <button
                           className="btn btn-sm btn-outline"
-                          onClick={() => {
-                            setSelectedBranchId(row.branch.id)
-                            setShowCreateModal(true)
-                          }}
+                          onClick={() => applyFeeStructure(st.id)}
+                          title="Apply this fee structure to enrolled students in this class/program"
                         >
-                          <Plus size={12} /> Configure
+                          <CheckCircle2 size={12} /> Apply to Class
                         </button>
-                      ) : (
-                        <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" title="View details in Finance">
-                          Finance <ArrowUpRight size={12} />
+                        <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" style={{ fontSize: 12 }}>
+                          Inspect in Finance <ArrowUpRight size={12} />
                         </a>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Configured Structures List */}
-      <div>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--foreground-muted)' }}>
-          Configured Canonical Fee Structures ({filteredStructures.length})
-        </h4>
-        {filteredStructures.length === 0 ? (
-          <EmptyState
-            icon={<IndianRupee size={36} />}
-            title="No fee structures found"
-            message="Click 'Create Fee Structure' to define tuition, admission fees, and deposit rules for your programs."
-          />
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
-            {filteredStructures.map((st) => {
-              const totalRupees =
-                (st.items?.reduce((s: number, i: any) => s + (i.amountCents || 0), 0) || 0) / 100
-              const branchName = branches.find((b) => b.id === st.branchId)?.name || 'All Campuses'
-
-              return (
-                <div key={st.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <h5 style={{ margin: '0 0 2px 0', fontSize: 14, fontWeight: 700 }}>{st.name}</h5>
-                      <span className="cell-sub">{branchName} · {st.academicSession?.name || 'AY'}</span>
+                      </div>
                     </div>
-                    <span className={`badge ${st.status === 'ACTIVE' ? 'b-success' : 'b-neutral'}`}>
-                      {st.status}
-                    </span>
-                  </div>
-
-                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 10px', fontSize: 12, background: 'var(--surface-muted)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontWeight: 600 }}>
-                      <span>Fee Heads ({st.items?.length || 0})</span>
-                      <span style={{ fontFamily: 'monospace' }}>Total: ₹{totalRupees.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {st.items?.slice(0, 3).map((item: any, i: number) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--foreground-muted)' }}>
-                          <span>{item.name}</span>
-                          <span style={{ fontFamily: 'monospace' }}>₹{((item.amountCents || 0) / 100).toLocaleString('en-IN')}</span>
-                        </div>
-                      ))}
-                      {st.items?.length > 3 && (
-                        <span style={{ fontSize: 11, color: 'var(--foreground-muted)', fontStyle: 'italic' }}>
-                          +{st.items.length - 3} more head(s)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto' }}>
-                    <a href="/app/finance" target="_blank" rel="noreferrer" className="btn btn-sm btn-ghost" style={{ fontSize: 12 }}>
-                      Inspect in Finance <ArrowUpRight size={12} />
-                    </a>
-                  </div>
-                </div>
-              )
-            })}
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div style={{ marginTop: 20 }}>
-        <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
-        <QuickFinanceConfig onDone={() => { onDone(); loadFeeData() }} api={api} toast={toast} />
-      </div>
+          <div style={{ marginTop: 20 }}>
+            <p className="card-sub" style={{ marginBottom: 8 }}>Accepted payment methods (Finance configuration):</p>
+            <QuickFinanceConfig onDone={() => { onDone(); loadFeeData() }} api={api} toast={toast} />
+          </div>
+        </>
+      )}
+
+      {/* ── SUB-TAB 2: STUDENT SCHEDULES & DUES ── */}
+      {feeSubTab === 'SCHEDULES' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>
+              Live student fee schedules, installment due dates, and outstanding balances.
+            </span>
+            <button className="btn btn-sm btn-outline" onClick={loadSchedules} disabled={loadingExtra}>
+              <RotateCw size={12} className={loadingExtra ? 'animate-spin' : ''} /> Refresh Schedules
+            </button>
+          </div>
+          {loadingExtra ? (
+            <Skeleton h={160} />
+          ) : schedules.length === 0 ? (
+            <EmptyState
+              icon={<IndianRupee size={36} />}
+              title="No fee schedules generated yet"
+              message="Apply a fee structure to a class in the 'Fee Structures & Coverage' tab to generate fee schedules for students."
+            />
+          ) : (
+            <div className="dtable-scroll">
+              <table className="dtable">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Class / Branch</th>
+                    <th>Fee Item</th>
+                    <th>Period</th>
+                    <th>Due Date</th>
+                    <th>Due</th>
+                    <th>Paid</th>
+                    <th>Remaining</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedules.map((sc: any) => (
+                    <tr key={String(sc.id)}>
+                      <td>
+                        <span className="cell-strong">{sc.studentName}</span>
+                        <span className="cell-sub">{sc.admissionNo}</span>
+                      </td>
+                      <td>
+                        <span>{sc.classroomName}</span>
+                        <span className="cell-sub">{sc.branchName}</span>
+                      </td>
+                      <td>{sc.itemName}</td>
+                      <td><span className="badge b-neutral">{sc.period}</span></td>
+                      <td>{sc.dueDate ? new Date(sc.dueDate).toLocaleDateString() : '—'}</td>
+                      <td style={{ fontFamily: 'monospace' }}>₹{Number(sc.amountDueRupees).toLocaleString('en-IN')}</td>
+                      <td style={{ fontFamily: 'monospace', color: 'var(--success)' }}>₹{Number(sc.amountPaidRupees).toLocaleString('en-IN')}</td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600, color: Number(sc.remainingRupees) > 0 ? 'var(--danger)' : 'inherit' }}>
+                        ₹{Number(sc.remainingRupees).toLocaleString('en-IN')}
+                      </td>
+                      <td>
+                        <span className={`badge ${sc.status === 'PAID' ? 'b-success' : sc.status === 'OVERDUE' ? 'b-danger' : sc.status === 'PARTIALLY_PAID' ? 'b-warning' : 'b-info'}`}>
+                          {sc.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SUB-TAB 3: CAUTION DEPOSITS ── */}
+      {feeSubTab === 'DEPOSITS' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>
+              Refundable caution and security deposits tracked per student.
+            </span>
+            <button className="btn btn-sm btn-outline" onClick={loadDeposits} disabled={loadingExtra}>
+              <RotateCw size={12} className={loadingExtra ? 'animate-spin' : ''} /> Refresh Deposits
+            </button>
+          </div>
+          {loadingExtra ? (
+            <Skeleton h={160} />
+          ) : deposits.length === 0 ? (
+            <EmptyState
+              icon={<ShieldCheck size={36} />}
+              title="No caution deposits registered"
+              message="When fee structures with refundable deposit heads are applied, student caution deposits appear here."
+            />
+          ) : (
+            <div className="dtable-scroll">
+              <table className="dtable">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Deposit Head</th>
+                    <th>Total</th>
+                    <th>Refunded</th>
+                    <th>Adjusted</th>
+                    <th>Remaining Held</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deposits.map((dp: any) => (
+                    <tr key={String(dp.id)}>
+                      <td>
+                        <span className="cell-strong">{dp.studentName}</span>
+                        <span className="cell-sub">{dp.admissionNo}</span>
+                      </td>
+                      <td>{dp.name}</td>
+                      <td style={{ fontFamily: 'monospace' }}>₹{Number(dp.totalRupees).toLocaleString('en-IN')}</td>
+                      <td style={{ fontFamily: 'monospace', color: 'var(--info)' }}>₹{Number(dp.refundedRupees).toLocaleString('en-IN')}</td>
+                      <td style={{ fontFamily: 'monospace', color: 'var(--warning)' }}>₹{Number(dp.adjustedRupees).toLocaleString('en-IN')}</td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>₹{Number(dp.remainingRupees).toLocaleString('en-IN')}</td>
+                      <td>
+                        <span className={`badge ${dp.status === 'HELD' ? 'b-success' : dp.status === 'REFUNDED' ? 'b-info' : 'b-neutral'}`}>
+                          {dp.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SUB-TAB 4: PAYMENT HISTORY ── */}
+      {feeSubTab === 'PAYMENTS' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>
+              Audited payment transactions and issued receipts.
+            </span>
+            <button className="btn btn-sm btn-outline" onClick={loadPayments} disabled={loadingExtra}>
+              <RotateCw size={12} className={loadingExtra ? 'animate-spin' : ''} /> Refresh Payments
+            </button>
+          </div>
+          {loadingExtra ? (
+            <Skeleton h={160} />
+          ) : payments.length === 0 ? (
+            <EmptyState
+              icon={<IndianRupee size={36} />}
+              title="No payment records yet"
+              message="Payments recorded against fee schedules or invoices will appear here with printable receipts."
+            />
+          ) : (
+            <div className="dtable-scroll">
+              <table className="dtable">
+                <thead>
+                  <tr>
+                    <th>Payment No</th>
+                    <th>Student</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                    <th>Amount</th>
+                    <th>Receipt No</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((pm: any) => (
+                    <tr key={String(pm.id)}>
+                      <td><code>{pm.paymentNumber}</code></td>
+                      <td>
+                        <span className="cell-strong">{pm.studentName}</span>
+                        <span className="cell-sub">{pm.admissionNo}</span>
+                      </td>
+                      <td>{pm.paymentDate ? new Date(pm.paymentDate).toLocaleDateString() : '—'}</td>
+                      <td><span className="badge b-neutral">{pm.method}</span></td>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--success)' }}>
+                        ₹{Number(pm.amountRupees).toLocaleString('en-IN')}
+                      </td>
+                      <td>{pm.receiptNumber ? <code>{pm.receiptNumber}</code> : <span className="cell-sub">Pending</span>}</td>
+                      <td>
+                        <span className={`badge ${pm.status === 'SUCCESS' ? 'b-success' : 'b-info'}`}>
+                          {pm.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {showCreateModal && (
         <CreateFeeStructureModal
@@ -1876,6 +2583,16 @@ function FeeSetupSection({
             onDone()
           }}
           api={api}
+          toast={toast}
+        />
+      )}
+
+      {showDownloadModal && (
+        <DownloadFeeCollectionModal
+          branches={branches}
+          programs={programs}
+          academicYears={academicYears}
+          onClose={() => setShowDownloadModal(false)}
           toast={toast}
         />
       )}
@@ -2240,6 +2957,16 @@ function YearModal({ onClose, onDone, api, toast }: { onClose: () => void; onDon
           <div className="field"><label>Name <span className="req">*</span></label><input className="input" name="name" required placeholder="2026-27" /></div>
           <div className="field"><label>Start date <span className="req">*</span></label><input className="input" name="startDate" type="date" required /></div>
           <div className="field"><label>End date <span className="req">*</span></label><input className="input" name="endDate" type="date" required /></div>
+          <div className="field">
+            <label>Initial Status</label>
+            <select className="select" name="status" defaultValue="ACTIVE">
+              <option value="PLANNED">Planned</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSING">Closing</option>
+              <option value="CLOSED">Closed</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
         </div>
         <p className="helper">The first academic year is automatically marked current. Terms can be added in Operating Configuration.</p>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
@@ -2509,6 +3236,7 @@ function EditYearModal({ item, onClose, onDone, api, toast }: { item: Dict; onCl
       name: fd.name,
       startDate: fd.startDate,
       endDate: fd.endDate,
+      status: fd.status,
     }
     if (fd.setStatusCurrent === 'on') payload.setStatusCurrent = true
 
@@ -2532,6 +3260,16 @@ function EditYearModal({ item, onClose, onDone, api, toast }: { item: Dict; onCl
           <div className="field"><label>Year Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
           <div className="field"><label>Start Date <span className="req">*</span></label><input className="input" name="startDate" type="date" defaultValue={sDate} required /></div>
           <div className="field"><label>End Date <span className="req">*</span></label><input className="input" name="endDate" type="date" defaultValue={eDate} required /></div>
+          <div className="field">
+            <label>Status <span className="req">*</span></label>
+            <select className="select" name="status" defaultValue={String(item.status || 'ACTIVE')}>
+              <option value="PLANNED">Planned</option>
+              <option value="ACTIVE">Active</option>
+              <option value="CLOSING">Closing</option>
+              <option value="CLOSED">Closed</option>
+              <option value="ARCHIVED">Archived</option>
+            </select>
+          </div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" name="setStatusCurrent" defaultChecked={item.isCurrent === true} />
@@ -2599,6 +3337,7 @@ function EditClassModal({ item, onClose, onDone, api, toast }: { item: Dict; onC
           </div>
         )}
         <div className="form-grid">
+          <div className="field"><label>Campus Branch</label><input className="input" value={String(item.branchName || 'Main Campus')} disabled title="Campus branch is assigned upon creation" /></div>
           <div className="field"><label>Class / Section Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
           <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Classroom code is permanent" /></div>
           <div className="field"><label>Program Offering <span className="req">*</span></label>
@@ -2866,61 +3605,167 @@ function ProgramWiseSubjectSection({
   setSelectedProgramId: (id: string) => void
 }) {
   const [programs, setPrograms] = useState<Dict[]>([])
+  const [branches, setBranches] = useState<Dict[]>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    fetch('/api/v1/programs').then((r) => r.json()).then((j) => {
-      if (j.success && Array.isArray(j.data)) setPrograms(j.data)
+    Promise.all([
+      fetch('/api/v1/programs', { cache: 'no-store' }).then((r) => r.json()),
+      fetch('/api/v1/branches', { cache: 'no-store' }).then((r) => r.json()),
+    ]).then(([prRes, brRes]) => {
+      if (prRes.success && Array.isArray(prRes.data)) setPrograms(prRes.data)
+      if (brRes.success && Array.isArray(brRes.data)) setBranches(brRes.data)
     })
   }, [])
 
+  // Narrow down programs based on selected branch
+  const applicablePrograms = useMemo(() => {
+    if (selectedBranchId === 'ALL') return programs
+    return programs.filter((p: any) => {
+      const bm = p.branchMappings || p.branches || []
+      return bm.length === 0 || bm.some((b: any) => (b.branchId || b.id) === selectedBranchId && b.isActive !== false)
+    })
+  }, [programs, selectedBranchId])
+
   const selectedProgramObj = programs.find((p: any) => String(p.id) === selectedProgramId)
+  const selectedBranchObj = branches.find((b: any) => String(b.id) === selectedBranchId)
 
   const filteredList = useMemo(() => {
-    if (selectedProgramId === 'ALL') return list
     return list.filter((s: any) => {
-      const pm = s.programSubjects || s.programMappings || []
-      return pm.some((p: any) => String(p.programId) === selectedProgramId)
+      // Program filter
+      if (selectedProgramId !== 'ALL') {
+        const pm = s.programSubjects || s.programMappings || []
+        const hasProg = pm.some((p: any) => String(p.programId) === selectedProgramId)
+        if (!hasProg) return false
+      } else if (selectedBranchId !== 'ALL') {
+        // If branch selected, ensure subject belongs to an applicable program in that branch
+        const applicableProgIds = new Set(applicablePrograms.map((p) => String(p.id)))
+        const pm = s.programSubjects || s.programMappings || []
+        const hasBranchProg = pm.some((p: any) => applicableProgIds.has(String(p.programId)))
+        if (pm.length > 0 && !hasBranchProg) return false
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const matchName = String(s.name || '').toLowerCase().includes(q)
+        const matchCode = String(s.code || '').toLowerCase().includes(q)
+        if (!matchName && !matchCode) return false
+      }
+
+      return true
     })
-  }, [list, selectedProgramId])
+  }, [list, selectedProgramId, selectedBranchId, applicablePrograms, searchQuery])
+
+  const hasActiveFilters = selectedBranchId !== 'ALL' || selectedProgramId !== 'ALL' || searchQuery.trim() !== ''
+
+  const clearFilters = () => {
+    setSelectedBranchId('ALL')
+    setSelectedProgramId('ALL')
+    setSearchQuery('')
+  }
 
   return (
     <>
-      {/* Program Selection Priority Bar */}
+      {/* ── Branch & Program Context Bar ── */}
       <div style={{ padding: '14px 16px', background: 'var(--surface-muted)', borderRadius: 12, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'between', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
-              Select Program (Priority):
-            </span>
-            <select
-              className="select"
-              style={{ fontSize: 13, fontWeight: 700, minWidth: 200, borderColor: 'var(--primary)' }}
-              value={selectedProgramId}
-              onChange={(e) => setSelectedProgramId(e.target.value)}
-            >
-              <option value="ALL">All Programs ({list.length} subjects)</option>
-              {programs.map((p: any) => (
-                <option key={String(p.id)} value={String(p.id)}>
-                  {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
-                </option>
-              ))}
-            </select>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+            {/* Campus Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Building2 size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
+                Campus:
+              </span>
+              <select
+                className="select"
+                style={{ fontSize: 13, minWidth: 160 }}
+                value={selectedBranchId}
+                onChange={(e) => {
+                  setSelectedBranchId(e.target.value)
+                  setSelectedProgramId('ALL')
+                }}
+              >
+                <option value="ALL">All Campuses ({branches.length})</option>
+                {branches.map((b: any) => (
+                  <option key={String(b.id)} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Program Selector */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Blocks size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--foreground)' }}>
+                Program:
+              </span>
+              <select
+                className="select"
+                style={{ fontSize: 13, fontWeight: 700, minWidth: 200, borderColor: 'var(--primary)' }}
+                value={selectedProgramId}
+                onChange={(e) => setSelectedProgramId(e.target.value)}
+              >
+                <option value="ALL">All Programs ({applicablePrograms.length})</option>
+                {applicablePrograms.map((p: any) => (
+                  <option key={String(p.id)} value={String(p.id)}>
+                    {p.name} ({String(p.programType || '').replaceAll('_', ' ')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <div style={{ minWidth: 150 }}>
+              <input
+                className="input"
+                style={{ height: 32, fontSize: 12.5 }}
+                placeholder="Search subject…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={clearFilters}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
+              >
+                <X size={13} /> Clear
+              </button>
+            )}
           </div>
 
-          <div style={{ marginLeft: 'auto' }}>
+          <div>
             <button className="btn btn-primary" onClick={onAddSubject}>
               <Plus size={15} style={{ marginRight: 4 }} />
               {selectedProgramObj ? `Add Subject for ${selectedProgramObj.name}` : 'Add Subject'}
             </button>
           </div>
         </div>
-        <p className="helper" style={{ marginTop: 6, marginBottom: 0 }}>
-          Subjects are created program-wise. Select a target program first to view or add subjects for that specific program.
-        </p>
+
+        {/* Clear Branch & Program Identification Line */}
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5 }}>
+          <span style={{ color: 'var(--foreground-muted)' }}>Configuring Context:</span>
+          <span className="badge b-primary">
+            {selectedBranchObj ? `Campus: ${selectedBranchObj.name}` : 'All Campuses (Shared Master)'}
+          </span>
+          <span>→</span>
+          <span className="badge b-neutral">
+            {selectedProgramObj ? `Program: ${selectedProgramObj.name}` : 'All Programs'}
+          </span>
+          <span className="helper" style={{ margin: 0 }}>
+            Subjects map to academic programs and are operational across campuses serving those programs.
+          </span>
+        </div>
       </div>
 
       <TableToolbar
-        title={selectedProgramObj ? `Subjects for ${selectedProgramObj.name}` : 'All Program Subjects'}
+        title={selectedProgramObj ? `Subjects for ${selectedProgramObj.name}` : selectedBranchObj ? `Subjects for ${selectedBranchObj.name}` : 'All Program Subjects'}
         count={filteredList.length}
         icon={<BookOpen size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
         onAdd={onAddSubject}
@@ -2930,8 +3775,8 @@ function ProgramWiseSubjectSection({
       {filteredList.length === 0 ? (
         <EmptyState
           icon={<BookOpen size={40} />}
-          title={selectedProgramObj ? `No subjects created for ${selectedProgramObj.name} yet` : 'No subjects configured'}
-          message={selectedProgramObj ? `Click "+ Add Subject for ${selectedProgramObj.name}" to create subjects for this program.` : 'Add subjects program-wise.'}
+          title={hasActiveFilters ? "No subjects match current filters" : "No subjects configured"}
+          message={hasActiveFilters ? "Try clearing or selecting a different campus or program." : "Add subjects program-wise."}
         />
       ) : (
         <div className="dtable-scroll">
@@ -2941,6 +3786,7 @@ function ProgramWiseSubjectSection({
                 <th>Subject</th>
                 <th>Type</th>
                 <th>Programs Mapped</th>
+                <th>Campus Availability</th>
                 <th>Classes</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -2970,6 +3816,11 @@ function ProgramWiseSubjectSection({
                     ) : (
                       <span className="badge b-warning">Unmapped</span>
                     )}
+                  </td>
+                  <td>
+                    <span className="badge b-neutral">
+                      {selectedBranchObj ? selectedBranchObj.name : 'Shared Master'}
+                    </span>
                   </td>
                   <td>{String(s.classroomCount ?? 0)}</td>
                   <td><StatusBadge status={s.status || (s.active ? 'ACTIVE' : 'INACTIVE')} /></td>
@@ -3042,7 +3893,8 @@ function SubjectModal({ defaultProgramId, onClose, onDone, api, toast }: { defau
     const j = await api('/api/v1/subjects', 'POST', payload)
     setBusy(false)
     if (j.success) {
-      toast.success('Subject created', String(j.data?.name ?? ''))
+      const createdName = j.data?.subject?.name ?? j.data?.name ?? ''
+      toast.success('Subject created', String(createdName))
       onClose(); onDone()
     } else {
       toast.error('Failed to create subject', j.error?.message)

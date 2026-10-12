@@ -210,7 +210,10 @@ export function applyThemePresetToDom(primary: string, accent: string, presetId?
   doc.style.setProperty('--preone-primary', primary)
   doc.style.setProperty('--po-primary', primary)
   doc.style.setProperty('--accent', accent)
-  doc.style.setProperty('--brand-ambient-wash', `radial-gradient(ellipse at top left, color-mix(in srgb, ${primary} 8%, transparent), transparent 70%)`)
+  doc.style.setProperty(
+    '--brand-ambient-wash',
+    `radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, ${primary} 7.5%, transparent) 0%, transparent 100%), radial-gradient(800px 400px at 85% -40px, color-mix(in srgb, ${accent} 2.5%, transparent) 0%, transparent 100%)`
+  )
 
   // Sync to glow
   doc.style.setProperty('--shell-glow-primary', primary)

@@ -172,17 +172,17 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
       programs.length > 0 && ctx.programSubjects.length === 0 ? W('Subjects not mapped to programs yet', null, 'ProgramSubject') : null,
     ].filter((f): f is Finding => f !== null)),
 
-    // 7. Curriculum
+    // 7. Curriculum (B4: Untouched, non-mandatory)
     cat('curriculum', 'Curriculum & Learning Areas', [
       A(cfg.CURRICULUM?.learningAreas).length === 0 && ctx.curriculums.length === 0
-        ? B('No learning areas defined — observations and report cards need them', null, 'Curriculum')
+        ? W('No custom learning areas defined (optional framework)', null, 'Curriculum')
         : null,
       A(cfg.CURRICULUM?.assessmentMethods).length === 0 ? W('No assessment methods configured (recommended)', null, 'Curriculum') : null,
     ].filter((f): f is Finding => f !== null)),
 
     // 8. Calendar
     cat('calendar', 'School Calendar Readiness', [
-      A(cfg.OPERATING?.workingDays).length === 0 ? B('Working days not configured', null, 'SchoolConfig') : null,
+      A(cfg.OPERATING?.workingDays).length === 0 ? W('Working days not configured (defaults to Mon-Fri)', null, 'SchoolConfig') : null,
       cur && !ctx.calendarEvents.some((e) => e.date >= cur.startDate && e.date <= cur.endDate)
         ? W('No calendar events (holidays/terms) in the current academic year', null, 'CalendarEvent')
         : null,
@@ -195,11 +195,11 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
       programs.length === 0 ? B('No programs — nothing to admit into', null, 'Program') : null,
     ].filter((f): f is Finding => f !== null)),
 
-    // 10. Student & Parent Safeguards
+    // 10. Student & Parent Safeguards (Phase C non-blocking)
     cat('students_parents', 'Student & Parent Safeguards', [
-      A(cfg.STUDENT_PARENT?.consentTypes).length === 0 ? B('No consent types defined — enrolment cannot collect consent', null, 'SchoolConfig') : null,
+      A(cfg.STUDENT_PARENT?.consentTypes).length === 0 ? W('No custom consent types defined (optional)', null, 'SchoolConfig') : null,
       cfg.STUDENT_PARENT?.pickupVerification === undefined && cfg.DAILY_OPERATIONS?.pickupVerification === undefined
-        ? B('Authorised pickup verification rules missing', null, 'SchoolConfig')
+        ? W('Authorised pickup verification rules not set (recommended)', null, 'SchoolConfig')
         : null,
     ].filter((f): f is Finding => f !== null)),
 

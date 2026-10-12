@@ -21,17 +21,22 @@ async function _PATCH(
     const body = await req.json()
     const { setStatusCurrent, status, name, startDate, endDate } = body
 
+    const VALID_STATUSES = ['PLANNED', 'ACTIVE', 'CLOSING', 'CLOSED', 'ARCHIVED']
+    if (status && !VALID_STATUSES.includes(status)) {
+      return Errors.validation(`Invalid academic year status "${status}". Allowed values: ${VALID_STATUSES.join(', ')}`)
+    }
+
     if (setStatusCurrent === true) {
       await db.$transaction([
         db.academicSession.updateMany({ where: { tenantId: session.tenantId, isCurrent: true }, data: { isCurrent: false } }),
-        db.academicSession.update({ where: { id }, data: { isCurrent: true, status: 'ACTIVE' } }),
+        db.academicSession.update({ where: { id }, data: { isCurrent: true, status: status || 'ACTIVE' } }),
       ])
       await audit({
         tenantId: session.tenantId, actorId: session.uid, actorName: session.name,
         action: 'UPDATE', entity: 'AcademicSession', entityId: id,
         summary: `Academic year ${row.name} set as the current operating year`,
       })
-      return ok({ id, isCurrent: true })
+      return ok({ id, isCurrent: true, status: status || 'ACTIVE' })
     }
 
     const data: Record<string, unknown> = {}

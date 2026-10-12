@@ -64,7 +64,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       --po-primary-soft: color-mix(in srgb, ${primary} 12%, white);
       --po-primary-ultra-soft: color-mix(in srgb, ${primary} 5%, white);
       --card-hover-border: ${primary};
-      --brand-ambient-wash: radial-gradient(ellipse at top left, color-mix(in srgb, ${primary} 8%, transparent), transparent 70%);
+      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, ${primary} 7.5%, transparent) 0%, transparent 100%),
+        radial-gradient(800px 400px at 85% -40px, color-mix(in srgb, ${accent} 2.5%, transparent) 0%, transparent 100%);
     }
     [data-theme="dark"],
     .dark {
@@ -80,7 +81,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       --accent: color-mix(in srgb, ${accent} 85%, #FFFFFF 15%);
       --accent-light: color-mix(in srgb, ${accent} 20%, transparent);
       --card-hover-border: var(--primary-dark);
-      --brand-ambient-wash: radial-gradient(circle at top right, color-mix(in srgb, ${primary} 6%, transparent), transparent 38%);
+      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, var(--primary) 9.5%, transparent) 0%, transparent 100%),
+        radial-gradient(800px 420px at 85% -40px, color-mix(in srgb, ${accent} 2.5%, transparent) 0%, transparent 100%);
     }
   `
 

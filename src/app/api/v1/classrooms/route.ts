@@ -111,13 +111,15 @@ async function _POST(req: NextRequest) {
     }
 
     const count = await db.classroom.count({ where: { tenantId: session.tenantId } })
+    const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase()
+    const classroomCode = `${programType.slice(0, 3)}-${String.fromCharCode(65 + (count % 26))}${count >= 26 ? `-${count + 1}` : ''}-${randomSuffix}`
     const classroom = await db.classroom.create({
       data: {
         tenantId: session.tenantId,
         branchId: branch.id,
         academicSessionId: acad.id,
         name,
-        code: `${programType.slice(0, 3)}-${String.fromCharCode(65 + (count % 26))}`,
+        code: classroomCode,
         programType,
         capacity: capacity || 20,
         programId: programId || null,

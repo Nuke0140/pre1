@@ -79,15 +79,6 @@ export const SETUP_STEPS: StepDef[] = [
     description: 'At least one operating campus with address, contact details and operating capacity.',
   },
   {
-    key: 'classroom_foundation',
-    label: 'Classroom Foundation',
-    phase: 'FOUNDATION',
-    applicability: 'MANDATORY',
-    deps: ['branch'],
-    icon: 'DoorOpen',
-    description: 'Basic physical classrooms and rooms created and assigned to operating branches.',
-  },
-  {
     key: 'branding',
     label: 'Branding & Theme',
     phase: 'FOUNDATION',
@@ -102,10 +93,10 @@ export const SETUP_STEPS: StepDef[] = [
     label: 'Roles & Permissions',
     phase: 'FOUNDATION',
     scope: 'TENANT',
-    applicability: 'MANDATORY',
+    applicability: 'OPTIONAL',
     deps: ['school_profile'],
     icon: 'ShieldCheck',
-    description: 'Identity & access readiness: active school owner account plus at least one operating staff account.',
+    description: 'Roles & Permissions: deferred for future implementation (non-blocking).',
   },
 
   // ── PHASE 2 — ACADEMIC STRUCTURE ─────────────────────────────────────
@@ -118,16 +109,6 @@ export const SETUP_STEPS: StepDef[] = [
     deps: ['branch'],
     icon: 'CalendarRange',
     description: 'Operating academic session (with start/end dates) that rosters, admissions, attendance and fees hang from.',
-  },
-  {
-    key: 'curriculum',
-    label: 'Curriculum Approach',
-    phase: 'ACADEMIC_STRUCTURE',
-    scope: 'TENANT',
-    applicability: 'MANDATORY',
-    deps: ['academic_year'],
-    icon: 'BookOpen',
-    description: 'Pedagogical methodology (EYFS, Montessori, Reggio Emilia, NEP 2020) and core developmental learning areas.',
   },
   {
     key: 'programs',
@@ -145,7 +126,7 @@ export const SETUP_STEPS: StepDef[] = [
     phase: 'ACADEMIC_STRUCTURE',
     scope: 'BRANCH',
     applicability: 'MANDATORY',
-    deps: ['academic_year', 'programs', 'branch', 'classroom_foundation'],
+    deps: ['academic_year', 'programs', 'branch'],
     icon: 'LayoutGrid',
     description: 'Class-section units per program with capacity, assigned room, and designated primary teacher.',
   },
@@ -160,49 +141,7 @@ export const SETUP_STEPS: StepDef[] = [
     description: 'Academic subjects and activity disciplines (Core, Optional, Activity) mapped to programs and classrooms.',
   },
 
-  // ── PHASE 3 — OPERATIONS ──────────────────────────────────────────────
-  {
-    key: 'mood_environment',
-    label: 'Mood & Environment',
-    phase: 'OPERATIONS',
-    scope: 'BRANCH',
-    applicability: 'RECOMMENDED',
-    deps: ['classroom'],
-    icon: 'Sun',
-    description: 'Child wellbeing framework (Happy, Calm, Energetic, Cranky) and classroom environment tracking parameters.',
-  },
-  {
-    key: 'health_settings',
-    label: 'Health Settings',
-    phase: 'OPERATIONS',
-    scope: 'BRANCH',
-    applicability: 'MANDATORY',
-    deps: ['school_profile'],
-    icon: 'Cross',
-    description: 'Daily health-check rules, allergy categories, medical incident triage, and emergency escalation paths.',
-  },
-  {
-    key: 'daily_operations',
-    label: 'Daily Operations',
-    phase: 'OPERATIONS',
-    scope: 'BRANCH',
-    applicability: 'MANDATORY',
-    deps: ['branch', 'classroom'],
-    icon: 'Clock',
-    description: 'Attendance rules, arrival/pickup grace windows, working days, daily care record types, and authorized pickup verification.',
-  },
-  {
-    key: 'observation',
-    label: 'Observation',
-    phase: 'OPERATIONS',
-    scope: 'BRANCH',
-    applicability: 'MANDATORY',
-    deps: ['curriculum'],
-    icon: 'ClipboardCheck',
-    description: 'Early learning observation categories, milestone evaluation methods, and pedagogical concern triage levels.',
-  },
-
-  // ── PHASE 4 — BUSINESS RULES ─────────────────────────────────────────
+  // ── PHASE 3 — BUSINESS RULES (Phase 3 Operations removed) ────────────
   {
     key: 'fees_setup',
     label: 'Fees Setup',
@@ -211,7 +150,7 @@ export const SETUP_STEPS: StepDef[] = [
     applicability: 'MANDATORY',
     deps: ['programs', 'academic_year'],
     icon: 'IndianRupee',
-    description: 'Active fee plans with integer paise terms, payment due day offsets, and fee structures per program and branch.',
+    description: 'Complete fee structure governance: tuition, deposits, frequencies, fee schedules, receipts and payments per program and campus.',
   },
   {
     key: 'templates',
@@ -251,9 +190,8 @@ export const STEP_MAP: Record<string, StepDef> = Object.fromEntries(
 
 export const PHASES: { key: StepPhase; label: string; sub: string }[] = [
   { key: 'FOUNDATION', label: 'Foundation', sub: 'Who the school is and who operates it' },
-  { key: 'ACADEMIC_STRUCTURE', label: 'Academic Structure', sub: 'Year, curriculum, programs, classrooms and subjects' },
-  { key: 'OPERATIONS', label: 'Operations', sub: 'Daily routines, wellbeing, health settings and formative observation' },
-  { key: 'BUSINESS_RULES', label: 'Business Rules', sub: 'Fees, templates, communication and academic promotion' },
+  { key: 'ACADEMIC_STRUCTURE', label: 'Academic Structure', sub: 'Year, programs, classrooms and subjects' },
+  { key: 'BUSINESS_RULES', label: 'Business Rules', sub: 'Fees setup, templates, communication and academic promotion' },
 ]
 
 export function isUnlocked(
