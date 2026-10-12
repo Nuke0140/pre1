@@ -8,10 +8,15 @@ import { normalizeRole } from '@/lib/roles'
 import { audit, getRequestMeta } from '@/lib/audit'
 import { SessionService } from '@/lib/users/session-service'
 
-// Sliding window tracker for consecutive failed login attempts
-const failedAttemptsTracker = new Map<string, { count: number; lastAttempt: number }>()
-const MAX_CONSECUTIVE_FAILURES = 5
-const ATTEMPT_WINDOW_MS = 15 * 60 * 1000 // 15 minutes
+import {
+  getFailedAttempts,
+  recordFailedAttempt,
+  resetFailedAttempts,
+  recordPersistentFailedAttempt,
+  getPersistentFailedAttempts,
+  resetPersistentFailedAttempts,
+  MAX_CONSECUTIVE_FAILURES,
+} from '@/lib/auth/lockout-tracker'
 
 export const POST = withApi(
   async (req: NextRequest) => {
@@ -23,11 +28,13 @@ export const POST = withApi(
         email,
         username,
         password,
+        schoolCode,
       } = (body || {}) as {
         identifier?: string
         email?: string
         username?: string
         password?: string
+        schoolCode?: string
       }
 
       const loginId = (identifier || email || username || '').toLowerCase().trim()
@@ -35,12 +42,7 @@ export const POST = withApi(
         return Errors.validation('Username or email and password are required')
       }
 
-      // Check current failure count
-      const trackerKey = loginId
-      const tracker = failedAttemptsTracker.get(trackerKey)
-      const now = Date.now()
-      const currentFailures =
-        tracker && now - tracker.lastAttempt < ATTEMPT_WINDOW_MS ? tracker.count : 0
+      const cleanSchoolCode = schoolCode?.trim().toUpperCase()
 
       // Find user by either email or username (UAM-E7, UAM-E13)
       const user = await db.user.findFirst({
@@ -56,6 +58,7 @@ export const POST = withApi(
       })
 
       if (!user || user.deletedAt) {
+        recordFailedAttempt(loginId)
         await audit({
           tenantId: null,
           actorName: loginId,
@@ -71,11 +74,46 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
+      // For resolved users, persistent database tracking is authoritative across all serverless instances
+      const currentFailures = await getPersistentFailedAttempts(user.id)
+
+      // Resolve targeted school membership if schoolCode was specified
+      let membership = user.memberships[0]
+      if (cleanSchoolCode) {
+        const matchingMembership = user.memberships.find(
+          (m) => m.tenant?.code?.toUpperCase() === cleanSchoolCode
+        )
+        if (!matchingMembership && user.memberships.length > 0) {
+          // Cross-tenant mismatch protection: user doesn't belong to the supplied school code
+          await recordPersistentFailedAttempt(user.id)
+          recordFailedAttempt(user.id)
+          recordFailedAttempt(loginId)
+          await audit({
+            tenantId: user.memberships[0]?.tenantId ?? null,
+            actorId: user.id,
+            actorName: user.fullName,
+            action: 'LOGIN_FAILED',
+            entity: 'User',
+            entityId: user.id,
+            module: 'AUTH',
+            summary: `Login rejected for ${loginId}: school code ${cleanSchoolCode} does not match user memberships`,
+            severity: 'WARNING',
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+            requestId: meta.requestId,
+          })
+          return Errors.business('AUTH_003', 'Invalid credentials or school code', 401)
+        }
+        if (matchingMembership) {
+          membership = matchingMembership
+        }
+      }
+
       // Check account status
       if (user.status === 'LOCKED') {
         return Errors.business(
           'ACCOUNT_LOCKED',
-          'Account is locked due to security policy. Please contact an administrator.',
+          'Account has been locked after 5 consecutive failed login attempts. Contact an administrator to unlock.',
           423
         )
       }
@@ -94,19 +132,25 @@ export const POST = withApi(
 
       const valid = await bcrypt.compare(password, user.passwordHash)
       if (!valid) {
-        const nextFailures = currentFailures + 1
-        failedAttemptsTracker.set(trackerKey, { count: nextFailures, lastAttempt: now })
+        // Authoritative atomic sliding-window increment in PostgreSQL
+        const nextFailures = await recordPersistentFailedAttempt(user.id)
 
         // Check auto-lock threshold
         if (nextFailures >= MAX_CONSECUTIVE_FAILURES) {
-          await db.user.update({
-            where: { id: user.id },
-            data: { status: 'LOCKED', updatedAt: new Date() },
-          })
+          await db.$transaction([
+            db.user.update({
+              where: { id: user.id },
+              data: { status: 'LOCKED', updatedAt: new Date() },
+            }),
+            db.tenantUser.updateMany({
+              where: { userId: user.id, deletedAt: null },
+              data: { status: 'LOCKED', updatedAt: new Date() },
+            }),
+          ])
           await SessionService.revokeAllUserSessions(user.id)
 
           await audit({
-            tenantId: user.memberships[0]?.tenantId ?? null,
+            tenantId: membership?.tenantId ?? null,
             actorId: user.id,
             actorName: user.fullName,
             action: 'ACCOUNT_LOCKED',
@@ -129,7 +173,7 @@ export const POST = withApi(
         }
 
         await audit({
-          tenantId: user.memberships[0]?.tenantId ?? null,
+          tenantId: membership?.tenantId ?? null,
           actorId: user.id,
           actorName: user.fullName,
           action: 'LOGIN_FAILED',
@@ -147,10 +191,9 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
-      // Successful login -> clear failure tracker
-      failedAttemptsTracker.delete(trackerKey)
-
-      const membership = user.memberships[0]
+      // Successful login -> clear failure tracker for user ID and login identifiers
+      await resetPersistentFailedAttempts(user.id)
+      resetFailedAttempts(user.id, user.email, user.username, loginId)
 
       if (membership) {
         if (membership.status === 'SUSPENDED') {
@@ -165,7 +208,7 @@ export const POST = withApi(
         if (membership.status === 'LOCKED') {
           return Errors.business(
             'ACCOUNT_LOCKED',
-            'Account is locked due to security policy. Please contact an administrator.',
+            'Account has been locked after 5 consecutive failed login attempts. Contact an administrator to unlock.',
             423
           )
         }

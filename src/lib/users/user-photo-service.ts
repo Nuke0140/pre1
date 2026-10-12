@@ -22,8 +22,14 @@ export class UserPhotoService {
    * Ensures the local storage directory exists.
    */
   private static ensureUploadDirectory() {
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+    try {
+      if (!fs.existsSync(UPLOAD_DIR)) {
+        fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+      }
+    } catch (e: any) {
+      if (e.code !== 'EROFS' && !process.env.VERCEL) {
+        throw e
+      }
     }
   }
 
@@ -51,13 +57,11 @@ export class UserPhotoService {
     originalFilename: string
     actor: { id: string; name: string; role: string; ipAddress?: string; userAgent?: string }
   }): Promise<{ success: boolean; avatarUrl: string }> {
-    this.ensureUploadDirectory()
-
     const ext = path.extname(params.originalFilename).toLowerCase() || '.png'
     const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext) ? ext : '.png'
     const fileName = `avatar-${params.userId}-${Date.now()}${safeExt}`
     const filePath = path.join(UPLOAD_DIR, fileName)
-    const avatarUrl = `/uploads/avatars/${fileName}`
+    let avatarUrl = `/uploads/avatars/${fileName}`
 
     // 1. Fetch user to verify tenant membership and clean up old avatar file
     const member = await db.tenantUser.findFirst({
@@ -82,8 +86,17 @@ export class UserPhotoService {
       }
     }
 
-    // 3. Write new image buffer
-    fs.writeFileSync(filePath, params.fileBuffer)
+    // 3. Write new image buffer with serverless resilience
+    try {
+      this.ensureUploadDirectory()
+      fs.writeFileSync(filePath, params.fileBuffer)
+    } catch (fsErr: any) {
+      if (fsErr.code === 'EROFS' || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+        avatarUrl = `data:${params.mimeType};base64,${params.fileBuffer.toString('base64')}`
+      } else {
+        throw fsErr
+      }
+    }
 
     // 4. Update database
     await db.user.update({

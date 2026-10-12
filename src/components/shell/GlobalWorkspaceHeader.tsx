@@ -14,6 +14,9 @@ import {
   ChevronDown,
   Languages,
   Globe,
+  User,
+  LogOut,
+  Sparkles,
 } from 'lucide-react'
 import { enumLabel, timeAgo } from '@/lib/format'
 import type { Role } from '@/lib/auth'
@@ -56,6 +59,8 @@ export interface GlobalWorkspaceHeaderProps {
   // Profile
   avatarRef: React.RefObject<HTMLButtonElement | null>
   onOpenProfile: () => void
+  onOpenMyProfile?: () => void
+  onLogout?: () => void
   pathname?: string
   branding?: BrandingConfig
 }
@@ -93,25 +98,38 @@ export function GlobalWorkspaceHeader({
   onOpenHelp,
   avatarRef,
   onOpenProfile,
+  onOpenMyProfile,
+  onLogout,
 }: GlobalWorkspaceHeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const [isMac, setIsMac] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, setLocale, t } = useI18n()
 
-  // Close language popover on click outside
+  // Close language and profile popovers on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      if (langRef.current && !langRef.current.contains(target)) {
         setLangOpen(false)
       }
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(target) &&
+        avatarRef.current &&
+        !avatarRef.current.contains(target)
+      ) {
+        setProfileMenuOpen(false)
+      }
     }
-    if (langOpen) {
+    if (langOpen || profileMenuOpen) {
       document.addEventListener('mousedown', handleClickOutside)
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [langOpen])
+  }, [langOpen, profileMenuOpen, avatarRef])
 
   // Scroll compression detection
   useEffect(() => {
@@ -621,22 +639,157 @@ export function GlobalWorkspaceHeader({
         {/* 6. Subtle Divider */}
         <div className="workspace-header-divider" aria-hidden="true" />
 
-        {/* 7. Authenticated User Profile */}
-        <button
-          suppressHydrationWarning
-          ref={avatarRef}
-          type="button"
-          className="workspace-profile-btn"
-          onClick={onOpenProfile}
-          aria-label="Open start menu and profile"
-        >
-          <span className="avatar sm a-p">{initials}</span>
-          <div className="workspace-profile-info">
-            <b className="workspace-profile-name">{user.name}</b>
-            <span className="workspace-profile-role">{roleLabel}</span>
-          </div>
-          <ChevronDown size={13} className="workspace-profile-chevron" aria-hidden="true" />
-        </button>
+        {/* 7. Authenticated User Profile & Dropdown */}
+        <div style={{ position: 'relative' }}>
+          <button
+            suppressHydrationWarning
+            ref={avatarRef}
+            type="button"
+            className={`workspace-profile-btn ${profileMenuOpen ? 'active' : ''}`}
+            onClick={() => setProfileMenuOpen((v) => !v)}
+            aria-label="Open user profile menu"
+            aria-expanded={profileMenuOpen}
+          >
+            <span className="avatar sm a-p">{initials}</span>
+            <div className="workspace-profile-info">
+              <b className="workspace-profile-name">{user.name}</b>
+              <span className="workspace-profile-role">{roleLabel}</span>
+            </div>
+            <ChevronDown
+              size={13}
+              className={`workspace-profile-chevron transition-transform duration-200 ${profileMenuOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </button>
+
+          {profileMenuOpen && (
+            <div
+              ref={profileMenuRef}
+              className="workspace-popover"
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                right: 0,
+                width: 270,
+                padding: 0,
+                zIndex: 100,
+                overflow: 'hidden',
+              }}
+              role="menu"
+              aria-label="Profile options"
+            >
+              {/* Account Overview Header */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderBottom: '1px solid var(--border)',
+                  backgroundColor: 'var(--bg-subtle)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="avatar sm a-p">{initials}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.name}
+                    </div>
+                    <div className="txt-muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user.email}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span className="badge" style={{ fontSize: 10, fontWeight: 600 }}>{roleLabel}</span>
+                  {user.branchName && (
+                    <span className="badge" style={{ fontSize: 10 }}>{user.branchName}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Links */}
+              <div style={{ padding: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileMenuOpen(false)
+                    onOpenMyProfile?.()
+                  }}
+                  className="dropdown-item"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 12.5,
+                    color: 'inherit',
+                    textAlign: 'left',
+                    transition: 'background 0.15s ease',
+                  }}
+                >
+                  <User size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>My Profile</div>
+                    <div className="txt-muted" style={{ fontSize: 10.5 }}>View &amp; edit personal details and photo</div>
+                  </div>
+                </button>
+
+                <Link
+                  href="/app/settings?tab=preferences"
+                  onClick={() => setProfileMenuOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    textDecoration: 'none',
+                    fontSize: 12.5,
+                    color: 'inherit',
+                    transition: 'background 0.15s ease',
+                  }}
+                >
+                  <Sparkles size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 500 }}>Theme &amp; Glow</div>
+                    <div className="txt-muted" style={{ fontSize: 10.5 }}>Appearance &amp; preferences</div>
+                  </div>
+                </Link>
+
+                <div style={{ height: 1, backgroundColor: 'var(--border)', margin: '4px 0' }} />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileMenuOpen(false)
+                    onLogout?.()
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 12.5,
+                    color: 'var(--danger, #ef4444)',
+                    textAlign: 'left',
+                    transition: 'background 0.15s ease',
+                  }}
+                >
+                  <LogOut size={15} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>Sign out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
 

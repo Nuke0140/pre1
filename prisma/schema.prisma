@@ -209,6 +209,8 @@ model User {
   avatarUrl       String?
   status          UserStatus    @default(ACTIVE)
   mustChangePassword Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lastFailedLoginAt   DateTime?
   locale          String        @default("en-IN")
   preferences     Json?
   lastLoginAt     DateTime?

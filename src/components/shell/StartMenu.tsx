@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { Search, X, LogOut, Sparkles } from 'lucide-react'
+import { Search, X, LogOut, Sparkles, User } from 'lucide-react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 import { StartMenuIllustration } from '@/components/preone'
@@ -14,6 +14,7 @@ export interface StartMenuProps {
   onClose: () => void
   user: ShellUser
   onLogout: () => void
+  onOpenMyProfile?: () => void
   triggerRef?: React.RefObject<HTMLButtonElement | null>
   menuRef?: React.RefObject<HTMLDivElement | null>
 }
@@ -37,6 +38,7 @@ export function StartMenu({
   onClose,
   user,
   onLogout,
+  onOpenMyProfile,
   triggerRef,
   menuRef: externalMenuRef,
 }: StartMenuProps) {
@@ -355,6 +357,19 @@ export function StartMenu({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => {
+              onClose()
+              onOpenMyProfile?.()
+            }}
+            className="btn btn-ghost btn-sm sm-logout-btn"
+            title="View & Edit My Profile"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+          >
+            <User size={14} aria-hidden="true" style={{ color: 'var(--primary)' }} />
+            <span>My Profile</span>
+          </button>
           <Link
             href="/app/settings?tab=preferences"
             onClick={onClose}
