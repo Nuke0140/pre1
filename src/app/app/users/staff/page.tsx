@@ -713,6 +713,7 @@ export default function StaffUsersPage() {
         onClose={handleCloseEditingUser}
         user={editingUser}
         branches={branches}
+        classrooms={classrooms}
         onSuccess={fetchStaff}
       />
 

@@ -13,6 +13,7 @@ export interface BaseIdentityOptions {
   status?: UserStatus
   usernameType: UsernameType
   avatarUrl?: string | null
+  locale?: string
 }
 
 export interface TenantMembershipOptions {
@@ -71,11 +72,6 @@ export class UserIdentityService {
         where: { username: opts.username.trim().toLowerCase() },
       })
     }
-    if (!user && opts.username?.trim()) {
-      user = await tx.user.findUnique({
-        where: { username: opts.username.trim().toLowerCase() },
-      })
-    }
 
     // Determine unique username
     let username = opts.username?.trim().toLowerCase()
@@ -114,6 +110,7 @@ export class UserIdentityService {
           passwordHash,
           mustChangePassword: isGeneratedPassword,
           status: initialStatus,
+          ...(opts.locale ? { locale: opts.locale } : {}),
         },
       })
       return { user, isNewUser: true }
@@ -123,8 +120,9 @@ export class UserIdentityService {
       const needsPhoneUpdate = !user.phone && phoneNorm
       const needsUsernameUpdate = !user.username && username
       const needsAvatarUpdate = !user.avatarUrl && opts.avatarUrl?.trim()
+      const needsLocaleUpdate = Boolean(opts.locale) && user.locale !== opts.locale
 
-      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate) {
+      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate || needsLocaleUpdate) {
         user = await tx.user.update({
           where: { id: user.id },
           data: {
@@ -132,6 +130,7 @@ export class UserIdentityService {
             ...(needsPhoneUpdate ? { phone: phoneNorm } : {}),
             ...(needsUsernameUpdate ? { username } : {}),
             ...(needsAvatarUpdate ? { avatarUrl: opts.avatarUrl!.trim() } : {}),
+            ...(needsLocaleUpdate ? { locale: opts.locale } : {}),
           },
         })
       }

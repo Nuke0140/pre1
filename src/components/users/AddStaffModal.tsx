@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE } from './types'
+import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, BLOOD_GROUPS, MARITAL_STATUSES, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 
 interface AddStaffModalProps {
@@ -32,6 +32,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [phone, setPhone] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('')
+  const [maritalStatus, setMaritalStatus] = useState('')
+  const [bloodGroup, setBloodGroup] = useState('')
+  const [emergencyContactName, setEmergencyContactName] = useState('')
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
+  const [currentAddress, setCurrentAddress] = useState('')
+  const [permanentAddress, setPermanentAddress] = useState('')
+  const [locale, setLocale] = useState('en')
 
   // Step 2: Work & Assignment
   const [primaryRole, setPrimaryRole] = useState<Role>('TEACHER')
@@ -45,6 +52,11 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [joiningDate, setJoiningDate] = useState('')
   const [reportingManagerId, setReportingManagerId] = useState('')
   const [classroomId, setClassroomId] = useState('')
+  const [panNumber, setPanNumber] = useState('')
+  const [aadhaarNumber, setAadhaarNumber] = useState('')
+  const [uanNumber, setUanNumber] = useState('')
+  const [esiNumber, setEsiNumber] = useState('')
+  const [noticePeriodDays, setNoticePeriodDays] = useState('')
 
   // Step 3: Account & Access
   const [username, setUsername] = useState('')
@@ -121,6 +133,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setPhone('')
     setDateOfBirth('')
     setGender('')
+    setMaritalStatus('')
+    setBloodGroup('')
+    setEmergencyContactName('')
+    setEmergencyContactPhone('')
+    setCurrentAddress('')
+    setPermanentAddress('')
+    setLocale('en')
     setUsername('')
     setIsUsernameCustom(false)
     setPassword('')
@@ -136,6 +155,11 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setJoiningDate('')
     setReportingManagerId('')
     setClassroomId('')
+    setPanNumber('')
+    setAadhaarNumber('')
+    setUanNumber('')
+    setEsiNumber('')
+    setNoticePeriodDays('')
   }
 
   const validateStep1 = () => {
@@ -215,6 +239,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           avatarUrl: avatarUrl.trim() || undefined,
           dateOfBirth: dateOfBirth || undefined,
           gender: gender || undefined,
+          maritalStatus: maritalStatus || undefined,
+          bloodGroup: bloodGroup || undefined,
+          emergencyContactName: emergencyContactName.trim() || undefined,
+          emergencyContactPhone: emergencyContactPhone.trim() || undefined,
+          currentAddress: currentAddress.trim() || undefined,
+          permanentAddress: permanentAddress.trim() || undefined,
+          locale: locale || undefined,
           username: username.trim() || undefined,
           password: password.trim() || undefined,
           role: primaryRole,
@@ -231,6 +262,11 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           joiningDate: joiningDate || undefined,
           reportingManagerId: reportingManagerId || undefined,
           classroomId: isTeacher && classroomId ? classroomId : undefined,
+          panNumber: panNumber.trim().toUpperCase() || undefined,
+          aadhaarNumber: aadhaarNumber.trim() || undefined,
+          uanNumber: uanNumber.trim() || undefined,
+          esiNumber: esiNumber.trim() || undefined,
+          noticePeriodDays: noticePeriodDays ? Number(noticePeriodDays) : undefined,
         }),
       })
 
@@ -518,6 +554,98 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       <option value="OTHER">Other</option>
                     </select>
                   </div>
+
+                  {/* Marital Status */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Marital Status
+                    </label>
+                    <select
+                      value={maritalStatus}
+                      onChange={(e) => setMaritalStatus(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      <option value="">Select Status</option>
+                      {MARITAL_STATUSES.map((ms) => (
+                        <option key={ms} value={ms}>{ms}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Blood Group */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Blood Group
+                    </label>
+                    <select
+                      value={bloodGroup}
+                      onChange={(e) => setBloodGroup(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      <option value="">Select Blood Group</option>
+                      {BLOOD_GROUPS.map((bg) => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Preferred Language / Locale */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Preferred Language
+                    </label>
+                    <select
+                      value={locale}
+                      onChange={(e) => setLocale(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      {LOCALES.map((l) => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Emergency Contact Name */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Emergency Contact Person
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Next of kin name"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      className="input w-full text-xs mt-1"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Phone */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Emergency Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+91 98765 00000"
+                      value={emergencyContactPhone}
+                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                      className="input w-full text-xs mt-1"
+                    />
+                  </div>
+
+                  {/* Current Address */}
+                  <div className="field sm:col-span-2">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Current Residential Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Street, locality, city and postal pin code"
+                      value={currentAddress}
+                      onChange={(e) => setCurrentAddress(e.target.value)}
+                      className="input w-full text-xs mt-1"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -684,6 +812,66 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                         className="input w-full text-xs pl-9"
                       />
                     </div>
+                  </div>
+
+                  {/* PAN Number */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      PAN Number (Tax ID)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      placeholder="ABCDE1234F"
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                      className="input w-full text-xs mt-1 uppercase font-mono"
+                    />
+                  </div>
+
+                  {/* Aadhaar Number */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Aadhaar Number (12 Digits)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={12}
+                      placeholder="123456789012"
+                      value={aadhaarNumber}
+                      onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, ''))}
+                      className="input w-full text-xs mt-1 font-mono"
+                    />
+                  </div>
+
+                  {/* UAN & ESI */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      UAN (PF Universal Account)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="100000000000"
+                      value={uanNumber}
+                      onChange={(e) => setUanNumber(e.target.value)}
+                      className="input w-full text-xs mt-1 font-mono"
+                    />
+                  </div>
+
+                  {/* Notice Period (Days) */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Notice Period (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={365}
+                      placeholder="30"
+                      value={noticePeriodDays}
+                      onChange={(e) => setNoticePeriodDays(e.target.value)}
+                      className="input w-full text-xs mt-1 font-mono"
+                    />
                   </div>
                 </div>
 

@@ -622,10 +622,10 @@ export default function EnquiriesPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
+              <table className="table-frosted w-full text-left border-collapse text-xs">
+                <thead className="table-frosted-header">
+                  <tr className="border-b border-border/80 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3.5 px-4 font-semibold text-foreground">Ref #</th>
                     {selectedBranchId === '__ALL_BRANCHES__' && (
                       <th className="py-3.5 px-4 font-semibold text-foreground">Branch</th>
@@ -653,7 +653,7 @@ export default function EnquiriesPage() {
                       return (
                         <tr
                           key={e.id}
-                          className="hover:bg-muted/40 transition-colors group cursor-pointer text-xs"
+                          className="table-frosted-row group cursor-pointer text-xs"
                           onClick={() => openDossier(e)}
                         >
                           <td className="py-3 px-4 font-mono font-bold text-primary whitespace-nowrap">

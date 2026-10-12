@@ -385,7 +385,7 @@ export function ZenTableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={`zen-thead bg-slate-50/70 dark:bg-slate-800/50 border-b border-border/60 dark:border-border/40 ${className}`.trim()}
+      className={`zen-thead table-frosted-header ${className}`.trim()}
       {...rest}
     >
       {children}
@@ -406,15 +406,10 @@ export function ZenTableHeadCell({
 }: ZenTableHeadCellProps) {
   return (
     <th
-      className={`zen-th px-4 py-3 text-slate-500 dark:text-slate-400 select-none whitespace-nowrap ${
+      className={`zen-th px-4 py-3 select-none whitespace-nowrap ${
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
       } ${className}`.trim()}
       style={{
-        fontFamily: 'var(--font-heading), Poppins, sans-serif',
-        fontSize: '12px',
-        fontWeight: 600,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
         ...style,
       }}
       {...rest}
@@ -438,10 +433,9 @@ export function ZenTableRow({
 }: ZenTableRowProps) {
   return (
     <tr
-      className={`zen-tr group transition-[background-color,box-shadow] duration-140 ease-out border-b border-border/40 dark:border-border/40 last:border-b-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
-        selected ? 'bg-primary/5 dark:bg-primary/10 shadow-[inset_3px_0_0_var(--primary)]' : ''
-      } ${clickable ? 'cursor-pointer' : ''} ${className}`.trim()}
-      style={{ minHeight: '56px' }}
+      className={`zen-tr table-frosted-row group ${
+        selected ? 'selected' : ''
+      } ${clickable ? 'clickable cursor-pointer' : ''} ${className}`.trim()}
       {...rest}
     >
       {children}

@@ -11,12 +11,14 @@ import {
 } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
-import { UserRole, UserStatus } from '@prisma/client'
+import { UserRole, UserStatus, EmploymentType, Gender, BloodGroup, Relationship } from '@prisma/client'
 import { normalizeRole } from '@/lib/roles'
 import { UserLifecycleService } from '@/lib/users/user-lifecycle-service'
 import { SessionService } from '@/lib/users/session-service'
 import { PermissionCache } from '@/lib/cache/permission-cache'
 import { UsernameService } from '@/lib/users/username-service'
+import { normalizeRelationship } from '@/lib/users/family-user-service'
+import { normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -67,22 +69,32 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       id: member.id,
       userId: member.user.id,
       fullName: member.user.fullName,
+      name: member.user.fullName,
       email: member.user.email,
       phone: member.user.phone,
       username: member.user.username,
       avatarUrl: member.user.avatarUrl,
+      locale: member.user.locale,
       role: member.role,
       roles: assignedRoles,
       status: member.status,
       branchId: member.branchId,
       lastLoginAt: member.user.lastLoginAt,
       createdAt: member.createdAt,
-      staffProfile: member.user.staffProfile,
+      staffProfile: member.user.staffProfile
+        ? {
+            ...member.user.staffProfile,
+            bloodGroup: formatBloodGroup(member.user.staffProfile.bloodGroup),
+          }
+        : null,
       taughtClasses: member.user.taughtClasses,
       guardianProfile: member.user.guardianProfile
         ? {
             id: member.user.guardianProfile.id,
             relationship: member.user.guardianProfile.relationship,
+            occupation: member.user.guardianProfile.occupation,
+            isPrimaryContact: member.user.guardianProfile.isPrimaryContact,
+            pickupPin: member.user.guardianProfile.pickupPin ? '••••' : null,
             students: member.user.guardianProfile.studentLinks.map((sl) => ({
               id: sl.student.id,
               name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
@@ -100,7 +112,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
   }
 }
 
-/** PATCH /api/v1/users/[id] — update user profile, roles, scope, designation, or password */
+/** PATCH /api/v1/users/[id] — update user profile, roles, scope, designation, staff HR fields, or guardian details */
 async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireApi(req, 'users:write')
@@ -119,6 +131,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       phone,
       username,
       avatarUrl,
+      locale,
       role,
       roles: inputRoles,
       primaryRole,
@@ -126,23 +139,76 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       branchId,
       classroomId,
       password,
-      designation,
+      // Staff Profile fields
       employeeCode,
+      designation,
+      department,
+      qualification,
+      employmentType,
+      joiningDate,
+      dateOfBirth,
+      gender,
+      maritalStatus,
+      bloodGroup,
+      currentAddress,
+      permanentAddress,
+      emergencyContactName,
+      emergencyContactPhone,
+      panNumber,
+      aadhaarNumber,
+      uanNumber,
+      esiNumber,
+      probationEndDate,
+      confirmationDate,
+      noticePeriodDays,
+      // Guardian Profile fields
+      relationship,
+      occupation,
+      isPrimaryContact,
+      pickupPin,
+      canPickup,
+      receivesComm,
     } = body as {
       fullName?: string
-      email?: string
-      phone?: string
-      username?: string
+      email?: string | null
+      phone?: string | null
+      username?: string | null
       avatarUrl?: string | null
+      locale?: string
       role?: UserRole
       roles?: UserRole[]
       primaryRole?: UserRole
       status?: any
       branchId?: string | null
-      classroomId?: string
+      classroomId?: string | null
       password?: string
-      designation?: string
       employeeCode?: string
+      designation?: string | null
+      department?: string | null
+      qualification?: string | null
+      employmentType?: any
+      joiningDate?: string | Date | null
+      dateOfBirth?: string | Date | null
+      gender?: any
+      maritalStatus?: string | null
+      bloodGroup?: any
+      currentAddress?: string | null
+      permanentAddress?: string | null
+      emergencyContactName?: string | null
+      emergencyContactPhone?: string | null
+      panNumber?: string | null
+      aadhaarNumber?: string | null
+      uanNumber?: string | null
+      esiNumber?: string | null
+      probationEndDate?: string | Date | null
+      confirmationDate?: string | Date | null
+      noticePeriodDays?: number | null
+      relationship?: any
+      occupation?: string | null
+      isPrimaryContact?: boolean
+      pickupPin?: string | null
+      canPickup?: boolean
+      receivesComm?: boolean
     }
 
     // Validate email format and uniqueness if provided
@@ -189,6 +255,14 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       }
     }
 
+    // Validate Pickup PIN if provided
+    if (pickupPin !== undefined && pickupPin !== null && pickupPin.trim() !== '') {
+      const pin = pickupPin.trim()
+      if (!/^\d{4,6}$/.test(pin)) {
+        return bad('Pickup PIN must be 4 to 6 numeric digits', 'INVALID_PICKUP_PIN')
+      }
+    }
+
     // Lifecycle status mutation validation and canonical routing
     let lifecycleStatusToApply: UserStatus | undefined
     if (status !== undefined) {
@@ -220,7 +294,10 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     if (inputRoles && Array.isArray(inputRoles) && inputRoles.length > 0) {
       targetRoles = [...new Set(inputRoles.map((r) => normalizeRole(r) as UserRole))]
     } else if (role) {
-      targetRoles = [normalizeRole(role) as UserRole]
+      // If role provided but inputRoles omitted, preserve secondary roles if existing, else [role]
+      const newPrimary = normalizeRole(role) as UserRole
+      const existingSecondaries = (member.roles || []).filter((r) => r !== member.role)
+      targetRoles = [...new Set([newPrimary, ...existingSecondaries])]
     }
 
     if (targetRoles) {
@@ -291,34 +368,38 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
                 : targetRoles[0]))
         : (role ? (normalizeRole(role) as UserRole) : primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined)
 
-    const oldValues = {
-      fullName: member.user.fullName,
-      email: member.user.email,
-      phone: member.user.phone,
-      username: member.user.username,
-      avatarUrl: member.user.avatarUrl,
-      role: member.role,
-      roles: member.roles,
-      status: member.status,
-      branchId: member.branchId,
-      designation: member.user.staffProfile?.designation,
-    }
-
     const isPlatformAdmin = session.role === 'PLATFORM_ADMIN'
     let isGlobalStatusUpdate = false
     let isPasswordReset = false
 
-    // Run updates in transaction
+    // Date & Number helpers for optional profile attributes
+    const parseDateInput = (val: any): Date | null | undefined => {
+      if (val === undefined) return undefined
+      if (val === null || val === '') return null
+      const parsed = new Date(val)
+      return isNaN(parsed.getTime()) ? null : parsed
+    }
+
+    const parseNoticePeriod = (val: any): number | undefined => {
+      if (val === undefined) return undefined
+      if (val === null || val === '') return 60
+      const parsed = parseInt(String(val), 10)
+      return isNaN(parsed) ? 60 : Math.max(0, parsed)
+    }
+
+    // Run updates in atomic transaction
     const updatedMember = await db.$transaction(async (tx) => {
-      if (
-        fullName ||
+      const hasUserUpdates =
+        fullName !== undefined ||
         cleanEmail !== undefined ||
         phone !== undefined ||
         cleanUsername !== undefined ||
         avatarUrl !== undefined ||
+        locale !== undefined ||
         password ||
         lifecycleStatusToApply
-      ) {
+
+      if (hasUserUpdates) {
         let shouldUpdateUserStatus = false
         if (lifecycleStatusToApply) {
           const otherActiveMemberships = await tx.tenantUser.count({
@@ -340,15 +421,16 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         await tx.user.update({
           where: { id: member.userId },
           data: {
-            ...(fullName ? { fullName: fullName.trim() } : {}),
+            ...(fullName !== undefined ? { fullName: fullName.trim() } : {}),
             ...(cleanEmail !== undefined ? { email: cleanEmail } : {}),
-            ...(phone !== undefined ? { phone: phone?.trim() || null } : {}),
+            ...(phone !== undefined ? { phone: phone ? phone.trim() : null } : {}),
             ...(cleanUsername !== undefined ? { username: cleanUsername } : {}),
-            ...(avatarUrl !== undefined ? { avatarUrl: avatarUrl?.trim() || null } : {}),
+            ...(avatarUrl !== undefined ? { avatarUrl: avatarUrl ? avatarUrl.trim() : null } : {}),
+            ...(locale !== undefined ? { locale: locale.trim() || 'en-IN' } : {}),
             ...(password
               ? {
                   passwordHash: await bcrypt.hash(password, 10),
-                  mustChangePassword: true, // Force mandatory password change on administrative override
+                  mustChangePassword: true,
                 }
               : {}),
             ...(shouldUpdateUserStatus ? { status: lifecycleStatusToApply, updatedAt: new Date() } : {}),
@@ -371,13 +453,37 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         },
       })
 
-      // If workforce designation or employeeCode provided, update or create StaffProfile
       const effectiveRoles = updated.roles && updated.roles.length > 0 ? updated.roles : [updated.role]
       const isStaff = effectiveRoles.some((r) =>
         ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'STAFF', 'ACCOUNTS', 'RECEPTIONIST', 'ATTENDANT', 'DRIVER'].includes(normalizeRole(r))
       )
 
-      if (isStaff || designation !== undefined || employeeCode !== undefined) {
+      // Handle StaffProfile updates if staff role or any workforce fields are provided
+      const hasStaffFields =
+        isStaff ||
+        employeeCode !== undefined ||
+        designation !== undefined ||
+        department !== undefined ||
+        qualification !== undefined ||
+        employmentType !== undefined ||
+        joiningDate !== undefined ||
+        dateOfBirth !== undefined ||
+        gender !== undefined ||
+        maritalStatus !== undefined ||
+        bloodGroup !== undefined ||
+        currentAddress !== undefined ||
+        permanentAddress !== undefined ||
+        emergencyContactName !== undefined ||
+        emergencyContactPhone !== undefined ||
+        panNumber !== undefined ||
+        aadhaarNumber !== undefined ||
+        uanNumber !== undefined ||
+        esiNumber !== undefined ||
+        probationEndDate !== undefined ||
+        confirmationDate !== undefined ||
+        noticePeriodDays !== undefined
+
+      if (hasStaffFields) {
         const existingProfile = await tx.staffProfile.findUnique({
           where: { userId: member.userId },
         })
@@ -388,13 +494,38 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           member.user.staffProfile?.employeeCode ||
           `EMP-${Date.now().toString().slice(-4)}`
 
+        const parsedDob = parseDateInput(dateOfBirth)
+        const parsedJoining = parseDateInput(joiningDate)
+        const parsedProbation = parseDateInput(probationEndDate)
+        const parsedConfirmation = parseDateInput(confirmationDate)
+        const noticePeriod = parseNoticePeriod(noticePeriodDays)
+
         if (existingProfile) {
           await tx.staffProfile.update({
             where: { id: existingProfile.id },
             data: {
-              ...(employeeCode ? { employeeCode: empCode } : {}),
-              ...(designation !== undefined ? { designation: designation?.trim() || null } : {}),
+              ...(employeeCode !== undefined ? { employeeCode: empCode } : {}),
+              ...(designation !== undefined ? { designation: designation ? designation.trim() : null } : {}),
+              ...(department !== undefined ? { department: department ? department.trim() : null } : {}),
+              ...(qualification !== undefined ? { qualification: qualification ? qualification.trim() : null } : {}),
+              ...(employmentType !== undefined ? { employmentType: employmentType || 'FULL_TIME' } : {}),
               ...(branchId !== undefined ? { branchId: branchId || null } : {}),
+              ...(parsedDob !== undefined ? { dateOfBirth: parsedDob } : {}),
+              ...(gender !== undefined ? { gender: gender || null } : {}),
+              ...(parsedJoining !== undefined ? { joiningDate: parsedJoining } : {}),
+              ...(emergencyContactName !== undefined ? { emergencyContactName: emergencyContactName ? emergencyContactName.trim() : null } : {}),
+              ...(emergencyContactPhone !== undefined ? { emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : null } : {}),
+              ...(maritalStatus !== undefined ? { maritalStatus: maritalStatus ? maritalStatus.trim() : null } : {}),
+              ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
+              ...(currentAddress !== undefined ? { currentAddress: currentAddress ? currentAddress.trim() : null } : {}),
+              ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress ? permanentAddress.trim() : null } : {}),
+              ...(panNumber !== undefined ? { panNumber: panNumber ? panNumber.trim().toUpperCase() : null } : {}),
+              ...(aadhaarNumber !== undefined ? { aadhaarNumber: aadhaarNumber ? aadhaarNumber.trim().replace(/\s+/g, '') : null } : {}),
+              ...(uanNumber !== undefined ? { uanNumber: uanNumber ? uanNumber.trim() : null } : {}),
+              ...(esiNumber !== undefined ? { esiNumber: esiNumber ? esiNumber.trim() : null } : {}),
+              ...(parsedProbation !== undefined ? { probationEndDate: parsedProbation } : {}),
+              ...(parsedConfirmation !== undefined ? { confirmationDate: parsedConfirmation } : {}),
+              ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
             },
           })
         } else {
@@ -403,19 +534,104 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               tenantId: session.tenantId!,
               userId: member.userId,
               employeeCode: empCode,
-              designation: designation?.trim() || null,
+              designation: designation ? designation.trim() : null,
+              department: department ? department.trim() : null,
+              qualification: qualification ? qualification.trim() : null,
+              employmentType: employmentType || 'FULL_TIME',
               branchId: branchId || null,
+              dateOfBirth: parsedDob || null,
+              gender: gender || null,
+              joiningDate: parsedJoining || null,
+              emergencyContactName: emergencyContactName ? emergencyContactName.trim() : null,
+              emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : null,
+              maritalStatus: maritalStatus ? maritalStatus.trim() : null,
+              bloodGroup: normalizeBloodGroup(bloodGroup),
+              currentAddress: currentAddress ? currentAddress.trim() : null,
+              permanentAddress: permanentAddress ? permanentAddress.trim() : null,
+              panNumber: panNumber ? panNumber.trim().toUpperCase() : null,
+              aadhaarNumber: aadhaarNumber ? aadhaarNumber.trim().replace(/\s+/g, '') : null,
+              uanNumber: uanNumber ? uanNumber.trim() : null,
+              esiNumber: esiNumber ? esiNumber.trim() : null,
+              probationEndDate: parsedProbation || null,
+              confirmationDate: parsedConfirmation || null,
+              noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
             },
           })
         }
       }
 
-      // If classroomId provided and user has TEACHER role, assign as primaryTeacherId
-      if (classroomId && effectiveRoles.includes('TEACHER')) {
-        await tx.classroom.update({
-          where: { id: classroomId, tenantId: session.tenantId! },
-          data: { primaryTeacherId: member.userId },
+      // Handle Guardian profile updates if family role or guardian fields are provided
+      const isFamily = effectiveRoles.some((r) => ['PARENT', 'GUARDIAN'].includes(normalizeRole(r)))
+      const hasGuardianFields =
+        isFamily ||
+        relationship !== undefined ||
+        occupation !== undefined ||
+        isPrimaryContact !== undefined ||
+        pickupPin !== undefined ||
+        canPickup !== undefined ||
+        receivesComm !== undefined
+
+      if (hasGuardianFields) {
+        let existingGuardian = await tx.guardian.findFirst({
+          where: { userId: member.userId, tenantId: session.tenantId! },
         })
+
+        const mappedRel = relationship ? (normalizeRelationship(relationship) as Relationship) : undefined
+
+        if (existingGuardian) {
+          existingGuardian = await tx.guardian.update({
+            where: { id: existingGuardian.id },
+            data: {
+              ...(fullName !== undefined ? { fullName: fullName.trim() } : {}),
+              ...(phone !== undefined ? { phone: phone ? phone.trim() : existingGuardian.phone } : {}),
+              ...(cleanEmail !== undefined ? { email: cleanEmail } : {}),
+              ...(mappedRel ? { relationship: mappedRel } : {}),
+              ...(occupation !== undefined ? { occupation: occupation ? occupation.trim() : null } : {}),
+              ...(isPrimaryContact !== undefined ? { isPrimaryContact: Boolean(isPrimaryContact) } : {}),
+              ...(pickupPin !== undefined ? { pickupPin: pickupPin ? pickupPin.trim() : null } : {}),
+            },
+          })
+        } else if (isFamily) {
+          existingGuardian = await tx.guardian.create({
+            data: {
+              tenantId: session.tenantId!,
+              userId: member.userId,
+              fullName: fullName ? fullName.trim() : member.user.fullName,
+              phone: phone ? phone.trim() : member.user.phone || '',
+              email: cleanEmail !== undefined ? cleanEmail : member.user.email,
+              relationship: mappedRel || 'GUARDIAN',
+              occupation: occupation ? occupation.trim() : null,
+              isPrimaryContact: Boolean(isPrimaryContact),
+              pickupPin: pickupPin ? pickupPin.trim() : null,
+            },
+          })
+        }
+
+        if (existingGuardian && (canPickup !== undefined || receivesComm !== undefined || pickupPin !== undefined)) {
+          await tx.studentGuardian.updateMany({
+            where: { guardianId: existingGuardian.id },
+            data: {
+              ...(canPickup !== undefined ? { canPickup: Boolean(canPickup) } : {}),
+              ...(receivesComm !== undefined ? { receivesComm: Boolean(receivesComm) } : {}),
+              ...(pickupPin !== undefined ? { pickupPin: pickupPin ? pickupPin.trim() : null } : {}),
+            },
+          })
+        }
+      }
+
+      // If classroomId provided and user has TEACHER role, assign or unassign as primaryTeacherId
+      if (classroomId !== undefined) {
+        if (classroomId && effectiveRoles.includes('TEACHER')) {
+          await tx.classroom.update({
+            where: { id: classroomId, tenantId: session.tenantId! },
+            data: { primaryTeacherId: member.userId },
+          })
+        } else if (!classroomId) {
+          await tx.classroom.updateMany({
+            where: { primaryTeacherId: member.userId, tenantId: session.tenantId! },
+            data: { primaryTeacherId: null },
+          })
+        }
       }
 
       return updated
@@ -474,57 +690,107 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         ? updatedMember.roles
         : [updatedMember.role]
 
-    const newValues = {
-      fullName: updatedMember.user.fullName,
-      phone: updatedMember.user.phone,
-      role: updatedMember.role,
-      roles: newRoles,
-      status: updatedMember.status,
-      branchId: updatedMember.branchId,
-      designation: designation !== undefined ? designation : member.user.staffProfile?.designation,
-    }
+    // Record user update audit
+    const meta = getRequestMeta(req)
+    await recordAudit({
+      tenantId: session.tenantId,
+      branchId: updatedMember.branchId || undefined,
+      actorId: session.uid,
+      actorName: session.name,
+      actorRole: session.role,
+      action: 'UPDATE_USER',
+      entity: 'User',
+      entityId: member.userId,
+      module: 'Users',
+      summary: `Updated user ${updatedMember.user.fullName} (roles: [${newRoles.join(', ')}], primary: ${updatedMember.role}, status: ${updatedMember.status})`,
+      ipAddress: meta.ipAddress,
+      userAgent: meta.userAgent,
+      newValues: {
+        fullName,
+        email: cleanEmail,
+        phone,
+        role: updatedMember.role,
+        roles: newRoles,
+        status: updatedMember.status,
+        branchId: updatedMember.branchId,
+        designation,
+        employeeCode,
+        department,
+        qualification,
+      },
+    })
 
-    const hasProfileOrRoleChanges =
-      Boolean(fullName) ||
-      phone !== undefined ||
-      Boolean(password) ||
-      Boolean(targetRoles) ||
-      branchId !== undefined ||
-      designation !== undefined ||
-      employeeCode !== undefined ||
-      Boolean(classroomId)
+    // Retrieve fresh and complete user representation matching _GET format
+    const refreshed = await db.tenantUser.findUnique({
+      where: { id: member.id },
+      include: {
+        user: {
+          include: {
+            staffProfile: true,
+            taughtClasses: {
+              select: { id: true, name: true, programType: true, capacity: true },
+            },
+            guardianProfile: {
+              include: {
+                studentLinks: {
+                  include: {
+                    student: {
+                      select: { id: true, firstName: true, lastName: true, admissionNo: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
 
-    // Only record UPDATE_USER if non-lifecycle profile fields changed or status was unchanged
-    if (hasProfileOrRoleChanges || !lifecycleStatusToApply) {
-      const meta = getRequestMeta(req)
-      await recordAudit({
-        tenantId: session.tenantId,
-        branchId: updatedMember.branchId || undefined,
-        actorId: session.uid,
-        actorName: session.name,
-        actorRole: session.role,
-        action: 'UPDATE_USER',
-        entity: 'User',
-        entityId: member.userId,
-        module: 'Users',
-        summary: `Updated user ${updatedMember.user.fullName} (roles: [${newRoles.join(', ')}], primary: ${updatedMember.role}, status: ${updatedMember.status})`,
-        ipAddress: meta.ipAddress,
-        userAgent: meta.userAgent,
-        oldValues,
-        newValues,
-      })
-    }
+    if (!refreshed) return serverError('Failed to retrieve updated member record')
+
+    const assignedRoles: UserRole[] =
+      refreshed.roles && refreshed.roles.length > 0 ? refreshed.roles : [refreshed.role]
 
     return ok({
-      id: updatedMember.id,
-      userId: updatedMember.user.id,
-      fullName: updatedMember.user.fullName,
-      email: updatedMember.user.email,
-      phone: updatedMember.user.phone,
-      role: updatedMember.role,
-      roles: newRoles,
-      status: updatedMember.status,
-      branchId: updatedMember.branchId,
+      id: refreshed.id,
+      userId: refreshed.user.id,
+      fullName: refreshed.user.fullName,
+      email: refreshed.user.email,
+      phone: refreshed.user.phone,
+      username: refreshed.user.username,
+      avatarUrl: refreshed.user.avatarUrl,
+      locale: refreshed.user.locale,
+      role: refreshed.role,
+      roles: assignedRoles,
+      status: refreshed.status,
+      branchId: refreshed.branchId,
+      lastLoginAt: refreshed.user.lastLoginAt,
+      createdAt: refreshed.createdAt,
+      staffProfile: refreshed.user.staffProfile
+        ? {
+            ...refreshed.user.staffProfile,
+            bloodGroup: formatBloodGroup(refreshed.user.staffProfile.bloodGroup),
+          }
+        : null,
+      taughtClasses: refreshed.user.taughtClasses,
+      guardianProfile: refreshed.user.guardianProfile
+        ? {
+            id: refreshed.user.guardianProfile.id,
+            relationship: refreshed.user.guardianProfile.relationship,
+            occupation: refreshed.user.guardianProfile.occupation,
+            isPrimaryContact: refreshed.user.guardianProfile.isPrimaryContact,
+            pickupPin: refreshed.user.guardianProfile.pickupPin ? '••••' : null,
+            students: refreshed.user.guardianProfile.studentLinks.map((sl) => ({
+              id: sl.student.id,
+              name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
+              admissionNo: sl.student.admissionNo,
+              canPickup: sl.canPickup,
+              receivesComm: sl.receivesComm,
+              pickupPin: sl.pickupPin,
+              relationship: sl.relationship || refreshed.user.guardianProfile!.relationship,
+            })),
+          }
+        : null,
     })
   } catch (err: any) {
     return serverError(err.message)

@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive cursor-pointer select-none",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-[var(--focus-ring-color)] focus-visible:[box-shadow:var(--focus-ring)] aria-invalid:!border-destructive aria-invalid:focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] cursor-pointer select-none",
   {
     variants: {
       variant: {
@@ -16,7 +16,7 @@ const buttonVariants = cva(
         auth:
           "w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.98] border-transparent font-semibold cursor-pointer",
         destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/80 active:scale-[0.98]",
+          "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:!border-destructive focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] dark:bg-destructive/80 active:scale-[0.98]",
         outline:
           "border border-border/60 dark:border-border/40 bg-background/80 shadow-xs hover:bg-muted/80 hover:text-foreground hover:border-border/80 dark:hover:border-border/60 active:scale-[0.98]",
         secondary:

@@ -14,8 +14,8 @@ import {
 import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus } from '@prisma/client'
+import { normalizeFamilyCreateInput, normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
 import { FamilyUserService } from '@/lib/users/family-user-service'
-import { normalizeFamilyCreateInput } from '@/lib/users/user-validation'
 import { normalizeRole } from '@/lib/roles'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
@@ -233,6 +233,7 @@ export const GET = withApi(async (req: NextRequest) => {
         branchId: m.branchId,
         lastLoginAt: m.user.lastLoginAt,
         createdAt: m.createdAt,
+        locale: m.user.locale,
         staffProfile: m.user.staffProfile
           ? {
               employeeCode: m.user.staffProfile.employeeCode,
@@ -248,6 +249,22 @@ export const GET = withApi(async (req: NextRequest) => {
                 : null,
               gender: m.user.staffProfile.gender,
               currentAddress: m.user.staffProfile.currentAddress,
+              permanentAddress: m.user.staffProfile.permanentAddress,
+              maritalStatus: m.user.staffProfile.maritalStatus,
+              bloodGroup: formatBloodGroup(m.user.staffProfile.bloodGroup),
+              emergencyContactName: m.user.staffProfile.emergencyContactName,
+              emergencyContactPhone: m.user.staffProfile.emergencyContactPhone,
+              panNumber: m.user.staffProfile.panNumber,
+              aadhaarNumber: m.user.staffProfile.aadhaarNumber,
+              uanNumber: m.user.staffProfile.uanNumber,
+              esiNumber: m.user.staffProfile.esiNumber,
+              probationEndDate: m.user.staffProfile.probationEndDate
+                ? m.user.staffProfile.probationEndDate.toISOString()
+                : null,
+              confirmationDate: m.user.staffProfile.confirmationDate
+                ? m.user.staffProfile.confirmationDate.toISOString()
+                : null,
+              noticePeriodDays: m.user.staffProfile.noticePeriodDays,
             }
           : null,
         taughtClasses: m.user.taughtClasses,
@@ -255,6 +272,9 @@ export const GET = withApi(async (req: NextRequest) => {
           ? {
               id: m.user.guardianProfile.id,
               relationship: m.user.guardianProfile.relationship,
+              occupation: m.user.guardianProfile.occupation,
+              isPrimaryContact: m.user.guardianProfile.isPrimaryContact,
+              pickupPin: m.user.guardianProfile.pickupPin ? '••••' : null,
               students: m.user.guardianProfile.studentLinks.map((sl) => ({
                 id: sl.student.id,
                 name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
@@ -339,6 +359,21 @@ export const POST = withApi(async (req: NextRequest) => {
     joiningDate,
     status: inputStatus,
     isInvite,
+    emergencyContactName,
+    emergencyContactPhone,
+    maritalStatus,
+    bloodGroup,
+    currentAddress,
+    permanentAddress,
+    panNumber,
+    aadhaarNumber,
+    uanNumber,
+    esiNumber,
+    probationEndDate,
+    confirmationDate,
+    noticePeriodDays,
+    occupation,
+    locale,
   } = body as {
     fullName: string
     email: string
@@ -368,6 +403,21 @@ export const POST = withApi(async (req: NextRequest) => {
     joiningDate?: string
     status?: UserStatus
     isInvite?: boolean
+    emergencyContactName?: string
+    emergencyContactPhone?: string
+    maritalStatus?: string
+    bloodGroup?: any
+    currentAddress?: string
+    permanentAddress?: string
+    panNumber?: string
+    aadhaarNumber?: string
+    uanNumber?: string
+    esiNumber?: string
+    probationEndDate?: string
+    confirmationDate?: string
+    noticePeriodDays?: number
+    occupation?: string
+    locale?: string
   }
 
   const effectiveFullName = (fullName || (body as any).parentName || (body as any).parentGuardianFullName || '').trim()
@@ -531,6 +581,7 @@ export const POST = withApi(async (req: NextRequest) => {
           passwordHash: await bcrypt.hash(effectivePassword, 10),
           mustChangePassword: isGeneratedPassword,
           status: initialStatus,
+          locale: locale || 'en-IN',
         },
       })
     } else {
@@ -542,6 +593,7 @@ export const POST = withApi(async (req: NextRequest) => {
           ...(phoneNorm ? { phone: phoneNorm } : {}),
           ...((body as any).username ? { username: (body as any).username.trim() } : {}),
           ...(avatarUrl ? { avatarUrl: avatarUrl.trim() } : {}),
+          ...(locale ? { locale } : {}),
           status: initialStatus,
         },
       })
@@ -644,6 +696,7 @@ export const POST = withApi(async (req: NextRequest) => {
               pickupPin: pickupPin?.trim() || null,
               userId: user.id,
               isPrimaryContact: Boolean(isPrimary),
+              occupation: occupation?.trim() || null,
             },
           })
         }
@@ -772,20 +825,36 @@ export const POST = withApi(async (req: NextRequest) => {
 
       const parsedDob = dateOfBirth ? new Date(dateOfBirth) : undefined
       const parsedJoining = joiningDate ? new Date(joiningDate) : undefined
+      const parsedProbation = probationEndDate ? new Date(probationEndDate) : undefined
+      const parsedConfirmation = confirmationDate ? new Date(confirmationDate) : undefined
+      const noticePeriod = noticePeriodDays !== undefined && noticePeriodDays !== null ? Number(noticePeriodDays) : undefined
 
       if (existingProfile) {
         await tx.staffProfile.update({
           where: { id: existingProfile.id },
           data: {
             employeeCode: finalEmpCode,
-            designation: designation?.trim() || existingProfile.designation,
-            department: department?.trim() || existingProfile.department,
-            qualification: qualification?.trim() || existingProfile.qualification,
+            designation: designation !== undefined ? (designation?.trim() || null) : existingProfile.designation,
+            department: department !== undefined ? (department?.trim() || null) : existingProfile.department,
+            qualification: qualification !== undefined ? (qualification?.trim() || null) : existingProfile.qualification,
             employmentType: employmentType || existingProfile.employmentType,
             branchId: branchId || existingProfile.branchId,
             ...(parsedDob ? { dateOfBirth: parsedDob } : {}),
             ...(gender ? { gender } : {}),
             ...(parsedJoining ? { joiningDate: parsedJoining } : {}),
+            ...(emergencyContactName !== undefined ? { emergencyContactName: emergencyContactName?.trim() || null } : {}),
+            ...(emergencyContactPhone !== undefined ? { emergencyContactPhone: emergencyContactPhone?.trim() || null } : {}),
+            ...(maritalStatus !== undefined ? { maritalStatus: maritalStatus?.trim() || null } : {}),
+            ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
+            ...(currentAddress !== undefined ? { currentAddress: currentAddress?.trim() || null } : {}),
+            ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress?.trim() || null } : {}),
+            ...(panNumber !== undefined ? { panNumber: panNumber?.trim() || null } : {}),
+            ...(aadhaarNumber !== undefined ? { aadhaarNumber: aadhaarNumber?.trim() || null } : {}),
+            ...(uanNumber !== undefined ? { uanNumber: uanNumber?.trim() || null } : {}),
+            ...(esiNumber !== undefined ? { esiNumber: esiNumber?.trim() || null } : {}),
+            ...(parsedProbation ? { probationEndDate: parsedProbation } : {}),
+            ...(parsedConfirmation ? { confirmationDate: parsedConfirmation } : {}),
+            ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
           },
         })
       } else {
@@ -797,11 +866,24 @@ export const POST = withApi(async (req: NextRequest) => {
             designation: designation?.trim() || null,
             department: department?.trim() || null,
             qualification: qualification?.trim() || null,
-            employmentType: employmentType || 'REGULAR',
+            employmentType: employmentType || 'FULL_TIME',
             branchId: branchId || null,
             dateOfBirth: parsedDob || null,
             gender: gender || null,
             joiningDate: parsedJoining || null,
+            emergencyContactName: emergencyContactName?.trim() || null,
+            emergencyContactPhone: emergencyContactPhone?.trim() || null,
+            maritalStatus: maritalStatus?.trim() || null,
+            bloodGroup: normalizeBloodGroup(bloodGroup),
+            currentAddress: currentAddress?.trim() || null,
+            permanentAddress: permanentAddress?.trim() || null,
+            panNumber: panNumber?.trim() || null,
+            aadhaarNumber: aadhaarNumber?.trim() || null,
+            uanNumber: uanNumber?.trim() || null,
+            esiNumber: esiNumber?.trim() || null,
+            probationEndDate: parsedProbation || null,
+            confirmationDate: parsedConfirmation || null,
+            noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
           },
         })
       }

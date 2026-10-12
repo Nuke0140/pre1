@@ -828,6 +828,7 @@ export default function FamilyUsersPage() {
         onClose={() => setEditingUser(null)}
         user={editingUser}
         branches={branches}
+        classrooms={classrooms}
         onSuccess={fetchFamilyUsers}
       />
 

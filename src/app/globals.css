@@ -333,8 +333,20 @@ html, body {
   --motion-normal: var(--duration-standard);
   --motion-slow: var(--duration-emphasized);
 
-  /* ── 10. Focus Ring & Accessibility ──────────────────────────── */
-  --focus-ring:0 0 0 3px color-mix(in srgb,var(--primary) 28%,transparent);
+  /* ── 10. Focus Ring & Accessibility (Velvet Double-Ring Focus Specification) ── */
+  --focus-ring-color: var(--primary);
+  --focus-ring-halo: color-mix(in srgb, var(--focus-ring-color) 18%, transparent);
+  --focus-ring-inner-width: 1px;
+  --focus-ring-outer-width: 4px;
+  --focus-ring: 0 0 0 var(--focus-ring-inner-width) var(--focus-ring-color), 0 0 0 var(--focus-ring-outer-width) var(--focus-ring-halo);
+
+  /* ── 10b. Table Presentation Tokens (Frosted Sticky Header & Row Hover Spec) ── */
+  --table-header-bg: rgb(255 255 255 / 88%);
+  --table-header-border: var(--border-subtle, rgb(226 232 240 / 80%));
+  --table-header-text: var(--text-secondary, #64748B);
+  --table-row-hover-bg: color-mix(in srgb, var(--primary) 3.5%, transparent);
+  --table-row-selected-bg: color-mix(in srgb, var(--primary) 7%, transparent);
+  --table-row-border: var(--border-default, #E2E8F0);
 
   /* ── 11. Z-Index Hierarchy ───────────────────────────────────── */
   --z-sticky:100; --z-dropdown:300; --z-drawer:400; --z-overlay:500; --z-modal:600; --z-toast:700;
@@ -712,14 +724,26 @@ html, body {
   --input-border-focus:var(--primary-dark);
   --input-placeholder:#64748B;
 
-  /* ── 6. Restrained Shadows & Focus Ring ───────────────────────── */
+  /* ── 6. Restrained Shadows & Focus Ring (Velvet Double-Ring Focus Dark Specification) ── */
   --shadow-none:var(--elevation-0);
   --shadow-soft:0 1px 3px rgba(0,0,0,.20);
   --shadow-card:var(--elevation-1);
   --shadow-elevated:var(--elevation-2);
   --shadow-modal:var(--elevation-3);
   --shadow-universe:var(--shadow-modal);
-  --focus-ring:0 0 0 3px color-mix(in srgb,var(--primary) 28%,transparent);
+  --focus-ring-color: var(--primary);
+  --focus-ring-halo: color-mix(in srgb, var(--focus-ring-color) 24%, transparent);
+  --focus-ring-inner-width: 1px;
+  --focus-ring-outer-width: 4px;
+  --focus-ring: 0 0 0 var(--focus-ring-inner-width) var(--focus-ring-color), 0 0 0 var(--focus-ring-outer-width) var(--focus-ring-halo);
+
+  /* ── 6b. Table Presentation Tokens (Dark Theme Specification) ── */
+  --table-header-bg: rgb(17 24 39 / 88%);
+  --table-header-border: rgba(255, 255, 255, 0.08);
+  --table-header-text: #94A3B8;
+  --table-row-hover-bg: color-mix(in srgb, var(--primary) 6.5%, transparent);
+  --table-row-selected-bg: color-mix(in srgb, var(--primary) 12%, transparent);
+  --table-row-border: rgba(148, 163, 184, 0.12);
 
   /* ── 7. Tailwind & Radix UI Bridge Variables ──────────────────── */
   --background:var(--bg-page);
@@ -1075,6 +1099,53 @@ body.dark {
 ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--primary) 65%,var(--bg-muted));border-radius:9999px}
 :focus-visible{outline:none;box-shadow:var(--focus-ring)}
 
+/* ════════════════════════════════════════════════════════════════════
+   PREONE UI ENHANCEMENT — VELVET DOUBLE-RING FOCUS STATES (v1.0)
+   Consistent, accessible, keyboard-visible two-layer focus styling.
+   ════════════════════════════════════════════════════════════════════ */
+:where(
+  input,
+  select,
+  textarea,
+  button,
+  [role="button"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="switch"],
+  [role="combobox"],
+  [role="tab"]
+):focus-visible {
+  outline: none;
+  border-color: var(--focus-ring-color);
+  box-shadow: var(--focus-ring);
+  transition: border-color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)),
+              box-shadow var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.2, 0, 0, 1));
+}
+
+/* Priority system: preserve error / invalid border and halo when focused */
+:where(
+  input,
+  select,
+  textarea
+):is([aria-invalid="true"], :invalid, .is-invalid, .has-error):focus-visible {
+  outline: none;
+  border-color: var(--danger, #EF4444) !important;
+  box-shadow: 0 0 0 var(--focus-ring-inner-width, 1px) var(--danger, #EF4444),
+              0 0 0 var(--focus-ring-outer-width, 4px) color-mix(in srgb, var(--danger, #EF4444) 20%, transparent) !important;
+}
+
+/* Disabled controls must not show focus rings or appear interactive */
+:where(
+  input,
+  select,
+  textarea,
+  button
+):is(:disabled, [disabled], .is-disabled, [aria-disabled="true"]):focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit;
+}
+
 /* ── Type roles (Canonical PreOne Hierarchy Mappings) ────────── */
 .t-display{font-size:var(--type-display-size);font-weight:var(--type-display-weight);letter-spacing:var(--type-display-letter-spacing);line-height:var(--type-display-line-height);color:var(--text-primary);font-family:var(--font-heading)}
 .t-h1{font-size:var(--type-page-title-size);font-weight:var(--type-page-title-weight);letter-spacing:var(--type-page-title-letter-spacing);line-height:var(--type-page-title-line-height);color:var(--text-primary);font-family:var(--font-heading)}
@@ -1197,8 +1268,8 @@ body.dark {
 .input::placeholder,.textarea::placeholder{color:var(--text-muted)}
 .input:focus,.select:focus,.textarea:focus{
   outline:none;
-  border-color:var(--primary);
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 16%,transparent), inset 0 1px 1px rgba(0, 0, 0, 0.02);
+  border-color:var(--focus-ring-color);
+  box-shadow:var(--focus-ring), inset 0 1px 1px rgba(0, 0, 0, 0.02);
 }
 .select{
   appearance:none;cursor:pointer;padding-right:36px;
@@ -2161,7 +2232,8 @@ button:focus:not(:focus-visible) {
   position: relative;
 }
 /* ════════════════════════════════════════════════════════════════════
-   ENTERPRISE ZEN TABLE PRESENTATION SYSTEM
+   ENTERPRISE ZEN & DATA TABLE PRESENTATION SYSTEM
+   Frosted Sticky Headers & Velvet Subtle Row Hover Specification v1.0
    ════════════════════════════════════════════════════════════════════ */
 
 .zen-table-wrap,
@@ -2176,7 +2248,8 @@ button:focus:not(:focus-visible) {
 }
 
 .zen-table,
-.dtable {
+.dtable,
+.table-frosted {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -2185,24 +2258,27 @@ button:focus:not(:focus-visible) {
   text-align: left;
 }
 
-/* 4. Quiet Zen Sticky Header */
+/* 4. Frosted Sticky Headers */
 .zen-th,
-.dtable thead th {
+.dtable thead th,
+.table-frosted-header th,
+.table-frosted thead th {
   position: sticky;
   top: 0;
-  z-index: 5;
-  background: color-mix(in srgb, var(--surface-subtle) 92%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  z-index: 10;
+  background-color: var(--surface-card);
+  background: var(--table-header-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   text-align: left;
   font-family: var(--font-heading), 'Poppins', sans-serif;
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  font-size: 11.5px;
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.045em;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: var(--table-header-text);
   padding: 13px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--table-header-border);
   white-space: nowrap;
   user-select: none;
 }
@@ -2210,10 +2286,15 @@ button:focus:not(:focus-visible) {
 [data-theme="dark"] .zen-th,
 .dark .zen-th,
 [data-theme="dark"] .dtable thead th,
-.dark .dtable thead th {
-  background: color-mix(in srgb, var(--surface-card) 92%, transparent);
-  border-bottom-color: var(--border-subtle);
-  color: var(--text-secondary);
+.dark .dtable thead th,
+[data-theme="dark"] .table-frosted-header th,
+.dark .table-frosted-header th,
+[data-theme="dark"] .table-frosted thead th,
+.dark .table-frosted thead th {
+  background-color: var(--dark-surface, #111827);
+  background: var(--table-header-bg);
+  border-bottom-color: var(--table-header-border);
+  color: var(--table-header-text);
 }
 
 .th-inline,
@@ -2249,9 +2330,10 @@ button:focus:not(:focus-visible) {
 
 /* 5. 56px Operational Rows & Subtle Separators */
 .zen-td,
-.dtable tbody td {
+.dtable tbody td,
+.table-frosted tbody td {
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(241, 245, 249, 0.95);
+  border-bottom: 1px solid var(--table-row-border, rgba(241, 245, 249, 0.95));
   color: var(--text-primary);
   vertical-align: middle;
   background: transparent;
@@ -2259,63 +2341,95 @@ button:focus:not(:focus-visible) {
 }
 
 .zen-tr,
-.dtable tbody tr {
+.dtable tbody tr,
+.table-frosted-row,
+.table-frosted tbody tr {
   min-height: 56px;
   transition: background-color 140ms ease, box-shadow 140ms ease;
   cursor: default;
 }
 
 [data-theme="dark"] .zen-td,
-[data-theme="dark"] .dtable tbody td {
-  border-bottom-color: rgba(255, 255, 255, 0.05);
+.dark .zen-td,
+[data-theme="dark"] .dtable tbody td,
+.dark .dtable tbody td,
+[data-theme="dark"] .table-frosted tbody td,
+.dark .table-frosted tbody td {
+  border-bottom-color: var(--table-row-border, rgba(255, 255, 255, 0.05));
 }
 
 .zen-table tbody tr:last-child td,
-.dtable tbody tr:last-child td {
+.dtable tbody tr:last-child td,
+.table-frosted tbody tr:last-child td {
   border-bottom: none;
 }
 
 .dtable tbody tr.clickable-row,
 .dtable tbody tr[role="button"],
-.zen-tr.clickable {
+.zen-tr.clickable,
+.table-frosted-row.clickable {
   cursor: pointer;
 }
 
-/* Soft Hover Surface */
+/* Subtle Velvet Row Hover Highlight (Priority: default < hover < selected) */
 .zen-tr:hover,
-.dtable tbody tr:hover {
-  background: rgba(248, 250, 252, 0.85);
-}
-
-[data-theme="dark"] .zen-tr:hover,
-.dark .zen-tr:hover,
-[data-theme="dark"] .dtable tbody tr:hover,
-.dark .dtable tbody tr:hover {
-  background: rgba(148, 163, 184, 0.055);
+.dtable tbody tr:hover,
+.table-frosted-row:hover,
+.table-frosted tbody tr:hover {
+  background-color: var(--table-row-hover-bg);
 }
 
 /* Rounded Hover Treatment for first and last cells */
 .zen-table tbody tr:hover td:first-child,
-.dtable tbody tr:hover td:first-child {
+.dtable tbody tr:hover td:first-child,
+.table-frosted tbody tr:hover td:first-child {
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
 }
 
 .zen-table tbody tr:hover td:last-child,
-.dtable tbody tr:hover td:last-child {
+.dtable tbody tr:hover td:last-child,
+.table-frosted tbody tr:hover td:last-child {
   border-top-right-radius: 8px;
   border-bottom-right-radius: 8px;
 }
 
-/* Row Selection */
+/* Row Selection State */
 .dtable tbody tr.dt-selected,
-.zen-tr.selected {
-  background: color-mix(in srgb, var(--primary-light) 45%, var(--bg-card));
+.zen-tr.selected,
+.table-frosted-row.selected {
+  background-color: var(--table-row-selected-bg);
   box-shadow: inset 3px 0 0 var(--primary);
 }
 .dtable tbody tr.dt-selected:hover,
-.zen-tr.selected:hover {
-  background: color-mix(in srgb, var(--primary-light) 65%, var(--bg-card));
+.zen-tr.selected:hover,
+.table-frosted-row.selected:hover {
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+/* Error / Warning Row Priority States */
+.dtable tbody tr.is-error,
+.zen-tr.is-error,
+.table-frosted-row.is-error {
+  background-color: color-mix(in srgb, var(--danger, #EF4444) 6%, transparent);
+  box-shadow: inset 3px 0 0 var(--danger, #EF4444);
+}
+.dtable tbody tr.is-error:hover,
+.zen-tr.is-error:hover,
+.table-frosted-row.is-error:hover {
+  background-color: color-mix(in srgb, var(--danger, #EF4444) 10%, transparent);
+}
+
+.dtable tbody tr.is-warning,
+.zen-tr.is-warning,
+.table-frosted-row.is-warning {
+  background-color: color-mix(in srgb, var(--warning, #F59E0B) 6%, transparent);
+  box-shadow: inset 3px 0 0 var(--warning, #F59E0B);
+}
+.dtable tbody tr.is-warning:hover,
+.zen-tr.is-warning:hover,
+.table-frosted-row.is-warning:hover {
+  background-color: color-mix(in srgb, var(--warning, #F59E0B) 10%, transparent);
 }
 
 /* Densities (Zen default is cozy ~56px) */
@@ -2793,7 +2907,7 @@ tr:focus-within .dt-row-actions .kebab {
   background:var(--input-background);border:1px solid var(--input-border);
   font-family:var(--font-sans);font-size:12.5px;font-weight:600;color:var(--foreground);
 }
-.dtable-page-jump input:focus{outline:none;border-color:var(--input-border-focus);box-shadow:var(--focus-ring)}
+.dtable-page-jump input:focus{outline:none;border-color:var(--focus-ring-color);box-shadow:var(--focus-ring)}
 .dtable-totals{
   display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 16px;
   background:var(--surface-muted);border-top:1px solid var(--border-subtle);
@@ -2807,7 +2921,7 @@ tr:focus-within .dt-row-actions .kebab {
 .dp-input{position:relative;display:flex;align-items:center}
 .dp-input svg{position:absolute;left:12px;width:15px;height:15px;color:var(--foreground-muted);pointer-events:none}
 .dp-input input{width:100%;height:40px;padding:0 14px;padding-left:36px;border-radius:var(--radius-12);background:var(--input-background);border:1px solid var(--input-border);font-family:var(--font-sans);font-size:14px;color:var(--foreground);cursor:pointer;transition:all var(--motion-fast) var(--ease-standard)}
-.dp-input input:focus{outline:none;border-color:var(--input-border-focus);box-shadow:var(--focus-ring)}
+.dp-input input:focus{outline:none;border-color:var(--focus-ring-color);box-shadow:var(--focus-ring)}
 .dp-cal{
   position:absolute;top:calc(100% + 6px);left:0;z-index:90;width:264px;
   background:var(--surface-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-14);
@@ -2817,13 +2931,15 @@ tr:focus-within .dt-row-actions .kebab {
 .dp-month{font-size:13px;font-weight:700}
 .dp-nav{width:28px;height:28px;border:none;border-radius:8px;background:var(--surface-muted);color:var(--foreground-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--motion-fast)}
 .dp-nav:hover{background:var(--surface-active);color:var(--preone-primary)}
-.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-nav:focus-visible{outline:none;box-shadow:var(--focus-ring)}
 .dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .dp-weekdays{margin-bottom:2px}
 .dp-dow{font-size:10px;font-weight:var(--font-weight-semibold, 600);letter-spacing:.04em;text-transform:uppercase;color:var(--foreground-muted);text-align:center;padding:4px 0}
 .dp-day{height:30px;border:none;border-radius:8px;background:transparent;font-size:12.5px;font-weight:var(--font-weight-medium, 500);color:var(--foreground);cursor:pointer;font-family:var(--font-sans);transition:all var(--motion-fast)}
 .dp-day:hover{background:var(--surface-hover)}
+.dp-day:focus-visible{outline:none;box-shadow:var(--focus-ring)}
 .dp-day.on{background:var(--preone-primary);color:var(--preone-primary-foreground);box-shadow:0 2px 8px color-mix(in srgb,var(--preone-primary) 35%,transparent)}
+.dp-day.on:focus-visible{outline:none;box-shadow:var(--focus-ring), 0 2px 8px color-mix(in srgb,var(--preone-primary) 35%,transparent)}
 .dp-day.empty{pointer-events:none}
 .dp-foot{display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--border-subtle);padding-top:8px}
 
@@ -8725,7 +8841,10 @@ kbd{
 
 /* 7. Subtle Midnight Glow Micro-Accent */
 [data-theme="dark"] .btn-primary:focus-visible,
-.dark .btn-primary:focus-visible,
+.dark .btn-primary:focus-visible {
+  box-shadow: var(--focus-ring),
+              0 4px 16px color-mix(in srgb, var(--primary) 20%, transparent);
+}
 [data-theme="dark"] .wizard-step.active .wizard-dot,
 .dark .wizard-step.active .wizard-dot {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 40%, transparent),

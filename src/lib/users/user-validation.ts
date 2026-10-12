@@ -13,9 +13,9 @@ export interface StaffCreateInput {
   additionalRoles?: UserRole[]
   branchId?: string | null
   employeeCode?: string
-  designation?: string
-  department?: string
-  qualification?: string
+  designation?: string | null
+  department?: string | null
+  qualification?: string | null
   employmentType?: EmploymentType
   joiningDate?: string | Date | null
   dateOfBirth?: string | Date | null
@@ -23,6 +23,20 @@ export interface StaffCreateInput {
   reportingManagerId?: string | null
   classroomId?: string
   status?: UserStatus
+  emergencyContactName?: string | null
+  emergencyContactPhone?: string | null
+  maritalStatus?: string | null
+  bloodGroup?: BloodGroup | null
+  currentAddress?: string | null
+  permanentAddress?: string | null
+  panNumber?: string | null
+  aadhaarNumber?: string | null
+  uanNumber?: string | null
+  esiNumber?: string | null
+  probationEndDate?: string | Date | null
+  confirmationDate?: string | Date | null
+  noticePeriodDays?: number | null
+  locale?: string
 }
 
 export interface FamilyCreateInput {
@@ -36,6 +50,8 @@ export interface FamilyCreateInput {
   password?: string
   status?: UserStatus
   relationship: Relationship
+  occupation?: string | null
+  locale?: string
   isPrimaryContact?: boolean
   childMode: 'CREATE' | 'EXISTING'
   existingChild?: {
@@ -186,6 +202,8 @@ export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
     password,
     status: body.status || 'ACTIVE',
     relationship,
+    occupation: body.occupation?.trim() || null,
+    locale: body.locale || 'en-IN',
     isPrimaryContact,
     childMode,
     existingChild,
@@ -305,3 +323,45 @@ export function validateFamilyInput(input: FamilyCreateInput): { valid: boolean;
 
   return { valid: errors.length === 0, errors }
 }
+
+export function normalizeBloodGroup(val?: any): BloodGroup | null {
+  if (!val) return null
+  const str = String(val).trim().toUpperCase().replace(/\s+/g, '_')
+  const map: Record<string, BloodGroup> = {
+    'A+': BloodGroup.A_POSITIVE,
+    'A-': BloodGroup.A_NEGATIVE,
+    'B+': BloodGroup.B_POSITIVE,
+    'B-': BloodGroup.B_NEGATIVE,
+    'AB+': BloodGroup.AB_POSITIVE,
+    'AB-': BloodGroup.AB_NEGATIVE,
+    'O+': BloodGroup.O_POSITIVE,
+    'O-': BloodGroup.O_NEGATIVE,
+    'A_POSITIVE': BloodGroup.A_POSITIVE,
+    'A_NEGATIVE': BloodGroup.A_NEGATIVE,
+    'B_POSITIVE': BloodGroup.B_POSITIVE,
+    'B_NEGATIVE': BloodGroup.B_NEGATIVE,
+    'AB_POSITIVE': BloodGroup.AB_POSITIVE,
+    'AB_NEGATIVE': BloodGroup.AB_NEGATIVE,
+    'O_POSITIVE': BloodGroup.O_POSITIVE,
+    'O_NEGATIVE': BloodGroup.O_NEGATIVE,
+    'UNKNOWN': BloodGroup.UNKNOWN,
+  }
+  return map[str] || null
+}
+
+export function formatBloodGroup(val?: any): string | null {
+  if (!val) return null
+  const map: Record<string, string> = {
+    A_POSITIVE: 'A+',
+    A_NEGATIVE: 'A-',
+    B_POSITIVE: 'B+',
+    B_NEGATIVE: 'B-',
+    AB_POSITIVE: 'AB+',
+    AB_NEGATIVE: 'AB-',
+    O_POSITIVE: 'O+',
+    O_NEGATIVE: 'O-',
+    UNKNOWN: 'UNKNOWN',
+  }
+  return map[val] || val
+}
+

@@ -425,10 +425,10 @@ export default function ApplicationsPage() {
 
         {/* ── Applications Dossier Ledger Table ── */}
         <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="border-b border-border/80 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
+            <table className="table-frosted w-full text-xs text-left">
+              <thead className="table-frosted-header">
+                <tr className="border-b border-border/80 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">App Number</th>
                   {selectedBranchId === '__ALL_BRANCHES__' && (
                     <th className="px-4 py-3">Campus</th>
@@ -453,7 +453,7 @@ export default function ApplicationsPage() {
                       <tr
                         key={app.id}
                         onClick={() => openInspector(app.id, 'overview')}
-                        className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                        className="table-frosted-row cursor-pointer group"
                       >
                         <td className="px-4 py-3 font-mono font-bold text-primary">
                           {app.applicationNumber}

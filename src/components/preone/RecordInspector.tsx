@@ -1056,6 +1056,50 @@ function StaffInspectorContent({
         )}
       </div>
 
+      {/* Employment & Personal Details */}
+      {(profile.employmentType || profile.joiningDate || profile.qualification || profile.bloodGroup || profile.emergencyContactName) && (
+        <div className="card p-4 rounded-xl space-y-2.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Briefcase size={14} className="text-amber-500" /> Employment &amp; HR Snapshot
+          </span>
+
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {profile.employmentType && (
+              <div className="p-2 rounded bg-muted/40">
+                <span className="text-[10px] text-muted-foreground block">EMPLOYMENT TYPE</span>
+                <span className="font-medium text-foreground">{profile.employmentType.replace('_', ' ')}</span>
+              </div>
+            )}
+            {profile.joiningDate && (
+              <div className="p-2 rounded bg-muted/40">
+                <span className="text-[10px] text-muted-foreground block">JOINING DATE</span>
+                <span className="font-medium text-foreground">{new Date(profile.joiningDate).toLocaleDateString()}</span>
+              </div>
+            )}
+            {profile.qualification && (
+              <div className="p-2 rounded bg-muted/40 col-span-2">
+                <span className="text-[10px] text-muted-foreground block">QUALIFICATIONS</span>
+                <span className="font-medium text-foreground">{profile.qualification}</span>
+              </div>
+            )}
+            {profile.bloodGroup && (
+              <div className="p-2 rounded bg-muted/40">
+                <span className="text-[10px] text-muted-foreground block">BLOOD GROUP</span>
+                <span className="font-bold text-red-600 dark:text-red-400">{profile.bloodGroup}</span>
+              </div>
+            )}
+            {profile.emergencyContactName && (
+              <div className="p-2 rounded bg-muted/40">
+                <span className="text-[10px] text-muted-foreground block">EMERGENCY CONTACT</span>
+                <span className="font-medium text-foreground">
+                  {profile.emergencyContactName} {profile.emergencyContactPhone ? `(${profile.emergencyContactPhone})` : ''}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Security & Access Overview */}
       <div className="card p-4 rounded-xl space-y-2.5">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">

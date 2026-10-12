@@ -38,6 +38,39 @@ export type UserLifecycleStatus =
   | 'INACTIVE'
   | 'PENDING'
 
+export interface StaffProfileData {
+  employeeCode: string
+  designation: string | null
+  department: string | null
+  qualification: string | null
+  employmentType: string
+  joiningDate?: string | null
+  dateOfBirth?: string | null
+  gender?: string | null
+  maritalStatus?: string | null
+  bloodGroup?: string | null
+  emergencyContactName?: string | null
+  emergencyContactPhone?: string | null
+  currentAddress?: string | null
+  permanentAddress?: string | null
+  panNumber?: string | null
+  aadhaarNumber?: string | null
+  uanNumber?: string | null
+  esiNumber?: string | null
+  probationEndDate?: string | null
+  confirmationDate?: string | null
+  noticePeriodDays?: number | null
+}
+
+export interface GuardianProfileData {
+  id: string
+  relationship: string
+  occupation?: string | null
+  isPrimaryContact?: boolean
+  pickupPin?: string | null
+  students: GuardianChild[]
+}
+
 export interface UserRecord {
   id: string
   userId: string
@@ -46,30 +79,32 @@ export interface UserRecord {
   name: string
   email: string | null
   phone: string | null
+  locale?: string | null
   role: Role
   roles?: Role[]
   status: UserLifecycleStatus
   branchId: string | null
   lastLoginAt: string | null
   createdAt: string
-  staffProfile?: {
-    employeeCode: string
-    designation: string | null
-    department: string | null
-    qualification: string | null
-    employmentType: string
-    joiningDate?: string | null
-    dateOfBirth?: string | null
-    gender?: string | null
-    currentAddress?: string | null
-  } | null
+  staffProfile?: StaffProfileData | null
   taughtClasses?: Array<{ id: string; name: string; programType: string; capacity?: number }>
-  guardianProfile?: {
-    id: string
-    relationship: string
-    students: GuardianChild[]
-  } | null
+  guardianProfile?: GuardianProfileData | null
 }
+
+export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const
+export const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const
+export const MARITAL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'] as const
+export const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'PROBATION', 'TEMPORARY'] as const
+export const LOCALES = [
+  { value: 'en', label: 'English (en)' },
+  { value: 'hi', label: 'Hindi (hi)' },
+  { value: 'mr', label: 'Marathi (mr)' },
+  { value: 'gu', label: 'Gujarati (gu)' },
+  { value: 'ta', label: 'Tamil (ta)' },
+  { value: 'te', label: 'Telugu (te)' },
+  { value: 'kn', label: 'Kannada (kn)' },
+  { value: 'bn', label: 'Bengali (bn)' },
+] as const
 
 export const CANONICAL_STAFF_ROLES: Role[] = [
   'OWNER',

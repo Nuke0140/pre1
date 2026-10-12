@@ -169,6 +169,7 @@ export class FamilyUserService {
           password: input.password,
           status: initialStatus,
           usernameType: assignedRole,
+          locale: input.locale,
         })
 
         // Step 2: Create TenantUser membership
@@ -252,6 +253,7 @@ export class FamilyUserService {
               relationship: mappedRel,
               pickupPin: perms.pickupPin || createdGuardian.pickupPin || null,
               isPrimaryContact: Boolean(input.isPrimaryContact),
+              ...(input.occupation !== undefined ? { occupation: input.occupation?.trim() || null } : {}),
             },
           })
         }
@@ -326,6 +328,7 @@ export class FamilyUserService {
           password: input.password,
           status: initialStatus,
           usernameType: assignedRole,
+          locale: input.locale,
         })
 
         // Step 2: Create or update TenantUser membership
@@ -372,6 +375,7 @@ export class FamilyUserService {
               relationship: mappedRel,
               pickupPin: perms.pickupPin,
               isPrimaryContact: Boolean(input.isPrimaryContact),
+              occupation: input.occupation?.trim() || null,
             },
           })
         } else {
@@ -382,6 +386,7 @@ export class FamilyUserService {
               relationship: mappedRel,
               pickupPin: perms.pickupPin || guardian.pickupPin,
               isPrimaryContact: input.isPrimaryContact !== undefined ? Boolean(input.isPrimaryContact) : guardian.isPrimaryContact,
+              ...(input.occupation !== undefined ? { occupation: input.occupation?.trim() || null } : {}),
             },
           })
         }

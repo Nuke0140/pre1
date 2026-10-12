@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { BranchOption, ClassroomOption } from './types'
+import { BranchOption, ClassroomOption, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 
 interface AddFamilyModalProps {
@@ -49,6 +49,9 @@ export function AddFamilyModal({
   const [email, setEmail] = useState('')
   const [relationship, setRelationship] = useState('FATHER')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [occupation, setOccupation] = useState('')
+  const [isPrimaryContact, setIsPrimaryContact] = useState(false)
+  const [locale, setLocale] = useState('en')
 
   // Step 2: Child Connection
   const [childMode, setChildMode] = useState<'EXISTING' | 'CREATE'>('EXISTING')
@@ -284,6 +287,9 @@ export function AddFamilyModal({
         primaryRole: role,
         roles: [role],
         relationship,
+        occupation: occupation.trim() || undefined,
+        isPrimaryContact,
+        locale: locale || undefined,
         status,
         canPickup,
         pickupPin: pickupPin.trim() || undefined,
@@ -619,14 +625,64 @@ export function AddFamilyModal({
                     </div>
                   </div>
 
+                  {/* Occupation */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Profession / Occupation
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Software Engineer, Architect"
+                      value={occupation}
+                      onChange={(e) => setOccupation(e.target.value)}
+                      className="input w-full text-xs mt-1"
+                    />
+                  </div>
+
+                  {/* Preferred Language / Locale */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Preferred Language
+                    </label>
+                    <select
+                      value={locale}
+                      onChange={(e) => setLocale(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      {LOCALES.map((l) => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Primary Emergency Contact Toggle */}
+                  <div className="field sm:col-span-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white block">
+                        Primary Emergency Contact
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        Designate as the first priority contact for school health & emergency alerts.
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isPrimaryContact}
+                      onChange={(e) => setIsPrimaryContact(e.target.checked)}
+                      className="checkbox checkbox-primary h-4 w-4 rounded"
+                    />
+                  </div>
+
                   {/* Caregiver Profile Photo Upload */}
-                  <UserPhotoUpload
-                    value={avatarUrl}
-                    onChange={setAvatarUrl}
-                    name={fullName}
-                    label="Caregiver Profile Photo"
-                    hint="Upload photo from device (JPG, PNG, WebP up to 5MB). Stored securely."
-                  />
+                  <div className="sm:col-span-2">
+                    <UserPhotoUpload
+                      value={avatarUrl}
+                      onChange={setAvatarUrl}
+                      name={fullName}
+                      label="Caregiver Profile Photo"
+                      hint="Upload photo from device (JPG, PNG, WebP up to 5MB). Stored securely."
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -266,10 +266,10 @@ export default function ConfirmedAdmissionsPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead>
-                <tr className="border-b border-border/80 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
+            <table className="table-frosted w-full text-xs text-left">
+              <thead className="table-frosted-header">
+                <tr className="border-b border-border/80 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3">App Number</th>
                   {selectedBranchId === '__ALL_BRANCHES__' && (
                     <th className="px-4 py-3">Campus</th>
@@ -285,7 +285,7 @@ export default function ConfirmedAdmissionsPage() {
               <tbody className="divide-y divide-border/60">
                 {filteredStudents.length > 0 ? (
                   filteredStudents.map((app) => (
-                    <tr key={app.id} className="hover:bg-muted/30 transition-colors">
+                    <tr key={app.id} className="table-frosted-row">
                       <td className="px-4 py-3 font-mono font-bold text-primary">
                         {app.applicationNumber}
                       </td>
