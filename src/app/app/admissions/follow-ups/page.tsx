@@ -361,7 +361,7 @@ export default function FollowUpsPage() {
               return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl border border-border/80 bg-card shadow-xs flex flex-col justify-between gap-3 hover:border-amber-300 dark:hover:border-amber-800 transition-colors"
+                  className="p-4 rounded-2xl border border-border/80 bg-card shadow-card-rest flex flex-col justify-between gap-3 hover:border-amber-300 dark:hover:border-amber-800 hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200"
                 >
                   <div className="space-y-2.5">
                     {/* Top Identity Row */}

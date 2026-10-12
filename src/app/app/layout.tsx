@@ -62,10 +62,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       --po-primary: ${primary};
       --po-primary-dark: color-mix(in srgb, ${primary} 85%, black);
       --po-primary-soft: color-mix(in srgb, ${primary} 12%, white);
-      --po-primary-ultra-soft: color-mix(in srgb, ${primary} 5%, white);
+      --canvas-wash-primary: color-mix(in srgb, ${primary} 7.5%, transparent);
+      --canvas-wash-secondary: color-mix(in srgb, ${accent} 2.5%, transparent);
+      --canvas-wash-accent: color-mix(in srgb, #34D399 1.5%, transparent);
       --card-hover-border: ${primary};
-      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, ${primary} 7.5%, transparent) 0%, transparent 100%),
-        radial-gradient(800px 400px at 85% -40px, color-mix(in srgb, ${accent} 2.5%, transparent) 0%, transparent 100%);
+      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, var(--canvas-wash-primary) 0%, transparent 100%),
+        radial-gradient(800px 400px at 85% -40px, var(--canvas-wash-secondary) 0%, transparent 100%),
+        radial-gradient(900px 450px at 15% 100%, var(--canvas-wash-accent) 0%, transparent 100%);
     }
     [data-theme="dark"],
     .dark {
@@ -80,9 +83,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       --primary-light: color-mix(in srgb, ${primary} 20%, transparent);
       --accent: color-mix(in srgb, ${accent} 85%, #FFFFFF 15%);
       --accent-light: color-mix(in srgb, ${accent} 20%, transparent);
+      --canvas-wash-primary: color-mix(in srgb, var(--primary-dark) 9.5%, transparent);
+      --canvas-wash-secondary: color-mix(in srgb, ${accent} 2.5%, transparent);
+      --canvas-wash-accent: color-mix(in srgb, #34D399 1.5%, transparent);
       --card-hover-border: var(--primary-dark);
-      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, var(--primary) 9.5%, transparent) 0%, transparent 100%),
-        radial-gradient(800px 420px at 85% -40px, color-mix(in srgb, ${accent} 2.5%, transparent) 0%, transparent 100%);
+      --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, var(--canvas-wash-primary) 0%, transparent 100%),
+        radial-gradient(800px 420px at 85% -40px, var(--canvas-wash-secondary) 0%, transparent 100%),
+        radial-gradient(900px 450px at 15% 100%, var(--canvas-wash-accent) 0%, transparent 100%);
     }
   `
 

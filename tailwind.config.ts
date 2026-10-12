@@ -92,6 +92,10 @@ const config: Config = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		boxShadow: {
+  			'card-rest': 'var(--shadow-card-rest)',
+  			'card-hover': 'var(--shadow-card-hover)',
+  		},
   		fontFamily: {
   			heading: ['var(--font-heading)', 'Poppins', 'sans-serif'],
   			body: ['var(--font-body)', 'Nunito', 'sans-serif'],

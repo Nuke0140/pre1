@@ -15,6 +15,7 @@ import { FunnelChart, DonutChart, BarChart } from '@/components/preone/Chart'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill } from '@/components/preone'
+import { GlobalActionMenu } from '@/components/ui/action-menu'
 
 export default function AdmissionsReportsPage() {
   const toast = useToast()
@@ -426,13 +427,28 @@ export default function AdmissionsReportsPage() {
             <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
             <span>Refresh</span>
           </button>
-          <button
-            onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-foreground bg-card hover:bg-muted/50 transition-colors shadow-sm"
-          >
-            <Download size={13} />
-            <span>Export CSV</span>
-          </button>
+          <GlobalActionMenu
+            label="Actions"
+            size="sm"
+            actions={[
+              {
+                id: 'export-csv',
+                label: 'Export Analytics CSV',
+                helperText: 'प्रवेश अहवाल डाउनलोड करा',
+                icon: <Download />,
+                category: 'export',
+                onClick: handleExportCsv,
+              },
+              {
+                id: 'share-form',
+                label: 'Share Public Form',
+                helperText: 'सार्वजनिक प्रवेश लिंक शेअर करा',
+                icon: <Users />,
+                category: 'general',
+                onClick: () => setShareModalOpen(true),
+              },
+            ]}
+          />
         </div>
       }
     >

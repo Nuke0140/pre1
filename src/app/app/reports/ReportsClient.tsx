@@ -13,6 +13,7 @@ import { Modal } from '@/components/preone/Modal'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { useToast } from '@/components/preone/Toast'
 import { BulkDocumentJobsClient } from '@/components/reports/BulkDocumentJobsClient'
+import { GlobalActionMenu } from '@/components/ui/action-menu'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXACTLY EIGHT CANONICAL REPORT GROUPS (MANDATORY PRODUCT SCOPE)
@@ -786,29 +787,38 @@ export default function ReportsClient() {
         sub={currentGroupConfig?.plainDescription}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <GlobalActionMenu
+              label="Export"
+              size="sm"
+              loading={exporting}
+              disabled={loadingReport}
+              actions={[
+                {
+                  id: 'export-csv',
+                  label: 'Export as CSV',
+                  helperText: 'स्प्रेडशीट डेटा (CSV)',
+                  icon: <Download />,
+                  category: 'export',
+                  onClick: () => handleExport('CSV'),
+                },
+                {
+                  id: 'export-xlsx',
+                  label: 'Export as Excel (XLSX)',
+                  helperText: 'एक्सेल फाइल फॉरमॅट',
+                  icon: <FileSpreadsheet />,
+                  category: 'export',
+                  onClick: () => handleExport('XLSX'),
+                },
+              ]}
+            />
             <button
-              className="btn btn-outline btn-sm"
-              onClick={() => handleExport('CSV')}
-              disabled={exporting || loadingReport}
-              title="Download CSV"
-            >
-              <Download size={13} style={{ marginRight: 4 }} /> CSV
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => handleExport('XLSX')}
-              disabled={exporting || loadingReport}
-              title="Download Excel"
-            >
-              <FileSpreadsheet size={13} style={{ marginRight: 4 }} /> Excel
-            </button>
-            <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary btn-sm flex items-center gap-1.5"
               onClick={() => handleExport('PRINT')}
               disabled={exporting || loadingReport}
               title="Print / PDF View"
             >
-              <Printer size={13} style={{ marginRight: 4 }} /> Print / PDF
+              <Printer size={13} />
+              <span>Print / PDF</span>
             </button>
           </div>
         }

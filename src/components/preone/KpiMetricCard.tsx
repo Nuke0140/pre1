@@ -114,9 +114,9 @@ export function KpiMetricCard({
 
   return (
     <div
-      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 shadow-xs transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
+      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 shadow-card-rest transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
         isInteractive
-          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
+          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-card-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
           : ''
       } ${
         active

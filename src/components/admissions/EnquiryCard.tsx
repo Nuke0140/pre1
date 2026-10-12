@@ -66,10 +66,10 @@ export function EnquiryCard({
       aria-label={`Enquiry ${e.leadNumber} for ${e.parentName}. Status: ${e.status}. Tap to view details.`}
       onClick={() => onViewDossier(e)}
       onKeyDown={handleCardKeyDown}
-      className={`group relative rounded-2xl border p-4 sm:p-4.5 bg-card text-card-foreground shadow-xs transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary select-none ${
+      className={`group relative rounded-2xl border p-4 sm:p-4.5 bg-card text-card-foreground shadow-card-rest transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary select-none ${
         isSelected
           ? 'border-primary ring-2 ring-primary/30 bg-primary/[0.03]'
-          : 'border-border/80 hover:border-primary/40 hover:shadow-sm'
+          : 'border-border/80 hover:border-primary/40 hover:shadow-card-hover hover:-translate-y-0.5'
       }`}
     >
       <div className="space-y-3">

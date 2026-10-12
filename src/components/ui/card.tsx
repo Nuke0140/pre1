@@ -8,11 +8,11 @@ const cardVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-xs",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest",
         interactive:
-          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-xs cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-sm hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-card-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]",
         elevated:
-          "bg-white/98 dark:bg-slate-900/98 border border-border/60 dark:border-border/40 rounded-2xl shadow-sm",
+          "bg-white/98 dark:bg-slate-900/98 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest",
         flat:
           "bg-slate-50/60 dark:bg-slate-900/40 border border-border/40 dark:border-border/40 rounded-2xl",
         premium:

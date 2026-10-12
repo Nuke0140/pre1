@@ -155,11 +155,24 @@ html, body {
   --elevation-4: 0 20px 32px -4px rgba(15, 23, 42, 0.12), 0 36px 72px -12px rgba(15, 23, 42, 0.20);
 
   --surface-shadow: var(--shadow-premium);
-  --surface-header-bg: rgba(255, 255, 255, 0.85);
-  --surface-header-blur: 14px;
-  --surface-header-border: 1px solid var(--border-subtle);
-  --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, var(--primary, #7C3AED) 7.5%, transparent) 0%, transparent 100%),
-    radial-gradient(800px 400px at 85% -40px, color-mix(in srgb, var(--accent, #38BDF8) 2.5%, transparent) 0%, transparent 100%);
+  /* ── Canvas Atmospheric Wash & Surface Highlight System ───── */
+  --canvas-base: var(--surface-base, #F8FAFD);
+  --canvas-wash-primary: color-mix(in srgb, var(--primary, #7C3AED) 7.5%, transparent);
+  --canvas-wash-secondary: color-mix(in srgb, var(--accent, #38BDF8) 2.5%, transparent);
+  --canvas-wash-accent: color-mix(in srgb, #34D399 1.5%, transparent);
+
+  --shadow-card-rest:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(15, 23, 42, 0.035),
+    0 4px 12px rgba(15, 23, 42, 0.035);
+  --shadow-card-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    0 8px 20px -2px rgba(15, 23, 42, 0.07);
+
+  --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, var(--canvas-wash-primary) 0%, transparent 100%),
+    radial-gradient(800px 400px at 85% -40px, var(--canvas-wash-secondary) 0%, transparent 100%),
+    radial-gradient(900px 450px at 15% 100%, var(--canvas-wash-accent) 0%, transparent 100%);
 
   /* Radius Tokens */
   --radius-card: 20px;
@@ -625,8 +638,22 @@ html, body {
   --surface-header-bg: rgba(15, 23, 42, 0.82);
   --surface-header-blur: 16px;
   --surface-header-border: 1px solid var(--border-subtle);
-  --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, color-mix(in srgb, var(--primary) 9.5%, transparent) 0%, transparent 100%),
-    radial-gradient(800px 420px at 85% -40px, color-mix(in srgb, var(--accent, #38BDF8) 2.5%, transparent) 0%, transparent 100%);
+  /* ── Canvas Atmospheric Wash & Surface Highlight System (Dark) ───── */
+  --canvas-base: var(--dark-canvas, #0B0F19);
+  --canvas-wash-primary: color-mix(in srgb, var(--primary) 9.5%, transparent);
+  --canvas-wash-secondary: color-mix(in srgb, var(--accent, #38BDF8) 2.5%, transparent);
+  --canvas-wash-accent: color-mix(in srgb, #34D399 1.5%, transparent);
+
+  --shadow-card-rest:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 4px 14px rgba(0, 0, 0, 0.16);
+  --shadow-card-hover:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 6px 18px rgba(0, 0, 0, 0.28);
+
+  --brand-ambient-wash: radial-gradient(1200px 520px at 50% -80px, var(--canvas-wash-primary) 0%, transparent 100%),
+    radial-gradient(800px 420px at 85% -40px, var(--canvas-wash-secondary) 0%, transparent 100%),
+    radial-gradient(900px 450px at 15% 100%, var(--canvas-wash-accent) 0%, transparent 100%);
 
   /* Workspace & Surface Aliases (Midnight Slate) */
   --bg-page:var(--dark-canvas);
@@ -1298,18 +1325,15 @@ body.dark {
 .card{
   background:var(--surface-card);border:1px solid var(--border-subtle);
   border-radius:var(--radius-card, 1rem);padding:var(--space-5);
-  box-shadow:var(--shadow-premium-card);
+  box-shadow:var(--shadow-card-rest);
   transition:box-shadow var(--duration-normal) var(--ease-premium),border-color var(--duration-normal) var(--ease-premium),transform var(--duration-normal) var(--ease-premium);
   position:relative;
 }
 .premium-card{
-  background:rgba(255, 255, 255, 0.96);
-  border:1px solid rgba(226, 232, 240, 0.8);
+  background:var(--surface-card);
+  border:1px solid var(--border-subtle);
   border-radius:1rem;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(15, 23, 42, 0.035),
-    0 4px 12px rgba(15, 23, 42, 0.035);
+  box-shadow:var(--shadow-card-rest);
   transition:
     box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 200ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -1320,19 +1344,15 @@ body.dark {
 .premium-card[role="button"]:hover,
 a.premium-card:hover,
 button.premium-card:hover{
-  border-color:rgba(203, 213, 225, 0.9);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 6px 18px rgba(15, 23, 42, 0.06);
+  border-color:color-mix(in srgb,var(--primary) 28%,var(--border-default));
+  box-shadow:var(--shadow-card-hover);
   transform:translateY(-1px);
 }
 [data-theme="dark"] .premium-card,
 .dark .premium-card{
-  background:rgba(17, 24, 39, 0.96);
-  border-color:#1E293B;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 4px 14px rgba(0, 0, 0, 0.16);
+  background:var(--surface-card);
+  border-color:var(--border-default);
+  box-shadow:var(--shadow-card-rest);
 }
 [data-theme="dark"] .premium-card-interactive:hover,
 [data-theme="dark"] .premium-card[role="button"]:hover,
@@ -1342,10 +1362,8 @@ button.premium-card:hover{
 .dark .premium-card[role="button"]:hover,
 .dark a.premium-card:hover,
 .dark button.premium-card:hover{
-  border-color:#334155;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 8px 24px rgba(0, 0, 0, 0.28);
+  border-color:color-mix(in srgb,var(--primary) 36%,var(--border-default));
+  box-shadow:var(--shadow-card-hover);
   transform:translateY(-1px);
 }
 

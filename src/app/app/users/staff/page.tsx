@@ -24,12 +24,10 @@ import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
+  GlobalActionMenu,
+  type ActionItem,
+  type ActionGroup,
+} from '@/components/ui/action-menu'
 import {
   UserRecord, BranchOption, ClassroomOption, Role,
   CANONICAL_STAFF_ROLES, ROLE_BADGE
@@ -342,48 +340,70 @@ export default function StaffUsersPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-card hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-                  title="More actions"
-                  aria-label="More actions"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setRolesModalOpen(true)}>
-                  <Shield className="w-4 h-4 text-purple-600" />
-                  <span>{t('users.rolesDirectory')}</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setCsvModalOpen(true)}>
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  <span>{t('common.import')} CSV</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <a href="/api/v1/users/export?role=STAFF" download className="flex items-center gap-2">
-                    <Download className="w-4 h-4 text-blue-600" />
-                    <span>{t('common.export')} CSV</span>
-                  </a>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setBulkFieldUpdateOpen(true)}>
-                  <Edit3 className="w-4 h-4 text-purple-600" />
-                  <span>Bulk Field Update</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setBulkPhotosOpen(true)}>
-                  <Camera className="w-4 h-4 text-indigo-600" />
-                  <span>Upload Photos</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setZipPhotoModalOpen(true)}>
-                  <Image className="w-4 h-4 text-indigo-600" />
-                  <span>{t('users.bulkPhotoUpload')}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <GlobalActionMenu
+              label={t('common.actions') || 'Actions'}
+              groups={[
+                { id: 'data', label: 'Data Operations', helperText: 'माहिती देवाणघेवाण' },
+                { id: 'management', label: 'Management', helperText: 'व्यवस्थापन' },
+              ]}
+              actions={[
+                {
+                  id: 'roles',
+                  label: t('users.rolesDirectory'),
+                  helperText: 'भूमिका आणि प्रवेश निर्देशिका',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'management',
+                  onClick: () => setRolesModalOpen(true),
+                },
+                {
+                  id: 'import-csv',
+                  label: `${t('common.import')} CSV`,
+                  helperText: 'कर्मचारी यादी आयात करा',
+                  icon: <FileSpreadsheet />,
+                  category: 'import',
+                  groupId: 'data',
+                  onClick: () => setCsvModalOpen(true),
+                },
+                {
+                  id: 'export-csv',
+                  label: `${t('common.export')} CSV`,
+                  helperText: 'स्टाफची यादी डाउनलोड करा',
+                  icon: <Download />,
+                  category: 'export',
+                  groupId: 'data',
+                  href: '/api/v1/users/export?role=STAFF',
+                  download: 'staff-directory.csv',
+                },
+                {
+                  id: 'bulk-update',
+                  label: 'Bulk Field Update',
+                  helperText: 'एकाच वेळी माहिती अपडेट करा',
+                  icon: <Edit3 />,
+                  category: 'edit',
+                  groupId: 'management',
+                  onClick: () => setBulkFieldUpdateOpen(true),
+                },
+                {
+                  id: 'upload-photos',
+                  label: 'Upload Photos',
+                  helperText: 'कर्मचारी फोटो अपलोड करा',
+                  icon: <Camera />,
+                  category: 'import',
+                  groupId: 'management',
+                  onClick: () => setBulkPhotosOpen(true),
+                },
+                {
+                  id: 'zip-photos',
+                  label: t('users.bulkPhotoUpload'),
+                  helperText: 'झिप फाइलमधून फोटो अपलोड',
+                  icon: <Image />,
+                  category: 'import',
+                  groupId: 'management',
+                  onClick: () => setZipPhotoModalOpen(true),
+                },
+              ]}
+            />
 
             <button
               type="button"

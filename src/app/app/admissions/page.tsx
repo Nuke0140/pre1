@@ -2433,7 +2433,7 @@ export default function AdmissionsPage() {
             <Link
               key={card.key}
               href={card.href}
-              className={`p-5 sm:p-6 rounded-2xl border border-border/80 bg-card shadow-2xs transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer flex flex-col justify-between group ${card.accentBorder}`}
+              className={`p-5 sm:p-6 rounded-2xl border border-border/80 bg-card shadow-card-rest transition-all duration-200 hover:-translate-y-1 hover:shadow-card-hover cursor-pointer flex flex-col justify-between group ${card.accentBorder}`}
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
