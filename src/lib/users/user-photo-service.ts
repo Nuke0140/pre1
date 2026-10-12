@@ -31,7 +31,7 @@ export class UserPhotoService {
   }
 
   /**
-   * Saves a single user photo to S3 object storage and updates User.avatarUrl in database.
+   * Saves a single user photo to S3 object storage (or fallback) and updates User.avatarUrl in database.
    */
   static async saveSingleUserPhoto(params: {
     userId: string
@@ -60,17 +60,22 @@ export class UserPhotoService {
       }
     }
 
-    // 3. Upload binary to S3
-    const uploadResult = await S3StorageService.uploadBufferToS3({
-      tenantId: params.tenantId,
-      category: 'avatars',
-      buffer: params.fileBuffer,
-      mimeType: params.mimeType,
-      originalName: params.originalFilename,
-      userId: params.userId,
-    })
-
-    const avatarUrl = uploadResult.url
+    // 3. Upload binary to S3 with serverless resilient fallback
+    let avatarUrl: string
+    try {
+      const uploadResult = await S3StorageService.uploadBufferToS3({
+        tenantId: params.tenantId,
+        category: 'avatars',
+        buffer: params.fileBuffer,
+        mimeType: params.mimeType,
+        originalName: params.originalFilename,
+        userId: params.userId,
+      })
+      avatarUrl = uploadResult.url
+    } catch (storageErr: any) {
+      // In serverless environments without S3 credentials or filesystem access, fallback to data URI
+      avatarUrl = `data:${params.mimeType};base64,${params.fileBuffer.toString('base64')}`
+    }
 
     // 4. Update database
     await db.user.update({

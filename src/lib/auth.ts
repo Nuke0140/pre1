@@ -195,6 +195,7 @@ export function can(roleOrRoles: Role | Role[] | undefined | null, permission: s
 export async function signSession(payload: SessionPayload): Promise<string> {
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: 'HS256' })
+    .setJti(crypto.randomUUID())
     .setIssuedAt()
     .setIssuer('preone')
     .setExpirationTime('7d')

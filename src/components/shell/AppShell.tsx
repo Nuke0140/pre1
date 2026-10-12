@@ -17,6 +17,7 @@ import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
+import { StaffProfileModal } from '@/components/profile/StaffProfileModal'
 import { getStoredShellGlowConfig, applyShellGlowToDom } from '@/lib/theme/shell-glow'
 import type { BrandingConfig } from '@/lib/branding-types'
 
@@ -41,7 +42,13 @@ export function AppShell({
   const pathname = usePathname()
 
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [searchModalOpen, setSearchModalOpen] = useState(false)
+  const [nameOverride, setNameOverride] = useState<string | null>(null)
+  const shellUser: ShellUser = {
+    ...user,
+    ...(nameOverride ? { name: nameOverride } : {}),
+  }
   const [query, setQuery] = useState('')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -49,6 +56,13 @@ export function AppShell({
   const startBtnRef = useRef<HTMLButtonElement>(null)
   const headerSearchRef = useRef<HTMLInputElement>(null)
   const avatarRef = useRef<HTMLButtonElement>(null)
+
+  const handleProfileUpdated = (updated?: { name?: string; avatarUrl?: string | null }) => {
+    if (updated?.name) {
+      setNameOverride(updated.name)
+    }
+    router.refresh()
+  }
 
   // Notification center state
   const [notifications, setNotifications] = useState<any[]>([])
@@ -244,7 +258,7 @@ export function AppShell({
       <RouteProgress />
       {/* ── Global Workspace Top Bar (Reference Match) ── */}
       <GlobalWorkspaceHeader
-        user={user}
+        user={shellUser}
         branding={branding}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -270,6 +284,8 @@ export function AppShell({
         onOpenHelp={() => setShortcutOpen(true)}
         avatarRef={avatarRef}
         onOpenProfile={() => setMenuOpen(true)}
+        onOpenMyProfile={() => setProfileModalOpen(true)}
+        onLogout={logout}
         pathname={pathname}
       />
 
@@ -283,10 +299,18 @@ export function AppShell({
       <StartMenu
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
-        user={user}
+        user={shellUser}
         onLogout={logout}
+        onOpenMyProfile={() => setProfileModalOpen(true)}
         triggerRef={startBtnRef}
         menuRef={menuRef}
+      />
+
+      {/* ── Staff Self-Service Profile Modal ── */}
+      <StaffProfileModal
+        open={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        onProfileUpdated={handleProfileUpdated}
       />
       {/* E2E verification reference contracts */}
       {false && filteredTiles.map((n) => n.key)}

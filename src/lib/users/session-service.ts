@@ -68,8 +68,9 @@ export class SessionService {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
 
     try {
-      return await db.userSession.create({
-        data: {
+      return await db.userSession.upsert({
+        where: { tokenHash },
+        create: {
           userId: params.userId,
           tenantId: params.tenantId ?? undefined,
           tokenHash,
@@ -79,6 +80,12 @@ export class SessionService {
           userAgent: meta.userAgent,
           expiresAt,
           status: 'ACTIVE',
+        },
+        update: {
+          status: 'ACTIVE',
+          expiresAt,
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
         },
       })
     } catch (err: any) {

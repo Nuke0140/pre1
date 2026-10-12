@@ -4,6 +4,7 @@ import { UserStatus, Prisma } from '@prisma/client'
 import { SessionService } from '@/lib/users/session-service'
 import { PermissionCache } from '@/lib/cache/permission-cache'
 import { NextRequest } from 'next/server'
+import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
 
 export type LifecycleActionType =
   | 'activate'
@@ -244,8 +245,9 @@ export class UserLifecycleService {
     }
 
     const previousStatus = member.status as string
+    const userGlobalStatus = (member.user as any)?.status as string | undefined
 
-    if (previousStatus === targetStatus) {
+    if (previousStatus === targetStatus && (!userGlobalStatus || userGlobalStatus === targetStatus)) {
       return {
         success: true,
         userId: member.userId,
@@ -317,6 +319,12 @@ export class UserLifecycleService {
       actorSession.tenantId,
       isGlobal || isPlatformAdmin
     )
+
+    // Clear failed login attempts tracker on account activation or unlock
+    if (targetStatus === 'ACTIVE') {
+      await resetPersistentFailedAttempts(member.userId)
+      resetFailedAttempts(member.userId, (member.user as any)?.email, (member.user as any)?.username)
+    }
 
     // Record canonical audit event
     await this.recordLifecycleAudit({

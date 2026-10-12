@@ -9,12 +9,15 @@ import { UserPhotoService } from '@/lib/users/user-photo-service'
  */
 async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const session = await requireApi(req, 'users:write')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
-  const manageCheck = await requireCanManageUser(session, id)
-  if (isResponse(manageCheck)) return manageCheck
+  const isSelf = session.uid === id
+  if (!isSelf) {
+    const manageCheck = await requireCanManageUser(session, id)
+    if (isResponse(manageCheck)) return manageCheck
+  }
 
   try {
     const formData = await req.formData()
@@ -68,12 +71,15 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
  */
 async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const session = await requireApi(req, 'users:write')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
 
-  const manageCheck = await requireCanManageUser(session, id)
-  if (isResponse(manageCheck)) return manageCheck
+  const isSelf = session.uid === id
+  if (!isSelf) {
+    const manageCheck = await requireCanManageUser(session, id)
+    if (isResponse(manageCheck)) return manageCheck
+  }
 
   try {
     const actor = {
