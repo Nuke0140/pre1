@@ -162,6 +162,7 @@ export default function FeesPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [parentChildren, setParentChildren] = useState<ChildFeeProfile[]>([])
   const [selectedChildIndex, setSelectedChildIndex] = useState(0)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -311,12 +312,16 @@ export default function FeesPage() {
   // Load Main Data
   const loadData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       if (userRole === 'PARENT' || userRole === 'GUARDIAN') {
         const res = await fetch('/api/v1/parent/fees')
         if (res.ok) {
           const d = await res.json()
           setParentChildren(d.data || [])
+        } else {
+          const d = await res.json().catch(() => null)
+          setLoadError(d?.error?.message || 'Failed to load parent fee data')
         }
       } else {
         const [structRes, depRes, payRes, schedRes] = await Promise.all([
@@ -326,24 +331,38 @@ export default function FeesPage() {
           fetch('/api/v1/fee-schedules'),
         ])
 
+        const errors: string[] = []
         if (structRes.ok) {
           const d = await structRes.json()
           setStructures(d.data || [])
+        } else {
+          errors.push('Fee structures')
         }
         if (depRes.ok) {
           const d = await depRes.json()
           setDeposits(d.data || [])
+        } else {
+          errors.push('Deposits')
         }
         if (payRes.ok) {
           const d = await payRes.json()
           setPayments(d.data || [])
+        } else {
+          errors.push('Payments')
         }
         if (schedRes && schedRes.ok) {
           const d = await schedRes.json()
           setSchedules(d.data || [])
+        } else if (schedRes && !schedRes.ok) {
+          errors.push('Fee schedules')
+        }
+
+        if (errors.length > 0) {
+          setLoadError(`Failed to load data for: ${errors.join(', ')}. Please retry.`)
         }
       }
     } catch (e: any) {
+      setLoadError(e.message || 'Failed to communicate with finance service')
       toast.error(e.message || 'Failed to load fee records')
     } finally {
       setLoading(false)
@@ -881,6 +900,26 @@ export default function FeesPage() {
         }
       />
 
+      {/* Finance Data Loading Error Alert */}
+      {loadError && (
+        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="size-5 text-rose-600 dark:text-rose-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Unable to load finance data</p>
+              <p className="text-xs text-rose-700 dark:text-rose-300">{loadError}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => loadData()}
+            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
+          >
+            <RefreshCw className="size-3.5" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
       {/* Admin Top KPI Banner */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiTile
@@ -995,7 +1034,23 @@ export default function FeesPage() {
             </div>
           )}
 
-          {!(structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length) ? (
+          {loadError && structures.length === 0 ? (
+            <div className="p-8 text-center space-y-3 bg-white dark:bg-slate-900 rounded-2xl border border-rose-200 dark:border-rose-900/60 shadow-xs">
+              <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+                <AlertCircle className="size-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Failed to Load Fee Structures</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{loadError}</p>
+              <button
+                type="button"
+                onClick={() => loadData()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-sm hover:bg-indigo-700 transition-colors"
+              >
+                <RefreshCw className="size-3.5" />
+                <span>Retry</span>
+              </button>
+            </div>
+          ) : !(structures.filter((s) => selectedBranchFilter === 'ALL' || !s.branchId || s.branchId === selectedBranchFilter).length) ? (
             <EmptyState
               icon={<Sparkles className="size-8 text-indigo-500" />}
               title="No Fee Structures Found"

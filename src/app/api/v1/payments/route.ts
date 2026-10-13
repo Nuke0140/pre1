@@ -43,8 +43,8 @@ async function _GET(req: NextRequest) {
       payments.map((p) => ({
         id: p.id,
         paymentNumber: p.paymentNumber,
-        amountCents: p.amountCents,
-        amountRupees: (p.amountCents / 100).toFixed(2),
+        amountCents: p.amountCents ?? 0,
+        amountRupees: ((p.amountCents ?? 0) / 100).toFixed(2),
         method: p.method,
         status: p.status,
         transactionRef: p.transactionRef,

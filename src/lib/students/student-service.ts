@@ -65,7 +65,8 @@ export class StudentService {
   static async verifyScope(
     tenantId: string,
     branchId?: string | null,
-    academicSessionId?: string | null
+    academicSessionId?: string | null,
+    options: { requireSession?: boolean } = {}
   ) {
     if (!tenantId) throw new Error('Tenant context is required')
 
@@ -93,14 +94,14 @@ export class StudentService {
       })
     }
 
-    if (!session) {
+    if (!session && options.requireSession) {
       throw new Error('Active academic session is required. Configure an academic year in Setup first.')
     }
 
     return {
       tenantId,
       branchId: branchId || null,
-      academicSessionId: session.id as string,
+      academicSessionId: session ? (session.id as string) : null,
       session,
     }
   }
@@ -142,7 +143,7 @@ export class StudentService {
    * List students with multi-dimensional filtering, search and server-side pagination
    */
   static async listStudents(ctx: ScopeContext, filters: StudentFilterOptions = {}) {
-    const scope = await this.verifyScope(ctx.tenantId, filters.branchId || ctx.branchId, filters.academicSessionId || ctx.academicSessionId)
+    const scope = await this.verifyScope(ctx.tenantId, filters.branchId || ctx.branchId, filters.academicSessionId || ctx.academicSessionId, { requireSession: false })
     const page = Math.max(1, filters.page || 1)
     const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20))
     const search = filters.search?.trim()
@@ -157,6 +158,13 @@ export class StudentService {
 
     if (filters.programType) {
       where.currentClassroom = { programType: filters.programType }
+    }
+
+    if (filters.academicSessionId) {
+      where.currentClassroom = {
+        ...(where.currentClassroom || {}),
+        academicSessionId: filters.academicSessionId,
+      }
     }
 
     if (search) {
@@ -211,7 +219,7 @@ export class StudentService {
                 select: { id: true, fullName: true, phone: true, email: true, relationship: true, userId: true },
               },
             },
-            where: { isPrimary: true },
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
             take: 1,
           },
           attendances: {
@@ -237,9 +245,9 @@ export class StudentService {
       const presentDays = s.attendances.filter((a) => ['PRESENT', 'LATE', 'HALF_DAY'].includes(a.status)).length
       const attendancePct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 100
 
-      const totalBilledCents = s.invoices.reduce((acc, i) => acc + i.totalCents, 0)
-      const totalPaidCents = s.invoices.reduce((acc, i) => acc + i.paidCents, 0)
-      const balanceCents = s.invoices.reduce((acc, i) => acc + i.balanceCents, 0)
+      const totalBilledCents = s.invoices.reduce((acc, i) => acc + (i.totalCents || 0), 0)
+      const totalPaidCents = s.invoices.reduce((acc, i) => acc + (i.paidCents || 0), 0)
+      const balanceCents = s.invoices.reduce((acc, i) => acc + (i.balanceCents || 0), 0)
 
       return {
         id: s.id,
@@ -2033,12 +2041,18 @@ export class StudentService {
    * Real-time non-hardcoded operational dashboard metrics for Students module
    */
   static async getStudentDashboardStats(ctx: ScopeContext, filters?: { branchId?: string; academicSessionId?: string }) {
-    const scope = await this.verifyScope(ctx.tenantId, filters?.branchId || ctx.branchId, filters?.academicSessionId || ctx.academicSessionId)
+    const scope = await this.verifyScope(ctx.tenantId, filters?.branchId || ctx.branchId, filters?.academicSessionId || ctx.academicSessionId, { requireSession: false })
 
-    const baseWhere = {
+    const baseWhere: any = {
       tenantId: scope.tenantId,
       deletedAt: null,
       ...(filters?.branchId ? { branchId: filters.branchId } : {}),
+    }
+
+    if (filters?.academicSessionId) {
+      baseWhere.currentClassroom = {
+        academicSessionId: filters.academicSessionId,
+      }
     }
 
     const [total, active, transferred, withdrawn, classrooms, programs, recentAdmissions] = await Promise.all([
@@ -2047,7 +2061,12 @@ export class StudentService {
       db.student.count({ where: { ...baseWhere, status: 'TRANSFERRED' } }),
       db.student.count({ where: { ...baseWhere, status: 'INACTIVE' } }),
       db.classroom.findMany({
-        where: { tenantId: scope.tenantId, isActive: true },
+        where: {
+          tenantId: scope.tenantId,
+          isActive: true,
+          ...(filters?.branchId ? { branchId: filters.branchId } : {}),
+          ...(filters?.academicSessionId ? { academicSessionId: filters.academicSessionId } : {}),
+        },
         select: {
           id: true,
           name: true,
