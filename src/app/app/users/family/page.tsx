@@ -170,7 +170,7 @@ export default function FamilyUsersPage() {
   const parentColumns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: 'Parent Identity',
+      header: t('users.parentIdentity'),
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
@@ -179,7 +179,7 @@ export default function FamilyUsersPage() {
             <div
               className="font-semibold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer text-sm truncate"
               onClick={() => setViewingUser(u)}
-              title="View 360 profile"
+              title={t('users.view360Profile')}
             >
               {u.name}
             </div>
@@ -192,11 +192,11 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'children',
-      header: 'Linked Students',
+      header: t('users.linkedStudents'),
       render: (u) => {
         const children = u.guardianProfile?.students || []
         if (children.length === 0) {
-          return <span className="text-xs text-gray-400 italic">No linked students</span>
+          return <span className="text-xs text-gray-400 italic">{t('users.noLinkedStudents')}</span>
         }
         return (
           <div className="space-y-1">
@@ -213,7 +213,7 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'email',
-      header: 'Contact Details',
+      header: t('users.contactDetails'),
       render: (u) => (
         <div className="text-xs space-y-1">
           {u.email ? (
@@ -224,7 +224,7 @@ export default function FamilyUsersPage() {
           ) : (
             <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-              <span>No email address</span>
+              <span>{t('users.noEmailAddress')}</span>
             </div>
           )}
           {u.phone && (
@@ -238,43 +238,43 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'financials',
-      header: 'Fee Visibility',
+      header: t('users.feeVisibility'),
       render: () => (
         <span className="badge b-success text-xs font-medium">
-          Fee Payer
+          {t('users.feePayer')}
         </span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('common.status'),
       sortable: true,
       render: (u) => <StatusBadge status={u.status} />,
     },
     {
       key: 'lastLoginAt',
-      header: 'Last Portal Login',
+      header: t('users.lastPortalLogin'),
       render: (u) => (
         <span className="text-xs text-gray-500 flex items-center gap-1">
           <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}</span>
+          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}</span>
         </span>
       ),
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: t('common.actions'),
       align: 'right',
       render: (u) => (
         <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={<Eye size={15} />}
-            label="View 360 Profile"
+            label={t('users.view360Profile')}
             onClick={() => setViewingUser(u)}
           />
           <IconButton
             icon={<Edit3 size={15} />}
-            label="Edit Parent"
+            label={t('users.editParent')}
             onClick={() => setEditingUser(u)}
           />
           <DropdownMenu>
@@ -282,8 +282,8 @@ export default function FamilyUsersPage() {
               <button
                 type="button"
                 className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title="More Actions"
-                aria-label="More Actions"
+                title={t('common.moreActions')}
+                aria-label={t('common.moreActions')}
               >
                 <MoreHorizontal size={15} />
               </button>
@@ -294,7 +294,7 @@ export default function FamilyUsersPage() {
                 onClick={() => setEditingUser(u)}
               >
                 <Edit3 size={14} className="text-amber-600" />
-                <span>Individual Edit</span>
+                <span>{t('users.individualEdit')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
@@ -304,14 +304,14 @@ export default function FamilyUsersPage() {
                 }}
               >
                 <Layers size={14} className="text-purple-600" />
-                <span>Bulk Edit / Update</span>
+                <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setViewingUser(u)}
               >
                 <Eye size={14} className="text-slate-500" />
-                <span>View 360 Profile</span>
+                <span>{t('users.view360Profile')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -324,7 +324,7 @@ export default function FamilyUsersPage() {
   const guardianColumns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: 'Authorized Guardian',
+      header: t('users.authorizedGuardian'),
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
@@ -333,7 +333,7 @@ export default function FamilyUsersPage() {
             <div
               className="font-semibold text-gray-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer text-sm truncate"
               onClick={() => setViewingUser(u)}
-              title="View 360 profile"
+              title={t('users.view360Profile')}
             >
               {u.name}
             </div>
@@ -346,11 +346,11 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'children',
-      header: 'Authorized Linked Child',
+      header: t('users.authorizedLinkedChild'),
       render: (u) => {
         const children = u.guardianProfile?.students || []
         if (children.length === 0) {
-          return <span className="text-xs text-gray-400 italic">No linked children</span>
+          return <span className="text-xs text-gray-400 italic">{t('users.noLinkedChildren')}</span>
         }
         return (
           <div className="space-y-1">
@@ -367,7 +367,7 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'pickup',
-      header: 'Pickup Security',
+      header: t('users.pickupSecurity'),
       render: (u) => {
         const children = u.guardianProfile?.students || []
         const canPickup = children.some((c) => c.canPickup)
@@ -375,11 +375,11 @@ export default function FamilyUsersPage() {
         return (
           <div className="flex items-center gap-1.5">
             <span className={`badge text-xs ${canPickup ? 'b-success' : 'b-neutral'}`}>
-              {canPickup ? 'Authorized' : 'Restricted'}
+              {canPickup ? t('users.authorized') : t('users.restricted')}
             </span>
             {hasPin && (
               <span className="badge b-purple font-mono text-[10px]">
-                PIN Set
+                {t('users.pinSet')}
               </span>
             )}
           </div>
@@ -388,7 +388,7 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'email',
-      header: 'Contact Details',
+      header: t('users.contactDetails'),
       render: (u) => (
         <div className="text-xs space-y-1">
           {u.email ? (
@@ -399,7 +399,7 @@ export default function FamilyUsersPage() {
           ) : (
             <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-              <span>No email address</span>
+              <span>{t('users.noEmailAddress')}</span>
             </div>
           )}
           {u.phone && (
@@ -413,34 +413,34 @@ export default function FamilyUsersPage() {
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('common.status'),
       sortable: true,
       render: (u) => <StatusBadge status={u.status} />,
     },
     {
       key: 'lastLoginAt',
-      header: 'Last Active',
+      header: t('users.lastActive'),
       render: (u) => (
         <span className="text-xs text-gray-500 flex items-center gap-1">
           <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}</span>
+          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}</span>
         </span>
       ),
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: t('common.actions'),
       align: 'right',
       render: (u) => (
         <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={<Eye size={15} />}
-            label="View 360 Profile"
+            label={t('users.view360Profile')}
             onClick={() => setViewingUser(u)}
           />
           <IconButton
             icon={<Edit3 size={15} />}
-            label="Edit Guardian"
+            label={t('users.editGuardian')}
             onClick={() => setEditingUser(u)}
           />
           <DropdownMenu>
@@ -448,8 +448,8 @@ export default function FamilyUsersPage() {
               <button
                 type="button"
                 className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title="More Actions"
-                aria-label="More Actions"
+                title={t('common.moreActions')}
+                aria-label={t('common.moreActions')}
               >
                 <MoreHorizontal size={15} />
               </button>
@@ -460,7 +460,7 @@ export default function FamilyUsersPage() {
                 onClick={() => setEditingUser(u)}
               >
                 <Edit3 size={14} className="text-amber-600" />
-                <span>Individual Edit</span>
+                <span>{t('users.individualEdit')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
@@ -470,14 +470,14 @@ export default function FamilyUsersPage() {
                 }}
               >
                 <Layers size={14} className="text-purple-600" />
-                <span>Bulk Edit / Update</span>
+                <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setViewingUser(u)}
               >
                 <Eye size={14} className="text-slate-500" />
-                <span>View 360 Profile</span>
+                <span>{t('users.view360Profile')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -516,14 +516,13 @@ export default function FamilyUsersPage() {
             <GlobalActionMenu
               label={t('common.actions') || 'Actions'}
               groups={[
-                { id: 'data', label: 'Data Operations', helperText: 'माहिती देवाणघेवाण' },
-                { id: 'management', label: 'Management', helperText: 'व्यवस्थापन' },
+                { id: 'data', label: t('users.dataOperations') || 'Data Operations' },
+                { id: 'management', label: t('users.management') || 'Management' },
               ]}
               actions={[
                 {
                   id: 'roles',
                   label: t('users.rolesDirectory'),
-                  helperText: 'भूमिका आणि प्रवेश निर्देशिका',
                   icon: <Shield />,
                   category: 'settings',
                   groupId: 'management',
@@ -532,7 +531,6 @@ export default function FamilyUsersPage() {
                 {
                   id: 'import-csv',
                   label: t('users.importFamilyCsv'),
-                  helperText: 'कुटुंब यादी आयात करा',
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
@@ -540,8 +538,7 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'export-csv',
-                  label: `${t('common.export')} CSV`,
-                  helperText: 'पालकांची यादी डाउनलोड करा',
+                  label: t('users.exportFamilyCsv') || `${t('common.export')} CSV`,
                   icon: <Download />,
                   category: 'export',
                   groupId: 'data',
@@ -550,8 +547,7 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'individual-edit',
-                  label: 'Individual Edit',
-                  helperText: 'विशिष्ट पालक संपादन',
+                  label: t('users.individualEdit') || 'Individual Edit',
                   icon: <Edit3 />,
                   category: 'edit',
                   groupId: 'management',
@@ -572,8 +568,7 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'bulk-update',
-                  label: 'Bulk Field Update',
-                  helperText: 'एकाच वेळी माहिती अपडेट करा',
+                  label: t('users.bulkFieldUpdate') || 'Bulk Field Update',
                   icon: <Layers />,
                   category: 'edit',
                   groupId: 'management',
@@ -581,8 +576,7 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'upload-photos',
-                  label: 'Upload Photos',
-                  helperText: 'पालकांचे फोटो अपलोड करा',
+                  label: t('users.uploadPhotos') || 'Upload Photos',
                   icon: <Camera />,
                   category: 'import',
                   groupId: 'management',
@@ -590,8 +584,7 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'zip-photos',
-                  label: t('users.bulkPhotoUpload'),
-                  helperText: 'झिप फाइलमधून फोटो अपलोड',
+                  label: t('users.bulkPhotoUpload') || 'Bulk Profile Photo Upload',
                   icon: <Image />,
                   category: 'import',
                   groupId: 'management',
@@ -609,7 +602,7 @@ export default function FamilyUsersPage() {
               className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ {t('users.addFamily') || 'Add Family Member'}</span>
+              <span>+ {t('users.addFamily')}</span>
             </button>
           </div>
         }
@@ -655,35 +648,35 @@ export default function FamilyUsersPage() {
         {activeTab === 'PARENTS' ? (
           <>
             <KpiTile
-              label="Security Policy"
-              value="Max 2 Parents"
+              label={t('users.securityPolicy')}
+              value={t('users.max2Parents')}
               icon={<Lock />}
               iconClass="ic-purple"
               variant="compact"
             />
             <KpiTile
-              label="Total Parents"
+              label={t('users.totalParents')}
               value={parentCount}
               icon={<User />}
               iconClass="ic-blue"
               variant="compact"
             />
             <KpiTile
-              label="Linked Students"
+              label={t('users.linkedStudents')}
               value={kpis.linkedChildrenTotal}
               icon={<Baby />}
               iconClass="ic-green"
               variant="compact"
             />
             <KpiTile
-              label="Fee Visibility"
-              value="Fee Payers"
+              label={t('users.feeVisibility')}
+              value={t('users.feePayers')}
               icon={<CheckCircle2 />}
               iconClass="ic-orange"
               variant="compact"
             />
             <KpiTile
-              label="Multi-Child Parents"
+              label={t('users.multiChildParents')}
               value={kpis.multiChildCount}
               icon={<Users />}
               iconClass="ic-teal"
@@ -693,41 +686,41 @@ export default function FamilyUsersPage() {
         ) : (
           <>
             <KpiTile
-              label="Security Policy"
-              value="Gate Escort"
-              meta="Zero financial access"
+              label={t('users.securityPolicy')}
+              value={t('users.gateEscort')}
+              meta={t('users.zeroFinancialAccess')}
               icon={<Shield />}
               iconClass="ic-amber"
               variant="compact"
             />
             <KpiTile
-              label="Total Guardians"
+              label={t('users.totalGuardians')}
               value={guardianCount}
-              meta="Authorized pickup escorts"
+              meta={t('users.authorizedPickupEscorts')}
               icon={<Shield />}
               iconClass="ic-orange"
               variant="compact"
             />
             <KpiTile
-              label="Gate Clearance"
+              label={t('users.gateClearance')}
               value={kpis.authorizedPickupTotal}
-              meta="Authorized for pickup"
+              meta={t('users.authorizedForPickup')}
               icon={<CheckCircle2 />}
               iconClass="ic-green"
               variant="compact"
             />
             <KpiTile
-              label="Gate PIN Set"
+              label={t('users.gatePinSet')}
               value={kpis.pinSetTotal}
-              meta="Cryptographic PIN set"
+              meta={t('users.cryptographicPinSet')}
               icon={<KeyRound />}
               iconClass="ic-purple"
               variant="compact"
             />
             <KpiTile
-              label="Privacy Shield"
-              value="Strict"
-              meta="Zero billing/grade access"
+              label={t('users.privacyShield')}
+              value={t('users.privacyStrict')}
+              meta={t('users.zeroBillingAccess')}
               icon={<Lock />}
               iconClass="ic-blue"
               variant="compact"
@@ -743,7 +736,7 @@ export default function FamilyUsersPage() {
             setSearch(val)
             setPage(1)
           },
-          placeholder: `Search ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} name, child, admission no...`,
+          placeholder: activeTab === 'PARENTS' ? t('users.searchParentPlaceholder') : t('users.searchGuardianPlaceholder'),
           shortcut: '⌘K',
         }}
         filters={[
@@ -876,21 +869,21 @@ export default function FamilyUsersPage() {
                   onClick={() => setBulkFieldUpdateOpen(true)}
                 >
                   <Layers size={14} />
-                  <span>Bulk Update Field ({selectedKeys.length})</span>
+                  <span>{t('users.bulkFieldUpdate')} ({selectedKeys.length})</span>
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
                   onClick={() => setBulkActionModalOpen(true)}
                 >
-                  <span>More Actions</span>
+                  <span>{t('common.moreActions')}</span>
                 </button>
               </div>
             ) : null
           }
           emptyIcon={<EmptyUsersIllustration size={120} />}
-          emptyTitle={`No ${activeTab === 'PARENTS' ? 'parents' : 'guardians'} found`}
-          emptyMessage={`No ${activeTab === 'PARENTS' ? 'parent' : 'guardian'} accounts match your selected campus branch, status, or search query.`}
+          emptyTitle={activeTab === 'PARENTS' ? t('users.noParentsFound') : t('users.noGuardiansFound')}
+          emptyMessage={activeTab === 'PARENTS' ? t('users.noParentsMessage') : t('users.noGuardiansMessage')}
         />
 
         {/* Pagination Strip */}
@@ -899,8 +892,8 @@ export default function FamilyUsersPage() {
           style={{ background: 'var(--bg-subtle)' }}
         >
           <span className="text-center sm:text-left">
-            Showing {users.length > 0 ? (page - 1) * pageSize + 1 : 0} to{' '}
-            {Math.min(page * pageSize, total)} of {total} {activeTab.toLowerCase()}
+            {t('table.showing')} {users.length > 0 ? (page - 1) * pageSize + 1 : 0} {t('table.of')}{' '}
+            {Math.min(page * pageSize, total)} {t('table.of')} {total} {activeTab === 'PARENTS' ? t('users.parentsTab', { count: total }) : t('users.guardiansTab', { count: total })}
           </span>
           <div className="flex items-center gap-1.5">
             <button
@@ -909,7 +902,7 @@ export default function FamilyUsersPage() {
               onClick={() => setPage((p) => p - 1)}
               className="btn btn-secondary text-xs px-2.5 py-1"
             >
-              Previous
+              {t('common.prev')}
             </button>
             <span className="w-7 h-7 rounded-md font-semibold text-xs flex items-center justify-center bg-purple-600 text-white">
               {page}
@@ -920,7 +913,7 @@ export default function FamilyUsersPage() {
               onClick={() => setPage((p) => p + 1)}
               className="btn btn-secondary text-xs px-2.5 py-1"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>

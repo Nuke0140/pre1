@@ -149,9 +149,12 @@ export function BottomNav({
         (n) => n.key !== homeItem.key && n.key !== appsItem.key
       ).slice(0, 3)
       for (const item of remaining) {
+        const localizedLabel = (item.key && t(`nav.${item.key}` as any) !== `nav.${item.key}`)
+          ? t(`nav.${item.key}` as any)
+          : item.label
         right.push({
           key: item.key,
-          label: item.label,
+          label: localizedLabel,
           href: item.href,
           icon: item.icon,
         })
@@ -159,7 +162,7 @@ export function BottomNav({
     }
 
     return { leftItems: left, rightItems: right }
-  }, [nav])
+  }, [nav, t])
 
   const isItemActive = (href: string) => {
     if (href === '/app/home') return pathname === '/app/home' || pathname === '/app'

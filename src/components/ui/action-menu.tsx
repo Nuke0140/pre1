@@ -19,6 +19,7 @@ import {
 import { SEMANTIC_CATEGORY_STYLES } from './action-menu.tokens'
 import { ChevronDown, Loader2, LayoutGrid } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useI18n } from '@/lib/i18n'
 
 export * from './action-menu.types'
 export * from './action-menu.tokens'
@@ -30,7 +31,7 @@ export * from './action-menu.tokens'
  * - Refined, compact 'Actions' toolbar trigger with subtle border and chevron
  * - High-contrast floating dropdown surface with specular highlights
  * - Semantic icon badge backgrounds (export green, import purple, settings amber, audit slate)
- * - Clear primary English label + optional Marathi helper text
+ * - Clear primary label with optional localized helper text
  * - Grouped sections with subtle dividers
  * - Role and permission-aware filtering
  * - Loading, disabled, and keyboard navigation support
@@ -51,6 +52,10 @@ export function GlobalActionMenu({
   userRole,
   hasPermission,
 }: GlobalActionMenuProps) {
+  const { locale } = useI18n()
+  const isEnglish = locale === 'en-IN'
+  const containsDevanagari = (text?: string) => Boolean(text && /[\u0900-\u097F]/.test(text))
+
   // 1. Filter actions by visibility and permissions
   const filteredActions = React.useMemo(() => {
     return actions.filter((act) => {
@@ -65,11 +70,6 @@ export function GlobalActionMenu({
       return true
     })
   }, [actions, hasPermission])
-
-  // If all actions are filtered out, do not render trigger unless explicitly disabled
-  if (filteredActions.length === 0 && !disabled) {
-    return null
-  }
 
   // 2. Partition actions into groups or flat list
   const structuredSections = React.useMemo(() => {
@@ -104,6 +104,11 @@ export function GlobalActionMenu({
 
     return sections
   }, [filteredActions, groups])
+
+  // If all actions are filtered out, do not render trigger unless explicitly disabled
+  if (filteredActions.length === 0 && !disabled) {
+    return null
+  }
 
   // Trigger size styles
   const sizeStyles = {
@@ -164,7 +169,7 @@ export function GlobalActionMenu({
               {section.group?.label && (
                 <DropdownMenuLabel className="px-3 py-1.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase flex items-center justify-between">
                   <span>{section.group.label}</span>
-                  {section.group.helperText && (
+                  {section.group.helperText && !(isEnglish && containsDevanagari(section.group.helperText)) && (
                     <span className="text-[9.5px] font-normal normal-case opacity-75">
                       {section.group.helperText}
                     </span>
@@ -210,8 +215,8 @@ export function GlobalActionMenu({
                         {action.label}
                       </div>
 
-                      {/* Optional Marathi helper text */}
-                      {action.helperText && (
+                      {/* Optional helper text (suppressed if Devanagari in English mode) */}
+                      {action.helperText && !(isEnglish && containsDevanagari(action.helperText)) && (
                         <div className="text-[11px] text-muted-foreground leading-normal mt-0.5 font-normal truncate">
                           {action.helperText}
                         </div>

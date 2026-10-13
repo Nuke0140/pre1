@@ -20,11 +20,17 @@ export async function PATCH(req: NextRequest) {
 
     const normLocale = normalizeLocale(locale)
 
-    // Update user locale in database
-    await db.user.update({
-      where: { id: session.uid },
-      data: { locale: normLocale },
-    })
+    // Update user locale in database if user exists
+    if (session.uid) {
+      try {
+        await db.user.update({
+          where: { id: session.uid },
+          data: { locale: normLocale },
+        })
+      } catch (dbErr) {
+        console.warn('[locale-update] Failed to update user record in DB:', dbErr)
+      }
+    }
 
     // Also set locale cookie for immediate server-side rendering
     const cookieStore = await cookies()

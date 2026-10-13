@@ -16,9 +16,9 @@ export type SemanticActionCategory =
 export interface ActionItem {
   /** Stable unique identifier for the action */
   id: string
-  /** Primary label in English */
+  /** Primary display label */
   label: string
-  /** Optional concise Marathi helper text */
+  /** Optional secondary helper text or description */
   helperText?: string
   /** Icon element (e.g. from Lucide) */
   icon?: React.ReactNode
@@ -55,7 +55,7 @@ export interface ActionGroup {
   id: string
   /** Group section header title (e.g. 'Data Operations') */
   label?: string
-  /** Group section Marathi helper / subtitle */
+  /** Group section secondary helper / subtitle */
   helperText?: string
 }
 

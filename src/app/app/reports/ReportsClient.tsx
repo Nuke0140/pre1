@@ -796,7 +796,6 @@ export default function ReportsClient() {
                 {
                   id: 'export-csv',
                   label: 'Export as CSV',
-                  helperText: 'स्प्रेडशीट डेटा (CSV)',
                   icon: <Download />,
                   category: 'export',
                   onClick: () => handleExport('CSV'),
@@ -804,7 +803,6 @@ export default function ReportsClient() {
                 {
                   id: 'export-xlsx',
                   label: 'Export as Excel (XLSX)',
-                  helperText: 'एक्सेल फाइल फॉरमॅट',
                   icon: <FileSpreadsheet />,
                   category: 'export',
                   onClick: () => handleExport('XLSX'),

@@ -4,8 +4,9 @@ import { db } from '@/lib/db'
 import { AppShell } from '@/components/shell/AppShell'
 import { ToastProvider } from '@/components/preone/Toast'
 import { getEffectiveBranding } from '@/lib/branding-service'
+import { cookies } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n/context'
-import { normalizeLocale } from '@/lib/i18n/types'
+import { normalizeLocale, isSupportedLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
@@ -15,14 +16,22 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let tenantName = 'PreOne'
   let branchName: string | null = null
   let branding = undefined
-  let initialLocale = 'en-IN'
+  let initialLocale = DEFAULT_LOCALE
 
   const user = await db.user.findUnique({
     where: { id: session.uid },
     select: { locale: true, fullName: true, avatarUrl: true },
   })
-  if (user?.locale) {
-    initialLocale = user.locale
+  if (user?.locale && isSupportedLocale(user.locale)) {
+    initialLocale = normalizeLocale(user.locale)
+  } else {
+    const cookieStore = await cookies()
+    const cookieLocale = cookieStore.get('preone_locale')?.value
+    if (cookieLocale && isSupportedLocale(cookieLocale)) {
+      initialLocale = normalizeLocale(cookieLocale)
+    } else {
+      initialLocale = DEFAULT_LOCALE
+    }
   }
 
   if (session.tenantId) {
@@ -32,10 +41,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
     branding = await getEffectiveBranding(session.tenantId)
     tenantName = branding?.schoolName || tenant.name || 'PreOne'
-
-    if (!user?.locale && tenant.locale) {
-      initialLocale = tenant.locale
-    }
 
     if (session.branchId) {
       const branch = await db.branch.findUnique({ where: { id: session.branchId } })
