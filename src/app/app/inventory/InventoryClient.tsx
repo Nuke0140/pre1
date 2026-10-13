@@ -1134,9 +1134,9 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           display: 'flex',
           gap: 6,
           padding: 6,
-          background: 'var(--surface-card, #ffffff)',
-          border: '1px solid var(--border-default, #e2e8f0)',
-          borderRadius: 'var(--radius-lg, 16px)',
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--elevation-1)',
           overflowX: 'auto',
           scrollbarWidth: 'none',
@@ -1337,13 +1337,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               {/* RECENT CLASSROOM & STUDENT DISTRIBUTIONS */}
               <div
                 className="card"
-                style={{
-                  padding: 18,
-                  borderRadius: 'var(--radius-lg, 16px)',
-                  border: '1px solid var(--border-default, #e2e8f0)',
-                  background: 'var(--surface-card, #ffffff)',
-                  boxShadow: 'var(--elevation-1)',
-                }}
+                style={{ padding: 18 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                   <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1362,7 +1356,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 </div>
 
                 {distributions.slice(0, 5).length > 0 ? (
-                  <div style={{ border: '1px solid var(--border-subtle, #eef2f8)', borderRadius: 'var(--radius-md, 10px)', overflow: 'hidden' }}>
+                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 10px)', overflow: 'hidden' }}>
                     <table className="table" style={{ width: '100%', margin: 0, fontSize: '0.82rem' }}>
                       <thead>
                         <tr>
@@ -1414,9 +1408,9 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     style={{
                       padding: '24px 16px',
                       textAlign: 'center',
-                      background: 'var(--bg-subtle, #f8fafd)',
+                      background: 'var(--bg-subtle)',
                       borderRadius: 'var(--radius-md, 12px)',
-                      border: '1px dashed var(--border-default, #e2e8f0)',
+                      border: '1px dashed var(--border-default)',
                     }}
                   >
                     <div
@@ -1457,13 +1451,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               {/* FINANCE PAYABLES SUMMARY */}
               <div
                 className="card"
-                style={{
-                  padding: 18,
-                  borderRadius: 'var(--radius-lg, 16px)',
-                  border: '1px solid var(--border-default, #e2e8f0)',
-                  background: 'var(--surface-card, #ffffff)',
-                  boxShadow: 'var(--elevation-1)',
-                }}
+                style={{ padding: 18 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <h3 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1482,25 +1470,25 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle, #f8fafd)', borderRadius: 10, border: '1px solid var(--border-subtle, #eef2f8)' }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PO Committed</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalPOCommittedCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle, #f8fafd)', borderRadius: 10, border: '1px solid var(--border-subtle, #eef2f8)' }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>GRN Received</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalGRNValueCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle, #f8fafd)', borderRadius: 10, border: '1px solid var(--border-subtle, #eef2f8)' }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Vendor Bills Posted</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalVendorBillsPostedCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle, #f8fafd)', borderRadius: 10, border: '1px solid var(--border-subtle, #eef2f8)' }}>
+                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Net Payable Balance</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--danger, #ef4444)' }}>
                       {inr(reconciliation?.vendorPayableBalanceCents || 0, { compact: true })}
@@ -1542,15 +1530,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Unified Filter Bar Surface */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -1588,19 +1573,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Table Card */}
           <div
-            className="card"
-            style={{
-              overflowX: 'auto',
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              background: 'var(--surface-card, #ffffff)',
-              boxShadow: 'var(--elevation-1)',
-              padding: 0,
-            }}
+            className="card overflow-x-auto !p-0"
           >
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                <tr>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Code</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Category</th>
@@ -1638,7 +1615,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </tr>
                 ) : (
                   filteredItems.map((it) => (
-                    <tr key={it.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                    <tr key={it.id}>
                       <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{it.code}</td>
                       <td style={{ padding: '12px 14px', fontWeight: 500 }}>{it.name}</td>
                       <td style={{ padding: '12px 14px' }}>{it.category?.name || 'Unassigned'}</td>
@@ -1700,10 +1677,10 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             style={{
               display: 'flex',
               gap: 6,
-              background: 'var(--surface-card, #ffffff)',
+              background: 'var(--surface-card)',
               padding: 5,
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-default)',
               boxShadow: 'var(--elevation-1)',
               overflowX: 'auto',
             }}
@@ -1763,15 +1740,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Search & Filter Bar */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -1799,19 +1773,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* VIEW: REQUISITIONS QUEUE */}
           {distSubTab === 'REQUISITIONS' ? (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Request #</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Classroom / Context</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Requested By</th>
@@ -1844,7 +1810,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     </tr>
                   ) : (
                     requests.map((r) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                      <tr key={r.id}>
                         <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{r.requestNumber}</td>
                         <td style={{ padding: '12px 14px' }}>{r.classroom?.name || 'School Operations'}</td>
                         <td style={{ padding: '12px 14px' }}>{r.requestedBy?.name || 'Staff Member'}</td>
@@ -1899,19 +1865,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           ) : (
             /* VIEW: DISTRIBUTION LOGS (ALL, CLASSROOM, STUDENT, DEPT) */
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Issue #</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Type</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Recipient / Destination Context</th>
@@ -1954,7 +1912,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     </tr>
                   ) : (
                     filteredDistributions.map((d) => (
-                      <tr key={d.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                      <tr key={d.id}>
                         <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{d.issueNumber}</td>
                         <td style={{ padding: '12px 14px' }}>
                           <span className={`badge ${d.destinationType === 'STUDENT' ? 'b-purple' : d.destinationType === 'CLASSROOM' ? 'b-blue' : 'b-neutral'}`}>
@@ -2049,12 +2007,9 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 return (
                   <div
                     key={loc.id}
+                    className="card"
                     style={{
                       padding: 16,
-                      background: 'var(--surface-card, #ffffff)',
-                      border: '1px solid var(--border-default, #e2e8f0)',
-                      borderRadius: 'var(--radius-lg, 16px)',
-                      boxShadow: 'var(--elevation-1)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 8,
@@ -2092,15 +2047,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Unified Filter Bar Surface */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -2123,19 +2075,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Live Store Stock Table */}
           <div
-            className="card"
-            style={{
-              overflowX: 'auto',
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              background: 'var(--surface-card, #ffffff)',
-              boxShadow: 'var(--elevation-1)',
-              padding: 0,
-            }}
+            className="card overflow-x-auto !p-0"
           >
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                <tr>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Location</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Code</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
@@ -2178,7 +2122,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </tr>
                 ) : (
                   filteredStocks.map((stk) => (
-                    <tr key={stk.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                    <tr key={stk.id}>
                       <td style={{ padding: '12px 14px', fontWeight: 600 }}>{stk.location?.name} <span style={{ fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--text-muted)' }}>({stk.location?.code})</span></td>
                       <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '0.85rem' }}>{stk.item?.code}</td>
                       <td style={{ padding: '12px 14px', fontWeight: 500 }}>{stk.item?.name}</td>
@@ -2222,15 +2166,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Unified Filter Bar Surface */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -2253,19 +2194,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Purchase Orders Table Card */}
           <div
-            className="card"
-            style={{
-              overflowX: 'auto',
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              background: 'var(--surface-card, #ffffff)',
-              boxShadow: 'var(--elevation-1)',
-              padding: 0,
-            }}
+            className="card overflow-x-auto !p-0"
           >
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                <tr>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>PO #</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Vendor</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Order Date</th>
@@ -2301,7 +2234,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </tr>
                 ) : (
                   filteredOrders.map((po) => (
-                    <tr key={po.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                    <tr key={po.id}>
                       <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{po.poNumber}</td>
                       <td style={{ padding: '12px 14px', fontWeight: 500 }}>{po.vendor?.name}</td>
                       <td style={{ padding: '12px 14px' }}>{fmtDate(po.orderDate)}</td>
@@ -2353,15 +2286,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Unified Filter Bar Surface */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -2384,19 +2314,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* GRN Table Card */}
           <div
-            className="card"
-            style={{
-              overflowX: 'auto',
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              background: 'var(--surface-card, #ffffff)',
-              boxShadow: 'var(--elevation-1)',
-              padding: 0,
-            }}
+            className="card overflow-x-auto !p-0"
           >
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                <tr>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>GRN #</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>PO Reference</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Vendor</th>
@@ -2432,7 +2354,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </tr>
                 ) : (
                   filteredGrns.map((grn) => (
-                    <tr key={grn.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                    <tr key={grn.id}>
                       <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{grn.grnNumber}</td>
                       <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '0.85rem' }}>{grn.purchaseOrder?.poNumber || 'Direct'}</td>
                       <td style={{ padding: '12px 14px', fontWeight: 500 }}>{grn.vendor?.name}</td>
@@ -2474,15 +2396,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Unified Filter Bar Surface */}
           <div
+            className="card"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '10px 14px',
-              background: 'var(--surface-card, #ffffff)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              boxShadow: 'var(--elevation-1)',
               flexWrap: 'wrap',
               gap: 12,
             }}
@@ -2505,19 +2424,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* Vendors Table Card */}
           <div
-            className="card"
-            style={{
-              overflowX: 'auto',
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
-              background: 'var(--surface-card, #ffffff)',
-              boxShadow: 'var(--elevation-1)',
-              padding: 0,
-            }}
+            className="card overflow-x-auto !p-0"
           >
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                <tr>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Vendor Name</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Code</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Contact Person</th>
@@ -2554,7 +2465,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </tr>
                 ) : (
                   filteredVendors.map((v) => (
-                    <tr key={v.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                    <tr key={v.id}>
                       <td style={{ padding: '12px 14px', fontWeight: 600 }}>{v.name}</td>
                       <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '0.85rem' }}>{v.code}</td>
                       <td style={{ padding: '12px 14px' }}>{v.contactPerson || '—'}</td>
@@ -2604,10 +2515,10 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             style={{
               display: 'flex',
               gap: 6,
-              background: 'var(--surface-card, #ffffff)',
+              background: 'var(--surface-card)',
               padding: 5,
-              borderRadius: 'var(--radius-lg, 16px)',
-              border: '1px solid var(--border-default, #e2e8f0)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-default)',
               boxShadow: 'var(--elevation-1)',
               overflowX: 'auto',
             }}
@@ -2670,19 +2581,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* SUB-VIEW 1: STOCK MOVEMENT LEDGER */}
           {reportSubTab === 'LEDGER' && (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Timestamp</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Movement Type</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item</th>
@@ -2709,7 +2612,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     </tr>
                   ) : (
                     movements.map((m) => (
-                      <tr key={m.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                      <tr key={m.id}>
                         <td style={{ padding: '12px 14px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{fmtDate(m.createdAt)}</td>
                         <td style={{ padding: '12px 14px' }}>
                           <span
@@ -2741,19 +2644,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* SUB-VIEW 2: STUDENT-WISE DISTRIBUTION REPORT */}
           {reportSubTab === 'STUDENT_REPORT' && (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Issue #</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Student Name</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Admission No</th>
@@ -2787,7 +2682,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     distributions
                       .filter((d) => d.destinationType === 'STUDENT')
                       .map((d) => (
-                        <tr key={d.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                        <tr key={d.id}>
                           <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{d.issueNumber}</td>
                           <td style={{ padding: '12px 14px', fontWeight: 600 }}>
                             {d.student ? `${d.student.firstName} ${d.student.lastName || ''}`.trim() : d.recipientName || 'Student'}
@@ -2819,13 +2714,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div
                 className="card"
-                style={{
-                  padding: 18,
-                  borderRadius: 'var(--radius-lg, 16px)',
-                  border: '1px solid var(--border-default, #e2e8f0)',
-                  background: 'var(--surface-card, #ffffff)',
-                  boxShadow: 'var(--elevation-1)',
-                }}
+                style={{ padding: 18 }}
               >
                 <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: 14, color: 'var(--text-primary)' }}>
                   Consumption by Destination Category
@@ -2844,8 +2733,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                       key={d.destinationType}
                       style={{
                         padding: 14,
-                        background: 'var(--bg-subtle, #f8fafd)',
-                        border: '1px solid var(--border-subtle, #eef2f8)',
+                        background: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-md, 12px)',
                       }}
                     >
@@ -2860,18 +2749,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
               <div
                 className="card"
-                style={{
-                  overflowX: 'auto',
-                  borderRadius: 'var(--radius-lg, 16px)',
-                  border: '1px solid var(--border-default, #e2e8f0)',
-                  background: 'var(--surface-card, #ffffff)',
-                  boxShadow: 'var(--elevation-1)',
-                  padding: 0,
-                }}
+                style={{ overflowX: 'auto', padding: 0 }}
               >
                 <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                    <tr>
                       <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Classroom</th>
                       <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Total Consumed Value</th>
                     </tr>
@@ -2883,7 +2765,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                       </tr>
                     ) : (
                       analytics.byClassroom.map((c: any) => (
-                        <tr key={c.classroomId} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                        <tr key={c.classroomId}>
                           <td style={{ padding: '12px 14px', fontWeight: 600 }}>{c.classroomName || c.name || c.classroomId}</td>
                           <td style={{ padding: '12px 14px', fontWeight: 700 }}>{inr(c.totalValueCents || 0)}</td>
                         </tr>
@@ -2898,19 +2780,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* SUB-VIEW 4: STAFF & DEPT ISSUE HISTORY */}
           {reportSubTab === 'STAFF_REPORT' && (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Issue #</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Department</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Recipient Staff</th>
@@ -2932,7 +2806,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     distributions
                       .filter((d) => ['STAFF', 'KITCHEN', 'CLEANING', 'FIRST_AID', 'OPERATIONS'].includes(d.destinationType))
                       .map((d) => (
-                        <tr key={d.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                        <tr key={d.id}>
                           <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{d.issueNumber}</td>
                           <td style={{ padding: '12px 14px' }}>
                             <span className="badge b-neutral">{d.destinationType}</span>
@@ -2958,19 +2832,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* SUB-VIEW 5: LOW STOCK WATCHLIST */}
           {reportSubTab === 'LOW_STOCK' && (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Code</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Available Qty</th>
@@ -3000,7 +2866,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                       const reorder = item.reorderPoint ?? 10
                       const shortfall = Math.max(0, reorder - avail)
                       return (
-                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                        <tr key={item.id}>
                           <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{item.code}</td>
                           <td style={{ padding: '12px 14px', fontWeight: 500 }}>{item.name}</td>
                           <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--danger, #ef4444)' }}>{avail} {item.unit?.symbol}</td>
@@ -3034,19 +2900,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {/* SUB-VIEW 6: BATCH EXPIRY */}
           {reportSubTab === 'EXPIRY' && (
             <div
-              className="card"
-              style={{
-                overflowX: 'auto',
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-                padding: 0,
-              }}
+              className="card overflow-x-auto !p-0"
             >
               <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr style={{ background: 'var(--bg-subtle, #f8fafd)', borderBottom: '1px solid var(--border-default, #e2e8f0)' }}>
+                  <tr>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Batch #</th>
                     <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Store Location</th>
@@ -3071,7 +2929,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     </tr>
                   ) : (
                     expiringList.map((stk: any) => (
-                      <tr key={stk.id} style={{ borderBottom: '1px solid var(--border-subtle, #f1f5f9)' }}>
+                      <tr key={stk.id}>
                         <td style={{ padding: '12px 14px', fontWeight: 600 }}>{stk.item?.name} <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>({stk.item?.code})</span></td>
                         <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '0.85rem' }}>{stk.batchNumber || '—'}</td>
                         <td style={{ padding: '12px 14px' }}>{stk.location?.name}</td>
@@ -3092,31 +2950,25 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           {reportSubTab === 'FINANCE' && (
             <div
               className="card"
-              style={{
-                padding: 20,
-                borderRadius: 'var(--radius-lg, 16px)',
-                border: '1px solid var(--border-default, #e2e8f0)',
-                background: 'var(--surface-card, #ffffff)',
-                boxShadow: 'var(--elevation-1)',
-              }}
+              style={{ padding: 20 }}
             >
               <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: 16, color: 'var(--text-primary)' }}>
                 Finance & Vendor Payables Reconciliation
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
-                <div style={{ padding: 16, background: 'var(--bg-subtle, #f8fafd)', border: '1px solid var(--border-subtle, #eef2f8)', borderRadius: 'var(--radius-md, 12px)' }}>
+                <div style={{ padding: 16, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 12px)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Total PO Committed</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>{inr(reconciliation?.totalPOCommittedCents || 0)}</div>
                 </div>
-                <div style={{ padding: 16, background: 'var(--bg-subtle, #f8fafd)', border: '1px solid var(--border-subtle, #eef2f8)', borderRadius: 'var(--radius-md, 12px)' }}>
+                <div style={{ padding: 16, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 12px)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Goods Received Value (GRN)</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>{inr(reconciliation?.totalGRNValueCents || 0)}</div>
                 </div>
-                <div style={{ padding: 16, background: 'var(--bg-subtle, #f8fafd)', border: '1px solid var(--border-subtle, #eef2f8)', borderRadius: 'var(--radius-md, 12px)' }}>
+                <div style={{ padding: 16, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 12px)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Vendor Bills Posted</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>{inr(reconciliation?.totalVendorBillsPostedCents || 0)}</div>
                 </div>
-                <div style={{ padding: 16, background: 'var(--bg-subtle, #f8fafd)', border: '1px solid var(--border-subtle, #eef2f8)', borderRadius: 'var(--radius-md, 12px)' }}>
+                <div style={{ padding: 16, background: 'var(--bg-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 12px)' }}>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Net Vendor Payable</div>
                   <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: 4, color: 'var(--danger, #ef4444)' }}>{inr(reconciliation?.vendorPayableBalanceCents || 0)}</div>
                 </div>

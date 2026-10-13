@@ -18,21 +18,38 @@ export function AuthShell({ children }: AuthShellProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
   useEffect(() => {
-    const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
-    setTheme(currentTheme)
+    const stored = localStorage.getItem('preone_theme') || localStorage.getItem('preone-theme')
+    let isDark = false
+    if (stored === 'dark') {
+      isDark = true
+    } else if (stored === 'light') {
+      isDark = false
+    } else {
+      isDark = document.documentElement.getAttribute('data-theme') === 'dark' || document.documentElement.classList.contains('dark')
+    }
+    setTheme(isDark ? 'dark' : 'light')
   }, [])
 
   const toggleTheme = () => {
     const nextTheme = theme === 'light' ? 'dark' : 'light'
+    
+    // Enable smooth cross-fade transition only during deliberate user toggle
+    document.documentElement.classList.add('theme-transition-active')
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition-active')
+    }, 250)
+
     setTheme(nextTheme)
     document.documentElement.setAttribute('data-theme', nextTheme)
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark')
     try {
+      localStorage.setItem('preone-theme', nextTheme)
       localStorage.setItem('preone_theme', nextTheme)
     } catch {}
   }
 
   return (
-    <div className="auth-shell min-h-screen w-full relative flex flex-col justify-between items-center bg-gradient-to-b from-[#FAF8FF] via-[#F3F5FB] to-[#EBF0F9] dark:from-[#080C14] dark:via-[#0E1422] dark:to-[#080C14] text-slate-800 dark:text-slate-100 overflow-x-hidden selection:bg-purple-500 selection:text-white transition-colors duration-300">
+    <div className="auth-shell min-h-screen w-full relative flex flex-col justify-between items-center text-slate-800 dark:text-slate-100 overflow-x-hidden selection:bg-purple-500 selection:text-white transition-colors duration-300">
       
       {/* Layer 1-4: Subtle Preschool Ambient Visual Background */}
       <AuthBackground />

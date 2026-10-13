@@ -11,6 +11,7 @@ export interface PreOnePlanetMarkProps {
   className?: string
   variant?: 'color' | 'white' | 'monochrome' | 'disabled'
   animated?: boolean
+  animateOrbit?: boolean
 }
 
 /**
@@ -23,6 +24,7 @@ export function PreOnePlanetMark({
   className = '',
   variant = 'color',
   animated = false,
+  animateOrbit = false,
 }: PreOnePlanetMarkProps) {
   // Unique gradient ID prefix to avoid DOM collisions
   const uid = 'po-planet'
@@ -37,7 +39,7 @@ export function PreOnePlanetMark({
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`preone-planet-mark ${animated ? 'animate-planet-hover' : ''} ${className}`}
+      className={`preone-planet-mark ${animated ? 'animate-planet-hover' : ''} ${animateOrbit ? 'animate-orbit-draw' : ''} ${className}`}
       style={{
         display: 'inline-block',
         verticalAlign: 'middle',
@@ -83,6 +85,7 @@ export function PreOnePlanetMark({
       {/* ── 1. Orbital Ring (Back Half: passes behind upper-right planet hemisphere) ── */}
       <g transform="rotate(-31 52 53)">
         <path
+          className="planet-orbit-path-back"
           d="M 14 53 A 40 14 0 0 1 90 53"
           stroke={isWhite ? 'rgba(255, 255, 255, 0.75)' : isDisabled ? '#94A3B8' : `url(#${uid}-ring)`}
           strokeWidth="6"
@@ -105,6 +108,7 @@ export function PreOnePlanetMark({
       {/* ── 3. Orbital Ring (Front Half: passes in front of lower-left planet hemisphere) ── */}
       <g transform="rotate(-31 52 53)">
         <path
+          className="planet-orbit-path-front"
           d="M 90 53 A 40 14 0 0 1 14 53"
           stroke={isWhite ? '#FFFFFF' : isDisabled ? '#94A3B8' : `url(#${uid}-ring)`}
           strokeWidth="6.5"

@@ -13,6 +13,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function ApplicationsPage() {
   const toast = useToast()
@@ -221,6 +222,7 @@ export default function ApplicationsPage() {
       if (res.success) {
         toast.show('All mandatory documents marked as verified', { type: 'success' })
         openInspector(inspector.formId, 'documents')
+        invalidateAdmissionsCounts()
         loadApplications()
       } else {
         toast.show(res.error || 'Verification failed', { type: 'error' })
@@ -245,6 +247,7 @@ export default function ApplicationsPage() {
       if (res.success) {
         toast.show('Application Approved! Ready for offer issuance', { type: 'success' })
         openInspector(inspector.formId, 'overview')
+        invalidateAdmissionsCounts()
         loadApplications()
       } else {
         toast.show(res.error || 'Approval failed', { type: 'error' })
@@ -273,6 +276,7 @@ export default function ApplicationsPage() {
       if (res.success) {
         toast.show(`Admission Offer Generated: ${res.data?.offer?.offerNumber || 'Offer Sent'}`, { type: 'success' })
         openInspector(inspector.formId, 'overview')
+        invalidateAdmissionsCounts()
         loadApplications()
       } else {
         toast.show(res.error || 'Offer generation failed', { type: 'error' })
@@ -326,6 +330,7 @@ export default function ApplicationsPage() {
         setFormParentName('')
         setFormParentPhone('')
         setFormParentEmail('')
+        invalidateAdmissionsCounts()
         loadApplications()
       } else {
         const errMsg = typeof res.error === 'string' ? res.error : res.error?.message || 'Failed to submit application'
@@ -893,7 +898,10 @@ export default function ApplicationsPage() {
         branches={branches}
         defaultBranchId={selectedBranchId}
         programs={programs}
-        onSuccess={loadApplications}
+        onSuccess={() => {
+          invalidateAdmissionsCounts()
+          loadApplications()
+        }}
       />
       <SharePublicFormModal
         open={shareModalOpen}

@@ -13,6 +13,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState } from '@/components/preone'
+import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function FollowUpsPage() {
   const toast = useToast()
@@ -144,6 +145,7 @@ export default function FollowUpsPage() {
         setLogModal({ open: false, item: null })
         setFollowUpNote('')
         setNextFollowUpDate('')
+        invalidateAdmissionsCounts()
         loadQueue()
       } else {
         toast.show(res.error || 'Failed to save follow-up', { type: 'error' })
@@ -163,9 +165,16 @@ export default function FollowUpsPage() {
     }
     setBusy(true)
     try {
+      const branchIdToSend = (selectedBranchId && selectedBranchId !== '__ALL_BRANCHES__')
+        ? selectedBranchId
+        : (item.lead?.branchId || item.branchId)
+
       const res = await fetch(`/api/v1/leads/${leadId}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: branchIdToSend,
+        }),
       }).then((r) => r.json())
 
       setBusy(false)
@@ -174,6 +183,7 @@ export default function FollowUpsPage() {
           `Application ${res.data?.applicationNumber || ''} created with zero data re-entry!`,
           { type: 'success' }
         )
+        invalidateAdmissionsCounts()
         loadQueue()
       } else {
         toast.show(res.error?.message || 'Failed to convert enquiry', { type: 'error' })
@@ -204,6 +214,7 @@ export default function FollowUpsPage() {
       if (res.success) {
         toast.show('Enquiry closed as Lost and removed from active queue', { type: 'success' })
         setLostModal({ open: false, item: null })
+        invalidateAdmissionsCounts()
         loadQueue()
       } else {
         toast.show(res.error?.message || 'Failed to mark lead as lost', { type: 'error' })
@@ -692,7 +703,10 @@ export default function FollowUpsPage() {
         branches={branches}
         defaultBranchId={selectedBranchId}
         programs={programs}
-        onSuccess={loadQueue}
+        onSuccess={() => {
+          invalidateAdmissionsCounts()
+          loadQueue()
+        }}
       />
       <SharePublicFormModal
         open={shareModalOpen}

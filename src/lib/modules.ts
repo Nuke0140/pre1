@@ -173,11 +173,6 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     animation: '/animations/home/preo_learning_mascot.json',
     quickActions: [{ label: 'Open workspace', href: '/app/learning' }],
   },
-  operations: {
-    description: 'Daily school operations',
-    tileSize: 'md',
-    semanticTheme: 'lavender',
-  },
   transport: {
     description: 'Routes & vehicle tracking',
     tileSize: 'lg',

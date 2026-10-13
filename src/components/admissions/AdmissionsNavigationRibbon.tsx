@@ -10,7 +10,6 @@ import {
   GraduationCap,
   LayoutGrid,
   BarChart3,
-  Sparkles,
   LayoutDashboard,
 } from 'lucide-react'
 
@@ -158,7 +157,7 @@ export function AdmissionsNavigationRibbon({
   return (
     <div className={`w-full overflow-x-auto no-scrollbar py-0.5 ${className}`}>
       <nav
-        className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 shadow-2xs text-xs select-none"
+        className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 [box-shadow:var(--shadow-1)] text-xs select-none"
         aria-label="Admissions Modules Multi-Color Navigation"
       >
         {/* ── Control Center Launcher Link ── */}
@@ -198,15 +197,9 @@ export function AdmissionsNavigationRibbon({
                   : `border-transparent ${theme.inactive} font-medium`
               }`}
             >
-              {/* Glowing animated dot or Sparkle for Confirmed Admissions */}
+              {/* Glowing animated dot for active tab */}
               {isActive && (
-                <>
-                  {mod.key === 'admitted' ? (
-                    <Sparkles size={12} className="text-emerald-500 animate-pulse shrink-0" />
-                  ) : (
-                    <span className={`w-2 h-2 rounded-full ${theme.activeDot} animate-pulse shrink-0`} />
-                  )}
-                </>
+                <span className={`w-2 h-2 rounded-full ${theme.activeDot} animate-pulse shrink-0`} />
               )}
 
               {/* Module Icon */}

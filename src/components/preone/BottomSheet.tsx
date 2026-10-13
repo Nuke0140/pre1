@@ -135,7 +135,7 @@ export function BottomSheet({
           maxWidth: '640px',
           margin: '0 auto',
           maxHeight,
-          background: 'var(--surface-elevated, #FFFFFF)',
+          background: 'var(--surface-elevated)',
           borderRadius: 'var(--radius-2xl, 24px) var(--radius-2xl, 24px) 0 0',
           boxShadow: 'var(--shadow-modal)',
           display: 'flex',
@@ -164,7 +164,7 @@ export function BottomSheet({
               width: '44px',
               height: '5px',
               borderRadius: '999px',
-              background: 'var(--border-strong, #CBD5E1)',
+              background: 'var(--border-strong)',
               opacity: 0.8,
             }}
           />
@@ -179,7 +179,7 @@ export function BottomSheet({
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '10px 20px 14px',
-              borderBottom: '1px solid var(--border-subtle, #EEF2F8)',
+              borderBottom: '1px solid var(--border-subtle)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -189,8 +189,8 @@ export function BottomSheet({
                     width: 36,
                     height: 36,
                     borderRadius: 'var(--radius-md, 12px)',
-                    background: 'var(--primary-light, #F3EEFF)',
-                    color: 'var(--primary, #7C3AED)',
+                    background: 'var(--primary-light)',
+                    color: 'var(--primary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -251,8 +251,8 @@ export function BottomSheet({
             className="sheet-foot"
             style={{
               padding: '12px 20px',
-              borderTop: '1px solid var(--border-subtle, #EEF2F8)',
-              background: 'var(--surface, #FFFFFF)',
+              borderTop: '1px solid var(--border-subtle)',
+              background: 'var(--surface)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'flex-end',

@@ -55,12 +55,12 @@ interface SessionProps {
 
 function WizardStepBar({ currentStep, totalSteps, steps }: { currentStep: number; totalSteps: number; steps: string[] }) {
   return (
-    <div style={{ marginBottom: 18, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-default, #e2e8f0)' }}>
+    <div style={{ marginBottom: 18, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border-default)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary, #7c3aed)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Step {currentStep} of {totalSteps}: {steps[currentStep - 1]}
         </span>
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: 'var(--primary-light)', color: 'var(--primary)' }}>
           {Math.round((currentStep / totalSteps) * 100)}% Complete
         </span>
       </div>
@@ -71,7 +71,7 @@ function WizardStepBar({ currentStep, totalSteps, steps }: { currentStep: number
             style={{
               flex: 1,
               height: '100%',
-              background: idx + 1 <= currentStep ? 'var(--primary, #7c3aed)' : 'transparent',
+              background: idx + 1 <= currentStep ? 'var(--primary)' : 'transparent',
               transition: 'background 0.2s ease',
             }}
           />
@@ -1509,7 +1509,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
               fontSize: '0.72rem',
               fontWeight: 600,
               borderRadius: '9999px',
-              background: 'var(--preone-primary-soft, #f3eeff)',
+              background: 'var(--primary-light)',
               color: 'var(--preone-primary, #7c3aed)',
               border: '1px solid rgba(124, 58, 237, 0.2)',
               marginLeft: 8,
@@ -1682,8 +1682,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   : criticalIncidents[0]?.description}
               </p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Link href="/app/operations" className="btn btn-danger btn-sm" style={{ textDecoration: 'none' }}>
-                  <AlertOctagon size={14} /> Open Operations Follow-Up
+                <Link href="/app/daily-diary?tab=safety" className="btn btn-danger btn-sm" style={{ textDecoration: 'none' }}>
+                  <AlertOctagon size={14} /> Open Daily Safety & Diary
                 </Link>
                 {activeSafetyAlert?.studentId && (
                   <Link href={`/app/students/${activeSafetyAlert.studentId}`} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
@@ -1708,8 +1708,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
           display: 'flex',
           gap: 6,
           padding: 6,
-          background: 'var(--surface-card, #ffffff)',
-          border: '1px solid var(--border-default, #e2e8f0)',
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg, 16px)',
           boxShadow: 'var(--elevation-1)',
           overflowX: 'auto',
@@ -1739,13 +1739,13 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 fontWeight: isActive ? 600 : 500,
                 borderRadius: 'var(--radius-md, 12px)',
                 border: isActive
-                  ? '1px solid color-mix(in srgb, var(--primary, #7c3aed) 28%, transparent)'
+                  ? '1px solid color-mix(in srgb, var(--primary) 28%, transparent)'
                   : '1px solid transparent',
                 background: isActive
-                  ? 'var(--preone-primary-soft, #f3eeff)'
+                  ? 'var(--primary-light)'
                   : 'transparent',
                 color: isActive
-                  ? 'var(--primary, #7c3aed)'
+                  ? 'var(--primary)'
                   : 'var(--text-secondary, #4a5a72)',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -1753,7 +1753,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 boxShadow: isActive ? 'inset 0 1px 0 rgba(255, 255, 255, 0.8)' : 'none',
               }}
             >
-              <Icon size={16} style={{ color: isActive ? 'var(--primary, #7c3aed)' : 'var(--text-muted)' }} />
+              <Icon size={16} style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }} />
               <span>{t.label}</span>
               {t.badge !== undefined && (
                 <span
@@ -1761,7 +1761,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     fontSize: '0.7rem',
                     padding: '1px 6px',
                     borderRadius: 9999,
-                    background: isActive ? 'var(--primary, #7c3aed)' : 'var(--border-default, #cbd5e1)',
+                    background: isActive ? 'var(--primary)' : 'var(--border-default, #cbd5e1)',
                     color: isActive ? '#ffffff' : 'var(--text-secondary, #475569)',
                     fontWeight: 700,
                   }}
@@ -2163,9 +2163,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
           {/* ACTION-ORIENTED OPERATIONS BANNER */}
           <div
             style={{
-              background: 'var(--surface-card, #ffffff)',
+              background: 'var(--surface-card)',
               borderRadius: 16,
-              border: '1px solid var(--border-default, #e2e8f0)',
+              border: '1px solid var(--border-default)',
               padding: '18px 22px',
               marginBottom: 20,
               boxShadow: 'var(--elevation-1)',
@@ -2181,8 +2181,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     width: 38,
                     height: 38,
                     borderRadius: 10,
-                    background: 'var(--preone-primary-soft, #f3eeff)',
-                    color: 'var(--primary, #7c3aed)',
+                    background: 'var(--primary-light)',
+                    color: 'var(--primary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -2191,7 +2191,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   <Clock size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary, #7c3aed)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Today's Operational Command Center
                   </div>
                   <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--foreground)' }}>
@@ -2249,7 +2249,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
                         {authorizations.filter((a: any) => a.status === 'PENDING').length} Pending Pickup Approval(s)
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                         Non-parent pickup awaiting principal authorization
                       </div>
                     </div>
@@ -2277,8 +2277,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     gap: 10,
                   }}
                 >
-                  <CheckCircle2 size={18} style={{ color: 'var(--success, #10b981)' }} />
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     All gate pickup authorizations are verified and up-to-date
                   </div>
                 </div>
@@ -2299,12 +2299,12 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <AlertOctagon size={18} style={{ color: 'var(--danger, #ef4444)' }} />
+                    <AlertOctagon size={18} style={{ color: 'var(--danger)' }} />
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger, #ef4444)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)' }}>
                         {criticalIncidents.length} Critical Safety Incident(s)
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary, #64748b)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                         Requires immediate supervisor attention
                       </div>
                     </div>
@@ -2326,14 +2326,14 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     padding: '12px 14px',
                     borderRadius: 12,
                     background: 'var(--c-surface-hover, rgba(0,0,0,0.02))',
-                    border: '1px solid var(--border-default, #e2e8f0)',
+                    border: '1px solid var(--border-default)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
                   }}
                 >
-                  <ShieldCheck size={18} style={{ color: 'var(--primary, #7c3aed)' }} />
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  <ShieldCheck size={18} style={{ color: 'var(--primary)' }} />
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     Fleet readiness: {vehicles.filter((v) => v.status === 'ACTIVE').length}/{vehicles.length} buses operational
                   </div>
                 </div>
@@ -2353,26 +2353,21 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 1. Active Routes */}
             <div
               onClick={() => setTab('ROUTES')}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Routes</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(124, 58, 237, 0.1)', color: 'var(--primary, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Routes</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(124, 58, 237, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Bus size={16} />
                 </div>
               </div>
               <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
                 {metrics?.activeRoutes ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 Daily routes configured →
               </div>
             </div>
@@ -2380,26 +2375,21 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 2. In-Service Fleet */}
             <div
               onClick={() => setTab('VEHICLES')}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In-Service Fleet</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In-Service Fleet</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <CheckCircle2 size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success, #10b981)', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1.1 }}>
                 {metrics?.activeVehicles ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 {metrics?.vehiclesInMaintenance ? `${metrics.vehiclesInMaintenance} in maintenance →` : '100% operational →'}
               </div>
             </div>
@@ -2407,18 +2397,13 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 3. Assigned Children */}
             <div
               onClick={() => setTab('STUDENTS')}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Assigned Children</span>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Assigned Children</span>
                 <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(14, 165, 233, 0.1)', color: 'var(--accent, #0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Users size={16} />
                 </div>
@@ -2426,7 +2411,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
               <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
                 {metrics?.studentsUsingTransport ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 Allocated seats →
               </div>
             </div>
@@ -2434,26 +2419,21 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 4. Boarded Today */}
             <div
               onClick={() => setTab('TRIPS')}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Boarded Today</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--info, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Boarded Today</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UserCheck size={16} />
                 </div>
               </div>
               <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
                 {metrics?.childrenBoarded ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 Morning arrivals logged →
               </div>
             </div>
@@ -2461,26 +2441,21 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 5. Safely Dropped */}
             <div
               onClick={() => setTab('TRIPS')}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Safely Dropped</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Safely Dropped</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <ShieldCheck size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success, #10b981)', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1.1 }}>
                 {metrics?.childrenDropped ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 Guardian PIN verified →
               </div>
             </div>
@@ -2488,26 +2463,22 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* 6. Delayed Trips */}
             <div
               onClick={() => { setTab('TRIPS'); setTripStatusFilter('DELAYED'); }}
+              className="premium-card premium-card-interactive cursor-pointer"
               style={{
-                background: 'var(--surface-card, #ffffff)',
-                borderRadius: 16,
-                border: metrics?.delayedTrips > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-default, #e2e8f0)',
                 padding: '16px 18px',
-                boxShadow: 'var(--elevation-1)',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                borderColor: metrics?.delayedTrips > 0 ? 'rgba(239, 68, 68, 0.3)' : undefined,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Delayed Trips</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: metrics?.delayedTrips > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: metrics?.delayedTrips > 0 ? 'var(--danger, #ef4444)' : 'var(--warning, #f59e0b)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Delayed Trips</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: metrics?.delayedTrips > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: metrics?.delayedTrips > 0 ? 'var(--danger)' : 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <AlertTriangle size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: metrics?.delayedTrips > 0 ? 'var(--danger, #ef4444)' : 'var(--foreground)', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: metrics?.delayedTrips > 0 ? 'var(--danger)' : 'var(--foreground)', lineHeight: 1.1 }}>
                 {metrics?.delayedTrips ?? 0}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: 6, fontWeight: 500 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
                 {metrics?.delayedTrips > 0 ? 'Review & Alert →' : 'On schedule →'}
               </div>
             </div>
@@ -2742,7 +2713,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                         width: 32,
                         height: 32,
                         borderRadius: 8,
-                        background: 'var(--success, #10b981)',
+                        background: 'var(--success)',
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
@@ -2757,7 +2728,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
                         Strict Multi-Guardian Policy Active
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)', marginTop: 2, lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
                         Every child release requires registered guardian OTP/PIN or biometric match. Non-authorized individuals trigger instant principal safety escalation.
                       </div>
                     </div>
@@ -4165,12 +4136,12 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     />
                   </Field>
 
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                       <span className="t-caption">Child</span>
                       <span style={{ fontWeight: 700 }}>{child?.firstName} {child?.lastName || ''}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                       <span className="t-caption">Authorized Adult</span>
                       <span><b>{addAuthPersonName}</b> ({addAuthRelationship}, {addAuthPersonPhone})</span>
                     </div>
@@ -4180,7 +4151,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
                     <ShieldAlert size={16} style={{ color: 'var(--warning-dark, #b45309)', flexShrink: 0, marginTop: 2 }} />
                     <span>Zero unverified child release policy: A secure 4-digit PIN or digital QR code will be generated and required at pickup.</span>
                   </div>
@@ -4460,7 +4431,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13 }}>
                     <div>
                       <div className="t-caption">Designated Vehicle</div>
                       <div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>{bus?.registrationNumber || 'Unassigned Bus'}</div>
@@ -4482,13 +4453,13 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <CheckCircle2 size={14} style={{ color: 'var(--success, #10b981)' }} />
+                      <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />
                       <span>Speed governor and GPS readiness checks confirmed.</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <CheckCircle2 size={14} style={{ color: 'var(--success, #10b981)' }} />
+                      <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />
                       <span>Pre-trip safety inspection logged.</span>
                     </div>
                   </div>
@@ -4517,9 +4488,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--preone-primary-soft, #f3eeff)', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--primary-light)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary, #7c3aed)' }}>Allocated Passengers</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>Allocated Passengers</div>
                       <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{riders.length} Children</div>
                     </div>
                     <span className="badge b-purple">
@@ -4530,7 +4501,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   <div className="t-caption">Ordered Stops on this Run:</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
                     {(r?.stops || []).map((s: any) => (
-                      <div key={s.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                      <div key={s.id} style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                         <span><b>{s.sequence}. {s.name}</b></span>
                         <span style={{ color: 'var(--text-muted)' }}>
                           {startTripType === 'MORNING' ? s.morningPickupTime : s.eveningDropTime}
@@ -4562,27 +4533,27 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Route</span>
                       <span style={{ fontWeight: 700 }}>{r?.name} ({r?.code})</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Run Type</span>
                       <span style={{ fontWeight: 700 }}>{startTripType === 'MORNING' ? 'Morning Pickup (Home → School)' : 'Evening Drop (School → Home)'}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Bus & Driver</span>
                       <span>{r?.vehicle?.registrationNumber} • {r?.driverProfile?.user?.fullName}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span className="t-caption">Active Passenger Count</span>
-                      <span style={{ fontWeight: 800, color: 'var(--primary, #7c3aed)' }}>{riders.length} Students</span>
+                      <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{riders.length} Students</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
-                    <ShieldCheck size={16} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <ShieldCheck size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
                     <span>Real-time boarding roster and parent transit notifications will be activated immediately.</span>
                   </div>
 
@@ -4769,15 +4740,15 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   const sel = availableStudents.find((s) => s.id === assignStudentChildId)
                   if (!sel) return null
                   return (
-                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--preone-primary-soft, #f3eeff)', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary, #7c3aed)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--primary-light)', border: '1px solid var(--border-default)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
                         {getAvatarInitials(`${sel.firstName} ${sel.lastName || ''}`)}
                       </div>
                       <div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--foreground)' }}>
                           {sel.firstName} {sel.lastName || ''}
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                           Admission: <b>{sel.admissionNo}</b> • Classroom: <b>{sel.classroomName || 'Assigned'}</b>
                         </div>
                       </div>
@@ -4832,7 +4803,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   const r = routes.find((rt) => rt.id === assignStudentRouteId)
                   if (!r) return null
                   return (
-                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13 }}>
+                    <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13 }}>
                       <div>
                         <div className="t-caption">Assigned Vehicle</div>
                         <div style={{ fontWeight: 700, marginTop: 2 }}>{r.vehicle?.registrationNumber || 'Standard Bus'}</div>
@@ -4961,31 +4932,31 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                  <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Student</span>
                       <span style={{ fontWeight: 700 }}>{child?.firstName} {child?.lastName || ''} ({child?.admissionNo})</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Route & Bus</span>
                       <span style={{ fontWeight: 700 }}>{route?.name} • {route?.vehicle?.registrationNumber || 'Bus'}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Pickup Stop</span>
                       <span><b>{pickupStop?.name}</b> ({pickupStop?.morningPickupTime})</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-default)', paddingBottom: 8 }}>
                       <span className="t-caption">Drop Stop</span>
                       <span><b>{dropStop?.name}</b> ({dropStop?.eveningDropTime})</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="t-caption">Monthly Transport Fee</span>
-                      <span style={{ fontWeight: 800, color: 'var(--primary, #7c3aed)', fontSize: 15 }}>₹{assignStudentMonthlyFee} / mo</span>
+                      <span style={{ fontWeight: 800, color: 'var(--primary)', fontSize: 15 }}>₹{assignStudentMonthlyFee} / mo</span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
-                    <CheckCircle2 size={15} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <CheckCircle2 size={15} style={{ color: 'var(--success)', flexShrink: 0 }} />
                     <span>Parent timeline will be updated and QR token assigned upon confirmation.</span>
                   </div>
 
@@ -5150,16 +5121,16 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {/* STEP 3: Review & Register */}
             {addVehicleStep === 3 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default, #e2e8f0)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                     <span className="t-caption">Registration</span>
                     <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{addVehicleRegNumber}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                     <span className="t-caption">Type & Model</span>
                     <span>{addVehicleType} • {addVehicleMakeModel || 'Standard'}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default, #e2e8f0)', paddingBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                     <span className="t-caption">Capacity</span>
                     <span><b>{addVehicleCapacity}</b> Passenger Seats</span>
                   </div>
@@ -5169,8 +5140,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary, #64748b)' }}>
-                  <CheckCircle2 size={16} style={{ color: 'var(--success, #10b981)', flexShrink: 0 }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
                   <span>Vehicle will immediately be available for route assignment and dispatch rosters.</span>
                 </div>
 
@@ -5525,7 +5496,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 gap: 8,
                 padding: '8px 12px',
                 borderRadius: 8,
-                background: 'var(--preone-primary-soft, #f3eeff)',
+                background: 'var(--primary-light)',
                 color: 'var(--preone-primary, #7c3aed)',
                 border: '1px solid rgba(124, 58, 237, 0.2)',
                 fontSize: 12,

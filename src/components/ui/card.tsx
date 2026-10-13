@@ -8,17 +8,17 @@ const cardVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl [box-shadow:var(--shadow-1)] transition-all",
         interactive:
-          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-card-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99]",
+          "bg-white/96 dark:bg-slate-900/96 border border-border/60 dark:border-border/40 rounded-2xl [box-shadow:var(--shadow-1)] cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:[box-shadow:var(--shadow-2)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all",
         elevated:
-          "bg-white/98 dark:bg-slate-900/98 border border-border/60 dark:border-border/40 rounded-2xl shadow-card-rest",
+          "bg-white/98 dark:bg-slate-900/98 border border-border/60 dark:border-border/40 rounded-2xl [box-shadow:var(--shadow-2)]",
         flat:
           "bg-slate-50/60 dark:bg-slate-900/40 border border-border/40 dark:border-border/40 rounded-2xl",
         premium:
           "premium-card p-5 sm:p-6",
         auth:
-          "w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-border/60 dark:border-border/40 shadow-[0_20px_60px_-15px_rgba(124,58,237,0.12),0_8px_24px_-8px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)] p-7 sm:p-9 relative overflow-hidden",
+          "w-full rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-border/60 dark:border-border/40 [box-shadow:var(--shadow-3)] p-7 sm:p-9 relative overflow-hidden",
       },
     },
     defaultVariants: {

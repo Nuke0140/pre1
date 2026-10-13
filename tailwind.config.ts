@@ -14,12 +14,27 @@ const config: Config = {
   		colors: {
   			background: 'var(--background)',
   			foreground: 'var(--foreground)',
+  			brand: {
+  				'50': 'var(--brand-50)',
+  				'100': 'var(--brand-100)',
+  				'200': 'var(--brand-200)',
+  				'300': 'var(--brand-300)',
+  				'400': 'var(--brand-400)',
+  				'500': 'var(--brand-500)',
+  				'600': 'var(--brand-600)',
+  				'700': 'var(--brand-700)',
+  				'800': 'var(--brand-800)',
+  				'900': 'var(--brand-900)',
+  				DEFAULT: 'var(--brand-600)',
+  			},
   			card: {
   				DEFAULT: 'var(--surface)',
   				foreground: 'var(--foreground)'
   			},
   			surface: {
   				DEFAULT: 'var(--surface)',
+  				solid: 'var(--surface-solid)',
+  				'2': 'var(--surface-2)',
   				elevated: 'var(--surface-elevated)',
   				muted: 'var(--surface-muted)'
   			},
@@ -70,6 +85,9 @@ const config: Config = {
   				soft: 'var(--info-soft)'
   			},
   			text: {
+  				'1': 'var(--text-1)',
+  				'2': 'var(--text-2)',
+  				'3': 'var(--text-3)',
   				primary: 'var(--text-primary)',
   				secondary: 'var(--text-secondary)',
   				muted: 'var(--text-muted)',
@@ -88,15 +106,26 @@ const config: Config = {
   			}
   		},
   		borderRadius: {
+  			'r-sm': 'var(--r-sm)',
+  			'r-md': 'var(--r-md)',
+  			'r-lg': 'var(--r-lg)',
+  			'r-xl': 'var(--r-xl)',
+  			'r-pill': 'var(--r-pill)',
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		boxShadow: {
+  			'1': 'var(--shadow-1)',
+  			'2': 'var(--shadow-2)',
+  			'3': 'var(--shadow-3)',
   			'card-rest': 'var(--shadow-card-rest)',
   			'card-hover': 'var(--shadow-card-hover)',
+  			'premium-card': 'var(--shadow-premium-card, var(--shadow-card-rest))',
+  			'premium-card-hover': 'var(--shadow-premium-card-hover, var(--shadow-card-hover))',
   		},
   		fontFamily: {
+  			display: ['var(--font-display)', 'Poppins', 'sans-serif'],
   			heading: ['var(--font-heading)', 'Poppins', 'sans-serif'],
   			body: ['var(--font-body)', 'Nunito', 'sans-serif'],
   			sans: ['var(--font-body)', 'Nunito', 'sans-serif'],
@@ -112,7 +141,7 @@ const config: Config = {
   		fontSize: {
   			// Canonical PreOne Typography Scale
   			'type-display': ['clamp(32px, 3.5vw + 12px, 44px)', { lineHeight: '1.15', letterSpacing: '-0.025em', fontWeight: '700' }],
-  			'page-title': ['clamp(24px, 1.5vw + 16px, 30px)', { lineHeight: '1.25', letterSpacing: '-0.02em', fontWeight: '700' }],
+  			'page-title': ['clamp(26px, 1.2vw + 22px, 34px)', { lineHeight: '1.2', letterSpacing: '-0.02em', fontWeight: '600' }],
   			'section-title': ['20px', { lineHeight: '1.3', letterSpacing: '-0.015em', fontWeight: '600' }],
   			'card-title': ['16px', { lineHeight: '1.35', letterSpacing: '-0.01em', fontWeight: '600' }],
   			'body-copy': ['15px', { lineHeight: '1.6', fontWeight: '400' }],
@@ -123,7 +152,7 @@ const config: Config = {
 
   			// Canonical t-* Scale Mappings
   			't-display': ['clamp(32px, 3.5vw + 12px, 44px)', { lineHeight: '1.15', letterSpacing: '-0.025em', fontWeight: '700' }],
-  			't-h1': ['clamp(24px, 1.5vw + 16px, 30px)', { lineHeight: '1.25', letterSpacing: '-0.02em', fontWeight: '700' }],
+  			't-h1': ['clamp(26px, 1.2vw + 22px, 34px)', { lineHeight: '1.2', letterSpacing: '-0.02em', fontWeight: '600' }],
   			't-h2': ['20px', { lineHeight: '1.3', letterSpacing: '-0.015em', fontWeight: '600' }],
   			't-h3': ['18px', { lineHeight: '1.3', letterSpacing: '-0.015em', fontWeight: '600' }],
   			't-h4': ['16px', { lineHeight: '1.35', letterSpacing: '-0.01em', fontWeight: '600' }],

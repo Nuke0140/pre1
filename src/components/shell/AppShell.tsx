@@ -150,17 +150,35 @@ export function AppShell({
 
   // theme boot + persistence (reads localStorage once on mount)
   useEffect(() => {
-    const t = (localStorage.getItem('preone-theme') as 'light' | 'dark') || 'light'
+    const stored = localStorage.getItem('preone_theme') || localStorage.getItem('preone-theme')
+    let isDark = false
+    if (stored === 'dark') {
+      isDark = true
+    } else if (stored === 'light') {
+      isDark = false
+    } else {
+      isDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+    }
+    const t = isDark ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', t)
-    document.documentElement.classList.toggle('dark', t === 'dark')
+    document.documentElement.classList.toggle('dark', isDark)
     queueMicrotask(() => setTheme(t))
     applyShellGlowToDom(getStoredShellGlowConfig())
   }, [])
 
   const toggleTheme = useCallback(() => {
+    // Enable smooth cross-fade transition only during deliberate user toggle
+    document.documentElement.classList.add('theme-transition-active')
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition-active')
+    }, 250)
+
     setTheme((prev) => {
       const next = prev === 'light' ? 'dark' : 'light'
-      localStorage.setItem('preone-theme', next)
+      try {
+        localStorage.setItem('preone_theme', next)
+        localStorage.setItem('preone-theme', next)
+      } catch {}
       document.documentElement.setAttribute('data-theme', next)
       document.documentElement.classList.toggle('dark', next === 'dark')
       return next

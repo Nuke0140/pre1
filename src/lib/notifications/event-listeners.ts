@@ -73,7 +73,7 @@ export function registerNotificationListeners() {
               title: e.title,
               detail: e.detail || '',
             },
-            linkUrl: `/app/operations`,
+            linkUrl: `/app/daily-diary`,
             skipTimelineEntry: true,
           })
           break
@@ -98,7 +98,7 @@ export function registerNotificationListeners() {
               studentName,
               detail: e.detail || '',
             },
-            linkUrl: `/app/operations`,
+            linkUrl: `/app/daily-diary`,
           })
           break
         }

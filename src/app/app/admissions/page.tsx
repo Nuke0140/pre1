@@ -24,6 +24,7 @@ import { useToast } from '@/components/preone/Toast'
 import { FunnelChart } from '@/components/preone/Chart'
 import { fmtDate, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
+import { useAdmissionsCounts, invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 // ── Master Types ─────────────────────────────────────────────────────────────
 interface AcademicSessionOption {
@@ -442,6 +443,9 @@ export default function AdmissionsPage() {
   const [filterProgram, setFilterProgram] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState<string>('')
+
+  // Canonical Admissions synchronized counts
+  const { counts: syncCounts } = useAdmissionsCounts(selectedBranchId, selectedSessionId)
 
   // Data states
   const [enquiries, setEnquiries] = useState<Enquiry[] | null>(null)
@@ -1097,6 +1101,7 @@ export default function AdmissionsPage() {
         setEnquiryDob('')
         setEnquiryDuplicateWarning(null)
         setPendingEnquiryPayload(null)
+        invalidateAdmissionsCounts()
         loadData()
       }
     } else {
@@ -1121,6 +1126,7 @@ export default function AdmissionsPage() {
       setEnquiryDob('')
       setEnquiryDuplicateWarning(null)
       setPendingEnquiryPayload(null)
+      invalidateAdmissionsCounts()
       loadData()
     } else {
       toast.error('Failed to record enquiry', json.error?.message)
@@ -1184,6 +1190,7 @@ export default function AdmissionsPage() {
       setPendingFormPayload(null)
       setShowExtraGuardian(false)
       setExtraGuardian({ relationship: 'MOTHER', fullName: '', phone: '', email: '' })
+      invalidateAdmissionsCounts()
       loadData()
     } else {
       toast.error('Could not create application', json.error?.message)
@@ -1197,6 +1204,7 @@ export default function AdmissionsPage() {
     setBusy(false)
     if (json.success) {
       toast.success('Admission Form Started', `Form ${json.data.applicationNumber} created from enquiry`)
+      invalidateAdmissionsCounts()
       loadData()
       openInspector(json.data.applicationId, 'documents')
     } else {
@@ -1399,6 +1407,7 @@ export default function AdmissionsPage() {
     if (json.success) {
       toast.success('Follow-up scheduled', 'Action recorded on lead')
       setFollowUpModal({ open: false, enquiry: null })
+      invalidateAdmissionsCounts()
       loadData()
     } else {
       toast.error('Failed to log follow-up', json.error?.message)
@@ -1424,6 +1433,7 @@ export default function AdmissionsPage() {
     if (json.success) {
       toast.success('School Visit confirmed', 'Calendar entry & follow-up set')
       setVisitModal({ open: false, enquiry: null })
+      invalidateAdmissionsCounts()
       loadData()
     } else {
       toast.error('Failed to schedule visit', json.error?.message)
@@ -1821,6 +1831,7 @@ export default function AdmissionsPage() {
         },
       })
       openInspector(inspector.formId, 'timeline')
+      invalidateAdmissionsCounts()
       loadData()
     } else {
       toast.error('Admission could not be completed', json.error?.message || 'No partial admission was created.')
@@ -2276,7 +2287,10 @@ export default function AdmissionsPage() {
           </button>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => {
+              invalidateAdmissionsCounts()
+              loadData()
+            }}
             disabled={busy}
             className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
             title={t('common.refresh')}
@@ -2341,12 +2355,12 @@ export default function AdmissionsPage() {
       {/* ── Multi-Color Windows Navigation Ribbon (Signature Module Glows & Badges) ── */}
       <AdmissionsNavigationRibbon
         moduleCounts={{
-          enquiries: enquiries?.length || 0,
-          'follow-ups': pipelineMetrics.cards.followupsDue || 0,
-          applications: applications?.length || 0,
-          admitted: pipelineMetrics.cards.admissionsCompleted || 0,
-          'classroom-placements': classrooms?.length || 0,
-          reports: (enquiries?.length || 0) + (applications?.length || 0),
+          enquiries: syncCounts?.enquiries ?? enquiries?.length ?? 0,
+          'follow-ups': syncCounts?.['follow-ups'] ?? pipelineMetrics.cards.followupsDue ?? 0,
+          applications: syncCounts?.applications ?? applications?.length ?? 0,
+          admitted: syncCounts?.admitted ?? pipelineMetrics.cards.admissionsCompleted ?? 0,
+          'classroom-placements': syncCounts?.['classroom-placements'] ?? classrooms?.length ?? 0,
+          reports: syncCounts?.reports ?? ((syncCounts?.enquiries ?? enquiries?.length ?? 0) + (syncCounts?.applications ?? applications?.length ?? 0)),
         }}
       />
 
@@ -2359,7 +2373,7 @@ export default function AdmissionsPage() {
             key: 'enquiries',
             title: 'Enquiries',
             href: '/app/admissions/enquiries',
-            count: enquiries?.length || 0,
+            count: syncCounts?.enquiries ?? enquiries?.length ?? 0,
             countLabel: 'Inquiries',
             badge: pipelineMetrics.cards.newEnquiries > 0 ? `${pipelineMetrics.cards.newEnquiries} New` : undefined,
             badgeVariant: 'rose',
@@ -2371,8 +2385,8 @@ export default function AdmissionsPage() {
             key: 'follow-ups',
             title: 'Follow-ups',
             href: '/app/admissions/follow-ups',
-            count: pipelineMetrics.cards.followupsDue,
-            countLabel: 'Calls Due',
+            count: syncCounts?.['follow-ups'] ?? pipelineMetrics.cards.followupsDue ?? 0,
+            countLabel: 'Open Tasks',
             badge: pipelineMetrics.cards.followupsDue > 0 ? `${pipelineMetrics.cards.followupsDue} Urgent` : undefined,
             badgeVariant: 'amber',
             icon: Phone,
@@ -2383,7 +2397,7 @@ export default function AdmissionsPage() {
             key: 'applications',
             title: 'Applications',
             href: '/app/admissions/applications',
-            count: applications?.length || 0,
+            count: syncCounts?.applications ?? applications?.length ?? 0,
             countLabel: 'Applications',
             badge: pipelineMetrics.cards.underReview > 0 ? `${pipelineMetrics.cards.underReview} Review` : undefined,
             badgeVariant: 'violet',
@@ -2395,7 +2409,7 @@ export default function AdmissionsPage() {
             key: 'admitted',
             title: 'Confirmed Admissions',
             href: '/app/admissions/admitted',
-            count: pipelineMetrics.cards.admissionsCompleted,
+            count: syncCounts?.admitted ?? pipelineMetrics.cards.admissionsCompleted ?? 0,
             countLabel: 'Enrolled',
             badge: pipelineMetrics.cards.readyForConfirmation > 0 ? `${pipelineMetrics.cards.readyForConfirmation} Ready` : undefined,
             badgeVariant: 'emerald',
@@ -2407,7 +2421,7 @@ export default function AdmissionsPage() {
             key: 'classroom-placements',
             title: 'Classroom Placements',
             href: '/app/admissions/classroom-placements',
-            count: classrooms.length,
+            count: syncCounts?.['classroom-placements'] ?? classrooms.length,
             countLabel: 'Sections',
             badge: undefined,
             badgeVariant: 'teal',
@@ -2419,7 +2433,7 @@ export default function AdmissionsPage() {
             key: 'reports',
             title: 'Reports & Analytics',
             href: '/app/admissions/reports',
-            count: (enquiries?.length || 0) + (applications?.length || 0),
+            count: syncCounts?.reports ?? (((syncCounts?.enquiries ?? enquiries?.length ?? 0)) + ((syncCounts?.applications ?? applications?.length ?? 0))),
             countLabel: 'Total Records',
             badge: undefined,
             badgeVariant: 'indigo',

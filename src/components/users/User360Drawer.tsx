@@ -304,44 +304,44 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     Professional &amp; Assignment
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Employee Code</span>
-                      <span className="font-bold font-mono text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Employee Code</span>
+                      <span className="font-bold font-mono text-foreground">
                         {user.staffProfile.employeeCode || '—'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Designation</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Designation</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.designation || 'Staff Member'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Department</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Department</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.department || 'Academics'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Employment Type</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Employment Type</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.employmentType?.replace('_', ' ')}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Joining Date</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Joining Date</span>
+                      <span className="font-medium text-foreground">
                         {fmtLocalDate(user.staffProfile.joiningDate)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Qualifications</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Qualifications</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.qualification || 'Not recorded'}
                       </span>
                     </div>
@@ -378,29 +378,29 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     Personal &amp; Demographics
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Date of Birth</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Date of Birth</span>
+                      <span className="font-medium text-foreground">
                         {fmtLocalDate(user.staffProfile.dateOfBirth)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Gender</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Gender</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.gender || 'Unspecified'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Marital Status</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Marital Status</span>
+                      <span className="font-medium text-foreground">
                         {user.staffProfile.maritalStatus || 'Unspecified'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Blood Group</span>
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Blood Group</span>
                       <span className="font-bold text-red-600 dark:text-red-400">
                         {user.staffProfile.bloodGroup || 'Unspecified'}
                       </span>
@@ -440,30 +440,30 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     Statutory Records &amp; Identifiers
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">PAN Number</span>
-                      <span className="font-mono font-bold text-gray-900 dark:text-white uppercase">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">PAN Number</span>
+                      <span className="font-mono font-bold text-foreground uppercase">
                         {user.staffProfile.panNumber || 'Not recorded'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Aadhaar (Masked)</span>
-                      <span className="font-mono font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Aadhaar (Masked)</span>
+                      <span className="font-mono font-medium text-foreground">
                         {maskAadhaar(user.staffProfile.aadhaarNumber)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">UAN (PF)</span>
-                      <span className="font-mono font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">UAN (PF)</span>
+                      <span className="font-mono font-medium text-foreground">
                         {user.staffProfile.uanNumber || 'Not recorded'}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">ESI Number</span>
-                      <span className="font-mono font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">ESI Number</span>
+                      <span className="font-mono font-medium text-foreground">
                         {user.staffProfile.esiNumber || 'Not recorded'}
                       </span>
                     </div>
@@ -476,23 +476,23 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     HR Lifecycle &amp; Notice Period
                   </span>
                   <div className="grid grid-cols-3 gap-2.5">
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Probation End</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Probation End</span>
+                      <span className="font-medium text-foreground">
                         {fmtLocalDate(user.staffProfile.probationEndDate)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Confirmation Date</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Confirmation Date</span>
+                      <span className="font-medium text-foreground">
                         {fmtLocalDate(user.staffProfile.confirmationDate)}
                       </span>
                     </div>
 
-                    <div className="p-2.5 rounded-lg border border-gray-100 dark:border-gray-800 bg-card">
-                      <span className="text-gray-400 block text-[10px] uppercase">Notice Period</span>
-                      <span className="font-bold text-gray-900 dark:text-white">
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-card">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Notice Period</span>
+                      <span className="font-bold text-foreground">
                         {user.staffProfile.noticePeriodDays != null ? `${user.staffProfile.noticePeriodDays} Days` : 'Standard (30d)'}
                       </span>
                     </div>
@@ -508,27 +508,27 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
               <div className="space-y-3">
                 {/* Guardian Details Card */}
                 {user.guardianProfile && (
-                  <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-card grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="p-3 rounded-lg border border-border/80 bg-card grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <span className="text-gray-400 block text-[10px] uppercase">Relationship</span>
-                      <span className="font-bold text-gray-900 dark:text-white capitalize">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Relationship</span>
+                      <span className="font-bold text-foreground capitalize">
                         {user.guardianProfile.relationship?.toLowerCase() || 'Caregiver'}
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-gray-400 block text-[10px] uppercase">Profession / Occupation</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Profession / Occupation</span>
+                      <span className="font-medium text-foreground">
                         {user.guardianProfile.occupation || 'Not recorded'}
                       </span>
                     </div>
 
                     <div>
-                      <span className="text-gray-400 block text-[10px] uppercase">Emergency Priority</span>
+                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Emergency Priority</span>
                       {user.guardianProfile.isPrimaryContact ? (
-                        <span className="badge b-success text-[10px] font-semibold">Primary Contact</span>
+                        <span className="badge b-success text-xs font-semibold">Primary Contact</span>
                       ) : (
-                        <span className="badge b-neutral text-[10px]">Secondary Contact</span>
+                        <span className="badge b-neutral text-xs">Secondary Contact</span>
                       )}
                     </div>
                   </div>

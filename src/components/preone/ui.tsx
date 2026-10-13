@@ -398,7 +398,7 @@ export function TabularNumber({
   style?: React.CSSProperties
 }) {
   return (
-    <Component className={`font-tabular tabular-nums ${className}`.trim()} style={style}>
+    <Component className={`data-numeric font-tabular tabular-nums ${className}`.trim()} style={style}>
       {children}
     </Component>
   )
@@ -417,9 +417,9 @@ export function DataValue({
 }) {
   return (
     <div className={`data-value-wrap ${className}`.trim()}>
-      {label && <div className="field-label text-[12px] text-muted-foreground uppercase tracking-wider mb-1 font-heading">{label}</div>}
-      <div className="data-copy font-tabular font-medium text-foreground text-sm">{value}</div>
-      {meta && <div className="meta-copy text-xs text-muted-foreground mt-0.5">{meta}</div>}
+      {label && <div className="micro-label form-label text-[12px] text-muted-foreground uppercase tracking-wider mb-1 font-body">{label}</div>}
+      <div className="data-copy data-numeric font-tabular font-medium text-foreground text-sm">{value}</div>
+      {meta && <div className="footnote meta-copy text-xs text-muted-foreground mt-0.5">{meta}</div>}
     </div>
   )
 }

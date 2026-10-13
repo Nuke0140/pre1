@@ -786,7 +786,7 @@ export default function FeesPage() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {activeChild.deposits.map((d) => (
-                    <div key={d.id} className="p-4 border rounded-2xl bg-amber-50/50 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-900/40 space-y-2 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)]">
+                    <div key={d.id} className="p-4 border rounded-2xl bg-amber-50/50 border-amber-200/80 dark:bg-amber-950/20 dark:border-amber-900/40 space-y-2 [box-shadow:var(--shadow-premium-card)]">
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-amber-900 dark:text-amber-200">{d.name}</span>
                         <StatusBadge status={d.status} />
@@ -803,7 +803,7 @@ export default function FeesPage() {
             )}
 
             {/* Payment History */}
-            <div className="bg-white/96 dark:bg-slate-900/96 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs space-y-4 [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)]">
+            <div className="premium-card p-5 space-y-4">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Receipt className="size-5 text-emerald-600 dark:text-emerald-400" /> Payment Receipts History
               </h3>
