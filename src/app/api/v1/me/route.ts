@@ -13,11 +13,14 @@ export const GET = withApi(async (req: NextRequest) => {
     if (!tenant) return Errors.unauthorized('Tenant session invalid or expired')
   }
 
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+
   return ok({
     userId: session.uid,
     name: session.name,
     email: session.email,
     role: session.role,
+    roles: effectiveRoles,
     tenantId: session.tenantId,
     branchId: session.branchId,
   })

@@ -22,9 +22,9 @@ export function AuthBrand({
   schoolName,
 }: AuthBrandProps) {
   return (
-    <div className={`auth-brand text-center mb-6 relative z-10 ${className}`}>
+    <div className={`auth-brand text-center mb-4 sm:mb-6 relative z-10 ${className}`}>
       {/* Product Brand Anchor with generous breathing room */}
-      <div className="auth-stagger-1 flex justify-center mb-3.5 transition-transform duration-300 hover:scale-105">
+      <div className="auth-stagger-1 flex justify-center mb-2 sm:mb-3.5 transition-transform duration-300 hover:scale-105">
         {logoUrl ? (
           <img
             src={logoUrl}

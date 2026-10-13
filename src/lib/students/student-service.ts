@@ -189,13 +189,26 @@ export class StudentService {
     }
 
     // If teacher role, scope strictly to their assigned classrooms
-    if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
+    const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+    if (isTeacher && ctx.actorId) {
       const assignedRooms = await db.classroom.findMany({
-        where: { tenantId: scope.tenantId, primaryTeacherId: ctx.actorId, isActive: true },
+        where: {
+          tenantId: scope.tenantId,
+          isActive: true,
+          OR: [
+            { primaryTeacherId: ctx.actorId },
+            { subjectMappings: { some: { specialistTeacherId: ctx.actorId } } },
+          ],
+        },
         select: { id: true },
       })
       const roomIds = assignedRooms.map((r) => r.id)
-      where.currentClassroomId = { in: roomIds }
+      if (filters.classroomId) {
+        where.currentClassroomId = roomIds.includes(filters.classroomId) ? filters.classroomId : { in: [] }
+      } else {
+        where.currentClassroomId = { in: roomIds }
+      }
     }
 
     const [total, students] = await Promise.all([
@@ -2053,6 +2066,23 @@ export class StudentService {
       baseWhere.currentClassroom = {
         academicSessionId: filters.academicSessionId,
       }
+    }
+
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
+    const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+    if (isTeacher && ctx.actorId) {
+      const assignedRooms = await db.classroom.findMany({
+        where: {
+          tenantId: scope.tenantId,
+          isActive: true,
+          OR: [
+            { primaryTeacherId: ctx.actorId },
+            { subjectMappings: { some: { specialistTeacherId: ctx.actorId } } },
+          ],
+        },
+        select: { id: true },
+      })
+      baseWhere.currentClassroomId = { in: assignedRooms.map((r) => r.id) }
     }
 
     const [total, active, transferred, withdrawn, classrooms, programs, recentAdmissions] = await Promise.all([

@@ -30,7 +30,7 @@ import {
   Trash2,
   Minus,
 } from 'lucide-react'
-import { PageHead, Avatar, Breadcrumbs } from '@/components/preone'
+import { PageHead, Avatar, Breadcrumbs, EmptyState, Skeleton } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
@@ -1500,6 +1500,31 @@ export default function DailyDiaryPage() {
               </div>
             </div>
           )}
+        </div>
+      ) : loadingContext ? (
+        <div className="space-y-4">
+          <Skeleton h={80} />
+          <Skeleton h={320} />
+        </div>
+      ) : classrooms.length === 0 ? (
+        <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-8 sm:p-12 text-center shadow-xs">
+          <EmptyState
+            illustration="classrooms"
+            eyebrow="Daily Diary"
+            title="No Assigned Classrooms"
+            description={
+              user?.isTeacher
+                ? "You have not been assigned to any classrooms yet. Please contact your center administrator or head to map your classroom."
+                : "No classrooms are currently available for this branch and academic session."
+            }
+            action={{
+              label: 'Refresh Context',
+              onClick: () => {
+                fetchContext()
+                fetchSubjects()
+              },
+            }}
+          />
         </div>
       ) : (
         /* CLASSROOM VIEW (TEACHER OR SELECTED ADMIN CLASS) */

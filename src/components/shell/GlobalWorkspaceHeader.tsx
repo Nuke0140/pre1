@@ -673,9 +673,12 @@ export function GlobalWorkspaceHeader({
                 top: 'calc(100% + 8px)',
                 right: 0,
                 width: 270,
+                maxWidth: 'calc(100vw - 24px)',
+                maxHeight: 'calc(100vh - 84px)',
                 padding: 0,
                 zIndex: 100,
-                overflow: 'hidden',
+                overflowY: 'auto',
+                overflowX: 'hidden',
               }}
               role="menu"
               aria-label="Profile options"

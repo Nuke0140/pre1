@@ -18,6 +18,7 @@ import { UserRole, Relationship, UserStatus, Gender } from '@prisma/client'
 import { normalizeFamilyCreateInput, normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
 import { FamilyUserService } from '@/lib/users/family-user-service'
 import { normalizeRole } from '@/lib/roles'
+import { normalizeUsername, isValidUsername } from '@/lib/users/username-service'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export const GET = withApi(async (req: NextRequest) => {
@@ -468,10 +469,87 @@ export const POST = withApi(async (req: NextRequest) => {
     throw errValidation('fullName, email, and at least one role are required', 'fullName')
   }
 
-  const isGeneratedPassword = !password || password.trim().length < 8
-  const effectivePassword = isGeneratedPassword
-    ? generateSecureInitialPassword()
-    : password.trim()
+  // Determine credential setup mode and invitation status
+  const credentialSetupMode: 'MANUAL' | 'INVITE' | 'GENERATE' =
+    (body as any).credentialSetupMode === 'INVITE'
+      ? 'INVITE'
+      : (body as any).credentialSetupMode === 'GENERATE'
+      ? 'GENERATE'
+      : (body as any).credentialSetupMode === 'MANUAL'
+      ? 'MANUAL'
+      : isInvite || inputStatus === 'PENDING'
+      ? 'INVITE'
+      : password && password.trim().length >= 6
+      ? 'MANUAL'
+      : 'MANUAL' // Default for staff account creation is manual credential setup
+
+  const isStaffFlow = assignedRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'STAFF', 'ACCOUNTS', 'RECEPTIONIST', 'ATTENDANT', 'DRIVER'].includes(r)
+  )
+
+  let finalUsername: string | undefined = undefined
+  let effectivePassword = ''
+  let isGeneratedPassword = false
+  let mustChangePassword = false
+
+  const rawUsername = (body as any).username ? String((body as any).username).trim() : ''
+
+  if (credentialSetupMode === 'MANUAL') {
+    // 1. In manual flow: Username is mandatory
+    if (!rawUsername) {
+      throw errValidation('Username is required for account creation.', 'username')
+    }
+    const userCheck = isValidUsername(rawUsername)
+    if (!userCheck.valid) {
+      throw errValidation(userCheck.reason || 'Invalid username format.', 'username')
+    }
+    finalUsername = normalizeUsername(rawUsername)
+
+    // 2. In manual flow: Password is mandatory and must satisfy password policy (min 6 chars)
+    const rawPassword = password !== undefined && password !== null ? String(password).trim() : ''
+    if (!rawPassword) {
+      throw errValidation('Password is required for manual account creation.', 'password')
+    }
+    if (rawPassword.length < 6) {
+      throw errValidation('Password must be at least 6 characters long.', 'password')
+    }
+    effectivePassword = rawPassword
+    isGeneratedPassword = false
+    mustChangePassword = false
+  } else if (credentialSetupMode === 'GENERATE') {
+    // Generated credentials flow: username required or sanitized, secure CSPRNG password
+    if (rawUsername) {
+      const userCheck = isValidUsername(rawUsername)
+      if (!userCheck.valid) {
+        throw errValidation(userCheck.reason || 'Invalid username format.', 'username')
+      }
+      finalUsername = normalizeUsername(rawUsername)
+    } else {
+      finalUsername = normalizeUsername(effectiveFullName.replace(/\s+/g, '.'))
+    }
+    effectivePassword = generateSecureInitialPassword()
+    isGeneratedPassword = true
+    mustChangePassword = true
+  } else {
+    // INVITE flow: Account is created in PENDING state. Password cannot be used for immediate login.
+    if (rawUsername) {
+      const userCheck = isValidUsername(rawUsername)
+      if (!userCheck.valid) {
+        throw errValidation(userCheck.reason || 'Invalid username format.', 'username')
+      }
+      finalUsername = normalizeUsername(rawUsername)
+    }
+    // High-entropy random initial placeholder for password hash so the DB column is satisfied, but login is blocked by PENDING status
+    effectivePassword = generateSecureInitialPassword()
+    isGeneratedPassword = true
+    mustChangePassword = true
+  }
+
+  // Account status enforcement: INVITE mode MUST be PENDING so it cannot be used for immediate login
+  const initialStatus: UserStatus =
+    credentialSetupMode === 'INVITE'
+      ? 'PENDING'
+      : inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
 
   // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
   const normPrimaryRole = primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined
@@ -497,8 +575,6 @@ export const POST = withApi(async (req: NextRequest) => {
     }
   }
 
-  const initialStatus: UserStatus = inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
-
   const isFamilyFlow =
     assignedRoles.length === 1 &&
     (assignedRoles.includes('PARENT') || assignedRoles.includes('GUARDIAN')) &&
@@ -520,6 +596,7 @@ export const POST = withApi(async (req: NextRequest) => {
       fullName: effectiveFullName,
       email: effectiveEmail,
       phone: effectivePhone,
+      username: finalUsername,
       role: finalPrimaryRole,
       password: effectivePassword,
       status: initialStatus,
@@ -597,18 +674,17 @@ export const POST = withApi(async (req: NextRequest) => {
     }
   }
 
-  // Check username uniqueness if provided
-  const rawUsername = (body as any).username?.trim()
-  if (rawUsername) {
+  // Check username uniqueness if provided (case-insensitive across User table)
+  if (finalUsername) {
     const existingUsername = await db.user.findFirst({
       where: {
-        username: { equals: rawUsername, mode: 'insensitive' },
+        username: { equals: finalUsername, mode: 'insensitive' },
         deletedAt: null,
       },
     })
     if (existingUsername) {
       throw errConflict(
-        `Username "${rawUsername}" is already taken. Please choose another username.`,
+        `Username "${finalUsername}" is already taken. Please choose another username.`,
         ErrorCodes.CONFLICT_DUPLICATE_RECORD,
         'username'
       )
@@ -642,11 +718,11 @@ export const POST = withApi(async (req: NextRequest) => {
         data: {
           email: emailNorm,
           fullName: fullName.trim(),
-          username: (body as any).username?.trim() || undefined,
+          username: finalUsername || undefined,
           phone: phoneNorm,
           avatarUrl: avatarUrl?.trim() || null,
           passwordHash: await bcrypt.hash(effectivePassword, 10),
-          mustChangePassword: isGeneratedPassword,
+          mustChangePassword: mustChangePassword,
           status: initialStatus,
           locale: locale || 'en-IN',
         },
@@ -658,7 +734,7 @@ export const POST = withApi(async (req: NextRequest) => {
         data: {
           fullName: fullName.trim(),
           ...(phoneNorm ? { phone: phoneNorm } : {}),
-          ...((body as any).username ? { username: (body as any).username.trim() } : {}),
+          ...(finalUsername ? { username: finalUsername } : {}),
           ...(avatarUrl ? { avatarUrl: avatarUrl.trim() } : {}),
           ...(locale ? { locale } : {}),
           status: initialStatus,

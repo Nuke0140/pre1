@@ -73,7 +73,28 @@ export async function resolveAuthorizedBranchScope(
   // Derive user's authorized branch list
   let authorizedBranches = allTenantBranches
   if (!canAccessAll) {
-    if (!session.branchId) {
+    let userBranchId = session.branchId
+
+    if (!userBranchId) {
+      // Fallback: If session.branchId is not specified, resolve from user's assigned classroom or tenant main branch
+      if (session.uid) {
+        const assignedClassroom = await db.classroom.findFirst({
+          where: { tenantId, primaryTeacherId: session.uid, isActive: true },
+          select: { branchId: true },
+        })
+        if (assignedClassroom?.branchId) {
+          userBranchId = assignedClassroom.branchId
+        }
+      }
+      if (!userBranchId) {
+        const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
+        if (defaultBranch) {
+          userBranchId = defaultBranch.id
+        }
+      }
+    }
+
+    if (!userBranchId) {
       return {
         tenantId,
         mode: 'NO_BRANCH_ACCESS',
@@ -83,15 +104,21 @@ export async function resolveAuthorizedBranchScope(
         isMultiBranchAuthorized: false,
       }
     }
-    authorizedBranches = allTenantBranches.filter((b) => b.id === session.branchId)
+
+    authorizedBranches = allTenantBranches.filter((b) => b.id === userBranchId)
     if (authorizedBranches.length === 0) {
-      return {
-        tenantId,
-        mode: 'NO_BRANCH_ACCESS',
-        selectedBranchId: null,
-        authorizedBranchIds: [],
-        branches: [],
-        isMultiBranchAuthorized: false,
+      const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
+      if (defaultBranch) {
+        authorizedBranches = [defaultBranch]
+      } else {
+        return {
+          tenantId,
+          mode: 'NO_BRANCH_ACCESS',
+          selectedBranchId: null,
+          authorizedBranchIds: [],
+          branches: [],
+          isMultiBranchAuthorized: false,
+        }
       }
     }
   }

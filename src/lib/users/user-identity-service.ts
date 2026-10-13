@@ -1,8 +1,9 @@
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { UserRole, UserStatus } from '@prisma/client'
-import { UsernameService, UsernameType } from './username-service'
+import { UsernameService, UsernameType, normalizeUsername } from './username-service'
 
 export interface BaseIdentityOptions {
   fullName: string
@@ -74,7 +75,7 @@ export class UserIdentityService {
     }
 
     // Determine unique username
-    let username = opts.username?.trim().toLowerCase()
+    let username = opts.username ? normalizeUsername(opts.username) : undefined
     if (user && user.username) {
       username = user.username
     } else if (!username) {
@@ -94,9 +95,15 @@ export class UserIdentityService {
       }
     }
 
-    // Determine password hash
+    // Determine password hash using CSPRNG when generated
     const isGeneratedPassword = !opts.password || opts.password.trim().length < 8
-    const rawPassword = isGeneratedPassword ? `PreOne@${Math.random().toString(36).slice(-8)}` : opts.password!.trim()
+    let rawPassword = opts.password ? opts.password.trim() : ''
+    if (isGeneratedPassword) {
+      const entropy = typeof crypto?.randomBytes === 'function'
+        ? crypto.randomBytes(6).toString('hex')
+        : 'S3cure' + Date.now().toString(36)
+      rawPassword = `PreOne@${entropy}`
+    }
     const passwordHash = await this.hashPassword(rawPassword)
 
     if (!user) {

@@ -593,6 +593,20 @@ export class AdmissionService {
       throw new Error('Child first name, date of birth, parent name, and parent phone are mandatory')
     }
 
+    // Idempotency check: if application was already submitted for this enquiry lead
+    if (input.leadId) {
+      const existingLeadApp = await db.admissionApplication.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          leadId: input.leadId,
+          deletedAt: null,
+        },
+      })
+      if (existingLeadApp) {
+        return existingLeadApp
+      }
+    }
+
     // Duplicate check
     const dupCheck = await this.checkDuplicateApplication(
       scope.tenantId,
@@ -773,13 +787,27 @@ export class AdmissionService {
         })
       }
 
-      // If tied to lead, update lead status
+      // If tied to lead, atomically transition lead to CONVERTED and resolve all open follow-up activities
       if (input.leadId) {
         await tx.lead.update({
           where: { id: input.leadId },
           data: {
-            status: 'APPLICATION_STARTED',
+            status: 'CONVERTED',
             convertedApplicationId: application.id,
+          },
+        }).catch(() => {})
+
+        await tx.followUp.updateMany({
+          where: {
+            tenantId: scope.tenantId,
+            sourceId: input.leadId,
+            status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+          },
+          data: {
+            status: 'RESOLVED',
+            resolvedAt: new Date(),
+            resolvedByName: ctx.actorName || 'System',
+            outcome: `Converted to Application (${applicationNumber})`,
           },
         }).catch(() => {})
       }

@@ -98,6 +98,21 @@ export default function StudentsPage() {
   const [sessions, setSessions] = useState<ContextOption[]>([])
   const [programs, setPrograms] = useState<ContextOption[]>([])
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
+  const [canWriteStudents, setCanWriteStudents] = useState(false)
+
+  // Load current user permissions
+  useEffect(() => {
+    fetch('/api/v1/me')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.data) {
+          const roles: string[] = res.data.roles && res.data.roles.length > 0 ? res.data.roles : [res.data.role]
+          const writeAllowed = roles.some((r) => ['OWNER', 'PRINCIPAL', 'SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(r))
+          setCanWriteStudents(writeAllowed)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const [createOpen, setCreateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -566,14 +581,16 @@ export default function StudentsPage() {
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] flex-1 sm:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
-          >
-            <Plus size={16} />
-            <span>{t('students.enrollChild')}</span>
-          </button>
+          {canWriteStudents && (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] flex-1 sm:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+            >
+              <Plus size={16} />
+              <span>{t('students.enrollChild')}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -599,9 +616,9 @@ export default function StudentsPage() {
       )}
 
       {/* ── 2. COMPACT SMARTER KPI CARDS (RESPONSIVE AUTO-GRID) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {/* Metric 1: Students */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.totalStudents')}
@@ -619,7 +636,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 2: Active */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.activeStudents')}
@@ -629,7 +646,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
+            <div className="text-xl sm:text-2xl font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400 leading-none">
               {stats ? stats.activeStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">{enumLabel('ACTIVE')}</div>
@@ -637,7 +654,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 3: New Admissions */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.recentAdmissions')}
@@ -647,7 +664,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
+            <div className="text-xl sm:text-2xl font-mono font-bold tabular-nums text-slate-900 dark:text-white leading-none">
               {stats ? stats.recentAdmissions30d : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">{t('nav.admissions')}</div>
@@ -655,7 +672,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 4: Attendance Rate with mini progress */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.attendanceAverage')}
@@ -665,7 +682,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className="text-2xl font-mono font-bold tabular-nums text-indigo-600 dark:text-indigo-400 leading-none">
+            <div className="text-xl sm:text-2xl font-mono font-bold tabular-nums text-indigo-600 dark:text-indigo-400 leading-none">
               {stats?.averageAttendanceRate != null ? `${stats.averageAttendanceRate}%` : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : '—')}
             </div>
             <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
@@ -678,7 +695,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 5: Transferred (Zero visually quiet) */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.transferredStudents')}
@@ -688,7 +705,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
+            <div className={`text-xl sm:text-2xl font-mono font-bold tabular-nums leading-none ${stats?.transferredStudents ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {stats ? stats.transferredStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">{enumLabel('TRANSFERRED')}</div>
@@ -696,7 +713,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 6: Withdrawn (Zero visually quiet) */}
-        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
+        <div className="premium-card p-3 sm:p-4 min-w-0 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Withdrawn
@@ -706,7 +723,7 @@ export default function StudentsPage() {
             </div>
           </div>
           <div>
-            <div className={`text-2xl font-mono font-bold tabular-nums leading-none ${stats?.withdrawnStudents ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
+            <div className={`text-xl sm:text-2xl font-mono font-bold tabular-nums leading-none ${stats?.withdrawnStudents ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500'}`}>
               {stats ? stats.withdrawnStudents : (loading ? <span className="inline-block w-8 h-6 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" /> : 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 truncate">Archived records</div>
@@ -801,7 +818,7 @@ export default function StudentsPage() {
       />
 
       {/* Classroom Quick-Switch Rail */}
-      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5">
+      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5 touch-pan-x">
         <button
           onClick={() => setClassFilter('ALL')}
           className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
@@ -831,7 +848,7 @@ export default function StudentsPage() {
       </div>
 
       {/* ── 4. CONTEXTUAL BULK ACTIONS TOOLBAR ── */}
-      {selected.length > 0 && (
+      {selected.length > 0 && canWriteStudents && (
         <div className="bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-purple-900 dark:text-purple-200 shadow-xs animate-in fade-in slide-in-from-top-1">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <CheckSquare2 size={16} className="text-purple-600 dark:text-purple-400" />
@@ -905,7 +922,7 @@ export default function StudentsPage() {
         ) : (
           <>
             {/* Desktop Table View (≥ 768px) */}
-            <div className="hidden md:block">
+            <div className="hidden md:block w-full min-w-0 overflow-x-auto">
               <DataTable
                 columns={columns}
                 data={rows}
@@ -923,7 +940,7 @@ export default function StudentsPage() {
                     >
                       Clear Filters
                     </button>
-                  ) : (
+                  ) : canWriteStudents ? (
                     <button
                       type="button"
                       onClick={() => setCreateOpen(true)}
@@ -931,14 +948,14 @@ export default function StudentsPage() {
                     >
                       + Enroll Child
                     </button>
-                  )
+                  ) : undefined
                 }
                 paginate
                 defaultPageSize={10}
                 showExport
                 exportFileName="students-roster.csv"
                 showColumnsMenu
-                rowSelection
+                rowSelection={canWriteStudents}
                 selectedKeys={selected}
                 onSelectionChange={setSelected}
                 rowActions={(s) => [
@@ -952,11 +969,11 @@ export default function StudentsPage() {
                     icon: <UserRound size={15} />,
                     onClick: () => router.push(`/app/students/${s.id}`),
                   },
-                  {
+                  ...(canWriteStudents ? [{
                     label: 'Assign Classroom',
                     icon: <ArrowRightLeft size={15} />,
                     onClick: () => openBulkClass([s.id]),
-                  },
+                  }] : []),
                 ]}
                 footer={
                   rows ? (
@@ -1089,10 +1106,12 @@ export default function StudentsPage() {
                           label: 'Clear Filters',
                           onClick: clearAllFilters,
                         }
-                      : {
-                          label: '+ Enroll Child',
-                          onClick: () => setCreateOpen(true),
-                        }
+                      : canWriteStudents
+                        ? {
+                            label: '+ Enroll Child',
+                            onClick: () => setCreateOpen(true),
+                          }
+                        : undefined
                   }
                 />
               )}

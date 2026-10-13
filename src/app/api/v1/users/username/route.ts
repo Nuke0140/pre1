@@ -32,20 +32,34 @@ async function _GET(req: NextRequest) {
   }
 
   try {
+    let isValid = true
+    let invalidReason: string | undefined = undefined
+
+    if (preferred) {
+      const valCheck = isValidUsername(preferred)
+      if (!valCheck.valid) {
+        isValid = false
+        invalidReason = valCheck.reason
+      }
+    }
+
+    const isAvailable = preferred && isValid
+      ? await UsernameService.isUsernameAvailable(preferred, type)
+      : false
+
     const suggestedUsername = await UsernameService.generateUniqueUsername({
       type,
       name: name || preferred || 'user',
-      preferred,
+      preferred: isValid ? preferred : undefined,
       tenantId: session.tenantId || undefined,
     })
 
-    const isAvailable = preferred
-      ? await UsernameService.isUsernameAvailable(preferred, type)
-      : true
-
     return ok({
       username: suggestedUsername,
+      normalizedUsername: preferred ? normalizeUsername(preferred) : suggestedUsername,
       isAvailable,
+      isValid,
+      invalidReason,
     })
   } catch (err: any) {
     return bad(err.message)

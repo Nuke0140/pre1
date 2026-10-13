@@ -28,7 +28,7 @@ export const GET = withApi(async (req: NextRequest) => {
     where: { id: classroomId, tenantId: session.tenantId },
     include: {
       primaryTeacher: { select: { id: true, fullName: true, email: true } },
-      academicSession: { select: { id: true, name: true, code: true } },
+      academicSession: { select: { id: true, name: true } },
     },
   })
   if (!classroom) {
@@ -161,7 +161,6 @@ export const GET = withApi(async (req: NextRequest) => {
         ? {
             id: classroom.academicSession.id,
             name: classroom.academicSession.name,
-            code: classroom.academicSession.code,
           }
         : null,
     },

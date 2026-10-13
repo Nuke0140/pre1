@@ -35,13 +35,28 @@ const CARE_ACTIONS = [
 export function TeacherToday() {
   const toast = useToast()
   const [data, setData] = useState<TeacherData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [careFor, setCareFor] = useState<{ id: string; name: string } | null>(null)
   const [section, setSection] = useState('')
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/v1/teacher/today').then((r) => r.json())
-    if (r.success) setData(r.data)
+    try {
+      setLoading(true)
+      setLoadError(null)
+      const res = await fetch('/api/v1/teacher/today')
+      const r = await res.json()
+      if (r.success && r.data) {
+        setData(r.data)
+      } else {
+        setLoadError(r.error?.message || 'Failed to load teacher workspace')
+      }
+    } catch (err: any) {
+      setLoadError(err.message || 'Unable to connect to school server')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -62,7 +77,7 @@ export function TeacherToday() {
   }
 
   const resolveFu = async (id: string) => {
-    const outcome = window.prompt('Outcome — kya action liya? kya result aaya?', '')
+    const outcome = window.prompt('Outcome / Action taken:', '')
     if (!outcome?.trim()) return
     setBusy(true)
     const res = await fetch(`/api/v1/operations/follow-ups/${id}`, {
@@ -76,16 +91,36 @@ export function TeacherToday() {
     else toast.error('Failed', json.error?.message)
   }
 
-  if (!data) {
+  if (loading && !data) {
     return (
       <>
-        <PageHead title="Aaj ke actions" sub="Your class, your children, your day." />
+        <PageHead title="Today's Actions" sub="Your class, your children, your day." />
         <Skeleton h={140} />
         <div style={{ height: 12 }} />
         <Skeleton h={300} />
       </>
     )
   }
+
+  if (loadError && !data) {
+    return (
+      <>
+        <PageHead title="Today's Actions" sub="Your class, your children, your day." />
+        <div className="card" style={{ padding: 24, textAlign: 'center', borderColor: 'var(--danger-border, #FCA5A5)' }}>
+          <div style={{ display: 'inline-flex', padding: 12, borderRadius: '50%', background: 'var(--danger-soft, #FEF2F2)', color: 'var(--danger, #DC2626)', marginBottom: 12 }}>
+            <AlertTriangle size={28} />
+          </div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px' }}>Unable to load classroom dashboard</h3>
+          <p className="t-caption" style={{ maxWidth: 440, margin: '0 auto 16px' }}>{loadError}</p>
+          <button className="btn btn-primary btn-sm" onClick={load} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Activity size={14} /> Try again
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  if (!data) return null
 
   const dayClosed = !data.attendanceExpected
 
@@ -94,7 +129,7 @@ export function TeacherToday() {
       <PageHead
         eyebrow="Teacher Daily Workspace"
         badge={<span className="badge b-primary b-dot">Classroom Care</span>}
-        title="Aaj ke actions"
+        title="Today's Actions"
         sub={`${data.today} · ${data.sections.length} section(s) · ${data.actions.followUpsOpen} follow-ups open${dayClosed ? ' · SCHOOL CLOSED TODAY' : ''}`}
         actions={
           <>
@@ -107,7 +142,7 @@ export function TeacherToday() {
       {dayClosed && (
         <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 16 }}>
           <b style={{ fontSize: 13.5 }}>School closed today ({data.dayStatus.replace(/_/g, ' ').toLowerCase()})</b>
-          <p className="t-caption">Attendance is not expected — calendar + operating config se aaya hai.</p>
+          <p className="t-caption">Attendance is not expected on non-instructional calendar days.</p>
         </div>
       )}
 
@@ -116,7 +151,7 @@ export function TeacherToday() {
           <EmptyState
             icon={<Baby size={36} />}
             title="No sections assigned yet"
-            message="Aapko koi class-section allocate nahi hui. Principal/Owner se apni assignment confirm karein (Setup → Teacher Assignment)."
+            message="You do not have any classroom sections assigned yet. Please contact your center head or administrator to assign your classrooms (Setup → Classrooms)."
           />
         </div>
       ) : (
@@ -177,11 +212,11 @@ export function TeacherToday() {
       {/* follow-ups assigned to me / my sections */}
       <div className="card">
         <div className="card-head">
-          <div className="card-title">Meri follow-ups</div>
+          <div className="card-title">My Follow-ups</div>
           <span className="badge b-neutral">{data.actions.followUpsOpen} open</span>
         </div>
         {data.followUps.length === 0 ? (
-          <p className="t-caption">Kuch pending nahi — good job!</p>
+          <p className="t-caption">No pending follow-ups — all clear!</p>
         ) : (
           data.followUps.map((f) => (
             <div key={f.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-subtle)' }}>

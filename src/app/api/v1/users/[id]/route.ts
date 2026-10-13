@@ -235,9 +235,14 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     let cleanUsername: string | undefined = undefined
     if (username !== undefined) {
       if (username && username.trim()) {
-        cleanUsername = username.trim().toLowerCase()
-        if (cleanUsername.length < 3) {
-          return bad('Username must be at least 3 characters', 'INVALID_USERNAME')
+        cleanUsername = UsernameService.normalizeUsername(username)
+        const formatCheck = UsernameService.isValidUsername(cleanUsername)
+        if (!formatCheck.valid) {
+          return bad(
+            formatCheck.reason ||
+              'Username must be 3-30 characters and contain only lowercase letters, numbers, dots, hyphens, and underscores',
+            'INVALID_USERNAME'
+          )
         }
         const available = await UsernameService.isUsernameAvailable(cleanUsername, 'STAFF', member.userId)
         if (!available) {

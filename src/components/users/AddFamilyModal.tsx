@@ -295,7 +295,7 @@ export function AddFamilyModal({
         canPickup,
         pickupPin: pickupPin.trim() || undefined,
         receivesComm,
-        username: username.trim() || undefined,
+        username: username.trim().toLowerCase() || undefined,
         password: password.trim() || undefined,
         childMode,
       }

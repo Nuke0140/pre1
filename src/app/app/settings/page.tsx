@@ -25,6 +25,7 @@ import {
   Users,
   CreditCard,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react'
 import { PageHead, StatusBadge } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
@@ -373,8 +374,46 @@ export default function SettingsControlCenter() {
         }
       />
 
-      {/* 12-Panel Navigation Tabs */}
-      <div className="segmented-scroll" style={{ overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>
+      {/* Mobile Settings Section Switcher (< md: 320px - 767px) */}
+      <div className="md:hidden">
+        <label htmlFor="settings-section-select" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+          Settings Section
+        </label>
+        <div className="relative">
+          <select
+            id="settings-section-select"
+            value={activeTab}
+            onChange={(e) => handleTabChange(e.target.value)}
+            className="w-full h-11 px-3.5 pr-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-xs appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+          >
+            {[
+              { id: 'profile', label: '1. School Profile & Localization' },
+              { id: 'organization', label: '2. Organization Structure' },
+              { id: 'operations', label: '3. Operating Schedule & Hours' },
+              { id: 'admissions', label: '4. Admissions Policy & Capacity' },
+              { id: 'academics', label: '5. Academics, Curriculum & EYFS' },
+              { id: 'students', label: '6. Student & Parent Lifecycle' },
+              { id: 'finance', label: '7. Finance, Invoicing & Fees' },
+              { id: 'templates', label: '8. Document Templates' },
+              { id: 'notifications', label: '9. Communications & Alert Logs' },
+              { id: 'security', label: '10. Security & Authentication' },
+              { id: 'rbac', label: '11. Role Permissions & RBAC Matrix' },
+              { id: 'health', label: '12. Integration Health & Diagnostics' },
+              { id: 'preferences', label: '13. My User Preferences & Glow' },
+            ].map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+            <ChevronDown size={16} />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop & Tablet Navigation Tabs (≥ md) */}
+      <div className="hidden md:block segmented-scroll overflow-x-auto touch-pan-x" style={{ whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'inline-flex', gap: 6, paddingBottom: 8 }}>
           {[
             { id: 'profile', label: 'School Profile', icon: Building2 },

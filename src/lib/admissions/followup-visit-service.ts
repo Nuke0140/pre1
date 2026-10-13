@@ -871,33 +871,76 @@ export class FollowUpVisitService {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
-    const baseWhere: any = {
-      tenantId,
-      domain: 'ADMISSION',
-      sourceType: { in: ['SchoolVisit', 'EnquiryFollowUp'] },
-    }
+    // Build branch filter
+    const branchFilter: any = {}
     if (params?.branchId) {
-      baseWhere.branchId = params.branchId
+      branchFilter.branchId = params.branchId
     } else if ((params as any)?.branchIds && Array.isArray((params as any).branchIds)) {
-      baseWhere.branchId = { in: (params as any).branchIds }
+      branchFilter.branchId = { in: (params as any).branchIds }
     }
 
-    // Fetch all relevant admission follow-ups to compute accurate counts & active lists
-    const allRecords = await db.followUp.findMany({
-      where: baseWhere,
-      orderBy: { dueAt: 'asc' },
-      take: 500,
+    // 1. Authoritative Stage 2 Leads:
+    // Strictly retrieve active prospects in the Follow-ups stage (CONTACTED, QUALIFIED, NURTURE)
+    // Exclude Stage 1 (NEW), Stage 3 (CONVERTED / has application), and terminal (LOST, DUPLICATE).
+    const stage2Leads = await db.lead.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: { in: ['CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] },
+        convertedApplicationId: null,
+        applications: { none: { deletedAt: null } },
+        ...branchFilter,
+      },
+      orderBy: [{ nextFollowUpAt: 'asc' }, { updatedAt: 'desc' }],
     })
 
-    // Fetch associated leads
-    const leadIds = Array.from(new Set(allRecords.map((r) => r.sourceId).filter(Boolean))) as string[]
-    const assignedUserIds = Array.from(new Set(allRecords.map((r) => r.assignedToId).filter(Boolean))) as string[]
-    const branchIds = Array.from(new Set(allRecords.map((r) => r.branchId).filter(Boolean))) as string[]
+    const stage2LeadIds = stage2Leads.map((l) => l.id)
 
-    const [leads, assignedUsers, branches] = await Promise.all([
-      db.lead.findMany({
-        where: { id: { in: leadIds }, deletedAt: null },
-      }),
+    // 2. Fetch associated tasks in FollowUp table for these active prospects
+    const openTasks = stage2LeadIds.length > 0
+      ? await db.followUp.findMany({
+          where: {
+            tenantId,
+            domain: 'ADMISSION',
+            sourceType: { in: ['SchoolVisit', 'EnquiryFollowUp'] },
+            sourceId: { in: stage2LeadIds },
+            status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+          },
+          orderBy: { dueAt: 'asc' },
+        })
+      : []
+
+    // 3. Fetch completed tasks for the COMPLETED history queue
+    const completedTasks = await db.followUp.findMany({
+      where: {
+        tenantId,
+        domain: 'ADMISSION',
+        sourceType: { in: ['SchoolVisit', 'EnquiryFollowUp'] },
+        status: { in: ['RESOLVED', 'CLOSED'] },
+        ...branchFilter,
+      },
+      orderBy: { resolvedAt: 'desc' },
+      take: 200,
+    })
+
+    // Fetch master user & branch dictionaries for enrichment
+    const assignedUserIds = Array.from(
+      new Set([
+        ...stage2Leads.map((l) => l.assignedToId),
+        ...openTasks.map((t) => t.assignedToId),
+        ...completedTasks.map((t) => t.assignedToId),
+      ].filter(Boolean))
+    ) as string[]
+
+    const branchIds = Array.from(
+      new Set([
+        ...stage2Leads.map((l) => l.branchId),
+        ...openTasks.map((t) => t.branchId),
+        ...completedTasks.map((t) => t.branchId),
+      ].filter(Boolean))
+    ) as string[]
+
+    const [assignedUsers, branches] = await Promise.all([
       assignedUserIds.length > 0
         ? db.user.findMany({
             where: { id: { in: assignedUserIds } },
@@ -912,82 +955,105 @@ export class FollowUpVisitService {
         : Promise.resolve([]),
     ])
 
-    const leadMap = new Map<string, any>(leads.map((l) => [l.id, l]))
     const userMap = new Map<string, any>(assignedUsers.map((u) => [u.id, u]))
     const branchMap = new Map<string, any>(branches.map((b) => [b.id, b]))
 
-    const enrichedRecords = allRecords.map((r) => {
-      const parsed = this.parseVisitDetail(r.detail)
-      const lead = r.sourceId ? leadMap.get(r.sourceId) : null
-      const assignedUser = r.assignedToId ? userMap.get(r.assignedToId) : null
-      const branch = r.branchId ? branchMap.get(r.branchId) : null
+    // Map open tasks by lead ID
+    const tasksByLeadId = new Map<string, any[]>()
+    for (const t of openTasks) {
+      if (!t.sourceId) continue
+      const arr = tasksByLeadId.get(t.sourceId) || []
+      arr.push(t)
+      tasksByLeadId.set(t.sourceId, arr)
+    }
+
+    // 4. Construct authoritative single active follow-up items per distinct prospect
+    const allOpenList = stage2Leads.map((lead) => {
+      const leadTasks = tasksByLeadId.get(lead.id) || []
+      const primaryTask = leadTasks[0] || null
+
+      const effectiveDueAt = primaryTask?.dueAt || lead.nextFollowUpAt || null
+      const assignedUserId = primaryTask?.assignedToId || lead.assignedToId || null
+      const assignedUser = assignedUserId ? userMap.get(assignedUserId) : null
+      const branchId = primaryTask?.branchId || lead.branchId || null
+      const branch = branchId ? branchMap.get(branchId) : null
+
+      const parsed = primaryTask ? this.parseVisitDetail(primaryTask.detail) : { visitStatus: 'SCHEDULED' }
 
       return {
-        ...r,
-        parsedDetail: parsed,
+        id: primaryTask?.id || `lead-fu-${lead.id}`,
+        tenantId,
+        branchId,
+        sourceType: primaryTask?.sourceType || 'EnquiryFollowUp',
+        sourceId: lead.id,
+        status: 'OPEN',
+        title: primaryTask?.title || `Follow-up: ${lead.childName || lead.parentName}`,
+        detail: primaryTask?.detail || lead.notes || 'Outreach scheduled with family',
+        dueAt: effectiveDueAt,
+        assignedToId: assignedUserId,
         assignedStaffName: assignedUser ? (assignedUser.fullName || assignedUser.email) : null,
         branchName: branch?.name || null,
-        lead: lead
-          ? {
-              id: lead.id,
-              leadNumber: lead.leadNumber,
-              parentName: lead.parentName,
-              phone: lead.phone,
-              email: lead.email,
-              childName: lead.childName,
-              childDob: lead.childDob,
-              status: lead.status,
-              interestedProgram: lead.interestedProgram,
-            }
-          : null,
+        parsedDetail: parsed,
+        lead: {
+          id: lead.id,
+          leadNumber: lead.leadNumber,
+          parentName: lead.parentName,
+          phone: lead.phone,
+          email: lead.email,
+          childName: lead.childName,
+          childDob: lead.childDob,
+          status: lead.status,
+          interestedProgram: lead.interestedProgram,
+          branchName: branch?.name || null,
+        },
       }
     })
 
-    // Operational Buckets:
-    // Filter helper: ensure lead is not closed/lost/converted for open queues
-    const isActiveLead = (r: any) => !r.lead || (r.lead.status !== 'LOST' && r.lead.status !== 'CONVERTED')
-
-    // DUE_TODAY: OPEN items with dueAt <= endOfToday
-    const dueToday = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
+    // Filter time buckets on the deduplicated active items
+    const dueToday = allOpenList.filter((r) => {
       if (!r.dueAt) return true
       return new Date(r.dueAt) <= endOfToday
     })
 
-    // OVERDUE: OPEN items with dueAt < startOfToday
-    const overdue = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
+    const overdue = allOpenList.filter((r) => {
       if (!r.dueAt) return false
       return new Date(r.dueAt) < startOfToday
     })
 
-    // UPCOMING: OPEN items with dueAt > now
-    const upcoming = enrichedRecords.filter((r) => {
-      if (r.status !== 'OPEN' || !isActiveLead(r)) return false
+    const upcoming = allOpenList.filter((r) => {
       if (!r.dueAt) return false
       return new Date(r.dueAt) > now
     })
 
-    // COMPLETED: RESOLVED or CLOSED items
-    const completed = enrichedRecords.filter((r) => ['RESOLVED', 'CLOSED'].includes(r.status))
-
-    const allOpenList = enrichedRecords.filter((r) => r.status === 'OPEN' && isActiveLead(r))
+    // Format completed items for historical view
+    const enrichedCompleted = completedTasks.map((t) => {
+      const assignedUser = t.assignedToId ? userMap.get(t.assignedToId) : null
+      const branch = t.branchId ? branchMap.get(t.branchId) : null
+      return {
+        ...t,
+        parsedDetail: this.parseVisitDetail(t.detail),
+        assignedStaffName: assignedUser ? (assignedUser.fullName || assignedUser.email) : null,
+        branchName: branch?.name || null,
+        lead: null,
+      }
+    })
 
     const counts = {
       dueToday: dueToday.length,
       overdue: overdue.length,
       upcoming: upcoming.length,
       upcomingVisits: upcoming.length,
-      completed: completed.length,
+      completed: enrichedCompleted.length,
       allOpen: allOpenList.length,
     }
 
-    let items = dueToday
-    if (params?.queue === 'OVERDUE') items = overdue
+    let items = allOpenList
+    if (params?.queue === 'DUE_TODAY') items = dueToday
+    else if (params?.queue === 'OVERDUE') items = overdue
     else if (params?.queue === 'UPCOMING') items = upcoming
-    else if (params?.queue === 'COMPLETED') items = completed
+    else if (params?.queue === 'COMPLETED') items = enrichedCompleted
     else if (params?.queue === 'ALL_OPEN') items = allOpenList
-    else if ((params?.queue as string) === 'ALL') items = enrichedRecords
+    else if ((params?.queue as string) === 'ALL') items = allOpenList
 
     return {
       counts,

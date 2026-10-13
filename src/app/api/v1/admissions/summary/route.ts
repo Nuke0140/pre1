@@ -43,11 +43,13 @@ async function _GET(req: NextRequest) {
       ? branchScope.selectedBranchId!
       : { in: branchScope.authorizedBranchIds }
 
-  // 1. Leads / Enquiries Where
+  // 1. Leads / Enquiries Where — Authoritative Stage 1 (Enquiries only, un-converted and not in follow-up)
   const leadWhere: Prisma.LeadWhereInput = {
     tenantId,
     deletedAt: null,
-    status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] },
+    status: 'NEW',
+    convertedApplicationId: null,
+    applications: { none: { deletedAt: null } },
   }
   if (branchScope.mode === 'SINGLE_BRANCH') {
     leadWhere.branchId = branchScope.selectedBranchId
@@ -101,14 +103,14 @@ async function _GET(req: NextRequest) {
     totalClassrooms,
     followUpQueues,
   ] = await Promise.all([
-    // Enquiries counts
+    // Enquiries counts (Stage 1 active enquiries)
     db.lead.count({ where: leadWhere }),
-    db.lead.count({ where: { ...leadWhere, status: 'NEW' } }),
-    db.lead.count({ where: { ...leadWhere, status: 'CONTACTED' } }),
-    db.lead.count({ where: { ...leadWhere, status: 'QUALIFIED' } }),
-    db.lead.count({ where: { ...leadWhere, status: 'NURTURE' } }),
+    db.lead.count({ where: leadWhere }),
+    db.lead.count({ where: { tenantId, deletedAt: null, convertedApplicationId: null, applications: { none: { deletedAt: null } }, status: 'CONTACTED', ...(branchScope.mode === 'SINGLE_BRANCH' ? { branchId: branchScope.selectedBranchId } : { OR: [{ branchId: { in: branchScope.authorizedBranchIds } }, { branchId: null }] }) } }),
+    db.lead.count({ where: { tenantId, deletedAt: null, convertedApplicationId: null, applications: { none: { deletedAt: null } }, status: 'QUALIFIED', ...(branchScope.mode === 'SINGLE_BRANCH' ? { branchId: branchScope.selectedBranchId } : { OR: [{ branchId: { in: branchScope.authorizedBranchIds } }, { branchId: null }] }) } }),
+    db.lead.count({ where: { tenantId, deletedAt: null, convertedApplicationId: null, applications: { none: { deletedAt: null } }, status: 'NURTURE', ...(branchScope.mode === 'SINGLE_BRANCH' ? { branchId: branchScope.selectedBranchId } : { OR: [{ branchId: { in: branchScope.authorizedBranchIds } }, { branchId: null }] }) } }),
 
-    // Applications counts
+    // Applications counts (Stage 3)
     db.admissionApplication.count({ where: appWhere }),
     db.admissionApplication.count({ where: { ...appWhere, status: 'SUBMITTED' } }),
     db.admissionApplication.count({
@@ -143,7 +145,7 @@ async function _GET(req: NextRequest) {
     applications: totalApplications,
     admitted: totalAdmitted,
     'classroom-placements': totalClassrooms,
-    reports: totalActiveEnquiries + totalApplications,
+    reports: totalActiveEnquiries + totalFollowUps + totalApplications,
   }
 
   // Dashboard & Control Center Card Metrics

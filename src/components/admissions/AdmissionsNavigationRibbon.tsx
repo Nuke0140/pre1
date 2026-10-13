@@ -1,8 +1,8 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   Users,
   PhoneCall,
@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   BarChart3,
   LayoutDashboard,
+  ChevronDown,
 } from 'lucide-react'
 
 export interface AdmissionsNavigationModule {
@@ -151,82 +152,137 @@ export function AdmissionsNavigationRibbon({
   className = '',
 }: AdmissionsNavigationRibbonProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const isControlCenterActive = pathname === '/app/admissions'
   const homeTheme = MODULE_THEMES.blue
+  const navContainerRef = useRef<HTMLDivElement>(null)
+  const activeTabRef = useRef<HTMLAnchorElement>(null)
+
+  // Auto-scroll the active tab into view on route change/initial mount
+  useEffect(() => {
+    if (activeTabRef.current && navContainerRef.current) {
+      activeTabRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      })
+    }
+  }, [pathname])
+
+  const allWorkspaces = [
+    { key: 'control-center', label: 'Control Center', href: '/app/admissions' },
+    ...ADMISSIONS_MODULES.map((m) => ({ key: m.key, label: m.label, href: m.href })),
+  ]
+
+  const currentWorkspaceHref = allWorkspaces.find((w) =>
+    w.href === '/app/admissions' ? pathname === '/app/admissions' : pathname.startsWith(w.href)
+  )?.href || '/app/admissions'
 
   return (
-    <div className={`w-full overflow-x-auto no-scrollbar py-0.5 ${className}`}>
-      <nav
-        className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 [box-shadow:var(--shadow-1)] text-xs select-none"
-        aria-label="Admissions Modules Multi-Color Navigation"
+    <div className={`w-full flex flex-col gap-2 ${className}`}>
+      {/* Mobile Workspace Selector (< sm: 320px - 639px) */}
+      <div className="sm:hidden w-full">
+        <label htmlFor="admissions-module-select" className="sr-only">
+          Select Admissions Workspace
+        </label>
+        <div className="relative">
+          <select
+            id="admissions-module-select"
+            value={currentWorkspaceHref}
+            onChange={(e) => router.push(e.target.value)}
+            className="w-full h-10 px-3.5 pr-10 rounded-xl bg-card/95 border border-border/80 text-xs font-semibold text-foreground shadow-xs appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+          >
+            {allWorkspaces.map((w) => (
+              <option key={w.key} value={w.href}>
+                {w.label} {moduleCounts[w.key] ? `(${moduleCounts[w.key]})` : ''}
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground">
+            <ChevronDown size={14} />
+          </div>
+        </div>
+      </div>
+
+      {/* Horizontal Multi-Color Vibrant Pills (Auto-centered & Touch-friendly across all screens) */}
+      <div
+        ref={navContainerRef}
+        className="w-full overflow-x-auto touch-pan-x scrollbar-thin py-0.5"
       >
-        {/* ── Control Center Launcher Link ── */}
-        <Link
-          href="/app/admissions"
-          className={`px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap border ${
-            isControlCenterActive
-              ? `${homeTheme.activePill} font-bold`
-              : `border-transparent ${homeTheme.inactive} font-medium`
-          }`}
+        <nav
+          className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 [box-shadow:var(--shadow-1)] text-xs select-none"
+          aria-label="Admissions Modules Multi-Color Navigation"
         >
-          {isControlCenterActive ? (
-            <span className={`w-2 h-2 rounded-full ${homeTheme.activeDot} animate-pulse`} />
-          ) : (
-            <LayoutDashboard size={13} className="text-muted-foreground/80 shrink-0" />
-          )}
-          <span>Control Center</span>
-        </Link>
+          {/* ── Control Center Launcher Link ── */}
+          <Link
+            ref={isControlCenterActive ? activeTabRef : undefined}
+            href="/app/admissions"
+            className={`px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap border ${
+              isControlCenterActive
+                ? `${homeTheme.activePill} font-bold`
+                : `border-transparent ${homeTheme.inactive} font-medium`
+            }`}
+          >
+            {isControlCenterActive ? (
+              <span className={`w-2 h-2 rounded-full ${homeTheme.activeDot} animate-pulse`} />
+            ) : (
+              <LayoutDashboard size={13} className="text-muted-foreground/80 shrink-0" />
+            )}
+            <span>Control Center</span>
+          </Link>
 
-        {/* Vertical subtle divider */}
-        <div className="h-4 w-px bg-border/70 mx-0.5 shrink-0" aria-hidden="true" />
+          {/* Vertical subtle divider */}
+          <div className="h-4 w-px bg-border/70 mx-0.5 shrink-0" aria-hidden="true" />
 
-        {/* ── Dedicated Workspaces (Multi-Color Vibrant Pills) ── */}
-        {ADMISSIONS_MODULES.map((mod) => {
-          const Icon = mod.icon
-          const isActive = pathname.startsWith(mod.href)
-          const count = moduleCounts[mod.key]
-          const theme = MODULE_THEMES[mod.accent] || MODULE_THEMES.blue
+          {/* ── Dedicated Workspaces (Multi-Color Vibrant Pills) ── */}
+          {ADMISSIONS_MODULES.map((mod) => {
+            const Icon = mod.icon
+            const isActive = pathname.startsWith(mod.href)
+            const count = moduleCounts[mod.key]
+            const theme = MODULE_THEMES[mod.accent] || MODULE_THEMES.blue
 
-          return (
-            <Link
-              key={mod.key}
-              href={mod.href}
-              className={`px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap border ${
-                isActive
-                  ? `${theme.activePill} font-bold`
-                  : `border-transparent ${theme.inactive} font-medium`
-              }`}
-            >
-              {/* Glowing animated dot for active tab */}
-              {isActive && (
-                <span className={`w-2 h-2 rounded-full ${theme.activeDot} animate-pulse shrink-0`} />
-              )}
-
-              {/* Module Icon */}
-              <Icon
-                size={14}
-                className={`transition-colors shrink-0 ${
-                  isActive ? theme.activeIcon : 'text-muted-foreground'
+            return (
+              <Link
+                key={mod.key}
+                ref={isActive ? activeTabRef : undefined}
+                href={mod.href}
+                className={`px-3.5 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-2 whitespace-nowrap border ${
+                  isActive
+                    ? `${theme.activePill} font-bold`
+                    : `border-transparent ${theme.inactive} font-medium`
                 }`}
-              />
+              >
+                {/* Glowing animated dot for active tab */}
+                {isActive && (
+                  <span className={`w-2 h-2 rounded-full ${theme.activeDot} animate-pulse shrink-0`} />
+                )}
 
-              {/* Module Label */}
-              <span className={isActive ? 'font-bold' : ''}>{mod.label}</span>
-
-              {/* Live Count Badge */}
-              {typeof count === 'number' && count > 0 && (
-                <span
-                  className={`px-1.5 py-0.5 rounded-full text-[10px] transition-all font-bold ${
-                    isActive ? `${theme.activeBadge} shadow-2xs` : theme.inactiveBadge
+                {/* Module Icon */}
+                <Icon
+                  size={14}
+                  className={`transition-colors shrink-0 ${
+                    isActive ? theme.activeIcon : 'text-muted-foreground'
                   }`}
-                >
-                  {count}
-                </span>
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+                />
+
+                {/* Module Label */}
+                <span className={isActive ? 'font-bold' : ''}>{mod.label}</span>
+
+                {/* Live Count Badge */}
+                {typeof count === 'number' && count > 0 && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] transition-all font-bold ${
+                      isActive ? `${theme.activeBadge} shadow-2xs` : theme.inactiveBadge
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
     </div>
   )
 }

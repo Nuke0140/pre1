@@ -102,6 +102,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             name: user?.fullName || session.name,
             email: session.email,
             role: session.role,
+            roles: session.roles,
             tenantName,
             branchName,
             avatarUrl: user?.avatarUrl || null,

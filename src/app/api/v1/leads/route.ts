@@ -33,23 +33,35 @@ async function _GET(req: NextRequest) {
 
     const view = sp.get('view') // 'active' | 'all'
 
-    // Status filter:
-    // If status is 'ACTIVE', or if status is not passed and view === 'active': only return active un-converted enquiries
-    // If status is 'ALL': return all leads regardless of status
-    // If a specific status is provided: return that status
-    let statusFilter: any = undefined
-    if (status === 'ACTIVE' || (!status && view === 'active')) {
-      statusFilter = { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] }
-    } else if (status && status !== 'ALL') {
-      statusFilter = status
-    }
+    // Authoritative Lifecycle Stage Filter:
+    // Stage 1 (Enquiries): 'ACTIVE', 'ENQUIRIES', or default active view only returns un-contacted, un-converted Stage 1 enquiries.
+    // Stage 2 (Follow-ups): 'FOLLOW_UPS', 'FOLLOW_UP', or specific statuses like 'CONTACTED', 'QUALIFIED', 'NURTURE'.
+    // 'ALL': returns all leads regardless of status (excluding soft-deleted).
+    const isStage1Active = status === 'ACTIVE' || status === 'ENQUIRIES' || (!status && view === 'active') || !status
 
     const where: any = {
       tenantId: branchScope.tenantId,
       deletedAt: null,
-      ...(statusFilter ? { status: statusFilter } : {}),
       ...(program ? { interestedProgram: program } : {}),
       ...(source ? { source } : {}),
+    }
+
+    if (isStage1Active) {
+      where.status = 'NEW'
+      where.convertedApplicationId = null
+      where.applications = { none: { deletedAt: null } }
+    } else if (status === 'FOLLOW_UPS' || status === 'FOLLOW_UP') {
+      where.status = { in: ['CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] }
+      where.convertedApplicationId = null
+      where.applications = { none: { deletedAt: null } }
+    } else if (status === 'ALL') {
+      // Return all leads without restricting status
+    } else if (status) {
+      where.status = status
+      if (status === 'NEW') {
+        where.convertedApplicationId = null
+        where.applications = { none: { deletedAt: null } }
+      }
     }
 
     if (branchScope.mode === 'SINGLE_BRANCH') {

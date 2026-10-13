@@ -529,10 +529,27 @@ export class LeadService {
       tenantId,
       deletedAt: null,
       ...(params.branchId ? { branchId: params.branchId } : {}),
-      ...(params.status ? { status: params.status as LeadStatus } : {}),
       ...(params.interestedProgram ? { interestedProgram: params.interestedProgram as ProgramType } : {}),
       ...(params.source ? { source: params.source as LeadSource } : {}),
       ...(params.assignedToId ? { assignedToId: params.assignedToId } : {}),
+    }
+
+    if (params.status === 'ACTIVE' || params.status === 'ENQUIRIES') {
+      where.status = 'NEW'
+      where.convertedApplicationId = null
+      where.applications = { none: { deletedAt: null } }
+    } else if (params.status === 'FOLLOW_UPS' || params.status === 'FOLLOW_UP') {
+      where.status = { in: ['CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] }
+      where.convertedApplicationId = null
+      where.applications = { none: { deletedAt: null } }
+    } else if (params.status === 'ALL') {
+      // Return all leads without restricting status
+    } else if (params.status) {
+      where.status = params.status as LeadStatus
+      if (params.status === 'NEW') {
+        where.convertedApplicationId = null
+        where.applications = { none: { deletedAt: null } }
+      }
     }
 
     if (params.search && params.search.trim()) {

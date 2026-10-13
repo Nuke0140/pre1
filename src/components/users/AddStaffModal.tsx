@@ -60,21 +60,79 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [noticePeriodDays, setNoticePeriodDays] = useState('')
 
   // Step 3: Account & Access
+  const [credentialSetupMode, setCredentialSetupMode] = useState<'MANUAL' | 'INVITE'>('MANUAL')
   const [username, setUsername] = useState('')
   const [isUsernameCustom, setIsUsernameCustom] = useState(false)
+  const [usernameChecking, setUsernameChecking] = useState(false)
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
-  const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING'>('ACTIVE')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [status, setStatus] = useState<'ACTIVE' | 'PENDING'>('ACTIVE')
 
   // Auto-generate employee code on open if blank
   useEffect(() => {
     if (open) {
       if (!employeeCode) generateEmployeeCode()
       if (!branchId && branches.length > 0) setBranchId(branches[0].id)
-      if (!password) generateRandomPassword()
     }
   }, [open, branches])
 
-  // Auto-generate username from fullName if not manually customized
+  // Check username availability with debounce
+  useEffect(() => {
+    const trimmed = username.trim().toLowerCase()
+    if (!trimmed) {
+      setUsernameAvailable(null)
+      setUsernameError(null)
+      setUsernameChecking(false)
+      return
+    }
+
+    if (trimmed.length < 3) {
+      setUsernameAvailable(false)
+      setUsernameError('Username must be at least 3 characters')
+      setUsernameChecking(false)
+      return
+    }
+
+    if (!/^[a-z0-9._-]+$/.test(trimmed) || /^[._-]|[._-]$/.test(trimmed)) {
+      setUsernameAvailable(false)
+      setUsernameError('Can only contain lowercase letters, numbers, dots, hyphens, and underscores')
+      setUsernameChecking(false)
+      return
+    }
+
+    setUsernameChecking(true)
+    setUsernameError(null)
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/users/username?preferred=${encodeURIComponent(trimmed)}&type=STAFF`
+        )
+        const json = await res.json()
+        if (json.success && json.data) {
+          setUsernameAvailable(Boolean(json.data.isAvailable))
+          if (!json.data.isAvailable) {
+            setUsernameError(`Username "${trimmed}" is already taken`)
+          } else {
+            setUsernameError(null)
+          }
+        } else {
+          setUsernameAvailable(null)
+        }
+      } catch {
+        setUsernameAvailable(null)
+      } finally {
+        setUsernameChecking(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [username])
+
+  // Auto-suggest username from fullName if not manually customized
   const handleFullNameChange = (val: string) => {
     setFullName(val)
     if (!isUsernameCustom) {
@@ -110,6 +168,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       pwd += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     setPassword(pwd)
+    setConfirmPassword(pwd)
   }
 
   const toggleAdditionalRole = (r: Role) => {
@@ -141,9 +200,16 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setCurrentAddress('')
     setPermanentAddress('')
     setLocale('en')
+    setCredentialSetupMode('MANUAL')
     setUsername('')
     setIsUsernameCustom(false)
+    setUsernameChecking(false)
+    setUsernameAvailable(null)
+    setUsernameError(null)
     setPassword('')
+    setConfirmPassword('')
+    setShowConfirmPassword(false)
+    setShowPassword(false)
     setPrimaryRole('TEACHER')
     setAdditionalRoles([])
     setBranchId(branches[0]?.id || '')
@@ -205,13 +271,53 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   }
 
   const validateStep3 = () => {
-    if (password && password.trim().length < 6) {
-      toast.error('Validation Error', 'Password must be at least 6 characters')
-      return false
-    }
-    if (username && !/^[a-zA-Z0-9._-]+$/.test(username.trim())) {
-      toast.error('Validation Error', 'Username can only contain letters, numbers, dots, hyphens, and underscores')
-      return false
+    const trimmedUser = username.trim().toLowerCase()
+
+    if (credentialSetupMode === 'MANUAL') {
+      if (!trimmedUser) {
+        toast.error('Validation Error', 'Login Username is required for manual credential setup')
+        return false
+      }
+      if (trimmedUser.length < 3 || trimmedUser.length > 30) {
+        toast.error('Validation Error', 'Username must be between 3 and 30 characters')
+        return false
+      }
+      if (!/^[a-z0-9._-]+$/.test(trimmedUser) || /^[._-]|[._-]$/.test(trimmedUser)) {
+        toast.error('Validation Error', 'Username can only contain lowercase letters, numbers, dots, hyphens, and underscores')
+        return false
+      }
+      if (usernameAvailable === false) {
+        toast.error('Validation Error', usernameError || `Username "${trimmedUser}" is already taken`)
+        return false
+      }
+      if (!password || password.trim().length === 0) {
+        toast.error('Validation Error', 'Password is required for manual credential setup')
+        return false
+      }
+      if (password.length < 6) {
+        toast.error('Validation Error', 'Password must be at least 6 characters long')
+        return false
+      }
+      if (password !== confirmPassword) {
+        toast.error('Validation Error', 'Passwords do not match. Please verify both password fields')
+        return false
+      }
+    } else {
+      // INVITE mode
+      if (trimmedUser) {
+        if (trimmedUser.length < 3 || trimmedUser.length > 30) {
+          toast.error('Validation Error', 'Suggested username must be between 3 and 30 characters')
+          return false
+        }
+        if (!/^[a-z0-9._-]+$/.test(trimmedUser) || /^[._-]|[._-]$/.test(trimmedUser)) {
+          toast.error('Validation Error', 'Username can only contain lowercase letters, numbers, dots, hyphens, and underscores')
+          return false
+        }
+        if (usernameAvailable === false) {
+          toast.error('Validation Error', usernameError || `Username "${trimmedUser}" is already taken`)
+          return false
+        }
+      }
     }
     return true
   }
@@ -229,11 +335,16 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setSubmitting(true)
     try {
       const allRoles: Role[] = [...new Set([primaryRole, ...additionalRoles])]
+      const isInvite = credentialSetupMode === 'INVITE'
+      const finalStatus = isInvite ? 'PENDING' : status
 
       const res = await fetch('/api/v1/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          credentialSetupMode,
+          isInvite,
+          status: finalStatus,
           fullName: fullName.trim(),
           email: email.trim().toLowerCase(),
           phone: phone.trim() || undefined,
@@ -247,14 +358,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           currentAddress: currentAddress.trim() || undefined,
           permanentAddress: permanentAddress.trim() || undefined,
           locale: locale || undefined,
-          username: username.trim() || undefined,
-          password: password.trim() || undefined,
+          username: username.trim().toLowerCase() || undefined,
+          password: !isInvite ? password : undefined,
           role: primaryRole,
           primaryRole,
           roles: allRoles,
           additionalRoles,
           branchId,
-          status,
           employeeCode: employeeCode.trim(),
           designation: designation.trim(),
           department: department.trim() || undefined,
@@ -282,10 +392,17 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
         throw new Error(errorMsg)
       }
 
-      toast.success(
-        'Staff Member Onboarded',
-        `${fullName} registered as ${ROLE_BADGE[primaryRole]?.label || primaryRole} (Code: ${employeeCode.trim()}).`
-      )
+      if (isInvite) {
+        toast.success(
+          'Staff Invitation Created',
+          `${fullName} onboarded with Pending status. Invitation ready for credential setup.`
+        )
+      } else {
+        toast.success(
+          'Staff Member Onboarded',
+          `${fullName} registered as ${ROLE_BADGE[primaryRole]?.label || primaryRole} (Username: @${json.data?.username || username.trim().toLowerCase()}).`
+        )
+      }
       resetForm()
       onSuccess()
       onClose()
@@ -336,7 +453,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           <button
             type="submit"
             form="add-staff-form"
-            disabled={submitting}
+            disabled={submitting || (credentialSetupMode === 'MANUAL' && usernameAvailable === false)}
             className="btn btn-primary text-xs flex items-center gap-1.5 py-2 px-4 font-semibold shadow-xs"
           >
             {submitting ? (
@@ -344,10 +461,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                 <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 <span>Onboarding...</span>
               </>
+            ) : credentialSetupMode === 'INVITE' ? (
+              <>
+                <Mail className="w-3.5 h-3.5" />
+                <span>Send Staff Invitation</span>
+              </>
             ) : (
               <>
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>Complete Onboarding</span>
+                <span>Complete Onboarding &amp; Activate</span>
               </>
             )}
           </button>
@@ -941,16 +1063,264 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           {/* ──────────────── STEP 3: ACCOUNT & ACCESS ──────────────── */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-4">
+              {/* Credential Setup Mode Selector */}
+              <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-3">
                 <div className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
-                  Access &amp; Security Credentials
+                  Credential Setup Method <span className="text-red-500">*</span>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCredentialSetupMode('MANUAL')}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      credentialSetupMode === 'MANUAL'
+                        ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/30 ring-1 ring-purple-600'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-white dark:bg-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-md ${credentialSetupMode === 'MANUAL' ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                        <Key className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-900 dark:text-white">
+                          Set Credentials Manually
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                          Owner defines username &amp; password now
+                        </div>
+                      </div>
+                    </div>
+                  </button>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Username */}
-                  <div className="field">
+                  <button
+                    type="button"
+                    onClick={() => setCredentialSetupMode('INVITE')}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      credentialSetupMode === 'INVITE'
+                        ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/30 ring-1 ring-purple-600'
+                        : 'border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-white dark:bg-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`p-1.5 rounded-md ${credentialSetupMode === 'INVITE' ? 'bg-purple-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-gray-900 dark:text-white">
+                          Send Email Invitation
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                          Staff creates password via link (Pending)
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Path A: Manual Credential Setup */}
+              {credentialSetupMode === 'MANUAL' && (
+                <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 space-y-4">
+                  <div className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Login Credentials &amp; Access
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Username */}
+                    <div className="field sm:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                          Login Username <span className="text-red-500">*</span>
+                        </label>
+                        {usernameChecking && (
+                          <span className="text-[11px] text-gray-500 flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 border border-purple-600 border-t-transparent rounded-full animate-spin" />
+                            Checking availability...
+                          </span>
+                        )}
+                        {!usernameChecking && usernameAvailable === true && (
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Available
+                          </span>
+                        )}
+                        {!usernameChecking && usernameAvailable === false && (
+                          <span className="text-[11px] text-red-600 dark:text-red-400 font-medium flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            {usernameError || 'Not available'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <Input
+                            leadingIcon={<span className="text-xs font-mono text-gray-400">@</span>}
+                            type="text"
+                            required
+                            placeholder="priya.sharma"
+                            value={username}
+                            onChange={(e) => {
+                              setUsername(e.target.value)
+                              setIsUsernameCustom(true)
+                            }}
+                            className={`text-xs font-mono ${
+                              usernameAvailable === false ? 'border-red-500 focus-visible:ring-red-500' : ''
+                            }`}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUsernameCustom(false)
+                            handleFullNameChange(fullName)
+                          }}
+                          className="btn btn-secondary text-xs px-2.5 py-1"
+                          title="Generate from staff name"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                        Used to sign in across web &amp; mobile apps. Letters, numbers, dots, hyphens, underscores.
+                      </p>
+                    </div>
+
+                    {/* Initial Password */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex gap-2 mt-1">
+                        <div className="flex-1">
+                          <Input
+                            leadingIcon={<Key className="w-4 h-4" />}
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            placeholder="Min. 6 characters"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="text-xs font-mono"
+                            trailingAction={
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                              >
+                                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            }
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={generateRandomPassword}
+                          className="btn btn-secondary text-xs px-2.5 py-1"
+                          title="Generate secure password"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div className="field">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-1">
+                        <Input
+                          leadingIcon={<Key className="w-4 h-4" />}
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          required
+                          placeholder="Re-type password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className={`text-xs font-mono ${
+                            confirmPassword && password !== confirmPassword ? 'border-red-500' : ''
+                          }`}
+                          trailingAction={
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
+                              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          }
+                        />
+                      </div>
+                      {confirmPassword && password !== confirmPassword && (
+                        <span className="text-[11px] text-red-500 flex items-center gap-1 mt-1">
+                          <AlertCircle className="w-3 h-3" /> Passwords do not match
+                        </span>
+                      )}
+                      {confirmPassword && password === confirmPassword && (
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
+                          <Check className="w-3 h-3" /> Passwords match
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Account Status */}
+                    <div className="field sm:col-span-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Initial Account Status
+                      </label>
+                      <div className="flex items-center gap-4 mt-1.5">
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            name="status"
+                            checked={status === 'ACTIVE'}
+                            onChange={() => setStatus('ACTIVE')}
+                          />
+                          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                            Active (Immediate Sign In)
+                          </span>
+                        </label>
+                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                          <input
+                            type="radio"
+                            name="status"
+                            checked={status === 'PENDING'}
+                            onChange={() => setStatus('PENDING')}
+                          />
+                          <span className="text-amber-700 dark:text-amber-400">
+                            Pending (Manual Activation Later)
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Path B: Invitation Flow */}
+              {credentialSetupMode === 'INVITE' && (
+                <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-900 dark:text-blue-300">
+                    <Mail className="w-4 h-4" />
+                    <span>Staff Invitation &amp; Deferred Setup</span>
+                  </div>
+                  <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                    An onboarding invitation will be queued for <strong>{email || 'the provided work email'}</strong>. The staff member will be prompted to set their own password upon first access.
+                  </p>
+                  <div className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-blue-100 dark:border-blue-900/40 text-xs space-y-1">
+                    <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                      <Shield className="w-3.5 h-3.5 text-blue-600" />
+                      Security Policy Enforced:
+                    </div>
+                    <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                      The account is created with <strong>PENDING</strong> status. Login is strictly blocked until the invitation is accepted and credentials are validly saved.
+                    </p>
+                  </div>
+
+                  <div className="field pt-2">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Login Username
+                      Suggested Username (Optional)
                     </label>
                     <div className="flex gap-2 mt-1">
                       <div className="flex-1">
@@ -966,85 +1336,10 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                           className="text-xs font-mono"
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsUsernameCustom(false)
-                          handleFullNameChange(fullName)
-                        }}
-                        className="btn btn-secondary text-xs px-2.5 py-1"
-                        title="Reset auto username"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Initial Password */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Initial Password
-                    </label>
-                    <div className="flex gap-2 mt-1">
-                      <div className="flex-1">
-                        <Input
-                          leadingIcon={<Key className="w-4 h-4" />}
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="text-xs font-mono"
-                          trailingAction={
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
-                              aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                          }
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={generateRandomPassword}
-                        className="btn btn-secondary text-xs px-2.5 py-1"
-                        title="Generate random password"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Account Status */}
-                  <div className="field sm:col-span-2">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Account Status
-                    </label>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input
-                          type="radio"
-                          name="status"
-                          checked={status === 'ACTIVE'}
-                          onChange={() => setStatus('ACTIVE')}
-                        />
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">Active (Immediate Login)</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-xs cursor-pointer">
-                        <input
-                          type="radio"
-                          name="status"
-                          checked={status === 'PENDING'}
-                          onChange={() => setStatus('PENDING')}
-                        />
-                        <span className="text-amber-700 dark:text-amber-400">Pending (Invite on first day)</span>
-                      </label>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Summary Card */}
               <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/60 space-y-2">

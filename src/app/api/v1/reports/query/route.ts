@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withApi } from '@/lib/with-api'
-import { errValidation } from '@/lib/api'
+import { errValidation, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { ReportService } from '@/lib/reports/report-service'
 import { ScopeContext } from '@/lib/reports/report-types'
@@ -26,11 +26,18 @@ export const POST = withApi(async (req: NextRequest, ctx) => {
     roles: session.roles && session.roles.length > 0 ? session.roles : [session.role],
   }
 
-  const result = await ReportService.queryReport(reportId, options, scopeCtx)
-  return NextResponse.json({
-    success: true,
-    report: result,
-    data: result,
-    traceId: ctx.traceId,
-  })
+  try {
+    const result = await ReportService.queryReport(reportId, options, scopeCtx)
+    return NextResponse.json({
+      success: true,
+      report: result,
+      data: result,
+      traceId: ctx.traceId,
+    })
+  } catch (err: any) {
+    if (err.message && err.message.toLowerCase().includes('forbidden')) {
+      return Errors.forbidden(err.message)
+    }
+    throw err
+  }
 }, { module: 'reports' })

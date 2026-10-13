@@ -704,13 +704,27 @@ export class AcademicService {
     const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
 
     // Role-aware teacher restrictions: Teacher only sees assigned classrooms
-    let teacherClassroomId: string | undefined = undefined
+    let teacherClassroomClause: any = undefined
     if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
-      const assignedClass = await db.classroom.findFirst({
-        where: { tenantId: scope.tenantId, primaryTeacherId: ctx.actorId, isActive: true },
+      const assignedClasses = await db.classroom.findMany({
+        where: {
+          tenantId: scope.tenantId,
+          isActive: true,
+          OR: [
+            { primaryTeacherId: ctx.actorId },
+            { subjectMappings: { some: { specialistTeacherId: ctx.actorId } } },
+          ],
+        },
         select: { id: true },
       })
-      if (assignedClass) teacherClassroomId = assignedClass.id
+      const roomIds = assignedClasses.map((c) => c.id)
+      if (filters?.classroomId) {
+        teacherClassroomClause = roomIds.includes(filters.classroomId) ? filters.classroomId : { in: [] }
+      } else {
+        teacherClassroomClause = { in: roomIds }
+      }
+    } else if (filters?.classroomId) {
+      teacherClassroomClause = filters.classroomId
     }
 
     return db.classroomActivity.findMany({
@@ -718,7 +732,7 @@ export class AcademicService {
         tenantId: scope.tenantId,
         academicSessionId: scope.academicSessionId,
         deletedAt: null,
-        classroomId: teacherClassroomId || filters?.classroomId || undefined,
+        ...(teacherClassroomClause !== undefined ? { classroomId: teacherClassroomClause } : {}),
         ...(filters?.curriculumId ? { curriculumId: filters.curriculumId } : {}),
         ...(filters?.learningGoalId ? { learningGoalId: filters.learningGoalId } : {}),
         ...(filters?.status ? { status: filters.status } : {}),

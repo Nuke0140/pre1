@@ -25,6 +25,7 @@ export interface ShellUser {
   name: string
   email: string
   role: Role
+  roles?: Role[]
   tenantName: string
   branchName: string | null
   avatarUrl?: string | null
@@ -133,7 +134,8 @@ export function AppShell({
 
   // Poll users KPIs for the "needs attention" panel (privileged roles only)
   useEffect(() => {
-    if (!['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(user.role)) return
+    const effectiveRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role]
+    if (!effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))) return
 
     const loadAttention = async () => {
       try {
@@ -151,9 +153,12 @@ export function AppShell({
     loadAttention()
     const timer = setInterval(loadAttention, 60000)
     return () => clearInterval(timer)
-  }, [user.role])
+  }, [user.role, user.roles])
 
-  const nav = useMemo(() => navForRole(user.role), [user.role])
+  const nav = useMemo(() => {
+    const roles = user.roles && user.roles.length > 0 ? user.roles : [user.role]
+    return navForRole(roles)
+  }, [user.role, user.roles])
 
 
   // theme boot + persistence (reads localStorage once on mount)

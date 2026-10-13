@@ -9,7 +9,7 @@ export interface AuthHeaderProps {
 
 export function AuthHeader({ title, description, greeting, className = '' }: AuthHeaderProps) {
   return (
-    <div className={`auth-header auth-stagger-3 text-center mb-7 relative z-10 ${className}`}>
+    <div className={`auth-header auth-stagger-3 text-center mb-4 sm:mb-7 relative z-10 ${className}`}>
       {greeting ? (
         <p className="text-xs font-semibold tracking-wide text-brand-600 dark:text-brand-400 mb-1.5 uppercase opacity-90 select-none">
           {greeting}

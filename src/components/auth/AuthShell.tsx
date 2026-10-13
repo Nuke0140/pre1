@@ -49,13 +49,13 @@ export function AuthShell({ children }: AuthShellProps) {
   }
 
   return (
-    <div className="auth-shell min-h-screen w-full relative flex flex-col justify-between items-center text-slate-800 dark:text-slate-100 overflow-x-hidden selection:bg-purple-500 selection:text-white transition-colors duration-300">
+    <div className="auth-shell min-h-[100dvh] w-full relative flex flex-col justify-between items-center text-slate-800 dark:text-slate-100 overflow-y-auto overflow-x-hidden selection:bg-purple-500 selection:text-white transition-colors duration-300">
       
       {/* Layer 1-4: Subtle Preschool Ambient Visual Background */}
       <AuthBackground />
 
       {/* Top Utility Controls Bar (Quiet, does not compete with central AuthBrand) */}
-      <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between pt-6 px-4 pb-2">
+      <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between pt-3 sm:pt-6 px-4 pb-1 sm:pb-2 shrink-0">
         <div className="flex items-center gap-2" />
 
         <div className="flex items-center gap-2 sm:gap-3">

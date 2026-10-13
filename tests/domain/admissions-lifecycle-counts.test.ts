@@ -239,9 +239,10 @@ describe('Admissions Lifecycle Count Consistency & Synchronization', () => {
     expect(followUpsInDb).toBe(1)
 
     // Verify canonical summary:
-    // Lead is CONTACTED (still an active enquiry), follow-up task is open (1), applications remain 0!
+    // Lead transitioned from ENQUIRY to FOLLOW_UP stage:
+    // enquiries: 0, follow-ups: 1, applications: 0!
     const summary = await fetchSummary(branchAId)
-    expect(summary.counts.enquiries).toBe(1)
+    expect(summary.counts.enquiries).toBe(0)
     expect(summary.counts['follow-ups']).toBe(1)
     expect(summary.counts.applications).toBe(0)
   })
@@ -366,16 +367,16 @@ describe('Admissions Lifecycle Count Consistency & Synchronization', () => {
     // Now in Branch A:
     // Lead 1: Converted to Application -> In Applications (1)
     // Lead 2: NEW Enquiry -> In Enquiries (1)
-    // Lead 3: CONTACTED Enquiry with Open Follow-up -> In Enquiries (1) & Follow-ups (1)
+    // Lead 3: CONTACTED Enquiry with Open Follow-up -> In Follow-ups (1)
     // Expected ribbon counts:
-    // enquiries: 2 (Lead 2 + Lead 3)
+    // enquiries: 1 (Lead 2)
     // follow-ups: 1 (Lead 3)
     // applications: 1 (Lead 1)
     const summary = await fetchSummary(branchAId)
-    expect(summary.counts.enquiries).toBe(2)
+    expect(summary.counts.enquiries).toBe(1)
     expect(summary.counts['follow-ups']).toBe(1)
     expect(summary.counts.applications).toBe(1)
-    expect(summary.counts.reports).toBe(3) // 2 enquiries + 1 application
+    expect(summary.counts.reports).toBe(3) // 1 enquiry + 1 follow-up + 1 application
   })
 
   it('Test G: Tenant and Branch Isolation preserves count integrity', async () => {
@@ -395,9 +396,10 @@ describe('Admissions Lifecycle Count Consistency & Synchronization', () => {
     })
     await leadsPost(reqBranchB)
 
-    // Branch A counts must remain unaffected
+    // Branch A counts must remain unaffected:
+    // Lead 2 is in Enquiries (1), Lead 3 is in Follow-ups (1), Lead 1 is in Applications (1)
     const summaryA = await fetchSummary(branchAId)
-    expect(summaryA.counts.enquiries).toBe(2)
+    expect(summaryA.counts.enquiries).toBe(1)
     expect(summaryA.counts['follow-ups']).toBe(1)
     expect(summaryA.counts.applications).toBe(1)
 

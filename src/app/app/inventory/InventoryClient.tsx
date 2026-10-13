@@ -60,12 +60,15 @@ interface SessionProps {
 
 export function InventoryClient({ session }: { session: SessionProps }) {
   const toast = useToast()
-  const role = session.role
-  const isTeacher = normalizeRole(role) === 'TEACHER'
-  const isStaff = ['TEACHER', 'STAFF', 'ACCOUNTS', 'DRIVER'].includes(normalizeRole(role))
-  const canApprove = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
-  const canProcure = ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
-  const canManageStock = ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(normalizeRole(role))
+  const effectiveRoles = useMemo(() => {
+    const list = [session.role, ...(session.roles || [])].filter(Boolean)
+    return Array.from(new Set(list)).map(normalizeRole)
+  }, [session.role, session.roles])
+  const isTeacher = effectiveRoles.includes('TEACHER')
+  const isStaff = effectiveRoles.some((r) => ['TEACHER', 'STAFF', 'ACCOUNTS', 'DRIVER'].includes(r))
+  const canApprove = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+  const canProcure = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(r))
+  const canManageStock = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(r))
 
   // 8 Canonical Workspaces
   type TabKey = 'OVERVIEW' | 'ITEMS' | 'DISTRIBUTION' | 'STORES' | 'PROCUREMENT' | 'RECEIVING' | 'VENDORS' | 'REPORTS'

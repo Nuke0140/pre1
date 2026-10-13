@@ -134,7 +134,7 @@ describe('Admissions CRM End-to-End Workflow & Life-Cycle', () => {
     } catch {
       // Best-effort cleanup
     }
-  })
+  }, 15000)
 
   // ──────────────────────────────────────────────────────────────────────────
   // Step 1: Enquiry Creation & Persistence (NEW status, NO Application)

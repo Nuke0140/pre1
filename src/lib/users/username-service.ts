@@ -35,7 +35,52 @@ export function sanitizeUsernameSlug(name: string): string {
   return `${parts[0]}.${parts[parts.length - 1]}`
 }
 
+/**
+ * Canonical username normalization policy:
+ * - Trim leading/trailing whitespace
+ * - Lowercase all characters
+ */
+export function normalizeUsername(username: string): string {
+  if (!username || typeof username !== 'string') return ''
+  return username.trim().toLowerCase()
+}
+
+/**
+ * Validates canonical username format:
+ * - 3 to 30 characters
+ * - Letters, numbers, dots, underscores, hyphens
+ * - Cannot start or end with a dot, underscore, or hyphen
+ */
+export function isValidUsername(username: string): { valid: boolean; reason?: string } {
+  const normalized = normalizeUsername(username)
+  if (!normalized) {
+    return { valid: false, reason: 'Username is required' }
+  }
+  if (normalized.length < 3) {
+    return { valid: false, reason: 'Username must be at least 3 characters' }
+  }
+  if (normalized.length > 30) {
+    return { valid: false, reason: 'Username cannot exceed 30 characters' }
+  }
+  if (!/^[a-z0-9._-]+$/.test(normalized)) {
+    return {
+      valid: false,
+      reason: 'Username can only contain lowercase letters, numbers, dots, hyphens, and underscores',
+    }
+  }
+  if (/^[._-]|[._-]$/.test(normalized)) {
+    return {
+      valid: false,
+      reason: 'Username cannot start or end with a dot, hyphen, or underscore',
+    }
+  }
+  return { valid: true }
+}
+
 export class UsernameService {
+  static normalizeUsername = normalizeUsername
+  static isValidUsername = isValidUsername
+
   /**
    * Checks whether a username is available.
    * For STAFF, PARENT, GUARDIAN: checks User table.
@@ -46,13 +91,13 @@ export class UsernameService {
     type: UsernameType,
     excludeId?: string
   ): Promise<boolean> {
-    const normalized = username.toLowerCase().trim()
+    const normalized = normalizeUsername(username)
     if (!normalized) return false
 
     if (type === 'STUDENT') {
       const existing = await db.student.findFirst({
         where: {
-          username: normalized,
+          username: { equals: normalized, mode: 'insensitive' },
           ...(excludeId ? { id: { not: excludeId } } : {}),
         },
         select: { id: true },
@@ -61,7 +106,7 @@ export class UsernameService {
     } else {
       const existing = await db.user.findFirst({
         where: {
-          username: normalized,
+          username: { equals: normalized, mode: 'insensitive' },
           ...(excludeId ? { id: { not: excludeId } } : {}),
         },
         select: { id: true },

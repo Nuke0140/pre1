@@ -246,9 +246,9 @@ export function EnquiryCard({
                 type="button"
                 onClick={() => onStartApplication(e)}
                 className="btn btn-primary btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold shadow-xs gap-1"
-                title="Assign staff and schedule outreach"
+                title="Move to Follow-ups & schedule outreach"
               >
-                <span>Assign</span>
+                <span>Move to Follow-ups</span>
               </button>
             )}
 

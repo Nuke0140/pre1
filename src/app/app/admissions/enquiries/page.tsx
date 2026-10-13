@@ -772,9 +772,9 @@ export default function EnquiriesPage() {
                                   type="button"
                                   onClick={() => handleStartApplication(e)}
                                   className="btn btn-primary btn-sm h-7.5 px-2.5 text-[11px] font-semibold rounded-lg shadow-xs shrink-0"
-                                  title="Assign staff and schedule outreach"
+                                  title="Move to Follow-ups & schedule outreach"
                                 >
-                                  Assign
+                                  Move to Follow-ups
                                 </button>
                               )}
                               {e.status === 'CONTACTED' && (

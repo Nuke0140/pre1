@@ -125,6 +125,14 @@ export const POST = withApi(
         return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
       }
 
+      if (user.status === 'PENDING') {
+        return Errors.business(
+          'ACCOUNT_PENDING',
+          'Your account registration is pending. Please complete account activation or contact your school administrator.',
+          403
+        )
+      }
+
       if (membership) {
         if (membership.status === 'LOCKED') {
           return Errors.business(
@@ -141,6 +149,13 @@ export const POST = withApi(
         }
         if (membership.status === 'ARCHIVED') {
           return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
+        }
+        if (membership.status === 'PENDING') {
+          return Errors.business(
+            'ACCOUNT_PENDING',
+            'Your account registration is pending. Please complete account activation or contact your school administrator.',
+            403
+          )
         }
       }
 
@@ -251,7 +266,8 @@ export const POST = withApi(
 
       const branch = membership.branchId
         ? await db.branch.findUnique({ where: { id: membership.branchId } })
-        : await db.branch.findFirst({ where: { tenantId: membership.tenantId, isMain: true } })
+        : (await db.branch.findFirst({ where: { tenantId: membership.tenantId, isMain: true, deletedAt: null } }))
+          || (await db.branch.findFirst({ where: { tenantId: membership.tenantId, deletedAt: null } }))
 
       const primaryRole = normalizeRole(membership.role)
       const allRoles: string[] = [primaryRole]
