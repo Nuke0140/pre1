@@ -23,13 +23,13 @@ async function _GET(req: NextRequest) {
       studentName: d.student ? `${d.student.firstName} ${d.student.lastName || ''}`.trim() : 'N/A',
       admissionNo: d.student?.admissionNo ?? 'N/A',
       name: d.name,
-      totalRupees: (d.totalAmountCents / 100).toFixed(2),
-      refundedRupees: (d.refundedAmountCents / 100).toFixed(2),
-      adjustedRupees: (d.adjustedAmountCents / 100).toFixed(2),
-      remainingRupees: (d.remainingAmountCents / 100).toFixed(2),
+      totalRupees: ((d.totalAmountCents ?? 0) / 100).toFixed(2),
+      refundedRupees: ((d.refundedAmountCents ?? 0) / 100).toFixed(2),
+      adjustedRupees: ((d.adjustedAmountCents ?? 0) / 100).toFixed(2),
+      remainingRupees: ((d.remainingAmountCents ?? 0) / 100).toFixed(2),
       status: d.status,
       notes: d.notes,
-      refunds: d.refunds,
+      refunds: d.refunds || [],
       createdAt: d.createdAt,
     })))
   } catch (e: any) {

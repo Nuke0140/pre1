@@ -265,10 +265,16 @@ export default function StudentsPage() {
       ])
       const sJson = await sRes.json()
       const cJson = await cRes.json()
-      if (sJson.success) setRows(sJson.data)
+      if (sJson.success) {
+        setRows(sJson.data)
+      } else {
+        setRows(null)
+        setLoadError(sJson.error?.message || 'Unable to load students')
+      }
       if (cJson.success) setClassrooms(cJson.data)
     } catch (err: any) {
       console.error('Failed to load students:', err)
+      setRows(null)
       setLoadError(err.message || 'Unable to load students')
       toast.error('Failed to load students', err.message)
     } finally {
@@ -880,199 +886,219 @@ export default function StudentsPage() {
           </div>
         </div>
 
-        {/* Desktop Table View (≥ 768px) */}
-        <div className="hidden md:block">
-          <DataTable
-            columns={columns}
-            data={rows}
-            loading={loading}
-            onRowClick={(s) => setInspectingStudent(s)}
-            emptyIcon={<Users size={36} className="text-purple-500" />}
-            emptyTitle={activeFiltersCount > 0 ? "No students found" : "No students yet"}
-            emptyMessage={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
-            emptyAction={
-              activeFiltersCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors"
-                >
-                  Clear Filters
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className="bg-primary hover:bg-primary-hover text-white px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold shadow-sm"
-                >
-                  + Enroll Child
-                </button>
-              )
-            }
-            paginate
-            defaultPageSize={10}
-            showExport
-            exportFileName="students-roster.csv"
-            showColumnsMenu
-            rowSelection
-            selectedKeys={selected}
-            onSelectionChange={setSelected}
-            rowActions={(s) => [
-              {
-                label: 'Quick Inspect',
-                icon: <Eye size={15} />,
-                onClick: () => setInspectingStudent(s),
-              },
-              {
-                label: 'View 360° Profile',
-                icon: <UserRound size={15} />,
-                onClick: () => router.push(`/app/students/${s.id}`),
-              },
-              {
-                label: 'Assign Classroom',
-                icon: <ArrowRightLeft size={15} />,
-                onClick: () => openBulkClass([s.id]),
-              },
-            ]}
-            footer={
-              rows ? (
-                <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                  <span>Total Shown: <b className="text-slate-800 dark:text-slate-200">{rows.length}</b></span>
-                  <span>·</span>
-                  <span>Active: <b className="text-emerald-600 dark:text-emerald-400">{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
-                  <span>·</span>
-                  <span>Transferred: <b className="text-amber-600 dark:text-amber-400">{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
-                  <span>·</span>
-                  <span>Withdrawn: <b className="text-rose-600 dark:text-rose-400">{rows.filter((r) => r.status === 'WITHDRAWN').length}</b></span>
-                  <span>·</span>
-                  <span>Unassigned: <b className="text-slate-600 dark:text-slate-300">{rows.filter((r) => !r.classroom).length}</b></span>
-                </div>
-              ) : null
-            }
-          />
-        </div>
-
-        {/* Mobile View: High-Fidelity Child Cards (< 768px) */}
-        <div className="md:hidden p-3.5 space-y-3">
-          {loading ? (
-            <div className="space-y-3">
-              <Skeleton h={140} />
-              <Skeleton h={140} />
-              <Skeleton h={140} />
+        {loadError ? (
+          <div className="p-8 sm:p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+              <AlertCircle size={24} />
             </div>
-          ) : rows && rows.length > 0 ? (
-            rows.map((s) => {
-              const rate = s.attendance?.rate ?? 100
-              return (
-                <div
-                  key={s.id}
-                  onClick={() => setInspectingStudent(s)}
-                  className="bg-white dark:bg-slate-800/95 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] transition-all"
-                >
-                  {/* Top Row: Avatar + Name + Admission No + Status */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={s.name} src={s.photoUrl} size="md" />
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white text-sm">
-                          {s.name}
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.2 rounded font-medium">
-                            {s.admissionNo}
-                          </span>
-                          {s.seatNumber && (
-                            <span className="font-mono text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded font-semibold border border-purple-200/50">
-                              {s.seatNumber}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <StatusBadge status={s.status} size="sm" />
-                  </div>
-
-                  {/* Classroom & Teacher */}
-                  <div className="text-xs space-y-0.5">
-                    <div className="font-bold text-slate-800 dark:text-slate-200">
-                      {s.classroom?.name || 'Unassigned Classroom'}
-                    </div>
-                    <div className="text-slate-500 dark:text-slate-400">
-                      {s.classroom?.teacher || 'No primary educator'}
-                    </div>
-                  </div>
-
-                  {/* Guardian */}
-                  <div className="text-xs space-y-0.5">
-                    <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      Guardian
-                    </div>
-                    <div className="font-medium text-slate-800 dark:text-slate-200">
-                      {s.primaryGuardian ? `${s.primaryGuardian.name} · ${enumLabel(s.primaryGuardian.relationship)}` : 'No guardian recorded'}
-                    </div>
-                    {s.primaryGuardian?.phone && (
-                      <div className="text-slate-500 font-mono text-[11px]">
-                        {s.primaryGuardian.phone}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Attendance & Age Grid */}
-                  <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-100 dark:border-slate-700/60">
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400">Age</div>
-                      <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
-                        {formatAge(s.dob)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-bold text-slate-400">Attendance</div>
-                      <div className="font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${rate >= 85 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} />
-                        <span>{rate}%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* View Profile Action Link */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex justify-end">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Unable to load student roster</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => { setLoadError(null); load(); loadStats(); }}
+              className="inline-flex items-center gap-2 px-4 py-2 min-h-[38px] rounded-xl bg-primary text-white text-xs font-semibold shadow-sm hover:bg-primary-hover transition-colors"
+            >
+              <RefreshCw size={14} />
+              <span>Retry</span>
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table View (≥ 768px) */}
+            <div className="hidden md:block">
+              <DataTable
+                columns={columns}
+                data={rows}
+                loading={loading}
+                onRowClick={(s) => setInspectingStudent(s)}
+                emptyIcon={<Users size={36} className="text-purple-500" />}
+                emptyTitle={activeFiltersCount > 0 ? "No students found" : "No students yet"}
+                emptyMessage={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
+                emptyAction={
+                  activeFiltersCount > 0 ? (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        router.push(`/app/students/${s.id}`)
-                      }}
-                      className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center gap-1 min-h-[44px] px-2 focus:outline-none focus:ring-2 focus:ring-purple-500/30 rounded-lg"
-                      aria-label={`View profile for ${s.name}`}
+                      onClick={clearAllFilters}
+                      className="px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/50 transition-colors"
                     >
-                      <span>View Profile</span>
-                      <ArrowRight size={13} />
+                      Clear Filters
                     </button>
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCreateOpen(true)}
+                      className="bg-primary hover:bg-primary-hover text-white px-4 py-2 min-h-[38px] rounded-xl text-xs font-semibold shadow-sm"
+                    >
+                      + Enroll Child
+                    </button>
+                  )
+                }
+                paginate
+                defaultPageSize={10}
+                showExport
+                exportFileName="students-roster.csv"
+                showColumnsMenu
+                rowSelection
+                selectedKeys={selected}
+                onSelectionChange={setSelected}
+                rowActions={(s) => [
+                  {
+                    label: 'Quick Inspect',
+                    icon: <Eye size={15} />,
+                    onClick: () => setInspectingStudent(s),
+                  },
+                  {
+                    label: 'View 360° Profile',
+                    icon: <UserRound size={15} />,
+                    onClick: () => router.push(`/app/students/${s.id}`),
+                  },
+                  {
+                    label: 'Assign Classroom',
+                    icon: <ArrowRightLeft size={15} />,
+                    onClick: () => openBulkClass([s.id]),
+                  },
+                ]}
+                footer={
+                  rows ? (
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                      <span>Total Shown: <b className="text-slate-800 dark:text-slate-200">{rows.length}</b></span>
+                      <span>·</span>
+                      <span>Active: <b className="text-emerald-600 dark:text-emerald-400">{rows.filter((r) => r.status === 'ACTIVE').length}</b></span>
+                      <span>·</span>
+                      <span>Transferred: <b className="text-amber-600 dark:text-amber-400">{rows.filter((r) => r.status === 'TRANSFERRED').length}</b></span>
+                      <span>·</span>
+                      <span>Withdrawn: <b className="text-rose-600 dark:text-rose-400">{rows.filter((r) => r.status === 'WITHDRAWN').length}</b></span>
+                      <span>·</span>
+                      <span>Unassigned: <b className="text-slate-600 dark:text-slate-300">{rows.filter((r) => !r.classroom).length}</b></span>
+                    </div>
+                  ) : null
+                }
+              />
+            </div>
+
+            {/* Mobile View: High-Fidelity Child Cards (< 768px) */}
+            <div className="md:hidden p-3.5 space-y-3">
+              {loading ? (
+                <div className="space-y-3">
+                  <Skeleton h={140} />
+                  <Skeleton h={140} />
+                  <Skeleton h={140} />
                 </div>
-              )
-            })
-          ) : (
-            <EmptyState
-              compact
-              illustration="students"
-              eyebrow="Students"
-              title={activeFiltersCount > 0 ? "No students found" : "No students yet"}
-              description={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
-              action={
-                activeFiltersCount > 0
-                  ? {
-                      label: 'Clear Filters',
-                      onClick: clearAllFilters,
-                    }
-                  : {
-                      label: '+ Enroll Child',
-                      onClick: () => setCreateOpen(true),
-                    }
-              }
-            />
-          )}
-        </div>
+              ) : rows && rows.length > 0 ? (
+                rows.map((s) => {
+                  const rate = s.attendance?.rate ?? 100
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => setInspectingStudent(s)}
+                      className="bg-white dark:bg-slate-800/95 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-4 shadow-xs space-y-3 cursor-pointer active:scale-[0.99] transition-all"
+                    >
+                      {/* Top Row: Avatar + Name + Admission No + Status */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={s.name} src={s.photoUrl} size="md" />
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">
+                              {s.name}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-1.5 py-0.2 rounded font-medium">
+                                {s.admissionNo}
+                              </span>
+                              {s.seatNumber && (
+                                <span className="font-mono text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded font-semibold border border-purple-200/50">
+                                  {s.seatNumber}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <StatusBadge status={s.status} size="sm" />
+                      </div>
+
+                      {/* Classroom & Teacher */}
+                      <div className="text-xs space-y-0.5">
+                        <div className="font-bold text-slate-800 dark:text-slate-200">
+                          {s.classroom?.name || 'Unassigned Classroom'}
+                        </div>
+                        <div className="text-slate-500 dark:text-slate-400">
+                          {s.classroom?.teacher || 'No primary educator'}
+                        </div>
+                      </div>
+
+                      {/* Guardian */}
+                      <div className="text-xs space-y-0.5">
+                        <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                          Guardian
+                        </div>
+                        <div className="font-medium text-slate-800 dark:text-slate-200">
+                          {s.primaryGuardian ? `${s.primaryGuardian.name} · ${enumLabel(s.primaryGuardian.relationship)}` : 'No guardian recorded'}
+                        </div>
+                        {s.primaryGuardian?.phone && (
+                          <div className="text-slate-500 font-mono text-[11px]">
+                            {s.primaryGuardian.phone}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Attendance & Age Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-2.5 border-t border-slate-100 dark:border-slate-700/60">
+                        <div>
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Age</div>
+                          <div className="font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                            {formatAge(s.dob)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase font-bold text-slate-400">Attendance</div>
+                          <div className="font-bold text-slate-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${rate >= 85 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                            <span>{rate}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* View Profile Action Link */}
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/app/students/${s.id}`)
+                          }}
+                          className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center gap-1 min-h-[44px] px-2 focus:outline-none focus:ring-2 focus:ring-purple-500/30 rounded-lg"
+                          aria-label={`View profile for ${s.name}`}
+                        >
+                          <span>View Profile</span>
+                          <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <EmptyState
+                  compact
+                  illustration="students"
+                  eyebrow="Students"
+                  title={activeFiltersCount > 0 ? "No students found" : "No students yet"}
+                  description={activeFiltersCount > 0 ? "Try changing your filters or search." : "Enroll your first child to begin."}
+                  action={
+                    activeFiltersCount > 0
+                      ? {
+                          label: 'Clear Filters',
+                          onClick: clearAllFilters,
+                        }
+                      : {
+                          label: '+ Enroll Child',
+                          onClick: () => setCreateOpen(true),
+                        }
+                  }
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── 6. ENROLL CHILD MODAL ── */}

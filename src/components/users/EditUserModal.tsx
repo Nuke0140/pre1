@@ -531,7 +531,6 @@ export function EditUserModal({
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  style={{ paddingLeft: 38 }}
                   className="input w-full text-sm"
                   placeholder="e.g. Eleanor Vance"
                 />
@@ -549,7 +548,6 @@ export function EditUserModal({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{ paddingLeft: 38 }}
                     className="input w-full text-sm font-mono"
                     placeholder="eleanor@preschool.edu"
                   />
@@ -566,7 +564,6 @@ export function EditUserModal({
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    style={{ paddingLeft: 38 }}
                     className="input w-full text-sm font-mono"
                     placeholder="+91 98765 43210"
                   />
@@ -585,7 +582,6 @@ export function EditUserModal({
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    style={{ paddingLeft: 32 }}
                     className="input w-full text-sm font-mono"
                     placeholder="eleanor.vance"
                   />
@@ -601,7 +597,6 @@ export function EditUserModal({
                   <select
                     value={locale}
                     onChange={(e) => setLocale(e.target.value)}
-                    style={{ paddingLeft: 38 }}
                     className="select w-full text-sm"
                   >
                     {LOCALES.map((l) => (
@@ -1039,7 +1034,6 @@ export function EditUserModal({
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  style={{ paddingLeft: 38 }}
                   className="input w-full text-sm"
                   placeholder="e.g. David Miller"
                 />
@@ -1057,7 +1051,6 @@ export function EditUserModal({
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    style={{ paddingLeft: 38 }}
                     className="input w-full text-sm font-mono"
                     placeholder="david.m@example.com"
                   />
@@ -1074,7 +1067,6 @@ export function EditUserModal({
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    style={{ paddingLeft: 38 }}
                     className="input w-full text-sm font-mono"
                     placeholder="+91 98765 43210"
                   />
@@ -1213,7 +1205,6 @@ export function EditUserModal({
                     maxLength={6}
                     value={pickupPin}
                     onChange={(e) => setPickupPin(e.target.value.replace(/\D/g, ''))}
-                    style={{ paddingLeft: 38 }}
                     className="input w-full text-sm font-mono tracking-widest"
                     placeholder="Leave blank to preserve existing security PIN"
                     autoComplete="new-password"
@@ -1310,7 +1301,6 @@ export function EditUserModal({
                   placeholder="Enter new password (min. 6 chars)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  style={{ paddingLeft: 38 }}
                   className="input w-full text-sm font-mono"
                   autoComplete="new-password"
                 />

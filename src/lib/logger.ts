@@ -75,9 +75,18 @@ interface ErrorMetricItem {
   durationMs?: number
 }
 
+interface EndpointMetricItem {
+  timestamp: number
+  endpoint: string
+  method: string
+  status: number
+  durationMs: number
+}
+
 class HealthMetricsAggregator {
   private static readonly RETENTION_MS = 24 * 60 * 60 * 1000 // 24 hours
   private metrics: ErrorMetricItem[] = []
+  private endpointMetrics: EndpointMetricItem[] = []
   private slowRequestCount = 0
 
   recordError(code: string, module: string, errorClass: 'OPERATIONAL' | 'DEVELOPER') {
@@ -86,6 +95,15 @@ class HealthMetricsAggregator {
     this.metrics.push({ timestamp: now, code, module, errorClass })
     if (this.metrics.length > 5000) {
       this.metrics.shift()
+    }
+  }
+
+  recordRequest(endpoint: string, method: string, status: number, durationMs: number) {
+    const now = Date.now()
+    this.cleanOld(now)
+    this.endpointMetrics.push({ timestamp: now, endpoint, method, status, durationMs })
+    if (this.endpointMetrics.length > 5000) {
+      this.endpointMetrics.shift()
     }
   }
 
@@ -99,6 +117,9 @@ class HealthMetricsAggregator {
     const cutoff = now - HealthMetricsAggregator.RETENTION_MS
     while (this.metrics.length > 0 && this.metrics[0].timestamp < cutoff) {
       this.metrics.shift()
+    }
+    while (this.endpointMetrics.length > 0 && this.endpointMetrics[0].timestamp < cutoff) {
+      this.endpointMetrics.shift()
     }
   }
 
@@ -129,12 +150,58 @@ class HealthMetricsAggregator {
       .slice(0, 10)
       .map(([mod, count]) => ({ module: mod, count }))
 
+    // Per-endpoint metrics and 5xx error tracking (Phase H)
+    const endpointMap: Record<
+      string,
+      {
+        totalRequests: number
+        serverErrors5xx: number
+        clientErrors4xx: number
+        successful2xx: number
+        errorRate5xx: number
+        avgDurationMs: number
+        elevated5xxAlert: boolean
+      }
+    > = {}
+
+    for (const em of this.endpointMetrics) {
+      const key = `${em.method} ${em.endpoint}`
+      if (!endpointMap[key]) {
+        endpointMap[key] = {
+          totalRequests: 0,
+          serverErrors5xx: 0,
+          clientErrors4xx: 0,
+          successful2xx: 0,
+          errorRate5xx: 0,
+          avgDurationMs: 0,
+          elevated5xxAlert: false,
+        }
+      }
+      const agg = endpointMap[key]
+      agg.totalRequests++
+      agg.avgDurationMs += em.durationMs
+      if (em.status >= 500) agg.serverErrors5xx++
+      else if (em.status >= 400) agg.clientErrors4xx++
+      else if (em.status >= 200 && em.status < 300) agg.successful2xx++
+    }
+
+    for (const key of Object.keys(endpointMap)) {
+      const agg = endpointMap[key]
+      if (agg.totalRequests > 0) {
+        agg.avgDurationMs = Math.round(agg.avgDurationMs / agg.totalRequests)
+        agg.errorRate5xx = Number(((agg.serverErrors5xx / agg.totalRequests) * 100).toFixed(2))
+        // Alert fires if 5xx rate > 5% with minimum 5 requests in retention window
+        agg.elevated5xxAlert = agg.totalRequests >= 5 && agg.errorRate5xx > 5
+      }
+    }
+
     return {
       operationalErrorCount24h: operationalCount,
       developerErrorCount24h: developerCount,
       topErrorCodes: topCodes,
       topModules: topModules,
       slowRequestCount: this.slowRequestCount,
+      endpointMetrics: endpointMap,
     }
   }
 }

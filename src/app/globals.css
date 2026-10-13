@@ -3542,10 +3542,87 @@ tr:focus-within .dt-row-actions .kebab {
 .modal:focus{outline:none}
 .modal:focus-visible{outline:none;box-shadow:var(--focus-ring)}
 
-/* Input with icon wrapper to guarantee text clearance */
-.input-icon-wrap{position:relative;display:flex;align-items:center;width:100%}
-.input-icon-wrap > svg, .input-icon-wrap > .input-icon{position:absolute;left:12px;width:16px;height:16px;color:var(--text-muted);pointer-events:none;z-index:2}
-.input-icon-wrap .input, .input-icon-wrap input{padding-left:38px !important}
+/* ════════════════════════════════════════════════════════════════════
+   PREONE INPUT WRAPPER & ICON CLEARANCE SYSTEM
+   Ensures >=8px visual clearance between leading icons and entered text,
+   independent absolute icon positioning, and autofill padding preservation.
+   ════════════════════════════════════════════════════════════════════ */
+.input-wrapper,
+.input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.input-wrapper__icon,
+.input-icon-wrap > svg,
+.input-icon-wrap > .input-icon,
+.input-wrapper > svg:first-child,
+.relative.input-wrapper > svg:first-child,
+.relative.input-icon-wrap > svg:first-child {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.input-wrapper__field {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
+/* Leading Icon Left Padding Reservation: 44px reserves icon (14px + 18px = 32px) + 12px gap */
+.input-wrapper--leading .input-wrapper__field,
+.input-wrapper--leading .input,
+.input-wrapper--leading input,
+.input-icon-wrap .input,
+.input-icon-wrap input,
+.input[data-leading-icon="true"],
+input[data-leading-icon="true"],
+.relative:has(> svg:first-child) > .input.pl-9,
+.relative:has(> svg:first-child) > .input.pl-10,
+.relative:has(> svg:first-child) > input.pl-9,
+.relative:has(> svg:first-child) > input.pl-10 {
+  padding-left: 44px !important;
+}
+
+/* Trailing Action Right Padding Reservation: 44px reserves space for trailing controls */
+.input-wrapper--trailing .input-wrapper__field,
+.input-wrapper--trailing .input,
+.input-wrapper--trailing input,
+.input[data-trailing-action="true"],
+input[data-trailing-action="true"] {
+  padding-right: 44px !important;
+}
+
+/* Browser Autofill Protection: strictly preserve icon padding under WebKit autofill */
+.input-wrapper--leading input:-webkit-autofill,
+.input-wrapper--leading .input:-webkit-autofill,
+.input-icon-wrap input:-webkit-autofill,
+.input-icon-wrap .input:-webkit-autofill,
+input[data-leading-icon="true"]:-webkit-autofill,
+.input[data-leading-icon="true"]:-webkit-autofill,
+.relative:has(> svg:first-child) > input:-webkit-autofill {
+  padding-left: 44px !important;
+}
+
+.input-wrapper--trailing input:-webkit-autofill,
+.input-wrapper--trailing .input:-webkit-autofill,
+input[data-trailing-action="true"]:-webkit-autofill,
+.input[data-trailing-action="true"]:-webkit-autofill {
+  padding-right: 44px !important;
+}
 
 /* ── Right-side Drawer (slides in from right edge) ── */
 .ovl-drawer{align-items:stretch;justify-content:flex-end;padding:0}

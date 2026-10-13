@@ -10,6 +10,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, BLOOD_GROUPS, MARITAL_STATUSES, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
+import { Input } from '@/components/ui/input'
 
 interface AddStaffModalProps {
   open: boolean
@@ -464,15 +465,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Full Name <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<User className="w-4 h-4" />}
                         type="text"
                         required
                         placeholder="e.g. Priya Sharma"
                         value={fullName}
                         onChange={(e) => handleFullNameChange(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                         autoFocus
                       />
                     </div>
@@ -483,15 +484,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Work Email <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Mail className="w-4 h-4" />}
                         type="email"
                         required
                         placeholder="e.g. priya@preschool.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -501,14 +502,14 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Mobile Phone
                     </label>
-                    <div className="relative mt-1">
-                      <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Phone className="w-4 h-4" />}
                         type="tel"
                         placeholder="+91 98765 43210"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -527,13 +528,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Date of Birth
                     </label>
-                    <div className="relative mt-1">
-                      <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Calendar className="w-4 h-4" />}
                         type="date"
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -733,15 +734,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Job Designation <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <Award className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Award className="w-4 h-4" />}
                         type="text"
                         required
                         placeholder="e.g. Lead Teacher / Accounts Officer"
                         value={designation}
                         onChange={(e) => setDesignation(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -786,13 +787,13 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Joining Date
                     </label>
-                    <div className="relative mt-1">
-                      <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Calendar className="w-4 h-4" />}
                         type="date"
                         value={joiningDate}
                         onChange={(e) => setJoiningDate(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -802,14 +803,14 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Qualification
                     </label>
-                    <div className="relative mt-1">
-                      <GraduationCap className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<GraduationCap className="w-4 h-4" />}
                         type="text"
                         placeholder="e.g. B.Ed, ECCEd, NTT"
                         value={qualification}
                         onChange={(e) => setQualification(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -952,9 +953,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       Login Username
                     </label>
                     <div className="flex gap-2 mt-1">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono">@</span>
-                        <input
+                      <div className="flex-1">
+                        <Input
+                          leadingIcon={<span className="text-xs font-mono text-gray-400">@</span>}
                           type="text"
                           placeholder="priya.sharma"
                           value={username}
@@ -962,7 +963,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                             setUsername(e.target.value)
                             setIsUsernameCustom(true)
                           }}
-                          className="input w-full text-xs pl-7 font-mono"
+                          className="text-xs font-mono"
                         />
                       </div>
                       <button
@@ -985,22 +986,25 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       Initial Password
                     </label>
                     <div className="flex gap-2 mt-1">
-                      <div className="relative flex-1">
-                        <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
+                      <div className="flex-1">
+                        <Input
+                          leadingIcon={<Key className="w-4 h-4" />}
                           type={showPassword ? 'text' : 'password'}
                           placeholder="Password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="input w-full text-xs pl-9 pr-9 font-mono"
+                          className="text-xs font-mono"
+                          trailingAction={
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1"
+                              aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                          }
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                        >
-                          {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                        </button>
                       </div>
                       <button
                         type="button"

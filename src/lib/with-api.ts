@@ -90,6 +90,8 @@ export function withApi<T = unknown>(
         if (isResponse(authResult)) {
           // Attach X-Trace-Id header to unauthorized response
           const res = authResult as Response
+          const durationMs = Date.now() - startTime
+          healthMetrics.recordRequest(req.nextUrl.pathname, req.method, res.status, durationMs)
           const headers = new Headers(res.headers)
           headers.set('X-Trace-Id', traceId)
           headers.set('X-API-Version', '1.0.0')
@@ -117,9 +119,10 @@ export function withApi<T = unknown>(
         const response = await handler(req, apiCtx)
         const durationMs = Date.now() - startTime
 
-        // Record request duration for observability
+        // Record request metrics & duration for observability
         const slowThreshold = options.slowThresholdMs || Number(process.env.SLOW_REQUEST_MS) || 1500
         healthMetrics.recordRequestDuration(durationMs, slowThreshold)
+        healthMetrics.recordRequest(req.nextUrl.pathname, req.method, response.status, durationMs)
 
         if (durationMs > slowThreshold) {
           reqLogger.warn(`Slow API request detected: ${durationMs}ms`, {
@@ -141,6 +144,9 @@ export function withApi<T = unknown>(
         // Normalize caught error into authoritative PreOneError
         const error = toPreOneError(rawError, derivedModule)
         error.traceId = traceId
+
+        // Record endpoint error metrics
+        healthMetrics.recordRequest(req.nextUrl.pathname, req.method, error.httpStatus, durationMs)
 
         if (error.isOperational()) {
           reqLogger.warn(error.userMessage, {

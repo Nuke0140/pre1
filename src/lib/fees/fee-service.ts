@@ -2365,7 +2365,7 @@ export class FeeService {
    */
   static async syncOverdueSchedules(tenantId: string, studentId?: string) {
     const now = new Date()
-    const overdueSchedules = await db.studentFeeSchedule.findMany({
+    await db.studentFeeSchedule.updateMany({
       where: {
         tenantId,
         ...(studentId ? { studentId } : {}),
@@ -2373,14 +2373,8 @@ export class FeeService {
         dueDate: { lt: now },
         remainingAmountCents: { gt: 0 },
       },
+      data: { status: 'OVERDUE' },
     })
-
-    for (const sched of overdueSchedules) {
-      await db.studentFeeSchedule.update({
-        where: { id: sched.id },
-        data: { status: 'OVERDUE' },
-      })
-    }
   }
 
   /**

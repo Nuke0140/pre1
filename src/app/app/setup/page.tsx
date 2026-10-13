@@ -165,8 +165,10 @@ export default function SetupPage() {
   // Modals
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<Dict | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(async (bId?: string) => {
+    setLoadError(null)
     try {
       const activeBId = bId !== undefined ? bId : selectedBranchId
       const q = activeBId && activeBId !== 'ALL' ? `?branchId=${activeBId}` : ''
@@ -177,9 +179,11 @@ export default function SetupPage() {
       } else if (res.status === 401 || j.error?.code === 'AUTH_001') {
         document.cookie = 'preone_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
         window.location.href = '/'
+      } else {
+        setLoadError(j.error?.message || 'Failed to load preschool setup status')
       }
-    } catch {
-      // ignore network errors on unmount
+    } catch (err: any) {
+      setLoadError(err?.message || 'Failed to communicate with setup service')
     }
   }, [selectedBranchId])
 
@@ -338,6 +342,37 @@ export default function SetupPage() {
   }, [status, phaseFilter, stepStatusFilter])
 
   if (!status) {
+    if (loadError) {
+      return (
+        <div className="page-container">
+          <PageHead title="Preschool Setup & Configuration" />
+          <div className="table-workspace">
+            <div style={{ padding: 40, textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <AlertCircle size={24} />
+              </div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 8px' }}>Failed to Load Setup Wizard</h3>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', maxWidth: 440, margin: '0 auto 20px' }}>
+                {loadError}
+              </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setLoadError(null)
+                  load()
+                  loadHubData()
+                  loadDeps()
+                }}
+              >
+                <RefreshCw size={14} /> Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="page-container">
         <PageHead
