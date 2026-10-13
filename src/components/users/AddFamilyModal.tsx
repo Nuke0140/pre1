@@ -10,6 +10,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { BranchOption, ClassroomOption, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
+import { Input } from '@/components/ui/input'
 
 interface AddFamilyModalProps {
   open: boolean
@@ -547,15 +548,15 @@ export function AddFamilyModal({
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Full Name <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<User className="w-4 h-4" />}
                         type="text"
                         required
                         placeholder="e.g. Ramesh Joshi"
                         value={fullName}
                         onChange={(e) => handleFullNameChange(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                         autoFocus
                       />
                     </div>
@@ -594,15 +595,15 @@ export function AddFamilyModal({
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Mobile Phone <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Phone className="w-4 h-4" />}
                         type="tel"
                         required
                         placeholder="+91 98765 43210"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
@@ -612,15 +613,15 @@ export function AddFamilyModal({
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       Email Address <span className="text-red-500">*</span>
                     </label>
-                    <div className="relative mt-1">
-                      <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
+                    <div className="mt-1">
+                      <Input
+                        leadingIcon={<Mail className="w-4 h-4" />}
                         type="email"
                         required
                         placeholder="e.g. ramesh@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="input w-full text-xs pl-9"
+                        className="text-xs"
                       />
                     </div>
                   </div>
