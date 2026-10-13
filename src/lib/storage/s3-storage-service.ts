@@ -244,7 +244,7 @@ export class S3StorageService {
       params.originalName,
       params.mimeType
     )
-    let url: string
+    const url = this.resolvePublicUrl(key)
 
     if (this.isS3Configured()) {
       const s3 = this.getS3Client()
@@ -264,11 +264,7 @@ export class S3StorageService {
           },
         })
       )
-      url = this.resolvePublicUrl(key)
     } else {
-      // In environments without AWS S3 credentials (local dev & serverless without bucket),
-      // persist binary permanently as durable base64 data URI (never writing temporary files to disk)
-      url = `data:${params.mimeType};base64,${params.buffer.toString('base64')}`
       mockS3Store.set(key, {
         buffer: params.buffer,
         mimeType: params.mimeType,
@@ -321,6 +317,7 @@ export class S3StorageService {
    */
   static async deleteObject(keyOrUrl: string | null | undefined): Promise<boolean> {
     if (!keyOrUrl || typeof keyOrUrl !== 'string') return false
+    if (keyOrUrl.startsWith('data:')) return true
 
     const key = this.extractKeyFromUrl(keyOrUrl)
     if (!key) return false

@@ -28,7 +28,10 @@ async function main() {
   })
   if (!admin) throw new Error('admin@preone.com account missing! Run bootstrap first.')
 
-  const adminMembership = admin.memberships[0]
+  const preoneTenant = await db.tenant.findUnique({ where: { code: 'PREONE' } })
+  if (!preoneTenant) throw new Error('PREONE tenant missing! Run bootstrap first.')
+
+  const adminMembership = admin.memberships.find((m) => m.tenantId === preoneTenant.id) || admin.memberships[0]
   if (!adminMembership) throw new Error('Admin tenant membership missing!')
 
   const adminToken = await signSession({
@@ -218,7 +221,7 @@ async function main() {
 
   // Test 3.10: Verify other users were NOT modified accidentally
   const adminCheck = await db.user.findFirst({ where: { email: 'admin@preone.com' } })
-  assert(adminCheck?.fullName === 'PreOne Administrator', '3.10. Admin and other user records remain completely untouched')
+  assert(adminCheck?.fullName === admin.fullName, '3.10. Admin and other user records remain completely untouched')
 
   // Test 3.11: Changes persist after page refresh simulation
   const refreshRes = await fetch(`${BASE_URL}/api/v1/users/${targetUserId}`, {

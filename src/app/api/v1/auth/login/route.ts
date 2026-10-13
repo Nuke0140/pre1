@@ -104,7 +104,15 @@ export const POST = withApi(
         }
       }
 
-      // Check account administrative moderation status (SUSPENDED / DEACTIVATED / ARCHIVED)
+      // Check account administrative moderation status (LOCKED / SUSPENDED / DEACTIVATED / ARCHIVED)
+      if (user.status === 'LOCKED') {
+        return Errors.business(
+          'ACCOUNT_LOCKED',
+          'Account has been locked. Contact an administrator to unlock.',
+          423
+        )
+      }
+
       if (user.status === 'SUSPENDED') {
         return Errors.business('ACCOUNT_SUSPENDED', 'Your account has been suspended.', 403)
       }
@@ -115,6 +123,25 @@ export const POST = withApi(
 
       if (user.status === 'ARCHIVED') {
         return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
+      }
+
+      if (membership) {
+        if (membership.status === 'LOCKED') {
+          return Errors.business(
+            'ACCOUNT_LOCKED',
+            'Account has been locked. Contact an administrator to unlock.',
+            423
+          )
+        }
+        if (membership.status === 'SUSPENDED') {
+          return Errors.business('ACCOUNT_SUSPENDED', 'Your account has been suspended.', 403)
+        }
+        if (membership.status === 'DEACTIVATED' || (membership.status as string) === 'INACTIVE') {
+          return Errors.business('ACCOUNT_DEACTIVATED', 'Your account has been deactivated.', 403)
+        }
+        if (membership.status === 'ARCHIVED') {
+          return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
+        }
       }
 
       // Cryptographically secure password verification
@@ -150,37 +177,9 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
-      // Auto-unlock legacy locked accounts upon verified credentials
-      if (user.status === 'LOCKED') {
-        await db.user.update({
-          where: { id: user.id },
-          data: { status: 'ACTIVE', updatedAt: new Date() },
-        })
-        user.status = 'ACTIVE'
-      }
-      if (membership && membership.status === 'LOCKED') {
-        await db.tenantUser.update({
-          where: { id: membership.id },
-          data: { status: 'ACTIVE', updatedAt: new Date() },
-        })
-        membership.status = 'ACTIVE'
-      }
-
       // Successful login -> clear failure tracker for user ID and login identifiers
       await resetPersistentFailedAttempts(user.id)
       resetFailedAttempts(user.id, user.email, user.username, loginId)
-
-      if (membership) {
-        if (membership.status === 'SUSPENDED') {
-          return Errors.business('ACCOUNT_SUSPENDED', 'Your account has been suspended.', 403)
-        }
-        if (membership.status === 'DEACTIVATED' || (membership.status as string) === 'INACTIVE') {
-          return Errors.business('ACCOUNT_DEACTIVATED', 'Your account has been deactivated.', 403)
-        }
-        if (membership.status === 'ARCHIVED') {
-          return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
-        }
-      }
 
       // No school membership -> platform-level staff (client onboarding console)
       if (!membership) {
