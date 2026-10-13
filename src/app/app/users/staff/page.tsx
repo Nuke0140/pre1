@@ -24,6 +24,12 @@ import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import {
   GlobalActionMenu,
   type ActionItem,
   type ActionGroup,
@@ -297,7 +303,7 @@ export default function StaffUsersPage() {
       header: '',
       align: 'right',
       render: (u) => (
-        <div className="dt-actions-row">
+        <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={<Eye size={15} />}
             label="View 360 Profile"
@@ -308,6 +314,44 @@ export default function StaffUsersPage() {
             label="Edit Staff Member"
             onClick={() => setEditingUser(u)}
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
+                title="More Actions"
+                aria-label="More Actions"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setEditingUser(u)}
+              >
+                <Edit3 size={14} className="text-primary" />
+                <span>Individual Edit</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => {
+                  setSelectedKeys([u.userId || u.id])
+                  setBulkFieldUpdateOpen(true)
+                }}
+              >
+                <Layers size={14} className="text-purple-600" />
+                <span>Bulk Edit / Update</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setViewingUser(u)}
+              >
+                <Eye size={14} className="text-slate-500" />
+                <span>View 360 Profile</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -372,14 +416,36 @@ export default function StaffUsersPage() {
                   icon: <Download />,
                   category: 'export',
                   groupId: 'data',
-                  href: '/api/v1/users/export?role=STAFF',
+                  href: `/api/v1/users/export?userType=STAFF${selectedRole !== 'ALL' ? `&role=${selectedRole}` : ''}${selectedBranch !== 'ALL' ? `&branchId=${selectedBranch}` : ''}${selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : ''}${search.trim() ? `&q=${encodeURIComponent(search.trim())}` : ''}`,
                   download: 'staff-directory.csv',
+                },
+                {
+                  id: 'individual-edit',
+                  label: 'Individual Edit',
+                  helperText: 'विशिष्ट कर्मचारी संपादन',
+                  icon: <Edit3 />,
+                  category: 'edit',
+                  groupId: 'management',
+                  onClick: () => {
+                    if (selectedKeys.length === 1) {
+                      const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
+                      if (u) {
+                        setEditingUser(u)
+                        return
+                      }
+                    }
+                    if (users.length > 0) {
+                      setEditingUser(users[0])
+                    } else {
+                      toast.info('Selection Needed', 'No staff member available to edit')
+                    }
+                  },
                 },
                 {
                   id: 'bulk-update',
                   label: 'Bulk Field Update',
                   helperText: 'एकाच वेळी माहिती अपडेट करा',
-                  icon: <Edit3 />,
+                  icon: <Layers />,
                   category: 'edit',
                   groupId: 'management',
                   onClick: () => setBulkFieldUpdateOpen(true),
@@ -643,12 +709,25 @@ export default function StaffUsersPage() {
           bulkActions={
             selectedKeys.length > 0 ? (
               <div className="flex items-center gap-2">
+                {selectedKeys.length === 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                    onClick={() => {
+                      const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
+                      if (u) setEditingUser(u)
+                    }}
+                  >
+                    <Edit3 size={14} className="text-primary" />
+                    <span>Individual Edit</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-primary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
                   onClick={() => setBulkFieldUpdateOpen(true)}
                 >
-                  <Edit3 size={14} />
+                  <Layers size={14} />
                   <span>Bulk Update Field ({selectedKeys.length})</span>
                 </button>
                 <button

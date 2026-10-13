@@ -47,7 +47,7 @@ export function withApi<T = unknown>(
   handler: (req: NextRequest, ctx: any) => Promise<NextResponse | Response>,
   options: WithApiOptions = {}
 ) {
-  return async (req: NextRequest, segmentData?: { params?: Promise<Record<string, string | string[]>> | Record<string, string | string[]> }) => {
+  return async (req: NextRequest, segmentData?: any) => {
     const startTime = Date.now()
 
     // 1. Resolve or extract single authoritative Trace ID

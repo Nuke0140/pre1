@@ -132,14 +132,14 @@ async function _PATCH(req: NextRequest) {
       return bad('Full name cannot be blank', 'NAME_REQUIRED')
     }
 
-    if (phone !== undefined && phone.trim()) {
+    if (phone !== undefined && phone && phone.trim()) {
       const cleanPhone = phone.trim()
       if (cleanPhone.length < 5 || cleanPhone.length > 20) {
         return bad('Please provide a valid phone number', 'INVALID_PHONE')
       }
     }
 
-    if (emergencyContactPhone !== undefined && emergencyContactPhone.trim()) {
+    if (emergencyContactPhone !== undefined && emergencyContactPhone && emergencyContactPhone.trim()) {
       const cleanEmerg = emergencyContactPhone.trim()
       if (cleanEmerg.length < 5 || cleanEmerg.length > 20) {
         return bad('Please provide a valid emergency contact phone number', 'INVALID_EMERGENCY_PHONE')
@@ -149,7 +149,7 @@ async function _PATCH(req: NextRequest) {
     const validBloodGroups = ['A_POSITIVE', 'A_NEGATIVE', 'B_POSITIVE', 'B_NEGATIVE', 'AB_POSITIVE', 'AB_NEGATIVE', 'O_POSITIVE', 'O_NEGATIVE']
     let cleanBloodGroup: BloodGroup | null | undefined = undefined
     if (bloodGroup !== undefined) {
-      if (bloodGroup === null || (bloodGroup as unknown as string) === '') {
+      if (!bloodGroup || (bloodGroup as unknown as string) === '') {
         cleanBloodGroup = null
       } else if (validBloodGroups.includes(bloodGroup as string)) {
         cleanBloodGroup = bloodGroup as BloodGroup
@@ -168,28 +168,42 @@ async function _PATCH(req: NextRequest) {
 
     // 3. Update User model (personal fields only)
     const userUpdateData: any = { updatedAt: new Date() }
-    if (fullName !== undefined) userUpdateData.fullName = fullName.trim()
-    if (phone !== undefined) userUpdateData.phone = phone.trim() || null
+    if (fullName !== undefined && fullName) userUpdateData.fullName = fullName.trim()
+    if (phone !== undefined) userUpdateData.phone = phone ? phone.trim() : null
 
     const updatedUser = await db.user.update({
       where: { id: session.uid },
       data: userUpdateData,
     })
 
-    // 4. Update StaffProfile if it exists or if staff personal fields are provided
-    if (existingUser.staffProfile) {
-      const staffUpdateData: any = { updatedAt: new Date() }
-      if (emergencyContactName !== undefined) staffUpdateData.emergencyContactName = emergencyContactName.trim() || null
-      if (emergencyContactPhone !== undefined) staffUpdateData.emergencyContactPhone = emergencyContactPhone.trim() || null
-      if (currentAddress !== undefined) staffUpdateData.currentAddress = currentAddress.trim() || null
-      if (permanentAddress !== undefined) staffUpdateData.permanentAddress = permanentAddress.trim() || null
-      if (qualification !== undefined) staffUpdateData.qualification = qualification.trim() || null
-      if (cleanBloodGroup !== undefined) staffUpdateData.bloodGroup = cleanBloodGroup
+    // 4. Update StaffProfile if it exists or create if staff personal fields are provided
+    const staffFields: any = {}
+    if (emergencyContactName !== undefined) staffFields.emergencyContactName = emergencyContactName?.trim() || null
+    if (emergencyContactPhone !== undefined) staffFields.emergencyContactPhone = emergencyContactPhone?.trim() || null
+    if (currentAddress !== undefined) staffFields.currentAddress = currentAddress?.trim() || null
+    if (permanentAddress !== undefined) staffFields.permanentAddress = permanentAddress?.trim() || null
+    if (qualification !== undefined) staffFields.qualification = qualification?.trim() || null
+    if (bloodGroup !== undefined) staffFields.bloodGroup = cleanBloodGroup
 
-      await db.staffProfile.update({
-        where: { id: existingUser.staffProfile.id },
-        data: staffUpdateData,
-      })
+    let updatedStaffProfile = existingUser.staffProfile
+    if (Object.keys(staffFields).length > 0) {
+      if (existingUser.staffProfile) {
+        updatedStaffProfile = await db.staffProfile.update({
+          where: { id: existingUser.staffProfile.id },
+          data: { ...staffFields, updatedAt: new Date() },
+        })
+      } else if (session.tenantId) {
+        const employeeCode = `EMP-${Date.now().toString().slice(-6)}`
+        updatedStaffProfile = await db.staffProfile.create({
+          data: {
+            userId: session.uid,
+            tenantId: session.tenantId,
+            branchId: session.branchId || null,
+            employeeCode,
+            ...staffFields,
+          },
+        })
+      }
     }
 
     // 5. Audit log event
@@ -221,10 +235,13 @@ async function _PATCH(req: NextRequest) {
         id: updatedUser.id,
         fullName: updatedUser.fullName,
         phone: updatedUser.phone,
+        avatarUrl: updatedUser.avatarUrl,
+        staffProfile: updatedStaffProfile,
       },
     })
   } catch (err: any) {
-    return serverError(err.message)
+    console.error('PATCH /api/v1/profile CAUGHT ERROR:', err)
+    return bad(err.message || 'Profile update failed', 'PROFILE_UPDATE_FAILED')
   }
 }
 

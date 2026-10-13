@@ -11,7 +11,8 @@
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "bootstrap:admin": "tsx scripts/bootstrap-preone-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
@@ -97,6 +98,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@embedded-postgres/windows-x64": "^18.4.0-beta.17",
     "@tailwindcss/postcss": "^4",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",

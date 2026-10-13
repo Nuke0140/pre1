@@ -163,7 +163,7 @@ export class SessionService {
   }
 
   /**
-   * Revokes a specific session.
+   * Revokes a specific session by ID.
    */
   static async revokeSession(sessionId: string, userId?: string): Promise<boolean> {
     const where: any = { id: sessionId }
@@ -171,6 +171,22 @@ export class SessionService {
 
     const res = await db.userSession.updateMany({
       where,
+      data: {
+        status: 'REVOKED',
+        updatedAt: new Date(),
+      },
+    })
+    return res.count > 0
+  }
+
+  /**
+   * Revokes a session identified by its raw JWT token.
+   */
+  static async revokeSessionByToken(token: string): Promise<boolean> {
+    if (!token) return false
+    const tokenHash = this.hashToken(token)
+    const res = await db.userSession.updateMany({
+      where: { tokenHash },
       data: {
         status: 'REVOKED',
         updatedAt: new Date(),

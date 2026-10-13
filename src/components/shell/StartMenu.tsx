@@ -6,6 +6,7 @@ import { Search, X, LogOut, Sparkles, User } from 'lucide-react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
 import { StartMenuIllustration } from '@/components/preone'
+import { Avatar } from '@/components/preone/ui'
 import type { ShellUser } from './AppShell'
 import { useI18n } from '@/lib/i18n/context'
 
@@ -296,7 +297,7 @@ export function StartMenu({
       {/* ── Fixed Account Footer ── */}
       <div className="sm-foot">
         <div className="sm-user">
-          <span className="avatar sm a-p">{userInitials}</span>
+          <Avatar name={user.name} src={user.avatarUrl} size="sm" />
           <div className="who">
             <b>{user.name}</b>
             <span>{user.email}</span>

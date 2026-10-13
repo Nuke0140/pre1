@@ -27,6 +27,7 @@ export interface ShellUser {
   role: Role
   tenantName: string
   branchName: string | null
+  avatarUrl?: string | null
 }
 
 export function AppShell({
@@ -45,9 +46,11 @@ export function AppShell({
   const [profileModalOpen, setProfileModalOpen] = useState(false)
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [nameOverride, setNameOverride] = useState<string | null>(null)
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null)
   const shellUser: ShellUser = {
     ...user,
     ...(nameOverride ? { name: nameOverride } : {}),
+    ...(avatarOverride !== null ? { avatarUrl: avatarOverride } : {}),
   }
   const [query, setQuery] = useState('')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
@@ -60,6 +63,9 @@ export function AppShell({
   const handleProfileUpdated = (updated?: { name?: string; avatarUrl?: string | null }) => {
     if (updated?.name) {
       setNameOverride(updated.name)
+    }
+    if (updated?.avatarUrl !== undefined) {
+      setAvatarOverride(updated.avatarUrl)
     }
     router.refresh()
   }
@@ -125,8 +131,10 @@ export function AppShell({
     return () => clearInterval(timer)
   }, [])
 
-  // Poll users KPIs for the "needs attention" panel (quiet fail for non-privileged roles)
+  // Poll users KPIs for the "needs attention" panel (privileged roles only)
   useEffect(() => {
+    if (!['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(user.role)) return
+
     const loadAttention = async () => {
       try {
         const res = await fetch('/api/v1/users?pageSize=1').then((r) => r.json())
@@ -143,7 +151,7 @@ export function AppShell({
     loadAttention()
     const timer = setInterval(loadAttention, 60000)
     return () => clearInterval(timer)
-  }, [])
+  }, [user.role])
 
   const nav = useMemo(() => navForRole(user.role), [user.role])
 

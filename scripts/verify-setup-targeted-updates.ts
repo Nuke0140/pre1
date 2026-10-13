@@ -73,6 +73,24 @@ async function run() {
   )
 
   // -------------------------------------------------------------------------
+  // Phase 3 — Remove Communication from Business Rules
+  // -------------------------------------------------------------------------
+  console.log('\n[2b] Requirement: Phase 3 Business Rules Communication Removal')
+  const phase3Steps = SETUP_STEPS.filter((s) => s.phase === 'BUSINESS_RULES')
+  assert(
+    !phase3Steps.some((s) => s.key === 'communication'),
+    'communication is successfully removed from Phase 3 steps'
+  )
+  assert(
+    phase3Steps.length === 3,
+    `Phase 3 contains exactly 3 steps: fees_setup, templates, promotion (got ${phase3Steps.length})`
+  )
+  assert(
+    !PHASES.find((p) => p.key === 'BUSINESS_RULES')?.sub.includes('communication'),
+    'Phase 3 sub-description does not mention communication'
+  )
+
+  // -------------------------------------------------------------------------
   // 3. Academic Year State Update — 5 Canonical Statuses
   // -------------------------------------------------------------------------
   console.log('\n[3] Requirement 2: Academic Year Canonical Statuses')

@@ -58,4 +58,7 @@ server.log
 db/pgdata*
 
 # Uploads and generated documents
-public/uploads/
+public/uploads/
+
+# Scratch scripts
+scratch/

@@ -234,7 +234,7 @@ export function StaffProfileModal({ open, onClose, onProfileUpdated }: StaffProf
     }
   }
 
-  // Submit personal details update
+  // Submit personal details update (and any staged photo)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fullName.trim()) {
@@ -244,6 +244,25 @@ export function StaffProfileModal({ open, onClose, onProfileUpdated }: StaffProf
 
     setSaving(true)
     try {
+      let updatedAvatarUrl = profile?.avatarUrl || null
+
+      // If user staged a photo, upload it as part of saving profile
+      if (selectedPhotoFile) {
+        const formData = new FormData()
+        formData.append('photo', selectedPhotoFile)
+
+        const photoRes = await fetch('/api/v1/profile/photo', {
+          method: 'POST',
+          body: formData,
+        })
+        const photoJson = await photoRes.json()
+        if (!photoRes.ok || !photoJson.success) {
+          throw new Error(photoJson.error?.message || photoJson.message || 'Photo upload failed')
+        }
+        updatedAvatarUrl = photoJson.data?.avatarUrl || photoJson.avatarUrl
+        clearPhotoSelection()
+      }
+
       const payload = {
         fullName: fullName.trim(),
         phone: phone.trim() || null,
@@ -266,10 +285,10 @@ export function StaffProfileModal({ open, onClose, onProfileUpdated }: StaffProf
         throw new Error(json.error?.message || json.message || 'Update failed')
       }
 
-      toast.success('Profile Updated', 'Your personal details have been saved')
+      toast.success('Profile Updated', 'Your profile details and photo have been saved successfully')
       await loadProfile()
       setActiveTab('OVERVIEW')
-      onProfileUpdated?.({ name: fullName.trim() })
+      onProfileUpdated?.({ name: fullName.trim(), avatarUrl: updatedAvatarUrl })
     } catch (err: any) {
       toast.error('Update Failed', err.message || 'Could not save profile changes')
     } finally {

@@ -62,6 +62,8 @@ async function main() {
   }
 
   const hash = await bcrypt.hash(PASSWORD, 10)
+  const preoneAdminPassword = process.env.PREONE_ADMIN_PASSWORD || 'Preone@2311'
+  const hashPreoneAdmin = await bcrypt.hash(preoneAdminPassword, 10)
 
   // ── Platform admin (no tenant) ──
   await db.user.create({
@@ -94,10 +96,10 @@ async function main() {
 
   const userPreone = await db.user.create({
     data: {
-      email: 'admin@mypreone.com',
+      email: 'admin@preone.com',
       username: 'admin',
       fullName: 'PreOne Administrator',
-      passwordHash: hash,
+      passwordHash: hashPreoneAdmin,
       status: 'ACTIVE',
     },
   })

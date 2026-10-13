@@ -250,7 +250,7 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
 
     // 14. Communication
     cat('communication', 'Communication Channels', [
-      A(cfg.COMMUNICATION?.channels).length === 0 ? B('No communication channel enabled', null, 'SchoolConfig') : null,
+      A(cfg.COMMUNICATION?.channels).length === 0 ? W('No communication channel enabled (optional)', null, 'SchoolConfig') : null,
       A(cfg.COMMUNICATION?.notificationEvents).length === 0 ? W('No notification events mapped (fee reminders, health alerts)', null, 'SchoolConfig') : null,
     ].filter((f): f is Finding => f !== null)),
 
