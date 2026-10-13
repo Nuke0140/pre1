@@ -48,36 +48,49 @@ async function runVerification() {
     })
     assert(preoneTenantCount === 1, '3.5. Exactly one PREONE tenant exists (no duplicates)')
 
-    // 1.3 Test Admin Login with Email
+    // 1.3 Test Admin Login with Email and PreOne@2311
     const resAdminEmail = await fetch(`${BASE}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         schoolCode: 'PREONE',
         identifier: 'admin@preone.com',
-        password: 'Preone@2311',
+        password: 'PreOne@2311',
       }),
     })
     const jsonAdminEmail = await resAdminEmail.json()
-    assert(resAdminEmail.status === 200 && jsonAdminEmail.success === true, '3.6. PREONE admin logs in successfully with email and Preone@2311', JSON.stringify(jsonAdminEmail))
+    assert(resAdminEmail.status === 200 && jsonAdminEmail.success === true, '3.6. PREONE admin logs in successfully with email and PreOne@2311', JSON.stringify(jsonAdminEmail))
     assert(jsonAdminEmail.data?.user?.role === 'OWNER', '3.7. Admin role resolved as OWNER (main institution authority)')
     assert(jsonAdminEmail.data?.user?.tenant?.name !== undefined, '3.8. Tenant context attached to admin session')
 
     const adminCookie = resAdminEmail.headers.get('set-cookie') || ''
     assert(adminCookie.includes('preone_session='), '3.9. HttpOnly session cookie issued for admin')
 
-    // 1.4 Test Admin Login with Username
+    // 1.4 Test Admin Login with Username "admin"
     const resAdminUser = await fetch(`${BASE}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         schoolCode: 'PREONE',
         identifier: 'admin',
-        password: 'Preone@2311',
+        password: 'PreOne@2311',
       }),
     })
     const jsonAdminUser = await resAdminUser.json()
     assert(resAdminUser.status === 200 && jsonAdminUser.success === true, '3.10. PREONE admin logs in successfully with username "admin"')
+
+    // 1.5 Test invalid password rejection
+    const resInvalid = await fetch(`${BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        schoolCode: 'PREONE',
+        identifier: 'admin@preone.com',
+        password: 'WrongPassword@999',
+      }),
+    })
+    const jsonInvalid = await resInvalid.json()
+    assert(resInvalid.status === 401 && jsonInvalid.success === false, '3.11. Invalid password is strictly rejected with HTTP 401')
 
     // ========================================================================
     // PART 2: Repeated Login (Removal of Any "One-Time Login" Barriers)

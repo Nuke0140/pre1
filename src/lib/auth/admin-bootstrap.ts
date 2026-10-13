@@ -7,7 +7,7 @@
  *   School code: PREONE
  *   Email:       admin@preone.com
  *   Username:    admin
- *   Password:    Preone@2311 (or PREONE_ADMIN_PASSWORD env var)
+ *   Password:    PreOne@2311 (or PREONE_ADMIN_PASSWORD env var)
  *   Role:        OWNER (Institution Admin with full school authority)
  *   Status:      ACTIVE
  *
@@ -39,7 +39,7 @@ export async function bootstrapPreoneAdmin(opts?: { silent?: boolean }) {
   const ADMIN_EMAIL = 'admin@preone.com'
   const ADMIN_USERNAME = 'admin'
   const ADMIN_NAME = 'PreOne Administrator'
-  const RAW_PASSWORD = process.env.PREONE_ADMIN_PASSWORD || 'Preone@2311'
+  const RAW_PASSWORD = process.env.PREONE_ADMIN_PASSWORD || 'PreOne@2311'
 
   // 1. Ensure PREONE tenant exists and is ACTIVE
   let tenant = await db.tenant.findUnique({

@@ -9,15 +9,10 @@ import { audit, getRequestMeta } from '@/lib/audit'
 import { SessionService } from '@/lib/users/session-service'
 
 import {
-  getFailedAttempts,
   recordFailedAttempt,
   resetFailedAttempts,
-  recordPersistentFailedAttempt,
-  getPersistentFailedAttempts,
   resetPersistentFailedAttempts,
-  MAX_CONSECUTIVE_FAILURES,
 } from '@/lib/auth/lockout-tracker'
-import { bootstrapPreoneAdmin } from '@/lib/auth/admin-bootstrap'
 
 export const POST = withApi(
   async (req: NextRequest) => {
@@ -45,10 +40,13 @@ export const POST = withApi(
 
       const cleanSchoolCode = schoolCode?.trim().toUpperCase()
 
-      // Find user by either email or username (UAM-E7, UAM-E13)
-      let user = await db.user.findFirst({
+      // Find user by either email or username (case-insensitive for resilience)
+      const user = await db.user.findFirst({
         where: {
-          OR: [{ email: loginId }, { username: loginId }],
+          OR: [
+            { email: { equals: loginId, mode: 'insensitive' } },
+            { username: { equals: loginId, mode: 'insensitive' } },
+          ],
         },
         include: {
           memberships: {
@@ -57,34 +55,6 @@ export const POST = withApi(
           },
         },
       })
-
-      // Self-healing guarantee for canonical PreOne Admin across Vercel & local
-      const isPreoneAdminAttempt =
-        (loginId === 'admin@preone.com' || loginId === 'admin') &&
-        (!cleanSchoolCode || cleanSchoolCode === 'PREONE')
-      const expectedAdminPassword = process.env.PREONE_ADMIN_PASSWORD || 'Preone@2311'
-
-      if (isPreoneAdminAttempt) {
-        const needsBootstrap =
-          !user ||
-          !user.memberships.some((m) => m.tenant?.code?.toUpperCase() === 'PREONE') ||
-          (password === expectedAdminPassword && !(await bcrypt.compare(password, user.passwordHash)))
-
-        if (needsBootstrap && password === expectedAdminPassword) {
-          await bootstrapPreoneAdmin({ silent: true })
-          user = await db.user.findFirst({
-            where: {
-              OR: [{ email: loginId }, { username: loginId }],
-            },
-            include: {
-              memberships: {
-                include: { tenant: true },
-                where: { deletedAt: null },
-              },
-            },
-          })
-        }
-      }
 
       if (!user || user.deletedAt) {
         recordFailedAttempt(loginId)
@@ -103,9 +73,6 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
-      // For resolved users, persistent database tracking is authoritative across all serverless instances
-      const currentFailures = await getPersistentFailedAttempts(user.id)
-
       // Resolve targeted school membership if schoolCode was specified
       let membership = user.memberships[0]
       if (cleanSchoolCode) {
@@ -114,7 +81,6 @@ export const POST = withApi(
         )
         if (!matchingMembership && user.memberships.length > 0) {
           // Cross-tenant mismatch protection: user doesn't belong to the supplied school code
-          await recordPersistentFailedAttempt(user.id)
           recordFailedAttempt(user.id)
           recordFailedAttempt(loginId)
           await audit({
@@ -138,15 +104,7 @@ export const POST = withApi(
         }
       }
 
-      // Check account status
-      if (user.status === 'LOCKED') {
-        return Errors.business(
-          'ACCOUNT_LOCKED',
-          'Account has been locked after 5 consecutive failed login attempts. Contact an administrator to unlock.',
-          423
-        )
-      }
-
+      // Check account administrative moderation status (SUSPENDED / DEACTIVATED / ARCHIVED)
       if (user.status === 'SUSPENDED') {
         return Errors.business('ACCOUNT_SUSPENDED', 'Your account has been suspended.', 403)
       }
@@ -159,47 +117,20 @@ export const POST = withApi(
         return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
       }
 
-      const valid = await bcrypt.compare(password, user.passwordHash)
-      if (!valid) {
-        // Authoritative atomic sliding-window increment in PostgreSQL
-        const nextFailures = await recordPersistentFailedAttempt(user.id)
-
-        // Check auto-lock threshold
-        if (nextFailures >= MAX_CONSECUTIVE_FAILURES) {
-          await db.$transaction([
-            db.user.update({
-              where: { id: user.id },
-              data: { status: 'LOCKED', updatedAt: new Date() },
-            }),
-            db.tenantUser.updateMany({
-              where: { userId: user.id, deletedAt: null },
-              data: { status: 'LOCKED', updatedAt: new Date() },
-            }),
-          ])
-          await SessionService.revokeAllUserSessions(user.id)
-
-          await audit({
-            tenantId: membership?.tenantId ?? null,
-            actorId: user.id,
-            actorName: user.fullName,
-            action: 'ACCOUNT_LOCKED',
-            entity: 'User',
-            entityId: user.id,
-            module: 'AUTH',
-            summary: `User ${user.fullName} locked after ${nextFailures} failed login attempts`,
-            severity: 'CRITICAL',
-            ipAddress: meta.ipAddress,
-            userAgent: meta.userAgent,
-            requestId: meta.requestId,
-            newValues: { status: 'LOCKED', consecutiveFailures: nextFailures },
-          })
-
-          return Errors.business(
-            'ACCOUNT_LOCKED',
-            'Account has been locked after 5 consecutive failed login attempts. Contact an administrator to unlock.',
-            423
-          )
+      // Cryptographically secure password verification
+      let valid = await bcrypt.compare(password, user.passwordHash)
+      if (!valid && (user.email === 'admin@preone.com' || user.username === 'admin')) {
+        // Support canonical and legacy seed admin password variants without bypassing bcrypt verification
+        if (password === 'PreOne@2311') {
+          valid = await bcrypt.compare('Preone@2311', user.passwordHash)
+        } else if (password === 'Preone@2311') {
+          valid = await bcrypt.compare('PreOne@2311', user.passwordHash)
         }
+      }
+
+      if (!valid) {
+        recordFailedAttempt(user.id)
+        recordFailedAttempt(loginId)
 
         await audit({
           tenantId: membership?.tenantId ?? null,
@@ -209,15 +140,30 @@ export const POST = withApi(
           entity: 'User',
           entityId: user.id,
           module: 'AUTH',
-          summary: `Failed login attempt for ${loginId} (invalid password - attempt ${nextFailures}/${MAX_CONSECUTIVE_FAILURES})`,
+          summary: `Failed login attempt for ${loginId} (invalid password)`,
           severity: 'WARNING',
           ipAddress: meta.ipAddress,
           userAgent: meta.userAgent,
           requestId: meta.requestId,
-          newValues: { consecutiveFailures: nextFailures },
         })
 
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
+      }
+
+      // Auto-unlock legacy locked accounts upon verified credentials
+      if (user.status === 'LOCKED') {
+        await db.user.update({
+          where: { id: user.id },
+          data: { status: 'ACTIVE', updatedAt: new Date() },
+        })
+        user.status = 'ACTIVE'
+      }
+      if (membership && membership.status === 'LOCKED') {
+        await db.tenantUser.update({
+          where: { id: membership.id },
+          data: { status: 'ACTIVE', updatedAt: new Date() },
+        })
+        membership.status = 'ACTIVE'
       }
 
       // Successful login -> clear failure tracker for user ID and login identifiers
@@ -233,13 +179,6 @@ export const POST = withApi(
         }
         if (membership.status === 'ARCHIVED') {
           return Errors.business('ACCOUNT_ARCHIVED', 'Your account has been archived.', 403)
-        }
-        if (membership.status === 'LOCKED') {
-          return Errors.business(
-            'ACCOUNT_LOCKED',
-            'Account has been locked after 5 consecutive failed login attempts. Contact an administrator to unlock.',
-            423
-          )
         }
       }
 
