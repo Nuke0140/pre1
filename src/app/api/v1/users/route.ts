@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import {
@@ -13,7 +14,7 @@ import {
 } from '@/lib/api'
 import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
-import { UserRole, Relationship, UserStatus } from '@prisma/client'
+import { UserRole, Relationship, UserStatus, Gender } from '@prisma/client'
 import { normalizeFamilyCreateInput, normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
 import { FamilyUserService } from '@/lib/users/family-user-service'
 import { normalizeRole } from '@/lib/roles'
@@ -321,6 +322,29 @@ export const GET = withApi(async (req: NextRequest) => {
   )
 }, { module: 'users' })
 
+/**
+ * Generates a cryptographically secure initial password.
+ * Uses only CSPRNG sources (Node.js crypto.randomBytes, Web Crypto getRandomValues, or randomUUID).
+ * Never uses Math.random. Fails safely if secure entropy is unavailable.
+ */
+function generateSecureInitialPassword(): string {
+  if (typeof crypto?.randomBytes === 'function') {
+    return `PreOne@${crypto.randomBytes(6).toString('hex')}`
+  }
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    const bytes = new Uint8Array(6)
+    globalThis.crypto.getRandomValues(bytes)
+    return `PreOne@${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
+  }
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return `PreOne@${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`
+  }
+  throw errBusiness(
+    ErrorCodes.SYSTEM_INTERNAL_ERROR,
+    'Cryptographically secure random number generator is unavailable.'
+  )
+}
+
 /** POST /api/v1/users — create/invite user with role and relations (users:write) */
 export const POST = withApi(async (req: NextRequest) => {
   const session = await requireApi(req, 'users:write')
@@ -446,7 +470,7 @@ export const POST = withApi(async (req: NextRequest) => {
 
   const isGeneratedPassword = !password || password.trim().length < 8
   const effectivePassword = isGeneratedPassword
-    ? `PreOne@${crypto.randomBytes(4).toString('hex')}`
+    ? generateSecureInitialPassword()
     : password.trim()
 
   // Primary role defaults to primaryRole if in assignedRoles, else first role in array, else input role
@@ -464,6 +488,13 @@ export const POST = withApi(async (req: NextRequest) => {
   if (branchId) {
     const branchErr = requireBranchAccess(session, branchId)
     if (branchErr) return branchErr
+
+    const branchExists = await db.branch.findFirst({
+      where: { id: branchId, tenantId: session.tenantId },
+    })
+    if (!branchExists) {
+      throw errNotFound('Selected campus branch was not found in this school', ErrorCodes.NOT_FOUND_RESOURCE, 'branchId')
+    }
   }
 
   const initialStatus: UserStatus = inputStatus || (isInvite ? 'PENDING' : 'ACTIVE')
@@ -562,6 +593,42 @@ export const POST = withApi(async (req: NextRequest) => {
         'An account with this mobile number already exists in this school',
         ErrorCodes.CONFLICT_DUPLICATE_PHONE,
         'phone'
+      )
+    }
+  }
+
+  // Check username uniqueness if provided
+  const rawUsername = (body as any).username?.trim()
+  if (rawUsername) {
+    const existingUsername = await db.user.findFirst({
+      where: {
+        username: { equals: rawUsername, mode: 'insensitive' },
+        deletedAt: null,
+      },
+    })
+    if (existingUsername) {
+      throw errConflict(
+        `Username "${rawUsername}" is already taken. Please choose another username.`,
+        ErrorCodes.CONFLICT_DUPLICATE_RECORD,
+        'username'
+      )
+    }
+  }
+
+  // Check employee code uniqueness within tenant if provided
+  const rawEmployeeCode = employeeCode?.trim()
+  if (rawEmployeeCode) {
+    const existingCode = await db.staffProfile.findFirst({
+      where: {
+        tenantId: session.tenantId,
+        employeeCode: rawEmployeeCode,
+      },
+    })
+    if (existingCode) {
+      throw errConflict(
+        `A staff member with employee code "${rawEmployeeCode}" already exists in this school`,
+        ErrorCodes.CONFLICT_DUPLICATE_RECORD,
+        'employeeCode'
       )
     }
   }
@@ -818,16 +885,51 @@ export const POST = withApi(async (req: NextRequest) => {
           finalEmpCode = existingProfile.employeeCode
         } else {
           const prefix = assignedRoles.includes('TEACHER') ? 'TCH' : 'EMP'
-          const count = await tx.staffProfile.count({ where: { tenantId: session.tenantId! } })
-          finalEmpCode = `${prefix}-${String(count + 1).padStart(4, '0')}`
+          let candidateIndex = (await tx.staffProfile.count({ where: { tenantId: session.tenantId! } })) + 1
+          let candidate = `${prefix}-${String(candidateIndex).padStart(4, '0')}`
+          while (await tx.staffProfile.findFirst({ where: { tenantId: session.tenantId!, employeeCode: candidate } })) {
+            candidateIndex++
+            candidate = `${prefix}-${String(candidateIndex).padStart(4, '0')}`
+          }
+          finalEmpCode = candidate
+        }
+      } else {
+        const codeInTx = await tx.staffProfile.findFirst({
+          where: {
+            tenantId: session.tenantId!,
+            employeeCode: finalEmpCode,
+            userId: { not: user.id },
+          },
+        })
+        if (codeInTx) {
+          throw errConflict(
+            `A staff member with employee code "${finalEmpCode}" already exists in this school`,
+            ErrorCodes.CONFLICT_DUPLICATE_RECORD,
+            'employeeCode'
+          )
         }
       }
 
-      const parsedDob = dateOfBirth ? new Date(dateOfBirth) : undefined
-      const parsedJoining = joiningDate ? new Date(joiningDate) : undefined
-      const parsedProbation = probationEndDate ? new Date(probationEndDate) : undefined
-      const parsedConfirmation = confirmationDate ? new Date(confirmationDate) : undefined
-      const noticePeriod = noticePeriodDays !== undefined && noticePeriodDays !== null ? Number(noticePeriodDays) : undefined
+      const safeParseDate = (d?: any): Date | undefined => {
+        if (!d) return undefined
+        const parsed = new Date(d)
+        return isNaN(parsed.getTime()) ? undefined : parsed
+      }
+
+      const parsedDob = safeParseDate(dateOfBirth)
+      const parsedJoining = safeParseDate(joiningDate)
+      const parsedProbation = safeParseDate(probationEndDate)
+      const parsedConfirmation = safeParseDate(confirmationDate)
+      const noticePeriod =
+        noticePeriodDays !== undefined && noticePeriodDays !== null && !isNaN(Number(noticePeriodDays))
+          ? Number(noticePeriodDays)
+          : undefined
+
+      const normGender = gender
+        ? ['MALE', 'FEMALE', 'OTHER', 'UNSPECIFIED'].includes(String(gender).toUpperCase().trim())
+          ? (String(gender).toUpperCase().trim() as Gender)
+          : null
+        : null
 
       if (existingProfile) {
         await tx.staffProfile.update({
@@ -840,7 +942,7 @@ export const POST = withApi(async (req: NextRequest) => {
             employmentType: employmentType || existingProfile.employmentType,
             branchId: branchId || existingProfile.branchId,
             ...(parsedDob ? { dateOfBirth: parsedDob } : {}),
-            ...(gender ? { gender } : {}),
+            ...(normGender ? { gender: normGender } : {}),
             ...(parsedJoining ? { joiningDate: parsedJoining } : {}),
             ...(emergencyContactName !== undefined ? { emergencyContactName: emergencyContactName?.trim() || null } : {}),
             ...(emergencyContactPhone !== undefined ? { emergencyContactPhone: emergencyContactPhone?.trim() || null } : {}),
@@ -869,7 +971,7 @@ export const POST = withApi(async (req: NextRequest) => {
             employmentType: employmentType || 'FULL_TIME',
             branchId: branchId || null,
             dateOfBirth: parsedDob || null,
-            gender: gender || null,
+            gender: normGender,
             joiningDate: parsedJoining || null,
             emergencyContactName: emergencyContactName?.trim() || null,
             emergencyContactPhone: emergencyContactPhone?.trim() || null,
