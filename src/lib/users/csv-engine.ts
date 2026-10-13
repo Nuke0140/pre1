@@ -826,6 +826,67 @@ export class UserCsvEngine {
       }
     }
 
+    if (options?.atomicAllOrNothing) {
+      try {
+        await db.$transaction(async (tx) => {
+          for (const row of rows) {
+            if (row.status === 'BLOCKED' || row.action === 'BLOCK') {
+              throw new Error(`Row ${row.rowNumber} is invalid: ${row.errors.join('; ')}`)
+            }
+            if (row.action === 'SKIP') {
+              skippedCount++
+              continue
+            }
+            await StaffUserService.createStaff(
+              {
+                tenantId: ctx.tenantId,
+                actorId: ctx.actorId,
+                actorName: ctx.actorName,
+                actorRole: ctx.actorRole,
+              },
+              row.data as any,
+              tx
+            )
+            if (row.action === 'CREATE') createdCount++
+            else updatedCount++
+          }
+        })
+
+        const auditAction = createdCount > 0 && updatedCount === 0 ? 'CSV_CREATE' : 'CSV_UPDATE'
+        await recordAudit({
+          tenantId: ctx.tenantId,
+          actorId: ctx.actorId,
+          actorName: ctx.actorName,
+          actorRole: ctx.actorRole,
+          action: auditAction,
+          entity: 'User',
+          entityId: ctx.tenantId,
+          module: 'Users',
+          summary: `Executed staff CSV import (${auditAction}): ${createdCount} created, ${updatedCount} updated`,
+        })
+
+        return {
+          total: rows.length,
+          createdCount,
+          updatedCount,
+          deletedCount: 0,
+          blockedCount: 0,
+          skippedCount,
+          errors: [],
+        }
+      } catch (err: any) {
+        return {
+          total: rows.length,
+          createdCount: 0,
+          updatedCount: 0,
+          deletedCount: 0,
+          blockedCount: rows.length,
+          skippedCount: 0,
+          errors: [{ rowNumber: 0, message: `Batch rolled back atomically: ${err.message}` }],
+        }
+      }
+    }
+
     // Default: Process in transactional chunks with row-level error capturing
     for (let i = 0; i < rows.length; i += chunkSize) {
       const chunk = rows.slice(i, i + chunkSize)

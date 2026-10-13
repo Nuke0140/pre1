@@ -22,6 +22,7 @@ import { enumLabel, timeAgo } from '@/lib/format'
 import type { Role } from '@/lib/auth'
 import { FullscreenButton } from './FullscreenButton'
 import { HelpButton } from './HelpButton'
+import { Avatar } from '@/components/preone/ui'
 import type { BrandingConfig } from '@/lib/branding-types'
 import { useI18n } from '@/lib/i18n/context'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/lib/i18n/types'
@@ -33,6 +34,7 @@ export interface GlobalWorkspaceHeaderProps {
     role: Role
     tenantName: string
     branchName: string | null
+    avatarUrl?: string | null
   }
   theme: 'light' | 'dark'
   onToggleTheme: () => void
@@ -650,7 +652,7 @@ export function GlobalWorkspaceHeader({
             aria-label="Open user profile menu"
             aria-expanded={profileMenuOpen}
           >
-            <span className="avatar sm a-p">{initials}</span>
+            <Avatar name={user.name} src={user.avatarUrl} size="sm" />
             <div className="workspace-profile-info">
               <b className="workspace-profile-name">{user.name}</b>
               <span className="workspace-profile-role">{roleLabel}</span>
@@ -687,7 +689,7 @@ export function GlobalWorkspaceHeader({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="avatar sm a-p">{initials}</span>
+                  <Avatar name={user.name} src={user.avatarUrl} size="sm" />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {user.name}

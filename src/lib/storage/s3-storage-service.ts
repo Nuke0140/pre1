@@ -265,7 +265,6 @@ export class S3StorageService {
         })
       )
     } else {
-      // Keep in mock store in memory (NO disk/git write)
       mockS3Store.set(key, {
         buffer: params.buffer,
         mimeType: params.mimeType,
@@ -318,6 +317,7 @@ export class S3StorageService {
    */
   static async deleteObject(keyOrUrl: string | null | undefined): Promise<boolean> {
     if (!keyOrUrl || typeof keyOrUrl !== 'string') return false
+    if (keyOrUrl.startsWith('data:')) return true
 
     const key = this.extractKeyFromUrl(keyOrUrl)
     if (!key) return false

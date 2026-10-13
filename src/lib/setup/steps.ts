@@ -163,16 +163,6 @@ export const SETUP_STEPS: StepDef[] = [
     description: 'Central registry of branded document templates: admission forms, receipts, consent forms, and certificates.',
   },
   {
-    key: 'communication',
-    label: 'Communication',
-    phase: 'BUSINESS_RULES',
-    scope: 'TENANT',
-    applicability: 'MANDATORY',
-    deps: ['school_profile'],
-    icon: 'Megaphone',
-    description: 'Active delivery channels (In-App, WhatsApp, SMS, Email), event trigger mappings, and parent summary dispatch rules.',
-  },
-  {
     key: 'promotion',
     label: 'Promotion',
     phase: 'BUSINESS_RULES',
@@ -191,7 +181,7 @@ export const STEP_MAP: Record<string, StepDef> = Object.fromEntries(
 export const PHASES: { key: StepPhase; label: string; sub: string }[] = [
   { key: 'FOUNDATION', label: 'Foundation', sub: 'Who the school is and who operates it' },
   { key: 'ACADEMIC_STRUCTURE', label: 'Academic Structure', sub: 'Year, programs, classrooms and subjects' },
-  { key: 'BUSINESS_RULES', label: 'Business Rules', sub: 'Fees setup, templates, communication and academic promotion' },
+  { key: 'BUSINESS_RULES', label: 'Business Rules', sub: 'Fees setup, templates and academic promotion' },
 ]
 
 export function isUnlocked(

@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const user = await db.user.findUnique({
     where: { id: session.uid },
-    select: { locale: true },
+    select: { locale: true, fullName: true, avatarUrl: true },
   })
   if (user?.locale) {
     initialLocale = user.locale
@@ -99,11 +99,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <style dangerouslySetInnerHTML={{ __html: dynamicThemeCss }} />
         <AppShell
           user={{
-            name: session.name,
+            name: user?.fullName || session.name,
             email: session.email,
             role: session.role,
             tenantName,
             branchName,
+            avatarUrl: user?.avatarUrl || null,
           }}
           branding={branding}
         >
