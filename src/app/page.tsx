@@ -39,10 +39,33 @@ export default function LoginPage() {
     password?: string
     otp?: string
   }>({})
+  const [touched, setTouched] = useState<{
+    schoolCode?: boolean
+    identifier?: boolean
+    password?: boolean
+  }>({})
   const [capsLockActive, setCapsLockActive] = useState<boolean>(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [useUsername, setUseUsername] = useState(false)
   const [branding, setBranding] = useState<{ logoUrl: string | null; schoolName?: string; primaryColor?: string } | null>(null)
+  const [greeting, setGreeting] = useState<string | null>(null)
+
+  // Compute time-aware greeting safely on client mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const hour = new Date().getHours()
+        if (hour >= 5 && hour < 12) {
+          setGreeting('Good morning ☀')
+        } else if (hour >= 12 && hour < 17) {
+          setGreeting('Good afternoon ☀')
+        } else {
+          setGreeting('Good evening 🌙')
+        }
+      } catch {}
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   // OTP specific state
   const [otp, setOtp] = useState<string[]>(['', '', '', ''])
@@ -55,10 +78,10 @@ export default function LoginPage() {
   // Fetch school branding for login surface
   useEffect(() => {
     const queryCode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('code') || '' : ''
-    if (queryCode && !schoolCode) {
-      setSchoolCode(queryCode)
-    }
     const codeToFetch = queryCode || schoolCode
+    if (queryCode && !schoolCode) {
+      setTimeout(() => setSchoolCode(queryCode), 0)
+    }
     fetch(`/api/v1/auth/branding?code=${encodeURIComponent(codeToFetch)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
@@ -90,17 +113,56 @@ export default function LoginPage() {
       const timer = setTimeout(() => setOtpCountdown((c) => c - 1), 1000)
       return () => clearTimeout(timer)
     } else {
-      setCanResendOtp(true)
+      const timer = setTimeout(() => setCanResendOtp(true), 0)
+      return () => clearTimeout(timer)
     }
   }, [authMode, otpCountdown])
 
+  const validateField = (fieldName: 'schoolCode' | 'identifier' | 'password', val?: string) => {
+    const value = val !== undefined ? val : (fieldName === 'schoolCode' ? schoolCode : fieldName === 'identifier' ? identifier : password)
+    let err: string | undefined
+
+    if (fieldName === 'schoolCode') {
+      if (!value.trim()) {
+        err = 'School code is required.'
+      }
+    } else if (fieldName === 'identifier') {
+      const trimmed = value.trim()
+      if (!trimmed) {
+        err = useUsername ? 'Username is required.' : 'Email or username is required.'
+      } else if (!useUsername && trimmed.includes('@')) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (!emailRegex.test(trimmed)) {
+          err = 'Please enter a valid email address.'
+        }
+      }
+    } else if (fieldName === 'password') {
+      if (!value) {
+        err = 'Password is required.'
+      }
+    }
+
+    setFieldErrors((prev) => ({
+      ...prev,
+      [fieldName]: err,
+    }))
+    return !err
+  }
+
   const validateLoginForm = () => {
+    setTouched({ schoolCode: true, identifier: true, password: true })
     const errors: { schoolCode?: string; identifier?: string; password?: string } = {}
     if (!schoolCode.trim()) {
       errors.schoolCode = 'School code is required.'
     }
-    if (!identifier.trim()) {
+    const trimmedIdent = identifier.trim()
+    if (!trimmedIdent) {
       errors.identifier = useUsername ? 'Username is required.' : 'Email or username is required.'
+    } else if (!useUsername && trimmedIdent.includes('@')) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(trimmedIdent)) {
+        errors.identifier = 'Please enter a valid email address.'
+      }
     }
     if (!password) {
       errors.password = 'Password is required.'
@@ -196,7 +258,7 @@ export default function LoginPage() {
   }
 
   const checkCapsLock = (e: React.KeyboardEvent) => {
-    if (e.getModifierState) {
+    if (typeof e.getModifierState === 'function') {
       setCapsLockActive(e.getModifierState('CapsLock'))
     }
   }
@@ -222,6 +284,7 @@ export default function LoginPage() {
             {authMode === 'login' && (
               <>
                 <AuthHeader
+                  greeting={greeting}
                   title="Welcome Back"
                   description="Sign in to your school workspace"
                 />
@@ -261,21 +324,35 @@ export default function LoginPage() {
                         type="text"
                         value={schoolCode}
                         onChange={(e) => {
-                          setSchoolCode(e.target.value)
+                          const val = e.target.value
+                          setSchoolCode(val)
                           if (fieldErrors.schoolCode) {
-                            setFieldErrors((prev) => ({ ...prev, schoolCode: undefined }))
+                            if (val.trim()) {
+                              setFieldErrors((prev) => ({ ...prev, schoolCode: undefined }))
+                            }
                           }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, schoolCode: true }))
+                          validateField('schoolCode', schoolCode)
                         }}
                         placeholder="e.g. sunshine"
                         autoComplete="organization"
                         leadingIcon={<Building2 className="w-4 h-4" />}
                         hasError={!!fieldErrors.schoolCode}
+                        aria-invalid={!!fieldErrors.schoolCode}
+                        aria-describedby={fieldErrors.schoolCode ? 'login-school-code-error' : undefined}
                         trailingAction={
                           schoolCode ? (
                             <AuthIconButton
                               icon={<X className="w-3.5 h-3.5" />}
                               ariaLabel="Clear school code"
-                              onClick={() => setSchoolCode('')}
+                              onClick={() => {
+                                setSchoolCode('')
+                                if (touched.schoolCode) {
+                                  setFieldErrors((prev) => ({ ...prev, schoolCode: 'School code is required.' }))
+                                }
+                              }}
                             />
                           ) : null
                         }
@@ -292,8 +369,11 @@ export default function LoginPage() {
                           onClick={() => {
                             const nextMode = !useUsername
                             setUseUsername(nextMode)
-                            if (fieldErrors.identifier) {
-                              setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                            setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                            if (identifier.trim() && touched.identifier) {
+                              setTimeout(() => {
+                                validateField('identifier', identifier)
+                              }, 0)
                             }
                           }}
                         >
@@ -307,15 +387,24 @@ export default function LoginPage() {
                         type="text"
                         value={identifier}
                         onChange={(e) => {
-                          setIdentifier(e.target.value)
+                          const val = e.target.value
+                          setIdentifier(val)
                           if (fieldErrors.identifier) {
-                            setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                            if (val.trim()) {
+                              setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                            }
                           }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, identifier: true }))
+                          validateField('identifier', identifier)
                         }}
                         placeholder={useUsername ? 'e.g. meera.iyer' : 'e.g. name@school.com or username'}
                         autoComplete="username"
                         leadingIcon={isEmail ? <Mail className="w-4 h-4" /> : <User className="w-4 h-4" />}
                         hasError={!!fieldErrors.identifier}
+                        aria-invalid={!!fieldErrors.identifier}
+                        aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
                         trailingAction={
                           identifier ? (
                             <AuthIconButton
@@ -324,6 +413,12 @@ export default function LoginPage() {
                               onClick={() => {
                                 setIdentifier('')
                                 identifierInputRef.current?.focus()
+                                if (touched.identifier) {
+                                  setFieldErrors((prev) => ({
+                                    ...prev,
+                                    identifier: useUsername ? 'Username is required.' : 'Email or username is required.',
+                                  }))
+                                }
                               }}
                             />
                           ) : null
@@ -346,24 +441,43 @@ export default function LoginPage() {
                         id="login-password"
                         value={password}
                         onChange={(e) => {
-                          setPassword(e.target.value)
-                          if (fieldErrors.password) {
+                          const val = e.target.value
+                          setPassword(val)
+                          if (fieldErrors.password && val) {
                             setFieldErrors((prev) => ({ ...prev, password: undefined }))
                           }
+                        }}
+                        onBlur={() => {
+                          setTouched((prev) => ({ ...prev, password: true }))
+                          setCapsLockActive(false)
+                          validateField('password', password)
                         }}
                         onKeyDown={checkCapsLock}
                         onKeyUp={checkCapsLock}
                         placeholder="••••••••••••"
                         autoComplete="current-password"
                         hasError={!!fieldErrors.password}
+                        aria-invalid={!!fieldErrors.password}
+                        aria-describedby={
+                          fieldErrors.password
+                            ? 'login-password-error'
+                            : capsLockActive
+                            ? 'login-password-caps'
+                            : undefined
+                        }
                       />
                     </AuthField>
 
                     {/* CapsLock Warning */}
                     {capsLockActive && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>Caps Lock is ON</span>
+                      <div
+                        id="login-password-caps"
+                        role="status"
+                        aria-live="polite"
+                        className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150 select-none"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        <span>Caps Lock is on</span>
                       </div>
                     )}
 

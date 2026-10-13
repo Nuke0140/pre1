@@ -816,7 +816,7 @@ export class GlobalSearchService {
         subtitle: sub,
         badge: entry.type,
         badgeVariant: 'info',
-        actionUrl: `/app/operations`,
+        actionUrl: `/app/students/${entry.studentId}`,
         metadata: { student: studentName, type: entry.type },
         score: calculateRankScore(entry.title, null, query, sub),
       }

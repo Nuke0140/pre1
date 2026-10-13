@@ -13,6 +13,7 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function ClassroomPlacementsPage() {
   const toast = useToast()
@@ -129,6 +130,7 @@ export default function ClassroomPlacementsPage() {
       if (res.success) {
         toast.show('Classroom seat allocated! Student officially enrolled.', { type: 'success' })
         setAllocateModal({ open: false, candidate: null, classroomId: '' })
+        invalidateAdmissionsCounts()
         loadPlacementData()
       } else {
         toast.show(res.error || 'Failed to place candidate', { type: 'error' })

@@ -198,6 +198,50 @@ export function ModulePageSkeleton() {
   )
 }
 
+export function ChartSkeleton({ height = 240 }: { height?: number }) {
+  return (
+    <div className="card p-5 space-y-4" aria-hidden="true" style={{ minHeight: height }}>
+      <div className="flex items-center justify-between">
+        <div className="skel h-5 w-36 rounded-md" />
+        <div className="skel h-4 w-20 rounded-md" />
+      </div>
+      <div className="skel w-full rounded-xl" style={{ height: height - 60 }} />
+    </div>
+  )
+}
+
+export function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading dashboard pulse">
+      <div className="operational-hero p-6 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 space-y-4">
+        <div className="space-y-2">
+          <div className="skel h-3.5 w-32 rounded-xs" />
+          <div className="skel h-8 w-64 rounded-md" />
+          <div className="skel h-4 w-96 max-w-full rounded-xs" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="kpi skel-kpi p-5 space-y-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90">
+              <div className="flex items-center justify-between">
+                <div className="skel w-9 h-9 rounded-xl" />
+                <div className="skel w-12 h-4 rounded-full" />
+              </div>
+              <div className="space-y-1.5 pt-1">
+                <div className="skel h-3.5 w-24 rounded-xs" />
+                <div className="skel h-7 w-20 rounded-sm" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <ChartSkeleton height={280} />
+        <ChartSkeleton height={280} />
+      </div>
+    </div>
+  )
+}
+
 export function HomeGridSkeleton({ count = 12 }: { count?: number }) {
   return (
     <div className="home" aria-busy="true" aria-label="Loading home modules">
@@ -227,3 +271,4 @@ export function HomeGridSkeleton({ count = 12 }: { count?: number }) {
     </div>
   )
 }
+

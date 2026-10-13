@@ -5,11 +5,11 @@ export function AuthBackground() {
     <div className="absolute inset-0 overflow-hidden pointer-events-none select-none" aria-hidden="true">
       {/* ── Layer 1: Ambient Base Washes ── */}
       {/* Top Center Lavender Wash */}
-      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[56rem] h-[30rem] bg-gradient-to-b from-purple-400/15 via-indigo-300/10 to-transparent dark:from-purple-600/15 dark:via-indigo-900/10 rounded-full blur-3xl transform-gpu" />
+      <div className="auth-blob-drift-1 absolute -top-32 left-1/2 -translate-x-1/2 w-[56rem] h-[30rem] bg-gradient-to-b from-purple-400/15 via-indigo-300/10 to-transparent dark:from-purple-600/15 dark:via-indigo-900/10 rounded-full blur-3xl transform-gpu" />
       {/* Upper-Right Cyan Glow */}
-      <div className="absolute top-12 -right-24 w-[32rem] h-[32rem] bg-cyan-300/15 dark:bg-cyan-600/10 rounded-full blur-3xl transform-gpu" />
+      <div className="auth-blob-drift-2 absolute top-12 -right-24 w-[32rem] h-[32rem] bg-cyan-300/15 dark:bg-cyan-600/10 rounded-full blur-3xl transform-gpu" />
       {/* Lower-Left Pink/Peach Accent */}
-      <div className="absolute bottom-10 -left-24 w-[30rem] h-[30rem] bg-rose-200/15 dark:bg-rose-900/10 rounded-full blur-3xl transform-gpu" />
+      <div className="auth-blob-drift-1 absolute bottom-10 -left-24 w-[30rem] h-[30rem] bg-rose-200/15 dark:bg-rose-900/10 rounded-full blur-3xl transform-gpu" />
 
       {/* ── Layer 2: Subtle Micro-Dot Matrix Canvas ── */}
       <div
@@ -41,19 +41,21 @@ export function AuthBackground() {
       {/* Upper-Right: Soft PreOne Orbital Ring */}
       <div className="hidden sm:block absolute top-14 right-[8%] xl:right-[12%] w-64 h-64 opacity-50 dark:opacity-20 pointer-events-none">
         <svg viewBox="0 0 240 240" fill="none" className="w-full h-full">
-          <ellipse
-            cx="120"
-            cy="120"
-            rx="105"
-            ry="46"
-            stroke="#A855F7"
-            strokeWidth="1.5"
-            strokeDasharray="5 7"
-            transform="rotate(-24 120 120)"
-          />
-          {/* Orbiting celestial dot */}
-          <circle cx="195" cy="85" r="5" fill="#F59E0B" />
-          <circle cx="193" cy="83" r="1.5" fill="#FFFFFF" opacity="0.7" />
+          <g className="dotted-ellipse-rotate">
+            <ellipse
+              cx="120"
+              cy="120"
+              rx="105"
+              ry="46"
+              stroke="#A855F7"
+              strokeWidth="1.5"
+              strokeDasharray="5 7"
+              transform="rotate(-24 120 120)"
+            />
+            {/* Orbiting celestial dot */}
+            <circle cx="195" cy="85" r="5" fill="#F59E0B" />
+            <circle cx="193" cy="83" r="1.5" fill="#FFFFFF" opacity="0.7" />
+          </g>
           {/* Subtle twinkle star near orbit */}
           <path
             d="M210 60L211.5 63.5L215 65L211.5 66.5L210 70L208.5 66.5L205 65L208.5 63.5L210 60Z"

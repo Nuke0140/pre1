@@ -674,7 +674,7 @@ async function runTests() {
     assert(!!foundTime, 'Timeline result matches canonical timeline entry ID')
     assert(foundTime?.category === 'operations', 'Result category is operations')
     assert(foundTime?.badge === 'MEAL', 'Badge indicates timeline type')
-    assert(foundTime?.actionUrl === `/app/operations`, 'Action URL links to operations')
+    assert(foundTime?.actionUrl === `/app/students/${studentA.id}`, 'Action URL links to student profile')
 
     // -------------------------------------------------------------------------
     // GROUP I: FINANCE & INVOICES DOMAIN

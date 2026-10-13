@@ -32,7 +32,7 @@ export function DashboardClient({ role, perms, data }: Props) {
   const maxTrend = Math.max(...data.trend.map((t) => t.pct), 100)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="premium-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ── 1. Operational Command Center Hero ── */}
       <div className="operational-hero">
         <div className="operational-hero-head">
@@ -53,55 +53,63 @@ export function DashboardClient({ role, perms, data }: Props) {
         {/* ── High-Impact Operational KPI Metrics Grid (§6) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
           {perms.students && (
-            <KpiMetricCard
-              label="Active Students"
-              value={data.activeStudents}
-              icon={<Users size={17} />}
-              iconClass="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border-purple-200/60 dark:border-purple-800/40"
-              status={{
-                text: `${data.classrooms.length} active classrooms`,
-                variant: 'neutral',
-              }}
-            />
+            <div className="premium-enter premium-stagger-1">
+              <KpiMetricCard
+                label="Active Students"
+                value={data.activeStudents}
+                icon={<Users size={17} />}
+                iconClass="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border-purple-200/60 dark:border-purple-800/40"
+                status={{
+                  text: `${data.classrooms.length} active classrooms`,
+                  variant: 'neutral',
+                }}
+              />
+            </div>
           )}
 
           {perms.attendance && (
-            <KpiMetricCard
-              label="Present Today"
-              value={data.presentToday}
-              icon={<CalendarCheck size={17} />}
-              iconClass="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/40"
-              status={{
-                text: `${data.attendancePct}% daily attendance`,
-                variant: data.attendancePct >= 85 ? 'success' : 'warning',
-              }}
-            />
+            <div className="premium-enter premium-stagger-2">
+              <KpiMetricCard
+                label="Present Today"
+                value={data.presentToday}
+                icon={<CalendarCheck size={17} />}
+                iconClass="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/40"
+                status={{
+                  text: `${data.attendancePct}% daily attendance`,
+                  variant: data.attendancePct >= 85 ? 'success' : 'warning',
+                }}
+              />
+            </div>
           )}
 
           {perms.finance && (
-            <KpiMetricCard
-              label="Fees Collected"
-              value={inr(data.collected, { compact: true })}
-              icon={<Wallet size={17} />}
-              iconClass="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200/60 dark:border-amber-800/40"
-              status={{
-                text: `${data.collectRate}% of ${inr(data.billed, { compact: true })} billed`,
-                variant: data.collectRate >= 80 ? 'success' : 'warning',
-              }}
-            />
+            <div className="premium-enter premium-stagger-3">
+              <KpiMetricCard
+                label="Fees Collected"
+                value={inr(data.collected, { compact: true })}
+                icon={<Wallet size={17} />}
+                iconClass="text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200/60 dark:border-amber-800/40"
+                status={{
+                  text: `${data.collectRate}% of ${inr(data.billed, { compact: true })} billed`,
+                  variant: data.collectRate >= 80 ? 'success' : 'warning',
+                }}
+              />
+            </div>
           )}
 
           {perms.admissions && (
-            <KpiMetricCard
-              label="Admissions Pipeline"
-              value={data.pendingApps}
-              icon={<ClipboardList size={17} />}
-              iconClass="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200/60 dark:border-indigo-800/40"
-              status={{
-                text: `${data.newLeads} new leads to call`,
-                variant: 'info',
-              }}
-            />
+            <div className="premium-enter premium-stagger-4">
+              <KpiMetricCard
+                label="Admissions Pipeline"
+                value={data.pendingApps}
+                icon={<ClipboardList size={17} />}
+                iconClass="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200/60 dark:border-indigo-800/40"
+                status={{
+                  text: `${data.newLeads} new leads to call`,
+                  variant: 'info',
+                }}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -132,7 +140,7 @@ export function DashboardClient({ role, perms, data }: Props) {
       </div>
 
       {/* ── 3. Operational Analytics Workspace ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }} className="dash-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20 }} className="dash-grid premium-enter premium-stagger-2">
         {/* Attendance trend chart */}
         {perms.attendance && (
           <div className="card">

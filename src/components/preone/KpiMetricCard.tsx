@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useCountUp } from '@/lib/motion/use-count-up'
 
 export interface KpiTrend {
   dir?: 'up' | 'down' | 'flat' | 'neutral'
@@ -110,13 +111,14 @@ export function KpiMetricCard({
 
   const isClickable = Boolean(onClick)
   const isInteractive = isClickable
-  const displayValue = value != null ? value : '—'
+  const animatedValue = useCountUp(value, { duration: 400 })
+  const displayValue = value != null ? animatedValue : '—'
 
   return (
     <div
-      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 shadow-card-rest transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
+      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 [box-shadow:var(--shadow-1)] transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
         isInteractive
-          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:shadow-card-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
+          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:[box-shadow:var(--shadow-2)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
           : ''
       } ${
         active
@@ -156,7 +158,7 @@ export function KpiMetricCard({
 
       {/* Primary Value Row: Tabular Numeral */}
       <div className="mt-1 flex items-baseline gap-1.5">
-        <span className="font-mono text-2xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white">
+        <span className="data-numeric font-mono text-2xl font-bold tracking-tight tabular-nums text-slate-900 dark:text-white">
           {displayValue}
         </span>
         {unit && (

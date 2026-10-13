@@ -367,8 +367,8 @@ export function GlobalWorkspaceHeader({
                       style={{
                         fontSize: 11,
                         flexShrink: 0,
-                        background: 'var(--warning-strong, #d97706)',
-                        color: '#fff',
+                        background: 'var(--warning-strong, var(--warning))',
+                        color: 'var(--text-inverse, #ffffff)',
                         borderRadius: 999,
                         padding: '2px 8px',
                         fontWeight: 700,
@@ -778,7 +778,7 @@ export function GlobalWorkspaceHeader({
                     background: 'transparent',
                     cursor: 'pointer',
                     fontSize: 12.5,
-                    color: 'var(--danger, #ef4444)',
+                    color: 'var(--danger)',
                     textAlign: 'left',
                     transition: 'background 0.15s ease',
                   }}

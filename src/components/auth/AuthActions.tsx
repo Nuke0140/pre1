@@ -33,7 +33,7 @@ export function AuthActions({
         variant="primary"
         size="auth"
         disabled={disabled || loading}
-        className="auth-button w-full h-12 rounded-xl text-sm font-semibold shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer group"
+        className="auth-button w-full h-12 rounded-xl text-sm font-semibold !text-white text-white shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer group"
       >
         {loading ? (
           <>

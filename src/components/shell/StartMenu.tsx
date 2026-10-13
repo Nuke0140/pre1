@@ -63,7 +63,6 @@ export function StartMenu({
         learning: 'nav.learning',
         'preo-learning': 'nav.learning',
         preo_learning: 'nav.learning',
-        operations: 'nav.operations',
         transport: 'nav.transport',
         inventory: 'nav.inventory',
         finance: 'nav.finance',
@@ -117,10 +116,6 @@ export function StartMenu({
     })
   }, [allModules, query])
 
-  // Pinned modules: all modules ordered by canonical registry
-  const pinnedModules = useMemo<HomeModule[]>(() => {
-    return filteredModules
-  }, [filteredModules])
 
   // Focus management: when opening, focus search input on desktop with fine pointer only.
   // On mobile/touch devices, do NOT auto-focus to prevent the virtual keyboard from irritatingly popping up.
@@ -137,10 +132,14 @@ export function StartMenu({
         return () => clearTimeout(timer)
       }
     } else {
-      setQuery('')
       triggerRef?.current?.focus()
     }
   }, [isOpen, triggerRef])
+
+  const handleClose = useCallback(() => {
+    setQuery('')
+    onClose()
+  }, [onClose])
 
   // Escape key closes menu
   useEffect(() => {
@@ -148,12 +147,12 @@ export function StartMenu({
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        handleClose()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, onClose])
+  }, [isOpen, handleClose])
 
   // Outside click detection
   useEffect(() => {
@@ -165,7 +164,7 @@ export function StartMenu({
         !menuRef.current.contains(target) &&
         (!triggerRef?.current || !triggerRef.current.contains(target))
       ) {
-        onClose()
+        handleClose()
       }
     }
     document.addEventListener('mousedown', onPointerDown)
@@ -174,7 +173,7 @@ export function StartMenu({
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('touchstart', onPointerDown)
     }
-  }, [isOpen, onClose, triggerRef])
+  }, [isOpen, handleClose, triggerRef, menuRef])
 
   const userInitials = useMemo(() => {
     return user.name
@@ -190,9 +189,9 @@ export function StartMenu({
     <div
       ref={menuRef}
       className="startmenu"
-      role="menu"
-      aria-label="Start Menu"
+      role="dialog"
       aria-modal="true"
+      aria-label="Start Menu"
     >
       {/* ── Fixed Search & Illustration Header ── */}
       <div className="sm-head">
@@ -231,59 +230,6 @@ export function StartMenu({
 
       {/* ── Scrollable Body ── */}
       <div className="sm-body">
-        {/* Pinned Section */}
-        <div className="sm-section-header">
-          <span className="sm-title">
-            PINNED · {user.tenantName?.toUpperCase() || 'PREONE'}
-          </span>
-        </div>
-
-        <div className="sm-grid">
-          {pinnedModules.map((m) => {
-            const Icon = m.icon
-            const theme = SEMANTIC_THEME_TOKENS[m.semanticTheme] || SEMANTIC_THEME_TOKENS.lavender
-            const imageSrc = m.animation ? m.animation.replace(/\.json$/, '.webp') : null
-            return (
-              <Link
-                key={`pinned-${m.key}`}
-                href={m.href}
-                prefetch={true}
-                className="sm-tile"
-                role="menuitem"
-                onClick={onClose}
-              >
-                <span
-                  className="tico"
-                  style={{
-                    backgroundColor: imageSrc ? 'transparent' : theme.iconBg,
-                    color: theme.iconColor,
-                    borderColor: imageSrc ? 'transparent' : theme.iconBorder,
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  {imageSrc ? (
-                    <img
-                      src={imageSrc}
-                      alt={m.label}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        transform: 'scale(1.22)',
-                        pointerEvents: 'none',
-                      }}
-                    />
-                  ) : (
-                    <Icon size={22} />
-                  )}
-                </span>
-                <span className="sm-tile-label">{m.label}</span>
-              </Link>
-            )
-          })}
-        </div>
-
         {/* Search Empty State */}
         {filteredModules.length === 0 && (
           <div className="sm-empty-state">
@@ -295,7 +241,7 @@ export function StartMenu({
         {/* All Sections Directory */}
         {filteredModules.length > 0 && (
           <>
-            <div className="sm-section-header sm-section-sep">
+            <div className="sm-section-header">
               <span className="sm-title">ALL SECTIONS</span>
             </div>
 

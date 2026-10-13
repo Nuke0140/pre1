@@ -811,7 +811,7 @@ function FastRollCallCard({
         <button
           type="button"
           onClick={() => onSelectStatus('PRESENT')}
-          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-95 ${
             isPresent
               ? 'bg-emerald-600 text-white shadow-xs scale-100 ring-2 ring-emerald-500/40'
               : 'bg-muted/70 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 text-muted-foreground hover:text-emerald-700'
@@ -826,7 +826,7 @@ function FastRollCallCard({
         <button
           type="button"
           onClick={() => onSelectStatus('LATE')}
-          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-95 ${
             isLate
               ? 'bg-amber-600 text-white shadow-xs scale-100 ring-2 ring-amber-500/40'
               : 'bg-muted/70 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-muted-foreground hover:text-amber-700'
@@ -841,7 +841,7 @@ function FastRollCallCard({
         <button
           type="button"
           onClick={() => onSelectStatus('ABSENT')}
-          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+          className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-95 ${
             isAbsent
               ? 'bg-rose-600 text-white shadow-xs scale-100 ring-2 ring-rose-500/40'
               : 'bg-muted/70 hover:bg-rose-100 dark:hover:bg-rose-950/50 text-muted-foreground hover:text-rose-700'

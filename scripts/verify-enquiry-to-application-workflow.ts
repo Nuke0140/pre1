@@ -168,27 +168,18 @@ async function main() {
       }
     )
 
-    assert(!!handoffResult.application, 'Admission Application created')
-    assert(!!handoffResult.applicationNumber, `Application Number generated: ${handoffResult.applicationNumber}`)
+    assert(!handoffResult.application, 'No premature application created upon scheduling follow-up')
     assert(handoffResult.assignedToId === counselor.id, 'Assigned to counselor ID')
     assert(handoffResult.assignedStaffName === 'Pooja Deshmukh', 'Assigned counselor name resolved')
     assert(!!handoffResult.followUp, 'Linked FollowUp task created')
 
-    // 5. Verify Database Records State
-    console.log('\n[5] Database State & Bidirectional Links Verification')
+    // 5. Verify Database Records State After Follow-up Scheduling
+    console.log('\n[5] Database State After Follow-up Scheduling')
     const updatedLead = await db.lead.findUnique({ where: { id: lead.id } })
-    assert(updatedLead?.status === 'APPLICATION_STARTED', 'Lead status transitioned to APPLICATION_STARTED')
-    assert(updatedLead?.convertedApplicationId === handoffResult.application.id, 'Lead has convertedApplicationId linked')
+    assert(updatedLead?.status === 'CONTACTED', 'Lead status transitioned to CONTACTED')
+    assert(updatedLead?.convertedApplicationId === null, 'Lead convertedApplicationId remains null')
     assert(updatedLead?.assignedToId === counselor.id, 'Lead has assignedToId set to counselor')
     assert(updatedLead?.deletedAt === null, 'Enquiry was NOT deleted (history preserved)')
-
-    const applicationRecord = await db.admissionApplication.findUnique({
-      where: { id: handoffResult.application.id },
-    })
-    assert(applicationRecord?.leadId === lead.id, 'Application has bidirectional leadId link')
-    assert(applicationRecord?.childFirstName === 'Aarav', 'Child first name preserved without data re-entry')
-    assert(applicationRecord?.childLastName === 'Kulkarni', 'Child last name preserved without data re-entry')
-    assert(applicationRecord?.parentPhone === '9822012345', 'Parent phone preserved without data re-entry')
 
     const followUpRecord = await db.followUp.findUnique({
       where: { id: handoffResult.followUp.id },
@@ -198,21 +189,16 @@ async function main() {
     assert(followUpRecord?.assignedToId === counselor.id, 'Follow-up assigned to counselor ID')
     assert(followUpRecord?.status === 'OPEN', 'Follow-up status is OPEN')
 
-    // 6. Active Enquiries Queue Disappearance Check
-    console.log('\n[6] Active Queue Disappearance & History Accessibility')
-    const activeLeadsAfter = await db.lead.findMany({
+    // 6. Active Enquiries Queue Still Retains Contacted Lead
+    console.log('\n[6] Active Enquiries Retention During Follow-up Stage')
+    const activeLeadsDuringFollowUp = await db.lead.findMany({
       where: {
         tenantId,
         deletedAt: null,
-        status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE'] },
+        status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] },
       },
     })
-    assert(!activeLeadsAfter.some((l) => l.id === lead.id), 'Enquiry NO LONGER appears in active enquiries list')
-
-    const allLeads = await db.lead.findMany({
-      where: { tenantId, deletedAt: null },
-    })
-    assert(allLeads.some((l) => l.id === lead.id), 'Enquiry remains accessible in All Statuses / history')
+    assert(activeLeadsDuringFollowUp.some((l) => l.id === lead.id), 'Enquiry remains in active enquiries queue during follow-up')
 
     // 7. Follow-ups Queue Integration Check
     console.log('\n[7] Follow-ups Queue Workspace Integration')
@@ -225,9 +211,9 @@ async function main() {
     const queueItem = workspaceQueues.items.find((item) => item.id === followUpRecord?.id)
     assert(queueItem?.assignedStaffName === 'Pooja Deshmukh', 'Follow-up card displays assigned counselor name')
 
-    // 8. Idempotency Check
-    console.log('\n[8] Idempotency on Repeated Invocations')
-    const repeatedHandoff = await LeadService.startApplication(
+    // 8. Explicit Conversion: Follow-up -> Application Transition
+    console.log('\n[8] Explicit Conversion to Admission Application')
+    const conversionResult = await LeadService.convertToApplication(
       {
         tenantId,
         branchId,
@@ -237,21 +223,62 @@ async function main() {
         actorRole: counselor.role,
       },
       lead.id,
-      {
-        assignedStaffId: counselor.id,
-        followUpDate: followUpDueDate,
-      }
+      { branchId }
     )
-    assert(repeatedHandoff.applicationId === handoffResult.application.id, 'Repeated call returns identical application ID')
-    assert(repeatedHandoff.followUpId === handoffResult.followUp.id, 'Repeated call does not duplicate follow-up task')
+
+    assert(!!conversionResult.application, 'Admission Application created upon explicit conversion')
+    assert(!!conversionResult.applicationNumber, `Application Number generated: ${conversionResult.applicationNumber}`)
+
+    const convertedLeadRecord = await db.lead.findUnique({ where: { id: lead.id } })
+    assert(convertedLeadRecord?.status === 'CONVERTED', 'Lead status transitioned to CONVERTED')
+    assert(convertedLeadRecord?.convertedApplicationId === conversionResult.application.id, 'Lead has convertedApplicationId linked')
+
+    const applicationRecord = await db.admissionApplication.findUnique({
+      where: { id: conversionResult.application.id },
+    })
+    assert(applicationRecord?.leadId === lead.id, 'Application has bidirectional leadId link')
+    assert(applicationRecord?.childFirstName === 'Aarav', 'Child first name preserved without data re-entry')
+    assert(applicationRecord?.childLastName === 'Kulkarni', 'Child last name preserved without data re-entry')
+    assert(applicationRecord?.parentPhone === '9822012345', 'Parent phone preserved without data re-entry')
+
+    const resolvedFollowUp = await db.followUp.findUnique({
+      where: { id: followUpRecord!.id },
+    })
+    assert(resolvedFollowUp?.status === 'RESOLVED', 'Associated follow-up marked RESOLVED upon application conversion')
+
+    // Verify Active Queue Disappearance After Conversion
+    const activeLeadsAfter = await db.lead.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] },
+      },
+    })
+    assert(!activeLeadsAfter.some((l) => l.id === lead.id), 'Converted enquiry is removed from active enquiries list')
+
+    // 9. Idempotency Check on Repeated Conversion
+    console.log('\n[9] Idempotency on Repeated Conversion Calls')
+    const repeatedConversion = await LeadService.convertToApplication(
+      {
+        tenantId,
+        branchId,
+        academicYearId,
+        actorId: counselor.id,
+        actorName: counselor.fullName,
+        actorRole: counselor.role,
+      },
+      lead.id,
+      { branchId }
+    )
+    assert(repeatedConversion.application.id === conversionResult.application.id, 'Repeated call returns identical application ID')
 
     const applicationsCount = await db.admissionApplication.count({
       where: { leadId: lead.id },
     })
-    assert(applicationsCount === 1, 'Exactly 1 application exists in DB for this enquiry')
+    assert(applicationsCount === 1, 'Exactly 1 application exists in DB for this enquiry (no duplicates)')
 
     // Clean up
-    console.log('\n[9] Teardown & Clean-up')
+    console.log('\n[10] Teardown & Clean-up')
     await db.followUp.deleteMany({ where: { tenantId } })
     await db.applicationDocument.deleteMany({ where: { application: { tenantId } } })
     await db.admissionApplication.deleteMany({ where: { tenantId } })

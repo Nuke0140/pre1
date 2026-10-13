@@ -22,6 +22,7 @@ import {
   normalizePhoneNumberForTel,
   buildWhatsAppChatUrl,
 } from '@/lib/contact-utils'
+import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function EnquiriesPage() {
   const toast = useToast()
@@ -199,6 +200,7 @@ export default function EnquiriesPage() {
         setFollowUpNote('')
         setNextFollowUpDate('')
         loadEnquiries()
+        invalidateAdmissionsCounts()
         if (selectedEnquiry?.id === followUpModal.enquiry.id) {
           openDossier(followUpModal.enquiry)
         }
@@ -233,6 +235,7 @@ export default function EnquiriesPage() {
       `Assigned to staff. Enquiry is now in the Follow-ups workflow.`
     )
     loadEnquiries()
+    invalidateAdmissionsCounts()
     if (selectedEnquiry?.id === data.leadId) {
       setDrawerOpen(false)
       setSelectedEnquiry(null)
@@ -246,6 +249,9 @@ export default function EnquiriesPage() {
       const res = await fetch(`/api/v1/leads/${enquiry.id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : (enquiry.branchId || undefined),
+        }),
       })
       const json = await res.json()
       setBusy(false)
@@ -255,6 +261,7 @@ export default function EnquiriesPage() {
           `Application ${json.data?.applicationNumber || ''} created with zero data re-entry.`
         )
         loadEnquiries()
+        invalidateAdmissionsCounts()
       } else {
         toast.error('Failed to convert enquiry', json.error?.message)
       }
@@ -275,9 +282,6 @@ export default function EnquiriesPage() {
       onNewEnquiry={() => setEnquiryModalOpen(true)}
       onSharePublicForm={() => setShareModalOpen(true)}
       hideMobileHeaderAction={true}
-      moduleCounts={{
-        enquiries: enquiries?.length || 0,
-      }}
     >
       {/* Container with bottom padding so sticky bottom bar never obscures content */}
       <div className="space-y-4 pb-24 sm:pb-28 lg:pb-6">

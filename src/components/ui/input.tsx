@@ -45,12 +45,12 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "w-full transition-all font-sans outline-none appearance-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
           // Sizing & Radius
           isAuthOrXl
-            ? "h-12 text-sm rounded-xl"
+            ? "h-12 text-[15px] rounded-xl"
             : inputSize === "sm"
-            ? "h-8 text-xs rounded-md px-2.5 py-1"
+            ? "h-8 text-sm rounded-md px-2.5 py-1"
             : inputSize === "lg"
-            ? "h-10 text-sm rounded-lg px-3.5 py-1.5"
-            : "h-9 text-sm rounded-md px-3 py-1",
+            ? "h-10 text-[15px] rounded-lg px-3.5 py-1.5"
+            : "h-9 text-[15px] rounded-md px-3 py-1",
           // Paddings for Icons
           isAuthOrXl
             ? cn(leadingIcon ? "pl-11" : "pl-4", trailingAction ? "pr-11" : "pr-4")

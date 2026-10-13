@@ -726,7 +726,7 @@ export function RolesDirectoryModal({
                   {/* Category */}
                   <div className="role-kpi-card">
                     <div className="role-kpi-label">
-                      <Users style={{ width: 13, height: 13, color: '#0284C7' }} /> Account Category
+                      <Users style={{ width: 13, height: 13, color: 'var(--info)' }} /> Account Category
                     </div>
                     <div className="role-kpi-val">{activeConfig.categoryLabel}</div>
                   </div>
@@ -734,7 +734,7 @@ export function RolesDirectoryModal({
                   {/* Boundary */}
                   <div className="role-kpi-card">
                     <div className="role-kpi-label">
-                      <Layers style={{ width: 13, height: 13, color: '#16A34A' }} /> Data Boundary
+                      <Layers style={{ width: 13, height: 13, color: 'var(--success)' }} /> Data Boundary
                     </div>
                     <div className="role-kpi-val">{activeConfig.boundary}</div>
                   </div>
@@ -742,7 +742,7 @@ export function RolesDirectoryModal({
                   {/* Governance */}
                   <div className="role-kpi-card">
                     <div className="role-kpi-label">
-                      <Shield style={{ width: 13, height: 13, color: '#D97706' }} /> Role Tier
+                      <Shield style={{ width: 13, height: 13, color: 'var(--warning)' }} /> Role Tier
                     </div>
                     <div className="role-kpi-val">{activeConfig.tierLabel}</div>
                   </div>
@@ -805,7 +805,7 @@ export function RolesDirectoryModal({
                         return (
                           <div key={p} className="role-perm-card">
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
-                              <CheckCircle2 style={{ width: 14, height: 14, color: '#16A34A', flexShrink: 0, marginTop: 2 }} />
+                              <CheckCircle2 style={{ width: 14, height: 14, color: 'var(--success)', flexShrink: 0, marginTop: 2 }} />
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                   <span style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>

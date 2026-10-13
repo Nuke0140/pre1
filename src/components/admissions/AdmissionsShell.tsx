@@ -24,6 +24,8 @@ import {
   type AdmissionsNavigationModule,
 } from './AdmissionsNavigationRibbon'
 
+import { useAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
+
 export { ADMISSIONS_MODULES, type AdmissionsNavigationModule }
 
 export interface AdmissionsShellProps {
@@ -71,6 +73,14 @@ export function AdmissionsShell({
 }: AdmissionsShellProps) {
   const pathname = usePathname()
   const { t } = useI18n()
+  const { counts: syncCounts } = useAdmissionsCounts(selectedBranchId, selectedSessionId)
+
+  const effectiveModuleCounts = React.useMemo(() => {
+    return {
+      ...(syncCounts || {}),
+      ...(moduleCounts || {}),
+    }
+  }, [syncCounts, moduleCounts])
 
   const defaultCrumbs = [
     { label: t('nav.home') || 'Home', href: '/app' },
@@ -194,7 +204,7 @@ export function AdmissionsShell({
       </div>
 
       {/* ── Multi-Color Windows Navigation Ribbon (Signature Module Glows & Badges) ── */}
-      <AdmissionsNavigationRibbon moduleCounts={moduleCounts} />
+      <AdmissionsNavigationRibbon moduleCounts={effectiveModuleCounts} />
 
       {/* ── Page Content ── */}
       <div className="pt-1">

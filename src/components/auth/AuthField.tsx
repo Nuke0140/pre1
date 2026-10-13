@@ -29,7 +29,7 @@ export function AuthField({
       <div className="flex items-center justify-between">
         <Label
           htmlFor={id}
-          className="text-xs font-semibold text-slate-700 dark:text-slate-300 tracking-normal"
+          className="form-label text-[13px] font-semibold text-slate-700 dark:text-slate-300 tracking-[var(--letter-spacing-label,0.01em)]"
         >
           {label}
         </Label>
@@ -43,7 +43,11 @@ export function AuthField({
 
       {/* Field-level error */}
       {error && (
-        <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium animate-in fade-in duration-150">
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="text-[11px] text-rose-600 dark:text-rose-400 font-medium animate-in fade-in duration-150"
+        >
           {error}
         </p>
       )}

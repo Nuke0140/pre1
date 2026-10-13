@@ -406,7 +406,7 @@ export function ZenTableHeadCell({
 }: ZenTableHeadCellProps) {
   return (
     <th
-      className={`zen-th px-4 py-3 select-none whitespace-nowrap ${
+      className={`zen-th micro-label px-4 py-3 select-none whitespace-nowrap ${
         align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
       } ${className}`.trim()}
       style={{
@@ -457,7 +457,7 @@ export function ZenTableCell({
   return (
     <td
       className={`zen-td data-copy px-4 py-3.5 align-middle text-slate-700 dark:text-slate-200 text-[13.5px] first:rounded-l-lg last:rounded-r-lg ${
-        align === 'right' ? 'text-right tabular-nums' : align === 'center' ? 'text-center' : 'text-left'
+        align === 'right' ? 'text-right tabular-nums data-numeric' : align === 'center' ? 'text-center' : 'text-left'
       } ${className}`.trim()}
       style={{
         fontFamily: 'var(--font-body), Nunito, sans-serif',

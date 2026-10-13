@@ -12,9 +12,9 @@ const buttonVariants = cva(
         default:
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover hover:shadow-sm active:scale-[0.98]",
         primary:
-          "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.98] border-transparent font-semibold",
+          "bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white !text-white shadow-md shadow-purple-600/25 dark:shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-lg hover:shadow-purple-600/30 hover:dark:shadow-[0_0_28px_rgba(139,92,246,0.45)] active:scale-[0.98] border-transparent font-semibold",
         auth:
-          "w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.98] border-transparent font-semibold cursor-pointer",
+          "w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-700 hover:via-indigo-700 hover:to-purple-800 text-white !text-white shadow-md shadow-purple-600/25 dark:shadow-[0_0_24px_rgba(139,92,246,0.35)] hover:shadow-lg hover:shadow-purple-600/30 hover:dark:shadow-[0_0_28px_rgba(139,92,246,0.45)] active:scale-[0.98] border-transparent font-semibold cursor-pointer",
         destructive:
           "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:!border-destructive focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] dark:bg-destructive/80 active:scale-[0.98]",
         outline:

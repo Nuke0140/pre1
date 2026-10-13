@@ -1029,7 +1029,7 @@ export default function DailyDiaryPage() {
           ) : adminOverview ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3.5">
               {/* 1. Classes */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-300">
                     <Building2 size={16} />
@@ -1049,7 +1049,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 2. Total Students */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
                     <Users size={16} />
@@ -1069,7 +1069,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 3. Present */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
                     <CheckCircle2 size={16} />
@@ -1089,7 +1089,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 4. Absent (Calm zero styling) */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                     absentCount > 0
@@ -1115,7 +1115,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 5. Late (Calm zero styling) */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                     lateCount > 0
@@ -1141,7 +1141,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 6. Core Subjects */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300">
                     <BookOpen size={16} />
@@ -1161,7 +1161,7 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* 7. Activities */}
-              <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
+              <div className="bg-card p-4 rounded-2xl border border-border/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between">
                 <div className="flex items-center justify-between">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-pink-50 text-pink-600 dark:bg-pink-950/40 dark:text-pink-300">
                     <Sparkles size={16} />

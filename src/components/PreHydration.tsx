@@ -12,11 +12,38 @@
 
 if (typeof window !== 'undefined') {
   try {
-    const t = localStorage.getItem('preone-theme')
-    if (t) {
-      document.documentElement.setAttribute('data-theme', t)
-      document.documentElement.classList.toggle('dark', t === 'dark')
+    const stored = localStorage.getItem('preone-theme') || localStorage.getItem('preone_theme')
+    let isDark = false
+    if (stored === 'dark') {
+      isDark = true
+    } else if (stored === 'light') {
+      isDark = false
+    } else {
+      isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
     }
+    const resolvedTheme = isDark ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', resolvedTheme)
+    document.documentElement.classList.toggle('dark', isDark)
+
+    const syncThemeColor = (dark: boolean) => {
+      const meta = document.getElementById('app-theme-color-meta') || document.querySelector('meta[name="theme-color"]')
+      if (meta) {
+        meta.setAttribute('content', dark ? '#0B0F19' : '#F7F8FC')
+      }
+    }
+    syncThemeColor(isDark)
+
+    // Observe runtime changes to document.documentElement (data-theme or class='dark')
+    const themeObserver = new MutationObserver(() => {
+      const isCurrentlyDark =
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.documentElement.classList.contains('dark')
+      syncThemeColor(isCurrentlyDark)
+    })
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme', 'class'],
+    })
 
     const primary = localStorage.getItem('preone-primary-color')
     const accent = localStorage.getItem('preone-accent-color')

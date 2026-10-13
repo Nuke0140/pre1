@@ -123,13 +123,13 @@ export interface SearchFilterBarProps {
 // ============================================================================
 
 export function resolveStatusDotColor(statusOrColor: string | undefined): string {
-  if (!statusOrColor) return 'var(--text-muted, #94a3b8)'
+  if (!statusOrColor) return 'var(--text-muted)'
   const s = statusOrColor.toLowerCase()
   if (s === 'active' || s === 'success' || s === 'paid' || s === 'completed' || s === 'green') {
-    return 'var(--success, #10b981)'
+    return 'var(--success)'
   }
   if (s === 'pending' || s === 'warning' || s === 'in_progress' || s === 'amber' || s === 'yellow') {
-    return 'var(--warning, #f59e0b)'
+    return 'var(--warning)'
   }
   if (
     s === 'suspended' ||
@@ -141,13 +141,13 @@ export function resolveStatusDotColor(statusOrColor: string | undefined): string
     s === 'deactivated' ||
     s === 'red'
   ) {
-    return 'var(--danger, #f43f5e)'
+    return 'var(--danger)'
   }
   if (s === 'info' || s === 'blue' || s === 'enquiry') {
-    return 'var(--info, #3b82f6)'
+    return 'var(--info)'
   }
   if (s === 'purple' || s === 'primary') {
-    return 'var(--primary, #7c3aed)'
+    return 'var(--primary)'
   }
   return statusOrColor
 }

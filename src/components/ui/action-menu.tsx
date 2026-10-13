@@ -124,7 +124,7 @@ export function GlobalActionMenu({
             'border border-border/80 dark:border-border/60 bg-white dark:bg-slate-900',
             'text-foreground hover:bg-slate-50 dark:hover:bg-slate-800/80',
             'hover:border-primary/40 dark:hover:border-primary/40',
-            'shadow-xs hover:shadow-card-rest transition-all duration-150',
+            'shadow-xs hover:[box-shadow:var(--shadow-1)] transition-all duration-150',
             'outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary',
             'disabled:pointer-events-none disabled:opacity-50 select-none cursor-pointer',
             sizeStyles[size],
@@ -151,7 +151,7 @@ export function GlobalActionMenu({
         className={cn(
           'w-64 sm:w-72 p-1.5 rounded-2xl border border-border/70 dark:border-border/50',
           'bg-white/98 dark:bg-slate-900/98 backdrop-blur-md',
-          'shadow-card-rest hover:shadow-card-hover transition-shadow',
+          '[box-shadow:var(--shadow-2)]',
           'z-50',
           contentClassName
         )}

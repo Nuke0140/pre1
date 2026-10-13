@@ -273,14 +273,14 @@ export function RecordInspector({
                     type === 'student'
                       ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
                       : type === 'staff'
-                      ? 'color-mix(in srgb, #0EA5E9 12%, transparent)'
-                      : 'color-mix(in srgb, #10B981 12%, transparent)',
+                      ? 'color-mix(in srgb, var(--info) 12%, transparent)'
+                      : 'color-mix(in srgb, var(--success) 12%, transparent)',
                   color:
                     type === 'student'
                       ? 'var(--primary)'
                       : type === 'staff'
-                      ? '#0EA5E9'
-                      : '#10B981',
+                      ? 'var(--info)'
+                      : 'var(--success)',
                 }}
               >
                 {type === 'student' && <GraduationCap size={18} />}

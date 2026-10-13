@@ -595,7 +595,7 @@ export default function StudentsPage() {
       {/* ── 2. COMPACT SMARTER KPI CARDS (RESPONSIVE AUTO-GRID) ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {/* Metric 1: Students */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.totalStudents')}
@@ -613,7 +613,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 2: Active */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.activeStudents')}
@@ -631,7 +631,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 3: New Admissions */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.recentAdmissions')}
@@ -649,7 +649,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 4: Attendance Rate with mini progress */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.attendanceAverage')}
@@ -672,7 +672,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 5: Transferred (Zero visually quiet) */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               {t('students.transferredStudents')}
@@ -690,7 +690,7 @@ export default function StudentsPage() {
         </div>
 
         {/* Metric 6: Withdrawn (Zero visually quiet) */}
-        <div className="bg-white/96 dark:bg-slate-900/96 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-xs [box-shadow:var(--shadow-premium-card,inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.035),0_4px_12px_rgba(15,23,42,0.035))] dark:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.035),0_4px_14px_rgba(0,0,0,0.16)] flex flex-col justify-between h-full transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+        <div className="premium-card p-4 flex flex-col justify-between h-full transition-colors hover:border-border-strong">
           <div className="flex items-center justify-between gap-1 mb-1.5">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
               Withdrawn

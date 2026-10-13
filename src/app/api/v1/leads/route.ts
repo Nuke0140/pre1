@@ -39,7 +39,7 @@ async function _GET(req: NextRequest) {
     // If a specific status is provided: return that status
     let statusFilter: any = undefined
     if (status === 'ACTIVE' || (!status && view === 'active')) {
-      statusFilter = { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE'] }
+      statusFilter = { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'NURTURE', 'APPLICATION_STARTED'] }
     } else if (status && status !== 'ALL') {
       statusFilter = status
     }

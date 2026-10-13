@@ -494,6 +494,7 @@ export function DataTable<T extends { id?: string | number }>({
                 return (
                   <th
                     key={col.key}
+                    className="micro-label"
                     style={{ textAlign: col.align || 'left', width: col.width }}
                     aria-sort={
                       col.sortable && sortKey === col.key
@@ -593,7 +594,7 @@ export function DataTable<T extends { id?: string | number }>({
                     <td
                       key={col.key}
                       style={{ textAlign: col.align || 'left' }}
-                      className={col.align === 'right' ? 'cell-num' : undefined}
+                      className={col.align === 'right' ? 'cell-num data-numeric' : undefined}
                     >
                       {col.render
                         ? col.render(row, idx)
