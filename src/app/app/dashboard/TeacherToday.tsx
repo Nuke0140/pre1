@@ -62,7 +62,7 @@ export function TeacherToday() {
   }
 
   const resolveFu = async (id: string) => {
-    const outcome = window.prompt('Outcome — kya action liya? kya result aaya?', '')
+    const outcome = window.prompt('Outcome — what action was taken and what was the result?', '')
     if (!outcome?.trim()) return
     setBusy(true)
     const res = await fetch(`/api/v1/operations/follow-ups/${id}`, {
@@ -79,7 +79,7 @@ export function TeacherToday() {
   if (!data) {
     return (
       <>
-        <PageHead title="Aaj ke actions" sub="Your class, your children, your day." />
+        <PageHead title="Today's actions" sub="Your class, your children, your day." />
         <Skeleton h={140} />
         <div style={{ height: 12 }} />
         <Skeleton h={300} />
@@ -94,7 +94,7 @@ export function TeacherToday() {
       <PageHead
         eyebrow="Teacher Daily Workspace"
         badge={<span className="badge b-primary b-dot">Classroom Care</span>}
-        title="Aaj ke actions"
+        title="Today's actions"
         sub={`${data.today} · ${data.sections.length} section(s) · ${data.actions.followUpsOpen} follow-ups open${dayClosed ? ' · SCHOOL CLOSED TODAY' : ''}`}
         actions={
           <>
@@ -107,7 +107,7 @@ export function TeacherToday() {
       {dayClosed && (
         <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 16 }}>
           <b style={{ fontSize: 13.5 }}>School closed today ({data.dayStatus.replace(/_/g, ' ').toLowerCase()})</b>
-          <p className="t-caption">Attendance is not expected — calendar + operating config se aaya hai.</p>
+          <p className="t-caption">Attendance is not expected today based on the calendar and operating schedule.</p>
         </div>
       )}
 
@@ -116,7 +116,7 @@ export function TeacherToday() {
           <EmptyState
             icon={<Baby size={36} />}
             title="No sections assigned yet"
-            message="Aapko koi class-section allocate nahi hui. Principal/Owner se apni assignment confirm karein (Setup → Teacher Assignment)."
+            message="No class or section has been assigned to you yet. Please contact your Principal or School Admin to confirm your teacher assignment."
           />
         </div>
       ) : (
@@ -177,11 +177,11 @@ export function TeacherToday() {
       {/* follow-ups assigned to me / my sections */}
       <div className="card">
         <div className="card-head">
-          <div className="card-title">Meri follow-ups</div>
+          <div className="card-title">My follow-ups</div>
           <span className="badge b-neutral">{data.actions.followUpsOpen} open</span>
         </div>
         {data.followUps.length === 0 ? (
-          <p className="t-caption">Kuch pending nahi — good job!</p>
+          <p className="t-caption">Nothing pending — all caught up!</p>
         ) : (
           data.followUps.map((f) => (
             <div key={f.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-subtle)' }}>
@@ -271,7 +271,7 @@ export function TeacherToday() {
           </div>
           <div className="field" style={{ marginBottom: 12 }}>
             <label>Details</label>
-            <textarea className="textarea" name="body" style={{ minHeight: 80 }} placeholder="Short note — parents yahi dekhte hain." />
+            <textarea className="textarea" name="body" style={{ minHeight: 80 }} placeholder="Short note — this will be visible to parents on their daily feed." />
           </div>
           <div className="field">
             <label>Mood</label>

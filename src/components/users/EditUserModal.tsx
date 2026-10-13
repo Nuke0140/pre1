@@ -16,6 +16,7 @@ import {
   ROLE_BADGE
 } from './types'
 import { useI18n } from '@/lib/i18n'
+import { normalizeLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
 
 interface EditUserModalProps {
   open: boolean
@@ -48,7 +49,7 @@ export function EditUserModal({
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [username, setUsername] = useState('')
-  const [locale, setLocale] = useState('en')
+  const [locale, setLocale] = useState<string>(DEFAULT_LOCALE)
   const [role, setRole] = useState<Role>('TEACHER')
   const [additionalRoles, setAdditionalRoles] = useState<Role[]>([])
   const [status, setStatus] = useState<UserLifecycleStatus>('ACTIVE')
@@ -111,7 +112,7 @@ export function EditUserModal({
       setEmail(user.email || '')
       setPhone(user.phone || '')
       setUsername(user.username || '')
-      setLocale(user.locale || 'en')
+      setLocale(user.locale ? normalizeLocale(user.locale) : DEFAULT_LOCALE)
       setRole(user.role)
       setAdditionalRoles(user.roles ? user.roles.filter((r) => r !== user.role) : [])
       setStatus(user.status)
@@ -247,7 +248,7 @@ export function EditUserModal({
         email: email.trim().toLowerCase() || null,
         phone: phone.trim() || null,
         username: username.trim() || null,
-        locale: locale || 'en',
+        locale: locale ? normalizeLocale(locale) : DEFAULT_LOCALE,
         role,
         primaryRole: role,
         roles: allRoles,

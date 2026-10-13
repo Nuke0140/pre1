@@ -38,7 +38,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
   const [currentAddress, setCurrentAddress] = useState('')
   const [permanentAddress, setPermanentAddress] = useState('')
-  const [locale, setLocale] = useState('en')
+  const [locale, setLocale] = useState('en-IN')
 
   // Step 2: Work & Assignment
   const [primaryRole, setPrimaryRole] = useState<Role>('TEACHER')
@@ -139,7 +139,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setEmergencyContactPhone('')
     setCurrentAddress('')
     setPermanentAddress('')
-    setLocale('en')
+    setLocale('en-IN')
     setUsername('')
     setIsUsernameCustom(false)
     setPassword('')
@@ -245,7 +245,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           emergencyContactPhone: emergencyContactPhone.trim() || undefined,
           currentAddress: currentAddress.trim() || undefined,
           permanentAddress: permanentAddress.trim() || undefined,
-          locale: locale || undefined,
+          locale: locale || 'en-IN',
           username: username.trim() || undefined,
           password: password.trim() || undefined,
           role: primaryRole,

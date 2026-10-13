@@ -39,10 +39,10 @@ export function DashboardClient({ role, perms, data }: Props) {
           <div>
             <div className="page-eyebrow">Preschool Operations Command</div>
             <h1 className="operational-hero-title">
-              Namaste, {role === 'TEACHER' ? 'Teacher' : role === 'PARENT' ? 'Parent' : 'Administrator'}!
+              Welcome, {role === 'TEACHER' ? 'Teacher' : role === 'PARENT' ? 'Parent' : 'Administrator'}!
             </h1>
             <p className="operational-hero-sub">
-              Aapke school ka live operational pulse — today&apos;s attendance, enrolled students, collection rate, and critical workflows.
+              Live operational pulse for your preschool — today&apos;s attendance, enrolled students, fee collections, and critical workflows.
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

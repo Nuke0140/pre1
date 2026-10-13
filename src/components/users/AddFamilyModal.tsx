@@ -51,7 +51,7 @@ export function AddFamilyModal({
   const [avatarUrl, setAvatarUrl] = useState('')
   const [occupation, setOccupation] = useState('')
   const [isPrimaryContact, setIsPrimaryContact] = useState(false)
-  const [locale, setLocale] = useState('en')
+  const [locale, setLocale] = useState('en-IN')
 
   // Step 2: Child Connection
   const [childMode, setChildMode] = useState<'EXISTING' | 'CREATE'>('EXISTING')
@@ -289,7 +289,7 @@ export function AddFamilyModal({
         relationship,
         occupation: occupation.trim() || undefined,
         isPrimaryContact,
-        locale: locale || undefined,
+        locale: locale || 'en-IN',
         status,
         canPickup,
         pickupPin: pickupPin.trim() || undefined,

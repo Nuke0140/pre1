@@ -53,7 +53,7 @@ export function GlobalActionMenu({
   hasPermission,
 }: GlobalActionMenuProps) {
   const { locale } = useI18n()
-  const isEnglish = locale === 'en-IN'
+  const isEnglish = locale === 'en-IN' || locale === 'en'
   const containsDevanagari = (text?: string) => Boolean(text && /[\u0900-\u097F]/.test(text))
 
   // 1. Filter actions by visibility and permissions

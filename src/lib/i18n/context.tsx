@@ -25,6 +25,14 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<SupportedLocale>(() => normalizeLocale(initialLocale))
 
   useEffect(() => {
+    if (initialLocale) {
+      const norm = normalizeLocale(initialLocale)
+      setLocaleState(norm)
+      setGlobalLocale(norm)
+    }
+  }, [initialLocale])
+
+  useEffect(() => {
     // Sync document element lang attribute and non-React singleton
     if (typeof document !== 'undefined') {
       document.documentElement.lang = locale

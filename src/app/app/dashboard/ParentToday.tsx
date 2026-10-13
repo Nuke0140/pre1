@@ -44,7 +44,7 @@ export function ParentToday() {
   if (!data) {
     return (
       <>
-        <PageHead title="Mera bachcha" sub="How is my child doing today?" />
+        <PageHead title="My Child" sub="How is my child doing today?" />
         <Skeleton h={300} />
       </>
     )
@@ -55,8 +55,8 @@ export function ParentToday() {
       <PageHead
         eyebrow="Parent Connect"
         badge={<span className="badge b-primary b-dot">Child Profile</span>}
-        title="Mera bachcha"
-        sub={`${data.today} — aaj ka din, care se learning tak.`}
+        title="My Child"
+        sub={`${data.today} — today's summary, from care to learning.`}
       />
 
       {data.children.length === 0 && (
@@ -64,7 +64,7 @@ export function ParentToday() {
           <EmptyState
             icon={<Baby size={36} />}
             title="No children linked"
-            message="Aapke account se koi child link nahi hai. School admin se contact karein."
+            message="No children linked to your account. Please contact the school administrator."
           />
         </div>
       )}
@@ -104,10 +104,10 @@ export function ParentToday() {
             {/* TODAY — care */}
             <div>
               <b style={{ fontSize: 12.5, display: 'flex', gap: 6, alignItems: 'center' }}>
-                <CalendarCheck size={13} /> Aaj ka din
+                <CalendarCheck size={13} /> Today's updates
               </b>
               {c.todayCare.length === 0 ? (
-                <p className="t-caption" style={{ marginTop: 6 }}>Aaj koi care update nahi — school day shuru hote hi dikhega.</p>
+                <p className="t-caption" style={{ marginTop: 6 }}>No care updates today — updates will appear as the school day progresses.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                   {c.todayCare.map((e, i) => (
@@ -136,7 +136,7 @@ export function ParentToday() {
                   </div>
                 </div>
               ) : (
-                <p className="t-caption" style={{ marginTop: 6 }}>Published observations yahan dikhenge.</p>
+                <p className="t-caption" style={{ marginTop: 6 }}>Published observations will appear here.</p>
               )}
               <Link className="btn btn-ghost btn-sm" href="/app/timeline" style={{ marginTop: 8 }}>
                 Full child timeline
@@ -149,7 +149,7 @@ export function ParentToday() {
                 <Wallet size={13} /> Fees
               </b>
               {c.feesDue.length === 0 ? (
-                <p className="t-caption" style={{ marginTop: 6 }}>Sab clear — koi outstanding nahi.</p>
+                <p className="t-caption" style={{ marginTop: 6 }}>All clear — no outstanding dues.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                   {c.feesDue.map((f) => (

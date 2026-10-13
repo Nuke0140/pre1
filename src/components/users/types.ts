@@ -96,14 +96,9 @@ export const GENDERS = ['MALE', 'FEMALE', 'OTHER'] as const
 export const MARITAL_STATUSES = ['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'] as const
 export const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'PROBATION', 'TEMPORARY'] as const
 export const LOCALES = [
-  { value: 'en', label: 'English (en)' },
-  { value: 'hi', label: 'Hindi (hi)' },
-  { value: 'mr', label: 'Marathi (mr)' },
-  { value: 'gu', label: 'Gujarati (gu)' },
-  { value: 'ta', label: 'Tamil (ta)' },
-  { value: 'te', label: 'Telugu (te)' },
-  { value: 'kn', label: 'Kannada (kn)' },
-  { value: 'bn', label: 'Bengali (bn)' },
+  { value: 'en-IN', label: 'English' },
+  { value: 'hi-IN', label: 'Hindi (हिंदी)' },
+  { value: 'mr-IN', label: 'Marathi (मराठी)' },
 ] as const
 
 export const CANONICAL_STAFF_ROLES: Role[] = [
