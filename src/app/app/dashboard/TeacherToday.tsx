@@ -77,11 +77,7 @@ export function TeacherToday() {
   }
 
   const resolveFu = async (id: string) => {
-<<<<<<< HEAD
-    const outcome = window.prompt('Outcome / Action taken:', '')
-=======
     const outcome = window.prompt('Outcome — what action was taken and what was the result?', '')
->>>>>>> pr-6
     if (!outcome?.trim()) return
     setBusy(true)
     const res = await fetch(`/api/v1/operations/follow-ups/${id}`, {

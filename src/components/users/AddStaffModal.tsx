@@ -357,15 +357,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           emergencyContactPhone: emergencyContactPhone.trim() || undefined,
           currentAddress: currentAddress.trim() || undefined,
           permanentAddress: permanentAddress.trim() || undefined,
-<<<<<<< HEAD
-          locale: locale || undefined,
+          locale: locale || 'en-IN',
           username: username.trim().toLowerCase() || undefined,
           password: !isInvite ? password : undefined,
-=======
-          locale: locale || 'en-IN',
-          username: username.trim() || undefined,
-          password: password.trim() || undefined,
->>>>>>> pr-6
           role: primaryRole,
           primaryRole,
           roles: allRoles,
