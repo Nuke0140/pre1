@@ -280,6 +280,16 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
       expect(pageCode).toContain('setGeneralError(errorMsg)')
       // Resend wireup
       expect(pageCode).toContain("fetch('/api/v1/auth/otp/resend'")
+      // Wireup to AuthActions with explicit onClick
+      expect(pageCode).toContain('onClick={(e) => handleOtpVerify(e)}')
+      // DOM fallback for verification code recovery
+      expect(pageCode).toContain('.auth-otp-group input')
+    })
+
+    it('verifies AuthActions component supports onClick prop and forwards to Button', async () => {
+      const authActionsCode = await Bun.file('src/components/auth/AuthActions.tsx').text()
+      expect(authActionsCode).toContain('onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void')
+      expect(authActionsCode).toContain('onClick={onClick}')
     })
   })
 })

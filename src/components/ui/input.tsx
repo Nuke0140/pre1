@@ -79,15 +79,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ? cn(
                 "auth-input bg-slate-50/80 dark:bg-slate-950/60 border text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 font-medium shadow-2xs",
                 hasError
-                  ? "border-destructive focus-visible:border-destructive [box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
-                  : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus-visible:border-primary [box-shadow:none] focus-visible:[box-shadow:var(--focus-ring)]"
+                  ? "border-destructive focus:border-destructive focus:[box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] focus-visible:border-destructive focus-visible:[box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
+                  : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 focus:border-primary focus:[box-shadow:var(--focus-ring)] focus:outline-none focus-visible:border-primary focus-visible:[box-shadow:var(--focus-ring)]"
               )
             : cn(
                 "border border-border/60 dark:border-border/40 bg-background/50 dark:bg-input/30 placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground shadow-2xs hover:border-border/80 dark:hover:border-border/60",
-                "focus-visible:border-[var(--focus-ring-color)] focus-visible:[box-shadow:var(--focus-ring)]",
+                "focus:border-[var(--focus-ring-color)] focus:[box-shadow:var(--focus-ring)] focus:outline-none focus-visible:border-[var(--focus-ring-color)] focus-visible:[box-shadow:var(--focus-ring)]",
                 hasError
-                  ? "!border-destructive focus-visible:!border-destructive focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
-                  : "aria-invalid:!border-destructive aria-invalid:focus-visible:!border-destructive aria-invalid:focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
+                  ? "!border-destructive focus:!border-destructive focus:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] focus-visible:!border-destructive focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
+                  : "aria-invalid:!border-destructive aria-invalid:focus:!border-destructive aria-invalid:focus:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)] aria-invalid:focus-visible:!border-destructive aria-invalid:focus-visible:![box-shadow:0_0_0_var(--focus-ring-inner-width,1px)_var(--danger),0_0_0_var(--focus-ring-outer-width,4px)_color-mix(in_srgb,var(--danger)_20%,transparent)]"
               ),
           className
         )}

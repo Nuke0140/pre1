@@ -10,6 +10,7 @@ export interface AuthActionsProps {
   icon?: React.ReactNode
   secondaryAction?: React.ReactNode
   className?: string
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 /**
@@ -25,6 +26,7 @@ export function AuthActions({
   icon = <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />,
   secondaryAction,
   className = '',
+  onClick,
 }: AuthActionsProps) {
   return (
     <div className={`auth-actions w-full pt-2 space-y-3.5 ${className}`}>
@@ -33,6 +35,7 @@ export function AuthActions({
         variant="primary"
         size="auth"
         disabled={disabled || loading}
+        onClick={onClick}
         className="auth-button w-full h-12 rounded-xl text-sm font-semibold !text-white text-white shadow-md shadow-purple-600/25 dark:shadow-purple-950/40 hover:shadow-lg hover:shadow-purple-600/30 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer group"
       >
         {loading ? (

@@ -216,11 +216,24 @@ export default function LoginPage() {
     }
   }
 
-  const handleOtpVerify = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    const code = otp.join('')
+  const handleOtpVerify = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault()
+    let code = otp.join('')
+    if (code.length < 4 && typeof document !== 'undefined') {
+      const inputs = document.querySelectorAll<HTMLInputElement>('.auth-otp-group input')
+      if (inputs.length >= 4) {
+        const domCode = Array.from(inputs).map((inp) => inp.value).join('')
+        if (domCode.length === 4) {
+          code = domCode
+          setOtp(domCode.split(''))
+        }
+      }
+    }
+
     if (code.length < 4) {
-      setFieldErrors({ otp: 'Please enter all 4 digits of your verification code.' })
+      const msg = 'Please enter all 4 digits of your verification code.'
+      setFieldErrors({ otp: msg })
+      setGeneralError(msg)
       return
     }
 
@@ -631,6 +644,7 @@ export default function LoginPage() {
                       primaryText="Verify OTP"
                       loadingText="Verifying code..."
                       loading={loading}
+                      onClick={(e) => handleOtpVerify(e)}
                       secondaryAction={
                         <div className="space-y-3 pt-1">
                           <div className="text-xs text-slate-500 dark:text-slate-400">

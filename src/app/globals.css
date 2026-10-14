@@ -1337,6 +1337,30 @@ h6 {
 p{margin:0}
 a{color:var(--text-link);text-decoration:none}
 a:hover{color:var(--text-link-hover)}
+/* Anchor buttons with primary background must always have high-contrast white text (BUG-009) */
+a.bg-primary,
+a.btn-primary,
+a[class*="bg-primary"],
+a[class*="btn-primary"] {
+  color: #FFFFFF !important;
+  background-color: var(--primary) !important;
+}
+a.bg-primary:hover,
+a.btn-primary:hover,
+a[class*="bg-primary"]:hover,
+a[class*="btn-primary"]:hover {
+  color: #FFFFFF !important;
+  background-color: var(--primary-hover) !important;
+}
+a.bg-primary span,
+a.bg-primary svg,
+a.btn-primary span,
+a.btn-primary svg,
+a[class*="bg-primary"] span,
+a[class*="bg-primary"] svg {
+  color: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
 [data-theme="dark"] body,
 .dark body,
 body.dark {
@@ -1358,7 +1382,7 @@ body.dark {
 ::-webkit-scrollbar{width:8px;height:8px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--primary) 65%,var(--bg-muted));border-radius:9999px}
-:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+:focus-visible{outline:2px solid var(--focus-ring-color);outline-offset:1px;box-shadow:var(--focus-ring)}
 
 /* ════════════════════════════════════════════════════════════════════
    PREONE UI ENHANCEMENT — VELVET DOUBLE-RING FOCUS STATES (v1.0)
@@ -1375,10 +1399,11 @@ body.dark {
   [role="switch"],
   [role="combobox"],
   [role="tab"]
-):focus-visible {
-  outline: none;
-  border-color: var(--focus-ring-color);
-  box-shadow: var(--focus-ring);
+):is(:focus, :focus-visible) {
+  outline: 2px solid var(--focus-ring-color) !important;
+  outline-offset: 1px !important;
+  border-color: var(--focus-ring-color) !important;
+  box-shadow: var(--focus-ring) !important;
   transition: border-color var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)),
               box-shadow var(--duration-fast, 150ms) var(--ease-standard, cubic-bezier(0.2, 0, 0, 1));
 }
@@ -1388,8 +1413,9 @@ body.dark {
   input,
   select,
   textarea
-):is([aria-invalid="true"], :invalid, .is-invalid, .has-error):focus-visible {
-  outline: none;
+):is([aria-invalid="true"], :invalid, .is-invalid, .has-error):is(:focus, :focus-visible) {
+  outline: 2px solid var(--danger, #EF4444) !important;
+  outline-offset: 1px !important;
   border-color: var(--danger, #EF4444) !important;
   box-shadow: 0 0 0 var(--focus-ring-inner-width, 1px) var(--danger, #EF4444),
               0 0 0 var(--focus-ring-outer-width, 4px) color-mix(in srgb, var(--danger, #EF4444) 20%, transparent) !important;
@@ -1401,7 +1427,7 @@ body.dark {
   select,
   textarea,
   button
-):is(:disabled, [disabled], .is-disabled, [aria-disabled="true"]):focus-visible {
+):is(:disabled, [disabled], .is-disabled, [aria-disabled="true"]):is(:focus, :focus-visible) {
   outline: none !important;
   box-shadow: none !important;
   border-color: inherit;
