@@ -458,6 +458,33 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(globalsCss).toContain('text-overflow: ellipsis;')
     })
 
+    it('verifies BUG-028 fix: Inventory summary cards and operational dashboard enforce min-w-0 max-w-full on 320px viewports', async () => {
+      const invFile = await Bun.file('src/app/app/inventory/InventoryClient.tsx').text()
+
+      // 1. Operational dashboard grid collapses to single column on mobile (< lg) and enforces min-w-0 max-w-full
+      expect(invFile).toContain('grid grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)] gap-4 w-full max-w-full min-w-0')
+
+      // 2. Column wrappers enforce min-w-0 max-w-full
+      expect(invFile).toContain('flex flex-col gap-4 w-full max-w-full min-w-0')
+
+      // 3. Card chain enforces min-w-0 max-w-full overflow-hidden
+      expect(invFile).toContain('card w-full max-w-full min-w-0 overflow-hidden')
+
+      // 4. Card headers wrap gracefully without forcing card width
+      expect(invFile).toContain('flex flex-wrap items-center justify-between gap-2 mb-3.5 w-full min-w-0')
+      expect(invFile).toContain('flex flex-wrap items-center justify-between gap-2 mb-3 w-full min-w-0')
+
+      // 5. Action button groups wrap on mobile
+      expect(invFile).toContain('flex flex-wrap gap-2 justify-center w-full max-w-full min-w-0')
+
+      // 6. Global CSS enforces min-width: 0 and max-width: 100% on .card
+      const cssFile = await Bun.file('src/app/globals.css').text()
+      expect(cssFile).toContain('.card{')
+      expect(cssFile).toContain('max-width: 100%;')
+      expect(cssFile).toContain('min-width: 0;')
+      expect(cssFile).toContain('box-sizing: border-box;')
+    })
+
     it('verifies Phase 5 promoted Playwright assert expect(page).toPassResponsiveProbe and baseline sweep fixture', async () => {
       // 1. Promoted custom assertion definition
       const probeFile = await Bun.file('tests/e2e/responsive-probe.ts').text()

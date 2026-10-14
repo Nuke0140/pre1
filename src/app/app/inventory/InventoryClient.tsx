@@ -1335,20 +1335,20 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           </div>
 
           {/* BALANCED 2-COLUMN OPERATIONAL DASHBOARD */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: 18, alignItems: 'start' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)] gap-4 w-full max-w-full min-w-0" style={{ alignItems: 'start' }}>
             {/* LEFT COLUMN: RECENT ACTIVITY & DISTRIBUTIONS */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div className="flex flex-col gap-4 w-full max-w-full min-w-0">
               {/* RECENT CLASSROOM & STUDENT DISTRIBUTIONS */}
               <div
-                className="card"
+                className="card w-full max-w-full min-w-0 overflow-hidden"
                 style={{ padding: 18 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Layers size={16} color="var(--primary)" /> Recent Distributions & Material Issues
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 w-full min-w-0">
+                  <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }} className="min-w-0 truncate">
+                    <Layers size={16} color="var(--primary)" className="shrink-0" /> <span className="truncate">Recent Distributions &amp; Material Issues</span>
                   </h3>
                   <button
-                    className="btn btn-sm btn-ghost"
+                    className="btn btn-sm btn-ghost shrink-0"
                     onClick={() => {
                       setActiveTab('DISTRIBUTION')
                       setDistSubTab('ALL_DISTRIBUTIONS')
@@ -1360,7 +1360,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 </div>
 
                 {distributions.slice(0, 5).length > 0 ? (
-                  <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 10px)', overflow: 'hidden' }}>
+                  <div className="overflow-x-auto w-full max-w-full min-w-0 rail-edge-fade scrollbar-none" style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md, 10px)' }}>
                     <table className="table" style={{ width: '100%', margin: 0, fontSize: '0.82rem' }}>
                       <thead>
                         <tr>
@@ -1409,6 +1409,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </div>
                 ) : (
                   <div
+                    className="w-full max-w-full min-w-0"
                     style={{
                       padding: '24px 16px',
                       textAlign: 'center',
@@ -1436,7 +1437,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                       No Distributions Recorded Yet
                     </div>
                     {!isTeacher && canManageStock && (
-                      <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                      <div className="flex flex-wrap gap-2 justify-center w-full max-w-full min-w-0">
                         <button className="btn btn-sm btn-primary" onClick={() => setClassroomDistModalOpen(true)}>
                           <GraduationCap size={14} /> Classroom Issue
                         </button>
@@ -1451,18 +1452,18 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
 
             {/* RIGHT COLUMN: PROCUREMENT & FINANCE RECONCILIATION */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div className="flex flex-col gap-4 w-full max-w-full min-w-0">
               {/* FINANCE PAYABLES SUMMARY */}
               <div
-                className="card"
+                className="card w-full max-w-full min-w-0 overflow-hidden"
                 style={{ padding: 18 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h3 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <DollarSign size={16} color="var(--success)" /> Procurement & Finance Alignment
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 w-full min-w-0">
+                  <h3 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }} className="min-w-0 truncate">
+                    <DollarSign size={16} color="var(--success)" className="shrink-0" /> <span className="truncate">Procurement &amp; Finance Alignment</span>
                   </h3>
                   <button
-                    className="btn btn-sm btn-ghost"
+                    className="btn btn-sm btn-ghost shrink-0"
                     onClick={() => {
                       setActiveTab('REPORTS')
                       setReportSubTab('FINANCE')
@@ -1473,26 +1474,26 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                <div className="grid grid-cols-2 gap-2.5 w-full max-w-full min-w-0">
+                  <div className="min-w-0" style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>PO Committed</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalPOCommittedCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                  <div className="min-w-0" style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>GRN Received</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalGRNValueCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                  <div className="min-w-0" style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Vendor Bills Posted</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--text-primary)' }}>
                       {inr(reconciliation?.totalVendorBillsPostedCents || 0, { compact: true })}
                     </div>
                   </div>
-                  <div style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
+                  <div className="min-w-0" style={{ padding: '10px 12px', background: 'var(--bg-subtle)', borderRadius: 10, border: '1px solid var(--border-subtle)' }}>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Net Payable Balance</div>
                     <div style={{ fontSize: '1.15rem', fontWeight: 700, marginTop: 2, color: 'var(--danger, #ef4444)' }}>
                       {inr(reconciliation?.vendorPayableBalanceCents || 0, { compact: true })}

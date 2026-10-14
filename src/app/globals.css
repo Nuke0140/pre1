@@ -1600,6 +1600,9 @@ body.dark {
    CARDS & CONTAINERS (PREONE ENTERPRISE SYSTEM)
    ════════════════════════════════════════════════════════════════════ */
 .card{
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background:var(--card-bg, var(--surface-card));border:1px solid var(--card-border, var(--border-subtle));
   border-radius:var(--r-lg, 1rem);padding:var(--space-5);
   box-shadow:var(--shadow-1);
