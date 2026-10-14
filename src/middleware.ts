@@ -7,6 +7,11 @@ const PUBLIC_PATHS = [
   '/api/v1/auth/branding',
   '/api/v1/auth/reset-password',
   '/api/v1/auth/otp',
+  '/api/v1/health',
+  '/api/health',
+  '/api/v1/version',
+  '/api/version',
+  '/api/v1/operations/health',
   '/api/v1/public',
   '/api/v1/webhooks',
 ]
@@ -19,6 +24,14 @@ function resolveTraceId(req: NextRequest): string {
   return 'PRE-' + Math.random().toString(16).substring(2, 10).toUpperCase().padEnd(8, '0')
 }
 
+function applySecurityHeaders<T extends NextResponse>(res: T, traceId: string): T {
+  res.headers.set('X-Trace-Id', traceId)
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  return res
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const traceId = resolveTraceId(req)
@@ -29,8 +42,7 @@ export async function middleware(req: NextRequest) {
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     const res = NextResponse.next({ request: { headers: requestHeaders } })
-    res.headers.set('X-Trace-Id', traceId)
-    return res
+    return applySecurityHeaders(res, traceId)
   }
 
   const isProtectedPage = pathname.startsWith('/app') || pathname.startsWith('/onboard')
@@ -39,8 +51,7 @@ export async function middleware(req: NextRequest) {
 
   if (!isProtectedPage && !isProtectedApi) {
     const res = NextResponse.next({ request: { headers: requestHeaders } })
-    res.headers.set('X-Trace-Id', traceId)
-    return res
+    return applySecurityHeaders(res, traceId)
   }
 
   const token = req.cookies.get(SESSION_COOKIE)?.value
@@ -48,7 +59,7 @@ export async function middleware(req: NextRequest) {
 
   if (!session) {
     if (isProtectedApi) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         {
           success: false,
           error: {
@@ -65,13 +76,13 @@ export async function middleware(req: NextRequest) {
           },
         }
       )
+      return applySecurityHeaders(res, traceId)
     }
     const url = req.nextUrl.clone()
     url.pathname = '/'
     url.searchParams.set('next', pathname)
     const redirectRes = NextResponse.redirect(url)
-    redirectRes.headers.set('X-Trace-Id', traceId)
-    return redirectRes
+    return applySecurityHeaders(redirectRes, traceId)
   }
 
   // If user must change password, restrict browser page access to /app/settings
@@ -81,13 +92,11 @@ export async function middleware(req: NextRequest) {
     url.searchParams.set('tab', 'security')
     url.searchParams.set('mustChangePassword', 'true')
     const redirectRes = NextResponse.redirect(url)
-    redirectRes.headers.set('X-Trace-Id', traceId)
-    return redirectRes
+    return applySecurityHeaders(redirectRes, traceId)
   }
 
   const res = NextResponse.next({ request: { headers: requestHeaders } })
-  res.headers.set('X-Trace-Id', traceId)
-  return res
+  return applySecurityHeaders(res, traceId)
 }
 
 export const config = {

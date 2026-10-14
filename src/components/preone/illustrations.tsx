@@ -7,7 +7,7 @@ export interface IllustrationProps extends React.SVGProps<SVGSVGElement> {
 
 /**
  * Friendly preschool staff / educator illustration
- * Features an educator, learning blocks, and academic motifs
+ * Renders the 3D staff team artwork with smooth scaling and hardware acceleration
  */
 export function StaffUsersIllustration({
   className = '',
@@ -18,107 +18,28 @@ export function StaffUsersIllustration({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 180 150"
+      viewBox="0 0 415 415"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={`select-none ${className}`}
       aria-hidden="true"
       role="img"
       {...props}
     >
-      <defs>
-        <linearGradient id="staff-bg-glow" x1="40" y1="20" x2="150" y2="130" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--preone-primary-soft, #F3EEFF)" stopOpacity="0.85" />
-          <stop stopColor="var(--info-soft, #EAF2FE)" stopOpacity="0.5" />
-        </linearGradient>
-        <linearGradient id="staff-coat" x1="80" y1="65" x2="130" y2="135" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--primary, #7C3AED)" />
-          <stop stopColor="var(--primary-hover, #6D28D9)" />
-        </linearGradient>
-        <linearGradient id="block-blue" x1="20" y1="90" x2="52" y2="124" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#3B82F6" />
-          <stop stopColor="#2563EB" />
-        </linearGradient>
-        <linearGradient id="block-yellow" x1="30" y1="65" x2="58" y2="95" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F59E0B" />
-          <stop stopColor="#D97706" />
-        </linearGradient>
-      </defs>
-
-      {/* Ambient background aura */}
-      <circle cx="102" cy="76" r="56" fill="url(#staff-bg-glow)" />
-
-      {/* Decorative stars / sparkles */}
-      <path
-        d="M152 38L154.5 44L160.5 46.5L154.5 49L152 55L149.5 49L143.5 46.5L149.5 44L152 38Z"
-        fill="var(--warning, #F59E0B)"
-        opacity="0.9"
+      <image
+        href="/animations/staff_users.webp"
+        xlinkHref="/animations/staff_users.webp"
+        width="415"
+        height="415"
+        preserveAspectRatio="xMidYMid meet"
       />
-      <circle cx="158" cy="72" r="3" fill="var(--info, #3B82F6)" opacity="0.6" />
-      <circle cx="68" cy="28" r="2.5" fill="var(--primary, #7C3AED)" opacity="0.5" />
-
-      {/* Stacked Preschool Blocks */}
-      {/* Block A (Bottom) */}
-      <rect x="20" y="94" width="32" height="32" rx="7" fill="url(#block-blue)" />
-      <rect x="23" y="97" width="26" height="26" rx="5" fill="#60A5FA" opacity="0.3" />
-      <text x="36" y="116" fill="#FFFFFF" fontSize="17" fontWeight="800" fontFamily="var(--font-sans, sans-serif)" textAnchor="middle">A</text>
-
-      {/* Block B (Top) */}
-      <rect x="30" y="66" width="28" height="28" rx="6" fill="url(#block-yellow)" />
-      <rect x="33" y="69" width="22" height="22" rx="4" fill="#FDE68A" opacity="0.35" />
-      <text x="44" y="86" fill="#FFFFFF" fontSize="15" fontWeight="800" fontFamily="var(--font-sans, sans-serif)" textAnchor="middle">B</text>
-
-      {/* Educator Character */}
-      {/* Torso / Clothes */}
-      <path
-        d="M84 135C84 108 94 92 110 92C126 92 136 108 136 135H84Z"
-        fill="url(#staff-coat)"
-      />
-      {/* Collar */}
-      <path d="M103 92L110 104L117 92H103Z" fill="#FFFFFF" />
-      {/* School ID Lanyard */}
-      <path d="M105 98L110 114L115 98" stroke="#FDE047" strokeWidth="2" strokeLinecap="round" />
-      <rect x="106" y="114" width="8" height="11" rx="2" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1" />
-
-      {/* Neck */}
-      <rect x="105" y="82" width="10" height="12" rx="4" fill="#FCD34D" />
-
-      {/* Head */}
-      <circle cx="110" cy="62" r="22" fill="#FDE68A" />
-
-      {/* Hair */}
-      <path
-        d="M88 58C88 44 98 34 112 34C126 34 134 44 134 54C134 58 131 60 128 58C124 55 120 48 110 48C100 48 94 56 90 60C89 61 88 60 88 58Z"
-        fill="#475569"
-      />
-
-      {/* Glasses */}
-      <rect x="98" y="56" width="10" height="8" rx="3" fill="none" stroke="#1E293B" strokeWidth="1.8" />
-      <rect x="112" y="56" width="10" height="8" rx="3" fill="none" stroke="#1E293B" strokeWidth="1.8" />
-      <path d="M108 60H112" stroke="#1E293B" strokeWidth="1.8" />
-
-      {/* Friendly Smile */}
-      <path d="M106 69C108 72 112 72 114 69" stroke="#B45309" strokeWidth="1.8" strokeLinecap="round" />
-
-      {/* Cheerful Blush */}
-      <circle cx="97" cy="66" r="3" fill="#F87171" opacity="0.4" />
-      <circle cx="123" cy="66" r="3" fill="#F87171" opacity="0.4" />
-
-      {/* Teacher's Planner / Notebook */}
-      <g transform="translate(126, 88) rotate(12)">
-        <rect width="26" height="34" rx="4" fill="#10B981" />
-        <rect x="3" width="4" height="34" fill="#059669" />
-        <line x1="10" y1="8" x2="21" y2="8" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="10" y1="14" x2="21" y2="14" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="10" y1="20" x2="18" y2="20" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
     </svg>
   )
 }
 
 /**
  * Friendly preschool family illustration
- * Features a parent, happy preschool child, and cheerful motifs
+ * Renders the 3D family artwork with smooth scaling and hardware acceleration
  */
 export function FamilyUsersIllustration({
   className = '',
@@ -129,111 +50,20 @@ export function FamilyUsersIllustration({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 180 150"
+      viewBox="0 0 379 379"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={`select-none ${className}`}
       aria-hidden="true"
       role="img"
       {...props}
     >
-      <defs>
-        <linearGradient id="fam-bg-glow" x1="40" y1="20" x2="150" y2="130" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--accent-light, #FFF0EB)" stopOpacity="0.85" />
-          <stop stopColor="var(--preone-primary-soft, #F3EEFF)" stopOpacity="0.5" />
-        </linearGradient>
-        <linearGradient id="parent-clothes" x1="50" y1="75" x2="100" y2="135" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#EA580C" />
-          <stop stopColor="#C2410C" />
-        </linearGradient>
-        <linearGradient id="child-clothes" x1="110" y1="105" x2="145" y2="135" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#3B82F6" />
-          <stop stopColor="#1D4ED8" />
-        </linearGradient>
-      </defs>
-
-      {/* Ambient background aura */}
-      <circle cx="98" cy="76" r="56" fill="url(#fam-bg-glow)" />
-
-      {/* Floating Balloon */}
-      <g>
-        <path d="M148 48C148 37 139 28 128 28C117 28 108 37 108 48C108 57 114 64 123 67L128 72L133 67C142 64 148 57 148 48Z" fill="#F43F5E" />
-        <ellipse cx="122" cy="40" rx="3" ry="5" fill="#FFFFFF" opacity="0.4" />
-        {/* Balloon string held towards child */}
-        <path d="M128 72Q136 88 132 108" stroke="#94A3B8" strokeWidth="1.5" strokeDasharray="2 2" fill="none" />
-      </g>
-
-      {/* Little floating hearts / sparkles */}
-      <path
-        d="M48 36C45 32 39 33 37 37C35 42 42 47 48 51C54 47 61 42 59 37C57 33 51 32 48 36Z"
-        fill="#FB7185"
-        opacity="0.85"
-      />
-      <circle cx="156" cy="78" r="2.5" fill="var(--warning, #F59E0B)" opacity="0.6" />
-
-      {/* Parent Character (Left) */}
-      {/* Torso */}
-      <path
-        d="M52 135C52 106 62 88 78 88C94 88 104 106 104 135H52Z"
-        fill="url(#parent-clothes)"
-      />
-      {/* Collar */}
-      <path d="M72 88L78 98L84 88H72Z" fill="#FFFFFF" />
-
-      {/* Neck */}
-      <rect x="73" y="79" width="10" height="11" rx="4" fill="#FCD34D" />
-
-      {/* Head */}
-      <circle cx="78" cy="58" r="21" fill="#FDE68A" />
-
-      {/* Hair */}
-      <path
-        d="M58 54C58 40 68 32 82 32C94 32 102 40 100 52C96 50 90 45 80 45C70 45 64 52 60 56C59 57 58 55 58 54Z"
-        fill="#334155"
-      />
-
-      {/* Eyes & Smile */}
-      <circle cx="73" cy="57" r="2" fill="#1E293B" />
-      <circle cx="85" cy="57" r="2" fill="#1E293B" />
-      <path d="M75 65C77 68 81 68 83 65" stroke="#B45309" strokeWidth="1.8" strokeLinecap="round" />
-
-      {/* Preschool Child Character (Right) */}
-      {/* Child Torso */}
-      <path
-        d="M112 135C112 114 119 102 131 102C143 102 150 114 150 135H112Z"
-        fill="url(#child-clothes)"
-      />
-      {/* Backpack straps */}
-      <rect x="116" y="105" width="4" height="24" rx="2" fill="#F59E0B" />
-      <rect x="142" y="105" width="4" height="24" rx="2" fill="#F59E0B" />
-
-      {/* Child Neck */}
-      <rect x="127" y="96" width="8" height="8" rx="3" fill="#FCD34D" />
-
-      {/* Child Head */}
-      <circle cx="131" cy="82" r="16" fill="#FDE68A" />
-
-      {/* Child Hair */}
-      <path
-        d="M115 80C115 69 122 63 133 63C143 63 149 69 148 78C145 76 139 73 132 73C125 73 120 78 116 81C115 81 115 80 115 80Z"
-        fill="#64748B"
-      />
-
-      {/* Child Eyes & Big Happy Smile */}
-      <circle cx="126" cy="81" r="1.8" fill="#1E293B" />
-      <circle cx="136" cy="81" r="1.8" fill="#1E293B" />
-      <path d="M127 88C129 92 133 92 135 88" stroke="#B45309" strokeWidth="1.8" strokeLinecap="round" />
-
-      {/* Child Cheerful Blush */}
-      <circle cx="122" cy="85" r="2.5" fill="#F87171" opacity="0.45" />
-      <circle cx="140" cy="85" r="2.5" fill="#F87171" opacity="0.45" />
-
-      {/* Holding Hands Connection */}
-      <path
-        d="M98 115C104 118 108 118 114 115"
-        stroke="#FCD34D"
-        strokeWidth="4"
-        strokeLinecap="round"
+      <image
+        href="/animations/family_users.webp"
+        xlinkHref="/animations/family_users.webp"
+        width="379"
+        height="379"
+        preserveAspectRatio="xMidYMid meet"
       />
     </svg>
   )

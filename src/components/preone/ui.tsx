@@ -504,8 +504,8 @@ export function PageHead({
           )}
           <h1 className="page-title" style={{ margin: 0 }}>
             {title}
-            {badge && <span className="page-head-badge">{badge}</span>}
           </h1>
+          {badge && <span className="page-head-badge">{badge}</span>}
         </div>
         {desc && <p className="page-description body-copy-sm sub">{desc}</p>}
       </div>

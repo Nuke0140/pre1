@@ -10,7 +10,7 @@ export default function NotFound() {
         </div>
 
         <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 mb-2">
-          404 Not Found
+          Error 404
         </span>
         <h1 className="text-xl font-bold text-foreground tracking-tight mb-2">
           Page Not Found
