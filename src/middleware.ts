@@ -94,12 +94,11 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(redirectRes, traceId)
   }
 
-  // If user must change password, restrict browser page access to /app/settings
-  if (session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/settings')) {
+  // If user must change password, restrict browser page access to /app/change-password
+  if (session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/change-password')) {
     const url = req.nextUrl.clone()
-    url.pathname = '/app/settings'
-    url.searchParams.set('tab', 'security')
-    url.searchParams.set('mustChangePassword', 'true')
+    url.pathname = '/app/change-password'
+    url.search = ''
     const redirectRes = NextResponse.redirect(url)
     return applySecurityHeaders(redirectRes, traceId)
   }

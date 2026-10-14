@@ -3,6 +3,7 @@ import { ok, Errors } from '@/lib/api'
 import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { SettingsService } from '@/lib/settings/settings-service'
+import { signSession, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/auth'
 
 /**
  * POST /api/v1/auth/password

@@ -111,6 +111,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             tenantName,
             branchName,
             avatarUrl: user?.avatarUrl || null,
+            mustChangePassword: session.mustChangePassword,
           }}
           branding={branding}
         >

@@ -115,6 +115,9 @@ export default function SettingsControlCenter() {
 
   // Load All Effective Settings
   const loadData = useCallback(async () => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mustChangePassword') === 'true') {
+      return
+    }
     setLoading(true)
     try {
       const [settingsRes, healthRes, permRes, tmplRes, prefRes, logsRes] = await Promise.all([
@@ -156,16 +159,20 @@ export default function SettingsControlCenter() {
   }, [toast])
 
   useEffect(() => {
-    loadData()
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
+      if (params.get('mustChangePassword') === 'true') {
+        window.location.href = '/app/change-password'
+        return
+      }
       const tabParam = params.get('tab')
       if (tabParam) setActiveTab(tabParam)
-      if (params.get('changePassword') === 'true' || params.get('mustChangePassword') === 'true') {
+      if (params.get('changePassword') === 'true') {
         setActiveTab('security')
         setPasswordModalOpen(true)
       }
     }
+    loadData()
   }, [loadData])
 
   // Tab change with unsaved protection
@@ -263,6 +270,10 @@ export default function SettingsControlCenter() {
         toast.success('Password updated successfully')
         setPasswordModalOpen(false)
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+        if (params?.get('mustChangePassword') === 'true') {
+          window.location.href = '/app/home'
+        }
       } else {
         toast.error('Password change failed', res.error?.message || 'Verification failed')
       }

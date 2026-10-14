@@ -29,6 +29,7 @@ export interface ShellUser {
   tenantName: string
   branchName: string | null
   avatarUrl?: string | null
+  mustChangePassword?: boolean
 }
 
 export function AppShell({
@@ -83,7 +84,10 @@ export function AppShell({
   const attnBtnRef = useRef<HTMLButtonElement>(null)
   const attnRef = useRef<HTMLDivElement>(null)
 
+  const isPendingPasswordChange = Boolean(user.mustChangePassword || pathname?.startsWith('/app/change-password'))
+
   const loadNotifications = useCallback(async () => {
+    if (isPendingPasswordChange) return
     try {
       const res = await fetch('/api/v1/notifications?limit=10').then((r) => r.json())
       if (res.success && res.data) {
@@ -93,7 +97,7 @@ export function AppShell({
     } catch {
       // quiet failure in shell
     }
-  }, [])
+  }, [isPendingPasswordChange])
 
   const markRead = async (id: string) => {
     try {
@@ -117,6 +121,7 @@ export function AppShell({
 
   // Poll unread notification count on mount & every 30s
   useEffect(() => {
+    if (isPendingPasswordChange) return
     const checkCount = async () => {
       try {
         const res = await fetch('/api/v1/notifications/unread-count').then((r) => r.json())
@@ -130,10 +135,11 @@ export function AppShell({
     checkCount()
     const timer = setInterval(checkCount, 30000)
     return () => clearInterval(timer)
-  }, [])
+  }, [isPendingPasswordChange])
 
   // Poll users KPIs for the "needs attention" panel (privileged roles only)
   useEffect(() => {
+    if (isPendingPasswordChange) return
     const effectiveRoles = user.roles && user.roles.length > 0 ? user.roles : [user.role]
     if (!effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))) return
 
@@ -153,7 +159,7 @@ export function AppShell({
     loadAttention()
     const timer = setInterval(loadAttention, 60000)
     return () => clearInterval(timer)
-  }, [user.role, user.roles])
+  }, [user.role, user.roles, isPendingPasswordChange])
 
   const nav = useMemo(() => {
     const roles = user.roles && user.roles.length > 0 ? user.roles : [user.role]
@@ -348,14 +354,16 @@ export function AppShell({
       {false && nav.slice(0, 5).map((n) => n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href))}
 
       {/* ── Global Bottom Navigation / PreOne Dock ── */}
-      <BottomNav
-        user={user}
-        nav={nav}
-        pathname={pathname}
-        isOpen={menuOpen}
-        onToggleMenu={() => setMenuOpen((v) => !v)}
-        triggerRef={startBtnRef}
-      />
+      {!isPendingPasswordChange && (
+        <BottomNav
+          user={user}
+          nav={nav}
+          pathname={pathname}
+          isOpen={menuOpen}
+          onToggleMenu={() => setMenuOpen((v) => !v)}
+          triggerRef={startBtnRef}
+        />
+      )}
 
       {/* ── Global Search Command Palette Modal ── */}
       <GlobalSearchModal
