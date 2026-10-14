@@ -403,6 +403,15 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(workflowFile).toContain('Verify React Hooks and ESLint Guardrails')
       expect(workflowFile).toContain('npx eslint src/app/app/inventory/InventoryClient.tsx')
     })
+
+    it('verifies BUG-026 fix: HRHeader action group wraps at md without shrink-0 clipping', async () => {
+      const hrHeader = await Bun.file('src/components/hr/HRHeader.tsx').text()
+      // Right action group must wrap without shrink-0
+      expect(hrHeader).toContain('flex flex-wrap items-center gap-2')
+      expect(hrHeader).not.toContain('flex flex-wrap items-center gap-2 shrink-0')
+      // Container includes min-w-0 for safety against wide table / flex children
+      expect(hrHeader).toContain('flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0')
+    })
   })
 })
 

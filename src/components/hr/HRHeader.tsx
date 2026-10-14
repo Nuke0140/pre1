@@ -289,9 +289,9 @@ export function HRHeader({
     <div className="space-y-4">
       {/* ── 1. HR Module Hero Section ── */}
       <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-sm shadow-xs transition-all">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0">
           {/* Left: Eyebrow + Heading + Badge + Description */}
-          <div className="space-y-1.5 max-w-2xl">
+          <div className="space-y-1.5 max-w-2xl min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
                 PEOPLE & OPERATIONS
@@ -312,7 +312,7 @@ export function HRHeader({
           </div>
 
           {/* Right: Search + Refresh + Contextual Actions */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Quick Staff Search */}
             <div className="relative min-w-[200px] sm:min-w-[220px]">
               <Search
