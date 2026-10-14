@@ -63,7 +63,13 @@ export const Errors = {
   invalidToken: (msg = 'Invalid or expired session') => fail('AUTH_002', msg, 401),
   forbidden: (what = 'You do not have permission to perform this action') =>
     fail('PERMISSION_001', what, 403),
-  notFound: (entity = 'Resource') => fail('NOT_FOUND_001', `${entity} not found`, 404),
+  notFound: (entity = 'Resource') => {
+    const raw = (entity || 'Resource').trim()
+    const msg = /not\s*found\.?$/i.test(raw)
+      ? (raw.endsWith('.') ? raw.slice(0, -1) : raw)
+      : `${raw} not found`
+    return fail('NOT_FOUND_001', msg, 404)
+  },
   validation: (message: string, field?: string, details?: unknown) =>
     fail('VALIDATION_001', message, 400, field, details),
   badRequest: (message: string, field?: string) => fail('BAD_REQUEST', message, 400, field),
@@ -85,7 +91,13 @@ export const Errors = {
 export const bad = (message: string, code = 'BAD_REQUEST', field?: string) =>
   fail(code, message, 400, field)
 export const forbidden = (message = 'Forbidden') => Errors.forbidden(message)
-export const notFound = (message = 'Resource not found') => fail('NOT_FOUND', message, 404)
+export const notFound = (message = 'Resource not found') => {
+  const raw = (message || 'Resource').trim()
+  const msg = /not\s*found\.?$/i.test(raw)
+    ? (raw.endsWith('.') ? raw.slice(0, -1) : raw)
+    : `${raw} not found`
+  return fail('NOT_FOUND_001', msg, 404)
+}
 export const conflict = (message: string, field?: string) => Errors.conflict(message, field)
 export const serverError = (e?: unknown) => Errors.system(e)
 

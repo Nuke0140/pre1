@@ -122,11 +122,17 @@ export function errNotFound(
   code: string = ErrorCodes.NOT_FOUND_RESOURCE,
   module?: string
 ): PreOneError {
+  const raw = (entity || 'Resource').trim()
+  const userMessage = /not\s*found\.?$/i.test(raw)
+    ? (raw.endsWith('.') ? raw : `${raw}.`)
+    : /could\s+not\s+be\s+found\.?$/i.test(raw)
+    ? (raw.endsWith('.') ? raw : `${raw}.`)
+    : `${raw} could not be found.`
   return new PreOneError({
     class: 'OPERATIONAL',
     code,
     httpStatus: 404,
-    userMessage: `${entity} could not be found.`,
+    userMessage,
     module,
   })
 }
