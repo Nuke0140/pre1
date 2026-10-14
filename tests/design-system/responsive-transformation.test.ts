@@ -52,9 +52,9 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(studentsFile).toContain('premium-card p-3 sm:p-4 min-w-0')
     })
 
-    it('verifies desktop/tablet student table wrapper has min-w-0 and overflow-x-auto', async () => {
+    it('verifies desktop student table wrapper has min-w-0 and overflow-x-auto (xl-only with md-lg master-detail)', async () => {
       const studentsFile = await Bun.file('src/app/app/students/page.tsx').text()
-      expect(studentsFile).toContain('<div className="hidden md:block w-full min-w-0 overflow-x-auto">')
+      expect(studentsFile).toContain('<div className="hidden xl:block w-full min-w-0 overflow-x-auto">')
     })
 
     it('verifies classroom quick-switch rail supports smooth touch gestures with touch-pan-x', async () => {
@@ -267,6 +267,42 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(globalsCss).toContain('display: none !important')
     })
   })
+
+  describe('Phase 3 — Tablet-First Touches (768px – 1180px)', () => {
+    it('verifies Students master-detail layout exists at md-lg (hidden md:grid xl:hidden) and table is xl-only', async () => {
+      const studentsFile = await Bun.file('src/app/app/students/page.tsx').text()
+      expect(studentsFile).toContain('hidden md:grid xl:hidden grid-cols-12')
+      expect(studentsFile).toContain('col-span-5 lg:col-span-4 border-r')
+      expect(studentsFile).toContain('col-span-7 lg:col-span-8')
+      expect(studentsFile).toContain('Student Roster')
+      expect(studentsFile).toContain('hidden xl:block w-full min-w-0 overflow-x-auto')
+    })
+
+    it('verifies dock labels are restored on tablets at md (>= 768px)', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (min-width: 768px)')
+      expect(globalsCss).toContain('.dock-item-label')
+      expect(globalsCss).toContain('display: inline-block !important')
+    })
+
+    it('verifies Daily-Diary table includes rail-edge-fade and touch-pan-x for discoverable scrolling on portrait tablet', async () => {
+      const ddFile = await Bun.file('src/app/app/daily-diary/page.tsx').text()
+      expect(ddFile).toContain('className="hidden md:block overflow-x-auto w-full min-w-0 rail-edge-fade scrollbar-none touch-pan-x"')
+      expect(ddFile).toContain('min-w-[960px]')
+    })
+
+    it('verifies touch-target pass enforces >= 44px on dock chips, tab rails, and table action buttons', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('.dock-item')
+      expect(globalsCss).toContain('min-height: 44px !important')
+      expect(globalsCss).toContain('min-width: 44px !important')
+      expect(globalsCss).toContain('.segmented-scroll button')
+      expect(globalsCss).toContain('.rail-edge-fade button')
+      expect(globalsCss).toContain('.dt-row-actions button')
+      expect(globalsCss).toContain('.dt-icon-btn')
+    })
+  })
 })
+
 
 

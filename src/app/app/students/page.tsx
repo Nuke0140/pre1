@@ -119,6 +119,7 @@ export default function StudentsPage() {
   const [loading, setLoading] = useState(true)
   const [enrollClassroomId, setEnrollClassroomId] = useState('')
   const [inspectingStudent, setInspectingStudent] = useState<StudentRow | null>(null)
+  const [selectedTabletStudent, setSelectedTabletStudent] = useState<StudentRow | null>(null)
 
   // Enroll form enhancements (date picker, mask, draft autosave)
   const formRef = useRef<HTMLFormElement>(null)
@@ -921,8 +922,175 @@ export default function StudentsPage() {
           </div>
         ) : (
           <>
-            {/* Desktop Table View (≥ 768px) */}
-            <div className="hidden md:block w-full min-w-0 overflow-x-auto">
+            {/* Tablet Master-Detail View (768px - 1279px / md to lg) — Kills 950px overflow by design */}
+            <div className="hidden md:grid xl:hidden grid-cols-12 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 min-h-[580px]">
+              {/* Left Column: List Rail */}
+              <div className="col-span-5 lg:col-span-4 border-r border-slate-200/80 dark:border-slate-800 p-2.5 space-y-2 overflow-y-auto max-h-[720px] scrollbar-thin touch-pan-y">
+                <div className="px-2 py-1 flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <span>Student Roster</span>
+                  <span>{rows ? rows.length : 0}</span>
+                </div>
+                {rows && rows.length > 0 ? (
+                  rows.map((s) => {
+                    const isSelected = (selectedTabletStudent?.id || rows[0]?.id) === s.id
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedTabletStudent(s)}
+                        className={`w-full text-left p-3 rounded-xl border transition-all flex items-center gap-3 min-h-[44px] ${
+                          isSelected
+                            ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-300 dark:border-purple-700 shadow-xs'
+                            : 'bg-white dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <Avatar name={s.name} src={s.photoUrl} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-bold text-xs truncate text-slate-900 dark:text-white">
+                              {s.name}
+                            </span>
+                            <StatusBadge status={s.status} />
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                            {s.admissionNo} • {s.classroom || 'Unassigned'}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <div className="p-6 text-center text-xs text-slate-400">
+                    No students match the current filters.
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Detail Pane */}
+              <div className="col-span-7 lg:col-span-8 p-5 space-y-5 overflow-y-auto max-h-[720px] scrollbar-thin bg-slate-50/40 dark:bg-slate-900/60">
+                {(() => {
+                  const s = selectedTabletStudent || (rows && rows[0] ? rows[0] : null)
+                  if (!s) {
+                    return (
+                      <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
+                        <Users size={36} className="text-slate-300 dark:text-slate-700 mb-2" />
+                        <p className="text-sm font-semibold">Select a student</p>
+                        <p className="text-xs">Choose a child from the list to view full profile and metrics.</p>
+                      </div>
+                    )
+                  }
+                  const rate = s.attendance?.rate ?? 100
+                  return (
+                    <div className="space-y-5">
+                      {/* Top Header Card */}
+                      <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <Avatar name={s.name} src={s.photoUrl} size="lg" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-extrabold text-base text-slate-900 dark:text-white truncate">
+                                {s.name}
+                              </h3>
+                              <StatusBadge status={s.status} />
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                              Admission No: <span className="font-semibold text-slate-700 dark:text-slate-300">{s.admissionNo}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/app/students/${s.id}`)}
+                          className="btn btn-primary btn-sm min-h-[44px] flex items-center gap-1.5 shrink-0 px-3.5"
+                        >
+                          <Eye size={14} />
+                          <span>360° Profile</span>
+                        </button>
+                      </div>
+
+                      {/* Key Tablet KPI Grid */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                            Classroom &amp; Program
+                          </span>
+                          <span className="font-bold text-sm text-slate-900 dark:text-white block truncate">
+                            {s.classroom || 'Unassigned'}
+                          </span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {s.program || 'General Preschool'}
+                          </span>
+                        </div>
+                        <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                            Attendance Rate
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-lg text-slate-900 dark:text-white font-mono">
+                              {rate}%
+                            </span>
+                            <span className={`w-2 h-2 rounded-full ${rate >= 85 ? 'bg-emerald-500' : rate >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full mt-1.5 overflow-hidden">
+                            <div className="bg-purple-600 h-full rounded-full" style={{ width: `${rate}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Guardian & Emergency Contact Card */}
+                      <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-2.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Users size={13} className="text-purple-600 dark:text-purple-400" />
+                          Primary Guardian &amp; Contact
+                        </span>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Guardian Name</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">
+                              {s.guardian?.name || 'Not provided'}
+                            </span>
+                            <span className="text-[10px] text-slate-500 block">
+                              ({s.guardian?.relation || 'Guardian'})
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Contact Phone</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                              {s.guardian?.phone || '—'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Tablet Action Bar */}
+                      <div className="flex items-center gap-2 pt-2">
+                        {canWriteStudents && (
+                          <button
+                            type="button"
+                            onClick={() => openBulkClass([s.id])}
+                            className="px-3.5 py-2 min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5 transition-colors"
+                          >
+                            <ArrowRightLeft size={14} />
+                            <span>Assign Class</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setInspectingStudent(s)}
+                          className="px-3.5 py-2 min-h-[44px] rounded-xl border border-purple-200 dark:border-purple-800/60 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-1.5 transition-colors"
+                        >
+                          <Eye size={14} />
+                          <span>Quick Inspect Drawer</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </div>
+
+            {/* Desktop Table View (≥ 1280px / xl) */}
+            <div className="hidden xl:block w-full min-w-0 overflow-x-auto">
               <DataTable
                 columns={columns}
                 data={rows}

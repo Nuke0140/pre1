@@ -1223,8 +1223,8 @@ export default function DailyDiaryPage() {
               </div>
 
               {/* Desktop & Tablet Table View */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+              <div className="hidden md:block overflow-x-auto w-full min-w-0 rail-edge-fade scrollbar-none touch-pan-x">
+                <table className="w-full min-w-[960px] text-left border-collapse">
                   <thead className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     <tr>
                       <th className="py-3.5 px-4 min-w-[200px]">Classroom</th>
