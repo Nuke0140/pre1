@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { SupportedLocale, DEFAULT_LOCALE, normalizeLocale } from './types'
-import { getTranslation, formatCurrencyLocale, formatDateLocale, formatNumberLocale } from './index'
+import { getTranslation, formatCurrencyLocale, formatDateLocale, formatNumberLocale, setGlobalLocale } from './index'
 
 interface I18nContextValue {
   locale: SupportedLocale
@@ -25,16 +25,27 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<SupportedLocale>(() => normalizeLocale(initialLocale))
 
   useEffect(() => {
-    // Sync document element lang attribute
+    if (initialLocale) {
+      const norm = normalizeLocale(initialLocale)
+      setLocaleState(norm)
+      setGlobalLocale(norm)
+    }
+  }, [initialLocale])
+
+  useEffect(() => {
+    // Sync document element lang attribute and non-React singleton
     if (typeof document !== 'undefined') {
       document.documentElement.lang = locale
     }
+    setGlobalLocale(locale)
   }, [locale])
 
   const setLocale = useCallback(async (newLocale: SupportedLocale) => {
-    setLocaleState(newLocale)
+    const norm = normalizeLocale(newLocale)
+    setLocaleState(norm)
+    setGlobalLocale(norm)
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = newLocale
+      document.documentElement.lang = norm
     }
 
     try {
@@ -42,7 +53,7 @@ export function I18nProvider({
       await fetch('/api/v1/users/locale', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locale: newLocale }),
+        body: JSON.stringify({ locale: norm }),
       })
     } catch (err) {
       console.warn('[i18n] Failed to persist locale to user profile:', err)

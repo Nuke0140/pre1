@@ -434,7 +434,6 @@ export default function AdmissionsReportsPage() {
               {
                 id: 'export-csv',
                 label: 'Export Analytics CSV',
-                helperText: 'प्रवेश अहवाल डाउनलोड करा',
                 icon: <Download />,
                 category: 'export',
                 onClick: handleExportCsv,
@@ -442,7 +441,6 @@ export default function AdmissionsReportsPage() {
               {
                 id: 'share-form',
                 label: 'Share Public Form',
-                helperText: 'सार्वजनिक प्रवेश लिंक शेअर करा',
                 icon: <Users />,
                 category: 'general',
                 onClick: () => setShareModalOpen(true),

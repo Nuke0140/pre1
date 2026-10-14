@@ -21,8 +21,8 @@ export function setGlobalLocale(locale: SupportedLocale) {
 export function getGlobalLocale(): SupportedLocale {
   if (typeof document !== 'undefined') {
     const lang = document.documentElement.lang
-    if (lang === 'hi-IN' || lang === 'mr-IN' || lang === 'en-IN') {
-      return lang
+    if (lang === 'hi-IN' || lang === 'mr-IN' || lang === 'en-IN' || lang === 'en') {
+      return normalizeLocale(lang)
     }
   }
   return currentGlobalLocale

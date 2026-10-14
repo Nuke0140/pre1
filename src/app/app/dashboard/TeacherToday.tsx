@@ -77,7 +77,11 @@ export function TeacherToday() {
   }
 
   const resolveFu = async (id: string) => {
+<<<<<<< HEAD
     const outcome = window.prompt('Outcome / Action taken:', '')
+=======
+    const outcome = window.prompt('Outcome — what action was taken and what was the result?', '')
+>>>>>>> pr-6
     if (!outcome?.trim()) return
     setBusy(true)
     const res = await fetch(`/api/v1/operations/follow-ups/${id}`, {
@@ -94,7 +98,7 @@ export function TeacherToday() {
   if (loading && !data) {
     return (
       <>
-        <PageHead title="Today's Actions" sub="Your class, your children, your day." />
+        <PageHead title="Today's actions" sub="Your class, your children, your day." />
         <Skeleton h={140} />
         <div style={{ height: 12 }} />
         <Skeleton h={300} />
@@ -105,7 +109,7 @@ export function TeacherToday() {
   if (loadError && !data) {
     return (
       <>
-        <PageHead title="Today's Actions" sub="Your class, your children, your day." />
+        <PageHead title="Today's actions" sub="Your class, your children, your day." />
         <div className="card" style={{ padding: 24, textAlign: 'center', borderColor: 'var(--danger-border, #FCA5A5)' }}>
           <div style={{ display: 'inline-flex', padding: 12, borderRadius: '50%', background: 'var(--danger-soft, #FEF2F2)', color: 'var(--danger, #DC2626)', marginBottom: 12 }}>
             <AlertTriangle size={28} />
@@ -129,7 +133,7 @@ export function TeacherToday() {
       <PageHead
         eyebrow="Teacher Daily Workspace"
         badge={<span className="badge b-primary b-dot">Classroom Care</span>}
-        title="Today's Actions"
+        title="Today's actions"
         sub={`${data.today} · ${data.sections.length} section(s) · ${data.actions.followUpsOpen} follow-ups open${dayClosed ? ' · SCHOOL CLOSED TODAY' : ''}`}
         actions={
           <>
@@ -142,7 +146,7 @@ export function TeacherToday() {
       {dayClosed && (
         <div className="card" style={{ borderColor: 'var(--warning)', marginBottom: 16 }}>
           <b style={{ fontSize: 13.5 }}>School closed today ({data.dayStatus.replace(/_/g, ' ').toLowerCase()})</b>
-          <p className="t-caption">Attendance is not expected on non-instructional calendar days.</p>
+          <p className="t-caption">Attendance is not expected today based on the calendar and operating schedule.</p>
         </div>
       )}
 
@@ -151,7 +155,7 @@ export function TeacherToday() {
           <EmptyState
             icon={<Baby size={36} />}
             title="No sections assigned yet"
-            message="You do not have any classroom sections assigned yet. Please contact your center head or administrator to assign your classrooms (Setup → Classrooms)."
+            message="No class or section has been assigned to you yet. Please contact your Principal or School Admin to confirm your teacher assignment."
           />
         </div>
       ) : (
@@ -212,11 +216,11 @@ export function TeacherToday() {
       {/* follow-ups assigned to me / my sections */}
       <div className="card">
         <div className="card-head">
-          <div className="card-title">My Follow-ups</div>
+          <div className="card-title">My follow-ups</div>
           <span className="badge b-neutral">{data.actions.followUpsOpen} open</span>
         </div>
         {data.followUps.length === 0 ? (
-          <p className="t-caption">No pending follow-ups — all clear!</p>
+          <p className="t-caption">Nothing pending — all caught up!</p>
         ) : (
           data.followUps.map((f) => (
             <div key={f.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border-subtle)' }}>
@@ -306,7 +310,7 @@ export function TeacherToday() {
           </div>
           <div className="field" style={{ marginBottom: 12 }}>
             <label>Details</label>
-            <textarea className="textarea" name="body" style={{ minHeight: 80 }} placeholder="Short note — parents yahi dekhte hain." />
+            <textarea className="textarea" name="body" style={{ minHeight: 80 }} placeholder="Short note — this will be visible to parents on their daily feed." />
           </div>
           <div className="field">
             <label>Mood</label>

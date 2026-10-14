@@ -125,7 +125,7 @@ export function OnboardClient({
           <div className="page-head">
             <div>
               <h1 className="t-h1">Platform Console</h1>
-              <div className="sub">Naye preschool clients onboard karo — 4 steps, 2 minute.</div>
+              <div className="sub">Onboard new preschool clients in minutes with automated provisioning.</div>
             </div>
             {!wizard && (
               <button className="btn btn-hero" onClick={() => setWizard(true)}>
@@ -208,7 +208,7 @@ export function OnboardClient({
                     <div style={{ textAlign: 'center' }}>
                       <div className="modal-icon ic-purple" style={{ margin: '0 auto 10px' }}><Building2 size={22} /></div>
                       <h3 style={{ fontSize: 18 }}>School details</h3>
-                      <p className="t-body-sm">Ye client tenant banega — code unique hona chahiye.</p>
+                      <p className="t-body-sm">Sets up the tenant account with a unique school code identifier.</p>
                     </div>
                   </div>
                   <div className="form-grid" style={{ marginTop: 12 }}>
@@ -230,7 +230,7 @@ export function OnboardClient({
                     <div style={{ textAlign: 'center' }}>
                       <div className="modal-icon ic-blue" style={{ margin: '0 auto 10px' }}><MapPin size={22} /></div>
                       <h3 style={{ fontSize: 18 }}>Main branch</h3>
-                      <p className="t-body-sm">Pehla campus — baad mein aur branches add kar sakte ho (100+ supported).</p>
+                      <p className="t-body-sm">Primary campus — additional branches can be added at any time.</p>
                     </div>
                   </div>
                   <div className="form-grid" style={{ marginTop: 12 }}>
@@ -248,7 +248,7 @@ export function OnboardClient({
                     <div style={{ textAlign: 'center' }}>
                       <div className="modal-icon ic-pink" style={{ margin: '0 auto 10px' }}><GraduationCap size={22} /></div>
                       <h3 style={{ fontSize: 18 }}>Programs & fee plans</h3>
-                      <p className="t-body-sm">Har program ke liye classrooms aur starter fee plan auto-create hoga.</p>
+                      <p className="t-body-sm">Classrooms and starter fee plans will be provisioned automatically for selected programs.</p>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
@@ -285,7 +285,7 @@ export function OnboardClient({
                     <div style={{ textAlign: 'center' }}>
                       <div className="modal-icon ic-green" style={{ margin: '0 auto 10px' }}><UserPlus size={22} /></div>
                       <h3 style={{ fontSize: 18 }}>Owner account</h3>
-                      <p className="t-body-sm">School owner ka login — full access to their workspace.</p>
+                      <p className="t-body-sm">School owner administrative credentials with complete workspace access.</p>
                     </div>
                   </div>
                   <div className="form-grid" style={{ marginTop: 12 }}>
@@ -305,7 +305,7 @@ export function OnboardClient({
                     <div style={{ textAlign: 'center' }}>
                       <div className="modal-icon ic-cyan" style={{ margin: '0 auto 10px' }}><School size={22} /></div>
                       <h3 style={{ fontSize: 18 }}>Review & launch</h3>
-                      <p className="t-body-sm">Sab kuch set hai — launch karte hi tenant active ho jaayega.</p>
+                      <p className="t-body-sm">Everything is configured — launching will activate the new tenant workspace immediately.</p>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
@@ -339,7 +339,7 @@ export function OnboardClient({
 
           {!wizard && (
             <p className="t-caption" style={{ textAlign: 'center' }}>
-              Onboarding wizard: tenant + branch + academic session + classrooms + fee plans + owner account — ek transaction mein (PRD 8.13 · 7-day time-to-value).
+              Onboarding wizard: tenant + branch + academic session + classrooms + fee plans + owner account in a single transaction.
             </p>
           )}
         </div>

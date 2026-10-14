@@ -98,7 +98,12 @@ export default function LoginPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (j?.success) {
-          router.replace('/app/dashboard')
+          const role = j.data?.role || j.data?.user?.role
+          if (role === 'PLATFORM_ADMIN') {
+            router.replace('/onboard')
+          } else {
+            router.replace('/app/dashboard')
+          }
         } else {
           document.cookie = 'preone_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
         }
@@ -199,7 +204,11 @@ export default function LoginPage() {
         return
       }
 
-      router.push('/app/dashboard')
+      if (json.data?.user?.role === 'PLATFORM_ADMIN') {
+        router.push('/onboard')
+      } else {
+        router.push('/app/dashboard')
+      }
       router.refresh()
     } catch {
       setGeneralError('Network connectivity error. Please try again.')
@@ -234,7 +243,11 @@ export default function LoginPage() {
         })
         const json = await res.json()
         if (json.success) {
-          router.push('/app/dashboard')
+          if (json.data?.user?.role === 'PLATFORM_ADMIN') {
+            router.push('/onboard')
+          } else {
+            router.push('/app/dashboard')
+          }
           router.refresh()
           return
         }

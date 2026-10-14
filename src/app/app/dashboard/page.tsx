@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   // M01 — role-specific action boards consume the dedicated read-model APIs
   // (teacher sees actions not config tables §11; parent is child-centric §21/§41)
   if (session.role === 'TEACHER') return <TeacherToday />
-  if (session.role === 'PARENT') return <ParentToday />
+  if (session.role === 'PARENT' || session.role === 'GUARDIAN') return <ParentToday />
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)

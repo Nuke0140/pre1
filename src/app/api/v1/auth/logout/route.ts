@@ -21,5 +21,12 @@ export const POST = withApi(async (req: NextRequest) => {
     maxAge: 0,
     path: '/',
   })
+  res.cookies.set('preone_locale', 'en-IN', {
+    httpOnly: false,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 365 * 24 * 60 * 60,
+    path: '/',
+  })
   return res
 }, { module: 'auth' })

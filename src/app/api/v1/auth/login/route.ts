@@ -13,6 +13,7 @@ import {
   resetFailedAttempts,
   resetPersistentFailedAttempts,
 } from '@/lib/auth/lockout-tracker'
+import { normalizeLocale, isSupportedLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
 
 export const POST = withApi(
   async (req: NextRequest) => {
@@ -261,6 +262,18 @@ export const POST = withApi(
           maxAge: SESSION_MAX_AGE,
           path: '/',
         })
+
+        const userLocale = user.locale && isSupportedLocale(user.locale)
+          ? normalizeLocale(user.locale)
+          : DEFAULT_LOCALE
+        res.cookies.set('preone_locale', userLocale, {
+          httpOnly: false,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 365 * 24 * 60 * 60,
+          path: '/',
+        })
+
         return res
       }
 
@@ -344,6 +357,18 @@ export const POST = withApi(
         maxAge: SESSION_MAX_AGE,
         path: '/',
       })
+
+      const userLocale = user.locale && isSupportedLocale(user.locale)
+        ? normalizeLocale(user.locale)
+        : DEFAULT_LOCALE
+      res.cookies.set('preone_locale', userLocale, {
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 365 * 24 * 60 * 60,
+        path: '/',
+      })
+
       return res
     } catch (e) {
       return Errors.system(e)

@@ -211,7 +211,7 @@ export default function StaffUsersPage() {
   const columns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: 'Staff Member',
+      header: t('users.staffMember'),
       sortable: true,
       render: (u) => (
         <div className="flex items-center gap-3">
@@ -229,7 +229,7 @@ export default function StaffUsersPage() {
     },
     {
       key: 'role',
-      header: 'Role & Title',
+      header: t('users.roleTitle'),
       sortable: true,
       render: (u) => {
         const badge = ROLE_BADGE[normalizeRole(u.role)] || ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
@@ -247,7 +247,7 @@ export default function StaffUsersPage() {
     },
     {
       key: 'email',
-      header: 'Contact',
+      header: t('users.contactDetails'),
       render: (u) => (
         <div className="text-xs space-y-0.5">
           {u.email ? (
@@ -258,7 +258,7 @@ export default function StaffUsersPage() {
           ) : (
             <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
               <Mail className="w-3 h-3 text-gray-300 shrink-0" />
-              <span>No email address</span>
+              <span>{t('users.noEmailAddress')}</span>
             </div>
           )}
           {u.phone && (
@@ -272,46 +272,46 @@ export default function StaffUsersPage() {
     },
     {
       key: 'branchId',
-      header: 'Campus Branch',
+      header: t('users.branch'),
       render: (u) => {
         const branch = branches.find((b) => b.id === u.branchId)
         return (
           <div className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
             <Building className="w-3.5 h-3.5 text-gray-400" />
-            {branch ? `${branch.name} (${branch.code})` : 'All Campuses'}
+            {branch ? `${branch.name} (${branch.code})` : t('users.allCampuses')}
           </div>
         )
       },
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('common.status'),
       sortable: true,
       render: (u) => <StatusBadge status={u.status} />,
     },
     {
       key: 'lastLoginAt',
-      header: 'Last Active',
+      header: t('users.lastActive'),
       render: (u) => (
         <span className="text-xs text-gray-500">
-          {u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}
+          {u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}
         </span>
       ),
     },
     {
       key: 'actions',
-      header: '',
+      header: t('common.actions'),
       align: 'right',
       render: (u) => (
         <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
           <IconButton
             icon={<Eye size={15} />}
-            label="View 360 Profile"
+            label={t('users.view360Profile')}
             onClick={() => setViewingUser(u)}
           />
           <IconButton
             icon={<Edit3 size={15} />}
-            label="Edit Staff Member"
+            label={t('users.editStaff')}
             onClick={() => setEditingUser(u)}
           />
           <DropdownMenu>
@@ -319,8 +319,8 @@ export default function StaffUsersPage() {
               <button
                 type="button"
                 className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title="More Actions"
-                aria-label="More Actions"
+                title={t('common.moreActions')}
+                aria-label={t('common.moreActions')}
               >
                 <MoreHorizontal size={15} />
               </button>
@@ -331,7 +331,7 @@ export default function StaffUsersPage() {
                 onClick={() => setEditingUser(u)}
               >
                 <Edit3 size={14} className="text-primary" />
-                <span>Individual Edit</span>
+                <span>{t('users.individualEdit')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
@@ -341,14 +341,14 @@ export default function StaffUsersPage() {
                 }}
               >
                 <Layers size={14} className="text-purple-600" />
-                <span>Bulk Edit / Update</span>
+                <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setViewingUser(u)}
               >
                 <Eye size={14} className="text-slate-500" />
-                <span>View 360 Profile</span>
+                <span>{t('users.view360Profile')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -387,14 +387,13 @@ export default function StaffUsersPage() {
             <GlobalActionMenu
               label={t('common.actions') || 'Actions'}
               groups={[
-                { id: 'data', label: 'Data Operations', helperText: 'माहिती देवाणघेवाण' },
-                { id: 'management', label: 'Management', helperText: 'व्यवस्थापन' },
+                { id: 'data', label: t('users.dataOperations') || 'Data Operations' },
+                { id: 'management', label: t('users.management') || 'Management' },
               ]}
               actions={[
                 {
                   id: 'roles',
                   label: t('users.rolesDirectory'),
-                  helperText: 'भूमिका आणि प्रवेश निर्देशिका',
                   icon: <Shield />,
                   category: 'settings',
                   groupId: 'management',
@@ -402,8 +401,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'import-csv',
-                  label: `${t('common.import')} CSV`,
-                  helperText: 'कर्मचारी यादी आयात करा',
+                  label: t('users.importStaffCsv') || `${t('common.import')} CSV`,
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
@@ -411,8 +409,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'export-csv',
-                  label: `${t('common.export')} CSV`,
-                  helperText: 'स्टाफची यादी डाउनलोड करा',
+                  label: t('users.exportStaffCsv') || `${t('common.export')} CSV`,
                   icon: <Download />,
                   category: 'export',
                   groupId: 'data',
@@ -421,8 +418,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'individual-edit',
-                  label: 'Individual Edit',
-                  helperText: 'विशिष्ट कर्मचारी संपादन',
+                  label: t('users.individualEdit') || 'Individual Edit',
                   icon: <Edit3 />,
                   category: 'edit',
                   groupId: 'management',
@@ -443,8 +439,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'bulk-update',
-                  label: 'Bulk Field Update',
-                  helperText: 'एकाच वेळी माहिती अपडेट करा',
+                  label: t('users.bulkFieldUpdate') || 'Bulk Field Update',
                   icon: <Layers />,
                   category: 'edit',
                   groupId: 'management',
@@ -452,8 +447,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'upload-photos',
-                  label: 'Upload Photos',
-                  helperText: 'कर्मचारी फोटो अपलोड करा',
+                  label: t('users.uploadPhotos') || 'Upload Photos',
                   icon: <Camera />,
                   category: 'import',
                   groupId: 'management',
@@ -461,8 +455,7 @@ export default function StaffUsersPage() {
                 },
                 {
                   id: 'zip-photos',
-                  label: t('users.bulkPhotoUpload'),
-                  helperText: 'झिप फाइलमधून फोटो अपलोड',
+                  label: t('users.bulkPhotoUpload') || 'Bulk Profile Photo Upload',
                   icon: <Image />,
                   category: 'import',
                   groupId: 'management',
@@ -493,21 +486,21 @@ export default function StaffUsersPage() {
           variant="compact"
         />
         <KpiTile
-          label="Teachers / Guides"
+          label={t('users.teachersGuides')}
           value={kpis.teachers}
           icon={<GraduationCap />}
           iconClass="ic-blue"
           variant="compact"
         />
         <KpiTile
-          label="Support Staff & Ops"
+          label={t('users.supportOps')}
           value={kpis.staffOps}
           icon={<Users />}
           iconClass="ic-green"
           variant="compact"
         />
         <KpiTile
-          label="Leadership & Admin"
+          label={t('users.leadershipAdmin')}
           value={kpis.leadership}
           icon={<Shield />}
           iconClass="ic-orange"
@@ -728,28 +721,28 @@ export default function StaffUsersPage() {
                   onClick={() => setBulkFieldUpdateOpen(true)}
                 >
                   <Layers size={14} />
-                  <span>Bulk Update Field ({selectedKeys.length})</span>
+                  <span>{t('users.bulkFieldUpdate')} ({selectedKeys.length})</span>
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
                   onClick={() => setBulkActionModalOpen(true)}
                 >
-                  <span>More Actions</span>
+                  <span>{t('common.moreActions')}</span>
                 </button>
               </div>
             ) : null
           }
           emptyIcon={<EmptyUsersIllustration size={120} />}
-          emptyTitle="No staff members found"
-          emptyMessage="No staff records match your selected role, branch, status, or search query."
+          emptyTitle={t('users.noStaffFound')}
+          emptyMessage={t('users.noStaffMessage')}
         />
 
         {/* Pagination Strip */}
         <div className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500" style={{ background: 'var(--bg-subtle)' }}>
           <span className="text-center sm:text-left">
-            Showing {users.length > 0 ? (page - 1) * pageSize + 1 : 0} to{' '}
-            {Math.min(page * pageSize, total)} of {total} staff members
+            {t('table.showing')} {users.length > 0 ? (page - 1) * pageSize + 1 : 0} {t('table.of')}{' '}
+            {Math.min(page * pageSize, total)} {t('table.of')} {total} {t('users.totalStaff')}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -758,10 +751,10 @@ export default function StaffUsersPage() {
               onClick={() => setPage((p) => p - 1)}
               className="btn btn-secondary text-xs px-2.5 py-1"
             >
-              Previous
+              {t('common.prev')}
             </button>
             <span className="font-mono text-gray-700 dark:text-gray-300 font-semibold px-2">
-              Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+              {page} / {Math.max(1, Math.ceil(total / pageSize))}
             </span>
             <button
               type="button"
@@ -769,7 +762,7 @@ export default function StaffUsersPage() {
               onClick={() => setPage((p) => p + 1)}
               className="btn btn-secondary text-xs px-2.5 py-1"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>
