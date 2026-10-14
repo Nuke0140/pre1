@@ -187,7 +187,7 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
       expect(result.error?.code).toBe('OTP_EXPIRED')
     })
 
-    it('supports demo bypass codes 0000 and 1234', async () => {
+    it('supports demo bypass codes 0000 and 1234 in non-production by default', async () => {
       const demoResult1 = await OtpService.verifyOtp({
         identifier: testUser.email,
         code: '0000',
@@ -201,6 +201,74 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
       })
       expect(demoResult2.success).toBe(true)
       expect(demoResult2.token).toBeDefined()
+    })
+
+    it('BUG-029: strictly rejects demo bypass codes when NODE_ENV is production without flag', async () => {
+      const originalNodeEnv = process.env.NODE_ENV
+      const originalAllow = process.env.ALLOW_DEMO_OTP
+      const originalEnable = process.env.ENABLE_DEMO_OTP
+
+      try {
+        process.env.NODE_ENV = 'production'
+        delete process.env.ALLOW_DEMO_OTP
+        delete process.env.ENABLE_DEMO_OTP
+
+        expect(OtpService.isDemoOtpAllowed()).toBe(false)
+
+        const prodResult = await OtpService.verifyOtp({
+          identifier: testUser.email,
+          code: '0000',
+        })
+        expect(prodResult.success).toBe(false)
+        expect(prodResult.error?.code).toBe('AUTH_004') // No active OTP found, bypass rejected
+      } finally {
+        process.env.NODE_ENV = originalNodeEnv
+        if (originalAllow !== undefined) process.env.ALLOW_DEMO_OTP = originalAllow
+        else delete process.env.ALLOW_DEMO_OTP
+        if (originalEnable !== undefined) process.env.ENABLE_DEMO_OTP = originalEnable
+        else delete process.env.ENABLE_DEMO_OTP
+      }
+    })
+
+    it('BUG-029: rejects demo bypass codes when ENABLE_DEMO_OTP=false even in non-production', async () => {
+      const originalEnable = process.env.ENABLE_DEMO_OTP
+
+      try {
+        process.env.ENABLE_DEMO_OTP = 'false'
+        expect(OtpService.isDemoOtpAllowed()).toBe(false)
+
+        const result = await OtpService.verifyOtp({
+          identifier: testUser.email,
+          code: '1234',
+        })
+        expect(result.success).toBe(false)
+        expect(result.error?.code).toBe('AUTH_004')
+      } finally {
+        if (originalEnable !== undefined) process.env.ENABLE_DEMO_OTP = originalEnable
+        else delete process.env.ENABLE_DEMO_OTP
+      }
+    })
+
+    it('BUG-029: permits demo bypass codes in production only when ALLOW_DEMO_OTP or ENABLE_DEMO_OTP is explicitly true', async () => {
+      const originalNodeEnv = process.env.NODE_ENV
+      const originalAllow = process.env.ALLOW_DEMO_OTP
+
+      try {
+        process.env.NODE_ENV = 'production'
+        process.env.ALLOW_DEMO_OTP = 'true'
+        expect(OtpService.isDemoOtpAllowed()).toBe(true)
+
+        const result = await OtpService.verifyOtp({
+          identifier: testUser.email,
+          code: '0000',
+        })
+        expect(result.success).toBe(true)
+        expect(result.token).toBeDefined()
+      } finally {
+        process.env.NODE_ENV = originalNodeEnv
+        if (originalAllow !== undefined) process.env.ALLOW_DEMO_OTP = originalAllow
+        else delete process.env.ALLOW_DEMO_OTP
+      }
     })
   })
 

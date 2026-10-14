@@ -31,6 +31,27 @@ export const OTP_COOLDOWN_MS = 45 * 1000 // 45 seconds
 export const MAX_OTP_ATTEMPTS = 3
 export const DEMO_OTP_CODES = ['0000', '1234']
 
+/**
+ * Determines whether fixed demo OTP bypass codes ('0000', '1234') are permitted.
+ *
+ * Security / Production Gating Rule (BUG-029):
+ * In production (`NODE_ENV === 'production'`), demo OTP codes are strictly disabled by default.
+ * They are only accepted if `ALLOW_DEMO_OTP === 'true'` or `ENABLE_DEMO_OTP === 'true'`.
+ *
+ * In non-production environments (development, test, demo), demo codes are enabled by default,
+ * but can be explicitly disabled by setting `ENABLE_DEMO_OTP === 'false'` or `ALLOW_DEMO_OTP === 'false'`.
+ */
+export function isDemoOtpAllowed(): boolean {
+  const isProd = process.env.NODE_ENV === 'production'
+  const explicitFlag = process.env.ALLOW_DEMO_OTP ?? process.env.ENABLE_DEMO_OTP
+
+  if (isProd) {
+    return explicitFlag === 'true'
+  }
+
+  return explicitFlag !== 'false'
+}
+
 function maskEmail(email?: string): string {
   if (!email || !email.includes('@')) return 'your registered contact'
   const [local, domain] = email.split('@')
@@ -39,6 +60,13 @@ function maskEmail(email?: string): string {
 }
 
 export class OtpService {
+  /**
+   * Checks whether demo OTP bypass codes are currently allowed based on environment flags.
+   */
+  static isDemoOtpAllowed(): boolean {
+    return isDemoOtpAllowed()
+  }
+
   /**
    * Clears in-memory OTP registry (used by tests).
    */
@@ -297,7 +325,7 @@ export class OtpService {
     const cleanSchoolCode = schoolCode?.trim().toUpperCase()
 
     let user: any = null
-    const isDemoCode = DEMO_OTP_CODES.includes(cleanCode)
+    const isDemoCode = isDemoOtpAllowed() && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {
       // Demo/Development bypass supported for '0000' and '1234'
