@@ -226,48 +226,76 @@ export default function LoginPage() {
 
     setLoading(true)
     setGeneralError(null)
+    setFieldErrors({})
 
-    // Demo/Development OTP verification: '0000' and '1234' supported
-    if (code === '0000' || code === '1234') {
-      try {
-        const loginId = identifier.trim() || 'owner@sunshine.demo'
-        const loginPw = password || 'Preone@123'
-        const res = await fetch('/api/v1/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            identifier: loginId,
-            password: loginPw,
-            schoolCode: schoolCode.trim() || undefined,
-          }),
-        })
-        const json = await res.json()
-        if (json.success) {
-          if (json.data?.user?.role === 'PLATFORM_ADMIN') {
-            router.push('/onboard')
-          } else {
-            router.push('/app/dashboard')
-          }
-          router.refresh()
-          return
-        }
-      } catch {}
-      router.push('/app/dashboard')
+    try {
+      const res = await fetch('/api/v1/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: identifier.trim() || undefined,
+          code,
+          schoolCode: schoolCode.trim() || undefined,
+        }),
+      })
+
+      const json = await res.json()
+      if (!json.success) {
+        const errorMsg =
+          json.error?.message || 'Invalid verification code. Please check and try again.'
+        setFieldErrors({ otp: errorMsg })
+        setGeneralError(errorMsg)
+        setLoading(false)
+        return
+      }
+
+      if (json.data?.user?.role === 'PLATFORM_ADMIN') {
+        router.push('/onboard')
+      } else {
+        router.push('/app/dashboard')
+      }
       router.refresh()
-      return
+    } catch {
+      const errorMsg = 'Network connectivity error. Please check your connection and try again.'
+      setGeneralError(errorMsg)
+      setFieldErrors({ otp: errorMsg })
+      setLoading(false)
     }
-
-    setFieldErrors({ otp: 'Invalid verification code. Please check and try again.' })
-    setLoading(false)
   }
 
-  const handleResendOtp = () => {
-    if (!canResendOtp) return
-    setOtpCountdown(45)
-    setCanResendOtp(false)
-    setResendSuccess(true)
-    setOtp(['', '', '', ''])
-    setTimeout(() => setResendSuccess(false), 3000)
+  const handleResendOtp = async () => {
+    if (!canResendOtp || loading) return
+    setLoading(true)
+    setGeneralError(null)
+    setFieldErrors({})
+
+    try {
+      const res = await fetch('/api/v1/auth/otp/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: identifier.trim() || undefined,
+          schoolCode: schoolCode.trim() || undefined,
+        }),
+      })
+
+      const json = await res.json()
+      if (!json.success) {
+        setGeneralError(json.error?.message || 'Failed to resend code. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      setOtpCountdown(45)
+      setCanResendOtp(false)
+      setResendSuccess(true)
+      setOtp(['', '', '', ''])
+      setTimeout(() => setResendSuccess(false), 3000)
+    } catch {
+      setGeneralError('Network error while resending verification code.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const checkCapsLock = (e: React.KeyboardEvent) => {
@@ -502,10 +530,22 @@ export default function LoginPage() {
                       secondaryAction={
                         <div className="pt-1">
                           <AuthLink
-                            onClick={() => {
+                            onClick={async () => {
                               setAuthMode('otp')
                               setGeneralError(null)
                               setFieldErrors({})
+                              if (identifier.trim()) {
+                                try {
+                                  await fetch('/api/v1/auth/otp/send', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      identifier: identifier.trim(),
+                                      schoolCode: schoolCode.trim() || undefined,
+                                    }),
+                                  })
+                                } catch {}
+                              }
                             }}
                             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 font-medium no-underline hover:no-underline"
                           >
@@ -530,7 +570,11 @@ export default function LoginPage() {
               <>
                 <AuthHeader
                   title="Verify Your Login"
-                  description="Enter the 4-digit verification code sent to your registered contact."
+                  description={
+                    identifier.trim()
+                      ? `Enter the 4-digit verification code sent to ${identifier.trim()}.`
+                      : 'Enter the 4-digit verification code sent to your registered contact.'
+                  }
                 />
 
                 <AuthContent>

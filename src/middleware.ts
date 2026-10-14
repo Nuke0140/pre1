@@ -6,6 +6,7 @@ const PUBLIC_PATHS = [
   '/api/v1/auth/logout',
   '/api/v1/auth/branding',
   '/api/v1/auth/reset-password',
+  '/api/v1/auth/otp',
   '/api/v1/public',
   '/api/v1/webhooks',
 ]
