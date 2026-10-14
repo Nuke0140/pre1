@@ -44,6 +44,7 @@ async function _POST(
     // Verify all docs for this application
     const { db } = await import('@/lib/db')
     const { audit } = await import('@/lib/sequence')
+    const { getDomainConfig, getAdmissionConfig } = await import('@/lib/config')
 
     const app = await db.admissionApplication.findFirst({
       where: tenantScopedIdWhere(id, session.tenantId, { deletedAt: null }),
@@ -53,16 +54,37 @@ async function _POST(
 
     assertResourceScope(session, { tenantId: app.tenantId, branchId: app.branchId })
 
-    await db.$transaction([
-      db.applicationDocument.updateMany({
-        where: { applicationId: id },
-        data: { verified: true, verifiedAt: new Date() },
-      }),
-      db.admissionApplication.update({
+    const admCfg = getAdmissionConfig(await getDomainConfig(session.tenantId, 'ADMISSION'))
+    const requiredDocTypes: string[] = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
+
+    // Only verify documents that are actually uploaded
+    const uploadedDocs = app.documents.filter((d) => d.status === 'UPLOADED' || (d.fileName && !d.fileName.endsWith('-pending.pdf') && d.status !== 'NOT_UPLOADED'))
+
+    if (uploadedDocs.length === 0) {
+      return Errors.business('NO_UPLOADED_DOCUMENTS', 'No uploaded documents available to verify. Please upload mandatory documents first.', 422)
+    }
+
+    const uploadedDocIds = uploadedDocs.map((d) => d.id)
+
+    await db.applicationDocument.updateMany({
+      where: { id: { in: uploadedDocIds } },
+      data: { status: 'VERIFIED', verified: true, verifiedAt: new Date(), rejectionReason: null },
+    })
+
+    // Check mandatory documents completeness
+    const missingRequired = requiredDocTypes.filter((reqType) => {
+      const match = app.documents.find((d) => d.docType === reqType && (uploadedDocIds.includes(d.id) || d.verified || d.status === 'VERIFIED'))
+      return !match
+    })
+
+    const allMandatoryVerified = missingRequired.length === 0
+
+    if (allMandatoryVerified) {
+      await db.admissionApplication.update({
         where: { id },
         data: { status: 'VERIFIED', verifiedAt: new Date() },
-      }),
-    ])
+      })
+    }
 
     await audit({
       tenantId: session.tenantId,
@@ -73,10 +95,15 @@ async function _POST(
       action: 'DOC_VERIFY_ALL',
       entity: 'AdmissionApplication',
       entityId: id,
-      summary: `All documents verified for application ${app.applicationNumber}`,
+      summary: `Verified ${uploadedDocs.length} uploaded document(s) for application ${app.applicationNumber}`,
     })
 
-    return ok({ status: 'VERIFIED', allVerified: true })
+    return ok({
+      status: allMandatoryVerified ? 'VERIFIED' : app.status,
+      allMandatoryVerified,
+      missingRequired,
+      verifiedCount: uploadedDocs.length,
+    })
   } catch (e: any) {
     return Errors.business('VERIFICATION_FAILED', e.message || 'Failed to verify documents', 422)
   }

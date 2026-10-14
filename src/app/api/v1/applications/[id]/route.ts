@@ -70,40 +70,29 @@ async function _PATCH(
     })
     if (!app) return Errors.notFound('Application')
 
-    if (app.status === 'ENROLLED') {
+    if (app.status === 'ENROLLED' || app.status === 'ADMITTED') {
       return Errors.conflict('Cannot modify an already enrolled application')
     }
 
-    const {
-      childFirstName,
-      childLastName,
-      childDob,
-      childGender,
-      parentName,
-      parentPhone,
-      parentEmail,
-      previousSchool,
-      notes,
-    } = body
-
-    const updated = await db.admissionApplication.update({
-      where: { id },
-      data: {
-        ...(childFirstName ? { childFirstName } : {}),
-        ...(childLastName !== undefined ? { childLastName } : {}),
-        ...(childDob ? { childDob: new Date(childDob) } : {}),
-        ...(childGender ? { childGender } : {}),
-        ...(parentName ? { parentName } : {}),
-        ...(parentPhone ? { parentPhone } : {}),
-        ...(parentEmail !== undefined ? { parentEmail } : {}),
-        ...(previousSchool !== undefined ? { previousSchool } : {}),
-        ...(notes !== undefined ? { notes } : {}),
+    const updated = await AdmissionService.updateApplication(
+      {
+        tenantId: session.tenantId,
+        branchId: session.branchId || app.branchId,
+        academicYearId: app.academicSessionId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
       },
-    })
+      id,
+      body
+    )
 
     return ok(updated)
   } catch (e: any) {
-    return Errors.system(e)
+    if (e.message && e.message.toLowerCase().includes('not found')) {
+      return Errors.notFound(e.message)
+    }
+    return Errors.business('APPLICATION_UPDATE_FAILED', e.message || 'Failed to update application', 422)
   }
 }
 

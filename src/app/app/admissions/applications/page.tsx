@@ -4,12 +4,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Plus, Search,
   Filter, RefreshCw, Eye, Sparkles, Send, GraduationCap, X, ChevronRight,
-  ClipboardList, Check, Clock, UserCheck
+  ClipboardList, Check, Clock, UserCheck, Users, HeartPulse, MapPin,
+  Phone, Mail, Calendar, Upload, AlertTriangle
 } from 'lucide-react'
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
-import { Modal } from '@/components/preone/Modal'
+import { SelectEnquiryForAppModal } from '@/components/admissions/SelectEnquiryForAppModal'
+import { StaffAdmissionFormModal } from '@/components/admissions/StaffAdmissionFormModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
@@ -32,12 +34,18 @@ export default function ApplicationsPage() {
 
   // Data states
   const [applications, setApplications] = useState<any[] | null>(null)
+  const [enquiries, setEnquiries] = useState<any[]>([])
   const [busy, setBusy] = useState(false)
 
   // Modals & Drawer
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [directFormOpen, setDirectFormOpen] = useState(false)
+  const [selectEnquiryModalOpen, setSelectEnquiryModalOpen] = useState(false)
+
+  // Staff Admission Form Modal state (Phase B workspace)
+  const [staffFormModalOpen, setStaffFormModalOpen] = useState(false)
+  const [editingAppId, setEditingAppId] = useState<string | null>(null)
+  const [editingAppData, setEditingAppData] = useState<any | null>(null)
 
   // Application Inspector Drawer
   const [inspector, setInspector] = useState<{
@@ -52,111 +60,104 @@ export default function ApplicationsPage() {
     tab: 'overview',
   })
 
-  // Direct Admission Form state
-  const [formBranchId, setFormBranchId] = useState('')
-  const [formChildFirst, setFormChildFirst] = useState('')
-  const [formChildLast, setFormChildLast] = useState('')
-  const [formChildDob, setFormChildDob] = useState('')
-  const [formChildGender, setFormChildGender] = useState('MALE')
-  const [formParentName, setFormParentName] = useState('')
-  const [formParentPhone, setFormParentPhone] = useState('')
-  const [formParentEmail, setFormParentEmail] = useState('')
-  const [formProgram, setFormProgram] = useState('NURSERY')
-
-  // Live program age eligibility check for Direct Application Wizard
-  const directAppAgeCheck = useMemo(() => {
-    if (!formChildDob || !formProgram) return null
-    const birth = new Date(formChildDob)
-    if (isNaN(birth.getTime())) return null
-    const now = new Date()
-    let y = now.getFullYear() - birth.getFullYear()
-    let m = now.getMonth() - birth.getMonth()
-    let d = now.getDate() - birth.getDate()
-    let ageMonths = y * 12 + m
-    if (d < 0) ageMonths -= 1
-    ageMonths = Math.max(0, ageMonths)
-
-    const prog = programs.find((p) => (p.programType || p.code) === formProgram || p.id === formProgram)
-    if (!prog) return null
-
-    const min = prog.ageMinMonths
-    const max = prog.ageMaxMonths
-
-    if (min != null && ageMonths < min) {
-      return {
-        eligible: false,
-        ageMonths,
-        reason: `Child is ${ageMonths} months old; minimum required for ${prog.name} is ${min} months.`,
-      }
-    }
-    if (max != null && ageMonths > max) {
-      return {
-        eligible: false,
-        ageMonths,
-        reason: `Child is ${ageMonths} months old; maximum permitted for ${prog.name} is ${max} months.`,
-      }
-    }
-    return {
-      eligible: true,
-      ageMonths,
-      reason: `Child is ${ageMonths} months old (Eligible for ${prog.name}).`,
-    }
-  }, [formChildDob, formProgram, programs])
-
-  // Load masters on mount
+  // Load master data (Branches, Sessions, Programs)
   useEffect(() => {
-    async function loadMasters() {
-      try {
-        const [brRes, sesRes] = await Promise.all([
-          fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-          fetch('/api/v1/academic-years').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-        ])
-        if (brRes.success && brRes.data?.length > 0) {
-          setBranches(brRes.data)
-          if (brRes.data.length > 1) {
-            setSelectedBranchId('__ALL_BRANCHES__')
-          } else {
-            const main = brRes.data.find((b: any) => b.isMain) || brRes.data[0]
-            setSelectedBranchId(main.id)
-            setFormBranchId(main.id)
-          }
-        }
-        if (sesRes.success && sesRes.data?.length > 0) {
-          setSessions(sesRes.data)
-          const curr = sesRes.data.find((s: any) => s.isCurrent) || sesRes.data[0]
-          setSelectedSessionId(curr.id)
-        }
-      } catch (e) {
-        console.error('Failed to load application masters:', e)
-      }
+    let active = true
+    Promise.all([
+      fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ data: [] })),
+      fetch('/api/v1/sessions').then((r) => r.json()).catch(() => ({ data: [] })),
+    ]).then(([branchRes, sessionRes]) => {
+      if (!active) return
+      const rawBranches = branchRes.data || []
+      const branchList = rawBranches.map((b: any) => ({
+        id: b.id,
+        name: b.name,
+        isMain: Boolean(b.isMain),
+      }))
+      setBranches(branchList)
+
+      const savedBranch =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('preone_selected_branch')
+          : null
+      const initialBranch =
+        savedBranch &&
+        (savedBranch === '__ALL_BRANCHES__' || branchList.some((b: any) => b.id === savedBranch))
+          ? savedBranch
+          : branchList[0]?.id || '__ALL_BRANCHES__'
+      setSelectedBranchId(initialBranch)
+
+      const rawSessions = sessionRes.data || []
+      const sessionList = rawSessions.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        isCurrent: Boolean(s.isCurrent),
+      }))
+      setSessions(sessionList)
+
+      const curSession = sessionList.find((s: any) => s.isCurrent)?.id || sessionList[0]?.id || ''
+      setSelectedSessionId(curSession)
+    })
+
+    return () => {
+      active = false
     }
-    loadMasters()
   }, [])
 
-  // Dynamically load branch programs whenever formBranchId or selectedBranchId changes
+  // Load branch programs whenever selectedBranchId changes
   useEffect(() => {
-    const targetBranch = formBranchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : '')
     let active = true
-    const param = targetBranch ? `?branchId=${encodeURIComponent(targetBranch)}` : ''
-    fetch(`/api/v1/programs${param}`)
+    const targetBranch = selectedBranchId && selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : ''
+    const pUrl = targetBranch ? `/api/v1/programs?branchId=${targetBranch}` : '/api/v1/programs'
+    fetch(pUrl)
       .then((r) => r.json())
-      .then((json) => {
+      .then((res) => {
         if (!active) return
-        if (json.success && Array.isArray(json.data)) {
-          setPrograms(json.data)
-          setFormProgram((prev) => {
-            const match = json.data.find((p: any) => (p.programType || p.code) === prev || p.id === prev)
-            return match ? prev : (json.data[0]?.programType || json.data[0]?.code || '')
-          })
+        if (res.success && Array.isArray(res.data)) {
+          setPrograms(res.data)
         }
       })
       .catch((e) => console.error('Failed to load branch programs:', e))
     return () => {
       active = false
     }
-  }, [formBranchId, selectedBranchId])
+  }, [selectedBranchId])
 
-  // Load applications
+  // Check query params for lead prefill handoff (?leadId=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const sp = new URLSearchParams(window.location.search)
+    const queryLeadId = sp.get('leadId')
+    if (queryLeadId) {
+      fetch(`/api/v1/leads/${queryLeadId}`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success && res.data) {
+            const l = res.data
+            const parts = (l.childName || '').trim().split(/\s+/)
+            setEditingAppId(null)
+            setEditingAppData({
+              leadId: l.id,
+              leadNumber: l.leadNumber,
+              branchId: l.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : ''),
+              programType: l.interestedProgram || 'NURSERY',
+              childFirstName: parts[0] || (l.parentName ? l.parentName.trim().split(/\s+/)[0] : ''),
+              childLastName: parts.slice(1).join(' ') || '',
+              childDob: l.childDob,
+              parentName: l.parentName,
+              parentPhone: l.phone,
+              parentEmail: l.email,
+              notes: l.notes ? `Converted from Enquiry ${l.leadNumber}: ${l.notes}` : `Converted from Enquiry ${l.leadNumber}`,
+              status: 'DRAFT',
+            })
+            setStaffFormModalOpen(true)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [selectedBranchId])
+
+  // Load applications list
   const loadApplications = useCallback(async () => {
     if (!selectedBranchId) return
     setBusy(true)
@@ -184,7 +185,7 @@ export default function ApplicationsPage() {
     loadApplications()
   }, [loadApplications])
 
-  // Open full dossier review
+  // Open full dossier review drawer
   const openInspector = async (formId: string, initialTab: string = 'overview', appBranchId?: string) => {
     setBusy(true)
     try {
@@ -223,6 +224,77 @@ export default function ApplicationsPage() {
     }
   }
 
+  // Open Staff Admission Form Modal for creating a new application
+  const handleOpenNewAdmissionForm = (prefillData?: any) => {
+    setEditingAppId(null)
+    setEditingAppData(prefillData || null)
+    setStaffFormModalOpen(true)
+  }
+
+  // Open Staff Admission Form Modal for editing an existing application/draft
+  const handleEditApplicationForm = async (appId: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/applications/${appId}`).then((r) => r.json())
+      setBusy(false)
+      if (res.success && res.data?.application) {
+        setEditingAppId(appId)
+        setEditingAppData(res.data.application)
+        setStaffFormModalOpen(true)
+      } else {
+        toast.show('Failed to load application data', { type: 'error' })
+      }
+    } catch {
+      setBusy(false)
+      toast.show('Network error loading application data', { type: 'error' })
+    }
+  }
+
+  // Open Enquiry picker to start an application with zero data re-entry
+  const handleOpenEnquiryPicker = async () => {
+    setBusy(true)
+    try {
+      const qParams = new URLSearchParams()
+      if (selectedBranchId && selectedBranchId !== '__ALL_BRANCHES__') {
+        qParams.set('branchId', selectedBranchId)
+      }
+      const res = await fetch(`/api/v1/leads?${qParams.toString()}`).then((r) => r.json())
+      setBusy(false)
+      if (res.success && res.data) {
+        setEnquiries(res.data)
+        setSelectEnquiryModalOpen(true)
+      } else {
+        toast.show('Failed to fetch enquiries', { type: 'error' })
+      }
+    } catch {
+      setBusy(false)
+      toast.show('Network error fetching enquiries', { type: 'error' })
+    }
+  }
+
+  // Handle selected enquiry for application conversion
+  const handleSelectEnquiryToConvert = (enquiry: any) => {
+    const parts = (enquiry.childName || '').trim().split(/\s+/)
+    const childFirst = parts[0] || (enquiry.parentName ? enquiry.parentName.trim().split(/\s+/)[0] : '')
+    const childLast = parts.slice(1).join(' ') || ''
+
+    handleOpenNewAdmissionForm({
+      leadId: enquiry.id,
+      leadNumber: enquiry.leadNumber,
+      branchId: enquiry.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : ''),
+      programType: enquiry.interestedProgram || 'NURSERY',
+      childFirstName: childFirst,
+      childLastName: childLast,
+      childDob: enquiry.childDob ? new Date(enquiry.childDob).toISOString().split('T')[0] : '',
+      childGender: 'MALE',
+      parentName: enquiry.parentName || '',
+      parentPhone: enquiry.phone || '',
+      parentEmail: enquiry.email || '',
+      notes: enquiry.notes ? `Converted from Enquiry ${enquiry.leadNumber}: ${enquiry.notes}` : `Converted from Enquiry ${enquiry.leadNumber}`,
+      status: 'DRAFT',
+    })
+  }
+
   // Document verification helper inside dossier
   const handleVerifyAllDocs = async () => {
     if (!inspector.formId) return
@@ -235,16 +307,16 @@ export default function ApplicationsPage() {
       }).then((r) => r.json())
       setBusy(false)
       if (res.success) {
-        toast.show('All mandatory documents marked as verified', { type: 'success' })
+        toast.show('Uploaded mandatory documents verified successfully ✓', { type: 'success' })
         openInspector(inspector.formId, 'documents')
         invalidateAdmissionsCounts()
         loadApplications()
       } else {
-        toast.show(res.error || 'Verification failed', { type: 'error' })
+        toast.show(res.error?.message || res.error || 'Verification failed', { type: 'error' })
       }
     } catch {
       setBusy(false)
-      toast.show('Server error', { type: 'error' })
+      toast.show('Server error verifying documents', { type: 'error' })
     }
   }
 
@@ -302,58 +374,31 @@ export default function ApplicationsPage() {
     }
   }
 
-  // Submit Direct Application Wizard
-  const handleCreateDirectApplication = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const targetBranch = formBranchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : '')
-    if (!targetBranch) {
-      toast.show('Please select a specific school branch for this application', { type: 'error' })
-      return
-    }
-    if (directAppAgeCheck && !directAppAgeCheck.eligible) {
-      toast.show(`${directAppAgeCheck.reason} To allow admission, adjust program limits in Setup > Programs.`, { type: 'error' })
-      return
-    }
+  // Submit draft from inspector drawer
+  const handleSubmitDraftFromDrawer = async () => {
+    if (!inspector.formId) return
     setBusy(true)
     try {
-      const selectedProg = programs.find((p) => (p.programType || p.code) === formProgram || p.id === formProgram)
-      const res = await fetch('/api/v1/applications', {
-        method: 'POST',
+      const res = await fetch(`/api/v1/applications/${inspector.formId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          childFirstName: formChildFirst,
-          childLastName: formChildLast,
-          childDob: formChildDob,
-          childGender: formChildGender,
-          parentName: formParentName,
-          parentPhone: formParentPhone,
-          parentEmail: formParentEmail || undefined,
-          programId: selectedProg?.id || null,
-          programType: selectedProg?.programType || formProgram,
-          branchId: targetBranch,
-          academicYearId: selectedSessionId,
+          status: 'SUBMITTED',
+          isDraft: false,
         }),
       }).then((r) => r.json())
       setBusy(false)
       if (res.success) {
-        toast.show('New Application created successfully', { type: 'success' })
-        setDirectFormOpen(false)
-        setFormBranchId('')
-        setFormChildFirst('')
-        setFormChildLast('')
-        setFormChildDob('')
-        setFormParentName('')
-        setFormParentPhone('')
-        setFormParentEmail('')
+        toast.show('Application submitted formally for review 📋', { type: 'success' })
+        openInspector(inspector.formId, 'overview')
         invalidateAdmissionsCounts()
         loadApplications()
       } else {
-        const errMsg = typeof res.error === 'string' ? res.error : res.error?.message || 'Failed to submit application'
-        toast.show(errMsg, { type: 'error' })
+        toast.show(res.error?.message || res.error || 'Submission failed', { type: 'error' })
       }
     } catch {
       setBusy(false)
-      toast.show('Server error creating application', { type: 'error' })
+      toast.show('Server error submitting application', { type: 'error' })
     }
   }
 
@@ -375,11 +420,20 @@ export default function ApplicationsPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => setDirectFormOpen(true)}
+            onClick={() => handleOpenNewAdmissionForm()}
             className="btn btn-primary btn-sm h-8.5 px-3.5 gap-1.5 text-xs font-semibold rounded-xl shadow-xs"
           >
             <Plus size={13} />
-            <span>New Application</span>
+            <span>New Admission Form</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenEnquiryPicker}
+            className="btn btn-outline btn-sm h-8.5 px-3 gap-1.5 text-xs font-semibold rounded-xl"
+            title="Convert Lead / Enquiry to Application with Zero Data Re-entry"
+          >
+            <ClipboardList size={13} />
+            <span className="hidden sm:inline">From Enquiry</span>
           </button>
           <button
             type="button"
@@ -414,6 +468,7 @@ export default function ApplicationsPage() {
               className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[130px] max-w-full min-w-0"
             >
               <option value="">All Statuses</option>
+              <option value="DRAFT">Draft</option>
               <option value="SUBMITTED">Submitted</option>
               <option value="UNDER_REVIEW">Under Review</option>
               <option value="APPROVED">Approved</option>
@@ -448,26 +503,27 @@ export default function ApplicationsPage() {
           <div className="overflow-x-auto max-h-[calc(100vh-280px)]">
             <table className="table-frosted w-full text-xs text-left">
               <thead className="table-frosted-header">
-                <tr className="border-b border-border/80 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-3">App Number</th>
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Application #</th>
                   {selectedBranchId === '__ALL_BRANCHES__' && (
-                    <th className="px-4 py-3">Campus</th>
+                    <th className="px-4 py-3 font-semibold">Campus</th>
                   )}
-                  <th className="px-4 py-3">Child Name</th>
-                  <th className="px-4 py-3">Parent / Mobile</th>
-                  <th className="px-4 py-3">Program</th>
-                  <th className="px-4 py-3">Documents</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Submitted</th>
-                  <th className="px-4 py-3 text-right">Action</th>
+                  <th className="px-4 py-3 font-semibold">Child Applicant</th>
+                  <th className="px-4 py-3 font-semibold">Primary Parent</th>
+                  <th className="px-4 py-3 font-semibold">Program</th>
+                  <th className="px-4 py-3 font-semibold">Documents</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Submitted</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {applications && applications.length > 0 ? (
                   applications.map((app) => {
-                    const docs = app.documents || []
-                    const verifiedCount = docs.filter((d: any) => d.verified || d.status === 'VERIFIED').length
-                    const totalDocs = docs.length
+                    const verifiedCount =
+                      app.documents?.filter((d: any) => d.verified || d.status === 'VERIFIED').length || 0
+                    const totalDocs = app.documents?.length || 0
+                    const isDraft = app.status === 'DRAFT' || app.isDraft
 
                     return (
                       <tr
@@ -476,7 +532,14 @@ export default function ApplicationsPage() {
                         className="table-frosted-row cursor-pointer group"
                       >
                         <td className="px-4 py-3 font-mono font-bold text-primary">
-                          {app.applicationNumber}
+                          <div className="flex items-center gap-1.5">
+                            <span>{app.applicationNumber}</span>
+                            {isDraft && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                Draft
+                              </span>
+                            )}
+                          </div>
                         </td>
                         {selectedBranchId === '__ALL_BRANCHES__' && (
                           <td className="px-4 py-3">
@@ -520,24 +583,38 @@ export default function ApplicationsPage() {
                           {fmtDate(app.submittedAt)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openInspector(app.id, 'overview', app.branchId)
-                            }}
-                            className="btn btn-outline btn-sm h-7 px-2.5 text-[11px] rounded-lg gap-1"
-                          >
-                            <Eye size={12} />
-                            <span>Dossier</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditApplicationForm(app.id)
+                              }}
+                              className="btn btn-ghost btn-sm h-7 px-2 text-[11px] rounded-lg gap-1 border border-border/70 hover:bg-muted/50"
+                              title="Edit Admission Form & Guardians"
+                            >
+                              <FileText size={12} />
+                              <span>Edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openInspector(app.id, 'overview', app.branchId)
+                              }}
+                              className="btn btn-outline btn-sm h-7 px-2.5 text-[11px] rounded-lg gap-1"
+                            >
+                              <Eye size={12} />
+                              <span>Dossier</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-12">
+                    <td colSpan={selectedBranchId === '__ALL_BRANCHES__' ? 9 : 8} className="py-12">
                       <EmptyState
                         illustration="applications"
                         eyebrow="Applications"
@@ -568,23 +645,39 @@ export default function ApplicationsPage() {
                   <span className="font-mono text-xs text-muted-foreground font-semibold">
                     {inspector.data.application?.applicationNumber}
                   </span>
+                  {inspector.data.application?.leadNumber && (
+                    <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border/60">
+                      Lead: {inspector.data.application.leadNumber}
+                    </span>
+                  )}
                 </div>
                 <h2 className="text-lg font-bold text-foreground mt-1">
                   {inspector.data.application?.childFirstName} {inspector.data.application?.childLastName || ''}
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setInspector((prev) => ({ ...prev, open: false }))}
-                className="btn btn-ghost btn-sm h-8 w-8 p-0 rounded-xl"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEditApplicationForm(inspector.formId!)}
+                  className="btn btn-outline btn-sm h-8 px-2.5 text-xs rounded-xl gap-1.5 font-semibold"
+                  title="Edit Admission Form & Guardians"
+                >
+                  <FileText size={13} />
+                  <span>Edit Form</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInspector((prev) => ({ ...prev, open: false }))}
+                  className="btn btn-ghost btn-sm h-8 w-8 p-0 rounded-xl"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Subtabs Bar */}
             <div className="px-5 border-b border-border/80 flex items-center gap-3 overflow-x-auto no-scrollbar text-xs font-semibold">
-              {['overview', 'documents', 'timeline'].map((tab) => (
+              {['overview', 'guardians', 'documents', 'timeline'].map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -593,7 +686,7 @@ export default function ApplicationsPage() {
                     inspector.tab === tab ? 'border-primary text-primary font-bold' : 'border-transparent text-muted-foreground'
                   }`}
                 >
-                  {tab}
+                  {tab === 'guardians' ? `Guardians (${inspector.data.application?.additionalGuardians?.length || 0})` : tab}
                 </button>
               ))}
             </div>
@@ -602,6 +695,7 @@ export default function ApplicationsPage() {
             <div className="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
               {inspector.tab === 'overview' && (
                 <div className="space-y-4">
+                  {/* Primary Summary Grid */}
                   <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/60">
                     <div>
                       <span className="text-muted-foreground text-[11px]">Primary Parent:</span>
@@ -621,6 +715,48 @@ export default function ApplicationsPage() {
                     </div>
                   </div>
 
+                  {/* Child Dossier Details */}
+                  <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Child Profile & Medical Details
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Date of Birth:</span>
+                        <p className="font-semibold text-foreground">{fmtDate(inspector.data.application?.childDob)}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Blood Group:</span>
+                        <p className="font-semibold text-foreground">{inspector.data.application?.bloodGroup || 'Not Recorded'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Previous School:</span>
+                        <p className="font-semibold text-foreground">{inspector.data.application?.previousSchool || 'None'}</p>
+                      </div>
+                    </div>
+                    {inspector.data.application?.address && (
+                      <div className="pt-1.5 border-t border-border/50">
+                        <span className="text-[11px] text-muted-foreground">Residential Address:</span>
+                        <p className="text-foreground">{inspector.data.application?.address}</p>
+                      </div>
+                    )}
+                    {inspector.data.application?.medicalNotes && (
+                      <div className="pt-1.5 border-t border-border/50 text-destructive flex items-start gap-1.5">
+                        <HeartPulse size={13} className="shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-[11px] font-semibold">Medical / Allergy Notes:</span>
+                          <p>{inspector.data.application?.medicalNotes}</p>
+                        </div>
+                      </div>
+                    )}
+                    {inspector.data.application?.emergencyContact && (
+                      <div className="pt-1.5 border-t border-border/50">
+                        <span className="text-[11px] text-muted-foreground">Emergency Contact:</span>
+                        <p className="font-semibold text-foreground">{inspector.data.application?.emergencyContact}</p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Requirements & Next Action summary */}
                   <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/5 space-y-2">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
@@ -629,17 +765,37 @@ export default function ApplicationsPage() {
                     <ul className="space-y-1.5 text-muted-foreground">
                       <li className="flex items-center gap-2">
                         <Check size={14} className="text-emerald-500" />
-                        <span>Age eligibility calculated and verified</span>
+                        <span>Age eligibility: {inspector.data.requirements?.ageRequirement?.reason || 'Verified'}</span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <Check size={14} className={inspector.data.requirements?.documentsCheck?.isComplete ? 'text-emerald-500' : 'text-amber-500'} />
-                        <span>Document checklist: {inspector.data.requirements?.documentsCheck?.verified || 0} / {inspector.data.requirements?.documentsCheck?.total || 0} verified</span>
+                        <Check
+                          size={14}
+                          className={
+                            inspector.data.requirements?.documentsCheck?.isComplete
+                              ? 'text-emerald-500'
+                              : 'text-amber-500'
+                          }
+                        />
+                        <span>
+                          Mandatory documents: {inspector.data.requirements?.documentsCheck?.requiredVerified ?? 0} /{' '}
+                          {inspector.data.requirements?.documentsCheck?.requiredTotal ?? 0} verified
+                        </span>
                       </li>
                     </ul>
                   </div>
 
                   {/* Action Bar inside dossier */}
                   <div className="pt-2 flex flex-wrap items-center gap-2">
+                    {inspector.data.application?.status === 'DRAFT' && (
+                      <button
+                        type="button"
+                        onClick={handleSubmitDraftFromDrawer}
+                        className="btn btn-primary btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
+                      >
+                        <Send size={13} />
+                        <span>Submit Application for Review</span>
+                      </button>
+                    )}
                     {inspector.data.application?.status === 'UNDER_REVIEW' && (
                       <button
                         type="button"
@@ -673,40 +829,173 @@ export default function ApplicationsPage() {
                 </div>
               )}
 
+              {/* GUARDIANS TAB */}
+              {inspector.tab === 'guardians' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground">Guardians & Pickups</span>
+                    <button
+                      type="button"
+                      onClick={() => handleEditApplicationForm(inspector.formId!)}
+                      className="btn btn-outline btn-sm h-7 px-2.5 text-xs rounded-lg gap-1"
+                    >
+                      <Plus size={12} />
+                      <span>Manage Guardians</span>
+                    </button>
+                  </div>
+
+                  {/* Primary Guardian Card */}
+                  <div className="p-3.5 rounded-xl border border-border/70 bg-card space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-primary">Primary Guardian (Primary Contact)</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                        PRIMARY
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Name:</span>
+                        <p className="font-semibold text-foreground">{inspector.data.application?.parentName}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Relationship:</span>
+                        <p className="font-semibold text-foreground">{inspector.data.application?.relationship || 'Parent'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[11px] text-muted-foreground">Phone:</span>
+                        <p className="font-mono font-semibold text-foreground">{inspector.data.application?.parentPhone}</p>
+                      </div>
+                      {inspector.data.application?.alternatePhone && (
+                        <div>
+                          <span className="text-[11px] text-muted-foreground">Alt Phone:</span>
+                          <p className="font-mono text-foreground">{inspector.data.application?.alternatePhone}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional Guardians */}
+                  {Array.isArray(inspector.data.application?.additionalGuardians) &&
+                  inspector.data.application.additionalGuardians.length > 0 ? (
+                    inspector.data.application.additionalGuardians.map((g: any, i: number) => (
+                      <div
+                        key={i}
+                        className="p-3.5 rounded-xl border border-border/70 bg-card space-y-2 shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-foreground">{g.fullName || `Guardian #${i + 1}`}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/80 text-foreground">
+                            {g.relationship}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <span className="text-[11px] text-muted-foreground">Phone:</span>
+                            <p className="font-mono font-semibold text-foreground">{g.phone}</p>
+                          </div>
+                          {g.email && (
+                            <div>
+                              <span className="text-[11px] text-muted-foreground">Email:</span>
+                              <p className="text-foreground">{g.email}</p>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50 text-[10px] font-semibold">
+                          {g.canPickup && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                              ✓ Authorized Pickup
+                            </span>
+                          )}
+                          {g.isFeePayer && (
+                            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                              Fee Payer
+                            </span>
+                          )}
+                          {g.receivesCommunication && (
+                            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              Notifications
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-muted-foreground">
+                      No additional guardians registered.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* DOCUMENTS TAB */}
               {inspector.tab === 'documents' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-foreground">Mandatory Documents</span>
+                    <span className="font-bold text-foreground">Checklist & Uploads</span>
                     <button
                       type="button"
                       onClick={handleVerifyAllDocs}
                       className="btn btn-outline btn-sm h-7.5 px-2.5 text-xs rounded-lg gap-1"
                     >
                       <Check size={12} />
-                      <span>Verify All Pending</span>
+                      <span>Verify Uploaded</span>
                     </button>
                   </div>
                   <div className="space-y-2">
-                    {inspector.data.application?.documents?.map((doc: any) => (
-                      <div
-                        key={doc.id}
-                        className="p-3 rounded-xl border border-border/70 bg-card flex items-center justify-between gap-2"
-                      >
-                        <div>
-                          <p className="font-semibold text-foreground">{doc.docType.replace(/_/g, ' ')}</p>
-                          <p className="text-[11px] text-muted-foreground">{doc.fileName}</p>
+                    {inspector.data.application?.documents?.map((doc: any) => {
+                      const isUploaded =
+                        doc.status !== 'NOT_UPLOADED' &&
+                        doc.fileName &&
+                        !doc.fileName.endsWith('-pending.pdf')
+                      const isVerified = doc.verified || doc.status === 'VERIFIED'
+
+                      return (
+                        <div
+                          key={doc.id}
+                          className="p-3 rounded-xl border border-border/70 bg-card flex flex-wrap items-center justify-between gap-2"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-foreground">{doc.docType.replace(/_/g, ' ')}</p>
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                                  doc.isMandatory
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                {doc.isMandatory ? 'REQUIRED' : 'OPTIONAL'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-mono text-muted-foreground">
+                              {isUploaded ? doc.fileName : 'Not Uploaded'}
+                            </p>
+                            {doc.rejectionReason && (
+                              <p className="text-[11px] text-destructive flex items-center gap-1">
+                                <AlertTriangle size={11} />
+                                <span>Correction needed: {doc.rejectionReason}</span>
+                              </p>
+                            )}
+                          </div>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isVerified
+                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                : isUploaded
+                                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {isVerified ? 'VERIFIED' : isUploaded ? 'PENDING REVIEW' : 'NOT UPLOADED'}
+                          </span>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          doc.verified ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700'
-                        }`}>
-                          {doc.verified ? 'VERIFIED' : 'PENDING'}
-                        </span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
 
+              {/* TIMELINE TAB */}
               {inspector.tab === 'timeline' && (
                 <div className="space-y-2.5">
                   {inspector.data.timeline?.map((evt: any) => (
@@ -736,175 +1025,37 @@ export default function ApplicationsPage() {
         </div>
       )}
 
-      {/* ── MODAL: DIRECT APPLICATION FORM WIZARD ── */}
-      <Modal
-        open={directFormOpen}
-        onClose={() => setDirectFormOpen(false)}
-        title="Direct Admission Application Form"
-        subtitle="Intake comprehensive pupil and guardian dossier"
-        icon={<FileSpreadsheet size={20} />}
-      >
-        <form onSubmit={handleCreateDirectApplication} className="space-y-3.5">
-          {/* Target Branch Selection */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-foreground">
-              Target School Branch <span className="text-destructive">*</span>
-            </label>
-            <select
-              value={formBranchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : '')}
-              onChange={(e) => setFormBranchId(e.target.value)}
-              required
-              className="input text-xs h-9 w-full rounded-xl bg-card"
-            >
-              <option value="">Select Target Branch...</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name} {b.isMain ? '(Main Campus)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* ── MODAL: STAFF ADMISSION FORM & GUARDIANS WORKSPACE (PHASE B) ── */}
+      <StaffAdmissionFormModal
+        open={staffFormModalOpen}
+        onClose={() => {
+          setStaffFormModalOpen(false)
+          setEditingAppId(null)
+          setEditingAppData(null)
+        }}
+        applicationId={editingAppId}
+        initialData={editingAppData}
+        branches={branches}
+        sessions={sessions}
+        programs={programs}
+        selectedBranchId={selectedBranchId}
+        selectedSessionId={selectedSessionId}
+        onSuccess={(savedApp) => {
+          loadApplications()
+          invalidateAdmissionsCounts()
+          if (inspector.open && inspector.formId === savedApp.id) {
+            openInspector(savedApp.id, inspector.tab)
+          }
+        }}
+      />
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Child First Name *</label>
-              <input
-                required
-                value={formChildFirst}
-                onChange={(e) => setFormChildFirst(e.target.value)}
-                placeholder="e.g. Aarav"
-                className="input text-xs h-9 w-full rounded-xl"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Child Last Name</label>
-              <input
-                value={formChildLast}
-                onChange={(e) => setFormChildLast(e.target.value)}
-                placeholder="e.g. Sharma"
-                className="input text-xs h-9 w-full rounded-xl"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Date of Birth *</label>
-              <input
-                type="date"
-                required
-                value={formChildDob}
-                onChange={(e) => setFormChildDob(e.target.value)}
-                className="input text-xs h-9 w-full rounded-xl"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Gender *</label>
-              <select
-                value={formChildGender}
-                onChange={(e) => setFormChildGender(e.target.value)}
-                className="input text-xs h-9 w-full rounded-xl"
-              >
-                <option value="MALE">Male</option>
-                <option value="FEMALE">Female</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Primary Parent Name *</label>
-              <input
-                required
-                value={formParentName}
-                onChange={(e) => setFormParentName(e.target.value)}
-                placeholder="e.g. Rahul Sharma"
-                className="input text-xs h-9 w-full rounded-xl"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Parent Mobile Phone *</label>
-              <input
-                required
-                value={formParentPhone}
-                onChange={(e) => setFormParentPhone(e.target.value)}
-                placeholder="10-digit mobile"
-                className="input text-xs h-9 w-full rounded-xl font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Parent Email (Optional)</label>
-              <input
-                type="email"
-                value={formParentEmail}
-                onChange={(e) => setFormParentEmail(e.target.value)}
-                placeholder="parent@example.com"
-                className="input text-xs h-9 w-full rounded-xl"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">Target Program *</label>
-              <select
-                value={formProgram}
-                onChange={(e) => setFormProgram(e.target.value)}
-                className="input text-xs h-9 w-full rounded-xl"
-              >
-                {programs.length > 0 ? (
-                  programs.map((p) => (
-                    <option key={p.id} value={p.programType || p.code}>
-                      {p.name} {p.ageMinMonths != null || p.ageMaxMonths != null ? `(${p.ageMinMonths ?? 0}–${p.ageMaxMonths ?? '∞'} mo)` : ''}
-                    </option>
-                  ))
-                ) : (
-                  <option value="" disabled>No programs configured for this campus</option>
-                )}
-              </select>
-            </div>
-          </div>
-
-          {/* Live Age Eligibility Banner */}
-          {directAppAgeCheck && (
-            <div
-              className={`p-2.5 rounded-xl text-xs space-y-1 ${
-                directAppAgeCheck.eligible
-                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-destructive/10 border border-destructive/20 text-destructive'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 font-medium">
-                {directAppAgeCheck.eligible ? <CheckCircle2 size={14} className="shrink-0" /> : <AlertCircle size={14} className="shrink-0" />}
-                <span>{directAppAgeCheck.reason}</span>
-              </div>
-              {!directAppAgeCheck.eligible && (
-                <div className="text-[11px] text-muted-foreground pl-5 leading-normal">
-                  Child does not satisfy program age limits. Authorized administrators can adjust minimum/maximum permitted age in <strong>Setup &rarr; Programs</strong>.
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/70">
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm h-8.5 px-3 text-xs rounded-xl"
-              onClick={() => setDirectFormOpen(false)}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="btn btn-primary btn-sm h-8.5 px-4 text-xs font-semibold rounded-xl"
-            >
-              {busy ? 'Creating...' : 'Submit Application Dossier'}
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {/* ── MODAL: SELECT ENQUIRY FOR APPLICATION PICKER (ZERO DATA RE-ENTRY) ── */}
+      <SelectEnquiryForAppModal
+        open={selectEnquiryModalOpen}
+        onClose={() => setSelectEnquiryModalOpen(false)}
+        enquiries={enquiries}
+        onSelect={handleSelectEnquiryToConvert}
+      />
 
       {/* Auxiliary Modals */}
       <MinimalEnquiryModal

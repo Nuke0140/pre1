@@ -4,6 +4,7 @@ import { ok, withApi, errPermission, errValidation } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 import { resolveAuthorizedBranchScope, ALL_BRANCHES_ID } from '@/lib/admissions/branch-context'
+import { ApplicationMetadataHelper } from '@/lib/admissions/application-metadata-helper'
 
 /**
  * GET /api/v1/applications — Admission Forms list
@@ -68,6 +69,7 @@ export const GET = withApi(async (req: NextRequest) => {
   return ok(
     apps.map((a) => {
       const b = branchMap.get(a.branchId)
+      const { humanNotes, metadata } = ApplicationMetadataHelper.parse(a.notes)
       return {
         id: a.id,
         applicationNumber: a.applicationNumber,
@@ -92,6 +94,16 @@ export const GET = withApi(async (req: NextRequest) => {
         leadNumber: a.lead?.leadNumber ?? null,
         leadId: a.leadId,
         offers: a.offers,
+        bloodGroup: metadata.bloodGroup || null,
+        emergencyContact: metadata.emergencyContact || null,
+        address: metadata.address || null,
+        medicalNotes: metadata.medicalNotes || null,
+        alternatePhone: metadata.alternatePhone || null,
+        middleName: metadata.middleName || null,
+        additionalGuardians: Array.isArray(metadata.additionalGuardians) ? metadata.additionalGuardians : [],
+        declarations: metadata.declarations || null,
+        isDraft: a.status === 'DRAFT' || Boolean(metadata.isDraft),
+        notes: humanNotes,
         documents: a.documents.map((d) => ({
           id: d.id,
           docType: d.docType,
@@ -152,6 +164,8 @@ export const POST = withApi(async (req: NextRequest) => {
     medicalNotes,
     meetingNotes,
     additionalGuardians,
+    declarations,
+    isDraft,
   } = body
 
   // Enforce specific valid target branch
@@ -197,8 +211,16 @@ export const POST = withApi(async (req: NextRequest) => {
       medicalNotes,
       meetingNotes,
       additionalGuardians,
+      declarations,
+      isDraft: isDraft === true || body.status === 'DRAFT',
     }
   )
 
-  return ok({ id: app.id, applicationNumber: app.applicationNumber }, undefined, 201)
+  return ok({
+    id: app.id,
+    applicationNumber: app.applicationNumber,
+    status: app.status,
+    isDraft: app.status === 'DRAFT',
+  }, undefined, 201)
 }, { module: 'admissions' })
+

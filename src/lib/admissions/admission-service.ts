@@ -28,6 +28,7 @@ import { assertActorResourceScope } from '@/lib/security/resource-scope'
 import bcrypt from 'bcryptjs'
 import { FollowUpVisitService } from './followup-visit-service'
 import type { ProgramType, Gender, LeadSource, LeadStatus, ApplicationStatus, DocumentType, OfferStatus, DocumentStatus } from '@prisma/client'
+import { ApplicationMetadataHelper, type AdditionalGuardianInput, type ApplicationDeclarations } from './application-metadata-helper'
 
 export interface ScopeContext {
   tenantId: string
@@ -80,17 +81,38 @@ export interface CreateApplicationInput {
   meetingNotes?: string | null
   notes?: string | null
   isDuplicateConfirmed?: boolean
-  additionalGuardians?: Array<{
-    fullName: string
-    phone: string
-    email?: string | null
-    relationship?: string | null
-    isPrimaryContact?: boolean
-    canPickup?: boolean
-    pickupPin?: string | null
-    isFeePayer?: boolean
-    receivesCommunication?: boolean
-  }>
+  middleName?: string | null
+  isDraft?: boolean
+  status?: ApplicationStatus | string
+  declarations?: ApplicationDeclarations
+  additionalGuardians?: AdditionalGuardianInput[]
+}
+
+export interface UpdateApplicationInput {
+  childFirstName?: string
+  childLastName?: string | null
+  childFullName?: string | null
+  childDob?: Date | string
+  childGender?: Gender | string
+  parentName?: string
+  parentPhone?: string
+  parentEmail?: string | null
+  alternatePhone?: string | null
+  relationship?: string | null
+  address?: string | null
+  previousSchool?: string | null
+  bloodGroup?: string | null
+  emergencyContact?: string | null
+  medicalNotes?: string | null
+  meetingNotes?: string | null
+  middleName?: string | null
+  additionalGuardians?: AdditionalGuardianInput[]
+  declarations?: ApplicationDeclarations
+  notes?: string | null
+  programId?: string | null
+  programType?: ProgramType | string
+  status?: ApplicationStatus
+  isDraft?: boolean
 }
 
 export class AdmissionService {
@@ -604,8 +626,15 @@ export class AdmissionService {
       lastName = parts.slice(1).join(' ') || null
     }
 
-    if (!firstName || !input.childDob || !input.parentName?.trim() || !input.parentPhone?.trim()) {
-      throw new Error('Child first name, date of birth, parent name, and parent phone are mandatory')
+    const isDraft = input.isDraft === true || input.status === 'DRAFT'
+    if (!isDraft) {
+      if (!firstName || !input.childDob || !input.parentName?.trim() || !input.parentPhone?.trim()) {
+        throw new Error('Child first name, date of birth, parent name, and parent phone are mandatory')
+      }
+    } else {
+      if (!firstName && !input.parentName?.trim() && !input.parentPhone?.trim()) {
+        throw new Error('At least child name or parent name/phone is required to save an application draft')
+      }
     }
 
     // Idempotency check: if application was already submitted for this enquiry lead
@@ -622,20 +651,22 @@ export class AdmissionService {
       }
     }
 
-    // Duplicate check
-    const dupCheck = await this.checkDuplicateApplication(
-      scope.tenantId,
-      scope.academicYearId,
-      firstName,
-      input.childDob,
-      input.parentPhone
-    )
+    // Duplicate check (only when both DOB and parent phone are provided)
+    if (input.childDob && input.parentPhone) {
+      const dupCheck = await this.checkDuplicateApplication(
+        scope.tenantId,
+        scope.academicYearId,
+        firstName,
+        input.childDob,
+        input.parentPhone
+      )
 
-    if (dupCheck.isDuplicate && !input.isDuplicateConfirmed) {
-      const err: any = new Error(dupCheck.message)
-      err.code = 'DUPLICATE_APPLICATION_FOUND'
-      err.duplicateDetails = dupCheck.existingApplication
-      throw err
+      if (dupCheck.isDuplicate && !input.isDuplicateConfirmed) {
+        const err: any = new Error(dupCheck.message)
+        err.code = 'DUPLICATE_APPLICATION_FOUND'
+        err.duplicateDetails = dupCheck.existingApplication
+        throw err
+      }
     }
 
     // Authoritatively resolve Program record matching branch scope
@@ -708,28 +739,42 @@ export class AdmissionService {
 
     const validProgramType = programRecord.programType
 
-    // Age validation using authoritative ConfigurationService with branch awareness
-    const ageCheck = await ConfigurationService.validateProgramAge(
-      scope.tenantId,
-      programRecord.id,
-      input.childDob,
-      scope.branchId
-    )
-    if (!ageCheck.eligible) {
-      throw new Error(ageCheck.reason || 'Child does not satisfy age eligibility for this program')
+    // Age validation using authoritative ConfigurationService with branch awareness (skipped for drafts if DOB omitted)
+    if (!isDraft || input.childDob) {
+      const ageCheck = await ConfigurationService.validateProgramAge(
+        scope.tenantId,
+        programRecord.id,
+        input.childDob,
+        scope.branchId
+      )
+      if (!isDraft && !ageCheck.eligible) {
+        throw new Error(ageCheck.reason || 'Child does not satisfy age eligibility for this program')
+      }
     }
 
-    // Find or create Guardian by phone to avoid duplicates
-    let guardian = await db.guardian.findFirst({
-      where: { tenantId: scope.tenantId, phone: input.parentPhone.trim(), deletedAt: null },
-    })
-    const guardianRel = input.relationship?.toUpperCase() === 'FATHER' ? 'FATHER' : input.relationship?.toUpperCase() === 'GUARDIAN' ? 'GUARDIAN' : 'MOTHER'
+    // Find or create Guardian (with draft fallback if phone omitted in early draft)
+    const cleanParentPhone = input.parentPhone ? input.parentPhone.trim() : ''
+    const cleanParentName = input.parentName ? input.parentName.trim() : 'Parent'
+
+    let guardian = cleanParentPhone
+      ? await db.guardian.findFirst({
+          where: { tenantId: scope.tenantId, phone: cleanParentPhone, deletedAt: null },
+        })
+      : null
+
+    const guardianRel =
+      input.relationship?.toUpperCase() === 'FATHER'
+        ? 'FATHER'
+        : input.relationship?.toUpperCase() === 'GUARDIAN'
+        ? 'GUARDIAN'
+        : 'MOTHER'
+
     if (!guardian) {
       guardian = await db.guardian.create({
         data: {
           tenantId: scope.tenantId,
-          fullName: input.parentName.trim(),
-          phone: input.parentPhone.trim(),
+          fullName: cleanParentName,
+          phone: cleanParentPhone || `DRAFT_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           email: input.parentEmail?.trim() || null,
           relationship: guardianRel,
           isPrimaryContact: true,
@@ -743,14 +788,15 @@ export class AdmissionService {
     if (input.address) metadata.address = input.address
     if (input.medicalNotes) metadata.medicalNotes = input.medicalNotes
     if (input.meetingNotes) metadata.meetingNotes = input.meetingNotes
+    if (input.alternatePhone) metadata.alternatePhone = input.alternatePhone
+    if (input.middleName) metadata.middleName = input.middleName
+    if (input.declarations) metadata.declarations = input.declarations
     if (input.additionalGuardians && input.additionalGuardians.length > 0) {
       metadata.additionalGuardians = input.additionalGuardians
     }
+    if (isDraft) metadata.isDraft = true
 
-    let notesText = input.notes?.trim() || ''
-    if (Object.keys(metadata).length > 0) {
-      notesText = notesText ? `${notesText}\n[Metadata: ${JSON.stringify(metadata)}]` : `[Metadata: ${JSON.stringify(metadata)}]`
-    }
+    const notesText = ApplicationMetadataHelper.merge(input.notes, metadata)
 
     // Configured document checklist from Setup/SchoolConfig
     const admCfg = getAdmissionConfig(await getDomainConfig(scope.tenantId, 'ADMISSION'))
@@ -762,6 +808,8 @@ export class AdmissionService {
     ]).map((d) => (['BIRTH_CERTIFICATE', 'AADHAAR', 'PHOTO', 'MEDICAL_CERTIFICATE', 'ADDRESS_PROOF', 'PARENT_ID', 'OTHER'].includes(d) ? (d as DocumentType) : 'OTHER'))
 
     const applicationNumber = await nextNumber('application', scope.tenantId)
+    const initialStatus: ApplicationStatus = isDraft ? 'DRAFT' : 'SUBMITTED'
+    const submittedAt = isDraft ? null : new Date()
 
     const app = await db.$transaction(async (tx) => {
       const application = await tx.admissionApplication.create({
@@ -774,57 +822,61 @@ export class AdmissionService {
           programId: programRecord?.id || null,
           programType: validProgramType,
           guardianId: guardian.id,
-          childFirstName: firstName,
+          childFirstName: firstName || 'Child',
           childLastName: lastName,
-          childDob: new Date(input.childDob),
+          childDob: input.childDob ? new Date(input.childDob) : new Date(new Date().getFullYear() - 3, 0, 1),
           childGender: (input.childGender as Gender) || 'UNSPECIFIED',
-          parentName: input.parentName.trim(),
-          parentPhone: input.parentPhone.trim(),
+          parentName: input.parentName ? input.parentName.trim() : 'Parent',
+          parentPhone: input.parentPhone ? input.parentPhone.trim() : '',
           parentEmail: input.parentEmail?.trim() || null,
           previousSchool: input.previousSchool?.trim() || null,
           notes: notesText || null,
           isDuplicateConfirmed: !!input.isDuplicateConfirmed,
-          status: 'SUBMITTED',
-          submittedAt: new Date(),
+          status: initialStatus,
+          submittedAt,
         },
       })
 
-      // Generate document checklist items
+      // Generate document checklist items in NOT_UPLOADED status (no fake files)
       if (requiredDocTypes.length > 0) {
         await tx.applicationDocument.createMany({
           data: requiredDocTypes.map((docType) => ({
             applicationId: application.id,
             docType,
-            fileName: `${docType.toLowerCase().replace(/_/g, '-')}-pending.pdf`,
-            status: 'UPLOADED',
+            fileName: `${docType.toLowerCase().replace(/_/g, '-')}`,
+            status: 'NOT_UPLOADED',
             verified: false,
           })),
         })
       }
 
-      // If tied to lead, atomically transition lead to CONVERTED and resolve all open follow-up activities
+      // If tied to lead, update lead status
       if (input.leadId) {
+        const lead = await tx.lead.findUnique({ where: { id: input.leadId } })
+        const targetLeadStatus = lead?.status === 'CONVERTED' ? 'CONVERTED' : 'APPLICATION_STARTED'
         await tx.lead.update({
           where: { id: input.leadId },
           data: {
-            status: 'CONVERTED',
+            status: targetLeadStatus,
             convertedApplicationId: application.id,
           },
         }).catch(() => {})
 
-        await tx.followUp.updateMany({
-          where: {
-            tenantId: scope.tenantId,
-            sourceId: input.leadId,
-            status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
-          },
-          data: {
-            status: 'RESOLVED',
-            resolvedAt: new Date(),
-            resolvedByName: ctx.actorName || 'System',
-            outcome: `Converted to Application (${applicationNumber})`,
-          },
-        }).catch(() => {})
+        if (!isDraft) {
+          await tx.followUp.updateMany({
+            where: {
+              tenantId: scope.tenantId,
+              sourceId: input.leadId,
+              status: { in: ['OPEN', 'IN_PROGRESS', 'WAITING'] },
+            },
+            data: {
+              status: 'RESOLVED',
+              resolvedAt: new Date(),
+              resolvedByName: ctx.actorName || 'System',
+              outcome: `Converted to Application (${applicationNumber})`,
+            },
+          }).catch(() => {})
+        }
       }
 
       return application
@@ -902,21 +954,25 @@ export class AdmissionService {
       },
     })
 
-    // Re-check all application documents
+    // Re-check application documents against required checklist
     const allDocs = await db.applicationDocument.findMany({
       where: { applicationId: doc.applicationId },
     })
-    const allVerified = allDocs.every((d) => d.status === 'VERIFIED' || d.verified)
+    const admCfg = getAdmissionConfig(await getDomainConfig(scope.tenantId, 'ADMISSION'))
+    const requiredDocTypes: DocumentType[] = (admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']) as DocumentType[]
+    const allRequiredVerified = requiredDocTypes.every((req) =>
+      allDocs.some((d) => d.docType === req && (d.status === 'VERIFIED' || d.verified))
+    )
     const hasRejected = allDocs.some((d) => d.status === 'REJECTED')
 
     let newAppStatus: ApplicationStatus = doc.application.status
-    if (allVerified && ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW', 'UNDER_REVIEW'].includes(doc.application.status)) {
+    if (allRequiredVerified && !hasRejected && ['SUBMITTED', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW', 'UNDER_REVIEW'].includes(doc.application.status)) {
       newAppStatus = 'VERIFIED'
       await db.admissionApplication.update({
         where: { id: doc.applicationId },
         data: { status: 'VERIFIED', verifiedAt: new Date() },
       })
-    } else if (hasRejected || action === 'NEEDS_CORRECTION' || !allVerified) {
+    } else if (hasRejected || action === 'NEEDS_CORRECTION' || !allRequiredVerified) {
       if (doc.application.status === 'VERIFIED') {
         newAppStatus = 'DOCUMENT_PENDING'
         await db.admissionApplication.update({
@@ -939,7 +995,7 @@ export class AdmissionService {
       summary: `Document ${doc.docType} for ${doc.application.applicationNumber}: ${action} ${remarks ? `(${remarks})` : ''}`,
     })
 
-    return { document: updatedDoc, applicationStatus: newAppStatus, allVerified }
+    return { document: updatedDoc, applicationStatus: newAppStatus, allVerified: allRequiredVerified }
   }
 
   // =========================================================================
@@ -1061,13 +1117,19 @@ export class AdmissionService {
       targetBranchId
     )
 
-    // 2. Document checklist check
+    // 2. Document checklist check with Mandatory vs Optional policy
     const admCfg = getAdmissionConfig(await getDomainConfig(scope.tenantId, 'ADMISSION'))
-    const requiredDocs = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
+    const requiredDocTypes: string[] = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
+    const missingRequired = requiredDocTypes.filter((reqType) => {
+      const match = app.documents.find((d) => d.docType === reqType && (d.status === 'VERIFIED' || d.verified))
+      return !match
+    })
+    const rejectedDocs = app.documents.filter((d) => d.status === 'REJECTED')
+    const hasRejectedDocs = rejectedDocs.length > 0
     const verifiedDocCount = app.documents.filter((d) => d.status === 'VERIFIED' || d.verified).length
-    const rejectedDocCount = app.documents.filter((d) => d.status === 'REJECTED').length
+    const rejectedDocCount = rejectedDocs.length
     const totalDocCount = app.documents.length
-    const documentsComplete = verifiedDocCount === totalDocCount && totalDocCount > 0 && rejectedDocCount === 0
+    const documentsComplete = missingRequired.length === 0 && !hasRejectedDocs
 
     // 3. Classrooms and Capacity
     const classrooms = await db.classroom.findMany({
@@ -1147,8 +1209,16 @@ export class AdmissionService {
 
     const isReadyForApproval = ageCheck.eligible && documentsComplete && hasAvailableCapacity
 
+    const documentsWithPolicy = app.documents.map((d) => ({
+      ...d,
+      isMandatory: requiredDocTypes.includes(d.docType),
+    }))
+
+    const normalizedApp = ApplicationMetadataHelper.normalizeApplicationResponse(app)
+    ;(normalizedApp as any).documents = documentsWithPolicy
+
     return {
-      application: app,
+      application: normalizedApp,
       requirements: {
         ageRequirement: ageCheck,
         documentsCheck: {
@@ -1156,7 +1226,9 @@ export class AdmissionService {
           rejected: rejectedDocCount,
           total: totalDocCount,
           isComplete: documentsComplete,
-          missing: app.documents.filter((d) => d.status !== 'VERIFIED' && !d.verified).map((d) => d.docType),
+          missing: missingRequired,
+          requiredTotal: requiredDocTypes.length,
+          requiredVerified: requiredDocTypes.length - missingRequired.length,
         },
         capacityCheck: {
           hasAvailableCapacity,
@@ -1239,9 +1311,14 @@ export class AdmissionService {
       throw new Error('Cannot approve application: One or more documents are marked as Rejected. Request revised documents first.')
     }
 
-    const unverifiedDocs = app.documents.filter((d) => d.status !== 'VERIFIED' && !d.verified)
-    if (unverifiedDocs.length > 0) {
-      throw new Error(`Cannot approve application: ${unverifiedDocs.length} required documents are still pending verification.`)
+    const admCfg = getAdmissionConfig(await getDomainConfig(scope.tenantId, 'ADMISSION'))
+    const requiredDocTypes: string[] = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
+    const missingOrUnverifiedRequired = requiredDocTypes.filter((reqType) => {
+      const match = app.documents.find((d) => d.docType === reqType && (d.verified || d.status === 'VERIFIED'))
+      return !match
+    })
+    if (missingOrUnverifiedRequired.length > 0) {
+      throw new Error(`Cannot approve application: ${missingOrUnverifiedRequired.length} required documents are still pending verification: ${missingOrUnverifiedRequired.join(', ')}`)
     }
 
     const updated = await db.admissionApplication.update({
@@ -1964,14 +2041,19 @@ export class AdmissionService {
       }
     }
 
-    // Document gate: no rejected documents and all must be verified
+    // Document gate: no rejected documents and all mandatory must be verified
     const hasRejectedDocs = app.documents.some((d) => d.status === 'REJECTED')
     if (hasRejectedDocs) {
       throw new Error('Cannot enroll application: One or more documents are marked as Rejected. Request revised documents first.')
     }
-    const unverifiedDocs = app.documents.filter((d) => d.status !== 'VERIFIED' && !d.verified)
-    if (unverifiedDocs.length > 0) {
-      throw new Error(`Cannot enroll application: ${unverifiedDocs.length} required documents are still pending verification.`)
+    const admCfg = getAdmissionConfig(await getDomainConfig(scope.tenantId, 'ADMISSION'))
+    const requiredDocTypes: string[] = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
+    const unverifiedRequired = requiredDocTypes.filter((reqType) => {
+      const match = app.documents.find((d) => d.docType === reqType && (d.verified || d.status === 'VERIFIED'))
+      return !match
+    })
+    if (unverifiedRequired.length > 0) {
+      throw new Error(`Cannot enroll application: ${unverifiedRequired.length} required documents are still pending verification: ${unverifiedRequired.join(', ')}`)
     }
 
     // Idempotent return if already enrolled
@@ -2865,5 +2947,300 @@ export class AdmissionService {
       failed: failedCount,
       records: results,
     }
+  }
+
+  /**
+   * Authoritative validation of allowed status transitions.
+   */
+  static validateStatusTransition(from: ApplicationStatus, to: ApplicationStatus) {
+    if (from === to) return true
+
+    const allowedTransitions: Record<ApplicationStatus, ApplicationStatus[]> = {
+      DRAFT: ['SUBMITTED', 'WITHDRAWN', 'REJECTED'],
+      SUBMITTED: ['DRAFT', 'UNDER_REVIEW', 'DOCUMENT_PENDING', 'DOCUMENT_REVIEW', 'WITHDRAWN', 'REJECTED'],
+      UNDER_REVIEW: ['DOCUMENT_PENDING', 'VERIFIED', 'APPROVED', 'WAITLISTED', 'REJECTED', 'WITHDRAWN'],
+      DOCUMENT_PENDING: ['UNDER_REVIEW', 'SUBMITTED', 'WITHDRAWN', 'REJECTED'],
+      DOCUMENT_REVIEW: ['UNDER_REVIEW', 'VERIFIED', 'DOCUMENT_PENDING', 'WITHDRAWN', 'REJECTED'],
+      VERIFIED: ['APPROVED', 'UNDER_REVIEW', 'WAITLISTED', 'REJECTED', 'WITHDRAWN'],
+      COUNSELLING: ['COUNSELLING_SCHEDULED', 'COUNSELLING_COMPLETED', 'UNDER_REVIEW', 'APPROVED', 'WITHDRAWN', 'REJECTED'],
+      COUNSELLING_SCHEDULED: ['COUNSELLING_COMPLETED', 'UNDER_REVIEW', 'WITHDRAWN', 'REJECTED'],
+      COUNSELLING_COMPLETED: ['UNDER_REVIEW', 'APPROVED', 'WITHDRAWN', 'REJECTED'],
+      PENDING_APPROVAL: ['APPROVED', 'UNDER_REVIEW', 'REJECTED', 'WITHDRAWN'],
+      APPROVED: ['OFFER_SENT', 'OFFER_ACCEPTED', 'ENROLLED', 'ADMITTED', 'WAITLISTED', 'REJECTED', 'WITHDRAWN'],
+      OFFER_SENT: ['OFFER_ACCEPTED', 'WITHDRAWN', 'REJECTED', 'EXPIRED'],
+      OFFER_ACCEPTED: ['ENROLLED', 'ADMITTED', 'WITHDRAWN'],
+      WAITLISTED: ['APPROVED', 'UNDER_REVIEW', 'WITHDRAWN', 'REJECTED'],
+      REJECTED: [],
+      WITHDRAWN: [],
+      EXPIRED: ['DRAFT', 'SUBMITTED'],
+      ENROLLED: [],
+      ADMITTED: [],
+    }
+
+    const permitted = allowedTransitions[from] || []
+    if (!permitted.includes(to)) {
+      throw new Error(`Invalid application status transition from ${from} to ${to}`)
+    }
+    return true
+  }
+
+  /**
+   * Update application fields, draft progress, additional guardians, or metadata.
+   * STRICT INVARIANT: Never creates student or parent portal accounts.
+   */
+  static async updateApplication(
+    ctx: ScopeContext,
+    applicationId: string,
+    input: UpdateApplicationInput
+  ) {
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { documents: true },
+    })
+    if (!app) throw new Error('Application not found')
+
+    if (app.status === 'ENROLLED' || app.status === 'ADMITTED') {
+      throw new Error('Cannot modify an already enrolled application')
+    }
+
+    assertActorResourceScope(
+      {
+        tenantId: ctx.tenantId,
+        branchId: ctx.branchId,
+        role: (ctx.actorRole || 'OWNER') as any,
+        roles: (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole || 'OWNER']) as any,
+      },
+      {
+        tenantId: app.tenantId,
+        branchId: app.branchId,
+      }
+    )
+
+    let firstName = input.childFirstName !== undefined ? input.childFirstName.trim() : app.childFirstName
+    let lastName = input.childLastName !== undefined ? (input.childLastName ? input.childLastName.trim() : null) : app.childLastName
+
+    if (input.childFullName?.trim() && input.childFirstName === undefined) {
+      const parts = input.childFullName.trim().split(/\s+/)
+      firstName = parts[0]
+      lastName = parts.slice(1).join(' ') || null
+    }
+
+    let programRecordId = app.programId
+    let programTypeValue = app.programType
+
+    if (input.programId || input.programType) {
+      const pRecord = await db.program.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          deletedAt: null,
+          isActive: true,
+          ...(input.programId ? { id: input.programId } : { programType: input.programType as ProgramType }),
+        },
+      })
+      if (pRecord) {
+        programRecordId = pRecord.id
+        programTypeValue = pRecord.programType
+      }
+    }
+
+    let targetStatus = app.status
+    let submittedAt = app.submittedAt
+
+    if (input.isDraft === true || input.status === 'DRAFT') {
+      if (app.status === 'DRAFT' || app.status === 'SUBMITTED') {
+        targetStatus = 'DRAFT'
+      }
+    } else if (input.status === 'SUBMITTED' || (app.status === 'DRAFT' && input.isDraft === false)) {
+      if (!firstName || (!input.childDob && !app.childDob) || (!input.parentName && !app.parentName) || (!input.parentPhone && !app.parentPhone)) {
+        throw new Error('Child first name, date of birth, parent name, and parent phone are mandatory to submit application')
+      }
+      targetStatus = 'SUBMITTED'
+      submittedAt = submittedAt || new Date()
+    } else if (input.status) {
+      this.validateStatusTransition(app.status, input.status)
+      targetStatus = input.status
+    }
+
+    const metaUpdates: Record<string, any> = {}
+    if (input.bloodGroup !== undefined) metaUpdates.bloodGroup = input.bloodGroup
+    if (input.emergencyContact !== undefined) metaUpdates.emergencyContact = input.emergencyContact
+    if (input.address !== undefined) metaUpdates.address = input.address
+    if (input.medicalNotes !== undefined) metaUpdates.medicalNotes = input.medicalNotes
+    if (input.meetingNotes !== undefined) metaUpdates.meetingNotes = input.meetingNotes
+    if (input.alternatePhone !== undefined) metaUpdates.alternatePhone = input.alternatePhone
+    if (input.middleName !== undefined) metaUpdates.middleName = input.middleName
+    if (input.additionalGuardians !== undefined) metaUpdates.additionalGuardians = input.additionalGuardians
+    if (input.declarations !== undefined) metaUpdates.declarations = input.declarations
+    metaUpdates.isDraft = targetStatus === 'DRAFT'
+
+    const updatedNotes = ApplicationMetadataHelper.merge(app.notes, metaUpdates, input.notes)
+
+    const updated = await db.admissionApplication.update({
+      where: { id: applicationId },
+      data: {
+        childFirstName: firstName,
+        childLastName: lastName,
+        ...(input.childDob ? { childDob: new Date(input.childDob) } : {}),
+        ...(input.childGender ? { childGender: input.childGender as Gender } : {}),
+        ...(input.parentName ? { parentName: input.parentName.trim() } : {}),
+        ...(input.parentPhone ? { parentPhone: input.parentPhone.trim() } : {}),
+        ...(input.parentEmail !== undefined ? { parentEmail: input.parentEmail ? input.parentEmail.trim() : null } : {}),
+        ...(input.previousSchool !== undefined ? { previousSchool: input.previousSchool ? input.previousSchool.trim() : null } : {}),
+        programId: programRecordId,
+        programType: programTypeValue,
+        status: targetStatus,
+        submittedAt,
+        notes: updatedNotes,
+      },
+      include: {
+        documents: true,
+        offers: true,
+        lead: true,
+      },
+    })
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: targetStatus === 'SUBMITTED' && app.status === 'DRAFT' ? 'APPLICATION_SUBMITTED' : 'APPLICATION_UPDATED',
+      entity: 'AdmissionApplication',
+      entityId: applicationId,
+      summary: `Application ${app.applicationNumber} updated (${targetStatus})`,
+      oldValues: { status: app.status },
+      newValues: { status: targetStatus },
+    })
+
+    return ApplicationMetadataHelper.normalizeApplicationResponse(updated)
+  }
+
+  /**
+   * Attach an uploaded document to an application with real file details.
+   */
+  static async attachDocument(
+    ctx: ScopeContext,
+    applicationId: string,
+    data: {
+      docType: DocumentType
+      fileName: string
+      remarks?: string
+    }
+  ) {
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { documents: true },
+    })
+    if (!app) throw new Error('Application not found')
+
+    if (app.status === 'ENROLLED' || app.status === 'ADMITTED') {
+      throw new Error('Cannot modify documents for an already enrolled application')
+    }
+
+    assertActorResourceScope(
+      {
+        tenantId: ctx.tenantId,
+        branchId: ctx.branchId,
+        role: (ctx.actorRole || 'OWNER') as any,
+        roles: (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole || 'OWNER']) as any,
+      },
+      {
+        tenantId: app.tenantId,
+        branchId: app.branchId,
+      }
+    )
+
+    // Check if an existing placeholder document exists for this docType
+    const existing = app.documents.find((d) => d.docType === data.docType)
+    let docResult
+    if (existing) {
+      docResult = await db.applicationDocument.update({
+        where: { id: existing.id },
+        data: {
+          fileName: data.fileName,
+          status: 'UPLOADED',
+          verified: false,
+          verifiedAt: null,
+          rejectionReason: null,
+          uploadedAt: new Date(),
+          remarks: data.remarks || null,
+        },
+      })
+    } else {
+      docResult = await db.applicationDocument.create({
+        data: {
+          applicationId,
+          docType: data.docType,
+          fileName: data.fileName,
+          status: 'UPLOADED',
+          verified: false,
+          uploadedAt: new Date(),
+          remarks: data.remarks || null,
+        },
+      })
+    }
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'DOC_ATTACH',
+      entity: 'ApplicationDocument',
+      entityId: docResult.id,
+      summary: `Document ${data.docType} uploaded for application ${app.applicationNumber}: ${data.fileName}`,
+    })
+
+    return docResult
+  }
+
+  /**
+   * Remove or reset an uploaded document.
+   */
+  static async removeDocument(ctx: ScopeContext, applicationId: string, documentId: string) {
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { documents: true },
+    })
+    if (!app) throw new Error('Application not found')
+
+    if (app.status === 'ENROLLED' || app.status === 'ADMITTED') {
+      throw new Error('Cannot remove documents from an enrolled application')
+    }
+
+    const doc = app.documents.find((d) => d.id === documentId)
+    if (!doc) throw new Error('Document not found')
+
+    // Reset to NOT_UPLOADED to preserve checklist slot
+    const updated = await db.applicationDocument.update({
+      where: { id: documentId },
+      data: {
+        fileName: `${doc.docType.toLowerCase().replace(/_/g, '-')}`,
+        status: 'NOT_UPLOADED',
+        verified: false,
+        verifiedAt: null,
+        rejectionReason: null,
+        remarks: null,
+      },
+    })
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'DOC_REMOVED',
+      entity: 'ApplicationDocument',
+      entityId: documentId,
+      summary: `Document ${doc.docType} removed from application ${app.applicationNumber}`,
+    })
+
+    return updated
   }
 }
