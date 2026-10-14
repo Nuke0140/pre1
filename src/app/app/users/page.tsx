@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Briefcase, Baby, ShieldCheck, ArrowRight } from 'lucide-react'
+import { ShieldCheck, ArrowRight } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { PageHead, Card } from '@/components/preone/ui'
 import { StaffUsersIllustration, FamilyUsersIllustration } from '@/components/preone/illustrations'
@@ -76,17 +76,17 @@ export default function UsersLauncherPage() {
             variant="nav"
             className="group"
           >
-            {/* Top Row: Icon + Status Badge */}
+            {/* Top Row: Category Tag + Status Badge (Old Lucide code icon removed) */}
             <div className="flex items-center justify-between gap-3 w-full">
-              <div className="tile-ico ic-purple w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
-                <Briefcase className="w-5 h-5 sm:w-7 sm:h-7" />
-              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-800/40">
+                Staff Directory
+              </span>
               <span className="badge b-primary text-[11px] sm:text-xs font-semibold px-2.5 py-0.5 sm:px-3 sm:py-1 shrink-0">
                 {stats.loading ? '...' : t('users.activeStaffBadge', { count: stats.staffActive })}
               </span>
             </div>
 
-            {/* Middle Content: Heading, Description & Illustration */}
+            {/* Middle Content: Heading, Description & Transparent 3D Icon */}
             <div className="flex flex-row items-center justify-between gap-3 my-2 sm:my-5 w-full">
               <div className="space-y-1 sm:space-y-2 min-w-0 flex-1">
                 <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-primary transition-colors">
@@ -99,14 +99,14 @@ export default function UsersLauncherPage() {
               <div className="shrink-0 flex items-center justify-center">
                 <div className="block sm:hidden">
                   <StaffUsersIllustration
-                    size={76}
-                    className="transition-transform duration-300 group-hover:scale-105"
+                    size={72}
+                    className="transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
                   />
                 </div>
                 <div className="hidden sm:block">
                   <StaffUsersIllustration
-                    size={128}
-                    className="transition-transform duration-300 group-hover:scale-105"
+                    size={112}
+                    className="transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
                   />
                 </div>
               </div>
@@ -130,17 +130,17 @@ export default function UsersLauncherPage() {
             variant="nav"
             className="group"
           >
-            {/* Top Row: Icon + Status Badge */}
+            {/* Top Row: Category Tag + Status Badge (Old Lucide code icon removed) */}
             <div className="flex items-center justify-between gap-3 w-full">
-              <div className="tile-ico ic-orange w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
-                <Baby className="w-5 h-5 sm:w-7 sm:h-7" />
-              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-0.5 rounded-full border border-amber-200/50 dark:border-amber-800/40">
+                Family Directory
+              </span>
               <span className="badge b-amber text-[11px] sm:text-xs font-semibold px-2.5 py-0.5 sm:px-3 sm:py-1 shrink-0">
                 {stats.loading ? '...' : t('users.activeFamilyBadge', { parents: stats.parentsTotal, guardians: stats.guardiansTotal })}
               </span>
             </div>
 
-            {/* Middle Content: Heading, Description & Illustration */}
+            {/* Middle Content: Heading, Description & Transparent 3D Icon */}
             <div className="flex flex-row items-center justify-between gap-3 my-2 sm:my-5 w-full">
               <div className="space-y-1 sm:space-y-2 min-w-0 flex-1">
                 <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
@@ -153,14 +153,14 @@ export default function UsersLauncherPage() {
               <div className="shrink-0 flex items-center justify-center">
                 <div className="block sm:hidden">
                   <FamilyUsersIllustration
-                    size={76}
-                    className="transition-transform duration-300 group-hover:scale-105"
+                    size={80}
+                    className="transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
                   />
                 </div>
                 <div className="hidden sm:block">
                   <FamilyUsersIllustration
                     size={128}
-                    className="transition-transform duration-300 group-hover:scale-105"
+                    className="transition-transform duration-300 group-hover:scale-105 drop-shadow-sm"
                   />
                 </div>
               </div>

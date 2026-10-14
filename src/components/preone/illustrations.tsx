@@ -7,18 +7,21 @@ export interface IllustrationProps extends React.SVGProps<SVGSVGElement> {
 
 /**
  * Friendly preschool staff / educator illustration
- * Renders the 3D staff team artwork with smooth scaling and hardware acceleration
+ * Renders the 3D staff team transparent artwork with smooth scaling and hardware acceleration
  */
 export function StaffUsersIllustration({
   className = '',
   size = 140,
   ...props
 }: IllustrationProps) {
+  const numericWidth = typeof size === 'number' ? size : parseInt(String(size), 10) || 140
+  const numericHeight = Math.round((numericWidth * 401) / 320)
+
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 415 415"
+      height={numericHeight}
+      viewBox="0 0 320 401"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`select-none ${className}`}
@@ -29,8 +32,8 @@ export function StaffUsersIllustration({
       <image
         href="/animations/staff_users.webp"
         xlinkHref="/animations/staff_users.webp"
-        width="415"
-        height="415"
+        width="320"
+        height="401"
         preserveAspectRatio="xMidYMid meet"
       />
     </svg>
@@ -39,18 +42,21 @@ export function StaffUsersIllustration({
 
 /**
  * Friendly preschool family illustration
- * Renders the 3D family artwork with smooth scaling and hardware acceleration
+ * Renders the 3D family transparent artwork with smooth scaling and hardware acceleration
  */
 export function FamilyUsersIllustration({
   className = '',
   size = 140,
   ...props
 }: IllustrationProps) {
+  const numericWidth = typeof size === 'number' ? size : parseInt(String(size), 10) || 140
+  const numericHeight = Math.round((numericWidth * 245) / 320)
+
   return (
     <svg
       width={size}
-      height={size}
-      viewBox="0 0 379 379"
+      height={numericHeight}
+      viewBox="0 0 320 245"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={`select-none ${className}`}
@@ -61,8 +67,8 @@ export function FamilyUsersIllustration({
       <image
         href="/animations/family_users.webp"
         xlinkHref="/animations/family_users.webp"
-        width="379"
-        height="379"
+        width="320"
+        height="245"
         preserveAspectRatio="xMidYMid meet"
       />
     </svg>
