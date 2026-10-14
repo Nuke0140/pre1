@@ -92,6 +92,13 @@ describe('Cheap Hardening Sprint (P3/P4 Verification Suite)', () => {
       // Heading must strictly enclose {title} without badge inside
       expect(uiFile).toContain('<h1 className="page-title" style={{ margin: 0 }}>\n            {title}\n          </h1>\n          {badge && <span className="page-head-badge">{badge}</span>}')
       expect(uiFile).not.toContain('<h1 className="page-title" style={{ margin: 0 }}>\n            {title}\n            {badge')
+
+      // TransportClient passes clean title and M09 as separate badge with aria-label
+      const transportFile = await Bun.file('src/app/app/transport/TransportClient.tsx').text()
+      expect(transportFile).toContain('title="Transport & Child Safety Operations"')
+      expect(transportFile).not.toContain('title="Transport & Child Safety Operations M09"')
+      expect(transportFile).toContain('aria-label="Module M09"')
+      expect(transportFile).toContain('M09')
     })
   })
 

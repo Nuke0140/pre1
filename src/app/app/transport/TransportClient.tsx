@@ -1502,6 +1502,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
         title="Transport & Child Safety Operations"
         badge={
           <span
+            aria-label="Module M09"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
