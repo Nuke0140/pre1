@@ -118,10 +118,35 @@ describe('BUG-022: Students Page Payload Smoke Test & Runtime Safety', () => {
 
       // Simulate Mobile Card Classroom
       const mobileClassroom = s.classroom?.name || (typeof s.classroom === 'string' ? s.classroom : null) || 'Unassigned Classroom'
-      const mobileTeacher = s.classroom?.teacher || 'No primary educator'
+      const rawTeacher = s.classroom?.teacher
+      const mobileTeacher = (typeof rawTeacher === 'object' && rawTeacher ? (rawTeacher as any).fullName || (rawTeacher as any).name : rawTeacher) || 'No primary educator'
       expect(mobileClassroom).not.toBe('[object Object]')
       expect(mobileTeacher).not.toBe('[object Object]')
     }
+
+    // Edge case 1: classroom.teacher as full object
+    const studentWithObjectTeacher = {
+      classroom: {
+        id: 'cls-1',
+        name: 'Sunflowers',
+        code: 'SUN-1',
+        programType: 'PRESCHOOL',
+        teacher: { id: 'usr-1', fullName: 'Ms. Emily Watson', email: 'emily@preone.internal' }
+      }
+    }
+    const teacherName = (typeof studentWithObjectTeacher.classroom.teacher === 'object' && studentWithObjectTeacher.classroom.teacher
+      ? (studentWithObjectTeacher.classroom.teacher as any).fullName
+      : studentWithObjectTeacher.classroom.teacher) || 'No primary educator'
+    expect(teacherName).toBe('Ms. Emily Watson')
+
+    // Edge case 2: classroom as string
+    const studentWithStringClass = {
+      classroom: 'Preschool Blue'
+    }
+    const stringClsName = typeof studentWithStringClass.classroom === 'object' && studentWithStringClass.classroom
+      ? (studentWithStringClass.classroom as any).name
+      : studentWithStringClass.classroom
+    expect(stringClsName).toBe('Preschool Blue')
   })
 
   it('re-verifies BUG-017 responsive layout: stat grid has 2-column mobile reflow with min-w-0', async () => {

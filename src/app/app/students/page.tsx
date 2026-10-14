@@ -404,28 +404,41 @@ export default function StudentsPage() {
       key: 'classroom',
       header: t('students.classSection'),
       sortable: true,
-      sortValue: (s) => s.classroom?.name || '',
-      export: (s) => s.classroom ? `${s.classroom.name} (${s.classroom.code})` : t('students.unassigned'),
-      render: (s) =>
-        s.classroom ? (
+      sortValue: (s) => (typeof s.classroom === 'object' && s.classroom ? s.classroom.name : typeof s.classroom === 'string' ? s.classroom : ''),
+      export: (s) => {
+        if (!s.classroom) return t('students.unassigned')
+        if (typeof s.classroom === 'string') return s.classroom
+        return `${s.classroom.name || ''}${s.classroom.code ? ` (${s.classroom.code})` : ''}`
+      },
+      render: (s) => {
+        const cls = s.classroom
+        const clsName = typeof cls === 'object' && cls ? cls.name : typeof cls === 'string' ? cls : null
+        const progType = typeof cls === 'object' && cls?.programType ? cls.programType : s.programType
+        const teacherVal = typeof cls === 'object' && cls?.teacher ? cls.teacher : null
+        const teacherName = typeof teacherVal === 'object' && teacherVal ? (teacherVal as any).fullName || (teacherVal as any).name : teacherVal
+
+        return clsName ? (
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
-                {s.classroom.name}
+                {clsName}
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40">
-                {enumLabel(s.classroom.programType)}
-              </span>
+              {progType && (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 border border-purple-200/50 dark:border-purple-800/40">
+                  {enumLabel(progType)}
+                </span>
+              )}
             </div>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {s.classroom.teacher ? `${t('students.educator')}: ${s.classroom.teacher}` : t('students.noPrimaryTeacher')}
+              {teacherName ? `${t('students.educator')}: ${teacherName}` : t('students.noPrimaryTeacher')}
             </span>
           </div>
         ) : (
           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
             {t('students.unassigned')}
           </span>
-        ),
+        )
+      },
     },
     {
       key: 'dob',
@@ -1209,7 +1222,7 @@ export default function StudentsPage() {
                           {s.classroom?.name || 'Unassigned Classroom'}
                         </div>
                         <div className="text-slate-500 dark:text-slate-400">
-                          {s.classroom?.teacher || 'No primary educator'}
+                          {(typeof s.classroom?.teacher === 'object' && s.classroom?.teacher ? (s.classroom.teacher as any).fullName || (s.classroom.teacher as any).name : s.classroom?.teacher) || 'No primary educator'}
                         </div>
                       </div>
 
