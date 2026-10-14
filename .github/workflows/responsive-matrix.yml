@@ -1,0 +1,57 @@
+name: Responsive Viewport Matrix CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  responsive-matrix:
+    name: Viewport Matrix & Visual Diff Guardrail
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Design System & Responsive Unit/Contract Tests
+        run: bun test tests/design-system/responsive-transformation.test.ts
+
+      - name: Build Next.js application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright Responsive Viewport Matrix (7 pages x 9 viewports)
+        run: npx playwright test tests/e2e/responsive-matrix.spec.ts
+        env:
+          CI: 1
+          PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
+
+      - name: Upload visual regression snapshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: responsive-matrix-snapshots
+          path: tests/visual-regression/snapshots/
+          retention-days: 14

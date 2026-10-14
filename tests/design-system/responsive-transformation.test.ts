@@ -339,6 +339,58 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(globalsCss).toContain('.taskbar.preone-dock')
     })
   })
+
+  describe('Phase 5 — Guardrails & Continuous Integration (Playwright Matrix & DoD)', () => {
+    it('verifies responsive audit probe tests for (a) element overflow without scrollable ancestor, (b) page h-scroll, and (c) profile button', async () => {
+      const probeFile = await Bun.file('tests/e2e/responsive-probe.ts').text()
+      expect(probeFile).toContain('export async function auditResponsiveProbe')
+      expect(probeFile).toContain('hasPageHScroll')
+      expect(probeFile).toContain('clippedElements')
+      expect(probeFile).toContain('profileButtonInViewport')
+      expect(probeFile).toContain('hasScrollableAncestor')
+    })
+
+    it('verifies Playwright viewport matrix covers all 7 core pages across all 9 standard viewports', async () => {
+      const matrixFile = await Bun.file('tests/e2e/responsive-matrix.spec.ts').text()
+      // 7 core pages
+      expect(matrixFile).toContain("name: 'home'")
+      expect(matrixFile).toContain("name: 'students'")
+      expect(matrixFile).toContain("name: 'daily-diary'")
+      expect(matrixFile).toContain("name: 'finance'")
+      expect(matrixFile).toContain("name: 'admissions'")
+      expect(matrixFile).toContain("name: 'settings'")
+      expect(matrixFile).toContain("name: 'audit'")
+      // 9 standard viewports
+      expect(matrixFile).toContain('width: 320')
+      expect(matrixFile).toContain('width: 390')
+      expect(matrixFile).toContain('width: 667, height: 375')
+      expect(matrixFile).toContain('width: 768')
+      expect(matrixFile).toContain('width: 820')
+      expect(matrixFile).toContain('width: 1024')
+      expect(matrixFile).toContain('width: 1280')
+      expect(matrixFile).toContain('width: 1440')
+      expect(matrixFile).toContain('width: 1920')
+      // Visual regression screenshots
+      expect(matrixFile).toContain('await page.screenshot')
+    })
+
+    it('verifies CI workflow executes Playwright viewport matrix and unit test suite', async () => {
+      const workflowFile = await Bun.file('.github/workflows/responsive-matrix.yml').text()
+      expect(workflowFile).toContain('bun test tests/design-system/responsive-transformation.test.ts')
+      expect(workflowFile).toContain('npx playwright test tests/e2e/responsive-matrix.spec.ts')
+      expect(workflowFile).toContain('responsive-matrix-snapshots')
+    })
+
+    it('verifies Definition of Done document specifies fits 320, rails scrollable, header intact, controls reachable one-handed', async () => {
+      const dodFile = await Bun.file('docs/RESPONSIVE_DEFINITION_OF_DONE.md').text()
+      expect(dodFile).toContain('Fits 320 (Mobile Zero-Overflow)')
+      expect(dodFile).toContain('Rails Scrollable (Managed Scroll Containers)')
+      expect(dodFile).toContain('Header Intact (Collapsible Workspace Topbar)')
+      expect(dodFile).toContain('Controls Reachable One-Handed (Touch Targets & Reach)')
+      expect(dodFile).toContain('min-height: 44px !important')
+      expect(dodFile).toContain('rail-edge-fade')
+    })
+  })
 })
 
 
