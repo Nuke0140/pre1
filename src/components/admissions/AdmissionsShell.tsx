@@ -111,10 +111,10 @@ export function AdmissionsShell({
         </div>
 
         {/* Global / Action Controls */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Branch Selector */}
           {branches.length > 0 && onBranchChange && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-xs max-w-full min-w-0">
               <Building size={13} className="text-primary shrink-0" />
               <span className="text-[11px] font-semibold text-muted-foreground shrink-0 hidden sm:inline">
                 Branch:
@@ -122,7 +122,7 @@ export function AdmissionsShell({
               <select
                 value={selectedBranchId}
                 onChange={(e) => onBranchChange(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[190px] truncate"
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[190px] truncate max-w-full min-w-0"
               >
                 {branches.length > 1 && (
                   <option value="__ALL_BRANCHES__">
@@ -140,7 +140,7 @@ export function AdmissionsShell({
 
           {/* Academic Session Selector (Displayed only when relevant) */}
           {showSessionFilter && sessions.length > 0 && onSessionChange && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-xs max-w-full min-w-0">
               <Calendar size={13} className="text-primary shrink-0" />
               <span className="text-[11px] font-semibold text-muted-foreground shrink-0 hidden sm:inline">
                 Session:
@@ -148,7 +148,7 @@ export function AdmissionsShell({
               <select
                 value={selectedSessionId}
                 onChange={(e) => onSessionChange(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[150px] truncate"
+                className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-[150px] truncate max-w-full min-w-0"
               >
                 {sessions.map((s) => (
                   <option key={s.id} value={s.id}>

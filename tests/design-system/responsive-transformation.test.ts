@@ -418,6 +418,7 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       const feesFile = await Bun.file('src/app/app/fees/page.tsx').text()
       expect(feesFile).toContain('focus:ring-indigo-500 outline-none max-w-full min-w-0')
       expect(feesFile).toContain('flex flex-wrap items-center justify-between p-3 bg-slate-50/80')
+      expect(feesFile).toContain('max-w-[calc(100vw-140px)] sm:max-w-none')
 
       // 2. Admissions Applications filter bar
       const applicationsFile = await Bun.file('src/app/app/admissions/applications/page.tsx').text()
@@ -435,13 +436,23 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(followUpsFile).toContain('max-w-[130px] max-w-full min-w-0')
       expect(followUpsFile).toContain('max-w-[140px] max-w-full min-w-0')
 
-      // 5. Admissions Root Campus/Session strip
+      // 5. Admissions Root Campus/Session strip & Waitlist sub-filters
       const admissionsRootFile = await Bun.file('src/app/app/admissions/page.tsx').text()
       expect(admissionsRootFile).toContain('cursor-pointer pr-1 max-w-full min-w-0')
+      expect(admissionsRootFile).toContain('truncate max-w-[calc(100vw-110px)] sm:max-w-none')
+      expect(admissionsRootFile).toContain('truncate max-w-[calc(100vw-150px)] sm:max-w-none')
 
-      // 6. Global CSS baseline rule
+      // 6. AdmissionsShell action bar and selects
+      const shellFile = await Bun.file('src/components/admissions/AdmissionsShell.tsx').text()
+      expect(shellFile).toContain('flex flex-wrap items-center gap-2 min-w-0 max-w-full')
+      expect(shellFile).toContain('max-w-[190px] truncate max-w-full min-w-0')
+      expect(shellFile).toContain('max-w-[150px] truncate max-w-full min-w-0')
+
+      // 7. Global CSS baseline rule & flex-wrap select overflow prevention
       const globalsCss = await Bun.file('src/app/globals.css').text()
       expect(globalsCss).toContain('width:100%;max-width:100%;min-width:0;')
+      expect(globalsCss).toContain('.flex-wrap select')
+      expect(globalsCss).toContain('text-overflow: ellipsis;')
     })
 
     it('verifies Phase 5 promoted Playwright assert expect(page).toPassResponsiveProbe and baseline sweep fixture', async () => {

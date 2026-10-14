@@ -1013,7 +1013,7 @@ export default function FeesPage() {
                 <Building2 className="size-4 text-slate-500 shrink-0" />
                 <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">Filter by Campus:</span>
                 <select
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none max-w-full min-w-0"
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none max-w-full min-w-0 truncate max-w-[calc(100vw-140px)] sm:max-w-none"
                   value={selectedBranchFilter}
                   onChange={(e) => setSelectedBranchFilter(e.target.value)}
                 >

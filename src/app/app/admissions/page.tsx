@@ -2318,7 +2318,7 @@ export default function AdmissionsPage() {
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0"
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0 truncate max-w-[calc(100vw-110px)] sm:max-w-none"
             >
               {branches.length > 1 && (
                 <option value="__ALL_BRANCHES__">
@@ -2340,7 +2340,7 @@ export default function AdmissionsPage() {
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0"
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0 truncate max-w-[calc(100vw-150px)] sm:max-w-none"
             >
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -3357,14 +3357,14 @@ export default function AdmissionsPage() {
               </div>
 
               {/* Sub-Filters */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
                 {/* Priority Filter */}
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/60 text-xs">
-                  <span className="text-[11px] font-semibold text-muted-foreground">Priority:</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/60 text-xs max-w-full min-w-0">
+                  <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Priority:</span>
                   <select
                     value={wlPriorityFilter}
                     onChange={(e) => setWlPriorityFilter(e.target.value as any)}
-                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-full min-w-0 truncate"
                   >
                     <option value="ALL">All Priorities</option>
                     <option value="NORMAL">Normal Priority</option>
@@ -3373,12 +3373,12 @@ export default function AdmissionsPage() {
                 </div>
 
                 {/* Status Filter */}
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/60 text-xs">
-                  <span className="text-[11px] font-semibold text-muted-foreground">Status:</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/60 text-xs max-w-full min-w-0">
+                  <span className="text-[11px] font-semibold text-muted-foreground shrink-0">Status:</span>
                   <select
                     value={wlStatusFilter}
                     onChange={(e) => setWlStatusFilter(e.target.value)}
-                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer max-w-full min-w-0 truncate"
                   >
                     <option value="ALL">All Statuses</option>
                     <option value="ACTIVE">In Queue (Active)</option>
