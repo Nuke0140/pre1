@@ -688,7 +688,7 @@ export default function FeesPage() {
     const activeChild = parentChildren[selectedChildIndex]
 
     return (
-      <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+      <div className="w-full min-w-0 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-6">
         <PageHead
           breadcrumbs={[
             { label: t('nav.home'), href: '/app' },
@@ -757,8 +757,8 @@ export default function FeesPage() {
                   message="Fee schedule for this academic session has not been published yet."
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto w-full min-w-0 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                  <table className="w-full min-w-[680px] text-left text-sm">
                     <thead>
                       <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
                         <th className="p-3">Fee Item</th>
@@ -834,8 +834,8 @@ export default function FeesPage() {
                   message="No recorded payments found for this student."
                 />
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
-                  <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto w-full min-w-0 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                  <table className="w-full min-w-[780px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 font-semibold text-xs">
                         <th className="p-3">Payment #</th>
@@ -874,7 +874,7 @@ export default function FeesPage() {
   // ADMIN & STAFF MANAGEMENT VIEW
   // =========================================================================
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="w-full min-w-0 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-6">
       <PageHead
         breadcrumbs={[
           { label: t('nav.home'), href: '/app' },
@@ -953,7 +953,7 @@ export default function FeesPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6">
+      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6 w-full min-w-0 overflow-x-auto scrollbar-none touch-pan-x whitespace-nowrap">
         {[
           { key: 'STRUCTURES', label: t('fees.feeStructuresTab'), icon: Layers },
           { key: 'SCHEDULES', label: 'Student Dues & Schedules', icon: Calendar },
@@ -966,7 +966,7 @@ export default function FeesPage() {
             <button
               key={tItem.key}
               onClick={() => setActiveTab(tItem.key as any)}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 ${
+              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 shrink-0 ${
                 isActive
                   ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                   : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
@@ -1294,8 +1294,8 @@ export default function FeesPage() {
               }
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="overflow-x-auto w-full min-w-0 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <table className="w-full min-w-[980px] text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
                     <th className="p-3">Student Name</th>
@@ -1400,8 +1400,8 @@ export default function FeesPage() {
               message="Refundable security deposits will appear here once recorded for enrolled students."
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
-              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="overflow-x-auto w-full min-w-0 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <table className="w-full min-w-[880px] text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
                     <th className="p-3">Student Name</th>
@@ -1505,8 +1505,8 @@ export default function FeesPage() {
               message="Payments recorded against fee schedules will appear here."
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
-              <table className="w-full text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="overflow-x-auto w-full min-w-0 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <table className="w-full min-w-[920px] text-left text-sm divide-y divide-slate-100 dark:divide-slate-800">
                 <thead>
                   <tr className="bg-slate-50/80 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 font-semibold text-xs">
                     <th className="p-3">Payment #</th>

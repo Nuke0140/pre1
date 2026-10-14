@@ -927,6 +927,8 @@ export default function StudentsPage() {
                 columns={columns}
                 data={rows}
                 loading={loading}
+                minWidth={950}
+                tableClassName="min-w-[950px]"
                 onRowClick={(s) => setInspectingStudent(s)}
                 emptyIcon={<Users size={36} className="text-purple-500" />}
                 emptyTitle={activeFiltersCount > 0 ? "No students found" : "No students yet"}

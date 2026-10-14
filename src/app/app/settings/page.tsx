@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import {
   Building2,
   Sliders,
@@ -169,6 +169,21 @@ export default function SettingsControlCenter() {
   }, [loadData])
 
   // Tab change with unsaved protection
+  const tabRailRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (tabRailRef.current) {
+      const activeBtn = tabRailRef.current.querySelector<HTMLElement>(`[data-tab-id="${activeTab}"]`)
+      if (activeBtn) {
+        activeBtn.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'center',
+        })
+      }
+    }
+  }, [activeTab])
+
   const handleTabChange = (newTab: string) => {
     if (dirty) {
       if (!confirm('You have unsaved changes. Are you sure you want to discard them?')) {
@@ -413,7 +428,11 @@ export default function SettingsControlCenter() {
       </div>
 
       {/* Desktop & Tablet Navigation Tabs (≥ md) */}
-      <div className="hidden md:block segmented-scroll overflow-x-auto touch-pan-x w-full min-w-0 max-w-full" style={{ whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>
+      <div
+        ref={tabRailRef}
+        className="hidden md:block segmented-scroll overflow-x-auto touch-pan-x rail-edge-fade scrollbar-none w-full min-w-0 max-w-full"
+        style={{ whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}
+      >
         <div style={{ display: 'inline-flex', gap: 6, paddingBottom: 8, minWidth: 'min-content' }}>
           {[
             { id: 'profile', label: 'School Profile', icon: Building2 },
@@ -435,6 +454,7 @@ export default function SettingsControlCenter() {
             return (
               <button
                 key={t.id}
+                data-tab-id={t.id}
                 onClick={() => handleTabChange(t.id)}
                 className={`btn ${active ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}

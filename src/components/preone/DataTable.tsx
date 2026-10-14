@@ -90,6 +90,10 @@ export interface DataTableProps<T extends { id?: string | number }> {
   selectionSummary?: React.ReactNode
   /** Keep the selection checkbox column pinned while scrolling horizontally. */
   stickyCheckColumn?: boolean
+  /** Minimum table width in pixels or CSS value to enforce horizontal rail scrolling */
+  minWidth?: number | string
+  /** Additional CSS class names on the <table> element */
+  tableClassName?: string
 }
 
 type MenuState = { kind: 'cols' } | { kind: 'kebab'; rowId: string } | { kind: 'filter'; colKey: string } | null
@@ -147,6 +151,8 @@ export function DataTable<T extends { id?: string | number }>({
   tableKey,
   selectionSummary,
   stickyCheckColumn,
+  minWidth,
+  tableClassName,
 }: DataTableProps<T>) {
   const { t } = useI18n()
   const effectiveSearchPlaceholder = searchPlaceholder || t('table.searchPlaceholder')
@@ -469,10 +475,13 @@ export function DataTable<T extends { id?: string | number }>({
         </div>
       )}
 
-      <div className="dtable-scroll">
+      <div className="dtable-scroll overflow-x-auto w-full min-w-0">
         <table
-          className={`dtable density-${density}${stickyCheckColumn ? ' bdt-sticky' : ''}`}
-          style={stickyCheckColumn ? { borderCollapse: 'separate' } : undefined}
+          className={`dtable density-${density}${stickyCheckColumn ? ' bdt-sticky' : ''}${tableClassName ? ` ${tableClassName}` : ''}`}
+          style={{
+            ...(stickyCheckColumn ? { borderCollapse: 'separate' } : {}),
+            ...(minWidth ? { minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth } : {}),
+          }}
         >
           <thead>
             <tr>

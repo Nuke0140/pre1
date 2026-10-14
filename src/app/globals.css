@@ -5271,7 +5271,7 @@ kbd{
   min-width:0;
   display:flex;
   flex-direction:column;
-  overflow-x:clip;
+  overflow-x:hidden;
   box-sizing:border-box;
   padding-left:clamp(16px, 3vw, 32px);
   padding-right:clamp(16px, 3vw, 32px);
@@ -8960,13 +8960,45 @@ kbd{
   }
 }
 
-/* Horizontal Segmented Rail (Settings, Admissions, Workspaces) */
+/* Horizontal Segmented Rail & Edge Fade (Settings, Admissions, Workspaces - BUG-018/019) */
+.scrollbar-none {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+
 .segmented-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   max-width: 100%;
   min-width: 0;
+}
+.segmented-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.rail-edge-fade {
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+}
+
+.rail-edge-fade::-webkit-scrollbar {
+  display: none;
+}
+
+.rail-edge-fade > * > *,
+.rail-edge-fade > *,
+.segmented-scroll > * > *,
+.segmented-scroll > * {
+  scroll-snap-align: start;
 }
 
 /* ════════════════════════════════════════════════════════════════════

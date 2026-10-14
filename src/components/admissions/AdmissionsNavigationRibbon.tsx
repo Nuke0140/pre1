@@ -207,7 +207,7 @@ export function AdmissionsNavigationRibbon({
       {/* Horizontal Multi-Color Vibrant Pills (Auto-centered & Touch-friendly across all screens) */}
       <div
         ref={navContainerRef}
-        className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x scrollbar-thin py-0.5"
+        className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x rail-edge-fade scrollbar-none py-0.5"
       >
         <nav
           className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 [box-shadow:var(--shadow-1)] text-xs select-none"

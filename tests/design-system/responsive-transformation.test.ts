@@ -153,4 +153,59 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(globalsCss).toContain('flex-shrink: 0')
     })
   })
+
+  describe('Phase 1 Un-Clip Triage: Silent Clip Elimination, Daily-Diary Table Rails, and Edge-Fade Navigation', () => {
+    it('verifies globals.css replaces silent .home overflow-x:clip with overflow-x:hidden and adds rail-edge-fade & scrollbar-none', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).not.toContain('.home{\n  width:100%;\n  min-width:0;\n  display:flex;\n  flex-direction:column;\n  overflow-x:clip;')
+      expect(globalsCss).toContain('.rail-edge-fade')
+      expect(globalsCss).toContain('.scrollbar-none')
+      expect(globalsCss).toContain('mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%)')
+    })
+
+    it('verifies DataTable component architecture supports minWidth and wraps table in an overflow-x-auto rail', async () => {
+      const dataTableFile = await Bun.file('src/components/preone/DataTable.tsx').text()
+      expect(dataTableFile).toContain('minWidth?: number | string')
+      expect(dataTableFile).toContain('<div className="dtable-scroll overflow-x-auto w-full min-w-0">')
+      expect(dataTableFile).toContain('minWidth: typeof minWidth ===')
+    })
+
+    it('verifies Students page sets explicit minWidth on DataTable to enforce measured horizontal scroll rail', async () => {
+      const studentsFile = await Bun.file('src/app/app/students/page.tsx').text()
+      expect(studentsFile).toContain('minWidth={950}')
+    })
+
+    it('verifies Finance page has responsive parent/admin containers, scrollable tabs, and all 5 tables in measured min-width rails', async () => {
+      const feesFile = await Bun.file('src/app/app/fees/page.tsx').text()
+      // Outer containers
+      expect(feesFile).toContain('w-full min-w-0 max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-6')
+      // Admin tab navigation
+      expect(feesFile).toContain('space-x-6 w-full min-w-0 overflow-x-auto scrollbar-none touch-pan-x whitespace-nowrap')
+      // Measured tables
+      expect(feesFile).toContain('min-w-[680px]')
+      expect(feesFile).toContain('min-w-[780px]')
+      expect(feesFile).toContain('min-w-[980px]')
+      expect(feesFile).toContain('min-w-[880px]')
+      expect(feesFile).toContain('min-w-[920px]')
+    })
+
+    it('verifies Audit Logs page wraps category views and table in responsive un-clipped rails', async () => {
+      const auditFile = await Bun.file('src/app/app/audit/page.tsx').text()
+      expect(auditFile).toContain('className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x scrollbar-none"')
+      expect(auditFile).toContain('className="card w-full min-w-0 max-w-full overflow-hidden"')
+      expect(auditFile).toContain('className="dtable-scroll overflow-x-auto w-full min-w-0"')
+      expect(auditFile).toContain('className="dtable w-full min-w-[880px]"')
+    })
+
+    it('verifies Settings and Admissions ribbons integrate rail-edge-fade and auto scroll-into-view', async () => {
+      const settingsFile = await Bun.file('src/app/app/settings/page.tsx').text()
+      expect(settingsFile).toContain('rail-edge-fade scrollbar-none')
+      expect(settingsFile).toContain('tabRailRef')
+      expect(settingsFile).toContain('scrollIntoView')
+
+      const ribbonFile = await Bun.file('src/components/admissions/AdmissionsNavigationRibbon.tsx').text()
+      expect(ribbonFile).toContain('rail-edge-fade scrollbar-none')
+    })
+  })
 })
+

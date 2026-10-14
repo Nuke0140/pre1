@@ -277,6 +277,7 @@ export default function AuditPage() {
 
       {/* ── Category Views / Views Bar ── */}
       <div
+        className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x scrollbar-none"
         style={{
           display: 'flex',
           gap: 4,
@@ -284,18 +285,18 @@ export default function AuditPage() {
           padding: 4,
           borderRadius: 'var(--radius-12)',
           marginBottom: 14,
-          overflowX: 'auto',
         }}
       >
         {CATEGORY_TABS.map((tab) => (
           <button
             key={tab.key}
-            className={`btn btn-sm ${category === tab.key ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn btn-sm ${category === tab.key ? 'btn-primary' : 'btn-ghost'} shrink-0`}
             style={{
               padding: '6px 14px',
               fontSize: 12.5,
               fontWeight: 600,
               borderRadius: 'var(--radius-8)',
+              whiteSpace: 'nowrap',
             }}
             onClick={() => {
               setCategory(tab.key)
@@ -308,7 +309,7 @@ export default function AuditPage() {
       </div>
 
       {/* ── Main Activity Table & Advanced Filters ── */}
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card w-full min-w-0 max-w-full overflow-hidden" style={{ padding: 0 }}>
         {/* Filter Bar */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
           <SearchFilterBar
@@ -381,8 +382,8 @@ export default function AuditPage() {
         </div>
 
         {/* Audit Data Table */}
-        <div className="dtable-scroll">
-          <table className="dtable">
+        <div className="dtable-scroll overflow-x-auto w-full min-w-0">
+          <table className="dtable w-full min-w-[880px]">
             <thead>
               <tr>
                 <th>When</th>
