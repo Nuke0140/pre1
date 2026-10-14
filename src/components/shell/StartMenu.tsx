@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Search, X, LogOut, Sparkles, User } from 'lucide-react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
-import { StartMenuIllustration } from '@/components/preone'
 import { Avatar } from '@/components/preone/ui'
 import type { ShellUser } from './AppShell'
 import { useI18n } from '@/lib/i18n/context'
@@ -220,13 +219,6 @@ export function StartMenu({
             )}
           </div>
         </div>
-
-        {/* Subtle decorative preschool banner (desktop/tablet only) */}
-        {!query && (
-          <div className="sm-decorative-banner" aria-hidden="true">
-            <StartMenuIllustration size={180} />
-          </div>
-        )}
       </div>
 
       {/* ── Scrollable Body ── */}
