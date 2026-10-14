@@ -33,6 +33,9 @@ jobs:
       - name: Run Design System & Responsive Unit/Contract Tests
         run: bun test tests/design-system/responsive-transformation.test.ts
 
+      - name: Verify React Hooks and ESLint Guardrails
+        run: npx eslint src/app/app/inventory/InventoryClient.tsx
+
       - name: Build Next.js application
         run: bun run build
         env:

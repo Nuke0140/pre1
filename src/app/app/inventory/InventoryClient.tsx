@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Package,
   Layers,
@@ -54,6 +54,7 @@ interface SessionProps {
   email: string
   name: string
   role: Role
+  roles?: Role[]
   tenantId: string | null
   branchId: string | null
 }

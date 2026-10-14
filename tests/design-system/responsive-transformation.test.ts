@@ -390,6 +390,19 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(dodFile).toContain('min-height: 44px !important')
       expect(dodFile).toContain('rail-edge-fade')
     })
+
+    it('verifies BUG-023 fix: InventoryClient imports useMemo and CI workflow enforces React Hooks ESLint guardrail', async () => {
+      const inventoryClient = await Bun.file('src/app/app/inventory/InventoryClient.tsx').text()
+      expect(inventoryClient).toContain("import React, { useCallback, useEffect, useMemo, useState } from 'react'")
+      expect(inventoryClient).toContain('const effectiveRoles = useMemo(')
+
+      const eslintConfig = await Bun.file('eslint.config.mjs').text()
+      expect(eslintConfig).toContain('"react-hooks/rules-of-hooks": "error"')
+
+      const workflowFile = await Bun.file('.github/workflows/responsive-matrix.yml').text()
+      expect(workflowFile).toContain('Verify React Hooks and ESLint Guardrails')
+      expect(workflowFile).toContain('npx eslint src/app/app/inventory/InventoryClient.tsx')
+    })
   })
 })
 
