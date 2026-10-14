@@ -118,5 +118,39 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       const cardFile = await Bun.file('src/components/auth/AuthCard.tsx').text()
       expect(cardFile).toContain('p-4 sm:p-8 xs:p-6')
     })
+
+    it('verifies globals.css defines compact rules for short-height viewports (<= 540px)', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (max-height: 540px)')
+      expect(globalsCss).toContain('.auth-card')
+      expect(globalsCss).toContain('.auth-brand')
+    })
+  })
+
+  describe('BUG-014 & BUG-016: Header Actions Row and Search Bar Isolation', () => {
+    it('verifies globals.css hides top desktop search bar on mobile to prevent duplicate search (BUG-014)', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('.workspace-header-main-row .workspace-search-wrap')
+      expect(globalsCss).toContain('display: none !important')
+    })
+
+    it('verifies globals.css enforces display: none !important for hidden action buttons on mobile (BUG-016)', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('.workspace-action-btn.hidden')
+      expect(globalsCss).toContain('.workspace-actions-group .hidden')
+    })
+  })
+
+  describe('BUG-021: Dock Clock Layout Stability', () => {
+    it('verifies DockDateTime includes whitespace-nowrap and shrink-0 to prevent text wrapping', async () => {
+      const dockFile = await Bun.file('src/components/shell/DockDateTime.tsx').text()
+      expect(dockFile).toContain('whitespace-nowrap')
+      expect(dockFile).toContain('shrink-0')
+
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('.dock-datetime')
+      expect(globalsCss).toContain('white-space: nowrap')
+      expect(globalsCss).toContain('flex-shrink: 0')
+    })
   })
 })

@@ -532,12 +532,12 @@ export default function StudentsPage() {
   ]
 
   return (
-    <div className="space-y-4 sm:space-y-5 pb-20 max-w-[1460px] mx-auto px-3 sm:px-5 lg:px-6">
+    <div className="w-full min-w-0 max-w-[1460px] mx-auto px-3 sm:px-5 lg:px-6 space-y-4 sm:space-y-5 pb-20">
       {/* ── Breadcrumb Navigation ── */}
       <Breadcrumbs items={[{ label: t('nav.home'), href: '/app' }, { label: t('students.title') }]} />
 
       {/* ── 1. COMPACT HERO STRIP ── */}
-      <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="w-full min-w-0 max-w-full bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           {/* Eyebrow & Session Pill */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -880,7 +880,7 @@ export default function StudentsPage() {
       )}
 
       {/* ── 5. STUDENT DIRECTORY WORKSPACE CARD ── */}
-      <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
+      <div className="w-full min-w-0 max-w-full bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
         {/* Workspace Header Strip */}
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">

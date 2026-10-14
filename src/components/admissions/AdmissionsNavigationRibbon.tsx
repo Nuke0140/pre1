@@ -179,7 +179,7 @@ export function AdmissionsNavigationRibbon({
   )?.href || '/app/admissions'
 
   return (
-    <div className={`w-full flex flex-col gap-2 ${className}`}>
+    <div className={`w-full min-w-0 max-w-full flex flex-col gap-2 ${className}`}>
       {/* Mobile Workspace Selector (< sm: 320px - 639px) */}
       <div className="sm:hidden w-full">
         <label htmlFor="admissions-module-select" className="sr-only">
@@ -207,7 +207,7 @@ export function AdmissionsNavigationRibbon({
       {/* Horizontal Multi-Color Vibrant Pills (Auto-centered & Touch-friendly across all screens) */}
       <div
         ref={navContainerRef}
-        className="w-full overflow-x-auto touch-pan-x scrollbar-thin py-0.5"
+        className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x scrollbar-thin py-0.5"
       >
         <nav
           className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-card/90 backdrop-blur-md border border-border/80 [box-shadow:var(--shadow-1)] text-xs select-none"

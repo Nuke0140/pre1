@@ -36,20 +36,20 @@ export function DockDateTime({ className = '', showIcon = true }: DockDateTimePr
   return (
     <div
       suppressHydrationWarning
-      className={`dock-datetime ${className}`.trim()}
+      className={`dock-datetime whitespace-nowrap shrink-0 ${className}`.trim()}
       aria-label={dateTime ? `Current time: ${dateTime.time}, ${dateTime.date}` : 'Current date and time'}
       role="status"
     >
       {showIcon && (
-        <span className="dock-dt-icon" aria-hidden="true">
+        <span className="dock-dt-icon shrink-0" aria-hidden="true">
           <Calendar size={14} />
         </span>
       )}
-      <div className="dock-dt-text" suppressHydrationWarning>
-        <span className="dock-time" suppressHydrationWarning>
+      <div className="dock-dt-text whitespace-nowrap shrink-0" suppressHydrationWarning>
+        <span className="dock-time whitespace-nowrap" suppressHydrationWarning>
           {dateTime ? dateTime.time : '4:55 PM'}
         </span>
-        <span className="dock-date" suppressHydrationWarning>
+        <span className="dock-date whitespace-nowrap" suppressHydrationWarning>
           {dateTime ? dateTime.date : 'Wed, 18 Sept'}
         </span>
       </div>

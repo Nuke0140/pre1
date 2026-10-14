@@ -3060,7 +3060,9 @@ tr:focus-within .dt-row-actions .kebab {
 @media (max-width: 760px) {
   .dtable { display: none !important; }
   .dtable-scroll, .dtable-wrap, .table-workspace {
-    overflow-x: visible !important;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto !important;
   }
   .dt-mobile-cards {
     display: flex !important;
@@ -4007,6 +4009,10 @@ input[data-trailing-action="true"]:-webkit-autofill,
   transition: all var(--motion-fast) var(--ease-standard);
 }
 
+.workspace-action-btn.hidden {
+  display: none !important;
+}
+
 .workspace-action-btn:hover {
   background: var(--workspace-surface-hover);
   color: var(--workspace-text);
@@ -4174,16 +4180,32 @@ input[data-trailing-action="true"]:-webkit-autofill,
   }
   .workspace-header-main-row {
     width: 100%;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
   }
+  .workspace-header-main-row .workspace-search-wrap {
+    display: none !important;
+  }
+  .workspace-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+  .workspace-actions-group .hidden,
+  .workspace-actions-group .workspace-action-btn.hidden {
+    display: none !important;
+  }
   .workspace-search-mobile-row {
     display: flex;
     width: 100%;
   }
-  .workspace-search-wrap {
+  .workspace-search-mobile-row .workspace-search-wrap {
+    display: flex;
     max-width: 100%;
     min-width: 100%;
     width: 100%;
@@ -4198,11 +4220,16 @@ input[data-trailing-action="true"]:-webkit-autofill,
   }
   .workspace-profile-info,
   .workspace-profile-chevron {
-    display: none;
+    display: none !important;
+  }
+  .workspace-profile-btn {
+    height: 36px;
+    padding: 2px;
+    gap: 0;
   }
   .workspace-action-btn {
     height: 36px;
-    padding: 0 8px;
+    padding: 0 6px;
   }
 }
 .h-logo{display:flex;align-items:center;gap:10px;flex:none}
@@ -4458,6 +4485,8 @@ input[data-trailing-action="true"]:-webkit-autofill,
   justify-content: flex-end;
   gap: 8px;
   padding-right: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .dock-datetime,
 .tb-clock {
@@ -4467,12 +4496,15 @@ input[data-trailing-action="true"]:-webkit-autofill,
   padding: 3px 8px;
   border-radius: var(--radius-md);
   user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .dock-dt-icon {
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--foreground-muted);
+  flex-shrink: 0;
 }
 .dock-dt-text {
   display: flex;
@@ -4480,6 +4512,8 @@ input[data-trailing-action="true"]:-webkit-autofill,
   align-items: flex-start;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .dock-time,
 .tb-clock b {
@@ -4487,12 +4521,14 @@ input[data-trailing-action="true"]:-webkit-autofill,
   font-weight: 700;
   color: var(--foreground);
   letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .dock-date,
 .tb-clock span {
   font-size: 10px;
   font-weight: 500;
   color: var(--foreground-muted);
+  white-space: nowrap;
 }
 
 .dock-theme-toggle {
@@ -8862,6 +8898,75 @@ kbd{
   border: 0;
   cursor: pointer;
   outline: none;
+}
+
+/* Short-viewport / Mobile landscape compact auth variant (< 540px height) */
+@media (max-height: 540px) {
+  .auth-shell {
+    justify-content: flex-start !important;
+  }
+  .auth-viewport {
+    padding: 6px 12px !important;
+    margin: 0 auto !important;
+  }
+  .auth-shell header {
+    padding-top: 4px !important;
+    padding-bottom: 2px !important;
+  }
+  .auth-card {
+    padding: 12px 18px !important;
+    border-radius: 18px !important;
+    max-width: 500px !important;
+  }
+  .auth-brand {
+    margin-bottom: 6px !important;
+  }
+  .auth-brand img,
+  .auth-brand svg {
+    max-height: 34px !important;
+    height: 34px !important;
+    width: auto !important;
+  }
+  .auth-brand .auth-stagger-1 {
+    margin-bottom: 2px !important;
+  }
+  .auth-brand .auth-stagger-2 {
+    display: none !important;
+  }
+  .auth-header {
+    margin-bottom: 8px !important;
+  }
+  .auth-header p {
+    display: none !important;
+  }
+  .auth-header h1 {
+    font-size: 1.125rem !important;
+    line-height: 1.2 !important;
+  }
+  .auth-field {
+    margin-bottom: 6px !important;
+  }
+  .auth-field label {
+    font-size: 11px !important;
+    margin-bottom: 2px !important;
+  }
+  .auth-input,
+  .auth-button {
+    height: 36px !important;
+    font-size: 12.5px !important;
+  }
+  .auth-page-footer {
+    display: none !important;
+  }
+}
+
+/* Horizontal Segmented Rail (Settings, Admissions, Workspaces) */
+.segmented-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* ════════════════════════════════════════════════════════════════════

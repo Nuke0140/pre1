@@ -355,7 +355,7 @@ export default function SettingsControlCenter() {
   }
 
   return (
-    <div className="page-container space-y-6" style={{ paddingBottom: 60 }}>
+    <div className="w-full min-w-0 max-w-full page-container space-y-6" style={{ paddingBottom: 60 }}>
       <PageHead
         breadcrumbs={[
           { label: 'Home', href: '/app' },
@@ -413,8 +413,8 @@ export default function SettingsControlCenter() {
       </div>
 
       {/* Desktop & Tablet Navigation Tabs (≥ md) */}
-      <div className="hidden md:block segmented-scroll overflow-x-auto touch-pan-x" style={{ whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'inline-flex', gap: 6, paddingBottom: 8 }}>
+      <div className="hidden md:block segmented-scroll overflow-x-auto touch-pan-x w-full min-w-0 max-w-full" style={{ whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'inline-flex', gap: 6, paddingBottom: 8, minWidth: 'min-content' }}>
           {[
             { id: 'profile', label: 'School Profile', icon: Building2 },
             { id: 'organization', label: 'Organization', icon: Layers },
