@@ -185,12 +185,23 @@ export default function ApplicationsPage() {
   }, [loadApplications])
 
   // Open full dossier review
-  const openInspector = async (formId: string, initialTab: string = 'overview') => {
+  const openInspector = async (formId: string, initialTab: string = 'overview', appBranchId?: string) => {
     setBusy(true)
     try {
-      const res = await fetch(
-        `/api/v1/applications/${formId}?branchId=${selectedBranchId}&academicYearId=${selectedSessionId}`
-      ).then((r) => r.json())
+      const qParams = new URLSearchParams()
+      const effectiveBranch =
+        appBranchId && appBranchId !== '__ALL_BRANCHES__'
+          ? appBranchId
+          : selectedBranchId && selectedBranchId !== '__ALL_BRANCHES__'
+          ? selectedBranchId
+          : ''
+      if (effectiveBranch) qParams.set('branchId', effectiveBranch)
+      if (selectedSessionId && selectedSessionId !== '__ALL_SESSIONS__') {
+        qParams.set('academicYearId', selectedSessionId)
+      }
+
+      const queryString = qParams.toString() ? `?${qParams.toString()}` : ''
+      const res = await fetch(`/api/v1/applications/${formId}${queryString}`).then((r) => r.json())
       setBusy(false)
       if (res.success && res.data) {
         setInspector({
@@ -200,7 +211,11 @@ export default function ApplicationsPage() {
           tab: initialTab,
         })
       } else {
-        toast.show(res.error || 'Failed to load application details', { type: 'error' })
+        const errorMsg =
+          typeof res.error === 'string'
+            ? res.error
+            : res.error?.message || 'Failed to load application details'
+        toast.show(errorMsg, { type: 'error' })
       }
     } catch {
       setBusy(false)
@@ -457,7 +472,7 @@ export default function ApplicationsPage() {
                     return (
                       <tr
                         key={app.id}
-                        onClick={() => openInspector(app.id, 'overview')}
+                        onClick={() => openInspector(app.id, 'overview', app.branchId)}
                         className="table-frosted-row cursor-pointer group"
                       >
                         <td className="px-4 py-3 font-mono font-bold text-primary">
@@ -509,7 +524,7 @@ export default function ApplicationsPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              openInspector(app.id, 'overview')
+                              openInspector(app.id, 'overview', app.branchId)
                             }}
                             className="btn btn-outline btn-sm h-7 px-2.5 text-[11px] rounded-lg gap-1"
                           >

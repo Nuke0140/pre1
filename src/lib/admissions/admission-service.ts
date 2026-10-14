@@ -105,12 +105,23 @@ export class AdmissionService {
     if (!tenantId) throw new Error('Tenant context is required')
 
     let verifiedBranchId: string
-    if (!branchId) {
+    const isAllBranchesSentinel =
+      !branchId ||
+      branchId === '__ALL_BRANCHES__' ||
+      branchId.trim().toLowerCase() === 'all'
+    if (isAllBranchesSentinel) {
       const mainBranch = await db.branch.findFirst({
         where: { tenantId, isMain: true, deletedAt: null },
       })
-      if (!mainBranch) throw new Error('No active branch found for school')
-      verifiedBranchId = mainBranch.id
+      if (!mainBranch) {
+        const anyBranch = await db.branch.findFirst({
+          where: { tenantId, deletedAt: null },
+        })
+        if (!anyBranch) throw new Error('No active branch found for school')
+        verifiedBranchId = anyBranch.id
+      } else {
+        verifiedBranchId = mainBranch.id
+      }
     } else {
       const branch = await db.branch.findFirst({
         where: { id: branchId, tenantId, deletedAt: null },
@@ -120,7 +131,11 @@ export class AdmissionService {
     }
 
     let verifiedAcademicYearId: string
-    if (!academicYearId) {
+    const isAllSessionsSentinel =
+      !academicYearId ||
+      academicYearId === '__ALL_SESSIONS__' ||
+      academicYearId.trim().toLowerCase() === 'all'
+    if (isAllSessionsSentinel) {
       const currentSession = await db.academicSession.findFirst({
         where: { tenantId, isCurrent: true, status: 'ACTIVE' },
       })
@@ -1015,10 +1030,8 @@ export class AdmissionService {
    * Complete authoritative review assessment for an admission form.
    */
   static async reviewApplication(ctx: ScopeContext, applicationId: string) {
-    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicYearId)
-
     const app = await db.admissionApplication.findFirst({
-      where: { id: applicationId, tenantId: scope.tenantId, deletedAt: null },
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
       include: {
         documents: true,
         lead: true,
@@ -1032,12 +1045,20 @@ export class AdmissionService {
     })
     if (!app) throw new Error('Admission application not found')
 
+    const effectiveBranchId =
+      app.branchId || (ctx.branchId && ctx.branchId !== '__ALL_BRANCHES__' ? ctx.branchId : null)
+    const effectiveAcademicYearId =
+      app.academicSessionId || (ctx.academicYearId && ctx.academicYearId !== '__ALL_SESSIONS__' ? ctx.academicYearId : null)
+
+    const scope = await this.verifyScope(ctx.tenantId, effectiveBranchId, effectiveAcademicYearId)
+
     // 1. Age check
+    const targetBranchId = app.branchId || scope.branchId
     const ageCheck = await ConfigurationService.validateProgramAge(
       scope.tenantId,
       app.programId || app.programType,
       app.childDob,
-      app.branchId || scope.branchId
+      targetBranchId
     )
 
     // 2. Document checklist check
@@ -1052,7 +1073,7 @@ export class AdmissionService {
     const classrooms = await db.classroom.findMany({
       where: {
         tenantId: scope.tenantId,
-        branchId: scope.branchId,
+        branchId: targetBranchId,
         programType: app.programType,
         isActive: true,
       },

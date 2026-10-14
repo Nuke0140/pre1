@@ -18,8 +18,16 @@ async function _GET(
 
   const { id } = await params
   const sp = req.nextUrl.searchParams
-  const branchId = sp.get('branchId') || session.branchId
-  const academicYearId = sp.get('academicYearId')
+  const rawBranchId = sp.get('branchId')
+  const branchId =
+    rawBranchId && rawBranchId !== '__ALL_BRANCHES__' && rawBranchId.toLowerCase() !== 'all'
+      ? rawBranchId
+      : (session.branchId || '')
+  const rawAcademicYearId = sp.get('academicYearId')
+  const academicYearId =
+    rawAcademicYearId && rawAcademicYearId !== '__ALL_SESSIONS__' && rawAcademicYearId.toLowerCase() !== 'all'
+      ? rawAcademicYearId
+      : ''
 
   try {
     const reviewData = await AdmissionService.reviewApplication(
@@ -35,7 +43,10 @@ async function _GET(
 
     return ok(reviewData)
   } catch (e: any) {
-    return Errors.notFound(e.message || 'Application')
+    if (e.message && e.message.toLowerCase().includes('not found')) {
+      return Errors.notFound(e.message)
+    }
+    return Errors.business('ADMISSION_REVIEW_FAILED', e.message || 'Failed to review application')
   }
 }
 
