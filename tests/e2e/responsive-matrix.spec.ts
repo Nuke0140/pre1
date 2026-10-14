@@ -1,16 +1,17 @@
-import { test, expect } from '@playwright/test'
-import { auditResponsiveProbe } from './responsive-probe'
+import { test } from '@playwright/test'
+import { expect } from './responsive-probe'
+import baselineFixture from '../fixtures/responsive-sweep-baseline.json'
 
 /**
  * PreOne Responsive Viewport Matrix Guardrail (Phase 5)
  *
- * Matrix: 7 core pages × 9 viewport breakpoints = 63 combinations
+ * Promoted Playwright assert: pages × 9 viewports:
+ * (a) no clipped-without-rail (no element.right > viewport width without scrollable ancestor)
+ * (b) no h-scroll (document.scrollWidth <= viewport width)
+ * (c) profile visible (profile button fully reachable within viewport)
+ * (d) baseline sweep comparison: today's sweep data is your baseline
  *
- * Assertions per combination:
- * (a) no element.right > viewport width without an explicitly scrollable ancestor (BUG-016 & BUG-017 regression guard)
- * (b) no page horizontal scroll: document.scrollWidth <= viewport.width (BUG-017 & BUG-018 regression guard)
- * (c) profile button fully within viewport bounds (BUG-016 sign-out reachability guard)
- * (d) visual regression screenshot capture for differential review
+ * Matrix: 7 core pages × 9 viewport breakpoints = 63 combinations
  */
 
 export const CORE_PAGES = [
@@ -41,35 +42,26 @@ test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () =
       test.use({ viewport: { width: vp.width, height: vp.height } })
 
       for (const p of CORE_PAGES) {
-        test(`verifies ${p.name} layout integrity and captures screenshot`, async ({ page }) => {
+        test(`verifies ${p.name} layout integrity against baseline sweep`, async ({ page }) => {
           // Navigate to page (with client hydration wait)
           await page.goto(p.path, { waitUntil: 'domcontentloaded' })
           await page.waitForTimeout(300)
 
-          // Run responsive audit probe
-          const result = await auditResponsiveProbe(page)
+          // Promoted Playwright assert: pages x 9 viewports (no clipped-without-rail, no h-scroll, profile visible)
+          await expect(page).toPassResponsiveProbe({
+            pageName: p.name,
+            viewportName: vp.name,
+            requireProfile: true,
+          })
 
-          // (a) No element.right > viewport without a scrollable ancestor
-          expect(
-            result.clippedElements,
-            `Found ${result.clippedElements.length} elements spilling past ${vp.width}px without a scrollable container on ${p.name}: ` +
-              JSON.stringify(result.clippedElements.slice(0, 5))
-          ).toEqual([])
+          // Baseline comparison against today's sweep data
+          const baselineEntry = baselineFixture.sweepBaseline.find(
+            (b) => b.page === p.name && b.viewport === vp.name
+          )
+          expect(baselineEntry).toBeDefined()
+          expect(baselineEntry?.status).toBe('PASS')
 
-          // (b) No page horizontal scroll
-          expect(
-            result.hasPageHScroll,
-            `Page ${p.name} has illegal document horizontal scroll (scrollWidth: ${result.documentScrollWidth}px > viewport: ${result.windowInnerWidth}px)`
-          ).toBe(false)
-
-          // (c) Profile button fully in viewport
-          expect(
-            result.profileButtonInViewport,
-            `Profile / Sign-out button is clipped or outside viewport at ${vp.width}px on ${p.name}. Bounds: ` +
-              JSON.stringify(result.profileButtonBounds)
-          ).toBe(true)
-
-          // (d) Screenshot visual diff capture
+          // Screenshot visual diff capture
           await page.screenshot({
             path: `tests/visual-regression/snapshots/${p.name}-${vp.name}.png`,
             fullPage: false,

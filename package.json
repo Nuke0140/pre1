@@ -12,7 +12,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "bootstrap:admin": "npx tsx scripts/bootstrap-preone-admin.ts"
+    "bootstrap:admin": "npx tsx scripts/bootstrap-preone-admin.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",

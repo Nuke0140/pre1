@@ -1,4 +1,4 @@
-import { type Page, expect } from '@playwright/test'
+import { expect as baseExpect, type Page } from '@playwright/test'
 
 export interface ProbeResult {
   hasPageHScroll: boolean
@@ -7,6 +7,21 @@ export interface ProbeResult {
   clippedElements: Array<{ tag: string; className: string; id: string; right: number; innerWidth: number }>
   profileButtonInViewport: boolean
   profileButtonBounds?: { left: number; right: number; top: number; bottom: number }
+}
+
+export interface ResponsiveProbeOptions {
+  pageName?: string
+  viewportName?: string
+  tolerancePx?: number
+  requireProfile?: boolean
+}
+
+declare global {
+  namespace PlaywrightTest {
+    interface Matchers<R, Args = {}> {
+      toPassResponsiveProbe(options?: ResponsiveProbeOptions): Promise<R>
+    }
+  }
 }
 
 /**
@@ -106,3 +121,57 @@ export async function auditResponsiveProbe(page: Page): Promise<ProbeResult> {
     }
   })
 }
+
+/**
+ * Promoted Playwright Custom Assertion: toPassResponsiveProbe
+ * Evaluates the 3 core responsive guardrail promises simultaneously:
+ * (a) No element.right > viewport width without a scrollable ancestor
+ * (b) No document horizontal scroll
+ * (c) Profile button fully reachable within viewport
+ */
+export const expect = baseExpect.extend({
+  async toPassResponsiveProbe(page: Page, options: ResponsiveProbeOptions = {}) {
+    const result = await auditResponsiveProbe(page)
+    const issues: string[] = []
+
+    if (result.hasPageHScroll) {
+      issues.push(
+        `Illegal page horizontal scroll detected: scrollWidth (${result.documentScrollWidth}px) exceeds viewport width (${result.windowInnerWidth}px)`
+      )
+    }
+
+    if (result.clippedElements.length > 0) {
+      issues.push(
+        `${result.clippedElements.length} element(s) spilling past viewport (${result.windowInnerWidth}px) without a scrollable ancestor:\n` +
+          result.clippedElements
+            .map(
+              (el, i) =>
+                `  ${i + 1}. <${el.tag}${el.id ? ` id="${el.id}"` : ''}${el.className ? ` class="${el.className}"` : ''}> right=${el.right}px`
+            )
+            .join('\n')
+      )
+    }
+
+    const checkProfile = options.requireProfile !== false
+    if (checkProfile && !result.profileButtonInViewport) {
+      issues.push(
+        `Profile / Sign-out button is clipped or not reachable within viewport bounds: ${JSON.stringify(
+          result.profileButtonBounds || 'not found'
+        )}`
+      )
+    }
+
+    const pass = issues.length === 0
+    const label = options.pageName
+      ? `[${options.pageName} @ ${options.viewportName || `${result.windowInnerWidth}px`}] `
+      : `[${options.viewportName || `${result.windowInnerWidth}px`}] `
+
+    return {
+      pass,
+      message: () =>
+        pass
+          ? `${label}Responsive layout probe passed (no h-scroll, no unrailed clipped elements, profile button reachable)`
+          : `${label}Responsive layout probe failed with ${issues.length} violation(s):\n${issues.map((iss) => `• ${iss}`).join('\n')}`,
+    }
+  },
+})

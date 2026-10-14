@@ -443,6 +443,40 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       const globalsCss = await Bun.file('src/app/globals.css').text()
       expect(globalsCss).toContain('width:100%;max-width:100%;min-width:0;')
     })
+
+    it('verifies Phase 5 promoted Playwright assert expect(page).toPassResponsiveProbe and baseline sweep fixture', async () => {
+      // 1. Promoted custom assertion definition
+      const probeFile = await Bun.file('tests/e2e/responsive-probe.ts').text()
+      expect(probeFile).toContain('toPassResponsiveProbe(options?: ResponsiveProbeOptions)')
+      expect(probeFile).toContain('baseExpect.extend')
+      expect(probeFile).toContain('toPassResponsiveProbe(page: Page, options: ResponsiveProbeOptions = {})')
+
+      // 2. Spec uses promoted assert
+      const matrixSpec = await Bun.file('tests/e2e/responsive-matrix.spec.ts').text()
+      expect(matrixSpec).toContain('await expect(page).toPassResponsiveProbe({')
+      expect(matrixSpec).toContain('requireProfile: true')
+
+      // 3. Baseline sweep dataset contains all 63 matrix combinations
+      const baselineRaw = await Bun.file('tests/fixtures/responsive-sweep-baseline.json').text()
+      const baseline = JSON.parse(baselineRaw)
+      expect(baseline.metadata.totalCombinations).toBe(63)
+      expect(baseline.metadata.baselinePassCount).toBe(63)
+      expect(baseline.metadata.baselineFailCount).toBe(0)
+      expect(baseline.viewports.length).toBe(9)
+      expect(baseline.pages.length).toBe(7)
+      expect(baseline.sweepBaseline.length).toBe(63)
+
+      for (const entry of baseline.sweepBaseline) {
+        expect(entry.hasPageHScroll).toBe(false)
+        expect(entry.clippedElementsCount).toBe(0)
+        expect(entry.profileButtonInViewport).toBe(true)
+        expect(entry.status).toBe('PASS')
+      }
+
+      // 4. package.json includes test:e2e script
+      const pkg = JSON.parse(await Bun.file('package.json').text())
+      expect(pkg.scripts['test:e2e']).toBe('playwright test')
+    })
   })
 })
 
