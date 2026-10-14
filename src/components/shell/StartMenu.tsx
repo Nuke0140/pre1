@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Search, X, LogOut, Sparkles, User } from 'lucide-react'
 import type { Role } from '@/lib/auth'
 import { homeModules, type HomeModule, SEMANTIC_THEME_TOKENS } from '@/lib/modules'
@@ -46,7 +47,17 @@ export function StartMenu({
   const internalMenuRef = useRef<HTMLDivElement>(null)
   const menuRef = externalMenuRef || internalMenuRef
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
   const { t } = useI18n()
+
+  const handleNavigate = useCallback(
+    (e: React.MouseEvent, href: string) => {
+      e.preventDefault()
+      onClose()
+      router.push(href)
+    },
+    [onClose, router]
+  )
 
   // Helper to get localized module label
   const getModuleLabel = useCallback(
@@ -157,7 +168,7 @@ export function StartMenu({
   // Outside click detection
   useEffect(() => {
     if (!isOpen) return
-    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+    const onDocClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
       if (
         menuRef.current &&
@@ -167,11 +178,9 @@ export function StartMenu({
         handleClose()
       }
     }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('click', onDocClick)
     return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('click', onDocClick)
     }
   }, [isOpen, handleClose, triggerRef, menuRef])
 
@@ -250,7 +259,8 @@ export function StartMenu({
                     prefetch={true}
                     className="nav-item"
                     role="menuitem"
-                    onClick={onClose}
+                    onClick={(e) => handleNavigate(e, m.href)}
+                    style={{ touchAction: 'manipulation' }}
                   >
                     <span
                       className="sm-list-icon"
@@ -311,10 +321,10 @@ export function StartMenu({
           </button>
           <Link
             href="/app/settings?tab=preferences"
-            onClick={onClose}
+            onClick={(e) => handleNavigate(e, '/app/settings?tab=preferences')}
             className="btn btn-ghost btn-sm sm-logout-btn"
             title="Appearance & Glow Preferences"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, touchAction: 'manipulation' }}
           >
             <Sparkles size={14} aria-hidden="true" style={{ color: 'var(--primary)' }} />
             <span>Theme &amp; Glow</span>

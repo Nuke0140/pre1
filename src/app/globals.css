@@ -1494,6 +1494,8 @@ body.dark {
   height:40px;padding:0 18px;border-radius:var(--radius-md);
   font-family:var(--font-sans);font-size:14px;font-weight:600;letter-spacing:0;
   border:1px solid transparent;cursor:pointer;user-select:none;white-space:nowrap;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition:transform var(--duration-instant) var(--ease-spring),
              background-color var(--motion-hover) var(--ease-standard),
              border-color var(--motion-hover) var(--ease-standard),
@@ -4425,12 +4427,16 @@ input[data-trailing-action="true"]:-webkit-autofill,
 
 /* Zone 2: Center - Pinned navigation items & elevated PreOne Orb */
 .dock-zone-center {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
 }
 .dock-nav-group {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -4438,6 +4444,7 @@ input[data-trailing-action="true"]:-webkit-autofill,
 .dock-item,
 .tb-pin {
   position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -4455,6 +4462,9 @@ input[data-trailing-action="true"]:-webkit-autofill,
   user-select: none;
   white-space: nowrap;
   cursor: pointer;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .dock-item:hover,
 .tb-pin:hover {
@@ -4723,15 +4733,9 @@ input[data-trailing-action="true"]:-webkit-autofill,
   .dock-divider {
     display: none;
   }
-  .dock-zone-left {
-    display: flex;
-    width: 38px;
-    justify-content: center;
-    align-items: center;
-    pointer-events: none;
-  }
-  .dock-zone-left .dock-decorative-stars {
-    display: none;
+  .dock-zone-left,
+  .dock-zone-right {
+    display: none !important;
   }
   .dock-zone-center {
     flex: 1;
@@ -4739,11 +4743,15 @@ input[data-trailing-action="true"]:-webkit-autofill,
     align-items: center;
     justify-content: center;
     gap: 6px;
+    position: relative;
+    z-index: 2;
   }
   .dock-nav-group {
     display: flex;
     align-items: center;
     gap: 4px;
+    position: relative;
+    z-index: 2;
   }
   /* Keep left and right navigation groups balanced on mobile (2 items on left, 2 items on right) */
   .dock-nav-group-right .dock-item:nth-child(n+3) {
@@ -4754,12 +4762,18 @@ input[data-trailing-action="true"]:-webkit-autofill,
   }
   .dock-item {
     padding: 0;
-    height: 40px;
-    width: 40px;
+    height: 44px;
+    width: 44px;
+    min-height: 44px;
+    min-width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 12px;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto !important;
+    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
   .dock-item-icon svg {
@@ -4771,11 +4785,14 @@ input[data-trailing-action="true"]:-webkit-autofill,
     align-items: center;
     justify-content: center;
     padding: 0 2px;
+    position: relative;
+    z-index: 10;
   }
   .dock-orb {
     width: 48px;
     height: 48px;
     transform: translateY(-7px);
+    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
   .dock-orb:hover,
@@ -5677,6 +5694,7 @@ kbd{
   overflow:hidden;
   box-sizing:border-box;
   gap:2px;
+  touch-action: manipulation;
   -webkit-tap-highlight-color:transparent;
   transition:transform var(--motion-hover) var(--ease-spring),
              box-shadow var(--motion-hover) var(--ease-spring),

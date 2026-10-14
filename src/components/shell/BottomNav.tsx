@@ -106,41 +106,72 @@ export function BottomNav({
 
     // Prepare right cluster (Students, Learning, Staff, Growth)
     const right: ResolvedDockItem[] = []
-    if (studentsItem) {
-      right.push({
-        key: studentsItem.key,
-        label: t('nav.students'),
-        href: studentsItem.href,
-        icon: studentsItem.icon || GraduationCap,
-        image: '/animations/home/students.webp',
-      })
-    }
-    if (learningItem) {
-      right.push({
-        key: learningItem.key,
-        label: t('nav.learning'),
-        href: learningItem.href,
-        icon: learningItem.icon || GraduationCap,
-        image: '/animations/home/preo_learning_mascot.webp',
-      })
-    }
-    if (staffItem) {
-      right.push({
-        key: staffItem.key,
-        label: t('nav.users'),
-        href: staffItem.href,
-        icon: staffItem.icon || Briefcase,
-        image: '/animations/home/users.webp',
-      })
-    }
-    if (growthItem) {
-      right.push({
-        key: growthItem.key,
-        label: growthItem.key === 'daily-diary' ? t('nav.dailyDiary') : t('nav.reports'),
-        href: growthItem.href,
-        icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
-        image: '/animations/home/daily_diary.webp',
-      })
+    if (user.role === 'TEACHER') {
+      // For teachers, Daily Diary & Students are the critical primary tools
+      if (growthItem) {
+        right.push({
+          key: growthItem.key,
+          label: growthItem.key === 'daily-diary' ? t('nav.dailyDiary') : t('nav.reports'),
+          href: growthItem.href,
+          icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
+          image: '/animations/home/daily_diary.webp',
+        })
+      }
+      if (studentsItem) {
+        right.push({
+          key: studentsItem.key,
+          label: t('nav.students'),
+          href: studentsItem.href,
+          icon: studentsItem.icon || GraduationCap,
+          image: '/animations/home/students.webp',
+        })
+      }
+      if (learningItem) {
+        right.push({
+          key: learningItem.key,
+          label: t('nav.learning'),
+          href: learningItem.href,
+          icon: learningItem.icon || GraduationCap,
+          image: '/animations/home/preo_learning_mascot.webp',
+        })
+      }
+    } else {
+      if (studentsItem) {
+        right.push({
+          key: studentsItem.key,
+          label: t('nav.students'),
+          href: studentsItem.href,
+          icon: studentsItem.icon || GraduationCap,
+          image: '/animations/home/students.webp',
+        })
+      }
+      if (learningItem) {
+        right.push({
+          key: learningItem.key,
+          label: t('nav.learning'),
+          href: learningItem.href,
+          icon: learningItem.icon || GraduationCap,
+          image: '/animations/home/preo_learning_mascot.webp',
+        })
+      }
+      if (staffItem) {
+        right.push({
+          key: staffItem.key,
+          label: t('nav.users'),
+          href: staffItem.href,
+          icon: staffItem.icon || Briefcase,
+          image: '/animations/home/users.webp',
+        })
+      }
+      if (growthItem) {
+        right.push({
+          key: growthItem.key,
+          label: growthItem.key === 'daily-diary' ? t('nav.dailyDiary') : t('nav.reports'),
+          href: growthItem.href,
+          icon: growthItem.key === 'daily-diary' ? CalendarCheck : (growthItem.icon || Sparkles),
+          image: '/animations/home/daily_diary.webp',
+        })
+      }
     }
 
     // If right items are sparse (e.g. for PARENT or RECEPTIONIST roles), backfill from remaining nav items
@@ -189,6 +220,9 @@ export function BottomNav({
                   key={item.key}
                   href={item.href}
                   prefetch={true}
+                  onClick={() => {
+                    if (isOpen) onToggleMenu()
+                  }}
                   className={`dock-item${active ? ' active' : ''}`}
                   title={item.label}
                   aria-label={item.label}
@@ -244,6 +278,9 @@ export function BottomNav({
                   key={item.key}
                   href={item.href}
                   prefetch={true}
+                  onClick={() => {
+                    if (isOpen) onToggleMenu()
+                  }}
                   className={`dock-item${active ? ' active' : ''}`}
                   title={item.label}
                   aria-label={item.label}
