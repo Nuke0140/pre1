@@ -1031,7 +1031,11 @@ export default function StudentsPage() {
                             {s.classroom?.name || (typeof s.classroom === 'string' ? s.classroom : null) || 'Unassigned'}
                           </span>
                           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {(typeof s.classroom === 'object' && s.classroom?.programType ? enumLabel(s.classroom.programType) : null) || s.programType || (s as any).program || 'General Preschool'}
+                            {(typeof s.classroom === 'object' && s.classroom?.programType ? enumLabel(s.classroom.programType) : null)
+                              || (typeof s.programType === 'string' ? enumLabel(s.programType) : null)
+                              || (typeof (s as any).program === 'string' ? (s as any).program : null)
+                              || (typeof (s as any).program === 'object' && (s as any).program?.name ? (s as any).program.name : null)
+                              || 'General Preschool'}
                           </span>
                         </div>
                         <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
@@ -1219,7 +1223,7 @@ export default function StudentsPage() {
                       {/* Classroom & Teacher */}
                       <div className="text-xs space-y-0.5">
                         <div className="font-bold text-slate-800 dark:text-slate-200">
-                          {s.classroom?.name || 'Unassigned Classroom'}
+                          {s.classroom?.name || (typeof s.classroom === 'string' ? s.classroom : null) || 'Unassigned Classroom'}
                         </div>
                         <div className="text-slate-500 dark:text-slate-400">
                           {(typeof s.classroom?.teacher === 'object' && s.classroom?.teacher ? (s.classroom.teacher as any).fullName || (s.classroom.teacher as any).name : s.classroom?.teacher) || 'No primary educator'}

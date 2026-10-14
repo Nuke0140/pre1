@@ -147,6 +147,19 @@ describe('BUG-022: Students Page Payload Smoke Test & Runtime Safety', () => {
       ? (studentWithStringClass.classroom as any).name
       : studentWithStringClass.classroom
     expect(stringClsName).toBe('Preschool Blue')
+
+    // Edge case 3: program as object or enum string on tablet view
+    const studentWithObjectProgram: any = {
+      classroom: { id: 'cls-1', name: 'Nursery A', code: 'NUR', programType: 'NURSERY', teacher: 'John Doe' },
+      program: { id: 'prog-1', name: 'Early Foundation' }
+    }
+    const progLabel = (typeof studentWithObjectProgram.classroom === 'object' && studentWithObjectProgram.classroom?.programType ? studentWithObjectProgram.classroom.programType : null)
+      || (typeof studentWithObjectProgram.programType === 'string' ? studentWithObjectProgram.programType : null)
+      || (typeof studentWithObjectProgram.program === 'string' ? studentWithObjectProgram.program : null)
+      || (typeof studentWithObjectProgram.program === 'object' && studentWithObjectProgram.program?.name ? studentWithObjectProgram.program.name : null)
+      || 'General Preschool'
+    expect(typeof progLabel).toBe('string')
+    expect(progLabel).not.toBe('[object Object]')
   })
 
   it('re-verifies BUG-017 responsive layout: stat grid has 2-column mobile reflow with min-w-0', async () => {

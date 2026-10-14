@@ -687,7 +687,7 @@ function StudentInspectorContent({
                 Classroom
               </span>
               <span className="font-medium text-foreground">
-                {classroom?.name || 'Unassigned'}
+                {classroom?.name || (typeof classroom === 'string' ? classroom : null) || 'Unassigned'}
               </span>
             </div>
             <div className="mt-1">
@@ -695,7 +695,10 @@ function StudentInspectorContent({
                 Class Teacher
               </span>
               <span className="font-medium text-foreground">
-                {teacher?.fullName || teacher?.name || 'Not assigned'}
+                {(typeof classroom?.teacher === 'string' ? classroom.teacher : null) ||
+                  (typeof teacher === 'object' && teacher ? teacher.fullName || teacher.name : null) ||
+                  (typeof teacher === 'string' ? teacher : null) ||
+                  'Not assigned'}
               </span>
             </div>
           </div>
