@@ -389,17 +389,40 @@ export default function SettingsControlCenter() {
         }
       />
 
-      {/* Mobile Settings Section Switcher (< md: 320px - 767px) */}
-      <div className="md:hidden">
-        <label htmlFor="settings-section-select" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+      {/* Mobile Settings Section Switcher (< md: 320px - 767px) — Select Dropdown Picker */}
+      <div className="md:hidden w-full min-w-0">
+        <label htmlFor="settings-section-select" className="sr-only">
           Settings Section
         </label>
         <div className="relative">
+          <div className="w-full h-11 px-3.5 pr-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-xs flex items-center gap-2 pointer-events-none">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 shrink-0">
+              Section:
+            </span>
+            <span className="truncate text-sm font-bold text-slate-900 dark:text-white">
+              {[
+                { id: 'profile', label: 'School Profile' },
+                { id: 'organization', label: 'Organization' },
+                { id: 'operations', label: 'Operating Schedule' },
+                { id: 'admissions', label: 'Admissions Policy' },
+                { id: 'academics', label: 'Academics & EYFS' },
+                { id: 'students', label: 'Student Lifecycle' },
+                { id: 'finance', label: 'Finance & Invoicing' },
+                { id: 'templates', label: 'Document Templates' },
+                { id: 'notifications', label: 'Communications & Alerts' },
+                { id: 'security', label: 'Security & Access' },
+                { id: 'rbac', label: 'Role Permissions' },
+                { id: 'health', label: 'Integration Health' },
+                { id: 'preferences', label: 'My Preferences & Glow' },
+              ].find((t) => t.id === activeTab)?.label || 'School Profile'}
+            </span>
+          </div>
           <select
             id="settings-section-select"
             value={activeTab}
             onChange={(e) => handleTabChange(e.target.value)}
-            className="w-full h-11 px-3.5 pr-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-900 dark:text-slate-100 shadow-xs appearance-none focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-base"
+            aria-label="Select Settings Section"
           >
             {[
               { id: 'profile', label: '1. School Profile & Localization' },
@@ -417,11 +440,11 @@ export default function SettingsControlCenter() {
               { id: 'preferences', label: '13. My User Preferences & Glow' },
             ].map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label}
+                Section: {s.label}
               </option>
             ))}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
             <ChevronDown size={16} />
           </div>
         </div>

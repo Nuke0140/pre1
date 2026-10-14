@@ -751,7 +751,7 @@ function ActiveChipsRail({ chips, onClearAll }: ActiveChipsRailProps) {
   if (chips.length === 0) return null
 
   return (
-    <div className="sfb-chips-rail" role="region" aria-label="Applied Filters">
+    <div className="sfb-chips-rail rail-edge-fade scrollbar-none touch-pan-x" role="region" aria-label="Applied Filters">
       <span className="sfb-chips-label">
         Applied ({chips.length}):
       </span>

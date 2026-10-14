@@ -207,5 +207,66 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(ribbonFile).toContain('rail-edge-fade scrollbar-none')
     })
   })
+
+  describe('Phase 2 — Header Collapse & Phone Layouts', () => {
+    it('verifies responsive topbar collapses desktop search to hidden lg:flex and provides single search icon button for < lg', async () => {
+      const headerFile = await Bun.file('src/components/shell/GlobalWorkspaceHeader.tsx').text()
+      expect(headerFile).toContain('className="workspace-search-wrap hidden lg:flex"')
+      expect(headerFile).toContain('className="workspace-action-btn lg:hidden"')
+      expect(headerFile).not.toContain('<div className="workspace-search-mobile-row md:hidden">')
+    })
+
+    it('verifies topbar actions collapse Help, Full-Screen, and Language below lg and moves them into profile menu', async () => {
+      const headerFile = await Bun.file('src/components/shell/GlobalWorkspaceHeader.tsx').text()
+      expect(headerFile).toContain('className="hidden lg:inline-flex"')
+      expect(headerFile).toContain('className="hidden lg:block"')
+      // Profile menu mobile additions
+      expect(headerFile).toContain('className="lg:hidden"')
+      expect(headerFile).toContain('Help &amp; Documentation')
+      expect(headerFile).toContain('Toggle Full Screen')
+      // Pinned 1-tap sign out
+      expect(headerFile).toContain('title="Sign out immediately"')
+    })
+
+    it('verifies Students page header card stacks on mobile with full-width CTA and edge-fade classroom rail', async () => {
+      const studentsFile = await Bun.file('src/app/app/students/page.tsx').text()
+      expect(studentsFile).toContain('w-full sm:w-auto flex-1 md:flex-initial')
+      expect(studentsFile).toContain('touch-pan-x rail-edge-fade')
+    })
+
+    it('verifies SearchFilterBar active chips use touch-friendly edge-fade rail', async () => {
+      const sfbFile = await Bun.file('src/components/preone/SearchFilterBar.tsx').text()
+      expect(sfbFile).toContain('className="sfb-chips-rail rail-edge-fade scrollbar-none touch-pan-x"')
+    })
+
+    it('verifies Settings 18-tab rail becomes a Select dropdown picker with Section: ActiveName below md', async () => {
+      const settingsFile = await Bun.file('src/app/app/settings/page.tsx').text()
+      expect(settingsFile).toContain('Section:')
+      expect(settingsFile).toContain('id="settings-section-select"')
+      expect(settingsFile).toContain('md:hidden')
+    })
+
+    it('verifies login landscape defines @media (max-height: 480px) and (orientation: landscape) with <= 90vh compact card and hidden badge', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (max-height: 480px) and (orientation: landscape)')
+      expect(globalsCss).toContain('max-height: 90vh !important')
+      expect(globalsCss).toContain('.auth-tagline-badge')
+
+      const brandFile = await Bun.file('src/components/auth/AuthBrand.tsx').text()
+      expect(brandFile).toContain('auth-tagline-badge')
+    })
+
+    it('verifies dock clock is time-only below xl (< 1280px) and preserves whitespace-nowrap', async () => {
+      const dockFile = await Bun.file('src/components/shell/DockDateTime.tsx').text()
+      expect(dockFile).toContain('hidden xl:inline')
+      expect(dockFile).toContain('whitespace-nowrap')
+
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (max-width: 1279px)')
+      expect(globalsCss).toContain('.dock-datetime .dock-date')
+      expect(globalsCss).toContain('display: none !important')
+    })
+  })
 })
+
 

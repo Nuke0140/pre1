@@ -538,7 +538,7 @@ export default function StudentsPage() {
 
       {/* ── 1. COMPACT HERO STRIP ── */}
       <div className="w-full min-w-0 max-w-full bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           {/* Eyebrow & Session Pill */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
@@ -557,7 +557,7 @@ export default function StudentsPage() {
           </div>
 
           {/* Title */}
-          <h1 className="text-2xl sm:text-[28px] lg:text-[32px] font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-[28px] lg:text-[32px] font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5 flex-wrap">
             <span className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 flex items-center justify-center shrink-0 shadow-2xs">
               <GraduationCap size={18} />
             </span>
@@ -570,13 +570,13 @@ export default function StudentsPage() {
           </p>
         </div>
 
-        {/* Action Controls: Refresh + Primary CTA */}
-        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+        {/* Action Controls: Refresh + Primary CTA (Stacks full-width below title on mobile) */}
+        <div className="flex items-center gap-2 w-full md:w-auto self-stretch md:self-auto justify-end">
           <button
             type="button"
             onClick={() => { load(); loadStats(); }}
             title={t('common.refresh')}
-            className="p-2 sm:p-2.5 min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+            className="p-2 sm:p-2.5 min-h-[44px] min-w-[44px] shrink-0 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors inline-flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-purple-500/30"
             aria-label={t('common.refresh')}
           >
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -585,7 +585,7 @@ export default function StudentsPage() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] flex-1 sm:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 sm:py-2.5 min-h-[44px] rounded-xl font-semibold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] w-full sm:w-auto flex-1 md:flex-initial focus:outline-none focus:ring-2 focus:ring-purple-500/30"
             >
               <Plus size={16} />
               <span>{t('students.enrollChild')}</span>
@@ -818,7 +818,7 @@ export default function StudentsPage() {
       />
 
       {/* Classroom Quick-Switch Rail */}
-      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5 touch-pan-x">
+      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5 touch-pan-x rail-edge-fade">
         <button
           onClick={() => setClassFilter('ALL')}
           className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${

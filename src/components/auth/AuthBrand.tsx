@@ -38,7 +38,7 @@ export function AuthBrand({
 
       {/* Brand Tagline Badge */}
       {tagline && (
-        <div className="auth-stagger-2 flex justify-center">
+        <div className="auth-stagger-2 auth-tagline-badge flex justify-center">
           <span className="inline-flex items-center text-xs font-semibold tracking-wide text-purple-700 dark:text-purple-300 bg-purple-50/90 dark:bg-purple-950/60 px-3.5 py-1 rounded-full border border-purple-200/70 dark:border-purple-800/60 shadow-2xs">
             {tagline}
           </span>

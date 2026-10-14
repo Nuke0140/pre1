@@ -49,7 +49,7 @@ export function DockDateTime({ className = '', showIcon = true }: DockDateTimePr
         <span className="dock-time whitespace-nowrap" suppressHydrationWarning>
           {dateTime ? dateTime.time : '4:55 PM'}
         </span>
-        <span className="dock-date whitespace-nowrap" suppressHydrationWarning>
+        <span className="dock-date whitespace-nowrap hidden xl:inline" suppressHydrationWarning>
           {dateTime ? dateTime.date : 'Wed, 18 Sept'}
         </span>
       </div>

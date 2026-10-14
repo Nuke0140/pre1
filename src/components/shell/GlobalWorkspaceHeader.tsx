@@ -17,6 +17,8 @@ import {
   User,
   LogOut,
   Sparkles,
+  HelpCircle,
+  Maximize2,
 } from 'lucide-react'
 import { enumLabel, timeAgo } from '@/lib/format'
 import type { Role } from '@/lib/auth'
@@ -239,21 +241,34 @@ export function GlobalWorkspaceHeader({
             </Link>
           </div>
 
-          {/* ── Center Area: Workspace Global Command Search Bar (Desktop / Tablet) ── */}
-          <div className="workspace-search-wrap hidden md:flex">
+          {/* ── Center Area: Workspace Global Command Search Bar (Desktop ≥ lg) ── */}
+          <div className="workspace-search-wrap hidden lg:flex">
             {renderSearchBar()}
           </div>
 
           {/* ── Right Area: Action Group + Dividers + User Profile ── */}
           <div className="workspace-actions-group">
-            {/* 1. Help Button */}
-            <HelpButton onClick={onOpenHelp} className="hidden md:inline-flex" />
+            {/* Mobile / Tablet (< lg) Single Search Icon Button — BUG-014 root fix */}
+            <button
+              suppressHydrationWarning
+              type="button"
+              className="workspace-action-btn lg:hidden"
+              aria-label="Open global search (⌘K)"
+              title="Search (⌘K)"
+              onClick={onOpenSearch}
+            >
+              <Search size={16} aria-hidden="true" />
+              <span className="workspace-action-label">Search</span>
+            </button>
 
-            {/* 2. Full Screen Button */}
-            <FullscreenButton className="hidden md:inline-flex" />
+            {/* 1. Help Button (≥ lg; below lg available in Profile menu) */}
+            <HelpButton onClick={onOpenHelp} className="hidden lg:inline-flex" />
 
-            {/* 2.5 Language Selector */}
-            <div ref={langRef} style={{ position: 'relative' }}>
+            {/* 2. Full Screen Button (≥ lg; below lg available in Profile menu) */}
+            <FullscreenButton className="hidden lg:inline-flex" />
+
+            {/* 2.5 Language Selector (≥ lg; below lg available in Profile menu) */}
+            <div ref={langRef} className="hidden lg:block" style={{ position: 'relative' }}>
               <button
                 suppressHydrationWarning
                 type="button"
@@ -691,16 +706,41 @@ export function GlobalWorkspaceHeader({
                   backgroundColor: 'var(--bg-subtle)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Avatar name={user.name} src={user.avatarUrl} size="sm" />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {user.name}
-                    </div>
-                    <div className="txt-muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {user.email}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                    <Avatar name={user.name} src={user.avatarUrl} size="sm" />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {user.name}
+                      </div>
+                      <div className="txt-muted" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {user.email}
+                      </div>
                     </div>
                   </div>
+                  {/* Immediate 1-tap Sign out button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false)
+                      onLogout?.()
+                    }}
+                    className="btn btn-ghost btn-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      flexShrink: 0,
+                      fontWeight: 600,
+                      fontSize: 11,
+                    }}
+                    title="Sign out immediately"
+                  >
+                    <LogOut size={13} />
+                    <span>Sign out</span>
+                  </button>
                 </div>
                 <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span className="badge" style={{ fontSize: 10, fontWeight: 600 }}>{roleLabel}</span>
@@ -764,6 +804,106 @@ export function GlobalWorkspaceHeader({
                   </div>
                 </Link>
 
+                {/* Mobile tools that collapsed from topbar into profile menu below lg */}
+                <div className="lg:hidden">
+                  <div style={{ height: 1, backgroundColor: 'var(--border)', margin: '4px 0' }} />
+
+                  {/* Language Selector (< lg) */}
+                  <div style={{ padding: '6px 10px' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>
+                      {t('header.language')}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {SUPPORTED_LOCALES.map((loc) => {
+                        const isSelected = locale === loc.code
+                        return (
+                          <button
+                            key={loc.code}
+                            type="button"
+                            onClick={() => setLocale(loc.code)}
+                            className={`btn btn-xs ${isSelected ? 'btn-primary' : 'btn-ghost'}`}
+                            style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6 }}
+                          >
+                            {loc.nativeName}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Help & Documentation (< lg) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false)
+                      onOpenHelp()
+                    }}
+                    className="dropdown-item"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: 12.5,
+                      color: 'inherit',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <HelpCircle size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontWeight: 500 }}>Help &amp; Documentation</div>
+                      <div className="txt-muted" style={{ fontSize: 10.5 }}>Keyboard shortcuts &amp; guides</div>
+                    </div>
+                  </button>
+
+                  {/* Full Screen Toggle (< lg) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false)
+                      if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+                        if (document.documentElement.requestFullscreen) {
+                          document.documentElement.requestFullscreen()
+                        } else if ((document.documentElement as any).webkitRequestFullscreen) {
+                          (document.documentElement as any).webkitRequestFullscreen()
+                        }
+                      } else {
+                        if (document.exitFullscreen) {
+                          document.exitFullscreen()
+                        } else if ((document as any).webkitExitFullscreen) {
+                          (document as any).webkitExitFullscreen()
+                        }
+                      }
+                    }}
+                    className="dropdown-item"
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: 12.5,
+                      color: 'inherit',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <Maximize2 size={15} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontWeight: 500 }}>Toggle Full Screen</div>
+                      <div className="txt-muted" style={{ fontSize: 10.5 }}>Maximize canvas view</div>
+                    </div>
+                  </button>
+                </div>
+
                 <div style={{ height: 1, backgroundColor: 'var(--border)', margin: '4px 0' }} />
 
                 <button
@@ -795,13 +935,6 @@ export function GlobalWorkspaceHeader({
             </div>
           )}
         </div>
-      </div>
-    </div>
-
-    {/* ── Mobile Secondary Row: Dedicated Full-Width Search Bar (< md) ── */}
-    <div className="workspace-search-mobile-row md:hidden">
-      <div className="workspace-search-wrap w-full">
-        {renderSearchBar()}
       </div>
     </div>
   </header>
