@@ -2309,16 +2309,16 @@ export default function AdmissionsPage() {
       </div>
 
       {/* ── 2. CAMPUS & ACADEMIC YEAR SELECTOR STRIP ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
           {/* Branch Pill */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs max-w-full min-w-0">
             <Building size={14} className="text-primary shrink-0" />
-            <span className="text-xs font-semibold text-muted-foreground">Branch:</span>
+            <span className="text-xs font-semibold text-muted-foreground shrink-0">Branch:</span>
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0"
             >
               {branches.length > 1 && (
                 <option value="__ALL_BRANCHES__">
@@ -2334,13 +2334,13 @@ export default function AdmissionsPage() {
           </div>
 
           {/* Academic Session Pill */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border/70 shadow-2xs max-w-full min-w-0">
             <Calendar size={14} className="text-primary shrink-0" />
-            <span className="text-xs font-semibold text-muted-foreground">Academic Year:</span>
+            <span className="text-xs font-semibold text-muted-foreground shrink-0">Academic Year:</span>
             <select
               value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
-              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer pr-1 max-w-full min-w-0"
             >
               {sessions.map((s) => (
                 <option key={s.id} value={s.id}>

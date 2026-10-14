@@ -311,12 +311,12 @@ export default function EnquiriesPage() {
             </div>
 
             {/* Desktop Filters (Hidden on Mobile, visible on sm and up) */}
-            <div className="hidden sm:flex items-center gap-2 flex-wrap">
+            <div className="hidden sm:flex items-center gap-2 flex-wrap min-w-0">
               {/* Program Filter */}
               <select
                 value={filterProgram}
                 onChange={(e) => setFilterProgram(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[140px] font-medium"
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[140px] max-w-full min-w-0 font-medium"
                 aria-label="Filter by Program"
               >
                 <option value="">All Programs</option>
@@ -331,7 +331,7 @@ export default function EnquiriesPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[160px] font-medium"
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[160px] max-w-full min-w-0 font-medium"
                 aria-label="Filter by Status"
               >
                 <option value="ACTIVE">Active Enquiries</option>
@@ -348,7 +348,7 @@ export default function EnquiriesPage() {
               <select
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[130px] font-medium"
+                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[130px] max-w-full min-w-0 font-medium"
                 aria-label="Filter by Source"
               >
                 <option value="">All Sources</option>

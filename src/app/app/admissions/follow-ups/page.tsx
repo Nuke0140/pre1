@@ -320,9 +320,9 @@ export default function FollowUpsPage() {
           </div>
 
           {/* Quick search & program filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-56">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
+            <div className="relative flex-1 sm:w-56 min-w-0">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 type="text"
                 placeholder="Search parent or child..."
@@ -335,7 +335,7 @@ export default function FollowUpsPage() {
               <select
                 value={filterProgram}
                 onChange={(e) => setFilterProgram(e.target.value)}
-                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[130px]"
+                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[130px] max-w-full min-w-0"
               >
                 <option value="">All Programs</option>
                 {programs.map((p) => (
@@ -349,7 +349,7 @@ export default function FollowUpsPage() {
               <select
                 value={filterStaff}
                 onChange={(e) => setFilterStaff(e.target.value)}
-                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[140px]"
+                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[140px] max-w-full min-w-0"
               >
                 <option value="">All Counselors</option>
                 {staffOptions.map((s) => (

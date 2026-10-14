@@ -412,6 +412,37 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       // Container includes min-w-0 for safety against wide table / flex children
       expect(hrHeader).toContain('flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0')
     })
+
+    it('verifies BUG-025 fix: filter-bar selects in admissions and finance enforce max-w-full min-w-0 inside flex-wrap bars', async () => {
+      // 1. Finance / Fees filter bar
+      const feesFile = await Bun.file('src/app/app/fees/page.tsx').text()
+      expect(feesFile).toContain('focus:ring-indigo-500 outline-none max-w-full min-w-0')
+      expect(feesFile).toContain('flex flex-wrap items-center justify-between p-3 bg-slate-50/80')
+
+      // 2. Admissions Applications filter bar
+      const applicationsFile = await Bun.file('src/app/app/admissions/applications/page.tsx').text()
+      expect(applicationsFile).toContain('min-w-[130px] max-w-full min-w-0')
+      expect(applicationsFile).toContain('min-w-[120px] max-w-full min-w-0')
+
+      // 3. Admissions Enquiries filter bar
+      const enquiriesFile = await Bun.file('src/app/app/admissions/enquiries/page.tsx').text()
+      expect(enquiriesFile).toContain('max-w-[140px] max-w-full min-w-0')
+      expect(enquiriesFile).toContain('max-w-[160px] max-w-full min-w-0')
+      expect(enquiriesFile).toContain('max-w-[130px] max-w-full min-w-0')
+
+      // 4. Admissions Follow-ups filter bar
+      const followUpsFile = await Bun.file('src/app/app/admissions/follow-ups/page.tsx').text()
+      expect(followUpsFile).toContain('max-w-[130px] max-w-full min-w-0')
+      expect(followUpsFile).toContain('max-w-[140px] max-w-full min-w-0')
+
+      // 5. Admissions Root Campus/Session strip
+      const admissionsRootFile = await Bun.file('src/app/app/admissions/page.tsx').text()
+      expect(admissionsRootFile).toContain('cursor-pointer pr-1 max-w-full min-w-0')
+
+      // 6. Global CSS baseline rule
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('width:100%;max-width:100%;min-width:0;')
+    })
   })
 })
 

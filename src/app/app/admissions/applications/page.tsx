@@ -395,9 +395,9 @@ export default function ApplicationsPage() {
     >
       <div className="space-y-4">
         {/* ── Filter Bar ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border/80 bg-card shadow-xs">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border/80 bg-card shadow-xs min-w-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
+            <div className="relative flex-1 sm:w-64 min-w-0">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
@@ -411,7 +411,7 @@ export default function ApplicationsPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[130px]"
+              className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[130px] max-w-full min-w-0"
             >
               <option value="">All Statuses</option>
               <option value="SUBMITTED">Submitted</option>
@@ -426,7 +426,7 @@ export default function ApplicationsPage() {
               <select
                 value={filterProgram}
                 onChange={(e) => setFilterProgram(e.target.value)}
-                className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[120px]"
+                className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[120px] max-w-full min-w-0"
               >
                 <option value="">All Programs</option>
                 {programs.map((p) => (

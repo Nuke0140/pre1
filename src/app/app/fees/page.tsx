@@ -1008,12 +1008,12 @@ export default function FeesPage() {
 
           {/* Campus Branch Filter Toolbar */}
           {branches.length > 0 && (
-            <div className="flex items-center justify-between p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
-              <div className="flex items-center gap-2">
-                <Building2 className="size-4 text-slate-500" />
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Filter by Campus:</span>
+            <div className="flex flex-wrap items-center justify-between p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs gap-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
+                <Building2 className="size-4 text-slate-500 shrink-0" />
+                <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">Filter by Campus:</span>
                 <select
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none max-w-full min-w-0"
                   value={selectedBranchFilter}
                   onChange={(e) => setSelectedBranchFilter(e.target.value)}
                 >
