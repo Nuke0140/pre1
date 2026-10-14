@@ -4061,8 +4061,36 @@ input[data-trailing-action="true"]:-webkit-autofill,
   transition: all var(--motion-fast) var(--ease-standard);
 }
 
-.workspace-action-btn.hidden {
-  display: none !important;
+@media (min-width: 1024px) {
+  /* On desktop (>= 1024px), hide the mobile search icon button */
+  .workspace-actions-group .workspace-action-btn.lg\:hidden,
+  .workspace-actions-group button.lg\:hidden,
+  .workspace-action-btn.lg\:hidden {
+    display: none !important;
+  }
+
+  /* On desktop (>= 1024px), show full feature action buttons (Help, Fullscreen, Language) */
+  .workspace-actions-group .workspace-action-btn.lg\:inline-flex,
+  .workspace-actions-group .lg\:inline-flex {
+    display: inline-flex !important;
+  }
+  .workspace-actions-group .lg\:block,
+  .workspace-actions-group div.lg\:block {
+    display: block !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Below 1024px, collapse Help, Fullscreen, Language into profile menu */
+  .workspace-action-btn.hidden,
+  .workspace-actions-group .hidden,
+  .workspace-actions-group .workspace-action-btn.hidden {
+    display: none !important;
+  }
+  /* Below 1024px, the mobile search icon button is visible */
+  .workspace-actions-group .workspace-action-btn.lg\:hidden {
+    display: inline-flex !important;
+  }
 }
 
 .workspace-action-btn:hover {

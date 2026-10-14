@@ -258,7 +258,7 @@ export function GlobalWorkspaceHeader({
               onClick={onOpenSearch}
             >
               <Search size={16} aria-hidden="true" />
-              <span className="workspace-action-label">Search</span>
+              <span className="workspace-action-label" style={{ display: 'none' }}>Search</span>
             </button>
 
             {/* 1. Help Button (≥ lg; below lg available in Profile menu) */}
