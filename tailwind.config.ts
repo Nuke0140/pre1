@@ -28,8 +28,8 @@ const config: Config = {
   				DEFAULT: 'var(--brand-600)',
   			},
   			card: {
-  				DEFAULT: 'var(--surface)',
-  				foreground: 'var(--foreground)'
+  				DEFAULT: 'var(--card, var(--surface))',
+  				foreground: 'var(--card-foreground, var(--foreground))'
   			},
   			surface: {
   				DEFAULT: 'var(--surface)',

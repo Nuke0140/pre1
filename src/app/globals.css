@@ -185,10 +185,13 @@ html, body {
   /* ── 0. Tailwind & Radix UI Bridge Variables ─────────────────── */
   --background:var(--bg);
   --foreground:var(--text-1);
+  --card:var(--surface);
+  --card-foreground:var(--text-1);
   --surface-elevated:var(--bg-elevated);
   --surface-muted:var(--bg-muted);
   --border:var(--border-default);
   --input-border:var(--border-default);
+  --primary-foreground:var(--preone-primary-foreground, #FFFFFF);
 
   /* ── PreOne Signature Color System v4.0 (§3.1) ─────────────── */
   --color-primary: #7C3AED;
@@ -713,6 +716,9 @@ html, body {
   --card-bg: var(--surface);
   --card-border: var(--border);
   --card-shadow: var(--shadow-1);
+  --card: var(--surface);
+  --card-foreground: var(--text-1);
+  --primary-foreground: #FFFFFF;
 
   --menu-bg: var(--surface-solid);
   --menu-border: var(--border);

@@ -122,4 +122,34 @@ describe('PreOne Global Design Token System v1.0 Integrity', () => {
     expect(kpiCard).toContain('[box-shadow:var(--shadow-1)]')
     expect(kpiCard).toContain('hover:[box-shadow:var(--shadow-2)]')
   })
+
+  it('verifies BUG-013 + BUG-009: 404 NotFound page consumes semantic tokens (bg-background, bg-card, text-foreground) and defines --primary-foreground', async () => {
+    const notFound = await Bun.file('src/app/not-found.tsx').text()
+
+    // Semantic tokens used
+    expect(notFound).toContain('bg-background')
+    expect(notFound).toContain('text-foreground')
+    expect(notFound).toContain('bg-card')
+    expect(notFound).toContain('border-border')
+    expect(notFound).toContain('text-muted-foreground')
+    expect(notFound).toContain('bg-primary')
+    expect(notFound).toContain('text-primary-foreground')
+
+    // No hardcoded light-only slate or white tokens
+    expect(notFound).not.toContain('bg-slate-50')
+    expect(notFound).not.toContain('bg-white')
+    expect(notFound).not.toContain('border-slate-200')
+    expect(notFound).not.toContain('text-slate-900')
+    expect(notFound).not.toContain('text-slate-600')
+
+    // CSS bridge defines --primary-foreground and --card
+    const css = await Bun.file('src/app/globals.css').text()
+    expect(css).toContain('--primary-foreground:')
+    expect(css).toContain('--card:')
+
+    // Tailwind exposes card and primary-foreground
+    const tailwind = await Bun.file('tailwind.config.ts').text()
+    expect(tailwind).toContain("foreground: 'var(--primary-foreground)'")
+    expect(tailwind).toContain("DEFAULT: 'var(--card, var(--surface))'")
+  })
 })
