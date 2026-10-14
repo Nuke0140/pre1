@@ -953,7 +953,7 @@ export default function StudentsPage() {
                             <StatusBadge status={s.status} />
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
-                            {s.admissionNo} • {s.classroom || 'Unassigned'}
+                            {s.admissionNo} • {s.classroom?.name || (typeof s.classroom === 'string' ? s.classroom : null) || 'Unassigned'}
                           </div>
                         </div>
                       </button>
@@ -1015,10 +1015,10 @@ export default function StudentsPage() {
                             Classroom &amp; Program
                           </span>
                           <span className="font-bold text-sm text-slate-900 dark:text-white block truncate">
-                            {s.classroom || 'Unassigned'}
+                            {s.classroom?.name || (typeof s.classroom === 'string' ? s.classroom : null) || 'Unassigned'}
                           </span>
                           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                            {s.program || 'General Preschool'}
+                            {(typeof s.classroom === 'object' && s.classroom?.programType ? enumLabel(s.classroom.programType) : null) || s.programType || (s as any).program || 'General Preschool'}
                           </span>
                         </div>
                         <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs">
@@ -1047,16 +1047,16 @@ export default function StudentsPage() {
                           <div>
                             <span className="text-slate-400 block text-[10px]">Guardian Name</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200">
-                              {s.guardian?.name || 'Not provided'}
+                              {s.primaryGuardian?.name || (s as any).guardian?.name || 'Not provided'}
                             </span>
                             <span className="text-[10px] text-slate-500 block">
-                              ({s.guardian?.relation || 'Guardian'})
+                              ({s.primaryGuardian?.relationship ? enumLabel(s.primaryGuardian.relationship) : (s as any).guardian?.relation || 'Guardian'})
                             </span>
                           </div>
                           <div>
                             <span className="text-slate-400 block text-[10px]">Contact Phone</span>
                             <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                              {s.guardian?.phone || '—'}
+                              {s.primaryGuardian?.phone || (s as any).guardian?.phone || '—'}
                             </span>
                           </div>
                         </div>
