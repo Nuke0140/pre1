@@ -370,7 +370,7 @@ export default function SettingsControlCenter() {
   }
 
   return (
-    <div className="w-full min-w-0 max-w-full page-container space-y-6" style={{ paddingBottom: 60 }}>
+    <div className="w-full min-w-0 max-w-[1460px] mx-auto page-container space-y-6" style={{ paddingBottom: 60 }}>
       <PageHead
         breadcrumbs={[
           { label: 'Home', href: '/app' },

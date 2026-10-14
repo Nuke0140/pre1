@@ -197,7 +197,7 @@ export default function AuditPage() {
   }
 
   return (
-    <>
+    <div className="w-full min-w-0 max-w-[1460px] mx-auto space-y-4 pb-20">
       <PageHead
         breadcrumbs={[
           { label: 'Home', href: '/app' },
@@ -771,6 +771,6 @@ export default function AuditPage() {
           </div>
         )}
       </Modal>
-    </>
+    </div>
   )
 }

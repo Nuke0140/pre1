@@ -854,7 +854,7 @@ export default function DailyDiaryPage() {
   })
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="w-full min-w-0 max-w-[1460px] mx-auto space-y-6 pb-12">
       {/* ── Breadcrumb Navigation ── */}
       <Breadcrumbs items={[{ label: 'Home', href: '/app' }, { label: 'Daily Diary' }]} />
 

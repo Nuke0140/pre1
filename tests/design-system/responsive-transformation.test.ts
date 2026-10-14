@@ -302,7 +302,45 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(globalsCss).toContain('.dt-icon-btn')
     })
   })
+
+  describe('Phase 4 — Large-Screen & Zoom Polish (1920px & WCAG 1.4.10 Reflow)', () => {
+    it('verifies global app-content enforces max-width: 1460px and margin: 0 auto for 1920px centering', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('.app-content{width:100%;max-width:1460px;margin:0 auto')
+    })
+
+    it('verifies Audit Logs page is wrapped in a centered max-w-[1460px] mx-auto container', async () => {
+      const auditFile = await Bun.file('src/app/app/audit/page.tsx').text()
+      expect(auditFile).toContain('w-full min-w-0 max-w-[1460px] mx-auto')
+    })
+
+    it('verifies Settings page is centered with max-w-[1460px] mx-auto', async () => {
+      const settingsFile = await Bun.file('src/app/app/settings/page.tsx').text()
+      expect(settingsFile).toContain('w-full min-w-0 max-w-[1460px] mx-auto page-container')
+    })
+
+    it('verifies Daily-Diary page is centered with max-w-[1460px] mx-auto', async () => {
+      const ddFile = await Bun.file('src/app/app/daily-diary/page.tsx').text()
+      expect(ddFile).toContain('w-full min-w-0 max-w-[1460px] mx-auto space-y-6 pb-12')
+    })
+
+    it('verifies 2xl density bump provides roomier paddings and expands max-width to 1520px at min-width: 1536px', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (min-width: 1536px)')
+      expect(globalsCss).toContain('max-width: 1520px;')
+      expect(globalsCss).toContain('clamp(28px, 4vw, 56px)')
+    })
+
+    it('verifies WCAG 1.4.10 zoom reflow on short viewports (max-height: 640px) compresses padding and controls', async () => {
+      const globalsCss = await Bun.file('src/app/globals.css').text()
+      expect(globalsCss).toContain('@media (max-height: 640px)')
+      expect(globalsCss).toContain('padding-top: calc(var(--header-h, 56px) + 12px);')
+      expect(globalsCss).toContain('padding-bottom: calc(var(--taskbar-h, 52px) + 24px);')
+      expect(globalsCss).toContain('.taskbar.preone-dock')
+    })
+  })
 })
+
 
 
 
