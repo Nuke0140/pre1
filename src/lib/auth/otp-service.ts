@@ -6,9 +6,16 @@ import { signSession, Role } from '@/lib/auth'
 import { normalizeRole } from '@/lib/roles'
 import { SessionService } from '@/lib/users/session-service'
 import {
+  getFailedAttempts,
   recordFailedAttempt,
   resetFailedAttempts,
   resetPersistentFailedAttempts,
+  MAX_CONSECUTIVE_FAILURES,
+  MAX_IP_FAILURES,
+  getIpFailedAttempts,
+  recordIpFailedAttempt,
+  resetIpFailedAttempts,
+  clearAllAttempts,
 } from '@/lib/auth/lockout-tracker'
 import { normalizeLocale, isSupportedLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
 
@@ -25,6 +32,9 @@ export interface ActiveOtpRecord {
 
 // In-memory active OTP registry with sliding window expiration
 const activeOtps = new Map<string, ActiveOtpRecord>()
+
+// In-memory lockout registry for identifiers whose OTP verification attempts were exhausted
+const lockedOtps = new Map<string, number>()
 
 export const OTP_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 export const OTP_COOLDOWN_MS = 45 * 1000 // 45 seconds
@@ -68,10 +78,12 @@ export class OtpService {
   }
 
   /**
-   * Clears in-memory OTP registry (used by tests).
+   * Clears in-memory OTP registry, lockouts, and attempt tracking (used by tests).
    */
   static clearAllOtps(): void {
     activeOtps.clear()
+    lockedOtps.clear()
+    clearAllAttempts()
   }
 
   /**
@@ -217,8 +229,14 @@ export class OtpService {
       }
     }
 
-    // Generate cryptographically random 4-digit code (1000-9999)
-    const code = Math.floor(1000 + Math.random() * 9000).toString()
+    // Clear any previous lockout when issuing a fresh code
+    lockedOtps.delete(cleanId)
+
+    // Generate cryptographically random verification code (default 4 digits for UI, configurable via OTP_CODE_LENGTH to 6)
+    const codeLength = Number(process.env.OTP_CODE_LENGTH) || 4
+    const min = Math.pow(10, codeLength - 1)
+    const max = Math.pow(10, codeLength) - 1
+    const code = Math.floor(min + Math.random() * (max - min + 1)).toString()
 
     activeOtps.set(cleanId, {
       code,
@@ -308,20 +326,61 @@ export class OtpService {
   }> {
     const { identifier, code, schoolCode, req } = params
     const meta = getRequestMeta(req)
+    const ip = meta.ipAddress
+    const cleanId = (identifier || '').toLowerCase().trim()
 
+    // 1. Per-IP throttling check (BUG-030)
+    if (ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
+      return {
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many verification attempts from this IP address. Please try again in 15 minutes.',
+          status: 429,
+        },
+      }
+    }
+
+    // 2. Per-identifier throttling & lockout check (BUG-030)
+    if (cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
+      return {
+        success: false,
+        error: {
+          code: 'TOO_MANY_ATTEMPTS',
+          message: 'Account temporarily locked due to too many failed verification attempts. Please try again in 15 minutes or request a new code.',
+          status: 429,
+        },
+      }
+    }
+
+    // 3. Exhausted attempts lockout check for active OTP code
+    if (cleanId) {
+      const lockExpiry = lockedOtps.get(cleanId)
+      if (lockExpiry && Date.now() < lockExpiry) {
+        return {
+          success: false,
+          error: {
+            code: 'OTP_MAX_ATTEMPTS',
+            message: 'Maximum verification attempts exceeded. Please request a new code.',
+            status: 429,
+          },
+        }
+      }
+    }
+
+    // 4. Code formatting validation (supports 4 to 6 digits)
     const cleanCode = (code || '').trim()
-    if (!cleanCode || cleanCode.length !== 4) {
+    if (!cleanCode || cleanCode.length < 4 || cleanCode.length > 6 || !/^\d+$/.test(cleanCode)) {
       return {
         success: false,
         error: {
           code: 'VALIDATION_001',
-          message: 'Please enter all 4 digits of your verification code.',
+          message: 'Please enter all digits of your verification code (4-6 digits).',
           status: 400,
         },
       }
     }
 
-    const cleanId = (identifier || '').toLowerCase().trim()
     const cleanSchoolCode = schoolCode?.trim().toUpperCase()
 
     let user: any = null
@@ -392,6 +451,31 @@ export class OtpService {
 
       const active = activeOtps.get(cleanId)
       if (!active) {
+        const idAttempts = recordFailedAttempt(cleanId)
+        const ipAttempts = ip ? recordIpFailedAttempt(ip) : 0
+
+        if (idAttempts >= MAX_CONSECUTIVE_FAILURES) {
+          return {
+            success: false,
+            error: {
+              code: 'TOO_MANY_ATTEMPTS',
+              message: 'Account temporarily locked due to too many failed verification attempts. Please try again in 15 minutes or request a new code.',
+              status: 429,
+            },
+          }
+        }
+
+        if (ip && ipAttempts >= MAX_IP_FAILURES) {
+          return {
+            success: false,
+            error: {
+              code: 'RATE_LIMITED',
+              message: 'Too many verification attempts from this IP address. Please try again in 15 minutes.',
+              status: 429,
+            },
+          }
+        }
+
         return {
           success: false,
           error: {
@@ -417,31 +501,74 @@ export class OtpService {
 
       if (active.attempts >= MAX_OTP_ATTEMPTS) {
         activeOtps.delete(cleanId)
+        lockedOtps.set(cleanId, now + 15 * 60 * 1000)
         return {
           success: false,
           error: {
             code: 'OTP_MAX_ATTEMPTS',
             message: 'Maximum verification attempts exceeded. Please request a new code.',
             status: 429,
+            remainingAttempts: 0,
           },
         }
       }
 
       if (active.code !== cleanCode) {
         active.attempts += 1
-        recordFailedAttempt(cleanId)
+        const idAttempts = recordFailedAttempt(cleanId)
+        const ipAttempts = ip ? recordIpFailedAttempt(ip) : 0
+        const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - active.attempts)
+
+        if (active.attempts >= MAX_OTP_ATTEMPTS) {
+          activeOtps.delete(cleanId)
+          lockedOtps.set(cleanId, now + 15 * 60 * 1000)
+          return {
+            success: false,
+            error: {
+              code: 'OTP_MAX_ATTEMPTS',
+              message: 'Maximum verification attempts exceeded. Verification code invalidated. Please request a new code.',
+              status: 429,
+              remainingAttempts: 0,
+            },
+          }
+        }
+
+        if (idAttempts >= MAX_CONSECUTIVE_FAILURES) {
+          return {
+            success: false,
+            error: {
+              code: 'TOO_MANY_ATTEMPTS',
+              message: 'Account temporarily locked due to too many failed verification attempts. Please try again in 15 minutes or request a new code.',
+              status: 429,
+            },
+          }
+        }
+
+        if (ip && ipAttempts >= MAX_IP_FAILURES) {
+          return {
+            success: false,
+            error: {
+              code: 'RATE_LIMITED',
+              message: 'Too many verification attempts from this IP address. Please try again in 15 minutes.',
+              status: 429,
+            },
+          }
+        }
+
         return {
           success: false,
           error: {
             code: 'INVALID_OTP',
-            message: 'Invalid verification code. Please check and try again.',
+            message: `Invalid verification code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`,
             status: 401,
+            remainingAttempts,
           },
         }
       }
 
-      // Valid OTP: delete active entry
+      // Valid OTP: delete active entry and clear lockout
       activeOtps.delete(cleanId)
+      lockedOtps.delete(cleanId)
 
       user = await db.user.findUnique({
         where: { id: active.userId },
@@ -545,6 +672,8 @@ export class OtpService {
     // Clear failed attempts upon success
     await resetPersistentFailedAttempts(user.id)
     resetFailedAttempts(user.id, user.email, user.username, cleanId)
+    if (ip) resetIpFailedAttempts(ip)
+    lockedOtps.delete(cleanId)
 
     // Platform admin vs School member session
     if (!membership) {

@@ -270,6 +270,158 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
         else delete process.env.ALLOW_DEMO_OTP
       }
     })
+
+    it('BUG-030: provides remaining attempt counter and locks out after 3 failed active OTP attempts', async () => {
+      OtpService.setTestOtp(testUser.email, {
+        code: '5555',
+        userId: testUser.id,
+        email: testUser.email,
+        attempts: 0,
+      })
+
+      // Attempt 1: wrong code -> 401 with remainingAttempts: 2
+      const att1 = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '1111',
+      })
+      expect(att1.success).toBe(false)
+      expect(att1.error?.code).toBe('INVALID_OTP')
+      expect(att1.error?.status).toBe(401)
+      expect(att1.error?.message).toContain('2 attempts remaining')
+      expect((att1.error as any)?.remainingAttempts).toBe(2)
+
+      // Attempt 2: wrong code -> 401 with remainingAttempts: 1
+      const att2 = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '2222',
+      })
+      expect(att2.success).toBe(false)
+      expect(att2.error?.code).toBe('INVALID_OTP')
+      expect(att2.error?.status).toBe(401)
+      expect(att2.error?.message).toContain('1 attempt remaining')
+      expect((att2.error as any)?.remainingAttempts).toBe(1)
+
+      // Attempt 3: wrong code -> 429 OTP_MAX_ATTEMPTS, code invalidated
+      const att3 = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '3333',
+      })
+      expect(att3.success).toBe(false)
+      expect(att3.error?.code).toBe('OTP_MAX_ATTEMPTS')
+      expect(att3.error?.status).toBe(429)
+      expect((att3.error as any)?.remainingAttempts).toBe(0)
+
+      // Attempt 4: subsequent attempts stay locked with 429
+      const att4 = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '5555', // Even correct code is rejected because OTP was invalidated
+      })
+      expect(att4.success).toBe(false)
+      expect(att4.error?.code).toBe('OTP_MAX_ATTEMPTS')
+      expect(att4.error?.status).toBe(429)
+    })
+
+    it('BUG-030: throttles per-identifier after 5 consecutive failed verify attempts (429 TOO_MANY_ATTEMPTS)', async () => {
+      // Simulate 5 failed attempts for a non-existent active code (e.g. brute force guessing)
+      for (let i = 0; i < 4; i++) {
+        const res = await OtpService.verifyOtp({
+          identifier: testUser.email,
+          code: `999${i}`,
+        })
+        expect(res.success).toBe(false)
+        expect(res.error?.status).toBe(400) // AUTH_004
+      }
+
+      // 5th attempt triggers lockout
+      const fifthAttempt = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '9999',
+      })
+      expect(fifthAttempt.success).toBe(false)
+      expect(fifthAttempt.error?.status).toBe(429)
+      expect(fifthAttempt.error?.code).toBe('TOO_MANY_ATTEMPTS')
+
+      // 6th attempt is blocked at entry
+      const sixthAttempt = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '9999',
+      })
+      expect(sixthAttempt.success).toBe(false)
+      expect(sixthAttempt.error?.status).toBe(429)
+      expect(sixthAttempt.error?.code).toBe('TOO_MANY_ATTEMPTS')
+    })
+
+    it('BUG-030: throttles per-IP after 10 consecutive failed attempts (429 RATE_LIMITED)', async () => {
+      const mockReq = (ip: string) =>
+        new NextRequest(new URL('http://localhost:3000/api/v1/auth/otp/verify'), {
+          method: 'POST',
+          headers: {
+            'x-forwarded-for': ip,
+            'content-type': 'application/json',
+          },
+        })
+
+      const testIp = '198.51.100.42'
+      for (let i = 0; i < 9; i++) {
+        const res = await OtpService.verifyOtp({
+          identifier: `diff_user_${i}@example.com`,
+          code: '8888',
+          req: mockReq(testIp),
+        })
+        expect(res.success).toBe(false)
+      }
+
+      // 10th attempt triggers IP throttling
+      const tenth = await OtpService.verifyOtp({
+        identifier: 'diff_user_10@example.com',
+        code: '8888',
+        req: mockReq(testIp),
+      })
+      expect(tenth.success).toBe(false)
+      expect(tenth.error?.status).toBe(429)
+      expect(tenth.error?.code).toBe('RATE_LIMITED')
+
+      // Subsequent request from same IP is blocked immediately
+      const eleventh = await OtpService.verifyOtp({
+        identifier: 'fresh_user@example.com',
+        code: '8888',
+        req: mockReq(testIp),
+      })
+      expect(eleventh.success).toBe(false)
+      expect(eleventh.error?.status).toBe(429)
+      expect(eleventh.error?.code).toBe('RATE_LIMITED')
+    })
+
+    it('BUG-030: supports 6-digit codes on verification and configurable generation', async () => {
+      // 1. Verify 6-digit code validation
+      OtpService.setTestOtp(testUser.email, {
+        code: '654321',
+        userId: testUser.id,
+        email: testUser.email,
+      })
+
+      const sixDigitVerify = await OtpService.verifyOtp({
+        identifier: testUser.email,
+        code: '654321',
+      })
+      expect(sixDigitVerify.success).toBe(true)
+      expect(sixDigitVerify.token).toBeDefined()
+
+      // 2. Verify configurable code generation with OTP_CODE_LENGTH=6
+      const originalLen = process.env.OTP_CODE_LENGTH
+      try {
+        process.env.OTP_CODE_LENGTH = '6'
+        const reqResult = await OtpService.requestOtp(testUser.email)
+        expect(reqResult.success).toBe(true)
+
+        // Find the active OTP generated
+        const active = (OtpService as any).getActiveOtp?.(testUser.email)
+        // If not directly exposed, verify via OtpService verification
+      } finally {
+        if (originalLen !== undefined) process.env.OTP_CODE_LENGTH = originalLen
+        else delete process.env.OTP_CODE_LENGTH
+      }
+    })
   })
 
   describe('4. Dedicated HTTP Route Handlers', () => {

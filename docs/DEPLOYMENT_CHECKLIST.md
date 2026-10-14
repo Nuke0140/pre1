@@ -13,7 +13,11 @@ This checklist defines mandatory security, configuration, and verification requi
   - Attempting to log in with `0000` or `1234` in production without explicit configuration must be rejected with `AUTH_004` (No active verification code) or `INVALID_OTP`.
 - [ ] **Verify JWT Secret**: `JWT_SECRET` must be set to a strong, high-entropy 256-bit random key (do not use default development secret).
 - [ ] **Verify Cookie Security**: In production, `session` cookies must be issued with `HttpOnly; SameSite=Lax; Secure`.
-- [ ] **Account Lockout & Brute Force Protection**: Max 3 OTP attempts before token invalidation (`OTP_MAX_ATTEMPTS = 3`).
+- [ ] **Account Lockout & Brute Force Protection (BUG-030)**:
+  - Max 3 active OTP code attempts before code invalidation (`OTP_MAX_ATTEMPTS = 3`, returns 429 `OTP_MAX_ATTEMPTS` with attempt counter).
+  - Per-identifier throttling: 5 consecutive failed verify attempts triggers account lockout (returns 429 `TOO_MANY_ATTEMPTS`).
+  - Per-IP throttling: 10 consecutive failed verify attempts across any accounts from an IP triggers IP rate limit (returns 429 `RATE_LIMITED`).
+  - Codes support 4-6 digits (default 4 digits for UI, configurable via `OTP_CODE_LENGTH`).
 
 ---
 

@@ -52,6 +52,39 @@ export function resetFailedAttempts(...keys: (string | null | undefined)[]) {
   }
 }
 
+export const MAX_IP_FAILURES = 10
+
+/**
+ * Returns in-memory consecutive failed attempts for a given IP address.
+ */
+export function getIpFailedAttempts(ip?: string | null): number {
+  if (!ip) return 0
+  return getFailedAttempts(`ip:${ip}`)
+}
+
+/**
+ * Increments in-memory failed attempt count for a given IP address.
+ */
+export function recordIpFailedAttempt(ip?: string | null): number {
+  if (!ip) return 0
+  return recordFailedAttempt(`ip:${ip}`)
+}
+
+/**
+ * Clears in-memory failed attempts for a given IP address.
+ */
+export function resetIpFailedAttempts(ip?: string | null): void {
+  if (!ip) return
+  resetFailedAttempts(`ip:${ip}`)
+}
+
+/**
+ * Clears all in-memory attempt tracking (used by test suites).
+ */
+export function clearAllAttempts(): void {
+  inMemoryAttempts.clear()
+}
+
 /**
  * Atomically records a failed attempt in PostgreSQL for a canonical user ID.
  * Uses row-level locking and sliding-window logic directly in SQL to prevent race conditions
