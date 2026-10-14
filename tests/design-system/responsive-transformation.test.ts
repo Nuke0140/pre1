@@ -406,11 +406,14 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
 
     it('verifies BUG-026 fix: HRHeader action group wraps at md without shrink-0 clipping', async () => {
       const hrHeader = await Bun.file('src/components/hr/HRHeader.tsx').text()
-      // Right action group must wrap without shrink-0
-      expect(hrHeader).toContain('flex flex-wrap items-center gap-2')
+      // Right action group must wrap without shrink-0 and enforce min-w-0 max-w-full
+      expect(hrHeader).toContain('flex flex-wrap items-center gap-2 min-w-0 max-w-full')
       expect(hrHeader).not.toContain('flex flex-wrap items-center gap-2 shrink-0')
+      expect(hrHeader).not.toContain('flex flex-wrap items-center gap-2 min-w-0 max-w-full shrink-0')
       // Container includes min-w-0 for safety against wide table / flex children
       expect(hrHeader).toContain('flex flex-col md:flex-row md:items-center justify-between gap-4 min-w-0')
+      // Attendance contextual actions wrap cleanly
+      expect(hrHeader).toContain('flex flex-wrap items-center gap-2 min-w-0')
     })
 
     it('verifies BUG-025 fix: filter-bar selects in admissions and finance enforce max-w-full min-w-0 inside flex-wrap bars', async () => {

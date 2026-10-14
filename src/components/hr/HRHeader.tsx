@@ -201,7 +201,7 @@ export function HRHeader({
 
       case 'attendance':
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <button
               onClick={() => onTabChange('schedule')}
               className="btn btn-ghost btn-sm h-9 px-3 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50"
@@ -312,9 +312,9 @@ export function HRHeader({
           </div>
 
           {/* Right: Search + Refresh + Contextual Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
             {/* Quick Staff Search */}
-            <div className="relative min-w-[200px] sm:min-w-[220px]">
+            <div className="relative min-w-[200px] sm:min-w-[220px] max-w-full">
               <Search
                 size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
