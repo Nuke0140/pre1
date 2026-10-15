@@ -18,33 +18,47 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let branding = undefined
   let initialLocale = DEFAULT_LOCALE
 
-  const user = await db.user.findUnique({
-    where: { id: session.uid },
-    select: { locale: true, fullName: true, avatarUrl: true },
-  })
+  let user = null
+  try {
+    user = await db.user.findUnique({
+      where: { id: session.uid },
+      select: { locale: true, fullName: true, avatarUrl: true },
+    })
+  } catch (err) {
+    console.error('[AppLayout] Failed to load user:', err)
+  }
+
   if (user?.locale && isSupportedLocale(user.locale)) {
     initialLocale = normalizeLocale(user.locale)
   } else {
-    const cookieStore = await cookies()
-    const cookieLocale = cookieStore.get('preone_locale')?.value
-    if (cookieLocale && isSupportedLocale(cookieLocale)) {
-      initialLocale = normalizeLocale(cookieLocale)
-    } else {
+    try {
+      const cookieStore = await cookies()
+      const cookieLocale = cookieStore.get('preone_locale')?.value
+      if (cookieLocale && isSupportedLocale(cookieLocale)) {
+        initialLocale = normalizeLocale(cookieLocale)
+      } else {
+        initialLocale = DEFAULT_LOCALE
+      }
+    } catch {
       initialLocale = DEFAULT_LOCALE
     }
   }
 
   if (session.tenantId) {
-    const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
-    if (!tenant) {
-      redirect('/')
-    }
-    branding = await getEffectiveBranding(session.tenantId)
-    tenantName = branding?.schoolName || tenant.name || 'PreOne'
+    try {
+      const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
+      if (!tenant) {
+        redirect('/')
+      }
+      branding = await getEffectiveBranding(session.tenantId)
+      tenantName = branding?.schoolName || tenant.name || 'PreOne'
 
-    if (session.branchId) {
-      const branch = await db.branch.findUnique({ where: { id: session.branchId } })
-      branchName = branch?.name ?? null
+      if (session.branchId) {
+        const branch = await db.branch.findUnique({ where: { id: session.branchId } })
+        branchName = branch?.name ?? null
+      }
+    } catch (err) {
+      console.error('[AppLayout] Failed to load tenant/branding:', err)
     }
   }
 
