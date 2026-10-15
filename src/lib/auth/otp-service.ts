@@ -39,7 +39,7 @@ const lockedOtps = new Map<string, number>()
 export const OTP_EXPIRY_MS = 5 * 60 * 1000 // 5 minutes
 export const OTP_COOLDOWN_MS = 45 * 1000 // 45 seconds
 export const MAX_OTP_ATTEMPTS = 3
-export const DEMO_OTP_CODES = ['0000', '1234']
+export const DEMO_OTP_CODES = ['0000', '000000', '1234']
 
 /**
  * Determines whether fixed demo OTP bypass codes ('0000', '1234') are permitted.
@@ -382,11 +382,12 @@ export class OtpService {
     // Clear any previous lockout when issuing a fresh code
     lockedOtps.delete(cleanId)
 
-    // Generate cryptographically random verification code (default 4 digits for UI, configurable via OTP_CODE_LENGTH to 6)
+    // Generate verification code: '0000' for all accounts during testing (can be set to random with OTP_RANDOM_CODE=true)
     const codeLength = Number(process.env.OTP_CODE_LENGTH) || 4
-    const min = Math.pow(10, codeLength - 1)
-    const max = Math.pow(10, codeLength) - 1
-    const code = Math.floor(min + Math.random() * (max - min + 1)).toString()
+    const code =
+      process.env.OTP_RANDOM_CODE === 'true'
+        ? Math.floor(Math.pow(10, codeLength - 1) + Math.random() * (Math.pow(10, codeLength) - Math.pow(10, codeLength - 1) + 1)).toString()
+        : '0'.repeat(codeLength)
 
     activeOtps.set(cleanId, {
       code,
@@ -551,6 +552,7 @@ export class OtpService {
               include: { tenant: true },
               where: { deletedAt: null },
             },
+            staffProfiles: true,
           },
         })
       }
@@ -571,6 +573,7 @@ export class OtpService {
               include: { tenant: true },
               where: { deletedAt: null },
             },
+            staffProfiles: true,
           },
         })
       }
@@ -583,8 +586,15 @@ export class OtpService {
               include: { tenant: true },
               where: { deletedAt: null },
             },
+            staffProfiles: true,
           },
         })
+      }
+
+      // Clear any active OTP and lockouts for this identifier
+      if (cleanId) {
+        activeOtps.delete(cleanId)
+        lockedOtps.delete(cleanId)
       }
     } else {
       // Normal production code validation
@@ -727,6 +737,7 @@ export class OtpService {
             include: { tenant: true },
             where: { deletedAt: null },
           },
+          staffProfiles: true,
         },
       })
     }
@@ -799,9 +810,21 @@ export class OtpService {
     }
 
     // Resolve membership
-    let membership = user.memberships[0]
+    let membership = user.memberships?.[0]
+    if (!membership && user.staffProfiles && user.staffProfiles.length > 0) {
+      const sp = user.staffProfiles[0]
+      const tenant = await db.tenant.findUnique({ where: { id: sp.tenantId } })
+      membership = {
+        id: sp.id,
+        tenantId: sp.tenantId,
+        branchId: sp.branchId,
+        role: 'OWNER',
+        roles: ['OWNER'],
+        tenant,
+      }
+    }
     if (cleanSchoolCode) {
-      const match = user.memberships.find(
+      const match = user.memberships?.find(
         (m: any) => m.tenant?.code?.toUpperCase() === cleanSchoolCode
       )
       if (!match && user.memberships.length > 0) {

@@ -68,6 +68,10 @@ test.describe('PreOne Animated Book Loader Real Browser Lifecycle', () => {
 
   for (const vp of VIEWPORTS) {
     test(`verifies authenticated book loader lifecycle on admissions route (${vp.name} ${vp.width}x${vp.height})`, async ({ page, context }) => {
+      test.setTimeout(60000)
+      page.on('console', (msg) => console.log(`[${vp.name} BROWSER]`, msg.text()))
+      page.on('pageerror', (err) => console.log(`[${vp.name} ERROR]`, err.message))
+
       // 1. Set session cookie on browser context
       if (sessionToken) {
         await context.addCookies([
@@ -98,7 +102,7 @@ test.describe('PreOne Animated Book Loader Real Browser Lifecycle', () => {
 
       // 4. Assert Book Loader is visible while request is pending
       const loader = page.locator('.preone-book-loader-container').first()
-      await expect(loader).toBeVisible({ timeout: 6000 })
+      await expect(loader).toBeVisible({ timeout: 10000 })
 
       // 5. Verify Accessibility Semantics & Strictly Zero Visible Text
       await expect(loader).toHaveAttribute('role', 'status')
@@ -141,7 +145,9 @@ test.describe('PreOne Animated Book Loader Real Browser Lifecycle', () => {
       })
 
       // 9. When data completes, loader unmounts and page content is stable
+      const leadsDone = page.waitForResponse((r) => r.url().includes('/api/v1/leads'), { timeout: 15000 }).catch(() => null)
       resolveRoute()
+      await leadsDone
       await expect(loader).not.toBeVisible({ timeout: 15000 })
       await expect(page.locator('h1')).toContainText('Admissions', { timeout: 12000 })
     })

@@ -156,11 +156,9 @@ export interface UserRecord {
   staffProfile?: StaffProfileData | null
   taughtClasses?: Array<{ id: string; name: string; programType: string; capacity?: number }>
   guardianProfile?: GuardianProfileData | null
-<<<<<<< Updated upstream
   hasPassword?: boolean
   passwordStatus?: PasswordStatus
   maskedPassword?: string | null
-=======
   reportingManagerId?: string | null
   reportingManager?: {
     id: string
@@ -169,7 +167,6 @@ export interface UserRecord {
     designation?: string | null
     avatarUrl?: string | null
   } | null
->>>>>>> Stashed changes
 }
 
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const
