@@ -11,7 +11,8 @@ import {
   ArrowUpRight, ArrowDownRight, Layers, Sparkles, User, Info, CheckCircle,
   Share2, LayoutGrid
 } from 'lucide-react'
-import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton, Breadcrumbs } from '@/components/preone'
+import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton, Breadcrumbs, BookPageLoader } from '@/components/preone'
+import { GlobalActionMenu } from '@/components/ui/action-menu'
 import Link from 'next/link'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
@@ -607,6 +608,7 @@ export default function AdmissionsPage() {
   const [csvDuplicateAction, setCsvDuplicateAction] = useState<'SKIP' | 'CREATE' | 'LINK'>('SKIP')
   const [csvImportResult, setCsvImportResult] = useState<any>(null)
   const [csvLoading, setCsvLoading] = useState(false)
+  const [pageLoading, setPageLoading] = useState(true)
 
   // Allocation Engine Modal State
   const [allocModal, setAllocModal] = useState<{
@@ -988,8 +990,12 @@ export default function AdmissionsPage() {
           setFeePlans(feeRes.data)
           setSelectedFeePlanId(feeRes.data[0].id)
         }
+        if (!sessRes?.data?.length || !brRes?.data?.length) {
+          setPageLoading(false)
+        }
       } catch (err) {
         console.error('Failed to load setup masters:', err)
+        setPageLoading(false)
       }
     }
     loadMasters()
@@ -1035,6 +1041,8 @@ export default function AdmissionsPage() {
       }
     } catch (err) {
       console.error('Failed to fetch admissions data:', err)
+    } finally {
+      setPageLoading(false)
     }
   }, [selectedSessionId, selectedBranchId, filterProgram, filterStatus, searchQuery, followUpFilter, wlPriorityFilter, wlStatusFilter])
 
@@ -2252,6 +2260,10 @@ export default function AdmissionsPage() {
     return events.sort((a, b) => b.timestamp - a.timestamp).slice(0, 6)
   }, [applications, enquiries])
 
+  if (pageLoading) {
+    return <BookPageLoader mode="page" />
+  }
+
   return (
     <div className="w-full max-w-[1680px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-28">
       {/* ── Breadcrumb Navigation ── */}
@@ -2265,46 +2277,84 @@ export default function AdmissionsPage() {
           </h1>
         </div>
 
-        {/* Action Buttons: Clean, High Affordance */}
+        {/* Consolidated Action Menu: Clean, Unified, High Affordance */}
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setSharePublicModal(true)}
-            className="btn btn-ghost btn-sm h-9 px-3 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50"
-            title="Share Public Form Link"
-          >
-            <Share2 size={13} className="text-primary" />
-            <span className="hidden sm:inline">Share Public Link</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => { setCsvType('leads'); setCsvStep(0); setCsvModalOpen(true); }}
-            className="btn btn-ghost btn-sm h-9 px-3 gap-1.5 text-xs font-semibold rounded-xl border border-border/80 hover:bg-muted/50"
-            title="Import Enquiries from CSV"
-          >
-            <Download size={13} />
-            <span className="hidden sm:inline">Import</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              invalidateAdmissionsCounts()
-              loadData()
-            }}
-            disabled={busy}
-            className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
-            title={t('common.refresh')}
-          >
-            <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm h-9 px-4 gap-1.5 text-xs font-semibold rounded-xl shadow-xs"
-            onClick={() => setEnquiryModal(true)}
-          >
-            <Plus size={15} />
-            <span>New Enquiry</span>
-          </button>
+          <GlobalActionMenu
+            label={t('common.actions') || 'Actions'}
+            triggerIcon={<LayoutGrid className="w-3.5 h-3.5 text-primary shrink-0" />}
+            groups={[
+              { id: 'intake', label: 'Admissions Intake' },
+              { id: 'sharing', label: 'Public & Sharing' },
+              { id: 'data', label: 'Data & Operations' },
+            ]}
+            actions={[
+              {
+                id: 'new-enquiry',
+                label: 'New Enquiry',
+                helperText: 'Quick parent walk-in / phone call intake',
+                icon: <UserPlus className="w-4 h-4" />,
+                category: 'create',
+                groupId: 'intake',
+                onClick: () => setEnquiryModal(true),
+              },
+              {
+                id: 'new-application',
+                label: 'New Admission Application',
+                helperText: 'Complete 3-step child & family dossier intake',
+                icon: <FileSignature className="w-4 h-4" />,
+                category: 'create',
+                groupId: 'intake',
+                onClick: () => setFormModal(true),
+              },
+              {
+                id: 'share-link',
+                label: 'Share Public Form Link',
+                helperText: 'Generate QR code or copy parent enquiry URL',
+                icon: <Share2 className="w-4 h-4" />,
+                category: 'view',
+                groupId: 'sharing',
+                onClick: () => setSharePublicModal(true),
+              },
+              {
+                id: 'import-leads',
+                label: 'Import Enquiries (CSV)',
+                helperText: 'Bulk import parent leads and contacts',
+                icon: <Download className="w-4 h-4" />,
+                category: 'import',
+                groupId: 'data',
+                onClick: () => {
+                  setCsvType('leads')
+                  setCsvStep(0)
+                  setCsvModalOpen(true)
+                },
+              },
+              {
+                id: 'import-apps',
+                label: 'Import Applications (CSV)',
+                helperText: 'Bulk upload existing student admission dossiers',
+                icon: <FileCheck2 className="w-4 h-4" />,
+                category: 'import',
+                groupId: 'data',
+                onClick: () => {
+                  setCsvType('applications')
+                  setCsvStep(0)
+                  setCsvModalOpen(true)
+                },
+              },
+              {
+                id: 'refresh-data',
+                label: t('common.refresh') || 'Refresh Data',
+                helperText: 'Reload live admissions counts and recent records',
+                icon: <RefreshCw className={`w-4 h-4 ${busy ? 'animate-spin text-purple-600' : ''}`} />,
+                category: 'general',
+                groupId: 'data',
+                onClick: () => {
+                  invalidateAdmissionsCounts()
+                  loadData()
+                },
+              },
+            ]}
+          />
         </div>
       </div>
 

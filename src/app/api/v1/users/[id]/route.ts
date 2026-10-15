@@ -83,7 +83,14 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       isMain: ab.branch.isMain,
       isPrimary: ab.isPrimary,
     }))
-    const assignedBranchIds = assignedBranches.map((b: any) => b.id)
+    const hasPassword = Boolean(member.user.passwordHash && member.user.passwordHash.trim().length > 0)
+    const passwordStatus: 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET' =
+      !hasPassword
+        ? 'NOT_SET'
+        : member.status === 'PENDING' || member.user.mustChangePassword
+        ? 'PENDING_SETUP'
+        : 'CONFIGURED'
+    const maskedPassword = hasPassword ? '••••••••' : null
 
     return ok({
       id: member.id,
@@ -98,9 +105,12 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       role: member.role,
       roles: assignedRoles,
       status: member.status,
+      hasPassword,
+      passwordStatus,
+      maskedPassword,
       branchId: member.branchId,
       assignedBranches,
-      assignedBranchIds,
+      assignedBranchIds: assignedBranches.map((b) => b.id),
       lastLoginAt: member.user.lastLoginAt,
       createdAt: member.createdAt,
       staffProfile: member.staffProfile
@@ -842,6 +852,15 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     }))
     const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
+    const hasPassword = Boolean(refreshed.user.passwordHash && refreshed.user.passwordHash.trim().length > 0)
+    const passwordStatus: 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET' =
+      !hasPassword
+        ? 'NOT_SET'
+        : refreshed.status === 'PENDING' || refreshed.user.mustChangePassword
+        ? 'PENDING_SETUP'
+        : 'CONFIGURED'
+    const maskedPassword = hasPassword ? '••••••••' : null
+
     return ok({
       id: refreshed.id,
       userId: refreshed.user.id,
@@ -854,6 +873,9 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       role: refreshed.role,
       roles: assignedRoles,
       status: refreshed.status,
+      hasPassword,
+      passwordStatus,
+      maskedPassword,
       branchId: refreshed.branchId,
       assignedBranches,
       assignedBranchIds,

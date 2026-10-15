@@ -8,7 +8,7 @@ import {
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
   SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight
 } from 'lucide-react'
-import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar } from '@/components/preone'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar, BookPageLoader } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { RecordInspector } from '@/components/preone/RecordInspector'
@@ -544,6 +544,10 @@ export default function StudentsPage() {
       ),
     },
   ]
+
+  if (loading && (!rows || rows.length === 0)) {
+    return <BookPageLoader mode="page" />
+  }
 
   return (
     <div className="w-full min-w-0 max-w-[1460px] mx-auto px-3 sm:px-5 lg:px-6 space-y-4 sm:space-y-5 pb-20">

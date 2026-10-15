@@ -9,6 +9,8 @@
  *      Banner:  null (None)
  */
 
+export * from './branding-context'
+
 export interface BrandingConfig {
   primaryColor: string
   accentColor: string

@@ -31,6 +31,7 @@ import {
   Briefcase,
   Pencil,
   Edit,
+  Lock,
 } from 'lucide-react'
 import { Avatar, StatusBadge, StatusPill, IconButton } from '@/components/preone/ui'
 import { inr, fmtDate, timeAgo, enumLabel } from '@/lib/format'
@@ -1112,6 +1113,20 @@ function StaffInspectorContent({
         <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/40">
           <span className="text-muted-foreground">Authorized System Role:</span>
           <span className="font-bold text-foreground font-mono">{role}</span>
+        </div>
+
+        <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/40">
+          <span className="text-muted-foreground flex items-center gap-1.5">
+            <Lock size={12} className="text-primary" /> Password Credentials:
+          </span>
+          {staff.hasPassword !== false && (staff.passwordStatus === 'CONFIGURED' || staff.hasPassword) ? (
+            <span className="font-mono font-semibold text-foreground flex items-center gap-1.5">
+              <span>{staff.maskedPassword || '••••••••'}</span>
+              <span className="badge b-emerald text-[10px] py-0 px-1.5">Configured</span>
+            </span>
+          ) : (
+            <span className="badge b-amber text-[10px] py-0 px-1.5">Pending Setup</span>
+          )}
         </div>
 
         <p className="text-[10px] text-muted-foreground italic">

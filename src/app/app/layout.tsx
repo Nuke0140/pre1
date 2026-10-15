@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
 import { AppShell } from '@/components/shell/AppShell'
 import { ToastProvider } from '@/components/preone/Toast'
-import { getEffectiveBranding } from '@/lib/branding-service'
+import { getEffectiveBranding, BrandingProvider } from '@/lib/branding-service'
 import { cookies } from 'next/headers'
 import { I18nProvider } from '@/lib/i18n/context'
 import { normalizeLocale, isSupportedLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
@@ -100,24 +100,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <I18nProvider initialLocale={initialLocale}>
-      <ToastProvider>
-        <style dangerouslySetInnerHTML={{ __html: dynamicThemeCss }} />
-        <AppShell
-          user={{
-            name: user?.fullName || session.name,
-            email: session.email,
-            role: session.role,
-            roles: session.roles,
-            tenantName,
-            branchName,
-            avatarUrl: user?.avatarUrl || null,
-            mustChangePassword: session.mustChangePassword,
-          }}
-          branding={branding}
-        >
-          {children}
-        </AppShell>
-      </ToastProvider>
+      <BrandingProvider branding={branding}>
+        <ToastProvider>
+          <style dangerouslySetInnerHTML={{ __html: dynamicThemeCss }} />
+          <AppShell
+            user={{
+              name: user?.fullName || session.name,
+              email: session.email,
+              role: session.role,
+              roles: session.roles,
+              tenantName,
+              branchName,
+              avatarUrl: user?.avatarUrl || null,
+              mustChangePassword: session.mustChangePassword,
+            }}
+            branding={branding}
+          >
+            {children}
+          </AppShell>
+        </ToastProvider>
+      </BrandingProvider>
     </I18nProvider>
   )
 }

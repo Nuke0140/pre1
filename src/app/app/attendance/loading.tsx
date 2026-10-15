@@ -1,5 +1,5 @@
-import { ModulePageSkeleton } from '@/components/preone/Skeletons'
+import { BookPageLoader } from '@/components/preone'
 
-export default function Loading() {
-  return <ModulePageSkeleton />
+export default function AttendanceLoading() {
+  return <BookPageLoader mode="page" />
 }

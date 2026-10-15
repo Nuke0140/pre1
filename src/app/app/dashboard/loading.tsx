@@ -1,5 +1,5 @@
-import { DashboardSkeleton } from '@/components/preone/Skeletons'
+import { BookPageLoader } from '@/components/preone'
 
-export default function Loading() {
-  return <DashboardSkeleton />
+export default function DashboardLoading() {
+  return <BookPageLoader mode="page" />
 }

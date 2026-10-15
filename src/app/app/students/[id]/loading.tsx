@@ -1,5 +1,5 @@
-import { Student360Skeleton } from '@/components/preone/Skeletons'
+import { BookPageLoader } from '@/components/preone'
 
-export default function Loading() {
-  return <Student360Skeleton />
+export default function StudentDetailLoading() {
+  return <BookPageLoader mode="page" />
 }

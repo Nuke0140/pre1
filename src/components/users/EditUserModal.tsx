@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react'
 import {
   User, Phone, Building, Briefcase, Shield, Key, Camera, Trash2,
   Mail, Calendar, Award, HeartHandshake, FileText, Lock, Globe,
-  CheckCircle2, AlertCircle, Baby, Users, MapPin, UserCheck
+  CheckCircle2, AlertCircle, Baby, Users, MapPin, UserCheck,
+  RefreshCw, Eye, EyeOff
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { Avatar } from '@/components/preone/ui'
@@ -58,6 +59,18 @@ export function EditUserModal({
   const [assignedBranchIds, setAssignedBranchIds] = useState<string[]>([])
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*'
+    let pwd = 'PreOne@'
+    for (let i = 0; i < 4; i++) {
+      pwd += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    setNewPassword(pwd)
+    setShowNewPassword(true)
+  }
 
   // Staff Profile Fields
   const [employeeCode, setEmployeeCode] = useState('')
@@ -123,6 +136,8 @@ export function EditUserModal({
       setAssignedBranchIds(initialBranchIds)
       setAvatarUrl(user.avatarUrl || null)
       setNewPassword('')
+      setIsChangingPassword(false)
+      setShowNewPassword(false)
 
       const isStaffUser = !['PARENT', 'GUARDIAN'].includes(user.role)
       setActiveTab(isStaffUser ? 'basic' : 'caregiver')
@@ -258,7 +273,7 @@ export function EditUserModal({
       return
     }
 
-    if (newPassword && newPassword.length < 8) {
+    if (isChangingPassword && newPassword && newPassword.length < 8) {
       toast.error('Password Validation', 'New password must be at least 8 characters')
       return
     }
@@ -320,7 +335,7 @@ export function EditUserModal({
         branchIds: assignedBranchIds,
       }
 
-      if (newPassword && newPassword.length >= 8) {
+      if (isChangingPassword && newPassword && newPassword.length >= 8) {
         payload.password = newPassword
       }
 
@@ -1408,24 +1423,130 @@ export function EditUserModal({
               )}
             </div>
 
-            <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
-              <label className="block font-semibold text-foreground">
-                Reset Login Password
-              </label>
-              <div className="text-[11px] text-muted-foreground">
-                Leave blank to keep the current password. If entering a new password, it must be at least 8 characters.
+            {/* Account Login Password & Security Status Card */}
+            <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-sm text-foreground block">
+                      Account Login Password
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Authentication credential for portal sign-in
+                    </span>
+                  </div>
+                </div>
+                {/* Status indicator pill */}
+                {user.hasPassword !== false && user.passwordStatus !== 'NOT_SET' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>{user.passwordStatus === 'PENDING_SETUP' ? 'Setup Pending' : 'Password Configured'}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>No Password Set</span>
+                  </span>
+                )}
               </div>
-              <div className="relative input-icon-wrap mt-1">
-                <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                <input
-                  type="password"
-                  placeholder="Enter new password (min. 8 chars)"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="input w-full text-sm font-mono"
-                  autoComplete="new-password"
-                />
-              </div>
+
+              {/* Masked Password View State (when password is configured and not currently in edit mode) */}
+              {!isChangingPassword && user.hasPassword !== false && user.passwordStatus !== 'NOT_SET' ? (
+                <div className="pt-2 border-t border-border space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        readOnly
+                        disabled
+                        value="••••••••••••"
+                        className="input w-full text-base font-mono tracking-widest bg-muted/40 text-foreground/80 cursor-not-allowed select-none border border-border/80"
+                        title="Password is encrypted with salted bcrypt hashing and securely stored"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChangingPassword(true)
+                        setNewPassword('')
+                      }}
+                      className="btn btn-secondary text-xs px-3.5 py-2 flex items-center gap-1.5 font-medium shadow-2xs hover:bg-muted shrink-0"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                      <span>Change Password</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>
+                      Password is encrypted with salted bcrypt hashing and securely active. It is never stored or shown in plain text.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* Edit / Reset State (when changing password or when no password is set) */
+                <div className="pt-2 border-t border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground">
+                      {user.hasPassword !== false && user.passwordStatus !== 'NOT_SET'
+                        ? 'Enter New Password'
+                        : 'Set Initial Password'}
+                    </span>
+                    {user.hasPassword !== false && user.passwordStatus !== 'NOT_SET' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsChangingPassword(false)
+                          setNewPassword('')
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground underline transition-colors"
+                      >
+                        Keep Existing Password
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1 input-icon-wrap">
+                      <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        placeholder="Enter new password (min. 8 chars)"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="input w-full text-sm font-mono pl-9 pr-9"
+                        autoComplete="new-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={generateRandomPassword}
+                      className="btn btn-secondary text-xs px-2.5 py-2 shrink-0"
+                      title="Generate random secure password"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-between">
+                    <span>Minimum 8 characters. Must contain letters &amp; numbers or special characters.</span>
+                    {newPassword && newPassword.length >= 8 && (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Valid length
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-3 rounded-lg border border-border bg-card text-[11px] text-muted-foreground space-y-1">

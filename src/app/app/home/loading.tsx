@@ -1,5 +1,5 @@
-import { HomeGridSkeleton } from '@/components/preone/Skeletons'
+import { BookPageLoader } from '@/components/preone'
 
 export default function HomeLoading() {
-  return <HomeGridSkeleton count={12} />
+  return <BookPageLoader mode="page" />
 }

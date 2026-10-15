@@ -7,7 +7,7 @@ import {
   FileText, Download, Trash2, Eye, RefreshCw, Globe, MapPin,
   HeartHandshake, GraduationCap, Award, Hash, Check,
   Laptop, Smartphone, Tablet, Monitor, LogOut, Unlock, Send, UserX, UserCheck,
-  History, ChevronDown, ChevronRight, Filter
+  History, ChevronDown, ChevronRight, Filter, AlertCircle
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
@@ -305,6 +305,9 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
   const badge = ROLE_BADGE[normalizeRole(user.role)] || { cls: 'b-neutral', label: user.role }
   const localeLabel = LOCALES.find((l) => l.value === user.locale)?.label || user.locale || 'English (en)'
 
+  const isPasswordConfigured = activeUser.hasPassword !== false && (activeUser.passwordStatus === 'CONFIGURED' || activeUser.hasPassword)
+  const displayMaskedPassword = activeUser.maskedPassword || (isPasswordConfigured ? '••••••••' : null)
+
   return (
     <Modal
       open={open}
@@ -532,6 +535,35 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 <span className="font-medium text-gray-900 dark:text-gray-100">
                   {fmtDateTime(user.createdAt)}
                 </span>
+              </div>
+
+              <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+                <span className="text-gray-400 block text-[11px] mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-indigo-500" /> Password Status
+                  </span>
+                  {isPasswordConfigured ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      <CheckCircle2 className="w-2.5 h-2.5" /> Configured
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                      <AlertCircle className="w-2.5 h-2.5" /> Pending Setup
+                    </span>
+                  )}
+                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-gray-800 dark:text-gray-200 tracking-wider text-xs font-semibold">
+                    {isPasswordConfigured ? (displayMaskedPassword || '••••••••') : 'No password set'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setResetPasswordOpen(true)}
+                    className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                  >
+                    Reset
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1041,11 +1073,58 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
               </p>
             </div>
 
-            <div className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 text-[11px] space-y-1">
-              <span className="font-semibold text-gray-800 dark:text-gray-200 block">Protected Authentication Fields</span>
-              <p>
-                Password hashes, security tokens, and encryption secrets are never returned over API endpoints or rendered in client inspector interfaces.
-              </p>
+            {/* Account Password & Security Credentials Card */}
+            <div className="p-3.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900/60 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5 text-xs">
+                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Account Password &amp; Credentials
+                  </span>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    Login credentials status and password security enforcement
+                  </p>
+                </div>
+                {isPasswordConfigured ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3 h-3" /> Password Configured
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                    <AlertCircle className="w-3 h-3" /> Pending Setup
+                  </span>
+                )}
+              </div>
+
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400 block font-medium">Stored Password Value</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-base tracking-widest font-semibold text-gray-900 dark:text-gray-100">
+                      {isPasswordConfigured ? (displayMaskedPassword || '••••••••') : 'No password configured'}
+                    </span>
+                    {isPasswordConfigured && (
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded font-medium border border-emerald-200/60 dark:border-emerald-800/40">
+                        Active &amp; Protected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setResetPasswordOpen(true)}
+                  className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 shrink-0"
+                >
+                  <KeyRound size={13} className="text-indigo-600" />
+                  <span>Change Password</span>
+                </button>
+              </div>
+
+              <div className="text-[11px] text-gray-500 dark:text-gray-400 flex items-start gap-2 bg-gray-50/50 dark:bg-gray-800/30 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
+                <Shield className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                <p>
+                  Passwords are cryptographically salted and hashed using bcrypt before database persistence. Plain-text passwords and cryptographic hashes are never displayed in client interfaces or sent in API responses.
+                </p>
+              </div>
             </div>
 
             {/* Quick Administrative Access Actions */}
@@ -1259,9 +1338,10 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
       <ResetPasswordModal
         open={resetPasswordOpen}
         onClose={() => setResetPasswordOpen(false)}
-        user={user}
+        user={activeUser}
         onSuccess={() => {
           loadSessions()
+          loadProfileDetail()
         }}
       />
 
@@ -1272,7 +1352,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
           user
             ? {
                 id: user.userId || user.id,
-                fullName: user.name || user.fullName,
+                fullName: user.name || user.fullName || '',
                 role: user.role,
                 students: gp?.students || [],
               }

@@ -250,6 +250,15 @@ export const GET = withApi(async (req: NextRequest) => {
       }))
       const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
+      const hasPassword = Boolean(m.user.passwordHash && m.user.passwordHash.trim().length > 0)
+      const passwordStatus: 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET' =
+        !hasPassword
+          ? 'NOT_SET'
+          : m.status === 'PENDING' || m.user.mustChangePassword
+          ? 'PENDING_SETUP'
+          : 'CONFIGURED'
+      const maskedPassword = hasPassword ? '••••••••' : null
+
       return {
         id: m.id,
         userId: m.user.id,
@@ -262,6 +271,9 @@ export const GET = withApi(async (req: NextRequest) => {
         role: m.role,
         roles: assignedRoles,
         status: m.status,
+        hasPassword,
+        passwordStatus,
+        maskedPassword,
         branchId: m.branchId,
         assignedBranches,
         assignedBranchIds,
@@ -654,6 +666,15 @@ export const POST = withApi(async (req: NextRequest) => {
       familyInput
     )
 
+    const hasPassword = Boolean(familyResult.user.passwordHash && familyResult.user.passwordHash.trim().length > 0)
+    const passwordStatus: 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET' =
+      !hasPassword
+        ? 'NOT_SET'
+        : familyResult.user.status === 'PENDING' || familyResult.user.mustChangePassword
+        ? 'PENDING_SETUP'
+        : 'CONFIGURED'
+    const maskedPassword = hasPassword ? '••••••••' : null
+
     return ok(
       {
         id: familyResult.user.id,
@@ -661,6 +682,9 @@ export const POST = withApi(async (req: NextRequest) => {
         email: familyResult.user.email,
         fullName: familyResult.user.fullName,
         username: familyResult.user.username,
+        hasPassword,
+        passwordStatus,
+        maskedPassword,
         role: finalPrimaryRole,
         roles: assignedRoles,
         status: familyResult.user.status,
@@ -1189,6 +1213,15 @@ export const POST = withApi(async (req: NextRequest) => {
     },
   })
 
+  const hasPassword = Boolean(result.user.passwordHash && result.user.passwordHash.trim().length > 0)
+  const passwordStatus: 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET' =
+    !hasPassword
+      ? 'NOT_SET'
+      : result.membership.status === 'PENDING' || result.user.mustChangePassword
+      ? 'PENDING_SETUP'
+      : 'CONFIGURED'
+  const maskedPassword = hasPassword ? '••••••••' : null
+
   return ok(
     {
       id: result.membership.id,
@@ -1199,6 +1232,9 @@ export const POST = withApi(async (req: NextRequest) => {
       username: result.user.username,
       avatarUrl: result.user.avatarUrl,
       phone: result.user.phone,
+      hasPassword,
+      passwordStatus,
+      maskedPassword,
       role: result.finalPrimaryRole,
       roles: result.assignedRoles,
       status: result.membership.status,
