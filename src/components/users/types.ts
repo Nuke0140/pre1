@@ -71,12 +71,15 @@ export interface GuardianProfileData {
   students: GuardianChild[]
 }
 
+export type PasswordStatus = 'CONFIGURED' | 'PENDING_SETUP' | 'NOT_SET'
+
 export interface UserRecord {
   id: string
   userId: string
   username?: string | null
   avatarUrl?: string | null
   name: string
+  fullName?: string | null
   email: string | null
   phone: string | null
   locale?: string | null
@@ -91,6 +94,9 @@ export interface UserRecord {
   staffProfile?: StaffProfileData | null
   taughtClasses?: Array<{ id: string; name: string; programType: string; capacity?: number }>
   guardianProfile?: GuardianProfileData | null
+  hasPassword?: boolean
+  passwordStatus?: PasswordStatus
+  maskedPassword?: string | null
 }
 
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const
