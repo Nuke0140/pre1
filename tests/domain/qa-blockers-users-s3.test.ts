@@ -129,13 +129,14 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
     })
 
     it('creates a family account with new child via POST /api/v1/users', async () => {
+      const randDigits = Math.floor(10000000 + Math.random() * 90000000).toString()
       const payload = {
         userType: 'FAMILY',
         tenantId: tenant.id,
         branchId: branch.id,
         parentName: 'Martha Kent',
-        parentPhone: `+9198${ts.slice(-8)}`,
-        parentEmail: `martha.${ts}@example.com`,
+        parentPhone: `+9198${randDigits}`,
+        parentEmail: `martha.${Date.now()}_${randDigits}@example.com`,
         parentGender: 'FEMALE',
         relationship: 'MOTHER',
         childMode: 'NEW',
@@ -270,17 +271,17 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
       expect(json.data?.username).toBe(`sarah_t_${ts.slice(-4)}`)
 
       // Verify database record
-      const dbStaff = await db.user.findUnique({
-        where: { id: json.data.userId || json.data.id },
+      const dbStaff = await db.tenantUser.findFirst({
+        where: { tenantId: tenant.id, userId: json.data.userId || json.data.id },
         include: {
           staffProfile: true,
-          memberships: true,
+          user: true,
         },
       })
 
       expect(dbStaff).not.toBeNull()
-      expect(dbStaff?.passwordHash).toBeDefined()
-      expect(dbStaff?.passwordHash?.length).toBeGreaterThan(10)
+      expect(dbStaff?.user?.passwordHash).toBeDefined()
+      expect(dbStaff?.user?.passwordHash?.length).toBeGreaterThan(10)
       expect(dbStaff?.staffProfile?.employeeCode).toBe(`EMP-T-${ts.slice(-4)}`)
 
       // Verify classroom teacher assignment

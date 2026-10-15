@@ -21,7 +21,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
   const toast = useToast()
   const { t } = useI18n()
 
-  const [step, setStep] = useState<'UPLOAD' | 'PREVIEW' | 'RESULT'>('UPLOAD')
+  const [step, setStep] = useState<'UPLOAD' | 'PREVIEW' | 'PROCESSING' | 'RESULT'>('UPLOAD')
   const [inputMode, setInputMode] = useState<'FILE' | 'PASTE'>('FILE')
   const [isDragging, setIsDragging] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -30,6 +30,18 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
   const [executing, setExecuting] = useState(false)
   const [previewData, setPreviewData] = useState<any>(null)
   const [importResult, setImportResult] = useState<any>(null)
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [jobProgress, setJobProgress] = useState(0)
+  const pollTimerRef = React.useRef<any>(null)
+
+  React.useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current)
+        pollTimerRef.current = null
+      }
+    }
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -95,6 +107,34 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
     }
   }
 
+  const handleDownloadErrorReport = () => {
+    if (jobId) {
+      window.location.href = `/api/v1/users/csv/error-report?jobId=${jobId}`
+      return
+    }
+
+    if (importResult?.errors?.length > 0) {
+      fetch('/api/v1/users/csv/error-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ errors: importResult.errors }),
+      })
+        .then((res) => res.blob())
+        .then((blob) => {
+          const url = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'users_import_validation_errors.csv'
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+        })
+        .catch(() => {
+          toast.error('Download Failed', 'Could not generate error report CSV')
+        })
+    }
+  }
+
   const handleExecute = async () => {
     if (!previewData || !previewData.rows) return
 
@@ -107,6 +147,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
           action: 'execute',
           type,
           previewRows: previewData.rows,
+          async: true,
         }),
       })
 
@@ -115,28 +156,86 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
         throw new Error(json.error || json.message || 'Import execution failed')
       }
 
-      setImportResult(json.data)
-      setStep('RESULT')
-      toast.success(
-        'CSV Import Completed',
-        `Processed ${json.data.total} records.`
-      )
-      onSuccess()
+      const isAsyncJob = json.async || json.data?.async
+      const returnedJobId = json.jobId || json.data?.jobId
+
+      if (isAsyncJob && returnedJobId) {
+        setJobId(returnedJobId)
+        setJobProgress(0)
+        setStep('PROCESSING')
+
+        // Start polling background job status
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current)
+        pollTimerRef.current = setInterval(async () => {
+          try {
+            const jobRes = await fetch(`/api/v1/jobs/${returnedJobId}`)
+            if (!jobRes.ok) return
+            const jobJson = await jobRes.json()
+            const job = jobJson.data || jobJson
+
+            if (job.progress !== undefined) {
+              setJobProgress(job.progress)
+            }
+
+            if (job.status === 'COMPLETED') {
+              if (pollTimerRef.current) {
+                clearInterval(pollTimerRef.current)
+                pollTimerRef.current = null
+              }
+              setImportResult(job.result)
+              setJobProgress(100)
+              setStep('RESULT')
+              setExecuting(false)
+              toast.success(
+                'CSV Import Completed',
+                `Processed ${job.result?.total || previewData.rows.length} records.`
+              )
+              onSuccess()
+            } else if (job.status === 'FAILED') {
+              if (pollTimerRef.current) {
+                clearInterval(pollTimerRef.current)
+                pollTimerRef.current = null
+              }
+              setExecuting(false)
+              toast.error('Import Failed', job.error || 'Background import failed')
+              setStep('PREVIEW')
+            }
+          } catch (e) {
+            // Transient error while polling, wait for next tick
+          }
+        }, 1000)
+      } else {
+        // Synchronous fallback result
+        setImportResult(json.data || json)
+        setStep('RESULT')
+        toast.success(
+          'CSV Import Completed',
+          `Processed ${json.data?.total || json.total} records.`
+        )
+        onSuccess()
+        setExecuting(false)
+      }
     } catch (err: any) {
       toast.error('Import Failed', err.message || 'An error occurred during import')
-    } finally {
       setExecuting(false)
     }
   }
 
   const resetModal = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
     setStep('UPLOAD')
     setInputMode('FILE')
     setCsvFile(null)
     setCsvText('')
     setPreviewData(null)
     setImportResult(null)
+    setJobId(null)
+    setJobProgress(0)
     setIsDragging(false)
+    setExecuting(false)
   }
 
   const handleClose = () => {
@@ -168,7 +267,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
             )}
           </div>
           <div className="flex items-center gap-2">
-            {step !== 'RESULT' && (
+            {step !== 'RESULT' && step !== 'PROCESSING' && (
               <button
                 type="button"
                 className="btn btn-secondary text-xs"
@@ -177,6 +276,13 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
               >
                 {t('users.cancel')}
               </button>
+            )}
+
+            {step === 'PROCESSING' && (
+              <div className="flex items-center gap-2 text-xs text-purple-700 dark:text-purple-400 font-medium">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Background import in progress... ({jobProgress}%)</span>
+              </div>
             )}
 
             {step === 'UPLOAD' && (
@@ -207,7 +313,7 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
                 {executing ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Executing Import...</span>
+                    <span>Starting Import...</span>
                   </>
                 ) : (
                   <span>
@@ -218,13 +324,25 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
             )}
 
             {step === 'RESULT' && (
-              <button
-                type="button"
-                className="btn btn-primary text-xs font-semibold"
-                onClick={handleClose}
-              >
-                Done & View Workspace
-              </button>
+              <div className="flex items-center gap-2">
+                {importResult?.errors?.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary text-xs flex items-center gap-1.5 font-medium border-red-200 text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40"
+                    onClick={handleDownloadErrorReport}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Error Report (CSV)</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-primary text-xs font-semibold"
+                  onClick={handleClose}
+                >
+                  Done & View Workspace
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -544,7 +662,49 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
           </div>
         )}
 
-        {/* STEP 3: Execution Result Report */}
+        {/* STEP 3: Async Background Processing View */}
+        {step === 'PROCESSING' && (
+          <div className="space-y-5 py-6 text-center max-w-md mx-auto">
+            <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-purple-100 dark:border-purple-950 animate-pulse" />
+              <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="text-base font-bold text-gray-900 dark:text-white">
+                Processing Import in Background
+              </h4>
+              <p className="text-xs text-gray-500">
+                Safely executing in transactional batches to prevent timeouts.
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5 overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div
+                  className="bg-purple-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${Math.max(5, jobProgress)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-gray-500 font-mono">
+                <span>Progress: {jobProgress}%</span>
+                {jobId && <span>Job ID: {jobId.slice(0, 8)}...</span>}
+              </div>
+            </div>
+
+            <div className="p-3 bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 rounded-xl text-left text-xs text-purple-900 dark:text-purple-300">
+              <div className="font-semibold mb-0.5">Transactional Integrity Active</div>
+              <div className="text-[11px] text-purple-700 dark:text-purple-400">
+                Records are validated against duplicate national IDs and cross-tenant leakage. You can safely wait while the progress bar completes.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Execution Result Report */}
         {step === 'RESULT' && importResult && (
           <div className="space-y-4 py-3 text-center">
             <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center mx-auto">
@@ -577,13 +737,25 @@ export function CsvImportModal({ open, onClose, type, onSuccess }: CsvImportModa
             </div>
 
             {importResult.errors?.length > 0 && (
-              <div className="text-left max-w-lg mx-auto bg-red-50 dark:bg-red-950/30 p-3.5 rounded-xl border border-red-200 dark:border-red-800 text-xs space-y-1">
-                <strong className="text-red-700 dark:text-red-400 block font-semibold">Row-level notices:</strong>
-                {importResult.errors.map((e: any, idx: number) => (
-                  <div key={idx} className="text-red-600 dark:text-red-400 font-mono text-[11px]">
-                    Row {e.rowNumber}: {e.message}
-                  </div>
-                ))}
+              <div className="text-left max-w-lg mx-auto bg-red-50 dark:bg-red-950/30 p-3.5 rounded-xl border border-red-200 dark:border-red-800 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <strong className="text-red-700 dark:text-red-400 block font-semibold">Row-level notices ({importResult.errors.length}):</strong>
+                  <button
+                    type="button"
+                    onClick={handleDownloadErrorReport}
+                    className="btn btn-secondary text-[11px] py-1 px-2.5 flex items-center gap-1 text-red-700 border-red-200 hover:bg-red-100 dark:hover:bg-red-900/40"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>Download CSV</span>
+                  </button>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1">
+                  {importResult.errors.map((e: any, idx: number) => (
+                    <div key={idx} className="text-red-600 dark:text-red-400 font-mono text-[11px]">
+                      Row {e.rowNumber}: {e.message}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

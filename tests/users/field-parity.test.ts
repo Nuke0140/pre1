@@ -135,7 +135,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
           currentAddress: 'Flat 402, Enterprise Heights, Bandra West, Mumbai',
           permanentAddress: 'Ancestral Villa, Pune City, Maharashtra',
           panNumber: 'ABCDE1234F',
-          aadhaarNumber: '998877665544',
+          aadhaarNumber: '998877665548',
           uanNumber: '100998877665',
           esiNumber: '31998877665544332',
           probationEndDate: '2026-11-30',
@@ -154,21 +154,21 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       createdStaffUser = json.data
 
       // Verify database record
-      const dbUser = await db.user.findUnique({
-        where: { id: createdStaffUser.userId || createdStaffUser.id },
+      const dbStaff = await db.tenantUser.findFirst({
+        where: { tenantId: tenant.id, userId: createdStaffUser.userId || createdStaffUser.id },
         include: {
-          memberships: true,
+          user: true,
           staffProfile: true,
         },
       })
 
-      expect(dbUser).toBeDefined()
-      expect(dbUser?.fullName).toBe('Dr. Katherine Pulaski')
-      expect(dbUser?.phone).toBe('+91 99887 76655')
-      expect(dbUser?.locale).toBe('mr')
-      expect(dbUser?.staffProfile).toBeDefined()
+      expect(dbStaff).toBeDefined()
+      expect(dbStaff?.user.fullName).toBe('Dr. Katherine Pulaski')
+      expect(dbStaff?.user.phone).toBe('+91 99887 76655')
+      expect(dbStaff?.user.locale).toBe('mr')
+      expect(dbStaff?.staffProfile).toBeDefined()
 
-      const sp = dbUser!.staffProfile!
+      const sp = dbStaff!.staffProfile!
       expect(sp.employeeCode).toBe(`MED-${ts.slice(-4)}`)
       expect(sp.designation).toBe('Senior Medical Educator')
       expect(sp.department).toBe('Health & Learning')
@@ -182,7 +182,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(sp.currentAddress).toContain('Bandra West')
       expect(sp.permanentAddress).toContain('Pune City')
       expect(sp.panNumber).toBe('ABCDE1234F')
-      expect(sp.aadhaarNumber).toBe('998877665544')
+      expect(sp.aadhaarNumber).toBe('998877665548')
       expect(sp.uanNumber).toBe('100998877665')
       expect(sp.esiNumber).toBe('31998877665544332')
       expect(sp.noticePeriodDays).toBe(45)
@@ -235,7 +235,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(sp.currentAddress).toContain('Bandra West')
       expect(sp.permanentAddress).toContain('Pune City')
       expect(sp.panNumber).toBe('ABCDE1234F')
-      expect(sp.aadhaarNumber).toBe('998877665544')
+      expect(sp.aadhaarNumber).toBe('998877665548')
       expect(sp.uanNumber).toBe('100998877665')
       expect(sp.esiNumber).toBe('31998877665544332')
       expect(sp.noticePeriodDays).toBe(45)
@@ -275,7 +275,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
           currentAddress: 'Penthouse 12, Nariman Point, Mumbai',
           permanentAddress: 'Heritage Bungalow, Lonavala, Maharashtra',
           panNumber: 'WXYZP9876Q',
-          aadhaarNumber: '112233445566',
+          aadhaarNumber: '212233445569',
           uanNumber: '200112233445',
           esiNumber: '41122334455667788',
           probationEndDate: '2026-10-31',
@@ -290,16 +290,16 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(patchJson.success).toBe(true)
 
       // Query database directly to confirm persistence
-      const dbUser = await db.user.findUnique({
-        where: { id: userId },
-        include: { staffProfile: true },
+      const dbStaff = await db.tenantUser.findFirst({
+        where: { tenantId: tenant.id, userId },
+        include: { staffProfile: true, user: true },
       })
 
-      expect(dbUser?.fullName).toBe('Dr. Katherine Pulaski-McCoy')
-      expect(dbUser?.phone).toBe('+91 98765 00112')
-      expect(dbUser?.locale).toBe('hi')
+      expect(dbStaff?.user.fullName).toBe('Dr. Katherine Pulaski-McCoy')
+      expect(dbStaff?.user.phone).toBe('+91 98765 00112')
+      expect(dbStaff?.user.locale).toBe('hi')
 
-      const sp = dbUser!.staffProfile!
+      const sp = dbStaff!.staffProfile!
       expect(sp.designation).toBe('Head of Pediatric Learning')
       expect(sp.department).toBe('Executive Academics')
       expect(sp.qualification).toBe('Ph.D. Early Childhood Education, M.D.')
@@ -311,7 +311,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(sp.currentAddress).toContain('Nariman Point')
       expect(sp.permanentAddress).toContain('Lonavala')
       expect(sp.panNumber).toBe('WXYZP9876Q')
-      expect(sp.aadhaarNumber).toBe('112233445566')
+      expect(sp.aadhaarNumber).toBe('212233445569')
       expect(sp.noticePeriodDays).toBe(60)
     })
 
@@ -338,24 +338,24 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(patchRes.status).toBe(200)
 
       // Verify that omitted fields are untouched
-      const dbUser = await db.user.findUnique({
-        where: { id: userId },
-        include: { staffProfile: true },
+      const dbStaff = await db.tenantUser.findFirst({
+        where: { tenantId: tenant.id, userId },
+        include: { staffProfile: true, user: true },
       })
 
-      expect(dbUser?.phone).toBe('+91 91111 22222')
-      expect(dbUser?.staffProfile?.designation).toBe('Principal Faculty Director')
+      expect(dbStaff?.user.phone).toBe('+91 91111 22222')
+      expect(dbStaff?.staffProfile?.designation).toBe('Principal Faculty Director')
 
       // All untouched fields MUST be strictly preserved
-      expect(dbUser?.fullName).toBe('Dr. Katherine Pulaski-McCoy')
-      expect(dbUser?.locale).toBe('hi')
-      expect(dbUser?.staffProfile?.panNumber).toBe('WXYZP9876Q')
-      expect(dbUser?.staffProfile?.aadhaarNumber).toBe('112233445566')
-      expect(dbUser?.staffProfile?.emergencyContactName).toBe('Leonard McCoy')
-      expect(dbUser?.staffProfile?.emergencyContactPhone).toBe('+91 98765 99887')
-      expect(dbUser?.staffProfile?.bloodGroup).toBe('AB_POSITIVE')
-      expect(dbUser?.staffProfile?.currentAddress).toContain('Nariman Point')
-      expect(dbUser?.staffProfile?.noticePeriodDays).toBe(60)
+      expect(dbStaff?.user.fullName).toBe('Dr. Katherine Pulaski-McCoy')
+      expect(dbStaff?.user.locale).toBe('hi')
+      expect(dbStaff?.staffProfile?.panNumber).toBe('WXYZP9876Q')
+      expect(dbStaff?.staffProfile?.aadhaarNumber).toBe('212233445569')
+      expect(dbStaff?.staffProfile?.emergencyContactName).toBe('Leonard McCoy')
+      expect(dbStaff?.staffProfile?.emergencyContactPhone).toBe('+91 98765 99887')
+      expect(dbStaff?.staffProfile?.bloodGroup).toBe('AB_POSITIVE')
+      expect(dbStaff?.staffProfile?.currentAddress).toContain('Nariman Point')
+      expect(dbStaff?.staffProfile?.noticePeriodDays).toBe(60)
     })
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -414,12 +414,12 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       const patchRes = await userPatch(patchReq, { params: Promise.resolve({ id: userId }) })
       expect(patchRes.status).toBe(200)
 
-      const dbUser = await db.user.findUnique({
-        where: { id: userId },
+      const dbStaff = await db.tenantUser.findFirst({
+        where: { tenantId: tenant.id, userId },
         include: { staffProfile: true },
       })
 
-      const sp = dbUser!.staffProfile!
+      const sp = dbStaff!.staffProfile!
       expect(sp.panNumber).toBeNull()
       expect(sp.qualification).toBeNull()
       expect(sp.emergencyContactPhone).toBeNull()
@@ -428,7 +428,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
 
       // Verify that non-nullified fields still remain
       expect(sp.emergencyContactName).toBe('Leonard McCoy')
-      expect(sp.aadhaarNumber).toBe('112233445566')
+      expect(sp.aadhaarNumber).toBe('212233445569')
     })
   })
 

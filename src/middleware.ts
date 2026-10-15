@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   '/api/v1/auth/otp/send',
   '/api/v1/auth/otp/verify',
   '/api/v1/auth/otp/resend',
+  '/api/v1/auth/mfa',
   '/api/v1/health',
   '/api/health',
   '/api/v1/version',

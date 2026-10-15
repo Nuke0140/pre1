@@ -4,6 +4,7 @@ import { withApi } from '@/lib/with-api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { SettingsService } from '@/lib/settings/settings-service'
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE } from '@/lib/auth'
+import { SessionService } from '@/lib/users/session-service'
 
 /**
  * POST /api/v1/auth/password
@@ -31,16 +32,27 @@ export const POST = withApi(async (req: NextRequest) => {
 
     const result = await SettingsService.changePassword(session.uid, currentPassword, newPassword, actor)
 
-    // Re-sign session without mustChangePassword flag
+    // Re-sign session with fresh tokenVersion and passwordChangedAt, without mustChangePassword flag
     const refreshedToken = await signSession({
       ...session,
       mustChangePassword: false,
+      tokenVersion: result.tokenVersion,
+      passwordChangedAt: result.passwordChangedAt,
+    })
+
+    // Establish active session in user_sessions for the refreshed token
+    await SessionService.createSession({
+      userId: session.uid,
+      tenantId: session.tenantId,
+      token: refreshedToken,
+      req,
     })
 
     const res = ok(result)
     res.cookies.set(SESSION_COOKIE, refreshedToken, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
       maxAge: SESSION_MAX_AGE,
       path: '/',
     })

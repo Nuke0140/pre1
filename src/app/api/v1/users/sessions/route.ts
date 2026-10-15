@@ -80,6 +80,9 @@ async function _POST(req: NextRequest) {
       if (currentToken) {
         currentHash = SessionService.hashToken(currentToken)
       }
+    } else {
+      // Sign out all devices: increment tokenVersion to immediately invalidate all stateless JWTs
+      await SessionService.bumpTokenVersion(session.uid)
     }
 
     const count = await SessionService.revokeAllUserSessions(session.uid, currentHash)

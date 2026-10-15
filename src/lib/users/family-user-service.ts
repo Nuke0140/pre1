@@ -245,7 +245,22 @@ export class FamilyUserService {
             where: { tenantId: ctx.tenantId, phone: input.phone.trim() },
           }))
 
-        if (createdGuardian) {
+        const existingUserGuardian = await tx.guardian.findUnique({
+          where: { userId: user.id },
+        })
+
+        if (existingUserGuardian && createdGuardian && existingUserGuardian.id !== createdGuardian.id) {
+          if (studentLink) {
+            await tx.studentGuardian.update({
+              where: { id: studentLink.id },
+              data: { guardianId: existingUserGuardian.id },
+            })
+          }
+          await tx.guardian.delete({ where: { id: createdGuardian.id } }).catch(() => {})
+          createdGuardian = existingUserGuardian
+        } else if (existingUserGuardian) {
+          createdGuardian = existingUserGuardian
+        } else if (createdGuardian) {
           createdGuardian = await tx.guardian.update({
             where: { id: createdGuardian.id },
             data: {
@@ -343,7 +358,7 @@ export class FamilyUserService {
 
         // Step 3: Resolve or create Guardian record
         let guardian = await tx.guardian.findFirst({
-          where: { userId: user.id, tenantId: ctx.tenantId },
+          where: { userId: user.id },
         })
 
         // If not found by userId, check by phone + name to respect shared household phone numbers

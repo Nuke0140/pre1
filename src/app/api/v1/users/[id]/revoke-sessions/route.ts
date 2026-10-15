@@ -23,6 +23,9 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       return forbidden('Only owners can revoke sessions of school owner')
     }
 
+    // Bump user tokenVersion to instantly invalidate all stateless tokens (Doc 1.1)
+    await SessionService.bumpTokenVersion(member.userId)
+
     // Revoke all stored sessions in database
     const revokedCount = await SessionService.revokeAllUserSessions(member.userId)
     // Invalidate permission version cache

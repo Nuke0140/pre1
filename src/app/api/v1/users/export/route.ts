@@ -95,16 +95,14 @@ async function executeExport(req: NextRequest, params: ExportParams) {
     // Search query filtering
     if (search && search.trim()) {
       const q = search.trim()
-      where.user = {
-        OR: [
-          { fullName: { contains: q, mode: 'insensitive' } },
-          { email: { contains: q, mode: 'insensitive' } },
-          { phone: { contains: q } },
-          { username: { contains: q, mode: 'insensitive' } },
-          { staffProfile: { employeeCode: { contains: q, mode: 'insensitive' } } },
-          { staffProfile: { designation: { contains: q, mode: 'insensitive' } } },
-        ],
-      }
+      where.OR = [
+        { user: { fullName: { contains: q, mode: 'insensitive' } } },
+        { user: { email: { contains: q, mode: 'insensitive' } } },
+        { user: { phone: { contains: q } } },
+        { user: { username: { contains: q, mode: 'insensitive' } } },
+        { staffProfile: { employeeCode: { contains: q, mode: 'insensitive' } } },
+        { staffProfile: { designation: { contains: q, mode: 'insensitive' } } },
+      ]
     }
 
     const [branches, members] = await Promise.all([
@@ -115,9 +113,9 @@ async function executeExport(req: NextRequest, params: ExportParams) {
       db.tenantUser.findMany({
         where,
         include: {
+          staffProfile: true,
           user: {
             include: {
-              staffProfile: true,
               guardianProfile: {
                 include: {
                   studentLinks: {
@@ -184,10 +182,10 @@ async function executeExport(req: NextRequest, params: ExportParams) {
         sanitizeCsvCell(m.status),
         sanitizeCsvCell(branchDisplay),
         sanitizeCsvCell(m.branchId),
-        sanitizeCsvCell(m.user.staffProfile?.employeeCode),
-        sanitizeCsvCell(m.user.staffProfile?.designation),
-        sanitizeCsvCell(m.user.staffProfile?.department),
-        sanitizeCsvCell(m.user.staffProfile?.employmentType),
+        sanitizeCsvCell(m.staffProfile?.employeeCode),
+        sanitizeCsvCell(m.staffProfile?.designation),
+        sanitizeCsvCell(m.staffProfile?.department),
+        sanitizeCsvCell(m.staffProfile?.employmentType),
         sanitizeCsvCell(taughtClasses),
         sanitizeCsvCell(linkedStudents),
         sanitizeCsvCell(m.createdAt.toISOString()),

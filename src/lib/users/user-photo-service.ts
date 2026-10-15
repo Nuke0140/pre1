@@ -168,9 +168,9 @@ export class UserPhotoService {
     const tenantMembers = await db.tenantUser.findMany({
       where: { tenantId: params.tenantId, deletedAt: null },
       include: {
+        staffProfile: { select: { employeeCode: true } },
         user: {
           include: {
-            staffProfile: { select: { employeeCode: true } },
             guardianProfile: {
               include: {
                 studentLinks: {
@@ -194,8 +194,8 @@ export class UserPhotoService {
       if (m.user.username) {
         usernameMap.set(m.user.username.toLowerCase(), m.userId)
       }
-      if (m.user.staffProfile?.employeeCode) {
-        empCodeMap.set(m.user.staffProfile.employeeCode.toLowerCase(), m.userId)
+      if (m.staffProfile?.employeeCode) {
+        empCodeMap.set(m.staffProfile.employeeCode.toLowerCase(), m.userId)
       }
       if (m.user.guardianProfile) {
         for (const sl of m.user.guardianProfile.studentLinks) {

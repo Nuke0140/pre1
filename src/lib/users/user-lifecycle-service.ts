@@ -162,6 +162,7 @@ export class UserLifecycleService {
   ): Promise<void> {
     if (['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
       if (isGlobal || !tenantId) {
+        await SessionService.bumpTokenVersion(userId)
         await SessionService.revokeAllUserSessions(userId)
       } else {
         await SessionService.revokeAllUserSessions(userId, undefined, tenantId)
@@ -191,8 +192,16 @@ export class UserLifecycleService {
     req?: Request | NextRequest | null
   }): Promise<void> {
     let auditAction = 'UPDATE_USER_STATUS'
-    if (params.action) {
-      auditAction = `USER_${params.action.toUpperCase()}`
+    const actionAuditMap: Record<string, string> = {
+      suspend: 'USER_SUSPENDED',
+      activate: 'USER_ACTIVATED',
+      unlock: 'USER_UNLOCKED',
+      deactivate: 'USER_DEACTIVATED',
+      archive: 'USER_ARCHIVED',
+      lock: 'USER_LOCKED',
+    }
+    if (params.action && actionAuditMap[params.action.toLowerCase()]) {
+      auditAction = actionAuditMap[params.action.toLowerCase()]
     } else {
       const statusActionMap: Record<string, string> = {
         ACTIVE: params.previousStatus === 'LOCKED' ? 'USER_UNLOCKED' : 'USER_ACTIVATED',
@@ -246,6 +255,63 @@ export class UserLifecycleService {
 
     const previousStatus = member.status as string
     const userGlobalStatus = (member.user as any)?.status as string | undefined
+
+    // Self-suspension protection: admin cannot lock or suspend themselves
+    if (member.userId === actorSession.uid && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
+      return {
+        success: false,
+        error: 'Cannot suspend or deactivate your own account',
+        code: 'CANNOT_SUSPEND_SELF',
+        statusHttp: 400,
+      }
+    }
+
+    // Sole active Owner protection: cannot suspend or deactivate the only Owner
+    if (member.role === 'OWNER' && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
+      const activeOwners = await db.tenantUser.count({
+        where: {
+          tenantId: actorSession.tenantId,
+          role: 'OWNER',
+          status: 'ACTIVE',
+          deletedAt: null,
+          id: { not: member.id },
+        },
+      })
+      if (activeOwners === 0) {
+        return {
+          success: false,
+          error: 'Cannot suspend or deactivate the sole active Owner of the school',
+          code: 'SOLE_OWNER_PROTECTION',
+          statusHttp: 403,
+        }
+      }
+    }
+
+    // Special case for unlock: even if user is already ACTIVE, clear failed attempts and return success
+    if (action === 'unlock') {
+      await resetPersistentFailedAttempts(member.userId)
+      resetFailedAttempts(member.userId, (member.user as any)?.email, (member.user as any)?.username)
+      if (previousStatus === 'ACTIVE' && (!userGlobalStatus || userGlobalStatus === 'ACTIVE')) {
+        await this.recordLifecycleAudit({
+          tenantId: actorSession.tenantId,
+          branchId: member.branchId,
+          actorId: actorSession.uid,
+          actorName: actorSession.name,
+          actorRole: actorSession.role,
+          member,
+          previousStatus,
+          targetStatus: 'ACTIVE',
+          action: 'unlock',
+          reason,
+          req,
+        })
+        return {
+          success: true,
+          userId: member.userId,
+          status: 'ACTIVE',
+        }
+      }
+    }
 
     if (previousStatus === targetStatus && (!userGlobalStatus || userGlobalStatus === targetStatus)) {
       return {

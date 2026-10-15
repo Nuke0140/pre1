@@ -56,6 +56,9 @@ export const POST = withApi(
       return forbidden(`You are not assigned the role: ${targetRole}`)
     }
 
+    // Retrieve freshest security metadata for version tracking (Doc 1.1)
+    const userSecurity = await SessionService.getUserSecurityMeta(session.uid)
+
     // Generate new session token with switched active role
     const newPayload = {
       uid: session.uid,
@@ -65,6 +68,8 @@ export const POST = withApi(
       branchId: session.branchId,
       role: targetRole,
       roles: normalizedAllowed as Role[],
+      tokenVersion: userSecurity.tokenVersion,
+      passwordChangedAt: userSecurity.passwordChangedAt,
     }
 
     const token = await signSession(newPayload)

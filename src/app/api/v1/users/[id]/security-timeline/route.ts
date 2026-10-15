@@ -1,8 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { db } from '@/lib/db'
-import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
+import { ok, bad, notFound, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
+import { UserActivityService } from '@/lib/users/user-activity-service'
 
 /**
  * GET /api/v1/users/[id]/security-timeline — Security & Audit Event Timeline (UAM-E11)
@@ -25,56 +25,21 @@ async function _GET(
   }
 
   try {
-    const logs = await db.auditLog.findMany({
-      where: {
-        OR: [{ actorId: id }, { entityId: id }],
-        tenantId: session.tenantId,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+    const result = await UserActivityService.getUserActivityTrail({
+      targetIdentifier: id,
+      tenantId: session.tenantId,
+      perspective: 'ALL',
+      limit: 100,
     })
 
-    const timeline = logs.map((log) => {
-      let oldValues = null
-      let newValues = null
-      try {
-        if (log.oldValues) {
-          oldValues = typeof log.oldValues === 'string' ? JSON.parse(log.oldValues) : log.oldValues
-        }
-      } catch {
-        oldValues = log.oldValues
-      }
-      try {
-        if (log.newValues) {
-          newValues = typeof log.newValues === 'string' ? JSON.parse(log.newValues) : log.newValues
-        }
-      } catch {
-        newValues = log.newValues
-      }
-
-      return {
-        id: log.id,
-        action: log.action,
-        module: log.module,
-        summary: log.summary,
-        severity: log.severity,
-        ipAddress: log.ipAddress,
-        userAgent: log.userAgent,
-        createdAt: log.createdAt,
-        actor: {
-          id: log.actorId,
-          name: log.actorName,
-          role: log.actorRole,
-        },
-        oldValues,
-        newValues,
-      }
-    })
+    if (!result) {
+      return notFound('User not found in this school')
+    }
 
     return ok({
-      userId: id,
-      totalEvents: timeline.length,
-      timeline,
+      userId: result.userId,
+      totalEvents: result.items.length,
+      timeline: result.items,
     })
   } catch (err: any) {
     return serverError(err.message)

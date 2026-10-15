@@ -144,9 +144,8 @@ export async function requireCanManageUser(
       OR: [{ userId: targetUserId }, { id: targetUserId }],
     },
     include: {
-      user: {
-        include: { staffProfile: true },
-      },
+      staffProfile: true,
+      user: true,
     },
   })
 

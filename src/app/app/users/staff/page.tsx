@@ -5,7 +5,8 @@ import Link from 'next/link'
 import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
-  ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera
+  ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera,
+  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -23,11 +24,14 @@ import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
+import { ResetPasswordModal } from '@/components/users/ResetPasswordModal'
+import { SuspendUserModal } from '@/components/users/SuspendUserModal'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   GlobalActionMenu,
@@ -41,7 +45,6 @@ import {
 import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
-import { Image, Layers } from 'lucide-react'
 
 export default function StaffUsersPage() {
   const toast = useToast()
@@ -87,6 +90,50 @@ export default function StaffUsersPage() {
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
+  const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+
+  const handleUnlockUser = async (u: UserRecord) => {
+    const targetUserId = u.userId || u.id
+    setActionLoadingId(targetUserId)
+    try {
+      const res = await fetch(`/api/v1/users/${targetUserId}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to unlock account')
+      toast.success('Account Unlocked', `Account for ${u.name} has been unlocked.`)
+      fetchStaff()
+    } catch (err: any) {
+      toast.error('Unlock Failed', err.message)
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleResendInvite = async (u: UserRecord) => {
+    if (!u.email) {
+      toast.error('Missing Email', `${u.name} does not have an email address configured.`)
+      return
+    }
+    const targetUserId = u.userId || u.id
+    setActionLoadingId(targetUserId)
+    try {
+      const res = await fetch(`/api/v1/users/${targetUserId}/resend-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to resend invitation')
+      toast.success('Email Dispatched', data.message || `Invitation/welcome email sent to ${u.email}.`)
+    } catch (err: any) {
+      toast.error('Failed to Resend', err.message)
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
 
   const fetchBranchesAndClassrooms = async () => {
     try {
@@ -274,11 +321,21 @@ export default function StaffUsersPage() {
       key: 'branchId',
       header: t('users.branch'),
       render: (u) => {
-        const branch = branches.find((b) => b.id === u.branchId)
+        const assigned = u.assignedBranches || []
+        const primaryBranch = branches.find((b) => b.id === u.branchId) || assigned.find((b) => b.isPrimary || b.id === u.branchId)
+        const additionalCount = assigned.length > 1 ? assigned.length - 1 : 0
+
         return (
-          <div className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-            <Building className="w-3.5 h-3.5 text-gray-400" />
-            {branch ? `${branch.name} (${branch.code})` : t('users.allCampuses')}
+          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            <div className="flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <span>{primaryBranch ? `${primaryBranch.name} (${primaryBranch.code})` : t('users.allCampuses')}</span>
+              {additionalCount > 0 && (
+                <span className="badge b-purple text-[10px] px-1.5 py-0" title={assigned.map((b) => `${b.name} (${b.code})`).join(', ')}>
+                  +{additionalCount}
+                </span>
+              )}
+            </div>
           </div>
         )
       },
@@ -325,7 +382,14 @@ export default function StaffUsersPage() {
                 <MoreHorizontal size={15} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setViewingUser(u)}
+              >
+                <Eye size={14} className="text-slate-500" />
+                <span>{t('users.view360Profile')}</span>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setEditingUser(u)}
@@ -343,12 +407,60 @@ export default function StaffUsersPage() {
                 <Layers size={14} className="text-purple-600" />
                 <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                Admin Actions
+              </div>
+
+              {/* Reset Password */}
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
+                onClick={() => setResetPasswordUser(u)}
               >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
+                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <span>Reset Password</span>
+              </DropdownMenuItem>
+
+              {/* Unlock Account */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleUnlockUser(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+                <span>Unlock Account</span>
+                {u.status === 'LOCKED' && (
+                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+                )}
+              </DropdownMenuItem>
+
+              {/* Suspend / Reactivate */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setSuspendModalUser(u)}
+              >
+                {u.status === 'ACTIVE' ? (
+                  <>
+                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+
+              {/* Resend Invite / Welcome */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleResendInvite(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Send size={14} className="text-sky-600 dark:text-sky-400" />
+                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -852,6 +964,20 @@ export default function StaffUsersPage() {
           setSelectedKeys([])
           fetchStaff()
         }}
+      />
+
+      <ResetPasswordModal
+        open={Boolean(resetPasswordUser)}
+        onClose={() => setResetPasswordUser(null)}
+        user={resetPasswordUser}
+        onSuccess={fetchStaff}
+      />
+
+      <SuspendUserModal
+        open={Boolean(suspendModalUser)}
+        onClose={() => setSuspendModalUser(null)}
+        user={suspendModalUser}
+        onSuccess={fetchStaff}
       />
     </div>
   )

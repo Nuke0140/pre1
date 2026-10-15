@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { emailService } from '@/lib/email/email-service'
 import { audit } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
+import { SessionService } from '@/lib/users/session-service'
 
 const RESET_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'preone-dev-jwt-secret-2f8b7c9d4e6a1f3b5c8d0e'
@@ -159,6 +160,10 @@ export class PasswordResetService {
     }
 
     const newHash = await bcrypt.hash(newPassword, 10)
+    const now = Date.now()
+
+    // Atomically bump tokenVersion and record passwordChangedAt (Doc 1.1)
+    await SessionService.bumpTokenVersion(verification.userId, now)
 
     // Atomically update password and reset mustChangePassword flag
     await db.user.update({
@@ -171,10 +176,7 @@ export class PasswordResetService {
     })
 
     // Invalidate all active sessions for this user
-    await db.userSession.updateMany({
-      where: { userId: verification.userId, status: 'ACTIVE' },
-      data: { status: 'REVOKED' },
-    })
+    await SessionService.revokeAllUserSessions(verification.userId)
 
     await audit({
       tenantId: null,

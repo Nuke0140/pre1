@@ -136,6 +136,7 @@ model Tenant {
   programSubjects             ProgramSubject[]
   classroomSubjects           ClassroomSubject[]
   activityProgresses          ActivityProgress[]
+  tenantUserBranches          TenantUserBranch[]
 
   @@map("tenants")
 }
@@ -193,6 +194,7 @@ model Branch {
   savedReports                SavedReport[]
   bulkDocumentJobs            BulkDocumentJob[]
   studentReportCards          StudentReportCard[]
+  assignedStaff               TenantUserBranch[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -219,7 +221,7 @@ model User {
   deletedAt       DateTime?
   taughtClasses   Classroom[]   @relation("ClassPrimaryTeacher")
   guardianProfile Guardian?     @relation("GuardianPortalUser")
-  staffProfile    StaffProfile?
+  staffProfiles   StaffProfile[]
   memberships     TenantUser[]
   conductedActivities ClassroomActivity[]
   assessedProgresses  StudentProgress[]
@@ -264,11 +266,33 @@ model TenantUser {
   deletedAt DateTime?
   tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffProfile     StaffProfile?
+  assignedBranches TenantUserBranch[]
 
   @@unique([tenantId, userId])
   @@index([userId])
   @@index([tenantId, role])
   @@map("tenant_users")
+}
+
+/// Multi-branch staff assignment junction (Doc 2.2 P2 Audit)
+model TenantUserBranch {
+  id           String     @id @default(uuid())
+  tenantId     String
+  tenantUserId String
+  branchId     String
+  isPrimary    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantUser TenantUser @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantUserId, branchId])
+  @@index([tenantId, branchId])
+  @@index([tenantUserId])
+  @@map("tenant_user_branches")
 }
 
 model AcademicSession {
@@ -1329,7 +1353,7 @@ model Facility {
 model StaffProfile {
   id                    String         @id @default(uuid())
   tenantId              String
-  userId                String         @unique
+  userId                String
   branchId              String?
   employeeCode          String
   designation           String?
@@ -1363,6 +1387,7 @@ model StaffProfile {
   branch                Branch?        @relation(fields: [branchId], references: [id])
   tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantUser            TenantUser?    @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
 
   // HR Relations
   documents             StaffDocument[]
@@ -1385,7 +1410,9 @@ model StaffProfile {
   drivenTrips           TransportTrip[]  @relation("TripDriver")
   attendedTrips         TransportTrip[]  @relation("TripAttendant")
 
+  @@unique([tenantId, userId])
   @@unique([tenantId, employeeCode])
+  @@index([userId])
   @@index([tenantId])
   @@map("staff_profiles")
 }

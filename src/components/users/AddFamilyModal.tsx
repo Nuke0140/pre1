@@ -256,8 +256,8 @@ export function AddFamilyModal({
   }
 
   const validateStep3 = () => {
-    if (password && password.trim().length < 6) {
-      toast.error('Validation Error', 'Password must be at least 6 characters')
+    if (password && password.trim().length < 8) {
+      toast.error('Validation Error', 'Password must be at least 8 characters')
       return false
     }
     if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
@@ -1084,6 +1084,7 @@ export function AddFamilyModal({
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Min. 8 characters"
                           className="input w-full text-xs pl-9 pr-9 font-mono"
                         />
                         <button

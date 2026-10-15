@@ -142,6 +142,50 @@ async function _POST(req: NextRequest) {
       }
 
       const atomicAllOrNothing = Boolean((body as any)?.atomicAllOrNothing || (body as any)?.mode === 'atomic')
+      const isAsync = body.async === true || (body.async !== false && !atomicAllOrNothing && rowsToExecute.length > 25)
+
+      if (isAsync) {
+        const { enqueueJob } = await import('@/lib/jobs')
+        const job = await enqueueJob({
+          tenantId: session.tenantId,
+          jobType: 'CSV_IMPORT',
+          createdById: session.uid,
+          payload: {
+            templateType,
+            rows: rowsToExecute,
+            options: {
+              atomicAllOrNothing,
+              mode: body.mode,
+              chunkSize: body.chunkSize || 15,
+            },
+            actor: {
+              id: session.uid,
+              name: session.name,
+              role: session.role,
+            },
+          },
+        })
+
+        return NextResponse.json(
+          {
+            success: true,
+            async: true,
+            jobId: job.id,
+            status: job.status,
+            progress: 0,
+            total: rowsToExecute.length,
+            message: `CSV import enqueued as background job (${rowsToExecute.length} rows)`,
+            data: {
+              async: true,
+              jobId: job.id,
+              status: job.status,
+              progress: 0,
+              total: rowsToExecute.length,
+            },
+          },
+          { status: 202 }
+        )
+      }
 
       if (templateType === 'FAMILY') {
         const result = await UserCsvEngine.executeFamilyImport(

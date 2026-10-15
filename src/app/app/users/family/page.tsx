@@ -6,7 +6,7 @@ import {
   Baby, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Phone, Mail, Edit3, Shield, Eye, Lock,
   ChevronLeft, CheckCircle2, User, Users,
-  KeyRound, Clock, X, Camera
+  KeyRound, Clock, X, Camera, Unlock, UserX, UserCheck, Send, ShieldAlert
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -23,11 +23,15 @@ import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
+import { ResetPasswordModal } from '@/components/users/ResetPasswordModal'
+import { SuspendUserModal } from '@/components/users/SuspendUserModal'
+import { PickupPinModal } from '@/components/users/PickupPinModal'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import {
   GlobalActionMenu,
@@ -80,6 +84,51 @@ export default function FamilyUsersPage() {
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserRecord | null>(null)
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
+  const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
+  const [pickupPinUser, setPickupPinUser] = useState<UserRecord | null>(null)
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+
+  const handleUnlockUser = async (u: UserRecord) => {
+    const targetUserId = u.userId || u.id
+    setActionLoadingId(targetUserId)
+    try {
+      const res = await fetch(`/api/v1/users/${targetUserId}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to unlock account')
+      toast.success('Account Unlocked', `Account for ${u.name} has been unlocked.`)
+      fetchFamilyUsers()
+    } catch (err: any) {
+      toast.error('Unlock Failed', err.message)
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleResendInvite = async (u: UserRecord) => {
+    if (!u.email) {
+      toast.error('Missing Email', `${u.name} does not have an email address configured.`)
+      return
+    }
+    const targetUserId = u.userId || u.id
+    setActionLoadingId(targetUserId)
+    try {
+      const res = await fetch(`/api/v1/users/${targetUserId}/resend-invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || data.message || 'Failed to resend invitation')
+      toast.success('Email Dispatched', data.message || `Invitation/welcome email sent to ${u.email}.`)
+    } catch (err: any) {
+      toast.error('Failed to Resend', err.message)
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
 
   const fetchBranchesAndClassrooms = async () => {
     try {
@@ -288,7 +337,14 @@ export default function FamilyUsersPage() {
                 <MoreHorizontal size={15} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setViewingUser(u)}
+              >
+                <Eye size={14} className="text-slate-500" />
+                <span>{t('users.view360Profile')}</span>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setEditingUser(u)}
@@ -306,12 +362,69 @@ export default function FamilyUsersPage() {
                 <Layers size={14} className="text-purple-600" />
                 <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                Admin Actions
+              </div>
+
+              {/* Reset Password */}
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
+                onClick={() => setResetPasswordUser(u)}
               >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
+                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <span>Reset Password</span>
+              </DropdownMenuItem>
+
+              {/* Manage Pickup PIN */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setPickupPinUser(u)}
+              >
+                <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
+                <span>Manage Pickup PIN</span>
+              </DropdownMenuItem>
+
+              {/* Unlock Account */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleUnlockUser(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+                <span>Unlock Account</span>
+                {u.status === 'LOCKED' && (
+                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+                )}
+              </DropdownMenuItem>
+
+              {/* Suspend / Reactivate */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setSuspendModalUser(u)}
+              >
+                {u.status === 'ACTIVE' ? (
+                  <>
+                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+
+              {/* Resend Invite / Welcome */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleResendInvite(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Send size={14} className="text-sky-600 dark:text-sky-400" />
+                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -454,7 +567,14 @@ export default function FamilyUsersPage() {
                 <MoreHorizontal size={15} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setViewingUser(u)}
+              >
+                <Eye size={14} className="text-slate-500" />
+                <span>{t('users.view360Profile')}</span>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
                 onClick={() => setEditingUser(u)}
@@ -472,12 +592,69 @@ export default function FamilyUsersPage() {
                 <Layers size={14} className="text-purple-600" />
                 <span>{t('users.bulkFieldUpdate')}</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                Admin Actions
+              </div>
+
+              {/* Reset Password */}
               <DropdownMenuItem
                 className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
+                onClick={() => setResetPasswordUser(u)}
               >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
+                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+                <span>Reset Password</span>
+              </DropdownMenuItem>
+
+              {/* Manage Pickup PIN */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setPickupPinUser(u)}
+              >
+                <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
+                <span>Manage Pickup PIN</span>
+              </DropdownMenuItem>
+
+              {/* Unlock Account */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleUnlockUser(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+                <span>Unlock Account</span>
+                {u.status === 'LOCKED' && (
+                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+                )}
+              </DropdownMenuItem>
+
+              {/* Suspend / Reactivate */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => setSuspendModalUser(u)}
+              >
+                {u.status === 'ACTIVE' ? (
+                  <>
+                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+
+              {/* Resend Invite / Welcome */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+                onClick={() => handleResendInvite(u)}
+                disabled={actionLoadingId === (u.userId || u.id)}
+              >
+                <Send size={14} className="text-sky-600 dark:text-sky-400" />
+                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1001,6 +1178,36 @@ export default function FamilyUsersPage() {
           setSelectedKeys([])
           fetchFamilyUsers()
         }}
+      />
+
+      <ResetPasswordModal
+        open={Boolean(resetPasswordUser)}
+        onClose={() => setResetPasswordUser(null)}
+        user={resetPasswordUser}
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <SuspendUserModal
+        open={Boolean(suspendModalUser)}
+        onClose={() => setSuspendModalUser(null)}
+        user={suspendModalUser}
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <PickupPinModal
+        isOpen={Boolean(pickupPinUser)}
+        onClose={() => setPickupPinUser(null)}
+        user={
+          pickupPinUser
+            ? {
+                id: pickupPinUser.userId || pickupPinUser.id,
+                fullName: pickupPinUser.name || pickupPinUser.fullName,
+                role: pickupPinUser.role,
+                students: pickupPinUser.guardianProfile?.students || [],
+              }
+            : null
+        }
+        onSuccess={fetchFamilyUsers}
       />
     </div>
   )

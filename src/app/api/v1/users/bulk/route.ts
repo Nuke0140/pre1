@@ -178,9 +178,8 @@ export const POST = withApi(async (req: NextRequest) => {
         deletedAt: null,
       },
       include: {
-        user: {
-          include: { staffProfile: true },
-        },
+        staffProfile: true,
+        user: true,
       },
     })
 
@@ -292,8 +291,8 @@ export const POST = withApi(async (req: NextRequest) => {
       for (const m of eligibleMembers) {
         let beforeVal = ''
         if (action === 'BULK_EDIT') {
-          if (editField === 'department') beforeVal = m.user.staffProfile?.department || ''
-          else if (editField === 'designation') beforeVal = m.user.staffProfile?.designation || ''
+          if (editField === 'department') beforeVal = m.staffProfile?.department || ''
+          else if (editField === 'designation') beforeVal = m.staffProfile?.designation || ''
           else if (editField === 'branchId') beforeVal = m.branchId || ''
         } else if (action === 'CUSTOM_FIELD') {
           const prefs: any = (m.user.preferences as any) || {}
@@ -432,9 +431,9 @@ export const POST = withApi(async (req: NextRequest) => {
               where: { id: m.id },
               data: { branchId: branchId || null },
             })
-            if (m.user.staffProfile) {
+            if (m.staffProfile) {
               await tx.staffProfile.update({
-                where: { id: m.user.staffProfile.id },
+                where: { id: m.staffProfile.id },
                 data: { branchId: branchId || null },
               })
             }
@@ -447,9 +446,9 @@ export const POST = withApi(async (req: NextRequest) => {
           const dept = department !== undefined ? department.trim() || null : undefined
 
           for (const m of eligibleMembers) {
-            if (m.user.staffProfile) {
+            if (m.staffProfile) {
               await tx.staffProfile.update({
-                where: { id: m.user.staffProfile.id },
+                where: { id: m.staffProfile.id },
                 data: {
                   ...(desig !== undefined ? { designation: desig } : {}),
                   ...(dept !== undefined ? { department: dept } : {}),
@@ -551,9 +550,9 @@ export const POST = withApi(async (req: NextRequest) => {
               const dept = effectiveDepartment !== undefined ? effectiveDepartment.trim() || null : undefined
               const brId = effectiveBranchId !== undefined ? effectiveBranchId || null : undefined
 
-              if (m.user.staffProfile) {
+              if (m.staffProfile) {
                 await tx.staffProfile.update({
-                  where: { id: m.user.staffProfile.id },
+                  where: { id: m.staffProfile.id },
                   data: {
                     ...(desig !== undefined ? { designation: desig } : {}),
                     ...(dept !== undefined ? { department: dept } : {}),
@@ -596,9 +595,9 @@ export const POST = withApi(async (req: NextRequest) => {
           for (const m of eligibleMembers) {
             let currentVal = ''
             if (editField === 'department') {
-              currentVal = m.user.staffProfile?.department || ''
+              currentVal = m.staffProfile?.department || ''
             } else if (editField === 'designation') {
-              currentVal = m.user.staffProfile?.designation || ''
+              currentVal = m.staffProfile?.designation || ''
             } else if (editField === 'branchId') {
               currentVal = m.branchId || ''
             }
@@ -618,9 +617,9 @@ export const POST = withApi(async (req: NextRequest) => {
             if (!shouldUpdate) continue
 
             if (editField === 'department' || editField === 'designation') {
-              if (m.user.staffProfile) {
+              if (m.staffProfile) {
                 await tx.staffProfile.update({
-                  where: { id: m.user.staffProfile.id },
+                  where: { id: m.staffProfile.id },
                   data: {
                     ...(editField === 'department' ? { department: editVal ? String(editVal) : null } : {}),
                     ...(editField === 'designation' ? { designation: editVal ? String(editVal) : null } : {}),
@@ -643,9 +642,9 @@ export const POST = withApi(async (req: NextRequest) => {
                 where: { id: m.id },
                 data: { branchId: editVal ? String(editVal) : null },
               })
-              if (m.user.staffProfile) {
+              if (m.staffProfile) {
                 await tx.staffProfile.update({
-                  where: { id: m.user.staffProfile.id },
+                  where: { id: m.staffProfile.id },
                   data: { branchId: editVal ? String(editVal) : null },
                 })
               }

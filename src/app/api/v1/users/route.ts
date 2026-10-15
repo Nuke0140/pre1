@@ -16,9 +16,12 @@ import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } fro
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus, Gender } from '@prisma/client'
 import { normalizeFamilyCreateInput, normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
+import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
 import { FamilyUserService } from '@/lib/users/family-user-service'
+import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { normalizeRole } from '@/lib/roles'
 import { normalizeUsername, isValidUsername } from '@/lib/users/username-service'
+import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export const GET = withApi(async (req: NextRequest) => {
@@ -64,69 +67,79 @@ export const GET = withApi(async (req: NextRequest) => {
     opts: { skipRole?: boolean; skipStatus?: boolean; skipUserType?: boolean } = {}
   ) => {
     const { skipRole = false, skipStatus = false, skipUserType = false } = opts
-    const w: any = {
-      tenantId: session.tenantId,
-      deletedAt: null,
-      ...(!skipRole && roleFilter
-        ? { OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] }
-        : {}),
-      ...(!skipStatus && statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)
-        ? { status: statusFilter }
-        : {}),
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      ...(!skipUserType && userTypeFilter === 'PARENT'
-        ? { OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }] }
-        : !skipUserType && userTypeFilter === 'GUARDIAN'
-        ? { OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }] }
-        : !skipUserType && userTypeFilter === 'FAMILY'
-        ? { OR: [{ role: { in: ['PARENT', 'GUARDIAN'] } }, { roles: { hasSome: ['PARENT', 'GUARDIAN'] } }] }
-        : !skipUserType && userTypeFilter === 'STAFF'
-        ? { AND: [{ role: { notIn: ['PARENT', 'GUARDIAN'] } }, { NOT: { roles: { hasSome: ['PARENT', 'GUARDIAN'] } } }] }
-        : {}),
-      ...(departmentFilter || designationFilter
-        ? {
+    const andConditions: any[] = [
+      { tenantId: session.tenantId },
+      { deletedAt: null },
+    ]
+
+    if (!skipRole && roleFilter) {
+      andConditions.push({ OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] })
+    }
+
+    if (!skipStatus && statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)) {
+      andConditions.push({ status: statusFilter })
+    }
+
+    if (effectiveBranchId) {
+      andConditions.push({
+        OR: [
+          { branchId: effectiveBranchId },
+          { assignedBranches: { some: { branchId: effectiveBranchId } } },
+        ],
+      })
+    }
+
+    if (!skipUserType && userTypeFilter === 'PARENT') {
+      andConditions.push({ OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }] })
+    } else if (!skipUserType && userTypeFilter === 'GUARDIAN') {
+      andConditions.push({ OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }] })
+    } else if (!skipUserType && userTypeFilter === 'FAMILY') {
+      andConditions.push({ OR: [{ role: { in: ['PARENT', 'GUARDIAN'] } }, { roles: { hasSome: ['PARENT', 'GUARDIAN'] } }] })
+    } else if (!skipUserType && userTypeFilter === 'STAFF') {
+      andConditions.push({ AND: [{ role: { notIn: ['PARENT', 'GUARDIAN'] } }, { NOT: { roles: { hasSome: ['PARENT', 'GUARDIAN'] } } }] })
+    }
+
+    if (departmentFilter || designationFilter) {
+      andConditions.push({
+        staffProfile: {
+          ...(departmentFilter ? { department: { contains: departmentFilter, mode: 'insensitive' } } : {}),
+          ...(designationFilter ? { designation: { contains: designationFilter, mode: 'insensitive' } } : {}),
+        },
+      })
+    }
+
+    if (query) {
+      andConditions.push({
+        OR: [
+          { user: { fullName: { contains: query, mode: 'insensitive' } } },
+          { user: { email: { contains: query, mode: 'insensitive' } } },
+          { user: { phone: { contains: query } } },
+          { user: { username: { contains: query, mode: 'insensitive' } } },
+          { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
+          { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
+          {
             user: {
-              staffProfile: {
-                ...(departmentFilter
-                  ? { department: { contains: departmentFilter, mode: 'insensitive' } }
-                  : {}),
-                ...(designationFilter
-                  ? { designation: { contains: designationFilter, mode: 'insensitive' } }
-                  : {}),
+              guardianProfile: {
+                studentLinks: {
+                  some: { student: { admissionNo: { contains: query, mode: 'insensitive' } } },
+                },
               },
             },
-          }
-        : {}),
-      ...(query
-        ? {
+          },
+          {
             user: {
-              OR: [
-                { fullName: { contains: query, mode: 'insensitive' } },
-                { email: { contains: query, mode: 'insensitive' } },
-                { phone: { contains: query } },
-                { username: { contains: query, mode: 'insensitive' } },
-                { staffProfile: { employeeCode: { contains: query, mode: 'insensitive' } } },
-                { staffProfile: { designation: { contains: query, mode: 'insensitive' } } },
-                {
-                  guardianProfile: {
-                    studentLinks: {
-                      some: { student: { admissionNo: { contains: query, mode: 'insensitive' } } },
-                    },
-                  },
+              guardianProfile: {
+                studentLinks: {
+                  some: { student: { firstName: { contains: query, mode: 'insensitive' } } },
                 },
-                {
-                  guardianProfile: {
-                    studentLinks: {
-                      some: { student: { firstName: { contains: query, mode: 'insensitive' } } },
-                    },
-                  },
-                },
-              ],
+              },
             },
-          }
-        : {}),
+          },
+        ],
+      })
     }
-    return w
+
+    return { AND: andConditions }
   }
 
   const where = buildWhere()
@@ -154,9 +167,16 @@ export const GET = withApi(async (req: NextRequest) => {
     db.tenantUser.findMany({
       where,
       include: {
+        staffProfile: true,
+        assignedBranches: {
+          include: {
+            branch: {
+              select: { id: true, name: true, code: true, isMain: true },
+            },
+          },
+        },
         user: {
           include: {
-            staffProfile: true,
             taughtClasses: {
               select: { id: true, name: true, programType: true },
             },
@@ -221,52 +241,62 @@ export const GET = withApi(async (req: NextRequest) => {
   return ok(
     members.map((m) => {
       const assignedRoles: UserRole[] = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+      const assignedBranches = (m.assignedBranches || []).map((ab: any) => ({
+        id: ab.branch.id,
+        name: ab.branch.name,
+        code: ab.branch.code,
+        isMain: ab.branch.isMain,
+        isPrimary: ab.isPrimary,
+      }))
+      const assignedBranchIds = assignedBranches.map((b: any) => b.id)
+
       return {
         id: m.id,
         userId: m.user.id,
         username: m.user.username,
         avatarUrl: m.user.avatarUrl,
         name: m.user.fullName,
+        fullName: m.user.fullName,
         email: m.user.email,
         phone: m.user.phone,
         role: m.role,
         roles: assignedRoles,
         status: m.status,
         branchId: m.branchId,
+        assignedBranches,
+        assignedBranchIds,
         lastLoginAt: m.user.lastLoginAt,
         createdAt: m.createdAt,
         locale: m.user.locale,
-        staffProfile: m.user.staffProfile
+        staffProfile: m.staffProfile
           ? {
-              employeeCode: m.user.staffProfile.employeeCode,
-              designation: m.user.staffProfile.designation,
-              department: m.user.staffProfile.department,
-              qualification: m.user.staffProfile.qualification,
-              employmentType: m.user.staffProfile.employmentType,
-              joiningDate: m.user.staffProfile.joiningDate
-                ? m.user.staffProfile.joiningDate.toISOString()
+              employeeCode: m.staffProfile.employeeCode,
+              designation: m.staffProfile.designation,
+              department: m.staffProfile.department,
+              qualification: m.staffProfile.qualification,
+              employmentType: m.staffProfile.employmentType,
+              joiningDate: m.staffProfile.joiningDate
+                ? m.staffProfile.joiningDate.toISOString()
                 : null,
-              dateOfBirth: m.user.staffProfile.dateOfBirth
-                ? m.user.staffProfile.dateOfBirth.toISOString()
+              dateOfBirth: m.staffProfile.dateOfBirth ? '••••' : null,
+              gender: m.staffProfile.gender,
+              currentAddress: m.staffProfile.currentAddress ? '••••' : null,
+              permanentAddress: m.staffProfile.permanentAddress ? '••••' : null,
+              maritalStatus: m.staffProfile.maritalStatus,
+              bloodGroup: formatBloodGroup(m.staffProfile.bloodGroup),
+              emergencyContactName: m.staffProfile.emergencyContactName,
+              emergencyContactPhone: m.staffProfile.emergencyContactPhone,
+              panNumber: m.staffProfile.panNumber ? '••••' : null,
+              aadhaarNumber: m.staffProfile.aadhaarNumber ? '••••' : null,
+              uanNumber: m.staffProfile.uanNumber ? '••••' : null,
+              esiNumber: m.staffProfile.esiNumber ? '••••' : null,
+              probationEndDate: m.staffProfile.probationEndDate
+                ? m.staffProfile.probationEndDate.toISOString()
                 : null,
-              gender: m.user.staffProfile.gender,
-              currentAddress: m.user.staffProfile.currentAddress,
-              permanentAddress: m.user.staffProfile.permanentAddress,
-              maritalStatus: m.user.staffProfile.maritalStatus,
-              bloodGroup: formatBloodGroup(m.user.staffProfile.bloodGroup),
-              emergencyContactName: m.user.staffProfile.emergencyContactName,
-              emergencyContactPhone: m.user.staffProfile.emergencyContactPhone,
-              panNumber: m.user.staffProfile.panNumber,
-              aadhaarNumber: m.user.staffProfile.aadhaarNumber,
-              uanNumber: m.user.staffProfile.uanNumber,
-              esiNumber: m.user.staffProfile.esiNumber,
-              probationEndDate: m.user.staffProfile.probationEndDate
-                ? m.user.staffProfile.probationEndDate.toISOString()
+              confirmationDate: m.staffProfile.confirmationDate
+                ? m.staffProfile.confirmationDate.toISOString()
                 : null,
-              confirmationDate: m.user.staffProfile.confirmationDate
-                ? m.user.staffProfile.confirmationDate.toISOString()
-                : null,
-              noticePeriodDays: m.user.staffProfile.noticePeriodDays,
+              noticePeriodDays: m.staffProfile.noticePeriodDays,
             }
           : null,
         taughtClasses: m.user.taughtClasses,
@@ -283,7 +313,7 @@ export const GET = withApi(async (req: NextRequest) => {
                 admissionNo: sl.student.admissionNo,
                 canPickup: sl.canPickup,
                 receivesComm: sl.receivesComm,
-                pickupPin: sl.pickupPin,
+                pickupPin: sl.pickupPin ? '••••' : null,
                 relationship: sl.relationship || m.user.guardianProfile!.relationship,
               })),
             }
@@ -366,6 +396,8 @@ export const POST = withApi(async (req: NextRequest) => {
     phone,
     avatarUrl,
     branchId,
+    branchIds: inputBranchIds,
+    assignedBranchIds: inputAssignedBranchIds,
     classroomId,
     guardianId,
     studentId,
@@ -410,6 +442,8 @@ export const POST = withApi(async (req: NextRequest) => {
     phone?: string
     avatarUrl?: string
     branchId?: string
+    branchIds?: string[]
+    assignedBranchIds?: string[]
     classroomId?: string
     guardianId?: string
     studentId?: string
@@ -495,23 +529,28 @@ export const POST = withApi(async (req: NextRequest) => {
   const rawUsername = (body as any).username ? String((body as any).username).trim() : ''
 
   if (credentialSetupMode === 'MANUAL') {
-    // 1. In manual flow: Username is mandatory
+    // 1. In manual flow: Username is mandatory for staff; auto-derived for family users if not provided
     if (!rawUsername) {
-      throw errValidation('Username is required for account creation.', 'username')
+      if (isStaffFlow) {
+        throw errValidation('Username is required for account creation.', 'username')
+      } else {
+        finalUsername = undefined
+      }
+    } else {
+      const userCheck = isValidUsername(rawUsername)
+      if (!userCheck.valid) {
+        throw errValidation(userCheck.reason || 'Invalid username format.', 'username')
+      }
+      finalUsername = normalizeUsername(rawUsername)
     }
-    const userCheck = isValidUsername(rawUsername)
-    if (!userCheck.valid) {
-      throw errValidation(userCheck.reason || 'Invalid username format.', 'username')
-    }
-    finalUsername = normalizeUsername(rawUsername)
 
-    // 2. In manual flow: Password is mandatory and must satisfy password policy (min 6 chars)
+    // 2. In manual flow: Password is mandatory and must satisfy password policy (min 8 chars)
     const rawPassword = password !== undefined && password !== null ? String(password).trim() : ''
     if (!rawPassword) {
       throw errValidation('Password is required for manual account creation.', 'password')
     }
-    if (rawPassword.length < 6) {
-      throw errValidation('Password must be at least 6 characters long.', 'password')
+    if (rawPassword.length < MIN_PASSWORD_LENGTH) {
+      throw errValidation(PASSWORD_POLICY.errorMessage, 'password')
     }
     effectivePassword = rawPassword
     isGeneratedPassword = false
@@ -674,12 +713,13 @@ export const POST = withApi(async (req: NextRequest) => {
     }
   }
 
-  // Check username uniqueness if provided (case-insensitive across User table)
+  // Check username uniqueness if provided (case-insensitive across User table for other users)
   if (finalUsername) {
     const existingUsername = await db.user.findFirst({
       where: {
         username: { equals: finalUsername, mode: 'insensitive' },
         deletedAt: null,
+        NOT: { email: emailNorm },
       },
     })
     if (existingUsername) {
@@ -707,6 +747,18 @@ export const POST = withApi(async (req: NextRequest) => {
         'employeeCode'
       )
     }
+  }
+
+  // Validate statutory IDs if provided
+  const statutoryCheck = validateStatutoryInputs({
+    panNumber,
+    aadhaarNumber,
+    uanNumber,
+    esiNumber,
+  })
+  if (!statutoryCheck.valid) {
+    const [firstField, firstErr] = Object.entries(statutoryCheck.errors)[0]
+    throw errValidation(firstErr, firstField)
   }
 
   // Run creation inside an atomic transaction
@@ -753,6 +805,16 @@ export const POST = withApi(async (req: NextRequest) => {
         status: initialStatus,
       },
     })
+
+    const effectiveBranchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
+    if (effectiveBranchIds !== undefined || branchId !== undefined) {
+      await UserIdentityService.syncTenantUserBranches(tx, {
+        tenantId: session.tenantId!,
+        tenantUserId: membership.id,
+        primaryBranchId: membership.branchId,
+        branchIds: effectiveBranchIds !== undefined ? effectiveBranchIds : (membership.branchId ? [membership.branchId] : []),
+      })
+    }
 
     // If any assigned role is PARENT or GUARDIAN, resolve or link guardian profile
     if (assignedRoles.includes('PARENT') || assignedRoles.includes('GUARDIAN')) {
@@ -952,7 +1014,7 @@ export const POST = withApi(async (req: NextRequest) => {
 
     if (isStaff || designation) {
       const existingProfile = await tx.staffProfile.findUnique({
-        where: { userId: user.id },
+        where: { tenantId_userId: { tenantId: session.tenantId!, userId: user.id } },
       })
 
       let finalEmpCode = employeeCode?.trim()
@@ -1026,10 +1088,10 @@ export const POST = withApi(async (req: NextRequest) => {
             ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
             ...(currentAddress !== undefined ? { currentAddress: currentAddress?.trim() || null } : {}),
             ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress?.trim() || null } : {}),
-            ...(panNumber !== undefined ? { panNumber: panNumber?.trim() || null } : {}),
-            ...(aadhaarNumber !== undefined ? { aadhaarNumber: aadhaarNumber?.trim() || null } : {}),
-            ...(uanNumber !== undefined ? { uanNumber: uanNumber?.trim() || null } : {}),
-            ...(esiNumber !== undefined ? { esiNumber: esiNumber?.trim() || null } : {}),
+            ...(panNumber !== undefined ? { panNumber: statutoryCheck.normalized.panNumber ?? null } : {}),
+            ...(aadhaarNumber !== undefined ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null } : {}),
+            ...(uanNumber !== undefined ? { uanNumber: statutoryCheck.normalized.uanNumber ?? null } : {}),
+            ...(esiNumber !== undefined ? { esiNumber: statutoryCheck.normalized.esiNumber ?? null } : {}),
             ...(parsedProbation ? { probationEndDate: parsedProbation } : {}),
             ...(parsedConfirmation ? { confirmationDate: parsedConfirmation } : {}),
             ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
@@ -1055,10 +1117,10 @@ export const POST = withApi(async (req: NextRequest) => {
             bloodGroup: normalizeBloodGroup(bloodGroup),
             currentAddress: currentAddress?.trim() || null,
             permanentAddress: permanentAddress?.trim() || null,
-            panNumber: panNumber?.trim() || null,
-            aadhaarNumber: aadhaarNumber?.trim() || null,
-            uanNumber: uanNumber?.trim() || null,
-            esiNumber: esiNumber?.trim() || null,
+            panNumber: statutoryCheck.normalized.panNumber ?? null,
+            aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null,
+            uanNumber: statutoryCheck.normalized.uanNumber ?? null,
+            esiNumber: statutoryCheck.normalized.esiNumber ?? null,
             probationEndDate: parsedProbation || null,
             confirmationDate: parsedConfirmation || null,
             noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
@@ -1081,7 +1143,24 @@ export const POST = withApi(async (req: NextRequest) => {
       })
     }
 
-    return { user, membership, assignedRoles, finalPrimaryRole }
+    const assignedBranchesData = await tx.tenantUserBranch.findMany({
+      where: { tenantUserId: membership.id },
+      include: {
+        branch: {
+          select: { id: true, name: true, code: true, isMain: true },
+        },
+      },
+    })
+    const assignedBranches = assignedBranchesData.map((ab: any) => ({
+      id: ab.branch.id,
+      name: ab.branch.name,
+      code: ab.branch.code,
+      isMain: ab.branch.isMain,
+      isPrimary: ab.isPrimary,
+    }))
+    const assignedBranchIds = assignedBranches.map((b: any) => b.id)
+
+    return { user, membership, assignedRoles, finalPrimaryRole, assignedBranches, assignedBranchIds }
   })
 
   const meta = getRequestMeta(req)
@@ -1124,6 +1203,8 @@ export const POST = withApi(async (req: NextRequest) => {
       roles: result.assignedRoles,
       status: result.membership.status,
       branchId: result.membership.branchId,
+      assignedBranches: result.assignedBranches,
+      assignedBranchIds: result.assignedBranchIds,
     },
     undefined,
     201

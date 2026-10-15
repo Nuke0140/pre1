@@ -23,9 +23,8 @@ async function _GET(req: NextRequest) {
         deletedAt: null,
       },
       include: {
-        user: {
-          include: { staffProfile: true },
-        },
+        staffProfile: true,
+        user: true,
       },
       orderBy: { createdAt: 'desc' },
     })
@@ -39,7 +38,7 @@ async function _GET(req: NextRequest) {
       role: m.role,
       roles: m.roles && m.roles.length > 0 ? m.roles : [m.role],
       branchId: m.branchId,
-      designation: m.user.staffProfile?.designation || null,
+      designation: m.staffProfile?.designation || null,
       invitedAt: m.createdAt,
       status: m.status,
     }))
@@ -88,10 +87,14 @@ async function _POST(req: NextRequest) {
       include: { user: true },
     })
 
-    if (!member) return notFound('Pending user invitation not found')
+    if (!member) return notFound('User invitation or record not found')
 
-    if (member.status !== 'PENDING') {
+    if ((action === 'activate' || action === 'cancel') && member.status !== 'PENDING') {
       return bad(`User is not in PENDING state (current: ${member.status})`, 'USER_NOT_PENDING')
+    }
+
+    if (action === 'resend' && member.status !== 'PENDING' && member.status !== 'ACTIVE') {
+      return bad(`Cannot resend credentials or invitation to a ${member.status.toLowerCase()} user`, 'INVALID_USER_STATUS')
     }
 
     const meta = getRequestMeta(req)
@@ -125,6 +128,10 @@ async function _POST(req: NextRequest) {
 
       return ok({ success: true, message: `User ${member.user.email} successfully activated` })
     } else if (action === 'resend') {
+      if (!member.user.email) {
+        return bad('User does not have an email address configured', 'MISSING_EMAIL')
+      }
+
       // Touch user and membership
       await db.$transaction(async (tx) => {
         await tx.tenantUser.update({
@@ -137,32 +144,36 @@ async function _POST(req: NextRequest) {
         })
       })
 
-      if (member.user.email) {
-        await emailService.send({
-          to: member.user.email,
-          subject: 'Welcome to PreOne — Staff Invitation',
-          html: `<div style="font-family:sans-serif;padding:24px;"><h2>Welcome to PreOne</h2><p>Hello ${member.user.fullName},</p><p>You have been invited to join the school staff workspace as a <strong>${member.role}</strong>.</p><p>Please log in using your registered credentials.</p></div>`,
-          text: `Hello ${member.user.fullName},\n\nYou have been invited to join PreOne as a ${member.role}.\n\nPlease log in at ${req.headers.get('origin') || 'http://localhost:3000'}.`,
-          tenantId: session.tenantId,
-        })
-      }
+      const isPending = member.status === 'PENDING'
+      const origin = req.headers.get('origin') || 'http://localhost:3000'
+
+      await emailService.send({
+        to: member.user.email,
+        subject: isPending ? 'Welcome to PreOne — Staff Invitation' : 'Welcome to PreOne — Account Access',
+        html: `<div style="font-family:sans-serif;padding:24px;"><h2>Welcome to PreOne</h2><p>Hello ${member.user.fullName},</p><p>You have ${isPending ? 'been invited to join' : 'an active account in'} the school workspace as a <strong>${member.role}</strong>.</p><p>Please log in using your registered credentials at <a href="${origin}/auth/login">${origin}/auth/login</a>.</p></div>`,
+        text: `Hello ${member.user.fullName},\n\nYou have ${isPending ? 'been invited to join' : 'an active account in'} PreOne as a ${member.role}.\n\nPlease log in at ${origin}/auth/login.`,
+        tenantId: session.tenantId,
+      })
 
       await recordAudit({
         tenantId: session.tenantId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
-        action: 'RESEND_INVITATION',
+        action: isPending ? 'RESEND_INVITATION' : 'RESEND_WELCOME',
         entity: 'User',
         entityId: member.userId,
         module: 'Users',
         severity: 'INFO',
-        summary: `Resent invitation to ${member.user.fullName} (${member.user.email})`,
+        summary: `Resent ${isPending ? 'invitation' : 'welcome email'} to ${member.user.fullName} (${member.user.email})`,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
       })
 
-      return ok({ success: true, message: `Invitation resent to ${member.user.email}` })
+      return ok({
+        success: true,
+        message: `${isPending ? 'Invitation' : 'Welcome email'} successfully resent to ${member.user.email}`,
+      })
     } else {
       // cancel -> mark INACTIVE or soft delete
       await db.$transaction(async (tx) => {

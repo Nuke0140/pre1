@@ -64,11 +64,8 @@ export const POST = withApi(async (req: NextRequest) => {
       deletedAt: null,
     },
     include: {
-      user: {
-        include: {
-          staffProfile: true,
-        },
-      },
+      staffProfile: true,
+      user: true,
     },
   })
 
@@ -78,8 +75,8 @@ export const POST = withApi(async (req: NextRequest) => {
   const emailToUser = new Map<string, (typeof tenantMembers)[number]>()
 
   for (const m of tenantMembers) {
-    if (m.user.staffProfile?.employeeCode) {
-      codeToUser.set(m.user.staffProfile.employeeCode.toUpperCase().trim(), m)
+    if (m.staffProfile?.employeeCode) {
+      codeToUser.set(m.staffProfile.employeeCode.toUpperCase().trim(), m)
     }
     if (m.user.username) {
       usernameToUser.set(m.user.username.toLowerCase().trim(), m)

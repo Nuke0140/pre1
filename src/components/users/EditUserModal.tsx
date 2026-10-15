@@ -17,6 +17,7 @@ import {
 } from './types'
 import { useI18n } from '@/lib/i18n'
 import { normalizeLocale, DEFAULT_LOCALE } from '@/lib/i18n/types'
+import { validatePan, validateAadhaar, validateUan, validateEsi } from '@/lib/users/statutory-validation'
 
 interface EditUserModalProps {
   open: boolean
@@ -54,6 +55,7 @@ export function EditUserModal({
   const [additionalRoles, setAdditionalRoles] = useState<Role[]>([])
   const [status, setStatus] = useState<UserLifecycleStatus>('ACTIVE')
   const [branchId, setBranchId] = useState('')
+  const [assignedBranchIds, setAssignedBranchIds] = useState<string[]>([])
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [newPassword, setNewPassword] = useState('')
 
@@ -117,6 +119,8 @@ export function EditUserModal({
       setAdditionalRoles(user.roles ? user.roles.filter((r) => r !== user.role) : [])
       setStatus(user.status)
       setBranchId(user.branchId || '')
+      const initialBranchIds = user.assignedBranchIds || (user.branchId ? [user.branchId] : [])
+      setAssignedBranchIds(initialBranchIds)
       setAvatarUrl(user.avatarUrl || null)
       setNewPassword('')
 
@@ -131,22 +135,47 @@ export function EditUserModal({
         setQualification(sp?.qualification || '')
         setEmploymentType(sp?.employmentType || 'FULL_TIME')
         setJoiningDate(sp?.joiningDate ? sp.joiningDate.slice(0, 10) : '')
-        setDateOfBirth(sp?.dateOfBirth ? sp.dateOfBirth.slice(0, 10) : '')
+        setDateOfBirth(sp?.dateOfBirth && !sp.dateOfBirth.includes('•') ? sp.dateOfBirth.slice(0, 10) : '')
         setGender(sp?.gender || '')
         setMaritalStatus(sp?.maritalStatus || '')
         setBloodGroup(sp?.bloodGroup || '')
         setEmergencyContactName(sp?.emergencyContactName || '')
         setEmergencyContactPhone(sp?.emergencyContactPhone || '')
-        setCurrentAddress(sp?.currentAddress || '')
-        setPermanentAddress(sp?.permanentAddress || '')
-        setPanNumber(sp?.panNumber || '')
-        setAadhaarNumber(sp?.aadhaarNumber || '')
-        setUanNumber(sp?.uanNumber || '')
-        setEsiNumber(sp?.esiNumber || '')
+        setCurrentAddress(sp?.currentAddress && !sp.currentAddress.includes('•') ? sp.currentAddress : '')
+        setPermanentAddress(sp?.permanentAddress && !sp.permanentAddress.includes('•') ? sp.permanentAddress : '')
+        setPanNumber(sp?.panNumber && !sp.panNumber.includes('•') ? sp.panNumber : '')
+        setAadhaarNumber(sp?.aadhaarNumber && !sp.aadhaarNumber.includes('•') ? sp.aadhaarNumber : '')
+        setUanNumber(sp?.uanNumber && !sp.uanNumber.includes('•') ? sp.uanNumber : '')
+        setEsiNumber(sp?.esiNumber && !sp.esiNumber.includes('•') ? sp.esiNumber : '')
         setProbationEndDate(sp?.probationEndDate ? sp.probationEndDate.slice(0, 10) : '')
         setConfirmationDate(sp?.confirmationDate ? sp.confirmationDate.slice(0, 10) : '')
         setNoticePeriodDays(sp?.noticePeriodDays != null ? String(sp.noticePeriodDays) : '')
         setClassroomId(user.taughtClasses?.[0]?.id || '')
+
+        // Fetch single-user details to obtain unmasked profile fields and assigned branches for editing
+        const userId = user.userId || user.id
+        if (userId) {
+          fetch(`/api/v1/users/${userId}`)
+            .then((res) => res.json())
+            .then((json) => {
+              if (json.success && json.data) {
+                if (json.data.assignedBranchIds && Array.isArray(json.data.assignedBranchIds)) {
+                  setAssignedBranchIds(json.data.assignedBranchIds)
+                }
+                const s = json.data.staffProfile
+                if (s) {
+                  if (s.dateOfBirth) setDateOfBirth(s.dateOfBirth.slice(0, 10))
+                  if (s.currentAddress) setCurrentAddress(s.currentAddress)
+                  if (s.permanentAddress) setPermanentAddress(s.permanentAddress)
+                  if (s.panNumber) setPanNumber(s.panNumber)
+                  if (s.aadhaarNumber) setAadhaarNumber(s.aadhaarNumber)
+                  if (s.uanNumber) setUanNumber(s.uanNumber)
+                  if (s.esiNumber) setEsiNumber(s.esiNumber)
+                }
+              }
+            })
+            .catch(() => {})
+        }
       } else {
         const gp = user.guardianProfile
         setRelationship(gp?.relationship || 'FATHER')
@@ -229,14 +258,48 @@ export function EditUserModal({
       return
     }
 
-    if (newPassword && newPassword.length < 6) {
-      toast.error('Password Validation', 'New password must be at least 6 characters')
+    if (newPassword && newPassword.length < 8) {
+      toast.error('Password Validation', 'New password must be at least 8 characters')
       return
     }
 
     if (pickupPin && !/^\d{4,6}$/.test(pickupPin.trim())) {
       toast.error('Invalid PIN', 'Pickup PIN must be between 4 and 6 digits')
       return
+    }
+
+    if (isStaff) {
+      if (panNumber.trim() && !panNumber.includes('•')) {
+        const panRes = validatePan(panNumber)
+        if (!panRes.valid) {
+          toast.error('Invalid PAN', panRes.error || 'Invalid PAN format')
+          return
+        }
+      }
+
+      if (aadhaarNumber.trim() && !aadhaarNumber.includes('•')) {
+        const aadhaarRes = validateAadhaar(aadhaarNumber)
+        if (!aadhaarRes.valid) {
+          toast.error('Invalid Aadhaar', aadhaarRes.error || 'Invalid Aadhaar format')
+          return
+        }
+      }
+
+      if (uanNumber.trim() && !uanNumber.includes('•')) {
+        const uanRes = validateUan(uanNumber)
+        if (!uanRes.valid) {
+          toast.error('Invalid UAN', uanRes.error || 'Invalid UAN format')
+          return
+        }
+      }
+
+      if (esiNumber.trim() && !esiNumber.includes('•')) {
+        const esiRes = validateEsi(esiNumber)
+        if (!esiRes.valid) {
+          toast.error('Invalid ESI', esiRes.error || 'Invalid ESI format')
+          return
+        }
+      }
     }
 
     setSubmitting(true)
@@ -254,9 +317,10 @@ export function EditUserModal({
         roles: allRoles,
         status,
         branchId: branchId || null,
+        branchIds: assignedBranchIds,
       }
 
-      if (newPassword && newPassword.length >= 6) {
+      if (newPassword && newPassword.length >= 8) {
         payload.password = newPassword
       }
 
@@ -267,18 +331,32 @@ export function EditUserModal({
         payload.qualification = qualification.trim() || null
         payload.employmentType = employmentType || 'FULL_TIME'
         payload.joiningDate = joiningDate || null
-        payload.dateOfBirth = dateOfBirth || null
+        if (!dateOfBirth.includes('•')) {
+          payload.dateOfBirth = dateOfBirth || null
+        }
         payload.gender = gender || null
         payload.maritalStatus = maritalStatus || null
         payload.bloodGroup = bloodGroup || null
         payload.emergencyContactName = emergencyContactName.trim() || null
         payload.emergencyContactPhone = emergencyContactPhone.trim() || null
-        payload.currentAddress = currentAddress.trim() || null
-        payload.permanentAddress = permanentAddress.trim() || null
-        payload.panNumber = panNumber.trim().toUpperCase() || null
-        payload.aadhaarNumber = aadhaarNumber.trim() || null
-        payload.uanNumber = uanNumber.trim() || null
-        payload.esiNumber = esiNumber.trim() || null
+        if (!currentAddress.includes('•')) {
+          payload.currentAddress = currentAddress.trim() || null
+        }
+        if (!permanentAddress.includes('•')) {
+          payload.permanentAddress = permanentAddress.trim() || null
+        }
+        if (!panNumber.includes('•')) {
+          payload.panNumber = panNumber.trim().toUpperCase() || null
+        }
+        if (!aadhaarNumber.includes('•')) {
+          payload.aadhaarNumber = aadhaarNumber.trim() || null
+        }
+        if (!uanNumber.includes('•')) {
+          payload.uanNumber = uanNumber.trim() || null
+        }
+        if (!esiNumber.includes('•')) {
+          payload.esiNumber = esiNumber.trim() || null
+        }
         payload.probationEndDate = probationEndDate || null
         payload.confirmationDate = confirmationDate || null
         payload.noticePeriodDays = noticePeriodDays ? Number(noticePeriodDays) : null
@@ -637,11 +715,17 @@ export function EditUserModal({
 
               <div>
                 <label className="block font-medium text-foreground mb-1">
-                  Campus Branch Assignment
+                  Primary Campus Branch
                 </label>
                 <select
                   value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
+                  onChange={(e) => {
+                    const newBranch = e.target.value
+                    setBranchId(newBranch)
+                    if (newBranch && !assignedBranchIds.includes(newBranch)) {
+                      setAssignedBranchIds((prev) => [...prev, newBranch])
+                    }
+                  }}
                   className="select w-full text-sm"
                 >
                   <option value="">Central / All Campuses</option>
@@ -653,6 +737,42 @@ export function EditUserModal({
                 </select>
               </div>
             </div>
+
+            {/* Multi-Branch Campus Assignment (Doc 2.2 P2 Audit) */}
+            {branches.length > 1 && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-foreground">
+                    Assigned Campuses (Multi-Branch Access)
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Assign staff across multiple branches
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 p-2.5 rounded-lg border border-border bg-muted/20">
+                  {branches.map((b) => {
+                    const isPrimary = branchId === b.id
+                    const isAssigned = isPrimary || assignedBranchIds.includes(b.id)
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => {
+                          if (isPrimary) return
+                          setAssignedBranchIds((prev) =>
+                            prev.includes(b.id) ? prev.filter((id) => id !== b.id) : [...prev, b.id]
+                          )
+                        }}
+                        className={`btn btn-xs ${isPrimary ? 'btn-primary pointer-events-none' : isAssigned ? 'btn-secondary' : 'btn-outline'} text-[11px]`}
+                      >
+                        {isAssigned && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                        {b.name} ({b.code}){isPrimary && ' — Primary'}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Additional Roles Multi-Select */}
             <div>
@@ -1293,13 +1413,13 @@ export function EditUserModal({
                 Reset Login Password
               </label>
               <div className="text-[11px] text-muted-foreground">
-                Leave blank to keep the current password. If entering a new password, it must be at least 6 characters.
+                Leave blank to keep the current password. If entering a new password, it must be at least 8 characters.
               </div>
               <div className="relative input-icon-wrap mt-1">
                 <Key className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <input
                   type="password"
-                  placeholder="Enter new password (min. 6 chars)"
+                  placeholder="Enter new password (min. 8 chars)"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="input w-full text-sm font-mono"

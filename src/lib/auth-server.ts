@@ -40,8 +40,8 @@ export async function getSession(req?: Request | null): Promise<SessionPayload |
   const session = await verifySession(token)
   if (!session) return null
 
-  // Verify against database session revocation (UAM-E5)
-  const dbCheck = await SessionService.validateSession(token)
+  // Verify against database session revocation & token versioning (UAM-E5, Doc 1.1)
+  const dbCheck = await SessionService.validateSession(token, session)
   if (!dbCheck.valid) {
     return null
   }

@@ -55,9 +55,8 @@ export const POST = withApi(async (req: NextRequest) => {
       deletedAt: null,
     },
     include: {
-      user: {
-        include: { staffProfile: true },
-      },
+      staffProfile: true,
+      user: true,
     },
   })
 
@@ -138,9 +137,9 @@ export const POST = withApi(async (req: NextRequest) => {
           where: { id: targetMember.id },
           data: { branchId: branchId || null },
         })
-        if (targetMember.user.staffProfile) {
+        if (targetMember.staffProfile) {
           await tx.staffProfile.update({
-            where: { id: targetMember.user.staffProfile.id },
+            where: { id: targetMember.staffProfile.id },
             data: { branchId: branchId || null },
           })
         }

@@ -265,11 +265,8 @@ export class BulkUpdateService {
         deletedAt: null,
       },
       include: {
-        user: {
-          include: {
-            staffProfile: true,
-          },
-        },
+        staffProfile: true,
+        user: true,
       },
     })
 
@@ -279,8 +276,8 @@ export class BulkUpdateService {
       if (tm.user.username) memberMap.set(tm.user.username.toLowerCase(), tm)
       if (tm.user.email) memberMap.set(tm.user.email.toLowerCase(), tm)
       memberMap.set(tm.userId.toLowerCase(), tm)
-      if (tm.user.staffProfile?.employeeCode) {
-        memberMap.set(tm.user.staffProfile.employeeCode.toLowerCase(), tm)
+      if (tm.staffProfile?.employeeCode) {
+        memberMap.set(tm.staffProfile.employeeCode.toLowerCase(), tm)
       }
     }
 
@@ -369,7 +366,7 @@ export class BulkUpdateService {
             currentDbVal = parts.length > 1 ? parts.slice(1).join(' ') : ''
           }
         } else if (fieldConfig.targetEntity === 'staffProfile') {
-          const sp = member.user.staffProfile
+          const sp = member.staffProfile
           if (sp) {
             if (fieldConfig.key === 'address') currentDbVal = sp.currentAddress
             else if (fieldConfig.key === 'designation') currentDbVal = sp.designation
@@ -757,7 +754,10 @@ export class BulkUpdateService {
       } else if (config.targetEntity === 'staffProfile') {
         await db.staffProfile.upsert({
           where: {
-            userId: user.id,
+            tenantId_userId: {
+              tenantId,
+              userId: user.id,
+            },
           },
           update: { [config.key]: cleanValue },
           create: {

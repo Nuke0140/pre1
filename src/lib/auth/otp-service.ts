@@ -104,6 +104,156 @@ export class OtpService {
   }
 
   /**
+   * Verifies an OTP code without establishing a session.
+   * Reused by MFA / Step-up service for privileged accounts (Doc 1.2).
+   */
+  static async verifyCodeOnly(
+    identifier: string,
+    code: string,
+    ip?: string
+  ): Promise<{
+    valid: boolean
+    error?: { code: string; message: string; status: number }
+  }> {
+    const cleanId = (identifier || '').toLowerCase().trim()
+    const cleanCode = (code || '').trim()
+
+    // 1. IP throttling
+    if (ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
+      return {
+        valid: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many verification attempts from this IP address. Please try again in 15 minutes.',
+          status: 429,
+        },
+      }
+    }
+
+    // 2. Identifier lockout
+    if (cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
+      return {
+        valid: false,
+        error: {
+          code: 'TOO_MANY_ATTEMPTS',
+          message: 'Account temporarily locked due to too many failed verification attempts. Please try again in 15 minutes or request a new code.',
+          status: 429,
+        },
+      }
+    }
+
+    // 3. Locked OTP check
+    if (cleanId) {
+      const lockExpiry = lockedOtps.get(cleanId)
+      if (lockExpiry && Date.now() < lockExpiry) {
+        return {
+          valid: false,
+          error: {
+            code: 'OTP_MAX_ATTEMPTS',
+            message: 'Maximum verification attempts exceeded. Please request a new code.',
+            status: 429,
+          },
+        }
+      }
+    }
+
+    // 4. Code formatting
+    if (!cleanCode || cleanCode.length < 4 || cleanCode.length > 6 || !/^\d+$/.test(cleanCode)) {
+      return {
+        valid: false,
+        error: {
+          code: 'VALIDATION_001',
+          message: 'Please enter all digits of your verification code (4-6 digits).',
+          status: 400,
+        },
+      }
+    }
+
+    // 5. Demo code bypass check
+    if (isDemoOtpAllowed() && DEMO_OTP_CODES.includes(cleanCode)) {
+      return { valid: true }
+    }
+
+    // 6. Active OTP lookup
+    const active = activeOtps.get(cleanId)
+    if (!active) {
+      recordFailedAttempt(cleanId)
+      if (ip) recordIpFailedAttempt(ip)
+      return {
+        valid: false,
+        error: {
+          code: 'AUTH_004',
+          message: 'No active verification code found. Please request a new code.',
+          status: 400,
+        },
+      }
+    }
+
+    const now = Date.now()
+    if (now > active.expiresAt) {
+      activeOtps.delete(cleanId)
+      return {
+        valid: false,
+        error: {
+          code: 'OTP_EXPIRED',
+          message: 'Verification code has expired. Please request a new code.',
+          status: 400,
+        },
+      }
+    }
+
+    if (active.attempts >= MAX_OTP_ATTEMPTS) {
+      activeOtps.delete(cleanId)
+      lockedOtps.set(cleanId, now + 15 * 60 * 1000)
+      return {
+        valid: false,
+        error: {
+          code: 'OTP_MAX_ATTEMPTS',
+          message: 'Maximum verification attempts exceeded. Please request a new code.',
+          status: 429,
+        },
+      }
+    }
+
+    if (active.code !== cleanCode) {
+      active.attempts += 1
+      recordFailedAttempt(cleanId)
+      if (ip) recordIpFailedAttempt(ip)
+      const remainingAttempts = Math.max(0, MAX_OTP_ATTEMPTS - active.attempts)
+
+      if (active.attempts >= MAX_OTP_ATTEMPTS) {
+        activeOtps.delete(cleanId)
+        lockedOtps.set(cleanId, now + 15 * 60 * 1000)
+        return {
+          valid: false,
+          error: {
+            code: 'OTP_MAX_ATTEMPTS',
+            message: 'Maximum verification attempts exceeded. Verification code invalidated. Please request a new code.',
+            status: 429,
+          },
+        }
+      }
+
+      return {
+        valid: false,
+        error: {
+          code: 'INVALID_OTP',
+          message: `Invalid verification code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`,
+          status: 401,
+        },
+      }
+    }
+
+    // Matching code
+    activeOtps.delete(cleanId)
+    lockedOtps.delete(cleanId)
+    resetFailedAttempts(cleanId)
+    if (ip) resetIpFailedAttempts(ip)
+
+    return { valid: true }
+  }
+
+  /**
    * Generates and dispatches a 4-digit verification code.
    */
   static async requestOtp(
@@ -673,7 +823,10 @@ export class OtpService {
     await resetPersistentFailedAttempts(user.id)
     resetFailedAttempts(user.id, user.email, user.username, cleanId)
     if (ip) resetIpFailedAttempts(ip)
-    lockedOtps.delete(cleanId)
+    // Extract tokenVersion and passwordChangedAt from user preferences (Doc 1.1)
+    const userPrefs = (user.preferences as Record<string, any>) || {}
+    const tokenVersion = typeof userPrefs.tokenVersion === 'number' ? userPrefs.tokenVersion : 0
+    const passwordChangedAt = typeof userPrefs.passwordChangedAt === 'number' ? userPrefs.passwordChangedAt : undefined
 
     // Platform admin vs School member session
     if (!membership) {
@@ -685,6 +838,8 @@ export class OtpService {
         branchId: null,
         role: 'PLATFORM_ADMIN',
         mustChangePassword: Boolean((user as any).mustChangePassword),
+        tokenVersion,
+        passwordChangedAt,
       })
 
       try {
@@ -762,6 +917,8 @@ export class OtpService {
       role: primaryRole,
       roles: effectiveRoles,
       mustChangePassword: Boolean((user as any).mustChangePassword),
+      tokenVersion,
+      passwordChangedAt,
     })
 
     try {

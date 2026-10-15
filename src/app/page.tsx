@@ -73,6 +73,11 @@ export default function LoginPage() {
   const [canResendOtp, setCanResendOtp] = useState<boolean>(false)
   const [resendSuccess, setResendSuccess] = useState<boolean>(false)
 
+  // MFA Step-Up specific state (Doc 1.2)
+  const [mfaToken, setMfaToken] = useState<string | null>(null)
+  const [mfaDestination, setMfaDestination] = useState<string | null>(null)
+  const [mfaRole, setMfaRole] = useState<string | null>(null)
+
   const identifierInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch school branding for login surface
@@ -204,6 +209,21 @@ export default function LoginPage() {
         return
       }
 
+      // Privileged role Step-Up MFA Challenge (Doc 1.2: OWNER & ACCOUNTS)
+      if (json.data?.requiresMfa) {
+        setMfaToken(json.data.mfaToken)
+        setMfaDestination(json.data.destination || identifier.trim())
+        setMfaRole(json.data.role || 'Privileged Role')
+        setAuthMode('otp')
+        setOtp(['', '', '', ''])
+        setOtpCountdown(45)
+        setCanResendOtp(false)
+        setGeneralError(null)
+        setFieldErrors({})
+        setLoading(false)
+        return
+      }
+
       if (json.data?.user?.role === 'PLATFORM_ADMIN') {
         router.push('/onboard')
       } else {
@@ -242,15 +262,21 @@ export default function LoginPage() {
     setFieldErrors({})
 
     try {
-      const res = await fetch('/api/v1/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: identifier.trim() || undefined,
-          code,
-          schoolCode: schoolCode.trim() || undefined,
-        }),
-      })
+      const res = await (mfaToken
+        ? fetch('/api/v1/auth/mfa/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mfaToken, code }),
+          })
+        : fetch('/api/v1/auth/otp/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              identifier: identifier.trim() || undefined,
+              code,
+              schoolCode: schoolCode.trim() || undefined,
+            }),
+          }))
 
       const json = await res.json()
       if (!json.success) {
@@ -283,14 +309,20 @@ export default function LoginPage() {
     setFieldErrors({})
 
     try {
-      const res = await fetch('/api/v1/auth/otp/resend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: identifier.trim() || undefined,
-          schoolCode: schoolCode.trim() || undefined,
-        }),
-      })
+      const res = await (mfaToken
+        ? fetch('/api/v1/auth/mfa/resend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mfaToken }),
+          })
+        : fetch('/api/v1/auth/otp/resend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              identifier: identifier.trim() || undefined,
+              schoolCode: schoolCode.trim() || undefined,
+            }),
+          }))
 
       const json = await res.json()
       if (!json.success) {
@@ -545,6 +577,9 @@ export default function LoginPage() {
                           <AuthLink
                             onClick={async () => {
                               setAuthMode('otp')
+                              setMfaToken(null)
+                              setMfaDestination(null)
+                              setMfaRole(null)
                               setGeneralError(null)
                               setFieldErrors({})
                               if (identifier.trim()) {
@@ -582,11 +617,13 @@ export default function LoginPage() {
             {authMode === 'otp' && (
               <>
                 <AuthHeader
-                  title="Verify Your Login"
+                  title={mfaToken ? "Two-Factor Authentication" : "Verify Your Login"}
                   description={
-                    identifier.trim()
-                      ? `Enter the 4-digit verification code sent to ${identifier.trim()}.`
-                      : 'Enter the 4-digit verification code sent to your registered contact.'
+                    mfaToken
+                      ? `Step-up verification required for ${mfaRole || 'Privileged'} account. Enter the 4-digit code sent to ${mfaDestination || 'your registered contact'}.`
+                      : identifier.trim()
+                        ? `Enter the 4-digit verification code sent to ${identifier.trim()}.`
+                        : 'Enter the 4-digit verification code sent to your registered contact.'
                   }
                 />
 
@@ -665,6 +702,9 @@ export default function LoginPage() {
                             <AuthLink
                               onClick={() => {
                                 setAuthMode('login')
+                                setMfaToken(null)
+                                setMfaDestination(null)
+                                setMfaRole(null)
                                 setGeneralError(null)
                                 setFieldErrors({})
                               }}

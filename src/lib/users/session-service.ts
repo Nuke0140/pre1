@@ -3,6 +3,7 @@ import { db } from '../db'
 import { getRequestMeta } from '../audit'
 import { NextRequest } from 'next/server'
 import { logger } from '../logger'
+import { SessionPayload, verifySession } from '../auth'
 
 export interface DeviceMetadata {
   device: string
@@ -98,40 +99,150 @@ export class SessionService {
   }
 
   /**
-   * Validates if a session token is currently ACTIVE in the database.
+   * Increments the user's tokenVersion in User.preferences and optionally sets passwordChangedAt.
+   * This instantly invalidates any tokens issued with older tokenVersions or before passwordChangedAt.
    */
-  static async validateSession(token: string): Promise<{ valid: boolean; session?: any }> {
+  static async bumpTokenVersion(userId: string, newPasswordChangedAt?: number): Promise<number> {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    })
+
+    const currentPrefs = (user?.preferences as Record<string, any>) || {}
+    const nextVersion = (typeof currentPrefs.tokenVersion === 'number' ? currentPrefs.tokenVersion : 0) + 1
+    const updatedPrefs: Record<string, any> = {
+      ...currentPrefs,
+      tokenVersion: nextVersion,
+    }
+    if (newPasswordChangedAt !== undefined) {
+      updatedPrefs.passwordChangedAt = newPasswordChangedAt
+    }
+
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        preferences: updatedPrefs,
+        updatedAt: new Date(),
+      },
+    })
+
+    return nextVersion
+  }
+
+  /**
+   * Retrieves security metadata (tokenVersion, passwordChangedAt) stored in User.preferences.
+   */
+  static async getUserSecurityMeta(userId: string): Promise<{ tokenVersion: number; passwordChangedAt?: number }> {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { preferences: true },
+    })
+    const prefs = (user?.preferences as Record<string, any>) || {}
+    return {
+      tokenVersion: typeof prefs.tokenVersion === 'number' ? prefs.tokenVersion : 0,
+      passwordChangedAt: typeof prefs.passwordChangedAt === 'number' ? prefs.passwordChangedAt : undefined,
+    }
+  }
+
+  /**
+   * Validates if a session token is currently ACTIVE in the database and not revoked
+   * by tokenVersion increment, password change, account suspension, or explicit revocation.
+   */
+  static async validateSession(
+    token: string,
+    payload?: SessionPayload | null
+  ): Promise<{ valid: boolean; reason?: string; session?: any }> {
+    if (!token) {
+      return { valid: false, reason: 'TOKEN_REQUIRED' }
+    }
+
     const tokenHash = this.hashToken(token)
     try {
       const session = await db.userSession.findUnique({
         where: { tokenHash },
       })
 
-      if (!session) {
-        // If not found in DB (e.g. legacy token created before user_sessions), allow verifySession to succeed
-        return { valid: true }
+      if (session) {
+        if (session.status !== 'ACTIVE') {
+          return { valid: false, reason: 'SESSION_REVOKED' }
+        }
+
+        if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+          return { valid: false, reason: 'SESSION_EXPIRED' }
+        }
       }
 
-      if (session.status !== 'ACTIVE') {
-        return { valid: false }
+      // Resolve payload if not provided
+      let resolvedPayload = payload
+      if (!resolvedPayload) {
+        resolvedPayload = await verifySession(token)
       }
 
-      if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
-        return { valid: false }
+      const targetUserId = session?.userId || resolvedPayload?.uid
+
+      if (targetUserId) {
+        const user = await db.user.findUnique({
+          where: { id: targetUserId },
+          select: {
+            id: true,
+            status: true,
+            deletedAt: true,
+            preferences: true,
+          },
+        })
+
+        if (!user || user.deletedAt) {
+          return { valid: false, reason: 'USER_NOT_FOUND_OR_DELETED' }
+        }
+
+        if (['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(user.status)) {
+          return { valid: false, reason: 'USER_ACCOUNT_RESTRICTED' }
+        }
+
+        const userPrefs = (user.preferences as Record<string, any>) || {}
+        const currentTokenVersion = typeof userPrefs.tokenVersion === 'number' ? userPrefs.tokenVersion : 0
+        const userPasswordChangedAt = typeof userPrefs.passwordChangedAt === 'number' ? userPrefs.passwordChangedAt : null
+
+        if (resolvedPayload) {
+          // Token version check: If user's tokenVersion was bumped, prior tokens are invalid
+          if (resolvedPayload.tokenVersion !== undefined) {
+            if (resolvedPayload.tokenVersion < currentTokenVersion) {
+              return { valid: false, reason: 'TOKEN_VERSION_STALE' }
+            }
+          } else if (currentTokenVersion > 0) {
+            return { valid: false, reason: 'TOKEN_UNVERSIONED_STALE' }
+          }
+
+          // Password change check: If user changed password, tokens issued before the change are invalid
+          if (userPasswordChangedAt) {
+            const tokenPasswordChangedAt = resolvedPayload.passwordChangedAt
+            const tokenIatMs = (resolvedPayload as any).iat ? (resolvedPayload as any).iat * 1000 : null
+
+            if (tokenPasswordChangedAt !== undefined) {
+              if (tokenPasswordChangedAt < userPasswordChangedAt) {
+                return { valid: false, reason: 'PASSWORD_CHANGED' }
+              }
+            } else if (tokenIatMs !== null && tokenIatMs < userPasswordChangedAt) {
+              return { valid: false, reason: 'PASSWORD_CHANGED' }
+            }
+          }
+        }
       }
 
-      // Throttled update of lastActiveAt if older than 5 minutes
-      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
-      if (session.lastActiveAt.getTime() < fiveMinutesAgo) {
-        db.userSession
-          .update({
-            where: { id: session.id },
-            data: { lastActiveAt: new Date() },
-          })
-          .catch(() => {})
+      // Throttled update of lastActiveAt if session record exists and older than 5 minutes
+      if (session) {
+        const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+        if (session.lastActiveAt.getTime() < fiveMinutesAgo) {
+          db.userSession
+            .update({
+              where: { id: session.id },
+              data: { lastActiveAt: new Date() },
+            })
+            .catch(() => {})
+        }
       }
 
-      return { valid: true, session }
+      return { valid: true, session: session || undefined }
     } catch (err: any) {
       logger.warn('Error verifying session in database', { error: err.message })
       return { valid: true } // Graceful degradation if DB is temporarily unreachable

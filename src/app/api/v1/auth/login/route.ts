@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
-import { ok, Errors } from '@/lib/api'
+import { ok, fail, Errors } from '@/lib/api'
 import { withApi } from '@/lib/with-api'
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE, Role } from '@/lib/auth'
 import { normalizeRole } from '@/lib/roles'
 import { audit, getRequestMeta } from '@/lib/audit'
 import { SessionService } from '@/lib/users/session-service'
+import { MfaService } from '@/lib/auth/mfa-service'
+import { OtpService } from '@/lib/auth/otp-service'
 
 import {
   recordFailedAttempt,
@@ -26,12 +28,59 @@ export const POST = withApi(
         username,
         password,
         schoolCode,
+        code,
+        otp,
+        mfaCode,
+        mfaToken,
       } = (body || {}) as {
         identifier?: string
         email?: string
         username?: string
         password?: string
         schoolCode?: string
+        code?: string
+        otp?: string
+        mfaCode?: string
+        mfaToken?: string
+      }
+
+      // Step-up MFA verification via ephemeral mfaToken
+      if (mfaToken) {
+        const cleanCode = code || otp || mfaCode
+        if (!cleanCode) {
+          return Errors.validation('Verification code is required', 'code')
+        }
+        const result = await MfaService.completeStepUp({
+          mfaToken,
+          code: cleanCode,
+          req,
+        })
+        if (!result.success && result.error) {
+          return fail(result.error.code, result.error.message, result.error.status)
+        }
+        const res = ok({
+          user: result.user,
+          mustChangePassword: result.mustChangePassword,
+        })
+        if (result.token) {
+          res.cookies.set(SESSION_COOKIE, result.token, {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: SESSION_MAX_AGE,
+            path: '/',
+          })
+        }
+        if (result.locale) {
+          res.cookies.set('preone_locale', result.locale, {
+            httpOnly: false,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            maxAge: 365 * 24 * 60 * 60,
+            path: '/',
+          })
+        }
+        return res
       }
 
       const loginId = (identifier || email || username || '').toLowerCase().trim()
@@ -195,7 +244,10 @@ export const POST = withApi(
 
       // Successful login -> clear failure tracker for user ID and login identifiers
       await resetPersistentFailedAttempts(user.id)
-      resetFailedAttempts(user.id, user.email, user.username, loginId)
+      // Extract tokenVersion and passwordChangedAt from user preferences (Doc 1.1)
+      const userPrefs = (user.preferences as Record<string, any>) || {}
+      const tokenVersion = typeof userPrefs.tokenVersion === 'number' ? userPrefs.tokenVersion : 0
+      const passwordChangedAt = typeof userPrefs.passwordChangedAt === 'number' ? userPrefs.passwordChangedAt : undefined
 
       // No school membership -> platform-level staff (client onboarding console)
       if (!membership) {
@@ -207,6 +259,8 @@ export const POST = withApi(
           branchId: null,
           role: 'PLATFORM_ADMIN',
           mustChangePassword: Boolean((user as any).mustChangePassword),
+          tokenVersion,
+          passwordChangedAt,
         })
         // Resilient post-auth updates
         try {
@@ -289,6 +343,40 @@ export const POST = withApi(
       }
       const effectiveRoles = Array.from(new Set(allRoles.map((r) => normalizeRole(r)))) as Role[]
 
+      // Privileged role MFA Step-Up Enforcement (Doc 1.2: OWNER & ACCOUNTS)
+      const isPrivileged = MfaService.isMfaRequired({
+        role: primaryRole,
+        roles: effectiveRoles,
+        preferences: user.preferences,
+      })
+
+      if (isPrivileged) {
+        const cleanCode = code || otp || mfaCode
+        if (cleanCode) {
+          // Verify code provided alongside credentials
+          const otpCheck = await OtpService.verifyCodeOnly(user.email || loginId, cleanCode, meta.ipAddress)
+          if (!otpCheck.valid) {
+            return Errors.business(
+              otpCheck.error?.code || 'INVALID_MFA_CODE',
+              otpCheck.error?.message || 'Invalid or expired verification code for privileged account',
+              otpCheck.error?.status || 401
+            )
+          }
+        } else {
+          // Initiate challenge and prompt client for second factor
+          const challenge = await MfaService.initiateStepUp({
+            user,
+            primaryRole,
+            effectiveRoles,
+            membership,
+            branch,
+            schoolCode: cleanSchoolCode,
+            req,
+          })
+          return ok(challenge)
+        }
+      }
+
       const token = await signSession({
         uid: user.id,
         email: user.email || '',
@@ -298,6 +386,9 @@ export const POST = withApi(
         role: primaryRole,
         roles: effectiveRoles,
         mustChangePassword: Boolean((user as any).mustChangePassword),
+        mfaVerified: isPrivileged ? true : undefined,
+        tokenVersion,
+        passwordChangedAt,
       })
 
       // Resilient post-auth updates

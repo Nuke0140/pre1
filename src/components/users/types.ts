@@ -84,6 +84,8 @@ export interface UserRecord {
   roles?: Role[]
   status: UserLifecycleStatus
   branchId: string | null
+  assignedBranches?: Array<{ id: string; name: string; code: string; isMain?: boolean; isPrimary?: boolean }>
+  assignedBranchIds?: string[]
   lastLoginAt: string | null
   createdAt: string
   staffProfile?: StaffProfileData | null

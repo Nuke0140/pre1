@@ -18,15 +18,15 @@ async function _GET(req: NextRequest) {
     const user = await db.user.findUnique({
       where: { id: session.uid },
       include: {
-        staffProfile: {
-          include: {
-            branch: { select: { id: true, name: true, code: true } },
-          },
-        },
         memberships: {
           where: session.tenantId ? { tenantId: session.tenantId, deletedAt: null } : { deletedAt: null },
           include: {
             tenant: { select: { id: true, name: true, code: true } },
+            staffProfile: {
+              include: {
+                branch: { select: { id: true, name: true, code: true } },
+              },
+            },
           },
         },
       },
@@ -37,17 +37,16 @@ async function _GET(req: NextRequest) {
     }
 
     const membership = user.memberships[0]
+    const staffProf = membership?.staffProfile || null
     let branch: { id: string; name: string; code?: string } | null = null
     if (session.branchId) {
       branch = await db.branch.findUnique({
         where: { id: session.branchId },
         select: { id: true, name: true, code: true },
       })
-    } else if (user.staffProfile?.branch) {
-      branch = user.staffProfile.branch
+    } else if (staffProf?.branch) {
+      branch = staffProf.branch
     }
-
-    const staffProf = user.staffProfile
 
     return ok({
       id: user.id,
@@ -159,12 +158,22 @@ async function _PATCH(req: NextRequest) {
     // 2. Fetch existing user and staff profile
     const existingUser = await db.user.findUnique({
       where: { id: session.uid },
-      include: { staffProfile: true },
     })
 
     if (!existingUser) {
       return notFound('User account not found')
     }
+
+    const existingStaffProfile = session.tenantId
+      ? await db.staffProfile.findUnique({
+          where: {
+            tenantId_userId: {
+              tenantId: session.tenantId,
+              userId: session.uid,
+            },
+          },
+        })
+      : null
 
     // 3. Update User model (personal fields only)
     const userUpdateData: any = { updatedAt: new Date() }
@@ -185,11 +194,11 @@ async function _PATCH(req: NextRequest) {
     if (qualification !== undefined) staffFields.qualification = qualification?.trim() || null
     if (bloodGroup !== undefined) staffFields.bloodGroup = cleanBloodGroup
 
-    let updatedStaffProfile = existingUser.staffProfile
+    let updatedStaffProfile = existingStaffProfile
     if (Object.keys(staffFields).length > 0) {
-      if (existingUser.staffProfile) {
+      if (existingStaffProfile) {
         updatedStaffProfile = await db.staffProfile.update({
-          where: { id: existingUser.staffProfile.id },
+          where: { id: existingStaffProfile.id },
           data: { ...staffFields, updatedAt: new Date() },
         })
       } else if (session.tenantId) {

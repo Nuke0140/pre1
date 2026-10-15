@@ -11,6 +11,7 @@ import { useToast } from '@/components/preone/Toast'
 import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, BLOOD_GROUPS, MARITAL_STATUSES, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 import { Input } from '@/components/ui/input'
+import { validatePan, validateAadhaar, validateUan, validateEsi } from '@/lib/users/statutory-validation'
 
 interface AddStaffModalProps {
   open: boolean
@@ -45,6 +46,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [primaryRole, setPrimaryRole] = useState<Role>('TEACHER')
   const [additionalRoles, setAdditionalRoles] = useState<Role[]>([])
   const [branchId, setBranchId] = useState(branches[0]?.id || '')
+  const [assignedBranchIds, setAssignedBranchIds] = useState<string[]>(branches[0]?.id ? [branches[0].id] : [])
   const [employeeCode, setEmployeeCode] = useState('')
   const [designation, setDesignation] = useState('')
   const [department, setDepartment] = useState('Academics')
@@ -75,7 +77,10 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   useEffect(() => {
     if (open) {
       if (!employeeCode) generateEmployeeCode()
-      if (!branchId && branches.length > 0) setBranchId(branches[0].id)
+      if (!branchId && branches.length > 0) {
+        setBranchId(branches[0].id)
+        setAssignedBranchIds([branches[0].id])
+      }
     }
   }, [open, branches])
 
@@ -213,6 +218,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setPrimaryRole('TEACHER')
     setAdditionalRoles([])
     setBranchId(branches[0]?.id || '')
+    setAssignedBranchIds(branches[0]?.id ? [branches[0].id] : [])
     setStatus('ACTIVE')
     setEmployeeCode('')
     setDesignation('')
@@ -254,6 +260,39 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       toast.error('Validation Error', 'Job Designation is required')
       return false
     }
+
+    if (panNumber.trim()) {
+      const panRes = validatePan(panNumber)
+      if (!panRes.valid) {
+        toast.error('Validation Error', panRes.error || 'Invalid PAN format')
+        return false
+      }
+    }
+
+    if (aadhaarNumber.trim()) {
+      const aadhaarRes = validateAadhaar(aadhaarNumber)
+      if (!aadhaarRes.valid) {
+        toast.error('Validation Error', aadhaarRes.error || 'Invalid Aadhaar format')
+        return false
+      }
+    }
+
+    if (uanNumber.trim()) {
+      const uanRes = validateUan(uanNumber)
+      if (!uanRes.valid) {
+        toast.error('Validation Error', uanRes.error || 'Invalid UAN format')
+        return false
+      }
+    }
+
+    if (esiNumber.trim()) {
+      const esiRes = validateEsi(esiNumber)
+      if (!esiRes.valid) {
+        toast.error('Validation Error', esiRes.error || 'Invalid ESI format')
+        return false
+      }
+    }
+
     return true
   }
 
@@ -294,8 +333,8 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
         toast.error('Validation Error', 'Password is required for manual credential setup')
         return false
       }
-      if (password.length < 6) {
-        toast.error('Validation Error', 'Password must be at least 6 characters long')
+      if (password.length < 8) {
+        toast.error('Validation Error', 'Password must be at least 8 characters long')
         return false
       }
       if (password !== confirmPassword) {
@@ -365,6 +404,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           roles: allRoles,
           additionalRoles,
           branchId,
+          branchIds: assignedBranchIds,
           employeeCode: employeeCode.trim(),
           designation: designation.trim(),
           department: department.trim() || undefined,
@@ -804,7 +844,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                   {/* Campus Branch */}
                   <div className="field">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Campus Branch <span className="text-red-500">*</span>
+                      Primary Campus Branch <span className="text-red-500">*</span>
                     </label>
                     <div className="relative mt-1">
                       <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -812,8 +852,12 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                         required
                         value={branchId}
                         onChange={(e) => {
-                          setBranchId(e.target.value)
+                          const newB = e.target.value
+                          setBranchId(newB)
                           setClassroomId('')
+                          if (newB && !assignedBranchIds.includes(newB)) {
+                            setAssignedBranchIds((prev) => [...prev, newB])
+                          }
                         }}
                         className="select w-full text-xs pl-9"
                       >
@@ -825,6 +869,45 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       </select>
                     </div>
                   </div>
+                </div>
+
+                {/* Multi-Branch Campus Assignment (Doc 2.2 P2 Audit) */}
+                {branches.length > 1 && (
+                  <div className="pt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        Additional Assigned Branches
+                      </label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Staff can access multiple campus locations
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 p-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20">
+                      {branches.map((b) => {
+                        const isPrimary = branchId === b.id
+                        const isAssigned = isPrimary || assignedBranchIds.includes(b.id)
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => {
+                              if (isPrimary) return
+                              setAssignedBranchIds((prev) =>
+                                prev.includes(b.id) ? prev.filter((id) => id !== b.id) : [...prev, b.id]
+                              )
+                            }}
+                            className={`btn btn-xs ${isPrimary ? 'btn-primary pointer-events-none' : isAssigned ? 'btn-secondary' : 'btn-outline'} text-[11px]`}
+                          >
+                            {isAssigned && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                            {b.name} ({b.code}){isPrimary && ' — Primary'}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
                   {/* Employee Code */}
                   <div className="field">
@@ -1197,7 +1280,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                             leadingIcon={<Key className="w-4 h-4" />}
                             type={showPassword ? 'text' : 'password'}
                             required
-                            placeholder="Min. 6 characters"
+                            placeholder="Min. 8 characters"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="text-xs font-mono"

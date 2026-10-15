@@ -14,11 +14,15 @@ import bcrypt from 'bcryptjs'
 import { UserRole, UserStatus, EmploymentType, Gender, BloodGroup, Relationship } from '@prisma/client'
 import { normalizeRole } from '@/lib/roles'
 import { UserLifecycleService } from '@/lib/users/user-lifecycle-service'
+import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { SessionService } from '@/lib/users/session-service'
 import { PermissionCache } from '@/lib/cache/permission-cache'
 import { UsernameService } from '@/lib/users/username-service'
 import { normalizeRelationship } from '@/lib/users/family-user-service'
 import { normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
+import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
+import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -38,9 +42,16 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
         OR: [{ userId: id }, { id }],
       },
       include: {
+        staffProfile: true,
+        assignedBranches: {
+          include: {
+            branch: {
+              select: { id: true, name: true, code: true, isMain: true },
+            },
+          },
+        },
         user: {
           include: {
-            staffProfile: true,
             taughtClasses: {
               select: { id: true, name: true, programType: true, capacity: true },
             },
@@ -65,6 +76,15 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
     const assignedRoles: UserRole[] =
       member.roles && member.roles.length > 0 ? member.roles : [member.role]
 
+    const assignedBranches = ((member as any).assignedBranches || []).map((ab: any) => ({
+      id: ab.branch.id,
+      name: ab.branch.name,
+      code: ab.branch.code,
+      isMain: ab.branch.isMain,
+      isPrimary: ab.isPrimary,
+    }))
+    const assignedBranchIds = assignedBranches.map((b: any) => b.id)
+
     return ok({
       id: member.id,
       userId: member.user.id,
@@ -79,12 +99,14 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       roles: assignedRoles,
       status: member.status,
       branchId: member.branchId,
+      assignedBranches,
+      assignedBranchIds,
       lastLoginAt: member.user.lastLoginAt,
       createdAt: member.createdAt,
-      staffProfile: member.user.staffProfile
+      staffProfile: member.staffProfile
         ? {
-            ...member.user.staffProfile,
-            bloodGroup: formatBloodGroup(member.user.staffProfile.bloodGroup),
+            ...member.staffProfile,
+            bloodGroup: formatBloodGroup(member.staffProfile.bloodGroup),
           }
         : null,
       taughtClasses: member.user.taughtClasses,
@@ -101,7 +123,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
               admissionNo: sl.student.admissionNo,
               canPickup: sl.canPickup,
               receivesComm: sl.receivesComm,
-              pickupPin: sl.pickupPin,
+              pickupPin: sl.pickupPin ? '••••' : null,
               relationship: sl.relationship || member.user.guardianProfile!.relationship,
             })),
           }
@@ -137,6 +159,8 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       primaryRole,
       status,
       branchId,
+      branchIds: inputBranchIds,
+      assignedBranchIds: inputAssignedBranchIds,
       classroomId,
       password,
       // Staff Profile fields
@@ -180,6 +204,8 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       primaryRole?: UserRole
       status?: any
       branchId?: string | null
+      branchIds?: string[]
+      assignedBranchIds?: string[]
       classroomId?: string | null
       password?: string
       employeeCode?: string
@@ -210,6 +236,8 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       canPickup?: boolean
       receivesComm?: boolean
     }
+
+    const branchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
 
     // Validate email format and uniqueness if provided
     let cleanEmail: string | undefined = undefined
@@ -255,17 +283,29 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     // Validate password complexity if provided
     if (password !== undefined && password !== null && password !== '') {
-      if (password.length < 6) {
-        return bad('Password must be at least 6 characters long', 'INVALID_PASSWORD')
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        return bad(PASSWORD_POLICY.errorMessage, 'INVALID_PASSWORD')
       }
     }
 
     // Validate Pickup PIN if provided
     if (pickupPin !== undefined && pickupPin !== null && pickupPin.trim() !== '') {
       const pin = pickupPin.trim()
-      if (!/^\d{4,6}$/.test(pin)) {
+      if (!pin.includes('•') && !/^\d{4,6}$/.test(pin)) {
         return bad('Pickup PIN must be 4 to 6 numeric digits', 'INVALID_PICKUP_PIN')
       }
+    }
+
+    // Validate statutory IDs if provided
+    const statutoryCheck = validateStatutoryInputs({
+      panNumber,
+      aadhaarNumber,
+      uanNumber,
+      esiNumber,
+    })
+    if (!statutoryCheck.valid) {
+      const [firstField, firstErr] = Object.entries(statutoryCheck.errors)[0]
+      return bad(firstErr, 'INVALID_STATUTORY_ID', firstField)
     }
 
     // Lifecycle status mutation validation and canonical routing
@@ -381,6 +421,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     const parseDateInput = (val: any): Date | null | undefined => {
       if (val === undefined) return undefined
       if (val === null || val === '') return null
+      if (typeof val === 'string' && val.includes('•')) return undefined
       const parsed = new Date(val)
       return isNaN(parsed.getTime()) ? null : parsed
     }
@@ -452,11 +493,19 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           ...(branchId !== undefined ? { branchId: branchId || null } : {}),
         },
         include: {
-          user: {
-            include: { staffProfile: true },
-          },
+          staffProfile: true,
+          user: true,
         },
       })
+
+      if (branchIds !== undefined || branchId !== undefined) {
+        await UserIdentityService.syncTenantUserBranches(tx, {
+          tenantId: session.tenantId!,
+          tenantUserId: member.id,
+          primaryBranchId: updated.branchId,
+          branchIds: branchIds !== undefined ? branchIds : (updated.branchId ? [updated.branchId] : []),
+        })
+      }
 
       const effectiveRoles = updated.roles && updated.roles.length > 0 ? updated.roles : [updated.role]
       const isStaff = effectiveRoles.some((r) =>
@@ -490,13 +539,13 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
       if (hasStaffFields) {
         const existingProfile = await tx.staffProfile.findUnique({
-          where: { userId: member.userId },
+          where: { tenantId_userId: { tenantId: session.tenantId!, userId: member.userId } },
         })
 
         const empCode =
           employeeCode?.trim() ||
           existingProfile?.employeeCode ||
-          member.user.staffProfile?.employeeCode ||
+          updated.staffProfile?.employeeCode ||
           `EMP-${Date.now().toString().slice(-4)}`
 
         const parsedDob = parseDateInput(dateOfBirth)
@@ -522,12 +571,24 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               ...(emergencyContactPhone !== undefined ? { emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : null } : {}),
               ...(maritalStatus !== undefined ? { maritalStatus: maritalStatus ? maritalStatus.trim() : null } : {}),
               ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
-              ...(currentAddress !== undefined ? { currentAddress: currentAddress ? currentAddress.trim() : null } : {}),
-              ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress ? permanentAddress.trim() : null } : {}),
-              ...(panNumber !== undefined ? { panNumber: panNumber ? panNumber.trim().toUpperCase() : null } : {}),
-              ...(aadhaarNumber !== undefined ? { aadhaarNumber: aadhaarNumber ? aadhaarNumber.trim().replace(/\s+/g, '') : null } : {}),
-              ...(uanNumber !== undefined ? { uanNumber: uanNumber ? uanNumber.trim() : null } : {}),
-              ...(esiNumber !== undefined ? { esiNumber: esiNumber ? esiNumber.trim() : null } : {}),
+              ...(currentAddress !== undefined && (currentAddress === null || !currentAddress.includes('•'))
+                ? { currentAddress: currentAddress ? currentAddress.trim() : null }
+                : {}),
+              ...(permanentAddress !== undefined && (permanentAddress === null || !permanentAddress.includes('•'))
+                ? { permanentAddress: permanentAddress ? permanentAddress.trim() : null }
+                : {}),
+              ...(panNumber !== undefined && (panNumber === null || !panNumber.includes('•'))
+                ? { panNumber: statutoryCheck.normalized.panNumber ?? null }
+                : {}),
+              ...(aadhaarNumber !== undefined && (aadhaarNumber === null || !aadhaarNumber.includes('•'))
+                ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null }
+                : {}),
+              ...(uanNumber !== undefined && (uanNumber === null || !uanNumber.includes('•'))
+                ? { uanNumber: statutoryCheck.normalized.uanNumber ?? null }
+                : {}),
+              ...(esiNumber !== undefined && (esiNumber === null || !esiNumber.includes('•'))
+                ? { esiNumber: statutoryCheck.normalized.esiNumber ?? null }
+                : {}),
               ...(parsedProbation !== undefined ? { probationEndDate: parsedProbation } : {}),
               ...(parsedConfirmation !== undefined ? { confirmationDate: parsedConfirmation } : {}),
               ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
@@ -551,12 +612,12 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : null,
               maritalStatus: maritalStatus ? maritalStatus.trim() : null,
               bloodGroup: normalizeBloodGroup(bloodGroup),
-              currentAddress: currentAddress ? currentAddress.trim() : null,
-              permanentAddress: permanentAddress ? permanentAddress.trim() : null,
-              panNumber: panNumber ? panNumber.trim().toUpperCase() : null,
-              aadhaarNumber: aadhaarNumber ? aadhaarNumber.trim().replace(/\s+/g, '') : null,
-              uanNumber: uanNumber ? uanNumber.trim() : null,
-              esiNumber: esiNumber ? esiNumber.trim() : null,
+              currentAddress: currentAddress && !currentAddress.includes('•') ? currentAddress.trim() : null,
+              permanentAddress: permanentAddress && !permanentAddress.includes('•') ? permanentAddress.trim() : null,
+              panNumber: panNumber && !panNumber.includes('•') ? statutoryCheck.normalized.panNumber ?? null : null,
+              aadhaarNumber: aadhaarNumber && !aadhaarNumber.includes('•') ? statutoryCheck.normalized.aadhaarNumber ?? null : null,
+              uanNumber: uanNumber && !uanNumber.includes('•') ? statutoryCheck.normalized.uanNumber ?? null : null,
+              esiNumber: esiNumber && !esiNumber.includes('•') ? statutoryCheck.normalized.esiNumber ?? null : null,
               probationEndDate: parsedProbation || null,
               confirmationDate: parsedConfirmation || null,
               noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
@@ -593,7 +654,9 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               ...(mappedRel ? { relationship: mappedRel } : {}),
               ...(occupation !== undefined ? { occupation: occupation ? occupation.trim() : null } : {}),
               ...(isPrimaryContact !== undefined ? { isPrimaryContact: Boolean(isPrimaryContact) } : {}),
-              ...(pickupPin !== undefined ? { pickupPin: pickupPin ? pickupPin.trim() : null } : {}),
+              ...(pickupPin !== undefined && (pickupPin === null || !pickupPin.includes('•'))
+                ? { pickupPin: pickupPin ? pickupPin.trim() : null }
+                : {}),
             },
           })
         } else if (isFamily) {
@@ -607,7 +670,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               relationship: mappedRel || 'GUARDIAN',
               occupation: occupation ? occupation.trim() : null,
               isPrimaryContact: Boolean(isPrimaryContact),
-              pickupPin: pickupPin ? pickupPin.trim() : null,
+              pickupPin: pickupPin && !pickupPin.includes('•') ? pickupPin.trim() : null,
             },
           })
         }
@@ -618,7 +681,9 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
             data: {
               ...(canPickup !== undefined ? { canPickup: Boolean(canPickup) } : {}),
               ...(receivesComm !== undefined ? { receivesComm: Boolean(receivesComm) } : {}),
-              ...(pickupPin !== undefined ? { pickupPin: pickupPin ? pickupPin.trim() : null } : {}),
+              ...(pickupPin !== undefined && (pickupPin === null || !pickupPin.includes('•'))
+                ? { pickupPin: pickupPin ? pickupPin.trim() : null }
+                : {}),
             },
           })
         }
@@ -644,6 +709,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
     // If password was reset by administrator, revoke all active sessions for the user and record audit
     if (isPasswordReset) {
+      await SessionService.bumpTokenVersion(member.userId, Date.now())
       await SessionService.revokeAllUserSessions(member.userId)
       PermissionCache.bumpUserVersion(member.userId)
       const meta = getRequestMeta(req)
@@ -672,6 +738,10 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         session.tenantId,
         isGlobalStatusUpdate || isPlatformAdmin
       )
+      if (lifecycleStatusToApply === 'ACTIVE') {
+        await resetPersistentFailedAttempts(member.userId)
+        resetFailedAttempts(member.userId, member.user.email, member.user.username)
+      }
       await UserLifecycleService.recordLifecycleAudit({
         tenantId: session.tenantId,
         branchId: updatedMember.branchId || undefined,
@@ -729,9 +799,16 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     const refreshed = await db.tenantUser.findUnique({
       where: { id: member.id },
       include: {
+        staffProfile: true,
+        assignedBranches: {
+          include: {
+            branch: {
+              select: { id: true, name: true, code: true, isMain: true },
+            },
+          },
+        },
         user: {
           include: {
-            staffProfile: true,
             taughtClasses: {
               select: { id: true, name: true, programType: true, capacity: true },
             },
@@ -756,6 +833,15 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     const assignedRoles: UserRole[] =
       refreshed.roles && refreshed.roles.length > 0 ? refreshed.roles : [refreshed.role]
 
+    const assignedBranches = (refreshed.assignedBranches || []).map((ab: any) => ({
+      id: ab.branch.id,
+      name: ab.branch.name,
+      code: ab.branch.code,
+      isMain: ab.branch.isMain,
+      isPrimary: ab.isPrimary,
+    }))
+    const assignedBranchIds = assignedBranches.map((b: any) => b.id)
+
     return ok({
       id: refreshed.id,
       userId: refreshed.user.id,
@@ -769,12 +855,14 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       roles: assignedRoles,
       status: refreshed.status,
       branchId: refreshed.branchId,
+      assignedBranches,
+      assignedBranchIds,
       lastLoginAt: refreshed.user.lastLoginAt,
       createdAt: refreshed.createdAt,
-      staffProfile: refreshed.user.staffProfile
+      staffProfile: refreshed.staffProfile
         ? {
-            ...refreshed.user.staffProfile,
-            bloodGroup: formatBloodGroup(refreshed.user.staffProfile.bloodGroup),
+            ...refreshed.staffProfile,
+            bloodGroup: formatBloodGroup(refreshed.staffProfile.bloodGroup),
           }
         : null,
       taughtClasses: refreshed.user.taughtClasses,

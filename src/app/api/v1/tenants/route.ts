@@ -6,6 +6,7 @@ import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
 import { SETUP_STEPS } from '@/lib/setup/steps'
 import bcrypt from 'bcryptjs'
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth'
 
 /** GET /api/v1/tenants — platform admin: all clients (tenants) */
 async function _GET(req: NextRequest) {
@@ -66,8 +67,8 @@ async function _POST(req: NextRequest) {
     if (!name || !code || !branchName || !ownerName || !ownerEmail || !ownerPassword) {
       return Errors.validation('Missing required onboarding fields')
     }
-    if (ownerPassword.length < 6) {
-      return Errors.validation('Owner password must be at least 6 characters', 'ownerPassword')
+    if (ownerPassword.length < MIN_PASSWORD_LENGTH) {
+      return Errors.validation(`Owner password must be at least ${MIN_PASSWORD_LENGTH} characters`, 'ownerPassword')
     }
 
     const existing = await db.tenant.findUnique({ where: { code: code.toUpperCase() } })

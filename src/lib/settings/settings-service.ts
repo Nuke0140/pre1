@@ -16,6 +16,7 @@ import { CANONICAL_ROLES } from '@/lib/roles'
 import bcrypt from 'bcryptjs'
 import type { ConfigDomain } from '@prisma/client'
 import { getDomainConfig } from '@/lib/config'
+import { SessionService } from '@/lib/users/session-service'
 
 export interface ScopeActor {
   id: string
@@ -240,6 +241,9 @@ export class SettingsService {
     }
 
     const newHash = await bcrypt.hash(newPassword, 10)
+    const now = Date.now()
+    const nextTokenVersion = await SessionService.bumpTokenVersion(userId, now)
+
     await db.user.update({
       where: { id: userId },
       data: {
@@ -248,6 +252,9 @@ export class SettingsService {
         updatedAt: new Date(),
       },
     })
+
+    // Invalidate all existing sessions upon password change (Doc 1.1)
+    await SessionService.revokeAllUserSessions(userId)
 
     await recordAudit({
       tenantId: undefined,
@@ -264,7 +271,12 @@ export class SettingsService {
       userAgent: actor?.userAgent,
     })
 
-    return { success: true, message: 'Password changed successfully' }
+    return {
+      success: true,
+      message: 'Password changed successfully',
+      tokenVersion: nextTokenVersion,
+      passwordChangedAt: now,
+    }
   }
 
   /**

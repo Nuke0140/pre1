@@ -132,22 +132,24 @@ export class RecipientResolver {
     }
   ): Promise<ResolvedRecipient[]> {
     if (filters?.userId) {
-      const u = await db.user.findFirst({
+      const m = await db.tenantUser.findFirst({
         where: {
-          id: filters.userId,
-          memberships: { some: { tenantId, status: 'ACTIVE' } },
+          tenantId,
+          userId: filters.userId,
+          status: 'ACTIVE',
+          deletedAt: null,
         },
-        include: { staffProfile: true },
+        include: { staffProfile: true, user: true },
       })
-      if (!u) return []
+      if (!m) return []
       return [
         {
-          userId: u.id,
-          staffProfileId: u.staffProfile?.id || null,
-          fullName: u.fullName,
-          phone: u.phone,
-          email: u.email,
-          role: u.staffProfile?.designation || 'STAFF',
+          userId: m.user.id,
+          staffProfileId: m.staffProfile?.id || null,
+          fullName: m.user.fullName,
+          phone: m.user.phone,
+          email: m.user.email,
+          role: m.staffProfile?.designation || 'STAFF',
         },
       ]
     }

@@ -307,6 +307,32 @@ export default function SettingsControlCenter() {
     }
   }
 
+  // Test MFA Dispatch (Doc 1.2)
+  const handleTestMfaDispatch = async () => {
+    setBusy(true)
+    try {
+      const meRes = await fetch('/api/v1/me').then((r) => r.json())
+      if (meRes.success && meRes.data.email) {
+        const res = await fetch('/api/v1/auth/otp/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: meRes.data.email }),
+        }).then((r) => r.json())
+        if (res.success) {
+          toast.success('MFA Verification Dispatched', `Test verification code successfully sent to ${res.data?.destination || meRes.data.email}`)
+        } else {
+          toast.error('MFA Dispatch Failed', res.error?.message || 'Failed to dispatch test verification code')
+        }
+      } else {
+        toast.error('Unable to verify contact', 'No active user email resolved')
+      }
+    } catch (e: any) {
+      toast.error('Error', e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Test Notification
   const handleTestNotification = async () => {
     setBusy(true)
@@ -1282,6 +1308,23 @@ export default function SettingsControlCenter() {
               </p>
               <button className="btn btn-secondary" onClick={handleRevokeSessions} disabled={busy}>
                 Sign Out All Devices
+              </button>
+            </div>
+
+            <div className="panel" style={{ border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+                <h4 style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldCheck size={15} /> Multi-Factor Authentication (MFA)
+                </h4>
+                <span className="badge" style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#059669', fontSize: 11, fontWeight: 600 }}>
+                  Enforced: OWNER &amp; ACCOUNTS
+                </span>
+              </div>
+              <p className="txt-muted" style={{ fontSize: 12, margin: '8px 0 16px' }}>
+                Privileged step-up verification via OTP is enforced on school leadership (OWNER) and financial operations (ACCOUNTS) to protect institutional governance and fee billing.
+              </p>
+              <button className="btn btn-secondary" onClick={handleTestMfaDispatch} disabled={busy}>
+                Test MFA Delivery Channel
               </button>
             </div>
           </div>

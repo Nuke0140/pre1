@@ -2,7 +2,8 @@ import { db } from '@/lib/db'
 import { StaffUserService } from './staff-user-service'
 import { FamilyUserService, normalizeRelationship } from './family-user-service'
 import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType, BloodGroup } from '@prisma/client'
-import { normalizeRole, type CanonicalRole } from '@/lib/roles'
+import { normalizeRole, type CanonicalRole, LEGACY_ROLE_MAP } from '@/lib/roles'
+import { validatePan, validateAadhaar, validateUan, validateEsi } from './statutory-validation'
 import { recordAudit } from '@/lib/audit'
 
 /**
@@ -293,7 +294,6 @@ export class UserCsvEngine {
               ...(username ? [{ username }] : []),
             ],
           },
-          include: { staffProfile: true },
         })
         if (existingUser) {
           isExisting = true
@@ -351,10 +351,36 @@ export class UserCsvEngine {
       }
 
       // Validate role
-      if (roleStr === 'PARENT' || roleStr === 'GUARDIAN') {
+      const isKnownStaffRole =
+        CANONICAL_STAFF_ROLES.includes(rawRole as any) ||
+        Boolean(LEGACY_ROLE_MAP[rawRole] && CANONICAL_STAFF_ROLES.includes(LEGACY_ROLE_MAP[rawRole] as any))
+
+      if (rawRole === 'PARENT' || rawRole === 'GUARDIAN' || roleStr === 'PARENT' || roleStr === 'GUARDIAN') {
         errors.push('Cannot assign PARENT or GUARDIAN role in Staff CSV. Use Family CSV.')
-      } else if (r.role && !CANONICAL_STAFF_ROLES.includes(roleStr as CanonicalRole)) {
+      } else if (r.role && !isKnownStaffRole) {
         errors.push(`Invalid staff role "${rawRole}". Allowed: ${CANONICAL_STAFF_ROLES.join(', ')}.`)
+      }
+
+      // Validate statutory IDs if present in CSV
+      const pan = (r.panNumber || r.pan)?.trim()
+      if (pan) {
+        const panRes = validatePan(pan)
+        if (!panRes.valid) errors.push(panRes.error!)
+      }
+      const aadhaar = (r.aadhaarNumber || r.aadhaar)?.trim()
+      if (aadhaar) {
+        const aadhaarRes = validateAadhaar(aadhaar)
+        if (!aadhaarRes.valid) errors.push(aadhaarRes.error!)
+      }
+      const uan = (r.uanNumber || r.uan)?.trim()
+      if (uan) {
+        const uanRes = validateUan(uan)
+        if (!uanRes.valid) errors.push(uanRes.error!)
+      }
+      const esi = (r.esiNumber || r.esi)?.trim()
+      if (esi) {
+        const esiRes = validateEsi(esi)
+        if (!esiRes.valid) errors.push(esiRes.error!)
       }
 
       const isBlocked = errors.length > 0
@@ -745,12 +771,17 @@ export class UserCsvEngine {
    */
   /**
    * Executes validated Staff CSV rows in safe transactional chunks (default 15 rows per transaction).
-   * Supports atomic rollback option for strict enterprise migrations.
+   * Supports atomic rollback option for strict enterprise migrations and async progress reporting.
    */
   static async executeStaffImport(
     ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
     rows: CsvPreviewRow[],
-    options?: { atomicAllOrNothing?: boolean; chunkSize?: number; mode?: 'CREATE' | 'UPDATE' | 'DELETE' }
+    options?: {
+      atomicAllOrNothing?: boolean
+      chunkSize?: number
+      mode?: 'CREATE' | 'UPDATE' | 'DELETE'
+      onProgress?: (progressPct: number, processed: number, total: number) => Promise<void> | void
+    }
   ) {
     let createdCount = 0
     let updatedCount = 0
@@ -928,6 +959,12 @@ export class UserCsvEngine {
           })
         }
       }
+
+      if (options?.onProgress) {
+        const processed = Math.min(rows.length, i + chunk.length)
+        const progressPct = Math.round((processed / rows.length) * 100)
+        await options.onProgress(progressPct, processed, rows.length)
+      }
     }
 
     const auditAction = createdCount > 0 && updatedCount === 0 ? 'CSV_CREATE' : 'CSV_UPDATE'
@@ -960,7 +997,11 @@ export class UserCsvEngine {
   static async executeFamilyImport(
     ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
     rows: CsvPreviewRow[],
-    options?: { atomicAllOrNothing?: boolean; chunkSize?: number }
+    options?: {
+      atomicAllOrNothing?: boolean
+      chunkSize?: number
+      onProgress?: (progressPct: number, processed: number, total: number) => Promise<void> | void
+    }
   ) {
     let createdCount = 0
     let linkedCount = 0
@@ -1064,6 +1105,12 @@ export class UserCsvEngine {
           })
         }
       }
+
+      if (options?.onProgress) {
+        const processed = Math.min(rows.length, i + chunk.length)
+        const progressPct = Math.round((processed / rows.length) * 100)
+        await options.onProgress(progressPct, processed, rows.length)
+      }
     }
 
     return {
@@ -1076,3 +1123,5 @@ export class UserCsvEngine {
     }
   }
 }
+
+export { UserCsvEngine as CsvEngine }

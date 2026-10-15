@@ -1,4 +1,22 @@
 import { UserRole, Relationship, UserStatus, EmploymentType, Gender, BloodGroup, ProgramType } from '@prisma/client'
+import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+
+export { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+export {
+  validatePan,
+  validateAadhaar,
+  validateUan,
+  validateEsi,
+  validateStatutoryInputs,
+  validateVerhoeff,
+  generateVerhoeff,
+} from './statutory-validation'
+import {
+  validatePan,
+  validateAadhaar,
+  validateUan,
+  validateEsi,
+} from './statutory-validation'
 
 export interface StaffCreateInput {
   avatarUrl?: string | null
@@ -12,6 +30,7 @@ export interface StaffCreateInput {
   primaryRole?: UserRole
   additionalRoles?: UserRole[]
   branchId?: string | null
+  branchIds?: string[]
   employeeCode?: string
   designation?: string | null
   department?: string | null
@@ -257,9 +276,29 @@ export function validateStaffInput(input: StaffCreateInput): { valid: boolean; e
   }
 
   if (input.password !== undefined && input.password !== null && input.password !== '') {
-    if (input.password.length < 6) {
-      errors.push('Password must be at least 6 characters')
+    if (input.password.length < MIN_PASSWORD_LENGTH) {
+      errors.push(PASSWORD_POLICY.errorMessage)
     }
+  }
+
+  if (input.panNumber !== undefined && input.panNumber !== null && input.panNumber !== '') {
+    const res = validatePan(input.panNumber)
+    if (!res.valid) errors.push(res.error!)
+  }
+
+  if (input.aadhaarNumber !== undefined && input.aadhaarNumber !== null && input.aadhaarNumber !== '') {
+    const res = validateAadhaar(input.aadhaarNumber)
+    if (!res.valid) errors.push(res.error!)
+  }
+
+  if (input.uanNumber !== undefined && input.uanNumber !== null && input.uanNumber !== '') {
+    const res = validateUan(input.uanNumber)
+    if (!res.valid) errors.push(res.error!)
+  }
+
+  if (input.esiNumber !== undefined && input.esiNumber !== null && input.esiNumber !== '') {
+    const res = validateEsi(input.esiNumber)
+    if (!res.valid) errors.push(res.error!)
   }
 
   return { valid: errors.length === 0, errors }
@@ -287,8 +326,8 @@ export function validateFamilyInput(input: FamilyCreateInput): { valid: boolean;
   }
 
   if (input.password !== undefined && input.password !== null && input.password !== '') {
-    if (input.password.length < 6) {
-      errors.push('Password must be at least 6 characters')
+    if (input.password.length < MIN_PASSWORD_LENGTH) {
+      errors.push(PASSWORD_POLICY.errorMessage)
     }
   }
 
