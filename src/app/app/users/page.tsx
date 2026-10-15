@@ -2,11 +2,20 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ShieldCheck, ArrowRight } from 'lucide-react'
+import { ShieldCheck, ArrowRight, UserPlus, ChevronDown, Briefcase, Users } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { PageHead, Card } from '@/components/preone/ui'
 import { StaffUsersIllustration, FamilyUsersIllustration } from '@/components/preone/illustrations'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
+import { AddStaffModal } from '@/components/users/AddStaffModal'
+import { AddFamilyModal } from '@/components/users/AddFamilyModal'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { BranchOption, ClassroomOption } from '@/components/users/types'
 import { useI18n } from '@/lib/i18n'
 
 export default function UsersLauncherPage() {
@@ -19,8 +28,31 @@ export default function UsersLauncherPage() {
     loading: true,
   })
 
-  // Modal trigger
+  // Modal triggers
   const [rolesModalOpen, setRolesModalOpen] = useState(false)
+  const [addStaffOpen, setAddStaffOpen] = useState(false)
+  const [addFamilyOpen, setAddFamilyOpen] = useState(false)
+  const [branches, setBranches] = useState<BranchOption[]>([])
+  const [classrooms, setClassrooms] = useState<ClassroomOption[]>([])
+
+  const fetchBranchesAndClassrooms = async () => {
+    try {
+      const [bRes, cRes] = await Promise.all([
+        fetch('/api/v1/branches'),
+        fetch('/api/v1/classrooms'),
+      ])
+      if (bRes.ok) {
+        const bJson = await bRes.json()
+        setBranches(bJson.data || bJson.items || [])
+      }
+      if (cRes.ok) {
+        const cJson = await cRes.json()
+        setClassrooms(cJson.data || cJson.items || [])
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
 
   const fetchStats = async () => {
     try {
@@ -43,6 +75,7 @@ export default function UsersLauncherPage() {
 
   useEffect(() => {
     fetchStats()
+    fetchBranchesAndClassrooms()
   }, [])
 
   return (
@@ -55,14 +88,55 @@ export default function UsersLauncherPage() {
         title={t('users.title')}
         sub={t('users.subtitle')}
         actions={
-          <button
-            type="button"
-            onClick={() => setRolesModalOpen(true)}
-            className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-2.5 sm:py-2 sm:px-3"
-          >
-            <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>{t('users.rolesDirectory')}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRolesModalOpen(true)}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-2.5 sm:py-2 sm:px-3"
+            >
+              <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span>{t('users.rolesDirectory')}</span>
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-1.5 px-3 sm:py-2 sm:px-3.5 shadow-sm font-semibold users-act-add"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ {t('common.add') || 'Add'}</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-80 ml-0.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-1.5 shadow-lg border border-gray-100 dark:border-gray-800 rounded-xl bg-card z-50">
+                <DropdownMenuItem
+                  onClick={() => setAddStaffOpen(true)}
+                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/40 text-xs font-medium transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center shrink-0">
+                    <Briefcase className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addStaff') || 'Add Staff Member'}</div>
+                    <div className="text-[10px] text-gray-500">Teachers, Admins, Staff</div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setAddFamilyOpen(true)}
+                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-medium transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+                    <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addFamily') || 'Add Family / Parent'}</div>
+                    <div className="text-[10px] text-gray-500">Parents & Guardians</div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         }
       />
 
@@ -183,6 +257,31 @@ export default function UsersLauncherPage() {
       <RolesDirectoryModal
         open={rolesModalOpen}
         onClose={() => setRolesModalOpen(false)}
+      />
+
+      {/* Add Staff Modal */}
+      <AddStaffModal
+        open={addStaffOpen}
+        onClose={() => setAddStaffOpen(false)}
+        branches={branches}
+        classrooms={classrooms}
+        onSuccess={() => {
+          setAddStaffOpen(false)
+          fetchStats()
+        }}
+      />
+
+      {/* Add Family Modal */}
+      <AddFamilyModal
+        open={addFamilyOpen}
+        onClose={() => setAddFamilyOpen(false)}
+        defaultRole="PARENT"
+        branches={branches}
+        classrooms={classrooms}
+        onSuccess={() => {
+          setAddFamilyOpen(false)
+          fetchStats()
+        }}
       />
     </div>
   )

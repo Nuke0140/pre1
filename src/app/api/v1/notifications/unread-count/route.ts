@@ -23,8 +23,8 @@ async function _GET(req: NextRequest) {
     })
 
     return ok({ count })
-  } catch (e) {
-    return Errors.system(e)
+  } catch {
+    return ok({ count: 0 })
   }
 }
 

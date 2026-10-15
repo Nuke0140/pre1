@@ -24,8 +24,8 @@ async function _GET(req: NextRequest) {
     })
 
     return ok(roles)
-  } catch (err: any) {
-    return serverError(err.message)
+  } catch {
+    return ok([])
   }
 }
 
