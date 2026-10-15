@@ -128,7 +128,7 @@ const COMMANDS: CommandItem[] = [
   { key: 'fast-roll-call', label: 'Fast Roll Call', hint: 'Daily Attendance', icon: Sparkles, href: '/app/daily-diary?tab=attendance&fastRollCall=true' },
   { key: 'add-staff', label: 'Add Staff User', hint: 'Staff Directory', icon: UserCheck, href: '/app/users/staff?open=add' },
   { key: 'create-user', label: 'Create user', hint: 'Actions', icon: Plus, href: '/app/users?open=ADD' },
-  { key: 'pending-invites', label: 'View pending invitations', hint: 'Actions', icon: Inbox, href: '/app/users?tab=PENDING' },
+  { key: 'pending-invites', label: 'View pending invitations', hint: 'Actions', icon: Inbox, href: '/app/users/staff?tab=PENDING' },
   { key: 'home', label: 'Home', hint: 'Jump to module', icon: Home, href: '/app/home' },
   { key: 'dashboard', label: 'Dashboard', hint: 'Jump to module', icon: LayoutDashboard, href: '/app/dashboard' },
   { key: 'students', label: 'Students', hint: 'Jump to module', icon: GraduationCap, href: '/app/students' },

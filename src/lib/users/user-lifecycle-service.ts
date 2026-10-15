@@ -6,6 +6,8 @@ import { PermissionCache } from '@/lib/cache/permission-cache'
 import { NextRequest } from 'next/server'
 import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
 
+import { PrimaryContactGuard, PrimaryContactTransfer } from '@/lib/users/primary-contact-guard'
+
 export type LifecycleActionType =
   | 'activate'
   | 'suspend'
@@ -63,6 +65,10 @@ export interface TransitionStatusParams {
   reason?: string
   req?: Request | NextRequest | null
   tx?: Prisma.TransactionClient
+  alternateGuardianId?: string
+  alternateUserId?: string
+  nominateAlternateId?: string
+  alternateGuardiansByStudent?: Record<string, string>
 }
 
 export type TransitionExecutionResult =
@@ -78,6 +84,7 @@ export type TransitionExecutionResult =
       error: string
       code: string
       statusHttp: number
+      details?: Record<string, any>
     }
 
 export class UserLifecycleService {
@@ -270,7 +277,7 @@ export class UserLifecycleService {
     if (member.role === 'OWNER' && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
       const activeOwners = await db.tenantUser.count({
         where: {
-          tenantId: actorSession.tenantId,
+          tenantId: actorSession.tenantId || undefined,
           role: 'OWNER',
           status: 'ACTIVE',
           deletedAt: null,
@@ -339,8 +346,43 @@ export class UserLifecycleService {
 
     const isPlatformAdmin = actorSession.role === 'PLATFORM_ADMIN'
 
+    // Primary contact deactivation guard (Doc 3.2): cannot suspend/deactivate primary contact without nominating alternate
+    let primaryTransfers: PrimaryContactTransfer[] = []
+    if (
+      ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED', 'INACTIVE'].includes(targetStatus) &&
+      actorSession.tenantId
+    ) {
+      const guardCheck = await PrimaryContactGuard.checkDeactivationSafety({
+        tenantId: actorSession.tenantId,
+        userId: member.userId,
+        targetStatus,
+        action: typeof action === 'string' ? action : undefined,
+        alternateGuardianId: params.alternateGuardianId,
+        alternateUserId: params.alternateUserId,
+        nominateAlternateId: params.nominateAlternateId,
+        alternateGuardiansByStudent: params.alternateGuardiansByStudent,
+        tx: externalTx,
+      })
+
+      if (!guardCheck.safe) {
+        return {
+          success: false,
+          error: guardCheck.error || 'Cannot deactivate primary contact without nominating an alternate contact',
+          code: guardCheck.code || 'PRIMARY_CONTACT_DEACTIVATION_BLOCKED',
+          statusHttp: 409,
+          details: { affectedStudents: guardCheck.affectedStudents },
+        }
+      }
+      primaryTransfers = guardCheck.transfers
+    }
+
     // Persist in transaction
     const executeInTx = async (tx: Prisma.TransactionClient) => {
+      // 0. Apply nominated primary contact transfers atomically if required
+      if (primaryTransfers.length > 0) {
+        await PrimaryContactGuard.applyTransfersTx(tx, primaryTransfers, actorSession)
+      }
+
       // 1. Always update the tenant membership status
       const tu = await tx.tenantUser.update({
         where: { id: member.id },

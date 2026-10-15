@@ -15,6 +15,7 @@ import { STEP_MAP } from '@/lib/setup/steps'
 import { ROLE_META, type CanonicalRole } from '@/lib/roles'
 
 const CANONICAL_SETUP_STAFF_ROLES: CanonicalRole[] = [
+  'OWNER',
   'PRINCIPAL',
   'COORDINATOR',
   'TEACHER',

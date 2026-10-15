@@ -1,6 +1,6 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, bad, forbidden, serverError } from '@/lib/api'
+import { ok, bad, forbidden, serverError, fail } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { UserStatus } from '@prisma/client'
 import {
@@ -27,10 +27,22 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
   try {
     const body = await req.json()
-    const { action, status: explicitStatus, reason } = body as {
+    const {
+      action,
+      status: explicitStatus,
+      reason,
+      alternateGuardianId,
+      alternateUserId,
+      nominateAlternateId,
+      alternateGuardiansByStudent,
+    } = body as {
       action?: ActionType
       status?: UserStatus
       reason?: string
+      alternateGuardianId?: string
+      alternateUserId?: string
+      nominateAlternateId?: string
+      alternateGuardiansByStudent?: Record<string, string>
     }
 
     const result = await UserLifecycleService.transitionUserStatus({
@@ -45,11 +57,18 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       action,
       reason,
       req,
+      alternateGuardianId,
+      alternateUserId,
+      nominateAlternateId,
+      alternateGuardiansByStudent,
     })
 
     if (!result.success) {
       if (result.statusHttp === 403) return forbidden(result.error)
-      return bad(result.error, result.code)
+      if (result.statusHttp === 409) {
+        return fail(result.code, result.error, 409, undefined, result.details)
+      }
+      return fail(result.code, result.error, result.statusHttp || 400, undefined, result.details)
     }
 
     if (result.unchanged) {

@@ -57,6 +57,7 @@ export const enIN = {
     download: 'Download',
     uploaded: 'Uploaded',
     verified: 'Verified',
+    moreActions: 'More Actions',
   },
 
   // DataTable & Collections
@@ -445,7 +446,7 @@ export const enIN = {
     subtitle: 'Manage staff, families and permissions for your school',
     rolesDirectory: 'Roles Directory',
     rolesDirectoryTitle: 'Roles Directory & Permissions Matrix',
-    rolesDirectorySub: 'Canonical 9 RBAC roles defined in PreOne Enterprise Preschool OS',
+    rolesDirectorySub: 'Canonical RBAC roles & permissions matrix for PreOne Enterprise Preschool OS',
     staffUsers: 'Staff Users',
     staffUsersDesc: 'Teachers, Helpers, Principals, Accountants, HR & Drivers',
     activeStaffBadge: '{count} Active Staff',

@@ -129,20 +129,32 @@ export class UserActivityService {
       }
     }
 
+    const andConditions: Prisma.AuditLogWhereInput[] = [
+      { tenantId },
+      perspectiveFilter,
+    ]
+
+    if (module && module !== 'ALL') {
+      andConditions.push({ module })
+    }
+
+    if (severity && severity !== 'ALL') {
+      andConditions.push({ severity: severity as any })
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim()
+      andConditions.push({
+        OR: [
+          { summary: { contains: q, mode: 'insensitive' } },
+          { action: { contains: q, mode: 'insensitive' } },
+          { actorName: { contains: q, mode: 'insensitive' } },
+        ],
+      })
+    }
+
     const baseWhere: Prisma.AuditLogWhereInput = {
-      tenantId,
-      ...(module && module !== 'ALL' ? { module } : {}),
-      ...(severity && severity !== 'ALL' ? { severity: severity as any } : {}),
-      ...(search && search.trim()
-        ? {
-            OR: [
-              { summary: { contains: search.trim(), mode: 'insensitive' } },
-              { action: { contains: search.trim(), mode: 'insensitive' } },
-              { actorName: { contains: search.trim(), mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-      ...perspectiveFilter,
+      AND: andConditions,
     }
 
     const skip = Math.max(0, (page - 1) * limit)

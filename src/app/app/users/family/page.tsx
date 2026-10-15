@@ -6,7 +6,8 @@ import {
   Baby, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Phone, Mail, Edit3, Shield, Eye, Lock,
   ChevronLeft, CheckCircle2, User, Users,
-  KeyRound, Clock, X, Camera, Unlock, UserX, UserCheck, Send, ShieldAlert
+  KeyRound, Clock, X, Camera, Unlock, UserX, UserCheck, Send, ShieldAlert,
+  Building2, LayoutGrid, Table, Home, Sparkles, MapPin, Star
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -38,14 +39,23 @@ import {
   type ActionItem,
   type ActionGroup,
 } from '@/components/ui/action-menu'
-import { UserRecord, BranchOption, ClassroomOption } from '@/components/users/types'
-import { timeAgo } from '@/lib/format'
+import { UserRecord, BranchOption, ClassroomOption, FamilyHousehold, HouseholdGuardian } from '@/components/users/types'
+import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { Image, Layers, MoreHorizontal } from 'lucide-react'
 
 export default function FamilyUsersPage() {
   const toast = useToast()
   const { t } = useI18n()
+
+  // View Switcher: TABLE vs HOUSEHOLDS
+  const [viewMode, setViewMode] = useState<'TABLE' | 'HOUSEHOLDS'>('TABLE')
+  const [crossCampusOnly, setCrossCampusOnly] = useState(false)
+  const [households, setHouseholds] = useState<FamilyHousehold[]>([])
+  const [loadingHouseholds, setLoadingHouseholds] = useState(false)
+  const [householdTotal, setHouseholdTotal] = useState(0)
+  const [householdPage, setHouseholdPage] = useState(1)
+  const [crossCampusCount, setCrossCampusCount] = useState(0)
 
   // Tab: PARENTS vs GUARDIANS
   const [activeTab, setActiveTab] = useState<'PARENTS' | 'GUARDIANS'>('PARENTS')
@@ -182,13 +192,69 @@ export default function FamilyUsersPage() {
     }
   }, [activeTab, page, pageSize, search, selectedBranch, selectedStatus, toast])
 
+  const fetchHouseholds = useCallback(async () => {
+    setLoadingHouseholds(true)
+    try {
+      const params = new URLSearchParams({
+        page: String(householdPage),
+        pageSize: '24',
+      })
+      if (search.trim()) params.set('q', search.trim())
+      if (selectedBranch !== 'ALL') params.set('branchId', selectedBranch)
+      if (crossCampusOnly) params.set('crossCampusOnly', 'true')
+
+      const res = await fetch(`/api/v1/users/family-groups?${params.toString()}`)
+      if (res.ok) {
+        const json = await res.json()
+        const payload = json.data || json
+        setHouseholds(payload.households || [])
+        setHouseholdTotal(payload.total || 0)
+        setCrossCampusCount(payload.crossCampusCount || 0)
+      }
+    } catch (e: any) {
+      toast.error('Network Error', e.message)
+    } finally {
+      setLoadingHouseholds(false)
+    }
+  }, [householdPage, search, selectedBranch, crossCampusOnly, toast])
+
+  const handleOpenHouseholdMember = async (guardian: HouseholdGuardian) => {
+    const targetId = guardian.userId || guardian.id
+    try {
+      const res = await fetch(`/api/v1/users/${targetId}`)
+      if (res.ok) {
+        const fullUser = await res.json()
+        setViewingUser(fullUser)
+        return
+      }
+    } catch {
+      // fallback
+    }
+    setViewingUser({
+      id: guardian.id,
+      userId: guardian.userId || guardian.id,
+      name: guardian.fullName,
+      email: guardian.email || null,
+      phone: guardian.phone || null,
+      role: (guardian.role as any) || 'GUARDIAN',
+      status: (guardian.status as any) || 'ACTIVE',
+      branchId: null,
+      lastLoginAt: null,
+      createdAt: new Date().toISOString(),
+    })
+  }
+
   useEffect(() => {
     fetchBranchesAndClassrooms()
   }, [])
 
   useEffect(() => {
-    fetchFamilyUsers()
-  }, [fetchFamilyUsers])
+    if (viewMode === 'TABLE') {
+      fetchFamilyUsers()
+    } else {
+      fetchHouseholds()
+    }
+  }, [viewMode, fetchFamilyUsers, fetchHouseholds])
 
   // KPIs
   const kpis = useMemo(() => {
@@ -253,9 +319,22 @@ export default function FamilyUsersPage() {
               <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
                 <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
                 <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
+                {child.branchName && (
+                  <span className="badge b-purple text-[9px] shrink-0 font-normal">
+                    {child.branchName}
+                  </span>
+                )}
                 <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'parent'})</span>
               </div>
             ))}
+            {u.guardianProfile?.isCrossCampus && (
+              <div className="pt-0.5">
+                <span className="badge b-purple text-[10px] font-semibold flex items-center gap-1 w-fit">
+                  <Building2 className="w-3 h-3 text-purple-600" />
+                  Cross-Campus ({u.guardianProfile.campusesCount} Campuses)
+                </span>
+              </div>
+            )}
           </div>
         )
       },
@@ -471,9 +550,22 @@ export default function FamilyUsersPage() {
               <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
                 <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
                 <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
+                {child.branchName && (
+                  <span className="badge b-purple text-[9px] shrink-0 font-normal">
+                    {child.branchName}
+                  </span>
+                )}
                 <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'guardian'})</span>
               </div>
             ))}
+            {u.guardianProfile?.isCrossCampus && (
+              <div className="pt-0.5">
+                <span className="badge b-purple text-[10px] font-semibold flex items-center gap-1 w-fit">
+                  <Building2 className="w-3 h-3 text-purple-600" />
+                  Cross-Campus ({u.guardianProfile.campusesCount} Campuses)
+                </span>
+              </div>
+            )}
           </div>
         )
       },
@@ -785,316 +877,591 @@ export default function FamilyUsersPage() {
         }
       />
 
-      {/* Workspace Tabs: Parents vs Guardians */}
-      <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-3">
-        <div className="seg users-segmented-nav" role="tablist">
-          <button
-            role="tab"
-            aria-selected={activeTab === 'PARENTS'}
-            className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'PARENTS' ? 'on' : ''}`}
-            onClick={() => {
-              setActiveTab('PARENTS')
-              setPage(1)
-            }}
-          >
-            <span className="flex items-center justify-center gap-1.5">
-              <User className="w-3.5 h-3.5" />
-              <span>{t('users.parentsTab', { count: parentCount })}</span>
-            </span>
-          </button>
+      {/* Workspace Tabs & View Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-800 pb-3">
+        {viewMode === 'TABLE' ? (
+          <div className="seg users-segmented-nav" role="tablist">
+            <button
+              role="tab"
+              aria-selected={activeTab === 'PARENTS'}
+              className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'PARENTS' ? 'on' : ''}`}
+              onClick={() => {
+                setActiveTab('PARENTS')
+                setPage(1)
+              }}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                <span>{t('users.parentsTab', { count: parentCount })}</span>
+              </span>
+            </button>
 
-          <button
-            role="tab"
-            aria-selected={activeTab === 'GUARDIANS'}
-            className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'GUARDIANS' ? 'on' : ''}`}
-            onClick={() => {
-              setActiveTab('GUARDIANS')
-              setPage(1)
-            }}
-          >
-            <span className="flex items-center justify-center gap-1.5">
-              <Shield className="w-3.5 h-3.5" />
-              <span>{t('users.guardiansTab', { count: guardianCount })}</span>
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* All 5 KPI & Policy Boxes in ONE LINE on Desktop, Fully Responsive */}
-      <div className="kpi-row kpi-5">
-        {activeTab === 'PARENTS' ? (
-          <>
-            <KpiTile
-              label={t('users.securityPolicy')}
-              value={t('users.max2Parents')}
-              icon={<Lock />}
-              iconClass="ic-purple"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.totalParents')}
-              value={parentCount}
-              icon={<User />}
-              iconClass="ic-blue"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.linkedStudents')}
-              value={kpis.linkedChildrenTotal}
-              icon={<Baby />}
-              iconClass="ic-green"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.feeVisibility')}
-              value={t('users.feePayers')}
-              icon={<CheckCircle2 />}
-              iconClass="ic-orange"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.multiChildParents')}
-              value={kpis.multiChildCount}
-              icon={<Users />}
-              iconClass="ic-teal"
-              variant="compact"
-            />
-          </>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'GUARDIANS'}
+              className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'GUARDIANS' ? 'on' : ''}`}
+              onClick={() => {
+                setActiveTab('GUARDIANS')
+                setPage(1)
+              }}
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <Shield className="w-3.5 h-3.5" />
+                <span>{t('users.guardiansTab', { count: guardianCount })}</span>
+              </span>
+            </button>
+          </div>
         ) : (
-          <>
-            <KpiTile
-              label={t('users.securityPolicy')}
-              value={t('users.gateEscort')}
-              meta={t('users.zeroFinancialAccess')}
-              icon={<Shield />}
-              iconClass="ic-amber"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.totalGuardians')}
-              value={guardianCount}
-              meta={t('users.authorizedPickupEscorts')}
-              icon={<Shield />}
-              iconClass="ic-orange"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.gateClearance')}
-              value={kpis.authorizedPickupTotal}
-              meta={t('users.authorizedForPickup')}
-              icon={<CheckCircle2 />}
-              iconClass="ic-green"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.gatePinSet')}
-              value={kpis.pinSetTotal}
-              meta={t('users.cryptographicPinSet')}
-              icon={<KeyRound />}
-              iconClass="ic-purple"
-              variant="compact"
-            />
-            <KpiTile
-              label={t('users.privacyShield')}
-              value={t('users.privacyStrict')}
-              meta={t('users.zeroBillingAccess')}
-              icon={<Lock />}
-              iconClass="ic-blue"
-              variant="compact"
-            />
-          </>
-        )}
-      </div>
-
-      <SearchFilterBar
-        search={{
-          value: search,
-          onChange: (val) => {
-            setSearch(val)
-            setPage(1)
-          },
-          placeholder: activeTab === 'PARENTS' ? t('users.searchParentPlaceholder') : t('users.searchGuardianPlaceholder'),
-          shortcut: '⌘K',
-        }}
-        filters={[
-          {
-            id: 'branch',
-            label: t('users.filterByBranch') || 'Campus',
-            type: 'branch',
-            value: selectedBranch,
-            defaultValue: 'ALL',
-            placeholder: t('users.allBranches'),
-            options: [
-              { value: 'ALL', label: t('users.allBranches') },
-              ...branches.map((b) => ({
-                value: b.id,
-                label: `${b.name} (${b.code})`,
-                isMain: b.code === 'MAIN' || (b as any).isMain,
-              })),
-            ],
-            onChange: (val) => {
-              setSelectedBranch(val)
-              setPage(1)
-            },
-          },
-          {
-            id: 'status',
-            label: t('users.filterByStatus') || 'Status',
-            type: 'status',
-            value: selectedStatus,
-            defaultValue: 'ALL',
-            placeholder: t('users.allStatuses'),
-            options: [
-              { value: 'ALL', label: t('users.allStatuses') },
-              { value: 'ACTIVE', label: t('users.statusActive'), colorDot: 'green' },
-              { value: 'SUSPENDED', label: t('users.statusSuspended'), colorDot: 'red' },
-              { value: 'LOCKED', label: t('users.statusLocked'), colorDot: 'red' },
-              { value: 'DEACTIVATED', label: t('users.statusDeactivated'), colorDot: 'red' },
-              { value: 'ARCHIVED', label: t('users.statusArchived'), colorDot: 'slate' },
-            ],
-            onChange: (val) => {
-              setSelectedStatus(val)
-              setPage(1)
-            },
-          },
-        ]}
-        onReset={() => {
-          setSearch('')
-          setSelectedBranch('ALL')
-          setSelectedStatus('ALL')
-          setPage(1)
-        }}
-      />
-
-      {/* Family DataTable Workspace */}
-      <div className="table-workspace">
-        {/* Smart Selection Banner */}
-        {selectedKeys.length > 0 && (
-          <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
-            <span className="text-purple-900 dark:text-purple-200 font-medium">
-              {selectAllMatching ? (
-                <>All <strong>{total}</strong> {activeTab.toLowerCase()} matching filters are selected.</>
-              ) : (
-                <>
-                  <strong>{selectedKeys.length}</strong> {activeTab.toLowerCase()} on this page selected.
-                  {total > users.length && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectAllMatching(true)}
-                      className="ml-2 underline text-purple-700 dark:text-purple-300 font-semibold hover:text-purple-900"
-                    >
-                      Select all {total} matching {activeTab.toLowerCase()}
-                    </button>
-                  )}
-                </>
-              )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900">
+              <Users className="w-4 h-4" />
+              <span>Family Households & Sibling Clusters ({householdTotal})</span>
             </span>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setBulkActionModalOpen(true)}
-                className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1.5 shadow-sm"
-              >
-                <Layers size={13} />
-                <span>Bulk Actions ({selectAllMatching ? total : selectedKeys.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedKeys([])
-                  setSelectAllMatching(false)
-                }}
-                className="btn btn-ghost text-xs py-1 px-2 text-gray-500 hover:text-gray-700"
-              >
-                Clear
-              </button>
-            </div>
+            {crossCampusCount > 0 && (
+              <span className="badge b-purple text-xs font-semibold flex items-center gap-1">
+                <Building2 className="w-3.5 h-3.5" />
+                {crossCampusCount} Multi-Campus
+              </span>
+            )}
           </div>
         )}
 
-        <DataTable
-          columns={activeTab === 'PARENTS' ? parentColumns : guardianColumns}
-          data={users}
-          loading={loading}
-          showToolbar={selectedKeys.length > 0}
-          rowSelection={true}
-          selectedKeys={selectedKeys}
-          onSelectionChange={(keys) => {
-            setSelectedKeys(keys)
-            if (keys.length === 0) setSelectAllMatching(false)
-          }}
-          bulkActions={
-            selectedKeys.length > 0 ? (
-              <div className="flex items-center gap-2">
-                {selectedKeys.length === 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Quick Cross Campus Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => {
+              setCrossCampusOnly(!crossCampusOnly)
+              setHouseholdPage(1)
+            }}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border cursor-pointer ${
+              crossCampusOnly
+                ? 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800 shadow-xs'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750'
+            }`}
+            title="Filter to only show families with children attending different campuses"
+          >
+            <Building2 className={`w-3.5 h-3.5 ${crossCampusOnly ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
+            <span>Cross-Campus Only</span>
+            {crossCampusCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                crossCampusOnly ? 'bg-purple-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+              }`}>
+                {crossCampusCount}
+              </span>
+            )}
+          </button>
+
+          {/* View Mode Switcher: TABLE vs HOUSEHOLDS */}
+          <div className="seg bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg inline-flex">
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                viewMode === 'TABLE' ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs' : 'text-gray-500 hover:text-gray-900'
+              }`}
+              onClick={() => setViewMode('TABLE')}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Directory Table</span>
+            </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                viewMode === 'HOUSEHOLDS' ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs' : 'text-gray-500 hover:text-gray-900'
+              }`}
+              onClick={() => setViewMode('HOUSEHOLDS')}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Family Groups</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {viewMode === 'TABLE' ? (
+        <>
+          {/* All 5 KPI & Policy Boxes in ONE LINE on Desktop, Fully Responsive */}
+          <div className="kpi-row kpi-5">
+            {activeTab === 'PARENTS' ? (
+              <>
+                <KpiTile
+                  label={t('users.securityPolicy')}
+                  value={t('users.max2Parents')}
+                  icon={<Lock />}
+                  iconClass="ic-purple"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.totalParents')}
+                  value={parentCount}
+                  icon={<User />}
+                  iconClass="ic-blue"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.linkedStudents')}
+                  value={kpis.linkedChildrenTotal}
+                  icon={<Baby />}
+                  iconClass="ic-green"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.feeVisibility')}
+                  value={t('users.feePayers')}
+                  icon={<CheckCircle2 />}
+                  iconClass="ic-orange"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.multiChildParents')}
+                  value={kpis.multiChildCount}
+                  icon={<Users />}
+                  iconClass="ic-teal"
+                  variant="compact"
+                />
+              </>
+            ) : (
+              <>
+                <KpiTile
+                  label={t('users.securityPolicy')}
+                  value={t('users.gateEscort')}
+                  meta={t('users.zeroFinancialAccess')}
+                  icon={<Shield />}
+                  iconClass="ic-amber"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.totalGuardians')}
+                  value={guardianCount}
+                  meta={t('users.authorizedPickupEscorts')}
+                  icon={<Shield />}
+                  iconClass="ic-orange"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.gateClearance')}
+                  value={kpis.authorizedPickupTotal}
+                  meta={t('users.authorizedForPickup')}
+                  icon={<CheckCircle2 />}
+                  iconClass="ic-green"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.gatePinSet')}
+                  value={kpis.pinSetTotal}
+                  meta={t('users.cryptographicPinSet')}
+                  icon={<KeyRound />}
+                  iconClass="ic-purple"
+                  variant="compact"
+                />
+                <KpiTile
+                  label={t('users.privacyShield')}
+                  value={t('users.privacyStrict')}
+                  meta={t('users.zeroBillingAccess')}
+                  icon={<Lock />}
+                  iconClass="ic-blue"
+                  variant="compact"
+                />
+              </>
+            )}
+          </div>
+
+          <SearchFilterBar
+            search={{
+              value: search,
+              onChange: (val) => {
+                setSearch(val)
+                setPage(1)
+              },
+              placeholder: activeTab === 'PARENTS' ? t('users.searchParentPlaceholder') : t('users.searchGuardianPlaceholder'),
+              shortcut: '⌘K',
+            }}
+            filters={[
+              {
+                id: 'branch',
+                label: t('users.filterByBranch') || 'Campus',
+                type: 'branch',
+                value: selectedBranch,
+                defaultValue: 'ALL',
+                placeholder: t('users.allBranches'),
+                options: [
+                  { value: 'ALL', label: t('users.allBranches') },
+                  ...branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.code})`,
+                    isMain: b.code === 'MAIN' || (b as any).isMain,
+                  })),
+                ],
+                onChange: (val) => {
+                  setSelectedBranch(val)
+                  setPage(1)
+                },
+              },
+              {
+                id: 'status',
+                label: t('users.filterByStatus') || 'Status',
+                type: 'status',
+                value: selectedStatus,
+                defaultValue: 'ALL',
+                placeholder: t('users.allStatuses'),
+                options: [
+                  { value: 'ALL', label: t('users.allStatuses') },
+                  { value: 'ACTIVE', label: t('users.statusActive'), colorDot: 'green' },
+                  { value: 'SUSPENDED', label: t('users.statusSuspended'), colorDot: 'red' },
+                  { value: 'LOCKED', label: t('users.statusLocked'), colorDot: 'red' },
+                  { value: 'DEACTIVATED', label: t('users.statusDeactivated'), colorDot: 'red' },
+                  { value: 'ARCHIVED', label: t('users.statusArchived'), colorDot: 'slate' },
+                ],
+                onChange: (val) => {
+                  setSelectedStatus(val)
+                  setPage(1)
+                },
+              },
+            ]}
+            onReset={() => {
+              setSearch('')
+              setSelectedBranch('ALL')
+              setSelectedStatus('ALL')
+              setPage(1)
+            }}
+          />
+
+          {/* Family DataTable Workspace */}
+          <div className="table-workspace">
+            {/* Smart Selection Banner */}
+            {selectedKeys.length > 0 && (
+              <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
+                <span className="text-purple-900 dark:text-purple-200 font-medium">
+                  {selectAllMatching ? (
+                    <>All <strong>{total}</strong> {activeTab.toLowerCase()} matching filters are selected.</>
+                  ) : (
+                    <>
+                      <strong>{selectedKeys.length}</strong> {activeTab.toLowerCase()} on this page selected.
+                      {total > users.length && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectAllMatching(true)}
+                          className="ml-2 underline text-purple-700 dark:text-purple-300 font-semibold hover:text-purple-900"
+                        >
+                          Select all {total} matching {activeTab.toLowerCase()}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </span>
+
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
-                    onClick={() => {
-                      const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
-                      if (u) setEditingUser(u)
-                    }}
+                    onClick={() => setBulkActionModalOpen(true)}
+                    className="btn btn-primary text-xs py-1 px-3 flex items-center gap-1.5 shadow-sm"
                   >
-                    <Edit3 size={14} className="text-amber-600" />
-                    <span>Individual Edit</span>
+                    <Layers size={13} />
+                    <span>Bulk Actions ({selectAllMatching ? total : selectedKeys.length})</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedKeys([])
+                      setSelectAllMatching(false)
+                    }}
+                    className="btn btn-ghost text-xs py-1 px-2 text-gray-500 hover:text-gray-700"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <DataTable
+              columns={activeTab === 'PARENTS' ? parentColumns : guardianColumns}
+              data={users}
+              loading={loading}
+              showToolbar={selectedKeys.length > 0}
+              rowSelection={true}
+              selectedKeys={selectedKeys}
+              onSelectionChange={(keys) => {
+                setSelectedKeys(keys)
+                if (keys.length === 0) setSelectAllMatching(false)
+              }}
+              bulkActions={
+                selectedKeys.length > 0 ? (
+                  <div className="flex items-center gap-2">
+                    {selectedKeys.length === 1 && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                        onClick={() => {
+                          const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
+                          if (u) setEditingUser(u)
+                        }}
+                      >
+                        <Edit3 size={14} className="text-amber-600" />
+                        <span>Individual Edit</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+                      onClick={() => setBulkFieldUpdateOpen(true)}
+                    >
+                      <Layers size={14} />
+                      <span>{t('users.bulkFieldUpdate')} ({selectedKeys.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
+                      onClick={() => setBulkActionModalOpen(true)}
+                    >
+                      <span>{t('common.moreActions') || 'More Actions'}</span>
+                    </button>
+                  </div>
+                ) : null
+              }
+              emptyIcon={<EmptyUsersIllustration size={120} />}
+              emptyTitle={activeTab === 'PARENTS' ? t('users.noParentsFound') : t('users.noGuardiansFound')}
+              emptyMessage={activeTab === 'PARENTS' ? t('users.noParentsMessage') : t('users.noGuardiansMessage')}
+            />
+
+            {/* Pagination Strip */}
+            <div
+              className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500"
+              style={{ background: 'var(--bg-subtle)' }}
+            >
+              <span className="text-center sm:text-left">
+                {t('table.showing')} {users.length > 0 ? (page - 1) * pageSize + 1 : 0} {t('table.of')}{' '}
+                {Math.min(page * pageSize, total)} {t('table.of')} {total} {activeTab === 'PARENTS' ? t('users.parentsTab', { count: total }) : t('users.guardiansTab', { count: total })}
+              </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm flex items-center gap-1.5 text-xs font-semibold shadow-xs"
-                  onClick={() => setBulkFieldUpdateOpen(true)}
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="btn btn-secondary text-xs px-2.5 py-1"
                 >
-                  <Layers size={14} />
-                  <span>{t('users.bulkFieldUpdate')} ({selectedKeys.length})</span>
+                  {t('common.prev')}
                 </button>
+                <span className="w-7 h-7 rounded-md font-semibold text-xs flex items-center justify-center bg-purple-600 text-white">
+                  {page}
+                </span>
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
-                  onClick={() => setBulkActionModalOpen(true)}
+                  disabled={page >= Math.ceil(total / pageSize)}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="btn btn-secondary text-xs px-2.5 py-1"
                 >
-                  <span>{t('common.moreActions')}</span>
+                  {t('common.next')}
                 </button>
               </div>
-            ) : null
-          }
-          emptyIcon={<EmptyUsersIllustration size={120} />}
-          emptyTitle={activeTab === 'PARENTS' ? t('users.noParentsFound') : t('users.noGuardiansFound')}
-          emptyMessage={activeTab === 'PARENTS' ? t('users.noParentsMessage') : t('users.noGuardiansMessage')}
-        />
-
-        {/* Pagination Strip */}
-        <div
-          className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500"
-          style={{ background: 'var(--bg-subtle)' }}
-        >
-          <span className="text-center sm:text-left">
-            {t('table.showing')} {users.length > 0 ? (page - 1) * pageSize + 1 : 0} {t('table.of')}{' '}
-            {Math.min(page * pageSize, total)} {t('table.of')} {total} {activeTab === 'PARENTS' ? t('users.parentsTab', { count: total }) : t('users.guardiansTab', { count: total })}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-              className="btn btn-secondary text-xs px-2.5 py-1"
-            >
-              {t('common.prev')}
-            </button>
-            <span className="w-7 h-7 rounded-md font-semibold text-xs flex items-center justify-center bg-purple-600 text-white">
-              {page}
-            </span>
-            <button
-              type="button"
-              disabled={page >= Math.ceil(total / pageSize)}
-              onClick={() => setPage((p) => p + 1)}
-              className="btn btn-secondary text-xs px-2.5 py-1"
-            >
-              {t('common.next')}
-            </button>
+            </div>
           </div>
+        </>
+      ) : (
+        /* ────────────────────────────────────────────────────────── */
+        /* FAMILY HOUSEHOLDS & SIBLING CLUSTERS GRID VIEW            */
+        /* ────────────────────────────────────────────────────────── */
+        <div className="space-y-4">
+          <SearchFilterBar
+            search={{
+              value: search,
+              onChange: (val) => {
+                setSearch(val)
+                setHouseholdPage(1)
+              },
+              placeholder: "Search families by child name, admission #, guardian, or phone...",
+              shortcut: '⌘K',
+            }}
+            filters={[
+              {
+                id: 'branch',
+                label: t('users.filterByBranch') || 'Campus',
+                type: 'branch',
+                value: selectedBranch,
+                defaultValue: 'ALL',
+                placeholder: t('users.allBranches'),
+                options: [
+                  { value: 'ALL', label: t('users.allBranches') },
+                  ...branches.map((b) => ({
+                    value: b.id,
+                    label: `${b.name} (${b.code})`,
+                    isMain: b.code === 'MAIN' || (b as any).isMain,
+                  })),
+                ],
+                onChange: (val) => {
+                  setSelectedBranch(val)
+                  setHouseholdPage(1)
+                },
+              },
+            ]}
+            onReset={() => {
+              setSearch('')
+              setSelectedBranch('ALL')
+              setCrossCampusOnly(false)
+              setHouseholdPage(1)
+            }}
+          />
+
+          {loadingHouseholds ? (
+            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+              <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin mx-auto mb-2" />
+              <p className="text-xs text-gray-500">Clustering family groups and campus mappings...</p>
+            </div>
+          ) : households.length === 0 ? (
+            <div className="p-12 text-center bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+              <Users className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+              <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">No Family Groups Found</h4>
+              <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                No households match the current filters. Try clearing the campus or cross-campus filter.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {households.map((hh) => {
+                  const leadGuardian = hh.primaryGuardian || hh.guardians[0]
+                  return (
+                    <div
+                      key={hh.id}
+                      className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 shadow-xs flex flex-col justify-between hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                    >
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <h4 className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-1.5">
+                              <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+                              <span>{hh.familyName}</span>
+                            </h4>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              {hh.isCrossCampus ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                  <Building2 className="w-3 h-3 text-amber-600" />
+                                  Cross-Campus ({hh.campuses.length} Campuses)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                  <Building2 className="w-3 h-3 text-gray-400" />
+                                  {hh.campuses[0]?.name || 'Single Campus'}
+                                </span>
+                              )}
+                              <span className="badge b-primary text-[10px]">
+                                {hh.students.length} {hh.students.length === 1 ? 'Ward' : 'Wards'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Enrolled Children */}
+                        <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/60 space-y-1.5">
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">
+                            Enrolled Wards ({hh.students.length})
+                          </span>
+                          <div className="space-y-1">
+                            {hh.students.map((child) => (
+                              <div key={child.id} className="text-xs flex items-center justify-between gap-1 flex-wrap">
+                                <div className="flex items-center gap-1.5">
+                                  <Baby className="w-3 h-3 text-indigo-500 shrink-0" />
+                                  <span className="font-semibold text-gray-800 dark:text-gray-200">{child.name}</span>
+                                  <span className="badge b-primary font-mono text-[9px]">{child.admissionNo}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {child.branchName && (
+                                    <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+                                      {child.branchName}
+                                    </span>
+                                  )}
+                                  {child.classroom && (
+                                    <span className="text-[10px] text-gray-400">
+                                      • {child.classroom}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Caregivers */}
+                        <div className="space-y-1 text-xs">
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider block">
+                            Registered Caregivers ({hh.guardians.length})
+                          </span>
+                          <div className="space-y-1">
+                            {hh.guardians.map((g) => (
+                              <div key={g.id} className="flex items-center justify-between text-xs text-gray-700 dark:text-gray-300">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{g.fullName}</span>
+                                  {g.isPrimaryContact && (
+                                    <Star className="w-3 h-3 fill-amber-500 text-amber-500 shrink-0" title="Primary Contact" />
+                                  )}
+                                  <span className="text-[10px] text-gray-400 capitalize">
+                                    ({g.relationship?.toLowerCase() || 'guardian'})
+                                  </span>
+                                </div>
+                                {g.phone && (
+                                  <span className="font-mono text-[10px] text-gray-500">
+                                    {g.phone}
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="pt-3 mt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-end">
+                        {leadGuardian && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenHouseholdMember(leadGuardian)}
+                            className="btn btn-secondary btn-xs text-[11px] font-semibold flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>View Family 360</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Households Pagination */}
+              <div
+                className="p-3 sm:p-4 rounded-xl border border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500"
+                style={{ background: 'var(--bg-subtle)' }}
+              >
+                <span>
+                  Showing {households.length > 0 ? (householdPage - 1) * 24 + 1 : 0} to{' '}
+                  {Math.min(householdPage * 24, householdTotal)} of {householdTotal} Family Groups
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={householdPage <= 1}
+                    onClick={() => setHouseholdPage((p) => p - 1)}
+                    className="btn btn-secondary text-xs px-2.5 py-1"
+                  >
+                    Previous
+                  </button>
+                  <span className="w-7 h-7 rounded-md font-semibold text-xs flex items-center justify-center bg-indigo-600 text-white">
+                    {householdPage}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={householdPage >= Math.ceil(householdTotal / 24)}
+                    onClick={() => setHouseholdPage((p) => p + 1)}
+                    className="btn btn-secondary text-xs px-2.5 py-1"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Modals & Drawers */}
       <AddFamilyModal

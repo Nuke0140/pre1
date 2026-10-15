@@ -38,6 +38,15 @@ export const POST = withApi(async (req: NextRequest) => {
   const formData = await req.formData()
   const file = formData.get('zip') as File | null
   const mode = (formData.get('mode') as string) || 'preview' // 'preview' | 'execute'
+  const rawAssignments = formData.get('assignments') as string | null
+  let assignments: Record<string, string> = {}
+  if (rawAssignments) {
+    try {
+      assignments = JSON.parse(rawAssignments)
+    } catch {
+      // ignore JSON parse error
+    }
+  }
 
   if (!file || !(file instanceof File)) {
     return bad('Please upload a valid .zip archive file', 'ZIP_REQUIRED')
@@ -69,12 +78,14 @@ export const POST = withApi(async (req: NextRequest) => {
     },
   })
 
-  // Build lookup maps for employeeCode, username, and email
+  // Build lookup maps for employeeCode, username, email, and userId
+  const userIdToUser = new Map<string, (typeof tenantMembers)[number]>()
   const codeToUser = new Map<string, (typeof tenantMembers)[number]>()
   const usernameToUser = new Map<string, (typeof tenantMembers)[number]>()
   const emailToUser = new Map<string, (typeof tenantMembers)[number]>()
 
   for (const m of tenantMembers) {
+    userIdToUser.set(m.userId, m)
     if (m.staffProfile?.employeeCode) {
       codeToUser.set(m.staffProfile.employeeCode.toUpperCase().trim(), m)
     }
@@ -137,8 +148,10 @@ export const POST = withApi(async (req: NextRequest) => {
       continue
     }
 
-    // Attempt matching: 1) Employee Code, 2) Username, 3) Email
+    // Attempt matching: 0) Explicit Assignment, 1) Employee Code, 2) Username, 3) Email
+    const assignedUserId = assignments[cleanFileName] || assignments[baseName]
     const matchedMember =
+      (assignedUserId ? userIdToUser.get(assignedUserId) : null) ||
       codeToUser.get(baseName.toUpperCase()) ||
       usernameToUser.get(baseName.toLowerCase()) ||
       emailToUser.get(baseName.toLowerCase())
@@ -176,6 +189,14 @@ export const POST = withApi(async (req: NextRequest) => {
 
   // PREVIEW MODE: Return review summary and detailed items
   if (mode === 'preview') {
+    const candidateUsers = tenantMembers.map((m) => ({
+      userId: m.userId,
+      name: m.user.fullName,
+      email: m.user.email,
+      role: m.role,
+      employeeCode: m.staffProfile?.employeeCode || null,
+      avatarUrl: m.user.avatarUrl || null,
+    }))
     return ok({
       success: true,
       mode: 'preview',
@@ -185,6 +206,7 @@ export const POST = withApi(async (req: NextRequest) => {
       toReplace: replaceCount,
       unmatched: unmatchedCount,
       invalid: invalidCount,
+      candidateUsers,
       items,
     })
   }

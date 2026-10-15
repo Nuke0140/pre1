@@ -22,6 +22,8 @@ import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { normalizeRole } from '@/lib/roles'
 import { normalizeUsername, isValidUsername } from '@/lib/users/username-service'
 import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+import { EncryptionService } from '@/lib/security/encryption-service'
+import { CustomRoleService } from '@/lib/auth/rbac-engine'
 
 /** GET /api/v1/users — directory with role/search filtering & pagination (users:read) */
 export const GET = withApi(async (req: NextRequest) => {
@@ -167,7 +169,20 @@ export const GET = withApi(async (req: NextRequest) => {
     db.tenantUser.findMany({
       where,
       include: {
-        staffProfile: true,
+        staffProfile: {
+          include: {
+            reportingManager: {
+              include: {
+                user: {
+                  select: { id: true, fullName: true, avatarUrl: true, email: true },
+                },
+              },
+            },
+            directReports: {
+              select: { id: true, userId: true },
+            },
+          },
+        },
         assignedBranches: {
           include: {
             branch: {
@@ -185,7 +200,21 @@ export const GET = withApi(async (req: NextRequest) => {
                 studentLinks: {
                   include: {
                     student: {
-                      select: { id: true, firstName: true, lastName: true, admissionNo: true },
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        admissionNo: true,
+                        branchId: true,
+                        dob: true,
+                        gender: true,
+                        status: true,
+                        photoUrl: true,
+                        seatNumber: true,
+                        currentClassroom: {
+                          select: { id: true, name: true, branchId: true },
+                        },
+                      },
                     },
                   },
                 },
@@ -204,6 +233,12 @@ export const GET = withApi(async (req: NextRequest) => {
       _count: { _all: true },
     }),
   ])
+
+  const tenantBranches = await db.branch.findMany({
+    where: { tenantId: session.tenantId, deletedAt: null },
+    select: { id: true, name: true, code: true, isMain: true },
+  })
+  const branchMap = new Map(tenantBranches.map((b) => [b.id, b]))
 
   let activeCount = 0
   let pendingCount = 0
@@ -278,6 +313,18 @@ export const GET = withApi(async (req: NextRequest) => {
               joiningDate: m.staffProfile.joiningDate
                 ? m.staffProfile.joiningDate.toISOString()
                 : null,
+              reportingManagerId: m.staffProfile.reportingManagerId,
+              reportingManager: m.staffProfile.reportingManager
+                ? {
+                    id: m.staffProfile.reportingManager.id,
+                    userId: m.staffProfile.reportingManager.userId,
+                    name: m.staffProfile.reportingManager.user.fullName,
+                    fullName: m.staffProfile.reportingManager.user.fullName,
+                    designation: m.staffProfile.reportingManager.designation,
+                    avatarUrl: m.staffProfile.reportingManager.user.avatarUrl,
+                  }
+                : null,
+              directReportsCount: m.staffProfile.directReports ? m.staffProfile.directReports.length : 0,
               dateOfBirth: m.staffProfile.dateOfBirth ? '••••' : null,
               gender: m.staffProfile.gender,
               currentAddress: m.staffProfile.currentAddress ? '••••' : null,
@@ -299,24 +346,63 @@ export const GET = withApi(async (req: NextRequest) => {
               noticePeriodDays: m.staffProfile.noticePeriodDays,
             }
           : null,
+        reportingManagerId: m.staffProfile?.reportingManagerId || null,
+        reportingManager: m.staffProfile?.reportingManager
+          ? {
+              id: m.staffProfile.reportingManager.id,
+              userId: m.staffProfile.reportingManager.userId,
+              name: m.staffProfile.reportingManager.user.fullName,
+              designation: m.staffProfile.reportingManager.designation,
+              avatarUrl: m.staffProfile.reportingManager.user.avatarUrl,
+            }
+          : null,
         taughtClasses: m.user.taughtClasses,
         guardianProfile: m.user.guardianProfile
-          ? {
-              id: m.user.guardianProfile.id,
-              relationship: m.user.guardianProfile.relationship,
-              occupation: m.user.guardianProfile.occupation,
-              isPrimaryContact: m.user.guardianProfile.isPrimaryContact,
-              pickupPin: m.user.guardianProfile.pickupPin ? '••••' : null,
-              students: m.user.guardianProfile.studentLinks.map((sl) => ({
-                id: sl.student.id,
-                name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
-                admissionNo: sl.student.admissionNo,
-                canPickup: sl.canPickup,
-                receivesComm: sl.receivesComm,
-                pickupPin: sl.pickupPin ? '••••' : null,
-                relationship: sl.relationship || m.user.guardianProfile!.relationship,
-              })),
-            }
+          ? (() => {
+              const gp = m.user.guardianProfile
+              const students = gp.studentLinks.map((sl: any) => {
+                const b = branchMap.get(sl.student.branchId)
+                return {
+                  id: sl.student.id,
+                  name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
+                  admissionNo: sl.student.admissionNo,
+                  canPickup: sl.canPickup,
+                  receivesComm: sl.receivesComm,
+                  pickupPin: sl.pickupPin ? '••••' : null,
+                  relationship: sl.relationship || gp.relationship,
+                  classroom: sl.student.currentClassroom?.name || null,
+                  branchId: sl.student.branchId,
+                  branchName: b?.name || null,
+                  branchCode: b?.code || null,
+                  dob: sl.student.dob ? sl.student.dob.toISOString() : null,
+                  gender: sl.student.gender || null,
+                  status: sl.student.status || 'ACTIVE',
+                  photoUrl: sl.student.photoUrl || null,
+                  seatNumber: sl.student.seatNumber || null,
+                }
+              })
+              const uniqueBranchIds = Array.from(new Set(students.map((s: any) => s.branchId).filter(Boolean))) as string[]
+              const campuses = uniqueBranchIds.map((bId) => {
+                const b = branchMap.get(bId)
+                return {
+                  id: bId,
+                  name: b?.name || 'Unknown Campus',
+                  code: b?.code || '',
+                  studentCount: students.filter((s: any) => s.branchId === bId).length,
+                }
+              })
+              return {
+                id: gp.id,
+                relationship: gp.relationship,
+                occupation: gp.occupation,
+                isPrimaryContact: gp.isPrimaryContact,
+                pickupPin: gp.pickupPin ? '••••' : null,
+                isCrossCampus: uniqueBranchIds.length > 1,
+                campusesCount: uniqueBranchIds.length,
+                campuses,
+                students,
+              }
+            })()
           : null,
       }
     }),
@@ -398,6 +484,7 @@ export const POST = withApi(async (req: NextRequest) => {
     branchId,
     branchIds: inputBranchIds,
     assignedBranchIds: inputAssignedBranchIds,
+    customRoleIds,
     classroomId,
     guardianId,
     studentId,
@@ -431,6 +518,7 @@ export const POST = withApi(async (req: NextRequest) => {
     noticePeriodDays,
     occupation,
     locale,
+    reportingManagerId,
   } = body as {
     fullName: string
     email: string
@@ -444,6 +532,7 @@ export const POST = withApi(async (req: NextRequest) => {
     branchId?: string
     branchIds?: string[]
     assignedBranchIds?: string[]
+    customRoleIds?: string[]
     classroomId?: string
     guardianId?: string
     studentId?: string
@@ -477,6 +566,7 @@ export const POST = withApi(async (req: NextRequest) => {
     noticePeriodDays?: number
     occupation?: string
     locale?: string
+    reportingManagerId?: string
   }
 
   const effectiveFullName = (fullName || (body as any).parentName || (body as any).parentGuardianFullName || '').trim()
@@ -1012,6 +1102,7 @@ export const POST = withApi(async (req: NextRequest) => {
       ['OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'STAFF', 'ACCOUNTS', 'RECEPTIONIST', 'ATTENDANT', 'DRIVER'].includes(r)
     )
 
+    let staffProfileRecord: any = null
     if (isStaff || designation) {
       const existingProfile = await tx.staffProfile.findUnique({
         where: { tenantId_userId: { tenantId: session.tenantId!, userId: user.id } },
@@ -1069,8 +1160,26 @@ export const POST = withApi(async (req: NextRequest) => {
           : null
         : null
 
+      let resolvedReportingManagerId: string | null = null
+      if (reportingManagerId && typeof reportingManagerId === 'string' && reportingManagerId.trim()) {
+        const mgrStaff = await tx.staffProfile.findFirst({
+          where: {
+            tenantId: session.tenantId!,
+            deletedAt: null,
+            OR: [
+              { id: reportingManagerId.trim() },
+              { userId: reportingManagerId.trim() },
+            ],
+          },
+          select: { id: true, userId: true },
+        })
+        if (mgrStaff && mgrStaff.userId !== user.id) {
+          resolvedReportingManagerId = mgrStaff.id
+        }
+      }
+
       if (existingProfile) {
-        await tx.staffProfile.update({
+        staffProfileRecord = await tx.staffProfile.update({
           where: { id: existingProfile.id },
           data: {
             employeeCode: finalEmpCode,
@@ -1079,6 +1188,7 @@ export const POST = withApi(async (req: NextRequest) => {
             qualification: qualification !== undefined ? (qualification?.trim() || null) : existingProfile.qualification,
             employmentType: employmentType || existingProfile.employmentType,
             branchId: branchId || existingProfile.branchId,
+            ...(reportingManagerId !== undefined ? { reportingManagerId: resolvedReportingManagerId } : {}),
             ...(parsedDob ? { dateOfBirth: parsedDob } : {}),
             ...(normGender ? { gender: normGender } : {}),
             ...(parsedJoining ? { joiningDate: parsedJoining } : {}),
@@ -1086,19 +1196,24 @@ export const POST = withApi(async (req: NextRequest) => {
             ...(emergencyContactPhone !== undefined ? { emergencyContactPhone: emergencyContactPhone?.trim() || null } : {}),
             ...(maritalStatus !== undefined ? { maritalStatus: maritalStatus?.trim() || null } : {}),
             ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
-            ...(currentAddress !== undefined ? { currentAddress: currentAddress?.trim() || null } : {}),
-            ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress?.trim() || null } : {}),
-            ...(panNumber !== undefined ? { panNumber: statutoryCheck.normalized.panNumber ?? null } : {}),
-            ...(aadhaarNumber !== undefined ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null } : {}),
-            ...(uanNumber !== undefined ? { uanNumber: statutoryCheck.normalized.uanNumber ?? null } : {}),
-            ...(esiNumber !== undefined ? { esiNumber: statutoryCheck.normalized.esiNumber ?? null } : {}),
+            ...(currentAddress !== undefined ? { currentAddress: currentAddress?.trim() ? EncryptionService.encrypt(currentAddress.trim(), session.tenantId) : null } : {}),
+            ...(permanentAddress !== undefined ? { permanentAddress: permanentAddress?.trim() ? EncryptionService.encrypt(permanentAddress.trim(), session.tenantId) : null } : {}),
+            ...(panNumber !== undefined ? { panNumber: statutoryCheck.normalized.panNumber ? EncryptionService.encrypt(statutoryCheck.normalized.panNumber, session.tenantId) : null } : {}),
+            ...(aadhaarNumber !== undefined ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ? EncryptionService.encrypt(statutoryCheck.normalized.aadhaarNumber, session.tenantId) : null } : {}),
+            ...(uanNumber !== undefined ? { uanNumber: statutoryCheck.normalized.uanNumber ? EncryptionService.encrypt(statutoryCheck.normalized.uanNumber, session.tenantId) : null } : {}),
+            ...(esiNumber !== undefined ? { esiNumber: statutoryCheck.normalized.esiNumber ? EncryptionService.encrypt(statutoryCheck.normalized.esiNumber, session.tenantId) : null } : {}),
             ...(parsedProbation ? { probationEndDate: parsedProbation } : {}),
             ...(parsedConfirmation ? { confirmationDate: parsedConfirmation } : {}),
             ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
           },
+          include: {
+            reportingManager: {
+              include: { user: { select: { fullName: true, avatarUrl: true } } },
+            },
+          },
         })
       } else {
-        await tx.staffProfile.create({
+        staffProfileRecord = await tx.staffProfile.create({
           data: {
             tenantId: session.tenantId!,
             userId: user.id,
@@ -1108,6 +1223,7 @@ export const POST = withApi(async (req: NextRequest) => {
             qualification: qualification?.trim() || null,
             employmentType: employmentType || 'FULL_TIME',
             branchId: branchId || null,
+            reportingManagerId: resolvedReportingManagerId,
             dateOfBirth: parsedDob || null,
             gender: normGender,
             joiningDate: parsedJoining || null,
@@ -1115,15 +1231,20 @@ export const POST = withApi(async (req: NextRequest) => {
             emergencyContactPhone: emergencyContactPhone?.trim() || null,
             maritalStatus: maritalStatus?.trim() || null,
             bloodGroup: normalizeBloodGroup(bloodGroup),
-            currentAddress: currentAddress?.trim() || null,
-            permanentAddress: permanentAddress?.trim() || null,
-            panNumber: statutoryCheck.normalized.panNumber ?? null,
-            aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null,
-            uanNumber: statutoryCheck.normalized.uanNumber ?? null,
-            esiNumber: statutoryCheck.normalized.esiNumber ?? null,
+            currentAddress: currentAddress?.trim() ? EncryptionService.encrypt(currentAddress.trim(), session.tenantId) : null,
+            permanentAddress: permanentAddress?.trim() ? EncryptionService.encrypt(permanentAddress.trim(), session.tenantId) : null,
+            panNumber: statutoryCheck.normalized.panNumber ? EncryptionService.encrypt(statutoryCheck.normalized.panNumber, session.tenantId) : null,
+            aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ? EncryptionService.encrypt(statutoryCheck.normalized.aadhaarNumber, session.tenantId) : null,
+            uanNumber: statutoryCheck.normalized.uanNumber ? EncryptionService.encrypt(statutoryCheck.normalized.uanNumber, session.tenantId) : null,
+            esiNumber: statutoryCheck.normalized.esiNumber ? EncryptionService.encrypt(statutoryCheck.normalized.esiNumber, session.tenantId) : null,
             probationEndDate: parsedProbation || null,
             confirmationDate: parsedConfirmation || null,
             noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
+          },
+          include: {
+            reportingManager: {
+              include: { user: { select: { fullName: true, avatarUrl: true } } },
+            },
           },
         })
       }
@@ -1160,8 +1281,40 @@ export const POST = withApi(async (req: NextRequest) => {
     }))
     const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
-    return { user, membership, assignedRoles, finalPrimaryRole, assignedBranches, assignedBranchIds }
+    return { user, membership, assignedRoles, finalPrimaryRole, assignedBranches, assignedBranchIds, staffProfileRecord }
   })
+
+  if (customRoleIds && Array.isArray(customRoleIds) && customRoleIds.length > 0) {
+    await CustomRoleService.syncUserCustomRoles({
+      tenantUserId: result.membership.id,
+      tenantId: session.tenantId,
+      customRoleIds,
+      assignedById: session.uid,
+    })
+  }
+
+  let invitationData: any = null
+  if (result.membership.status === 'PENDING' || credentialSetupMode === 'INVITE') {
+    const { InvitationService } = await import('@/lib/users/invitation-service')
+    const origin = req.headers.get('origin') || undefined
+    const createdInv = await InvitationService.createInvitation({
+      tenantId: session.tenantId,
+      userId: result.user.id,
+      tenantUserId: result.membership.id,
+      email: emailNorm,
+      role: result.finalPrimaryRole,
+      invitedById: session.uid,
+      origin,
+      sendEmail: true,
+    }).catch(() => null)
+    if (createdInv) {
+      invitationData = {
+        invitationId: createdInv.invitation.id,
+        inviteUrl: createdInv.inviteUrl,
+        expiresAt: createdInv.invitation.expiresAt.toISOString(),
+      }
+    }
+  }
 
   const meta = getRequestMeta(req)
   await recordAudit({
@@ -1205,6 +1358,18 @@ export const POST = withApi(async (req: NextRequest) => {
       branchId: result.membership.branchId,
       assignedBranches: result.assignedBranches,
       assignedBranchIds: result.assignedBranchIds,
+      staffProfile: result.staffProfileRecord,
+      reportingManagerId: result.staffProfileRecord?.reportingManagerId || null,
+      reportingManager: result.staffProfileRecord?.reportingManager
+        ? {
+            id: result.staffProfileRecord.reportingManager.id,
+            userId: result.staffProfileRecord.reportingManager.userId,
+            name: result.staffProfileRecord.reportingManager.user.fullName,
+            designation: result.staffProfileRecord.reportingManager.designation,
+            avatarUrl: result.staffProfileRecord.reportingManager.user.avatarUrl,
+          }
+        : null,
+      invitation: invitationData,
     },
     undefined,
     201

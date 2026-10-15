@@ -47,11 +47,31 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     const isPending = member.status === 'PENDING'
     const origin = req.headers.get('origin') || 'http://localhost:3000'
 
+    if (isPending) {
+      const { InvitationService } = await import('@/lib/users/invitation-service')
+      const result = await InvitationService.resendInvitation({
+        tenantId: session.tenantId,
+        userId: member.userId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        origin,
+        req,
+      })
+      return ok({
+        success: true,
+        message: result.message,
+        resendCount: result.resendCount,
+        expiresAt: result.expiresAt,
+        inviteUrl: result.inviteUrl,
+      })
+    }
+
     await emailService.send({
       to: member.user.email,
-      subject: isPending ? 'Welcome to PreOne — Staff Invitation' : 'Welcome to PreOne — Account Access',
-      html: `<div style="font-family:sans-serif;padding:24px;"><h2>Welcome to PreOne</h2><p>Hello ${member.user.fullName},</p><p>You have ${isPending ? 'been invited to join' : 'an active account in'} the school workspace as a <strong>${member.role}</strong>.</p><p>Please log in using your registered credentials at <a href="${origin}/auth/login">${origin}/auth/login</a>.</p></div>`,
-      text: `Hello ${member.user.fullName},\n\nYou have ${isPending ? 'been invited to join' : 'an active account in'} PreOne as a ${member.role}.\n\nPlease log in at ${origin}/auth/login.`,
+      subject: 'Welcome to PreOne — Account Access',
+      html: `<div style="font-family:sans-serif;padding:24px;"><h2>Welcome to PreOne</h2><p>Hello ${member.user.fullName},</p><p>You have an active account in the school workspace as a <strong>${member.role}</strong>.</p><p>Please log in using your registered credentials at <a href="${origin}/auth/login">${origin}/auth/login</a>.</p></div>`,
+      text: `Hello ${member.user.fullName},\n\nYou have an active account in PreOne as a ${member.role}.\n\nPlease log in at ${origin}/auth/login.`,
       tenantId: session.tenantId,
     })
 

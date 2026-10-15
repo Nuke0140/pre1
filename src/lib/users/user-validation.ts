@@ -233,11 +233,30 @@ export function normalizeFamilyCreateInput(body: any): FamilyCreateInput {
   }
 }
 
+export function validateFullName(name?: string | null): { valid: boolean; error?: string } {
+  const trimmed = (name || '').trim()
+  if (!trimmed) {
+    return { valid: false, error: 'Full name is required' }
+  }
+  if (trimmed.length < 2) {
+    return { valid: false, error: 'Full name must be at least 2 characters' }
+  }
+  if (/^\d+$/.test(trimmed)) {
+    return { valid: false, error: 'Full name cannot be purely numeric digits' }
+  }
+  const letterCount = (trimmed.match(/[\p{L}]/gu) || []).length
+  if (letterCount < 2) {
+    return { valid: false, error: 'Full name must contain at least 2 alphabetic letters' }
+  }
+  return { valid: true }
+}
+
 export function validateStaffInput(input: StaffCreateInput): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
-  if (!input.fullName || !input.fullName.trim()) {
-    errors.push('Full name is required')
+  const nameRes = validateFullName(input.fullName)
+  if (!nameRes.valid) {
+    errors.push(nameRes.error!)
   }
 
   if (input.email && input.email.trim()) {
@@ -311,8 +330,9 @@ export function validateFamilyInput(input: FamilyCreateInput): { valid: boolean;
     errors.push('Role must be either PARENT or GUARDIAN')
   }
 
-  if (!input.fullName || !input.fullName.trim()) {
-    errors.push('Full name is required')
+  const nameRes = validateFullName(input.fullName)
+  if (!nameRes.valid) {
+    errors.push(nameRes.error!)
   }
 
   if (input.email && input.email.trim()) {
@@ -342,6 +362,11 @@ export function validateFamilyInput(input: FamilyCreateInput): { valid: boolean;
   } else if (input.childMode === 'CREATE') {
     if (!input.newChild?.firstName || !input.newChild.firstName.trim()) {
       errors.push('Child first name is required')
+    } else {
+      const childNameRes = validateFullName(input.newChild.firstName)
+      if (!childNameRes.valid) {
+        errors.push(`Child first name: ${childNameRes.error}`)
+      }
     }
     if (!input.newChild?.dob) {
       errors.push('Child date of birth is required')

@@ -1,13 +1,17 @@
 'use client'
 
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+=======
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+>>>>>>> Stashed changes
 import {
   User, Mail, Phone, Building, Briefcase, Baby, Shield, KeyRound,
   Lock, CheckCircle2, XCircle, Clock, Calendar, Edit3, ShieldAlert,
   FileText, Download, Trash2, Eye, RefreshCw, Globe, MapPin,
-  HeartHandshake, GraduationCap, Award, Hash, Check,
+  HeartHandshake, GraduationCap, Award, Hash, Check, Copy,
   Laptop, Smartphone, Tablet, Monitor, LogOut, Unlock, Send, UserX, UserCheck,
-  History, ChevronDown, ChevronRight, Filter
+  History, ChevronDown, ChevronRight, Filter, Network
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
@@ -20,6 +24,8 @@ import { useI18n } from '@/lib/i18n'
 import { PhotoUploadModal } from './PhotoUploadModal'
 import { ResetPasswordModal } from './ResetPasswordModal'
 import { PickupPinModal } from './PickupPinModal'
+import { DpdpAnonymizeModal } from './DpdpAnonymizeModal'
+import { FamilyGroupingCard } from './FamilyGroupingCard'
 
 interface User360DrawerProps {
   open: boolean
@@ -61,6 +67,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
   const [revokingAll, setRevokingAll] = useState(false)
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
   const [pickupPinModalOpen, setPickupPinModalOpen] = useState(false)
+  const [dpdpModalOpen, setDpdpModalOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
 
   // Activity Trail State (Doc N-6)
@@ -517,9 +524,28 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                       </div>
                     )
                   }
+                  if (isFamily) {
+                    const familyCampuses = gp?.campuses || []
+                    if (familyCampuses.length > 0) {
+                      return (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {familyCampuses.map((c: any) => (
+                            <span key={c.id} className="badge badge-sm text-[11px] badge-outline font-medium">
+                              {c.name} {c.code ? `(${c.code})` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )
+                    }
+                    return (
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        Relationship-Scoped (Linked Wards)
+                      </span>
+                    )
+                  }
                   return (
                     <span className="font-medium text-gray-900 dark:text-gray-100">
-                      {user.branchId ? `Branch ID: ${user.branchId.slice(-6)}` : 'All Branches / Central'}
+                      {user.branchId ? 'Single Campus Branch' : 'All Branches / Central'}
                     </span>
                   )
                 })()}
@@ -639,6 +665,75 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                   ) : (
                     <p className="text-xs text-muted-foreground italic">No specific classroom assigned as lead teacher.</p>
                   )}
+                </div>
+
+                {/* Organizational Hierarchy & Reporting */}
+                <div className="p-3 rounded-lg border border-border/80 bg-card space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
+                      <Network className="w-3.5 h-3.5 text-primary" /> Reporting Hierarchy
+                    </span>
+                    {(sp.directReports?.length || 0) > 0 && (
+                      <span className="badge b-primary text-[10px]">
+                        {sp.directReports?.length} Direct Report{sp.directReports?.length === 1 ? '' : 's'}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Reporting Manager */}
+                    <div className="p-2.5 rounded-lg border border-border/60 bg-muted/20 space-y-1.5">
+                      <span className="text-muted-foreground block text-[11px] font-semibold uppercase tracking-wider">
+                        Reporting Manager
+                      </span>
+                      {sp.reportingManager || activeUser.reportingManager ? (
+                        <div className="flex items-center gap-2.5 pt-0.5">
+                          <Avatar
+                            name={(sp.reportingManager || activeUser.reportingManager)!.name}
+                            src={(sp.reportingManager || activeUser.reportingManager)!.avatarUrl}
+                            size="sm"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-foreground truncate">
+                              {(sp.reportingManager || activeUser.reportingManager)!.name}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {(sp.reportingManager || activeUser.reportingManager)!.designation || 'Supervisor'}
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic pt-1">
+                          Top-level / Self-managed (No manager)
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Direct Reports Count / Summary */}
+                    <div className="p-2.5 rounded-lg border border-border/60 bg-muted/20 space-y-1.5">
+                      <span className="text-muted-foreground block text-[11px] font-semibold uppercase tracking-wider">
+                        Direct Reports
+                      </span>
+                      {sp.directReports && sp.directReports.length > 0 ? (
+                        <div className="flex items-center gap-2 pt-1 flex-wrap">
+                          {sp.directReports.map((dr: any) => (
+                            <div
+                              key={dr.id}
+                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-card border border-border text-xs"
+                              title={`${dr.name} - ${dr.designation || dr.department || 'Staff'}`}
+                            >
+                              <Avatar name={dr.name} src={dr.avatarUrl} size="sm" />
+                              <span className="font-medium text-foreground truncate max-w-[120px]">{dr.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic pt-1">
+                          No direct reports assigned
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Personal & Demographics */}
@@ -774,102 +869,11 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
             {/* TAB 2: RELATIONSHIPS (FAMILY: Caregiver Profile & Students) */}
             {/* ────────────────────────────────────────────────────────── */}
             {isFamily && (
-              <div className="space-y-3">
-                {/* Guardian Details Card */}
-                {gp && (
-                  <div className="p-3 rounded-lg border border-border/80 bg-card grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div>
-                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Relationship</span>
-                      <span className="font-bold text-foreground capitalize">
-                        {gp.relationship?.toLowerCase() || 'Caregiver'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Profession / Occupation</span>
-                      <span className="font-medium text-foreground">
-                        {gp.occupation || 'Not recorded'}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-muted-foreground block text-xs font-semibold uppercase tracking-wider">Emergency Priority</span>
-                      {gp.isPrimaryContact ? (
-                        <span className="badge b-success text-xs font-semibold">Primary Contact</span>
-                      ) : (
-                        <span className="badge b-neutral text-xs">Secondary Contact</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Enrolled Students Card */}
-                <div className="space-y-2">
-                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Enrolled Children ({gp?.students?.length || 0})</span>
-                  </div>
-
-                  {gp?.students && gp.students.length > 0 ? (
-                    gp.students.map((child) => (
-                      <div
-                        key={child.id}
-                        className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Baby className="w-3.5 h-3.5 text-indigo-600" />
-                            {child.name}
-                            <span className="badge b-primary font-mono text-[10px]">{child.admissionNo}</span>
-                          </div>
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            Relationship: <span className="font-medium capitalize">{child.relationship?.toLowerCase() || gp?.relationship?.toLowerCase() || 'Caregiver'}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`badge text-[10px] ${
-                              child.canPickup ? 'b-success' : 'b-neutral'
-                            }`}
-                          >
-                            {child.canPickup ? 'Pickup Authorized' : 'No Pickup'}
-                          </span>
-                          {child.receivesComm !== false && (
-                            <span className="badge b-blue text-[10px]">
-                              Communications Active
-                            </span>
-                          )}
-                          {child.canPickup && (
-                            <>
-                              {child.pickupPin || gp?.pickupPin ? (
-                                <span className="badge b-purple font-mono text-[10px]" title="Pickup PIN is secured">
-                                  PIN: ••••
-                                </span>
-                              ) : (
-                                <span className="badge b-neutral text-[10px]" title="No pickup PIN set">
-                                  No PIN
-                                </span>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => setPickupPinModalOpen(true)}
-                                className="btn btn-ghost btn-xs text-[10px] text-purple-600 dark:text-purple-400 hover:underline px-1.5 py-0.5 h-auto font-medium"
-                                title="Manage Pickup PIN for this child and family"
-                              >
-                                Manage PIN
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-4 text-center rounded-lg border border-dashed border-border text-muted-foreground text-xs">
-                      No linked students found for this family profile.
-                    </div>
-                  )}
-                </div>
-              </div>
+              <FamilyGroupingCard
+                user={activeUser}
+                onOpenPinModal={() => setPickupPinModalOpen(true)}
+                onUpdate={loadProfileDetail}
+              />
             )}
           </div>
         )}
@@ -879,6 +883,91 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
         {/* ────────────────────────────────────────────────────────── */}
         {activeTab === 'SECURITY' && (
           <div className="space-y-4 text-xs">
+            {/* Invitation Lifecycle Card (Doc 1.3) */}
+            {user.status === 'PENDING' && (
+              <div className="p-4 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200 dark:border-amber-800/60 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 shrink-0">
+                      <Mail size={16} />
+                    </div>
+                    <div>
+                      <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        <span>Workspace Invitation Lifecycle</span>
+                        {profileDetail?.invitation?.effectiveStatus === 'EXPIRED' ? (
+                          <span className="badge b-red text-[10px] font-bold">Expired</span>
+                        ) : profileDetail?.invitation?.effectiveStatus === 'EXPIRING_SOON' ? (
+                          <span className="badge b-amber text-[10px] font-bold animate-pulse">Expiring Soon</span>
+                        ) : (
+                          <span className="badge b-amber text-[10px] font-bold">Pending Setup</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        Onboarding credential invitation sent to <strong className="font-mono text-gray-700 dark:text-gray-300">{user.email}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResendInvite}
+                      disabled={actionLoading}
+                      className="btn btn-xs btn-primary flex items-center gap-1"
+                      title="Generate fresh 7-day token and resend email"
+                    >
+                      <Send size={11} className={actionLoading ? 'animate-spin' : ''} />
+                      <span>{actionLoading ? 'Sending...' : 'Resend Invite'}</span>
+                    </button>
+                    {profileDetail?.invitation?.inviteUrl && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(profileDetail.invitation.inviteUrl)
+                          toast.success('Link Copied', 'Direct invitation link copied to clipboard.')
+                        }}
+                        className="btn btn-xs btn-outline flex items-center gap-1"
+                        title="Copy direct invitation onboarding link"
+                      >
+                        <Copy size={11} />
+                        <span>Copy Link</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-amber-200/50 dark:border-amber-800/30 text-xs">
+                  <div className="p-2 rounded-lg bg-white dark:bg-gray-900/60 border border-amber-100 dark:border-amber-900/30">
+                    <span className="text-[10px] text-gray-400 block">Invited Age</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">
+                      {profileDetail?.invitation?.invitedAge || timeAgo(user.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-white dark:bg-gray-900/60 border border-amber-100 dark:border-amber-900/30">
+                    <span className="text-[10px] text-gray-400 block">Expiry Status</span>
+                    <span className={`font-semibold ${profileDetail?.invitation?.isExpired ? 'text-rose-600' : profileDetail?.invitation?.isExpiringSoon ? 'text-amber-600' : 'text-gray-800 dark:text-gray-200'}`}>
+                      {profileDetail?.invitation?.expiresIn || 'Valid for 7 days'}
+                    </span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-white dark:bg-gray-900/60 border border-amber-100 dark:border-amber-900/30">
+                    <span className="text-[10px] text-gray-400 block">Resends Count</span>
+                    <span className="font-semibold font-mono text-gray-800 dark:text-gray-200">
+                      {profileDetail?.invitation?.resendCount ?? 0} resends
+                    </span>
+                  </div>
+
+                  <div className="p-2 rounded-lg bg-white dark:bg-gray-900/60 border border-amber-100 dark:border-amber-900/30">
+                    <span className="text-[10px] text-gray-400 block">Invited By</span>
+                    <span className="font-semibold text-gray-800 dark:text-gray-200 truncate block">
+                      {profileDetail?.invitation?.invitedByName || 'Administrator'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Active Sessions & Connected Devices */}
             <div className="p-3.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
               <div className="flex items-center justify-between gap-2">
@@ -999,6 +1088,31 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
               </div>
             </div>
 
+            {profileDetail?.customRoles && profileDetail.customRoles.length > 0 && (
+              <div className="p-3 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-lg border border-indigo-200 dark:border-indigo-900/40 space-y-2">
+                <span className="text-indigo-700 dark:text-indigo-300 font-semibold block text-[11px]">
+                  Custom Dynamic Roles &amp; Capabilities (Doc 2.1)
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {profileDetail.customRoles.map((cr: any) => (
+                    <span key={cr.id} className="badge badge-primary text-xs font-semibold">
+                      {cr.name} ({cr.code})
+                    </span>
+                  ))}
+                </div>
+                <div className="pt-1">
+                  <span className="text-[10px] text-gray-400 block mb-1">Effective Dynamic Capabilities:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {[...new Set(profileDetail.customRoles.flatMap((cr: any) => cr.capabilities || []))].map((cap: any) => (
+                      <span key={cap} className="badge badge-xs badge-ghost font-mono text-[10px]">
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-lg border border-gray-200 dark:border-gray-700">
               <span className="text-gray-400 block text-[11px] mb-1">Campus Scoping &amp; Assigned Branches</span>
               {(() => {
@@ -1024,9 +1138,29 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                     </div>
                   )
                 }
+                if (isFamily) {
+                  const familyCampuses = gp?.campuses || []
+                  if (familyCampuses.length > 0) {
+                    return (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {familyCampuses.map((c: any) => (
+                          <span key={c.id} className="badge badge-outline text-xs font-semibold">
+                            <Building className="w-3 h-3 mr-1 inline" />
+                            {c.name} {c.code ? `(${c.code})` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  }
+                  return (
+                    <p className="text-gray-500 text-[11px] mt-1">
+                      Relationship-Scoped: Linked across student campus enrollments
+                    </p>
+                  )
+                }
                 return (
                   <p className="text-gray-500 text-[11px] mt-1">
-                    {user.branchId ? `Single Campus Branch (${user.branchId.slice(-6)})` : 'Central / All Campuses Scope'}
+                    {user.branchId ? 'Single Campus Branch' : 'Central / All Campuses Scope'}
                   </p>
                 )
               })()}
@@ -1134,6 +1268,48 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 </div>
               </div>
             )}
+
+            {/* DPDP Statutory Compliance & Data Erasure (Doc 4.2) */}
+            <div className="p-3.5 bg-red-50/40 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-900/50 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="font-semibold text-gray-900 dark:text-white flex items-center gap-1.5 text-xs">
+                    <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400" /> DPDP Statutory Compliance &amp; Data Erasure
+                  </span>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    Irreversible de-identification of personal data under Digital Personal Data Protection Act 2023
+                  </p>
+                </div>
+                <span
+                  className={`badge text-[10px] font-mono ${
+                    user.status === 'ARCHIVED' || user.name.startsWith('Anonymized')
+                      ? 'badge-warning'
+                      : 'badge-ghost border border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  {user.status === 'ARCHIVED' || user.name.startsWith('Anonymized')
+                    ? 'DPDP Anonymized'
+                    : 'Active Data Principal'}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-normal">
+                Scrubs direct identifiers across user, staff HR records, and guardian contacts while preserving immutable statutory accounting receipts (7-year retention rule).
+              </p>
+
+              {user.status !== 'ARCHIVED' && !user.name.startsWith('Anonymized') && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setDpdpModalOpen(true)}
+                    className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  >
+                    <Trash2 size={13} className="text-red-600 dark:text-red-400" />
+                    <span>DPDP De-identification &amp; Erasure Workflow</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1221,6 +1397,220 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
           </div>
         )}
 
+        {/* ────────────────────────────────────────────────────────── */}
+        {/* TAB 5: ACTIVITY TRAIL (Doc N-6) */}
+        {/* ────────────────────────────────────────────────────────── */}
+        {activeTab === 'ACTIVITY' && (
+          <div className="space-y-3.5 text-xs">
+            {/* Header / Perspective Filter Segmented Buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl text-[11px] font-medium overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setActivityPerspective('ALL')}
+                  className={`py-1 px-2.5 rounded-lg transition-all whitespace-nowrap ${
+                    activityPerspective === 'ALL'
+                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  }`}
+                >
+                  All Events ({activityCounts.total})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityPerspective('TARGET')}
+                  className={`py-1 px-2.5 rounded-lg transition-all whitespace-nowrap ${
+                    activityPerspective === 'TARGET'
+                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  }`}
+                >
+                  Changes to Account ({activityCounts.asTarget})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityPerspective('ACTOR')}
+                  className={`py-1 px-2.5 rounded-lg transition-all whitespace-nowrap ${
+                    activityPerspective === 'ACTOR'
+                      ? 'bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'
+                  }`}
+                >
+                  Actions by User ({activityCounts.asActor})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                <select
+                  value={activitySeverity}
+                  onChange={(e) => setActivitySeverity(e.target.value)}
+                  className="text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 outline-none text-gray-700 dark:text-gray-300"
+                >
+                  <option value="ALL">All Severities</option>
+                  <option value="INFO">Info</option>
+                  <option value="WARNING">Warning</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={loadActivity}
+                  disabled={loadingActivity}
+                  className="btn btn-ghost btn-xs text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 p-1"
+                  title="Refresh activity logs"
+                >
+                  <RefreshCw size={13} className={loadingActivity ? 'animate-spin' : ''} />
+                </button>
+              </div>
+            </div>
+
+            {/* Search filter input */}
+            <div className="relative">
+              <input
+                type="text"
+                value={activitySearch}
+                onChange={(e) => setActivitySearch(e.target.value)}
+                placeholder="Filter by action or summary keyword..."
+                className="w-full text-xs bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-lg pl-8 pr-3 py-1.5 outline-none focus:ring-1 focus:ring-indigo-500 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+              />
+              <History size={13} className="absolute left-2.5 top-2.5 text-gray-400" />
+            </div>
+
+            {/* Timeline Stream */}
+            {loadingActivity ? (
+              <div className="p-8 text-center text-gray-400 flex items-center justify-center gap-2">
+                <RefreshCw size={14} className="animate-spin text-indigo-600" />
+                <span>Loading activity stream...</span>
+              </div>
+            ) : activityLogs.length > 0 ? (
+              <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
+                {activityLogs.map((log) => {
+                  const isExpanded = expandedLogIds.has(log.id)
+                  const hasDiff = Boolean(
+                    (log.oldValues && Object.keys(log.oldValues).length > 0) ||
+                    (log.newValues && Object.keys(log.newValues).length > 0)
+                  )
+
+                  const severityColor =
+                    log.severity === 'CRITICAL'
+                      ? 'border-red-500 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300'
+                      : log.severity === 'WARNING'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                      : 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300'
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="p-3 rounded-xl border border-gray-200 dark:border-gray-700/80 bg-white dark:bg-gray-900/70 shadow-xs space-y-2 transition-all"
+                    >
+                      {/* Top Bar: Action, Perspective Badge, Severity & Timestamp */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-gray-900 dark:text-white font-mono text-[11px]">
+                            {log.action.replace(/_/g, ' ')}
+                          </span>
+                          <span
+                            className={`badge text-[10px] uppercase font-mono px-1.5 py-0.5 ${
+                              log.perspective === 'TARGET'
+                                ? 'b-purple'
+                                : log.perspective === 'ACTOR'
+                                ? 'b-blue'
+                                : 'b-neutral'
+                            }`}
+                          >
+                            {log.perspective === 'TARGET'
+                              ? 'Subject'
+                              : log.perspective === 'ACTOR'
+                              ? 'Actor'
+                              : 'Subject & Actor'}
+                          </span>
+                          <span className={`badge text-[9px] uppercase px-1 py-0.2 border ${severityColor}`}>
+                            {log.severity}
+                          </span>
+                        </div>
+
+                        <span className="text-[11px] text-gray-400" title={fmtDateTime(log.createdAt)}>
+                          {timeAgo(log.createdAt)}
+                        </span>
+                      </div>
+
+                      {/* Summary */}
+                      <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {log.summary || `Action ${log.action} on ${log.entity || 'account'}`}
+                      </p>
+
+                      {/* Attribution and Meta Row */}
+                      <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 pt-1 border-t border-gray-100 dark:border-gray-800/60">
+                        <div className="flex items-center gap-1.5">
+                          <User size={12} className="text-gray-400" />
+                          <span>
+                            {log.actor?.name
+                              ? `${log.actor.name} (${log.actor.role || 'Staff'})`
+                              : 'System / Self-service'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {log.ipAddress && (
+                            <span className="font-mono text-[10px] text-gray-400">
+                              IP: {log.ipAddress}
+                            </span>
+                          )}
+                          {hasDiff && (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandLog(log.id)}
+                              className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium"
+                            >
+                              <span>{isExpanded ? 'Hide changes' : 'View changes'}</span>
+                              {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expandable Diffs */}
+                      {isExpanded && hasDiff && (
+                        <div className="pt-2 mt-2 border-t border-dashed border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-mono">
+                          {log.oldValues && (
+                            <div className="p-2 rounded bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 space-y-1">
+                              <span className="font-bold text-rose-700 dark:text-rose-400 block text-[10px] uppercase">
+                                Previous Values
+                              </span>
+                              <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap text-rose-900 dark:text-rose-200">
+                                {JSON.stringify(log.oldValues, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {log.newValues && (
+                            <div className="p-2 rounded bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 space-y-1">
+                              <span className="font-bold text-emerald-700 dark:text-emerald-400 block text-[10px] uppercase">
+                                Applied Values
+                              </span>
+                              <pre className="text-[10px] overflow-x-auto whitespace-pre-wrap text-emerald-900 dark:text-emerald-200">
+                                {JSON.stringify(log.newValues, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="p-8 text-center rounded-xl border border-dashed border-gray-200 dark:border-gray-700 text-gray-500 space-y-1">
+                <History size={24} className="mx-auto text-gray-300 dark:text-gray-600 mb-1" />
+                <p className="font-medium text-xs text-gray-700 dark:text-gray-300">
+                  No activity records found
+                </p>
+                <p className="text-[11px] text-gray-400">
+                  Audit events and administrative actions will appear here automatically.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Actions Bar */}
         <div className="pt-3 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <button type="button" className="btn btn-secondary text-xs" onClick={onClose}>
@@ -1272,7 +1662,7 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
           user
             ? {
                 id: user.userId || user.id,
-                fullName: user.name || user.fullName,
+                fullName: user.name || (user as any).fullName,
                 role: user.role,
                 students: gp?.students || [],
               }
@@ -1282,6 +1672,27 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
           loadProfileDetail()
         }}
       />
+
+      {user && (
+        <DpdpAnonymizeModal
+          isOpen={dpdpModalOpen}
+          onClose={() => setDpdpModalOpen(false)}
+          user={{
+            id: user.userId || user.id,
+            userId: user.userId || user.id,
+            name: user.name || (user as any).fullName || 'User',
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            status: user.status,
+          }}
+          onSuccess={() => {
+            loadProfileDetail()
+            loadSessions()
+            onClose()
+          }}
+        />
+      )}
     </Modal>
   )
 }

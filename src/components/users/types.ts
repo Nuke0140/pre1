@@ -27,6 +27,46 @@ export interface GuardianChild {
   pickupPin?: string | null
   relationship?: string
   classroom?: string
+  branchId?: string | null
+  branchName?: string | null
+  branchCode?: string | null
+  dob?: string | null
+  gender?: string | null
+  status?: string | null
+  photoUrl?: string | null
+  seatNumber?: string | null
+}
+
+export interface HouseholdGuardian {
+  id: string
+  userId?: string | null
+  fullName: string
+  relationship: string
+  phone?: string | null
+  email?: string | null
+  isPrimaryContact?: boolean
+  canPickup?: boolean
+  pickupPin?: string | null
+  avatarUrl?: string | null
+  role?: string | null
+  status?: string | null
+}
+
+export interface HouseholdCampus {
+  id: string
+  name: string
+  code: string
+  studentCount: number
+}
+
+export interface FamilyHousehold {
+  id: string
+  familyName: string
+  isCrossCampus: boolean
+  campuses: HouseholdCampus[]
+  guardians: HouseholdGuardian[]
+  students: GuardianChild[]
+  primaryGuardian?: HouseholdGuardian | null
 }
 
 export type UserLifecycleStatus =
@@ -60,6 +100,23 @@ export interface StaffProfileData {
   probationEndDate?: string | null
   confirmationDate?: string | null
   noticePeriodDays?: number | null
+  reportingManagerId?: string | null
+  reportingManager?: {
+    id: string
+    userId: string
+    name: string
+    fullName?: string
+    designation?: string | null
+    avatarUrl?: string | null
+  } | null
+  directReportsCount?: number
+  directReports?: Array<{
+    id: string
+    userId: string
+    name: string
+    designation?: string | null
+    avatarUrl?: string | null
+  }>
 }
 
 export interface GuardianProfileData {
@@ -68,6 +125,10 @@ export interface GuardianProfileData {
   occupation?: string | null
   isPrimaryContact?: boolean
   pickupPin?: string | null
+  isCrossCampus?: boolean
+  campusesCount?: number
+  campuses?: HouseholdCampus[]
+  coGuardians?: HouseholdGuardian[]
   students: GuardianChild[]
 }
 
@@ -87,6 +148,7 @@ export interface UserRecord {
   roles?: Role[]
   status: UserLifecycleStatus
   branchId: string | null
+  branchName?: string | null
   assignedBranches?: Array<{ id: string; name: string; code: string; isMain?: boolean; isPrimary?: boolean }>
   assignedBranchIds?: string[]
   lastLoginAt: string | null
@@ -94,9 +156,20 @@ export interface UserRecord {
   staffProfile?: StaffProfileData | null
   taughtClasses?: Array<{ id: string; name: string; programType: string; capacity?: number }>
   guardianProfile?: GuardianProfileData | null
+<<<<<<< Updated upstream
   hasPassword?: boolean
   passwordStatus?: PasswordStatus
   maskedPassword?: string | null
+=======
+  reportingManagerId?: string | null
+  reportingManager?: {
+    id: string
+    userId: string
+    name: string
+    designation?: string | null
+    avatarUrl?: string | null
+  } | null
+>>>>>>> Stashed changes
 }
 
 export const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const

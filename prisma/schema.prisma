@@ -137,6 +137,8 @@ model Tenant {
   classroomSubjects           ClassroomSubject[]
   activityProgresses          ActivityProgress[]
   tenantUserBranches          TenantUserBranch[]
+  customRoles                 CustomRole[]
+  userInvitations             UserInvitation[]
 
   @@map("tenants")
 }
@@ -228,6 +230,8 @@ model User {
   inAppNotifications  InAppNotification[]
   sessions        UserSession[]
   specialistSubjects ClassroomSubject[] @relation("SubjectSpecialistTeacher")
+  receivedInvitations UserInvitation[]   @relation("UserReceivedInvitations")
+  sentInvitations     UserInvitation[]   @relation("UserSentInvitations")
 
   @@map("users")
 }
@@ -268,6 +272,8 @@ model TenantUser {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   staffProfile     StaffProfile?
   assignedBranches TenantUserBranch[]
+  customRoles      TenantUserCustomRole[]
+  invitations      UserInvitation[]
 
   @@unique([tenantId, userId])
   @@index([userId])
@@ -1379,6 +1385,7 @@ model StaffProfile {
   probationEndDate      DateTime?
   confirmationDate      DateTime?
   noticePeriodDays      Int            @default(60)
+  reportingManagerId    String?
 
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
@@ -1388,6 +1395,8 @@ model StaffProfile {
   tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenantUser            TenantUser?    @relation(fields: [tenantId, userId], references: [tenantId, userId], onDelete: Cascade)
+  reportingManager      StaffProfile?  @relation("StaffReportingHierarchy", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  directReports         StaffProfile[] @relation("StaffReportingHierarchy")
 
   // HR Relations
   documents             StaffDocument[]
@@ -1414,6 +1423,7 @@ model StaffProfile {
   @@unique([tenantId, employeeCode])
   @@index([userId])
   @@index([tenantId])
+  @@index([reportingManagerId])
   @@map("staff_profiles")
 }
 
@@ -3969,5 +3979,82 @@ model StudentReportCard {
   @@map("student_report_cards")
 }
 
+/// Custom dynamic roles with DB-driven capability sets (Doc 2.1 / ADR-064 / ADR-067)
+model CustomRole {
+  id             String                 @id @default(uuid())
+  tenantId       String
+  name           String
+  code           String
+  description    String?
+  isSystem       Boolean                @default(false)
+  parentRoleId   String?
+  capabilities   String[]               @default([])
+  status         String                 @default("ACTIVE")
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  deletedAt      DateTime?
 
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentRole     CustomRole?            @relation("CustomRoleInheritance", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles     CustomRole[]           @relation("CustomRoleInheritance")
+  assignedUsers  TenantUserCustomRole[]
 
+  @@unique([tenantId, code])
+  @@index([tenantId, status])
+  @@map("custom_roles")
+}
+
+/// Dynamic custom role assignments to school members (Doc 2.1)
+model TenantUserCustomRole {
+  id           String      @id @default(uuid())
+  tenantUserId String
+  customRoleId String
+  assignedAt   DateTime    @default(now())
+  assignedById String?
+
+  tenantUser   TenantUser  @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  customRole   CustomRole  @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantUserId, customRoleId])
+  @@index([tenantUserId])
+  @@index([customRoleId])
+  @@map("tenant_user_custom_roles")
+}
+
+/// Invitation lifecycle states (Doc 1.3)
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+/// Authoritative invitation lifecycle and token model (Doc 1.3)
+model UserInvitation {
+  id           String           @id @default(uuid())
+  tenantId     String
+  userId       String
+  tenantUserId String?
+  email        String
+  role         UserRole
+  tokenHash    String           @unique
+  rawToken     String?
+  status       InvitationStatus @default(PENDING)
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  lastResentAt DateTime?
+  resendCount  Int              @default(0)
+  invitedById  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User             @relation("UserReceivedInvitations", fields: [userId], references: [id], onDelete: Cascade)
+  tenantUser   TenantUser?      @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  invitedBy    User?            @relation("UserSentInvitations", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([email])
+  @@index([tokenHash])
+  @@map("user_invitations")
+}

@@ -19,6 +19,7 @@ import { classroomSeats } from '@/lib/capacity'
 import { audit } from '@/lib/audit'
 import { assertResourceScope } from '@/lib/security/resource-scope'
 import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
+import { PrimaryContactGuard } from '@/lib/users/primary-contact-guard'
 
 export interface ScopeContext {
   tenantId: string
@@ -1848,6 +1849,7 @@ export class StudentService {
       pickupPin?: string
       isFeePayer?: boolean
       receivesComm?: boolean
+      alternateGuardianId?: string
       action: 'LINK' | 'UPDATE' | 'UNLINK' | 'INVITE'
     }
   ) {
@@ -1860,9 +1862,33 @@ export class StudentService {
 
     if (input.action === 'UNLINK') {
       if (!input.guardianId) throw new Error('Guardian ID is required to unlink')
-      await db.studentGuardian.deleteMany({
-        where: { studentId: student.id, guardianId: input.guardianId },
+
+      const unlinkCheck = await PrimaryContactGuard.checkStudentUnlinkSafety({
+        tenantId: scope.tenantId,
+        studentId: student.id,
+        guardianId: input.guardianId,
+        alternateGuardianId: input.alternateGuardianId,
       })
+
+      if (!unlinkCheck.safe) {
+        throw new Error(unlinkCheck.error || 'Cannot unlink primary contact without nominating an alternate contact')
+      }
+
+      await db.$transaction(async (tx) => {
+        if (unlinkCheck.transfers && unlinkCheck.transfers.length > 0) {
+          await PrimaryContactGuard.applyTransfersTx(tx, unlinkCheck.transfers, {
+            uid: ctx.actorId || 'system',
+            name: ctx.actorName || 'System',
+            role: ctx.actorRole || 'ADMIN',
+            tenantId: scope.tenantId,
+          })
+        }
+
+        await tx.studentGuardian.deleteMany({
+          where: { studentId: student.id, guardianId: input.guardianId },
+        })
+      })
+
       await audit({
         tenantId: scope.tenantId,
         actorId: ctx.actorId,

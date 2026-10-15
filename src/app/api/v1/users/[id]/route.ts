@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { ok, notFound, bad, serverError, forbidden } from '@/lib/api'
+import { ok, notFound, bad, serverError, forbidden, fail } from '@/lib/api'
 import {
   requireApi,
   isResponse,
@@ -23,6 +23,9 @@ import { normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validati
 import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
 import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
 import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
+import { EncryptionService } from '@/lib/security/encryption-service'
+import { CustomRoleService } from '@/lib/auth/rbac-engine'
+import { PrimaryContactGuard } from '@/lib/users/primary-contact-guard'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,7 +45,31 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
         OR: [{ userId: id }, { id }],
       },
       include: {
-        staffProfile: true,
+        staffProfile: {
+          include: {
+            reportingManager: {
+              include: {
+                user: {
+                  select: { id: true, fullName: true, avatarUrl: true, email: true },
+                },
+              },
+            },
+            directReports: {
+              include: {
+                user: {
+                  select: { id: true, fullName: true, avatarUrl: true, email: true },
+                },
+              },
+            },
+          },
+        },
+        customRoles: {
+          include: {
+            customRole: {
+              select: { id: true, name: true, code: true, capabilities: true, status: true },
+            },
+          },
+        },
         assignedBranches: {
           include: {
             branch: {
@@ -60,7 +87,21 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
                 studentLinks: {
                   include: {
                     student: {
-                      select: { id: true, firstName: true, lastName: true, admissionNo: true },
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        admissionNo: true,
+                        branchId: true,
+                        dob: true,
+                        gender: true,
+                        status: true,
+                        photoUrl: true,
+                        seatNumber: true,
+                        currentClassroom: {
+                          select: { id: true, name: true, branchId: true },
+                        },
+                      },
                     },
                   },
                 },
@@ -85,6 +126,104 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
     }))
     const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
+    const customRoles = ((member as any).customRoles || [])
+      .map((cr: any) => cr.customRole)
+      .filter((cr: any) => cr && cr.status === 'ACTIVE')
+    const customRoleIds = customRoles.map((cr: any) => cr.id)
+
+    let invitationDetails: any = null
+    if (member.status === 'PENDING') {
+      const inv = await db.userInvitation.findFirst({
+        where: { tenantId: session.tenantId, userId: member.userId },
+        include: { invitedBy: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      if (inv) {
+        const now = new Date()
+        const isExpired = now >= inv.expiresAt
+        const diffHours = (inv.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60)
+        const isExpiringSoon = !isExpired && diffHours <= 24
+        const { formatRelativeTime } = await import('@/lib/users/invitation-service')
+        const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        invitationDetails = {
+          id: inv.id,
+          status: inv.status,
+          effectiveStatus: isExpired ? 'EXPIRED' : isExpiringSoon ? 'EXPIRING_SOON' : inv.status,
+          invitedAt: inv.createdAt.toISOString(),
+          invitedAge: formatRelativeTime(inv.createdAt, now),
+          expiresAt: inv.expiresAt.toISOString(),
+          expiresIn: isExpired ? `Expired ${formatRelativeTime(inv.expiresAt, now)}` : `Expires ${formatRelativeTime(inv.expiresAt, now)}`,
+          isExpired,
+          isExpiringSoon,
+          resendCount: inv.resendCount,
+          lastResentAt: inv.lastResentAt ? inv.lastResentAt.toISOString() : null,
+          invitedByName: inv.invitedBy?.fullName || 'Administrator',
+          inviteUrl: inv.rawToken ? `${origin}/invite?token=${inv.rawToken}` : null,
+        }
+      }
+    }
+
+    let guardianProfilePayload: any = null
+    if (member.user.guardianProfile) {
+      const gp = member.user.guardianProfile
+      const branchIds = Array.from(
+        new Set(gp.studentLinks.map((sl: any) => sl.student.branchId).filter(Boolean))
+      ) as string[]
+      const branches =
+        branchIds.length > 0
+          ? await db.branch.findMany({
+              where: { tenantId: session.tenantId, id: { in: branchIds } },
+              select: { id: true, name: true, code: true, isMain: true },
+            })
+          : []
+      const branchMap = new Map(branches.map((b) => [b.id, b]))
+
+      const students = gp.studentLinks.map((sl: any) => {
+        const b = branchMap.get(sl.student.branchId)
+        return {
+          id: sl.student.id,
+          name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
+          admissionNo: sl.student.admissionNo,
+          canPickup: sl.canPickup,
+          receivesComm: sl.receivesComm,
+          pickupPin: sl.pickupPin ? '••••' : null,
+          relationship: sl.relationship || gp.relationship,
+          classroom: sl.student.currentClassroom?.name || null,
+          branchId: sl.student.branchId,
+          branchName: b?.name || null,
+          branchCode: b?.code || null,
+          dob: sl.student.dob ? sl.student.dob.toISOString() : null,
+          gender: sl.student.gender || null,
+          status: sl.student.status || 'ACTIVE',
+          photoUrl: sl.student.photoUrl || null,
+          seatNumber: sl.student.seatNumber || null,
+        }
+      })
+
+      const uniqueBranchIds = Array.from(new Set(students.map((s: any) => s.branchId).filter(Boolean))) as string[]
+      const campuses = uniqueBranchIds.map((bId) => {
+        const b = branchMap.get(bId)
+        return {
+          id: bId,
+          name: b?.name || 'Unknown Campus',
+          code: b?.code || '',
+          studentCount: students.filter((s: any) => s.branchId === bId).length,
+        }
+      })
+
+      guardianProfilePayload = {
+        id: gp.id,
+        relationship: gp.relationship,
+        occupation: gp.occupation,
+        isPrimaryContact: gp.isPrimaryContact,
+        pickupPin: gp.pickupPin ? '••••' : null,
+        isCrossCampus: uniqueBranchIds.length > 1,
+        campusesCount: uniqueBranchIds.length,
+        campuses,
+        students,
+      }
+    }
+
     return ok({
       id: member.id,
       userId: member.user.id,
@@ -97,7 +236,10 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       locale: member.user.locale,
       role: member.role,
       roles: assignedRoles,
+      customRoles,
+      customRoleIds,
       status: member.status,
+      invitation: invitationDetails,
       branchId: member.branchId,
       assignedBranches,
       assignedBranchIds,
@@ -107,27 +249,47 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
         ? {
             ...member.staffProfile,
             bloodGroup: formatBloodGroup(member.staffProfile.bloodGroup),
+            panNumber: EncryptionService.decrypt(member.staffProfile.panNumber, session.tenantId),
+            aadhaarNumber: EncryptionService.decrypt(member.staffProfile.aadhaarNumber, session.tenantId),
+            uanNumber: EncryptionService.decrypt(member.staffProfile.uanNumber, session.tenantId),
+            esiNumber: EncryptionService.decrypt(member.staffProfile.esiNumber, session.tenantId),
+            currentAddress: EncryptionService.decrypt(member.staffProfile.currentAddress, session.tenantId),
+            permanentAddress: EncryptionService.decrypt(member.staffProfile.permanentAddress, session.tenantId),
+            reportingManagerId: member.staffProfile.reportingManagerId,
+            reportingManager: member.staffProfile.reportingManager
+              ? {
+                  id: member.staffProfile.reportingManager.id,
+                  userId: member.staffProfile.reportingManager.userId,
+                  name: member.staffProfile.reportingManager.user.fullName,
+                  fullName: member.staffProfile.reportingManager.user.fullName,
+                  designation: member.staffProfile.reportingManager.designation,
+                  avatarUrl: member.staffProfile.reportingManager.user.avatarUrl,
+                }
+              : null,
+            directReports: (member.staffProfile.directReports || []).map((dr: any) => ({
+              id: dr.id,
+              userId: dr.userId,
+              name: dr.user?.fullName || 'Staff Member',
+              fullName: dr.user?.fullName || 'Staff Member',
+              designation: dr.designation,
+              department: dr.department,
+              avatarUrl: dr.user?.avatarUrl,
+            })),
+            directReportsCount: member.staffProfile.directReports?.length || 0,
+          }
+        : null,
+      reportingManagerId: member.staffProfile?.reportingManagerId || null,
+      reportingManager: member.staffProfile?.reportingManager
+        ? {
+            id: member.staffProfile.reportingManager.id,
+            userId: member.staffProfile.reportingManager.userId,
+            name: member.staffProfile.reportingManager.user.fullName,
+            designation: member.staffProfile.reportingManager.designation,
+            avatarUrl: member.staffProfile.reportingManager.user.avatarUrl,
           }
         : null,
       taughtClasses: member.user.taughtClasses,
-      guardianProfile: member.user.guardianProfile
-        ? {
-            id: member.user.guardianProfile.id,
-            relationship: member.user.guardianProfile.relationship,
-            occupation: member.user.guardianProfile.occupation,
-            isPrimaryContact: member.user.guardianProfile.isPrimaryContact,
-            pickupPin: member.user.guardianProfile.pickupPin ? '••••' : null,
-            students: member.user.guardianProfile.studentLinks.map((sl) => ({
-              id: sl.student.id,
-              name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
-              admissionNo: sl.student.admissionNo,
-              canPickup: sl.canPickup,
-              receivesComm: sl.receivesComm,
-              pickupPin: sl.pickupPin ? '••••' : null,
-              relationship: sl.relationship || member.user.guardianProfile!.relationship,
-            })),
-          }
-        : null,
+      guardianProfile: guardianProfilePayload,
     })
   } catch (err: any) {
     return serverError(err.message)
@@ -161,6 +323,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       branchId,
       branchIds: inputBranchIds,
       assignedBranchIds: inputAssignedBranchIds,
+      customRoleIds,
       classroomId,
       password,
       // Staff Profile fields
@@ -185,6 +348,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       probationEndDate,
       confirmationDate,
       noticePeriodDays,
+      reportingManagerId,
       // Guardian Profile fields
       relationship,
       occupation,
@@ -206,6 +370,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       branchId?: string | null
       branchIds?: string[]
       assignedBranchIds?: string[]
+      customRoleIds?: string[]
       classroomId?: string | null
       password?: string
       employeeCode?: string
@@ -229,6 +394,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       probationEndDate?: string | Date | null
       confirmationDate?: string | Date | null
       noticePeriodDays?: number | null
+      reportingManagerId?: string | null
       relationship?: any
       occupation?: string | null
       isPrimaryContact?: boolean
@@ -433,8 +599,72 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       return isNaN(parsed) ? 60 : Math.max(0, parsed)
     }
 
+    // Primary contact deactivation guard (Doc 3.2): cannot suspend/deactivate primary contact or revoke primary status without nominating alternate
+    let primaryTransfers: any[] = []
+    const isStatusDeactivation =
+      lifecycleStatusToApply &&
+      ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED', 'INACTIVE'].includes(lifecycleStatusToApply)
+    const isPrimaryRevocation = isPrimaryContact === false
+
+    if (isStatusDeactivation || isPrimaryRevocation) {
+      const guardCheck = await PrimaryContactGuard.checkDeactivationSafety({
+        tenantId: session.tenantId!,
+        userId: member.userId,
+        targetStatus: lifecycleStatusToApply,
+        isExplicitPrimaryRevocation: isPrimaryRevocation,
+        alternateGuardianId: (body as any).alternateGuardianId || (body as any).nominateAlternateId,
+        alternateUserId: (body as any).alternateUserId,
+        alternateGuardiansByStudent: (body as any).alternateGuardiansByStudent,
+      })
+
+      if (!guardCheck.safe) {
+        return fail(
+          guardCheck.code || 'PRIMARY_CONTACT_DEACTIVATION_BLOCKED',
+          guardCheck.error || 'Cannot deactivate primary contact without nominating an alternate contact',
+          409,
+          undefined,
+          { affectedStudents: guardCheck.affectedStudents }
+        )
+      }
+      primaryTransfers = guardCheck.transfers
+    }
+
+    // Resolve reporting manager if provided
+    let resolvedReportingManagerId: string | null | undefined = undefined
+    if (reportingManagerId !== undefined) {
+      if (reportingManagerId === null || reportingManagerId === '') {
+        resolvedReportingManagerId = null
+      } else {
+        const trimmedMgrId = String(reportingManagerId).trim()
+        const mgrStaff = await db.staffProfile.findFirst({
+          where: {
+            tenantId: session.tenantId!,
+            deletedAt: null,
+            OR: [{ id: trimmedMgrId }, { userId: trimmedMgrId }],
+          },
+          select: { id: true, userId: true },
+        })
+        if (!mgrStaff) {
+          return bad('Specified reporting manager was not found', 'INVALID_REPORTING_MANAGER')
+        }
+        if (mgrStaff.userId === member.userId) {
+          return bad('Staff member cannot report to themselves', 'CIRCULAR_REPORTING_LINE')
+        }
+        resolvedReportingManagerId = mgrStaff.id
+      }
+    }
+
     // Run updates in atomic transaction
     const updatedMember = await db.$transaction(async (tx) => {
+      if (primaryTransfers.length > 0) {
+        await PrimaryContactGuard.applyTransfersTx(tx, primaryTransfers, {
+          uid: session.uid,
+          name: session.name,
+          role: session.role,
+          tenantId: session.tenantId,
+        })
+      }
+
       const hasUserUpdates =
         fullName !== undefined ||
         cleanEmail !== undefined ||
@@ -535,7 +765,8 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         esiNumber !== undefined ||
         probationEndDate !== undefined ||
         confirmationDate !== undefined ||
-        noticePeriodDays !== undefined
+        noticePeriodDays !== undefined ||
+        reportingManagerId !== undefined
 
       if (hasStaffFields) {
         const existingProfile = await tx.staffProfile.findUnique({
@@ -572,26 +803,27 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               ...(maritalStatus !== undefined ? { maritalStatus: maritalStatus ? maritalStatus.trim() : null } : {}),
               ...(bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(bloodGroup) } : {}),
               ...(currentAddress !== undefined && (currentAddress === null || !currentAddress.includes('•'))
-                ? { currentAddress: currentAddress ? currentAddress.trim() : null }
+                ? { currentAddress: currentAddress ? EncryptionService.encrypt(currentAddress.trim(), session.tenantId) : null }
                 : {}),
               ...(permanentAddress !== undefined && (permanentAddress === null || !permanentAddress.includes('•'))
-                ? { permanentAddress: permanentAddress ? permanentAddress.trim() : null }
+                ? { permanentAddress: permanentAddress ? EncryptionService.encrypt(permanentAddress.trim(), session.tenantId) : null }
                 : {}),
               ...(panNumber !== undefined && (panNumber === null || !panNumber.includes('•'))
-                ? { panNumber: statutoryCheck.normalized.panNumber ?? null }
+                ? { panNumber: statutoryCheck.normalized.panNumber ? EncryptionService.encrypt(statutoryCheck.normalized.panNumber, session.tenantId) : null }
                 : {}),
               ...(aadhaarNumber !== undefined && (aadhaarNumber === null || !aadhaarNumber.includes('•'))
-                ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ?? null }
+                ? { aadhaarNumber: statutoryCheck.normalized.aadhaarNumber ? EncryptionService.encrypt(statutoryCheck.normalized.aadhaarNumber, session.tenantId) : null }
                 : {}),
               ...(uanNumber !== undefined && (uanNumber === null || !uanNumber.includes('•'))
-                ? { uanNumber: statutoryCheck.normalized.uanNumber ?? null }
+                ? { uanNumber: statutoryCheck.normalized.uanNumber ? EncryptionService.encrypt(statutoryCheck.normalized.uanNumber, session.tenantId) : null }
                 : {}),
               ...(esiNumber !== undefined && (esiNumber === null || !esiNumber.includes('•'))
-                ? { esiNumber: statutoryCheck.normalized.esiNumber ?? null }
+                ? { esiNumber: statutoryCheck.normalized.esiNumber ? EncryptionService.encrypt(statutoryCheck.normalized.esiNumber, session.tenantId) : null }
                 : {}),
               ...(parsedProbation !== undefined ? { probationEndDate: parsedProbation } : {}),
               ...(parsedConfirmation !== undefined ? { confirmationDate: parsedConfirmation } : {}),
               ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
+              ...(resolvedReportingManagerId !== undefined ? { reportingManagerId: resolvedReportingManagerId } : {}),
             },
           })
         } else {
@@ -612,15 +844,16 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
               emergencyContactPhone: emergencyContactPhone ? emergencyContactPhone.trim() : null,
               maritalStatus: maritalStatus ? maritalStatus.trim() : null,
               bloodGroup: normalizeBloodGroup(bloodGroup),
-              currentAddress: currentAddress && !currentAddress.includes('•') ? currentAddress.trim() : null,
-              permanentAddress: permanentAddress && !permanentAddress.includes('•') ? permanentAddress.trim() : null,
-              panNumber: panNumber && !panNumber.includes('•') ? statutoryCheck.normalized.panNumber ?? null : null,
-              aadhaarNumber: aadhaarNumber && !aadhaarNumber.includes('•') ? statutoryCheck.normalized.aadhaarNumber ?? null : null,
-              uanNumber: uanNumber && !uanNumber.includes('•') ? statutoryCheck.normalized.uanNumber ?? null : null,
-              esiNumber: esiNumber && !esiNumber.includes('•') ? statutoryCheck.normalized.esiNumber ?? null : null,
+              currentAddress: currentAddress && !currentAddress.includes('•') ? EncryptionService.encrypt(currentAddress.trim(), session.tenantId) : null,
+              permanentAddress: permanentAddress && !permanentAddress.includes('•') ? EncryptionService.encrypt(permanentAddress.trim(), session.tenantId) : null,
+              panNumber: panNumber && !panNumber.includes('•') && statutoryCheck.normalized.panNumber ? EncryptionService.encrypt(statutoryCheck.normalized.panNumber, session.tenantId) : null,
+              aadhaarNumber: aadhaarNumber && !aadhaarNumber.includes('•') && statutoryCheck.normalized.aadhaarNumber ? EncryptionService.encrypt(statutoryCheck.normalized.aadhaarNumber, session.tenantId) : null,
+              uanNumber: uanNumber && !uanNumber.includes('•') && statutoryCheck.normalized.uanNumber ? EncryptionService.encrypt(statutoryCheck.normalized.uanNumber, session.tenantId) : null,
+              esiNumber: esiNumber && !esiNumber.includes('•') && statutoryCheck.normalized.esiNumber ? EncryptionService.encrypt(statutoryCheck.normalized.esiNumber, session.tenantId) : null,
               probationEndDate: parsedProbation || null,
               confirmationDate: parsedConfirmation || null,
               noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
+              reportingManagerId: resolvedReportingManagerId || null,
             },
           })
         }
@@ -706,6 +939,16 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
       return updated
     })
+
+    // Sync dynamic custom roles if provided
+    if (customRoleIds !== undefined) {
+      await CustomRoleService.syncUserCustomRoles({
+        tenantUserId: member.id,
+        tenantId: session.tenantId!,
+        customRoleIds,
+        assignedById: session.uid,
+      })
+    }
 
     // If password was reset by administrator, revoke all active sessions for the user and record audit
     if (isPasswordReset) {
@@ -799,7 +1042,21 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     const refreshed = await db.tenantUser.findUnique({
       where: { id: member.id },
       include: {
-        staffProfile: true,
+        staffProfile: {
+          include: {
+            reportingManager: {
+              include: {
+                user: { select: { fullName: true, avatarUrl: true } },
+              },
+            },
+            directReports: {
+              where: { deletedAt: null },
+              include: {
+                user: { select: { fullName: true, avatarUrl: true } },
+              },
+            },
+          },
+        },
         assignedBranches: {
           include: {
             branch: {
@@ -817,7 +1074,21 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
                 studentLinks: {
                   include: {
                     student: {
-                      select: { id: true, firstName: true, lastName: true, admissionNo: true },
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        admissionNo: true,
+                        branchId: true,
+                        dob: true,
+                        gender: true,
+                        status: true,
+                        photoUrl: true,
+                        seatNumber: true,
+                        currentClassroom: {
+                          select: { id: true, name: true, branchId: true },
+                        },
+                      },
                     },
                   },
                 },
@@ -842,6 +1113,67 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     }))
     const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
+    let refreshedGuardianProfile: any = null
+    if (refreshed.user.guardianProfile) {
+      const gp = refreshed.user.guardianProfile
+      const branchIds = Array.from(
+        new Set(gp.studentLinks.map((sl: any) => sl.student.branchId).filter(Boolean))
+      ) as string[]
+      const branches =
+        branchIds.length > 0
+          ? await db.branch.findMany({
+              where: { tenantId: session.tenantId, id: { in: branchIds } },
+              select: { id: true, name: true, code: true, isMain: true },
+            })
+          : []
+      const branchMap = new Map(branches.map((b) => [b.id, b]))
+
+      const students = gp.studentLinks.map((sl: any) => {
+        const b = branchMap.get(sl.student.branchId)
+        return {
+          id: sl.student.id,
+          name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
+          admissionNo: sl.student.admissionNo,
+          canPickup: sl.canPickup,
+          receivesComm: sl.receivesComm,
+          pickupPin: sl.pickupPin ? '••••' : null,
+          relationship: sl.relationship || gp.relationship,
+          classroom: sl.student.currentClassroom?.name || null,
+          branchId: sl.student.branchId,
+          branchName: b?.name || null,
+          branchCode: b?.code || null,
+          dob: sl.student.dob ? sl.student.dob.toISOString() : null,
+          gender: sl.student.gender || null,
+          status: sl.student.status || 'ACTIVE',
+          photoUrl: sl.student.photoUrl || null,
+          seatNumber: sl.student.seatNumber || null,
+        }
+      })
+
+      const uniqueBranchIds = Array.from(new Set(students.map((s: any) => s.branchId).filter(Boolean))) as string[]
+      const campuses = uniqueBranchIds.map((bId) => {
+        const b = branchMap.get(bId)
+        return {
+          id: bId,
+          name: b?.name || 'Unknown Campus',
+          code: b?.code || '',
+          studentCount: students.filter((s: any) => s.branchId === bId).length,
+        }
+      })
+
+      refreshedGuardianProfile = {
+        id: gp.id,
+        relationship: gp.relationship,
+        occupation: gp.occupation,
+        isPrimaryContact: gp.isPrimaryContact,
+        pickupPin: gp.pickupPin ? '••••' : null,
+        isCrossCampus: uniqueBranchIds.length > 1,
+        campusesCount: uniqueBranchIds.length,
+        campuses,
+        students,
+      }
+    }
+
     return ok({
       id: refreshed.id,
       userId: refreshed.user.id,
@@ -863,27 +1195,40 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         ? {
             ...refreshed.staffProfile,
             bloodGroup: formatBloodGroup(refreshed.staffProfile.bloodGroup),
+            reportingManager: refreshed.staffProfile.reportingManager
+              ? {
+                  id: refreshed.staffProfile.reportingManager.id,
+                  userId: refreshed.staffProfile.reportingManager.userId,
+                  name: refreshed.staffProfile.reportingManager.user.fullName,
+                  fullName: refreshed.staffProfile.reportingManager.user.fullName,
+                  designation: refreshed.staffProfile.reportingManager.designation,
+                  avatarUrl: refreshed.staffProfile.reportingManager.user.avatarUrl,
+                }
+              : null,
+            directReports: (refreshed.staffProfile.directReports || []).map((dr: any) => ({
+              id: dr.id,
+              userId: dr.userId,
+              name: dr.user?.fullName || 'Staff Member',
+              fullName: dr.user?.fullName || 'Staff Member',
+              designation: dr.designation,
+              department: dr.department,
+              avatarUrl: dr.user?.avatarUrl,
+            })),
+            directReportsCount: refreshed.staffProfile.directReports?.length || 0,
+          }
+        : null,
+      reportingManagerId: refreshed.staffProfile?.reportingManagerId || null,
+      reportingManager: refreshed.staffProfile?.reportingManager
+        ? {
+            id: refreshed.staffProfile.reportingManager.id,
+            userId: refreshed.staffProfile.reportingManager.userId,
+            name: refreshed.staffProfile.reportingManager.user.fullName,
+            designation: refreshed.staffProfile.reportingManager.designation,
+            avatarUrl: refreshed.staffProfile.reportingManager.user.avatarUrl,
           }
         : null,
       taughtClasses: refreshed.user.taughtClasses,
-      guardianProfile: refreshed.user.guardianProfile
-        ? {
-            id: refreshed.user.guardianProfile.id,
-            relationship: refreshed.user.guardianProfile.relationship,
-            occupation: refreshed.user.guardianProfile.occupation,
-            isPrimaryContact: refreshed.user.guardianProfile.isPrimaryContact,
-            pickupPin: refreshed.user.guardianProfile.pickupPin ? '••••' : null,
-            students: refreshed.user.guardianProfile.studentLinks.map((sl) => ({
-              id: sl.student.id,
-              name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
-              admissionNo: sl.student.admissionNo,
-              canPickup: sl.canPickup,
-              receivesComm: sl.receivesComm,
-              pickupPin: sl.pickupPin,
-              relationship: sl.relationship || refreshed.user.guardianProfile!.relationship,
-            })),
-          }
-        : null,
+      guardianProfile: refreshedGuardianProfile,
     })
   } catch (err: any) {
     return serverError(err.message)
@@ -904,13 +1249,60 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
       return forbidden('Cannot delete school owner account')
     }
 
+    // Primary contact deactivation guard (Doc 3.2): cannot delete/deactivate primary contact without nominating alternate
+    let deleteBody: any = {}
+    try {
+      deleteBody = await req.json()
+    } catch {}
+    const searchParams = req.nextUrl.searchParams
+    const alternateGuardianId =
+      deleteBody.alternateGuardianId ||
+      deleteBody.nominateAlternateId ||
+      searchParams.get('alternateGuardianId') ||
+      searchParams.get('nominateAlternateId')
+    const alternateUserId =
+      deleteBody.alternateUserId || searchParams.get('alternateUserId')
+    const alternateGuardiansByStudent = deleteBody.alternateGuardiansByStudent
+
+    const guardCheck = await PrimaryContactGuard.checkDeactivationSafety({
+      tenantId: session.tenantId,
+      userId: member.userId,
+      targetStatus: 'INACTIVE',
+      action: 'delete',
+      alternateGuardianId,
+      alternateUserId,
+      nominateAlternateId: alternateGuardianId,
+      alternateGuardiansByStudent,
+    })
+
+    if (!guardCheck.safe) {
+      return fail(
+        guardCheck.code || 'PRIMARY_CONTACT_DEACTIVATION_BLOCKED',
+        guardCheck.error || 'Cannot deactivate primary contact without nominating an alternate contact',
+        409,
+        undefined,
+        { affectedStudents: guardCheck.affectedStudents }
+      )
+    }
+
     // Soft delete membership and sync user deactivation
-    await db.tenantUser.update({
-      where: { id: member.id },
-      data: {
-        deletedAt: new Date(),
-        status: 'INACTIVE',
-      },
+    await db.$transaction(async (tx) => {
+      if (guardCheck.transfers && guardCheck.transfers.length > 0) {
+        await PrimaryContactGuard.applyTransfersTx(tx, guardCheck.transfers, {
+          uid: session.uid,
+          name: session.name,
+          role: session.role,
+          tenantId: session.tenantId,
+        })
+      }
+
+      await tx.tenantUser.update({
+        where: { id: member.id },
+        data: {
+          deletedAt: new Date(),
+          status: 'INACTIVE',
+        },
+      })
     })
 
     const otherActiveMemberships = await db.tenantUser.count({
