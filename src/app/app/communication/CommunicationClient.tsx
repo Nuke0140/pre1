@@ -576,6 +576,7 @@ export function CommunicationClient({ session }: { session: SessionProps }) {
             <div
               style={{
                 display: 'flex',
+                flexWrap: 'wrap',
                 background: 'var(--c-surface-hover, rgba(0,0,0,0.03))',
                 padding: 4,
                 borderRadius: 10,
