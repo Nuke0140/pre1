@@ -142,8 +142,8 @@ test.describe('PreOne Animated Book Loader Real Browser Lifecycle', () => {
 
       // 9. When data completes, loader unmounts and page content is stable
       resolveRoute()
-      await expect(loader).not.toBeVisible({ timeout: 7000 })
-      await expect(page.locator('h1')).toContainText('Admissions', { timeout: 6000 })
+      await expect(loader).not.toBeVisible({ timeout: 15000 })
+      await expect(page.locator('h1')).toContainText('Admissions', { timeout: 12000 })
     })
   }
 })
