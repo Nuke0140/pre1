@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  Baby, User, Mail, Phone, Key, Shield, AlertCircle,
+  Baby, User, Mail, Phone, Key, Shield, AlertCircle, AlertTriangle,
   CheckCircle2, Lock, Search, RefreshCw, Eye, EyeOff, Plus,
   ArrowRight, ArrowLeft, Check, Sparkles, Building, DoorOpen, Calendar
 } from 'lucide-react'
@@ -11,6 +11,7 @@ import { useToast } from '@/components/preone/Toast'
 import { BranchOption, ClassroomOption, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 import { Input } from '@/components/ui/input'
+import { validateFullName } from '@/lib/users/user-validation'
 
 interface AddFamilyModalProps {
   open: boolean
@@ -81,6 +82,47 @@ export function AddFamilyModal({
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<'ACTIVE' | 'PENDING'>('ACTIVE')
+  const [duplicateHint, setDuplicateHint] = useState<string | null>(null)
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false)
+
+  // Debounced duplicate detection on Name / Email / Phone
+  useEffect(() => {
+    const q = email.trim() || phone.trim() || (fullName.trim().length >= 3 ? fullName.trim() : '')
+    if (!q) {
+      setDuplicateHint(null)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setCheckingDuplicate(true)
+        const res = await fetch(`/api/v1/users?q=${encodeURIComponent(q)}&pageSize=5`)
+        if (res.ok) {
+          const json = await res.json()
+          const usersList = json.data?.items || json.data || []
+          const existing = usersList.find((u: any) => {
+            const matchEmail = email.trim() && u.email?.toLowerCase() === email.trim().toLowerCase()
+            const matchPhone = phone.trim() && u.phone === phone.trim()
+            const matchName = fullName.trim().length >= 3 && u.name?.toLowerCase() === fullName.trim().toLowerCase()
+            return matchEmail || matchPhone || matchName
+          })
+          if (existing) {
+            setDuplicateHint(
+              `Notice: An account matching "${existing.name}" (${existing.email || existing.phone || existing.role}) already exists in this school.`
+            )
+          } else {
+            setDuplicateHint(null)
+          }
+        }
+      } catch {
+        // ignore network error
+      } finally {
+        setCheckingDuplicate(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [fullName, email, phone])
 
   useEffect(() => {
     if (open) {
@@ -201,8 +243,9 @@ export function AddFamilyModal({
   }
 
   const validateStep1 = () => {
-    if (!fullName.trim()) {
-      toast.error('Validation Error', 'Full Name is required')
+    const nameRes = validateFullName(fullName)
+    if (!nameRes.valid) {
+      toast.error('Validation Error', nameRes.error || 'Invalid Full Name')
       return false
     }
     if (!phone.trim()) {
@@ -230,8 +273,9 @@ export function AddFamilyModal({
         return false
       }
     } else {
-      if (!childFirstName.trim()) {
-        toast.error('Validation Error', 'Child first name is required')
+      const childNameRes = validateFullName(childFirstName)
+      if (!childNameRes.valid) {
+        toast.error('Validation Error', `Child first name: ${childNameRes.error || 'Invalid format'}`)
         return false
       }
       if (!childDOB) {
@@ -625,6 +669,14 @@ export function AddFamilyModal({
                       />
                     </div>
                   </div>
+
+                  {/* Duplicate User Advisory Banner */}
+                  {duplicateHint && (
+                    <div className="sm:col-span-2 flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{duplicateHint}</span>
+                    </div>
+                  )}
 
                   {/* Occupation */}
                   <div className="field">

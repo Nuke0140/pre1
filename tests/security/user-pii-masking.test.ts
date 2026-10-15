@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { GET as usersGet, POST as usersPost } from '@/app/api/v1/users/route'
 import { GET as userGet, PATCH as userPatch } from '@/app/api/v1/users/[id]/route'
 import { signSession, SESSION_COOKIE } from '@/lib/auth'
+import { EncryptionService } from '@/lib/security/encryption-service'
 
 describe('PreOne Users Module — PII Masking & Safe Patching (P0 Compliance)', () => {
   const ts = Date.now().toString()
@@ -285,12 +286,12 @@ describe('PreOne Users Module — PII Masking & Safe Patching (P0 Compliance)', 
 
     expect(dbStaff?.user.fullName).toBe('Dr. Evelyn Reed-Smith')
     const sp = dbStaff!.staffProfile!
-    expect(sp.panNumber).toBe('ABCDE9999Z')
-    expect(sp.aadhaarNumber).toBe('999988887779')
-    expect(sp.uanNumber).toBe('100099998888')
-    expect(sp.esiNumber).toBe('31999988887777665')
-    expect(sp.currentAddress).toContain('Sunshine Heights')
-    expect(sp.permanentAddress).toContain('Dehradun')
+    expect(EncryptionService.decrypt(sp.panNumber, tenant.id)).toBe('ABCDE9999Z')
+    expect(EncryptionService.decrypt(sp.aadhaarNumber, tenant.id)).toBe('999988887779')
+    expect(EncryptionService.decrypt(sp.uanNumber, tenant.id)).toBe('100099998888')
+    expect(EncryptionService.decrypt(sp.esiNumber, tenant.id)).toBe('31999988887777665')
+    expect(EncryptionService.decrypt(sp.currentAddress, tenant.id)).toContain('Sunshine Heights')
+    expect(EncryptionService.decrypt(sp.permanentAddress, tenant.id)).toContain('Dehradun')
     expect(sp.dateOfBirth?.toISOString()).toContain('1989-05-14')
   })
 
@@ -351,7 +352,7 @@ describe('PreOne Users Module — PII Masking & Safe Patching (P0 Compliance)', 
     expect(sp.panNumber).toBeNull()
     expect(sp.currentAddress).toBeNull()
     // Non-cleared statutory fields still intact
-    expect(sp.aadhaarNumber).toBe('999988887779')
-    expect(sp.uanNumber).toBe('100099998888')
+    expect(EncryptionService.decrypt(sp.aadhaarNumber, tenant.id)).toBe('999988887779')
+    expect(EncryptionService.decrypt(sp.uanNumber, tenant.id)).toBe('100099998888')
   })
 })

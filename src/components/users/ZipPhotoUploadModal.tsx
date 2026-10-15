@@ -21,6 +21,15 @@ interface ZipPhotoItem {
   reason?: string
 }
 
+interface CandidateUser {
+  userId: string
+  name: string
+  email: string | null
+  role: string
+  employeeCode?: string | null
+  avatarUrl?: string | null
+}
+
 interface ZipPhotoUploadModalProps {
   open: boolean
   onClose: () => void
@@ -38,8 +47,10 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
   const [executing, setExecuting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Preview data
+  // Preview data & candidate users for mismatch resolution
   const [items, setItems] = useState<ZipPhotoItem[]>([])
+  const [candidateUsers, setCandidateUsers] = useState<CandidateUser[]>([])
+  const [assignments, setAssignments] = useState<Record<string, string>>({})
   const [stats, setStats] = useState({
     total: 0,
     matched: 0,
@@ -85,14 +96,19 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
         throw new Error(json.error || json.message || 'Failed to inspect ZIP archive')
       }
 
-      setItems(json.data?.items || [])
+      const payload = json.data || json
+      const loadedItems = payload?.items || []
+      const candidates: CandidateUser[] = payload?.candidateUsers || []
+      setItems(loadedItems)
+      setCandidateUsers(candidates)
+      setAssignments({})
       setStats({
-        total: json.data?.totalInZip || 0,
-        matched: json.data?.matchedCount || 0,
-        unmatched: json.data?.unmatchedCount || 0,
-        replacements: json.data?.replaceCount || 0,
-        newAdditions: json.data?.newAdditionsCount || 0,
-        invalid: json.data?.invalidCount || 0,
+        total: payload?.totalFiles || payload?.totalInZip || loadedItems.length,
+        matched: payload?.matched || payload?.matchedCount || 0,
+        unmatched: payload?.unmatched || payload?.unmatchedCount || 0,
+        replacements: payload?.toReplace || payload?.replaceCount || 0,
+        newAdditions: payload?.toAdd || payload?.newAdditionsCount || 0,
+        invalid: payload?.invalid || payload?.invalidCount || 0,
       })
       setStep('PREVIEW')
     } catch (err: any) {
@@ -103,6 +119,75 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
     }
   }
 
+  const handleAssignUser = (fileName: string, userId: string) => {
+    if (!userId) {
+      setAssignments((prev) => {
+        const next = { ...prev }
+        delete next[fileName]
+        return next
+      })
+      setItems((prev) =>
+        prev.map((it) => {
+          if (it.fileName === fileName) {
+            return {
+              ...it,
+              status: 'UNMATCHED',
+              action: 'SKIP',
+              userId: undefined,
+              userName: undefined,
+              role: undefined,
+              currentPhotoUrl: undefined,
+              reason: `No user found with identifier "${it.identifier}"`,
+            }
+          }
+          return it
+        })
+      )
+      return
+    }
+
+    const candidate = candidateUsers.find((u) => u.userId === userId)
+    if (!candidate) return
+
+    setAssignments((prev) => ({ ...prev, [fileName]: userId }))
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.fileName === fileName) {
+          const hasPhoto = Boolean(candidate.avatarUrl)
+          return {
+            ...it,
+            status: 'MATCHED',
+            action: hasPhoto ? 'REPLACE' : 'ADD',
+            userId: candidate.userId,
+            userName: candidate.name,
+            role: candidate.role,
+            currentPhotoUrl: candidate.avatarUrl,
+            reason: 'Manually assigned',
+          }
+        }
+        return it
+      })
+    )
+  }
+
+  // Recalculate stats whenever items change through manual resolution
+  useEffect(() => {
+    if (items.length === 0) return
+    const matched = items.filter((i) => i.status === 'MATCHED').length
+    const unmatched = items.filter((i) => i.status === 'UNMATCHED').length
+    const invalid = items.filter((i) => i.status === 'INVALID_FORMAT').length
+    const replacements = items.filter((i) => i.action === 'REPLACE').length
+    const newAdditions = items.filter((i) => i.action === 'ADD').length
+    setStats({
+      total: items.length,
+      matched,
+      unmatched,
+      replacements,
+      newAdditions,
+      invalid,
+    })
+  }, [items])
+
   const handleExecute = async () => {
     if (!zipFile) return
     setExecuting(true)
@@ -111,6 +196,9 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
       const formData = new FormData()
       formData.append('zip', zipFile)
       formData.append('mode', 'execute')
+      if (Object.keys(assignments).length > 0) {
+        formData.append('assignments', JSON.stringify(assignments))
+      }
 
       const res = await fetch('/api/v1/users/photos/zip', {
         method: 'POST',
@@ -123,14 +211,14 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
       }
 
       setResults({
-        successful: json.data?.successfulCount || 0,
-        failed: json.data?.failedCount || 0,
-        skipped: json.data?.skippedCount || 0,
-        totalProcessed: json.data?.totalProcessed || 0,
+        successful: json.data?.successfulCount || json.data?.uploaded || 0,
+        failed: json.data?.failedCount || json.data?.failed || 0,
+        skipped: json.data?.skippedCount || json.data?.unmatched || 0,
+        totalProcessed: json.data?.totalProcessed || json.data?.totalFiles || 0,
       })
       toast.success(
         'Photos Processed',
-        `Successfully applied ${json.data?.successfulCount || 0} profile photos.`
+        `Successfully applied ${json.data?.successfulCount || json.data?.uploaded || 0} profile photos.`
       )
       setStep('RESULT')
       onSuccess()
@@ -144,6 +232,8 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
   const handleReset = () => {
     setZipFile(null)
     setItems([])
+    setCandidateUsers([])
+    setAssignments({})
     setResults(null)
     setStep('SELECT')
   }
@@ -263,8 +353,30 @@ export function ZipPhotoUploadModal({ open, onClose, onSuccess }: ZipPhotoUpload
                         {item.fileName}
                       </td>
                       <td className="p-2.5 font-medium text-gray-900 dark:text-white">
-                        {item.userName || (
-                          <span className="text-gray-400 italic">No user found ({item.identifier})</span>
+                        {item.status === 'UNMATCHED' || assignments[item.fileName] ? (
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              value={assignments[item.fileName] || ''}
+                              onChange={(e) => handleAssignUser(item.fileName, e.target.value)}
+                              className={`select select-sm text-[11px] py-1 px-2 max-w-[220px] ${
+                                assignments[item.fileName]
+                                  ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20'
+                                  : 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20'
+                              }`}
+                            >
+                              <option value="">🔍 Match to user...</option>
+                              {candidateUsers.map((u) => (
+                                <option key={u.userId} value={u.userId}>
+                                  {u.name} {u.employeeCode ? `(${u.employeeCode})` : `(${u.role})`}
+                                </option>
+                              ))}
+                            </select>
+                            {assignments[item.fileName] && (
+                              <span className="badge badge-xs badge-info text-[9px] shrink-0">Manual Match</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span>{item.userName}</span>
                         )}
                       </td>
                       <td className="p-2.5 text-gray-500">{item.role || '—'}</td>

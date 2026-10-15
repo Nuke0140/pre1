@@ -95,6 +95,10 @@ export function EditUserModal({
   const [confirmationDate, setConfirmationDate] = useState('')
   const [noticePeriodDays, setNoticePeriodDays] = useState('')
   const [classroomId, setClassroomId] = useState('')
+  const [reportingManagerId, setReportingManagerId] = useState('')
+  const [availableManagers, setAvailableManagers] = useState<
+    Array<{ id: string; userId: string; name: string; designation?: string | null; role?: string }>
+  >([])
 
   // Guardian Profile Fields
   const [relationship, setRelationship] = useState('FATHER')
@@ -144,6 +148,7 @@ export function EditUserModal({
 
       if (isStaffUser) {
         const sp = user.staffProfile
+        setReportingManagerId(sp?.reportingManagerId || (sp?.reportingManager as any)?.id || (user as any).reportingManagerId || '')
         setEmployeeCode(sp?.employeeCode || '')
         setDesignation(sp?.designation || '')
         setDepartment(sp?.department || '')
@@ -167,6 +172,24 @@ export function EditUserModal({
         setNoticePeriodDays(sp?.noticePeriodDays != null ? String(sp.noticePeriodDays) : '')
         setClassroomId(user.taughtClasses?.[0]?.id || '')
 
+        // Fetch active staff to populate potential reporting managers
+        fetch('/api/v1/users?userType=STAFF&status=ACTIVE&pageSize=100')
+          .then((res) => res.json())
+          .then((json) => {
+            if (json.success && Array.isArray(json.data?.users)) {
+              setAvailableManagers(
+                json.data.users.map((u: any) => ({
+                  id: u.staffProfile?.id || u.userId || u.id,
+                  userId: u.userId || u.id,
+                  name: u.fullName || u.name,
+                  designation: u.staffProfile?.designation || u.designation,
+                  role: u.role,
+                }))
+              )
+            }
+          })
+          .catch(() => {})
+
         // Fetch single-user details to obtain unmasked profile fields and assigned branches for editing
         const userId = user.userId || user.id
         if (userId) {
@@ -179,6 +202,7 @@ export function EditUserModal({
                 }
                 const s = json.data.staffProfile
                 if (s) {
+                  if (s.reportingManagerId) setReportingManagerId(s.reportingManagerId)
                   if (s.dateOfBirth) setDateOfBirth(s.dateOfBirth.slice(0, 10))
                   if (s.currentAddress) setCurrentAddress(s.currentAddress)
                   if (s.permanentAddress) setPermanentAddress(s.permanentAddress)
@@ -376,6 +400,7 @@ export function EditUserModal({
         payload.confirmationDate = confirmationDate || null
         payload.noticePeriodDays = noticePeriodDays ? Number(noticePeriodDays) : null
         payload.classroomId = classroomId || null
+        payload.reportingManagerId = reportingManagerId || null
       }
 
       if (isFamily) {
@@ -900,6 +925,26 @@ export function EditUserModal({
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-foreground mb-1">
+                Reporting Manager
+              </label>
+              <select
+                value={reportingManagerId}
+                onChange={(e) => setReportingManagerId(e.target.value)}
+                className="select w-full text-sm"
+              >
+                <option value="">None (Top-level / Self-managed)</option>
+                {availableManagers
+                  .filter((m) => m.userId !== (user.userId || user.id))
+                  .map((mgr) => (
+                    <option key={mgr.id} value={mgr.id}>
+                      {mgr.name} ({mgr.designation || mgr.role || 'Staff'})
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
         )}

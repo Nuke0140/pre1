@@ -32,7 +32,11 @@ async function _POST(
       pickupPin,
       isFeePayer,
       receivesCommunication,
+      alternateGuardianId,
+      nominateAlternateId,
     } = body
+
+    const nominatedAlternate = alternateGuardianId || nominateAlternateId
 
     if (!action || (!guardianId && !phone)) {
       return Errors.validation('action and either guardianId or phone are required')
@@ -64,9 +68,9 @@ async function _POST(
         pickupPin,
         isFeePayer,
         receivesComm: receivesCommunication ?? body.receivesComm,
+        alternateGuardianId: nominatedAlternate,
       }
     )
-
 
     return ok(updated)
   } catch (e: any) {
@@ -96,10 +100,12 @@ export const DELETE = withApi(async function (
 ) {
   const { searchParams } = new URL(req.url)
   const guardianId = searchParams.get('guardianId')
+  const alternateGuardianId =
+    searchParams.get('alternateGuardianId') || searchParams.get('nominateAlternateId')
   const newReq = new NextRequest(req.url, {
     method: 'POST',
     headers: req.headers,
-    body: JSON.stringify({ action: 'UNLINK', guardianId }),
+    body: JSON.stringify({ action: 'UNLINK', guardianId, alternateGuardianId }),
   })
   return _POST(newReq, ctx)
 })

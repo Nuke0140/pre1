@@ -2,11 +2,12 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
   ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera,
-  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image
+  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -22,10 +23,12 @@ import { User360Drawer } from '@/components/users/User360Drawer'
 import { RecordInspector } from '@/components/preone'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
+import { InvitationsLifecycleView } from '@/components/users/InvitationsLifecycleView'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import { ResetPasswordModal } from '@/components/users/ResetPasswordModal'
 import { SuspendUserModal } from '@/components/users/SuspendUserModal'
+import { OrgHierarchyView } from '@/components/users/OrgHierarchyView'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -59,11 +62,18 @@ export default function StaffUsersPage() {
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
   const [selectAllMatching, setSelectAllMatching] = useState(false)
 
+  const searchParams = useSearchParams()
+  const initialStatusParam = searchParams?.get('tab') || searchParams?.get('status')
+
   // Filters
   const [search, setSearch] = useState('')
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
   const [selectedBranch, setSelectedBranch] = useState<string>('ALL')
-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
+  const [selectedStatus, setSelectedStatus] = useState<string>(
+    initialStatusParam && ['PENDING', 'ACTIVE', 'SUSPENDED'].includes(initialStatusParam.toUpperCase())
+      ? initialStatusParam.toUpperCase()
+      : 'ALL'
+  )
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -93,6 +103,24 @@ export default function StaffUsersPage() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
   const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<'directory' | 'hierarchy'>('directory')
+
+  const handleSelectUserFromHierarchy = async (userId: string) => {
+    const existing = users.find((u) => (u.userId || u.id) === userId)
+    if (existing) {
+      setViewingUser(existing)
+      return
+    }
+    try {
+      const res = await fetch(`/api/v1/users/${userId}`)
+      const json = await res.json()
+      if (json.success && json.data) {
+        setViewingUser(json.data)
+      }
+    } catch {
+      toast.error('Load Error', 'Failed to load user profile')
+    }
+  }
 
   const handleUnlockUser = async (u: UserRecord) => {
     const targetUserId = u.userId || u.id
@@ -496,6 +524,36 @@ export default function StaffUsersPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
 
+            {/* View Mode Toggle: Directory vs Org Hierarchy */}
+            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-800 p-0.5 bg-gray-50 dark:bg-gray-900/50 text-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('directory')}
+                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
+                  viewMode === 'directory'
+                    ? 'bg-card text-foreground font-semibold shadow-xs'
+                    : 'text-gray-500 hover:text-foreground'
+                }`}
+                title="Directory Table View"
+              >
+                <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span className="hidden sm:inline">Directory</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('hierarchy')}
+                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
+                  viewMode === 'hierarchy'
+                    ? 'bg-card text-foreground font-semibold shadow-xs'
+                    : 'text-gray-500 hover:text-foreground'
+                }`}
+                title="Org Hierarchy View"
+              >
+                <Network className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden sm:inline">Org Hierarchy</span>
+              </button>
+            </div>
+
             <GlobalActionMenu
               label={t('common.actions') || 'Actions'}
               groups={[
@@ -588,8 +646,15 @@ export default function StaffUsersPage() {
         }
       />
 
-      {/* 4-Box KPI Strip (Single cohesive line on desktop & laptops) */}
-      <div className="kpi-row kpi-4">
+      {viewMode === 'hierarchy' ? (
+        <OrgHierarchyView
+          branches={branches}
+          onSelectUser={handleSelectUserFromHierarchy}
+        />
+      ) : (
+        <>
+          {/* 4-Box KPI Strip (Single cohesive line on desktop & laptops) */}
+          <div className="kpi-row kpi-4">
         <KpiTile
           label={t('users.totalStaff')}
           value={total}
@@ -752,8 +817,26 @@ export default function StaffUsersPage() {
         />
       </div>
 
-      {/* Staff DataTable Workspace */}
-      <div className="table-workspace">
+      {/* Staff DataTable Workspace or Invitations Lifecycle View */}
+      {selectedStatus === 'PENDING' ? (
+        <InvitationsLifecycleView
+          onSelectUser={(userId) => {
+            const u = users.find((x) => String(x.userId || x.id) === String(userId))
+            if (u) {
+              setViewingUser(u)
+            } else {
+              fetch(`/api/v1/users/${userId}`)
+                .then((r) => r.json())
+                .then((j) => {
+                  if (j.success && j.data) setViewingUser(j.data)
+                })
+                .catch(() => {})
+            }
+          }}
+          onInviteSuccess={fetchStaff}
+        />
+      ) : (
+        <div className="table-workspace">
         {/* Smart Selection Banner when page is fully selected and total > pageSize */}
         {selectedKeys.length > 0 && (
           <div className="px-4 py-2.5 bg-purple-50 dark:bg-purple-950/30 border-b border-purple-100 dark:border-purple-900/50 flex items-center justify-between text-xs">
@@ -840,7 +923,7 @@ export default function StaffUsersPage() {
                   className="btn btn-secondary btn-sm flex items-center gap-1.5 text-xs font-semibold"
                   onClick={() => setBulkActionModalOpen(true)}
                 >
-                  <span>{t('common.moreActions')}</span>
+                  <span>{t('common.moreActions') || 'More Actions'}</span>
                 </button>
               </div>
             ) : null
@@ -879,6 +962,9 @@ export default function StaffUsersPage() {
           </div>
         </div>
       </div>
+      )}
+      </>
+      )}
 
       {/* Modals & Inspectors */}
       <AddStaffModal

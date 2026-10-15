@@ -15,6 +15,7 @@ import { StatutoryBackfillService } from '@/lib/users/statutory-backfill'
 import { POST as usersPost } from '@/app/api/v1/users/route'
 import { PATCH as userPatch } from '@/app/api/v1/users/[id]/route'
 import { CsvEngine } from '@/lib/users/csv-engine'
+import { EncryptionService } from '@/lib/security/encryption-service'
 
 describe('Statutory-ID Format Validation & Backfill Audit (N-3)', () => {
   let tenant: any
@@ -259,10 +260,10 @@ describe('Statutory-ID Format Validation & Backfill Audit (N-3)', () => {
       const dbProfile = await db.staffProfile.findFirst({
         where: { tenantId: tenant.id, userId: json.data.userId },
       })
-      expect(dbProfile?.panNumber).toBe('ABCDE1234F')
-      expect(dbProfile?.aadhaarNumber).toBe('998877665548')
-      expect(dbProfile?.uanNumber).toBe('100998877665')
-      expect(dbProfile?.esiNumber).toBe('31998877665544332')
+      expect(EncryptionService.decrypt(dbProfile?.panNumber, tenant.id)).toBe('ABCDE1234F')
+      expect(EncryptionService.decrypt(dbProfile?.aadhaarNumber, tenant.id)).toBe('998877665548')
+      expect(EncryptionService.decrypt(dbProfile?.uanNumber, tenant.id)).toBe('100998877665')
+      expect(EncryptionService.decrypt(dbProfile?.esiNumber, tenant.id)).toBe('31998877665544332')
     })
   })
 

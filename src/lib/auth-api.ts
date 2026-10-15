@@ -6,6 +6,7 @@ import { Errors, forbidden, notFound, bad } from './api'
 import { AuditService } from './audit/audit-service'
 import { db } from './db'
 import { UserRole } from '@prisma/client'
+import { RbacEngine } from './auth/rbac-engine'
 
 /**
  * Guard for API route handlers — returns session or returns an HTTP Error Response.
@@ -39,7 +40,19 @@ export async function requireApi(
   }
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  if (permission && !can(effectiveRoles, permission)) {
+  let hasPermission = !permission || can(effectiveRoles, permission)
+  if (!hasPermission && permission && session.tenantId) {
+    const dynamicPerms = await RbacEngine.resolveEffectivePermissions({
+      userId: session.uid,
+      tenantId: session.tenantId,
+      roles: effectiveRoles,
+    })
+    hasPermission =
+      dynamicPerms.includes(permission) ||
+      (dynamicPerms.includes('*') && !permission.startsWith('platform:'))
+  }
+
+  if (!hasPermission) {
     // Record security event for unauthorized attempt
     await AuditService.recordSecurityEvent({
       action: 'AUTHORIZATION_FAILED',

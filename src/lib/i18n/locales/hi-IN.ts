@@ -59,6 +59,7 @@ export const hiIN: TranslationCatalog = {
     download: 'डाउनलोड करें',
     uploaded: 'अपलोड किया गया',
     verified: 'सत्यापित',
+    moreActions: 'अधिक क्रियाएं',
   },
 
   // DataTable & Collections
@@ -447,7 +448,7 @@ export const hiIN: TranslationCatalog = {
     subtitle: 'अपने स्कूल के कर्मचारियों, अभिभावकों और अनुमतियों का प्रबंधन करें',
     rolesDirectory: 'भूमिका निर्देशिका',
     rolesDirectoryTitle: 'भूमिका निर्देशिका व अनुमति मैट्रिक्स',
-    rolesDirectorySub: 'PreOne प्रीस्कूल ओएस में परिभाषित प्रामाणिक 9 RBAC भूमिकाएँ',
+    rolesDirectorySub: 'PreOne प्रीस्कूल ओएस के लिए प्रामाणिक RBAC भूमिकाएँ और अनुमति मैट्रिक्स',
     staffUsers: 'स्टाफ़ उपयोगकर्ता',
     staffUsersDesc: 'शिक्षक, सहायक, प्रधानाचार्य, लेखाकार, मानव संसाधन व चालक',
     activeStaffBadge: '{count} सक्रिय स्टाफ़',

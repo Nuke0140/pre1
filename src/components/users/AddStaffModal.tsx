@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import {
   Briefcase, Building, Mail, Phone, User, Shield, Check, Key,
   Calendar, GraduationCap, Sparkles, RefreshCw, Layers, Award,
-  Clock, DoorOpen, UserCheck, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff
+  Clock, DoorOpen, UserCheck, AlertCircle, AlertTriangle, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
@@ -12,6 +12,7 @@ import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE,
 import { UserPhotoUpload } from './UserPhotoUpload'
 import { Input } from '@/components/ui/input'
 import { validatePan, validateAadhaar, validateUan, validateEsi } from '@/lib/users/statutory-validation'
+import { validateFullName } from '@/lib/users/user-validation'
 
 interface AddStaffModalProps {
   open: boolean
@@ -72,8 +73,15 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [status, setStatus] = useState<'ACTIVE' | 'PENDING'>('ACTIVE')
+  const [duplicateHint, setDuplicateHint] = useState<string | null>(null)
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
-  // Auto-generate employee code on open if blank
+  // Potential Reporting Managers
+  const [availableManagers, setAvailableManagers] = useState<
+    Array<{ id: string; userId: string; name: string; designation?: string | null; role?: string }>
+  >([])
+
+  // Auto-generate employee code on open if blank & fetch available managers
   useEffect(() => {
     if (open) {
       if (!employeeCode) generateEmployeeCode()
@@ -81,6 +89,22 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
         setBranchId(branches[0].id)
         setAssignedBranchIds([branches[0].id])
       }
+      fetch('/api/v1/users?userType=STAFF&status=ACTIVE&pageSize=100')
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data?.users)) {
+            setAvailableManagers(
+              json.data.users.map((u: any) => ({
+                id: u.staffProfile?.id || u.userId || u.id,
+                userId: u.userId || u.id,
+                name: u.fullName || u.name,
+                designation: u.staffProfile?.designation || u.designation,
+                role: u.role,
+              }))
+            )
+          }
+        })
+        .catch(() => {})
     }
   }, [open, branches])
 
@@ -136,6 +160,45 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
 
     return () => clearTimeout(timer)
   }, [username])
+
+  // Debounced duplicate detection on Name / Email / Phone
+  useEffect(() => {
+    const q = email.trim() || phone.trim() || (fullName.trim().length >= 3 ? fullName.trim() : '')
+    if (!q) {
+      setDuplicateHint(null)
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setCheckingDuplicate(true)
+        const res = await fetch(`/api/v1/users?q=${encodeURIComponent(q)}&pageSize=5`)
+        if (res.ok) {
+          const json = await res.json()
+          const usersList = json.data?.items || json.data || []
+          const existing = usersList.find((u: any) => {
+            const matchEmail = email.trim() && u.email?.toLowerCase() === email.trim().toLowerCase()
+            const matchPhone = phone.trim() && u.phone === phone.trim()
+            const matchName = fullName.trim().length >= 3 && u.name?.toLowerCase() === fullName.trim().toLowerCase()
+            return matchEmail || matchPhone || matchName
+          })
+          if (existing) {
+            setDuplicateHint(
+              `Notice: An account matching "${existing.name}" (${existing.email || existing.phone || existing.role}) already exists in this school.`
+            )
+          } else {
+            setDuplicateHint(null)
+          }
+        }
+      } catch {
+        // ignore network error
+      } finally {
+        setCheckingDuplicate(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [fullName, email, phone])
 
   // Auto-suggest username from fullName if not manually customized
   const handleFullNameChange = (val: string) => {
@@ -236,8 +299,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   }
 
   const validateStep1 = () => {
-    if (!fullName.trim()) {
-      toast.error('Validation Error', 'Full Name is required')
+    const nameRes = validateFullName(fullName)
+    if (!nameRes.valid) {
+      toast.error('Validation Error', nameRes.error || 'Invalid Full Name')
       return false
     }
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -676,6 +740,14 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     </div>
                   </div>
 
+                  {/* Duplicate User Advisory Banner */}
+                  {duplicateHint && (
+                    <div className="sm:col-span-2 flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{duplicateHint}</span>
+                    </div>
+                  )}
+
                   {/* Staff Profile Photo Upload */}
                   <UserPhotoUpload
                     value={avatarUrl}
@@ -984,6 +1056,25 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       <option value="PART_TIME">Part Time</option>
                       <option value="CONTRACT">Contract</option>
                       <option value="PROBATION">Probation</option>
+                    </select>
+                  </div>
+
+                  {/* Reporting Manager */}
+                  <div className="field">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Reporting Manager
+                    </label>
+                    <select
+                      value={reportingManagerId}
+                      onChange={(e) => setReportingManagerId(e.target.value)}
+                      className="select w-full text-xs mt-1"
+                    >
+                      <option value="">None (Top-level / Self-managed)</option>
+                      {availableManagers.map((mgr) => (
+                        <option key={mgr.id} value={mgr.id}>
+                          {mgr.name} ({mgr.designation || mgr.role || 'Staff'})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
