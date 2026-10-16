@@ -20,7 +20,7 @@ import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
 import { FamilyUserService } from '@/lib/users/family-user-service'
 import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { normalizeRole } from '@/lib/roles'
-import { normalizeUsername, isValidUsername } from '@/lib/users/username-service'
+import { normalizeUsername, isValidUsername, sanitizeUsernameSlug } from '@/lib/users/username-service'
 import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
 import { EncryptionService } from '@/lib/security/encryption-service'
 import { CustomRoleService } from '@/lib/auth/rbac-engine'
@@ -820,10 +820,12 @@ export const POST = withApi(async (req: NextRequest) => {
   const rawUsername = (body as any).username ? String((body as any).username).trim() : ''
 
   if (credentialSetupMode === 'MANUAL') {
-    // 1. In manual flow: Username is mandatory for staff; auto-derived for family users if not provided
+    // 1. In manual flow: Username is auto-derived if not provided
     if (!rawUsername) {
       if (isStaffFlow) {
-        throw errValidation('Username is required for account creation.', 'username')
+        const baseSlug = sanitizeUsernameSlug(effectiveFullName)
+        const randSuffix = Math.floor(100 + Math.random() * 900)
+        finalUsername = normalizeUsername(`${baseSlug}.${randSuffix}`)
       } else {
         finalUsername = undefined
       }
@@ -835,17 +837,20 @@ export const POST = withApi(async (req: NextRequest) => {
       finalUsername = normalizeUsername(rawUsername)
     }
 
-    // 2. In manual flow: Password is mandatory and must satisfy password policy (min 8 chars)
+    // 2. In manual flow: If password is provided, validate it; otherwise auto-generate temporary credentials
     const rawPassword = password !== undefined && password !== null ? String(password).trim() : ''
     if (!rawPassword) {
-      throw errValidation('Password is required for manual account creation.', 'password')
+      effectivePassword = generateSecureInitialPassword()
+      isGeneratedPassword = true
+      mustChangePassword = true
+    } else {
+      if (rawPassword.length < MIN_PASSWORD_LENGTH) {
+        throw errValidation(PASSWORD_POLICY.errorMessage, 'password')
+      }
+      effectivePassword = rawPassword
+      isGeneratedPassword = false
+      mustChangePassword = false
     }
-    if (rawPassword.length < MIN_PASSWORD_LENGTH) {
-      throw errValidation(PASSWORD_POLICY.errorMessage, 'password')
-    }
-    effectivePassword = rawPassword
-    isGeneratedPassword = false
-    mustChangePassword = false
   } else if (credentialSetupMode === 'GENERATE') {
     // Generated credentials flow: username required or sanitized, secure CSPRNG password
     if (rawUsername) {
