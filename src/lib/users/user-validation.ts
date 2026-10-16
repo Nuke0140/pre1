@@ -41,6 +41,7 @@ export interface StaffCreateInput {
   gender?: Gender | null
   reportingManagerId?: string | null
   classroomId?: string
+  reassignClassroom?: boolean
   status?: UserStatus
   emergencyContactName?: string | null
   emergencyContactPhone?: string | null

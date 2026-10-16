@@ -25,10 +25,21 @@ async function _POST(
       fullName,
       phone,
       email,
+      photoUrl,
       occupation,
       relationship,
       isPrimary,
+      isEmergencyContact,
+      emergencyPriority,
       canPickup,
+      pickupStatus,
+      pickupDays,
+      pickupTimeWindow,
+      pickupRestrictions,
+      authStartDate,
+      authExpiresAt,
+      verifiedAt,
+      verifiedByName,
       pickupPin,
       isFeePayer,
       receivesCommunication,
@@ -42,8 +53,8 @@ async function _POST(
       return Errors.validation('action and either guardianId or phone are required')
     }
 
-    if (!['LINK', 'UPDATE', 'UNLINK', 'INVITE'].includes(action)) {
-      return Errors.validation('action must be one of LINK, UPDATE, UNLINK, INVITE')
+    if (!['LINK', 'UPDATE', 'UNLINK', 'INVITE', 'MANAGE_PICKUP'].includes(action)) {
+      return Errors.validation('action must be one of LINK, UPDATE, UNLINK, INVITE, MANAGE_PICKUP')
     }
 
     const updated = await StudentService.manageGuardians(
@@ -61,10 +72,21 @@ async function _POST(
         fullName,
         phone,
         email,
+        photoUrl,
         occupation,
         relationship,
         isPrimary,
+        isEmergencyContact,
+        emergencyPriority,
         canPickup,
+        pickupStatus,
+        pickupDays,
+        pickupTimeWindow,
+        pickupRestrictions,
+        authStartDate,
+        authExpiresAt,
+        verifiedAt,
+        verifiedByName,
         pickupPin,
         isFeePayer,
         receivesComm: receivesCommunication ?? body.receivesComm,

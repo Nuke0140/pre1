@@ -7,7 +7,7 @@ import {
   AlertTriangle, Eye, ArrowLeft, Building2, ExternalLink,
   Trash2, Image as ImageIcon, Sparkles, Check, Monitor, Layout, FileText, Users, Lock, ChevronRight
 } from 'lucide-react'
-import { PageHead, Skeleton, StatusBadge, Breadcrumbs } from '@/components/preone'
+import { PageHead, Skeleton, StatusBadge, Breadcrumbs, SetupScopeBadge } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import {
@@ -369,8 +369,13 @@ export default function BrandingPage() {
 
       <PageHead
         eyebrow="FOUNDATION SETUP"
-        title="Branding & Visual Identity Center"
-        sub="Personalize themes, workspace layout, parent portal appearance, and floating navigation accents."
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span>Branding & Visual Identity Center</span>
+            <SetupScopeBadge scope="TENANT" size="md" />
+          </div>
+        }
+        sub="Personalize themes, workspace layout, parent portal appearance, and floating navigation accents (applies to all branches)."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button

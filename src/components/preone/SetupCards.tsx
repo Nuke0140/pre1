@@ -116,6 +116,7 @@ export function SetupPhaseCard({
   className = '',
 }: SetupPhaseCardProps) {
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+  const isComplete = totalCount > 0 && completedCount >= totalCount
 
   return (
     <div className={`setup-phase-card phase-${phaseKey} ${className}`.trim()}>
@@ -128,16 +129,23 @@ export function SetupPhaseCard({
         </div>
         <h3 className="setup-phase-title">{title}</h3>
         {description && <p className="setup-phase-desc">{description}</p>}
-        <div
-          className="setup-phase-progress-bar"
-          role="progressbar"
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${title} progress: ${pct}%`}
-        >
-          <div className="setup-phase-progress-fill" style={{ width: `${pct}%` }} />
-        </div>
+        {isComplete ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200/80 dark:border-emerald-800/80 text-xs font-bold mt-2 shadow-xs">
+            <Sparkles size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>🎉 {title} Complete — {completedCount} of {totalCount} steps ready</span>
+          </div>
+        ) : (
+          <div
+            className="setup-phase-progress-bar"
+            role="progressbar"
+            aria-valuenow={pct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${title} progress: ${pct}%`}
+          >
+            <div className="setup-phase-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        )}
       </div>
 
       <div className="setup-phase-body">
@@ -166,6 +174,7 @@ export interface SetupStepTileProps {
   name: string
   status: 'COMPLETE' | 'BLOCKED' | 'SKIPPED' | 'NOT_STARTED' | 'IN_PROGRESS' | string
   statusBadge?: React.ReactNode
+  scopeBadge?: React.ReactNode
   applicability?: 'MANDATORY' | 'RECOMMENDED' | 'OPTIONAL' | string
   helper?: string
   onClick?: () => void
@@ -178,6 +187,7 @@ export function SetupStepTile({
   name,
   status,
   statusBadge,
+  scopeBadge,
   applicability,
   helper,
   onClick,
@@ -212,8 +222,9 @@ export function SetupStepTile({
       </div>
       <div className="setup-step-info">
         <div className="setup-step-name" title={name}>{name}</div>
-        <div className="setup-step-meta">
+        <div className="setup-step-meta" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {statusBadge}
+          {scopeBadge}
           {applicability && applicability !== 'MANDATORY' && (
             <span
               style={{
@@ -228,22 +239,6 @@ export function SetupStepTile({
             </span>
           )}
         </div>
-        {helper && (
-          <span
-            style={{
-              fontSize: 11.5,
-              color: 'var(--text-muted)',
-              lineHeight: 1.3,
-              marginTop: 2,
-              display: '-webkit-box',
-              WebkitLineClamp: 1,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {helper}
-          </span>
-        )}
       </div>
       <ChevronRight
         size={14}

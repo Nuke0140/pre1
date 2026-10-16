@@ -8,11 +8,12 @@ import {
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
   SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight
 } from 'lucide-react'
-import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar, BookPageLoader } from '@/components/preone'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar, BookPageLoader, SaveStatusIndicator } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { RecordInspector } from '@/components/preone/RecordInspector'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
+import { SaveStatus } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n/context'
@@ -125,7 +126,8 @@ export default function StudentsPage() {
   const formRef = useRef<HTMLFormElement>(null)
   const saveTimer = useRef<number | undefined>(undefined)
   const [dob, setDob] = useState('')
-  const [draftSaved, setDraftSaved] = useState(false)
+  const [draftStatus, setDraftStatus] = useState<SaveStatus>('IDLE')
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null)
   const draft = useFormDraft('preone.create-student.v1')
 
   useEffect(() => {
@@ -138,12 +140,18 @@ export default function StudentsPage() {
 
   const onDraftChange = () => {
     if (!formRef.current) return
+    setDraftStatus('UNSAVED')
     window.clearTimeout(saveTimer.current)
     saveTimer.current = window.setTimeout(() => {
-      draft.save(formRef.current as HTMLFormElement)
-      setDraftSaved(true)
-      setTimeout(() => setDraftSaved(false), 2000)
-    }, 400)
+      setDraftStatus('SAVING')
+      try {
+        draft.save(formRef.current as HTMLFormElement)
+        setDraftStatus('SAVED')
+        setLastSavedTime(new Date())
+      } catch {
+        setDraftStatus('ERROR')
+      }
+    }, 2000)
   }
 
   // Bulk operations
@@ -324,6 +332,8 @@ export default function StudentsPage() {
         setDob('')
         setEnrollClassroomId('')
         draft.clear()
+        setDraftStatus('IDLE')
+        setLastSavedTime(null)
         load()
         loadStats()
       } else {
@@ -568,10 +578,6 @@ export default function StudentsPage() {
                 {currentSessionObj.name}
               </span>
             )}
-            <span className="text-[11px] text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
-              Student Control Plane
-            </span>
           </div>
 
           {/* Title */}
@@ -581,11 +587,6 @@ export default function StudentsPage() {
             </span>
             <span>{t('students.title')}</span>
           </h1>
-
-          {/* Subtitle */}
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-2xl">
-            {t('students.subtitle')}
-          </p>
         </div>
 
         {/* Action Controls: Refresh + Primary CTA (Stacks full-width below title on mobile) */}
@@ -1492,16 +1493,15 @@ export default function StudentsPage() {
           </EnterNav>
 
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200/80 dark:border-slate-800">
-            <span className="text-xs text-slate-400 flex items-center gap-1.5">
-              {draftSaved ? (
-                <>
-                  <CheckCircle2 size={13} className="text-emerald-500" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">Draft autosaved</span>
-                </>
-              ) : (
-                'Autosaves as you type'
+            <div className="flex items-center gap-2">
+              <SaveStatusIndicator
+                status={draftStatus}
+                lastSavedAt={lastSavedTime}
+              />
+              {draftStatus === 'IDLE' && (
+                <span className="text-xs text-slate-400">Autosaves as you type</span>
               )}
-            </span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"

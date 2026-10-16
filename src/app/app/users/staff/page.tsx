@@ -7,7 +7,7 @@ import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
   ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera,
-  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network
+  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network, DoorOpen
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -21,6 +21,7 @@ import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
 import { BulkUpdateFieldModal } from '@/components/users/BulkUpdateFieldModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
 import { RecordInspector } from '@/components/preone'
+import { SpreadsheetImportWorkspace } from '@/components/importers/SpreadsheetImportWorkspace'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { InvitationsLifecycleView } from '@/components/users/InvitationsLifecycleView'
@@ -103,7 +104,9 @@ export default function StaffUsersPage() {
   const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
   const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<'directory' | 'hierarchy'>('directory')
+  const [viewMode, setViewMode] = useState<'directory' | 'hierarchy' | 'import'>(() => {
+    return searchParams?.get('tab') === 'import' ? 'import' : 'directory'
+  })
 
   const handleSelectUserFromHierarchy = async (userId: string) => {
     const existing = users.find((u) => (u.userId || u.id) === userId)
@@ -308,11 +311,28 @@ export default function StaffUsersPage() {
       sortable: true,
       render: (u) => {
         const badge = ROLE_BADGE[normalizeRole(u.role)] || ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
+        const assignedClassroomName =
+          (u.taughtClasses && u.taughtClasses[0]?.name) ||
+          (u as any).classroom?.name ||
+          (u as any).preferences?.assignedClassroomName ||
+          (u as any).user?.taughtClasses?.[0]?.name
+
         return (
           <div>
-            <span className={`badge ${badge.cls} text-xs font-semibold`}>
-              {badge.label}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`badge ${badge.cls} text-xs font-semibold`}>
+                {badge.label}
+              </span>
+              {assignedClassroomName && (
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-200/60 dark:border-purple-800/60"
+                  title={`Assigned to ${assignedClassroomName}`}
+                >
+                  <DoorOpen className="w-3 h-3 shrink-0" />
+                  <span className="truncate max-w-[120px]">{assignedClassroomName}</span>
+                </span>
+              )}
+            </div>
             <div className="text-xs text-gray-500 mt-0.5 font-medium">
               {u.staffProfile?.designation || u.staffProfile?.department || 'Staff'}
             </div>
@@ -524,7 +544,7 @@ export default function StaffUsersPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
 
-            {/* View Mode Toggle: Directory vs Org Hierarchy */}
+            {/* View Mode Toggle: Directory vs Org Hierarchy vs Import */}
             <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-800 p-0.5 bg-gray-50 dark:bg-gray-900/50 text-xs">
               <button
                 type="button"
@@ -551,6 +571,19 @@ export default function StaffUsersPage() {
               >
                 <Network className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span className="hidden sm:inline">Org Hierarchy</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('import')}
+                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
+                  viewMode === 'import'
+                    ? 'bg-card text-purple-600 dark:text-purple-400 font-semibold shadow-xs'
+                    : 'text-gray-500 hover:text-foreground'
+                }`}
+                title="Import via Spreadsheet"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span className="hidden sm:inline">Import via Spreadsheet</span>
               </button>
             </div>
 
@@ -646,7 +679,17 @@ export default function StaffUsersPage() {
         }
       />
 
-      {viewMode === 'hierarchy' ? (
+      {viewMode === 'import' ? (
+        <div className="pt-2">
+          <SpreadsheetImportWorkspace
+            module="STAFF"
+            onSuccess={() => {
+              fetchStaff()
+              setViewMode('directory')
+            }}
+          />
+        </div>
+      ) : viewMode === 'hierarchy' ? (
         <OrgHierarchyView
           branches={branches}
           onSelectUser={handleSelectUserFromHierarchy}

@@ -8,10 +8,13 @@ import {
   ArrowUpRight, ShieldCheck, Download, Filter, X,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
+import { SetupScopeBadge } from '@/components/preone/SetupScopeBadge'
+import { SmartDependencyResolver } from '@/components/setup/SmartDependencyResolver'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { CONFIG_FORMS, type FormField, type DomainForm } from '@/lib/setup/step-forms'
 import { STEP_MAP } from '@/lib/setup/steps'
+import { SETUP_SCOPE_REGISTRY } from '@/lib/setup/scope-model'
 import { ROLE_META, type CanonicalRole } from '@/lib/roles'
 
 const CANONICAL_SETUP_STAFF_ROLES: CanonicalRole[] = [
@@ -128,11 +131,14 @@ function ConfigForm({ form, data, setData }: { form: DomainForm; data: Dict; set
 type ApiFn = (url: string, method: string, body?: unknown) => Promise<any>
 type ToastFn = { success: (t: string, s?: string) => void; error: (t: string, s?: string) => void; info: (t: string, s?: string) => void; warning: (t: string, s?: string) => void }
 
-function TableToolbar({ title, count, onAdd, addLabel, icon }: { title: string; count: number; onAdd?: () => void; addLabel?: string; icon?: React.ReactNode }) {
+function TableToolbar({ title, count, onAdd, addLabel, icon, extraActions }: { title: string; count: number; onAdd?: () => void; addLabel?: string; icon?: React.ReactNode; extraActions?: React.ReactNode }) {
   return (
     <div className="table-toolbar" style={{ marginBottom: 10 }}>
       <div className="card-title">{icon}{title} <span className="badge b-neutral">{count}</span></div>
-      {onAdd && addLabel && <button className="btn btn-primary btn-sm" onClick={onAdd}><Plus size={14} /> {addLabel}</button>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {extraActions}
+        {onAdd && addLabel && <button className="btn btn-primary btn-sm" onClick={onAdd}><Plus size={14} /> {addLabel}</button>}
+      </div>
     </div>
   )
 }
@@ -332,6 +338,9 @@ export default function SetupStepPage() {
   const statusBadgeCls: Record<string, string> = { COMPLETE: 'b-success', PENDING: 'b-info', BLOCKED: 'b-danger', SKIPPED: 'b-neutral' }
   const list = Array.isArray(payload) ? payload : []
 
+  const scopeInfo = (SETUP_SCOPE_REGISTRY as any)[def.key]
+  const stepScope = def.scope || scopeInfo?.scope || 'TENANT'
+
   return (
     <>
       <PageHead
@@ -340,8 +349,17 @@ export default function SetupStepPage() {
           { label: 'Setup', href: '/app/setup' },
           { label: def.label },
         ]}
-        title={def.label}
-        sub={def.description}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span>{def.label}</span>
+            <SetupScopeBadge scope={stepScope} size="md" />
+          </div>
+        }
+        sub={
+          stepScope === 'TENANT'
+            ? `${def.description} (🌐 School-Wide: applies to all branches)`
+            : `${def.description} (🏫 Campus-Specific configuration)`
+        }
         actions={
           <>
             <a className="btn btn-ghost" href="/app/setup"><ArrowLeft size={15} /> Back to Setup</a>
@@ -379,25 +397,14 @@ export default function SetupStepPage() {
         {me?.completedByName && <span className="t-caption">completed by {me.completedByName}</span>}
       </div>
 
-      {/* prerequisite notice if dependencies pending */}
-      {me?.missingDeps && me.missingDeps.length > 0 && me?.status !== 'COMPLETE' && (
-        <div className="card" style={{ borderColor: 'var(--border-subtle)', marginBottom: 14 }}>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <Lock size={18} style={{ color: 'var(--primary)', flexShrink: 0, marginTop: 2 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 4 }}>Prerequisite Steps Pending</div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{me?.blockedReason ?? 'You can configure this step now. Marking it complete will verify prerequisite steps.'}</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                {me.missingDeps.map((d) => (
-                  <a key={d.key} className="btn btn-sm btn-outline" href={`/app/setup/${d.key}`}>
-                    → {d.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── SMART DEPENDENCY RESOLVER: ACTIONABLE 1-CLICK UNBLOCKING ── */}
+      <SmartDependencyResolver
+        stepKey={stepKey}
+        stepLabel={def.label}
+        onUnblocked={() => {
+          refreshAll()
+        }}
+      />
 
       {/* ── BODY (Always accessible for editing) ── */}
       <div className="card">
@@ -899,7 +906,24 @@ function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dic
 
   return (
     <>
-      <TableToolbar title="Class-sections (current year)" count={filteredRooms.length} icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />} onAdd={onAddClass} addLabel="Add Classroom" />
+      <TableToolbar
+        title="Class-sections (current year)"
+        count={filteredRooms.length}
+        icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
+        extraActions={
+          <a
+            href="/app/classrooms"
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+            title="Import Classrooms via Spreadsheet"
+          >
+            <FileSpreadsheet size={13} style={{ color: 'var(--primary)' }} />
+            <span>Import via Spreadsheet</span>
+          </a>
+        }
+        onAdd={onAddClass}
+        addLabel="Add Classroom"
+      />
 
       {emptyCampuses.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--amber-bg, #fef3c7)', color: 'var(--amber-text, #92400e)', borderRadius: 8, marginBottom: 14, fontSize: 13, border: '1px solid #fde68a' }}>

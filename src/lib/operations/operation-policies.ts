@@ -162,16 +162,6 @@ export class OperationPolicies {
       include: { guardian: { include: { user: true } } },
     })
 
-    if (allLinks.length === 0) {
-      return {
-        authorized: false,
-        status: 'NOT_MATCH',
-        requiresPin: false,
-        pinMatched: false,
-        reason: 'No registered guardians found for this student.',
-      }
-    }
-
     // Match across the complete guardian relationship set
     let matchedLink = allLinks.find((l) => {
       if (guardianId && l.guardianId === guardianId) return true
@@ -189,19 +179,56 @@ export class OperationPolicies {
     }
 
     if (!matchedLink) {
+      // Check for approved alternate / temporary pickup authorization (e.g. Nanny/Driver)
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+      const todayEnd = new Date()
+      todayEnd.setHours(23, 59, 59, 999)
+
+      const alternateAuth = await db.transportPickupAuthorization.findFirst({
+        where: {
+          studentId,
+          tenantId,
+          status: 'APPROVED',
+          validFrom: { lte: todayEnd },
+          validUntil: { gte: todayStart },
+          OR: [
+            ...(guardianId ? [{ id: guardianId }] : []),
+            ...(phone ? [{ phone }] : []),
+          ],
+        },
+      })
+
+      if (alternateAuth) {
+        return {
+          authorized: true,
+          status: 'MATCH',
+          guardianId: alternateAuth.id,
+          guardianName: alternateAuth.personName,
+          relationship: alternateAuth.relationship,
+          requiresPin: false,
+          pinMatched: true,
+        }
+      }
+
       return {
         authorized: false,
         status: 'NOT_MATCH',
         requiresPin: false,
         pinMatched: false,
-        reason: 'Person is not registered as a guardian for this student.',
+        reason: allLinks.length === 0
+          ? 'No registered guardians or approved alternate pickup persons found for this student.'
+          : 'Person is not registered as an authorized pickup person or guardian for this student.',
       }
     }
 
     const effectiveRelationship = (matchedLink.relationship || matchedLink.guardian.relationship) as string
     const effectiveExpectedPin = matchedLink.pickupPin || matchedLink.guardian.pickupPin
+    const now = new Date()
 
-    if (!matchedLink.canPickup) {
+    // 1. Check pickup authorization status and flag
+    const pickupStatus = matchedLink.pickupStatus || (matchedLink.canPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED')
+    if (pickupStatus === 'NOT_AUTHORIZED' || !matchedLink.canPickup) {
       return {
         authorized: false,
         status: 'NOT_MATCH',
@@ -210,7 +237,109 @@ export class OperationPolicies {
         relationship: effectiveRelationship,
         requiresPin: false,
         pinMatched: false,
-        reason: 'Guardian record exists, but pickup authorization (canPickup) is revoked.',
+        reason: 'Pickup authorization is marked as Not Authorized for this child.',
+      }
+    }
+
+    if (pickupStatus === 'PENDING') {
+      return {
+        authorized: false,
+        status: 'NOT_MATCH',
+        guardianId: matchedLink.guardian.id,
+        guardianName: matchedLink.guardian.fullName,
+        relationship: effectiveRelationship,
+        requiresPin: false,
+        pinMatched: false,
+        reason: 'Pickup authorization is pending verification or approval.',
+      }
+    }
+
+    if (pickupStatus === 'EXPIRED' || (matchedLink.authExpiresAt && new Date(matchedLink.authExpiresAt) < now)) {
+      return {
+        authorized: false,
+        status: 'NOT_MATCH',
+        guardianId: matchedLink.guardian.id,
+        guardianName: matchedLink.guardian.fullName,
+        relationship: effectiveRelationship,
+        requiresPin: false,
+        pinMatched: false,
+        reason: 'Pickup authorization for this person has expired.',
+      }
+    }
+
+    if (matchedLink.authStartDate && new Date(matchedLink.authStartDate) > now) {
+      return {
+        authorized: false,
+        status: 'NOT_MATCH',
+        guardianId: matchedLink.guardian.id,
+        guardianName: matchedLink.guardian.fullName,
+        relationship: effectiveRelationship,
+        requiresPin: false,
+        pinMatched: false,
+        reason: 'Pickup authorization is not yet active.',
+      }
+    }
+
+    // 2. Check authorized days of week (e.g. "Mon, Tue, Wed, Thu, Fri" or "Mon, Wed")
+    if (matchedLink.pickupDays && matchedLink.pickupDays.trim() && matchedLink.pickupDays.toLowerCase() !== 'all days') {
+      const daysMap: Record<number, string[]> = {
+        0: ['sun', 'sunday'],
+        1: ['mon', 'monday'],
+        2: ['tue', 'tuesday'],
+        3: ['wed', 'wednesday'],
+        4: ['thu', 'thursday'],
+        5: ['fri', 'friday'],
+        6: ['sat', 'saturday'],
+      }
+      const todayDay = now.getDay()
+      const allowedTokens = matchedLink.pickupDays.toLowerCase().split(/[\s,]+/).filter(Boolean)
+      const dayMatches = daysMap[todayDay].some((d) => allowedTokens.includes(d))
+      if (!dayMatches) {
+        const currentDayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][todayDay]
+        return {
+          authorized: false,
+          status: 'NOT_MATCH',
+          guardianId: matchedLink.guardian.id,
+          guardianName: matchedLink.guardian.fullName,
+          relationship: effectiveRelationship,
+          requiresPin: false,
+          pinMatched: false,
+          reason: `Pickup not authorized on ${currentDayName} (Authorized days: ${matchedLink.pickupDays}).`,
+        }
+      }
+    }
+
+    // 3. Check authorized pickup time window (e.g. "01:45 PM – 02:15 PM" or "13:45 - 14:15")
+    if (matchedLink.pickupTimeWindow && matchedLink.pickupTimeWindow.trim()) {
+      const parts = matchedLink.pickupTimeWindow.split(/[–—\-]/)
+      if (parts.length === 2) {
+        const parseTime = (timeStr: string) => {
+          const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i)
+          if (!match) return null
+          let hours = parseInt(match[1], 10)
+          const minutes = parseInt(match[2], 10)
+          const meridian = match[3]?.toLowerCase()
+          if (meridian === 'pm' && hours < 12) hours += 12
+          if (meridian === 'am' && hours === 12) hours = 0
+          return hours * 60 + minutes
+        }
+        const startMin = parseTime(parts[0])
+        const endMin = parseTime(parts[1])
+        if (startMin !== null && endMin !== null) {
+          const curMin = now.getHours() * 60 + now.getMinutes()
+          if (curMin < startMin || curMin > endMin) {
+            return {
+              authorized: false,
+              status: 'NOT_MATCH',
+              guardianId: matchedLink.guardian.id,
+              guardianName: matchedLink.guardian.fullName,
+              relationship: effectiveRelationship,
+              requiresPin: false,
+              pinMatched: false,
+              reason: `Attempted pickup outside authorized time window (${matchedLink.pickupTimeWindow}).`,
+            }
+          }
+        }
       }
     }
 

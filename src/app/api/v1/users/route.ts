@@ -687,6 +687,7 @@ export const POST = withApi(async (req: NextRequest) => {
     assignedBranchIds: inputAssignedBranchIds,
     customRoleIds,
     classroomId,
+    reassignClassroom,
     guardianId,
     studentId,
     studentIds: inputStudentIds,
@@ -735,6 +736,7 @@ export const POST = withApi(async (req: NextRequest) => {
     assignedBranchIds?: string[]
     customRoleIds?: string[]
     classroomId?: string
+    reassignClassroom?: boolean
     guardianId?: string
     studentId?: string
     studentIds?: string[]
@@ -1468,18 +1470,72 @@ export const POST = withApi(async (req: NextRequest) => {
       }
     }
 
-    // If TEACHER is among the assigned roles and classroomId is assigned, set primaryTeacherId
-    if (assignedRoles.includes('TEACHER') && classroomId) {
+    // Classroom assignment for TEACHER and ATTENDANT
+    let assignedClassroom: any = null
+    const isTeacher = assignedRoles.includes('TEACHER')
+    const isAttendant = assignedRoles.includes('ATTENDANT')
+
+    if (classroomId && (isTeacher || isAttendant)) {
       const classroom = await tx.classroom.findFirst({
         where: { id: classroomId, tenantId: session.tenantId! },
       })
       if (!classroom) {
-        throw errNotFound(`Classroom ${classroomId} not found in this school`, ErrorCodes.NOT_FOUND_CLASSROOM)
+        throw errNotFound(`Classroom ${classroomId} not found in this school`, ErrorCodes.NOT_FOUND_CLASSROOM, 'classroomId')
       }
-      await tx.classroom.update({
-        where: { id: classroomId },
-        data: { primaryTeacherId: user.id },
-      })
+      if (classroom.isActive === false) {
+        throw errValidation(`Classroom "${classroom.name}" is currently inactive or archived`, 'classroomId')
+      }
+      // Branch boundary check: if branchId is provided, classroom must belong to branchId
+      if (branchId && classroom.branchId && classroom.branchId !== branchId) {
+        throw errValidation(`Classroom "${classroom.name}" does not belong to the selected campus branch`, 'classroomId')
+      }
+
+      if (isTeacher) {
+        if (classroom.primaryTeacherId && classroom.primaryTeacherId !== user.id) {
+          if (!reassignClassroom) {
+            const existingTeacher = await tx.user.findUnique({
+              where: { id: classroom.primaryTeacherId },
+              select: { fullName: true },
+            })
+            throw errConflict(
+              `Classroom "${classroom.name}" already has a primary teacher assigned (${existingTeacher?.fullName || 'Another teacher'}). To replace them, confirm reassignment.`,
+              ErrorCodes.CONFLICT_DUPLICATE_RECORD,
+              'classroomId'
+            )
+          }
+        }
+        assignedClassroom = await tx.classroom.update({
+          where: { id: classroom.id },
+          data: { primaryTeacherId: user.id },
+          select: { id: true, name: true, code: true, programType: true, branchId: true },
+        })
+      } else if (isAttendant) {
+        const currentPrefs = (user.preferences as any) || {}
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            preferences: {
+              ...currentPrefs,
+              assignedClassroomId: classroom.id,
+              assignedClassroomName: classroom.name,
+              classroomRole: 'ATTENDANT',
+            },
+          },
+        })
+        if (staffProfileRecord && (!staffProfileRecord.department || staffProfileRecord.department === 'Caregiving')) {
+          staffProfileRecord = await tx.staffProfile.update({
+            where: { id: staffProfileRecord.id },
+            data: { department: `Caregiving — ${classroom.name}` },
+          })
+        }
+        assignedClassroom = {
+          id: classroom.id,
+          name: classroom.name,
+          code: classroom.code,
+          programType: classroom.programType,
+          branchId: classroom.branchId,
+        }
+      }
     }
 
     const assignedBranchesData = await tx.tenantUserBranch.findMany({
@@ -1499,7 +1555,16 @@ export const POST = withApi(async (req: NextRequest) => {
     }))
     const assignedBranchIds = assignedBranches.map((b: any) => b.id)
 
-    return { user, membership, assignedRoles, finalPrimaryRole, assignedBranches, assignedBranchIds, staffProfileRecord }
+    return {
+      user,
+      membership,
+      assignedRoles,
+      finalPrimaryRole,
+      assignedBranches,
+      assignedBranchIds,
+      staffProfileRecord,
+      assignedClassroom,
+    }
   })
 
   if (customRoleIds && Array.isArray(customRoleIds) && customRoleIds.length > 0) {
@@ -1545,7 +1610,7 @@ export const POST = withApi(async (req: NextRequest) => {
     entity: 'User',
     entityId: result.user.id,
     module: 'Users',
-    summary: `Created user ${fullName} with roles [${result.assignedRoles.join(', ')}] (primary: ${result.finalPrimaryRole})`,
+    summary: `Created user ${fullName} with roles [${result.assignedRoles.join(', ')}] (primary: ${result.finalPrimaryRole})${result.assignedClassroom ? ` assigned to classroom ${result.assignedClassroom.name}` : ''}`,
     ipAddress: meta.ipAddress,
     userAgent: meta.userAgent,
     newValues: {
@@ -1557,6 +1622,7 @@ export const POST = withApi(async (req: NextRequest) => {
       roles: result.assignedRoles,
       branchId: branchId || null,
       designation: designation?.trim() || null,
+      assignedClassroom: result.assignedClassroom || null,
     },
   })
 
@@ -1599,6 +1665,24 @@ export const POST = withApi(async (req: NextRequest) => {
             avatarUrl: result.staffProfileRecord.reportingManager.user.avatarUrl,
           }
         : null,
+      classroom: result.assignedClassroom
+        ? {
+            id: result.assignedClassroom.id,
+            name: result.assignedClassroom.name,
+            code: result.assignedClassroom.code,
+            programType: result.assignedClassroom.programType,
+          }
+        : null,
+      taughtClasses:
+        result.assignedRoles.includes('TEACHER') && result.assignedClassroom
+          ? [
+              {
+                id: result.assignedClassroom.id,
+                name: result.assignedClassroom.name,
+                programType: result.assignedClassroom.programType,
+              },
+            ]
+          : [],
       invitation: invitationData,
     },
     undefined,

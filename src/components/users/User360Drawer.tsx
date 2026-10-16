@@ -678,7 +678,11 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                       <GraduationCap className="w-3.5 h-3.5 text-primary" /> Assigned Classrooms
                     </span>
                     <span className="badge b-neutral text-[10px]">
-                      {user.taughtClasses?.length || 0} Assigned
+                      {(user.taughtClasses?.length || 0) > 0
+                        ? `${user.taughtClasses?.length} Assigned`
+                        : (user as any).preferences?.assignedClassroomName || (user as any).classroom?.name
+                        ? '1 Assigned'
+                        : '0 Assigned'}
                     </span>
                   </div>
                   {user.taughtClasses && user.taughtClasses.length > 0 ? (
@@ -690,8 +694,17 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                         </div>
                       ))}
                     </div>
+                  ) : (user as any).preferences?.assignedClassroomName || (user as any).classroom?.name ? (
+                    <div className="flex flex-wrap gap-2">
+                      <div className="p-2 rounded border border-border bg-muted/30 text-xs flex items-center gap-2">
+                        <span className="font-bold text-foreground">
+                          {(user as any).preferences?.assignedClassroomName || (user as any).classroom?.name}
+                        </span>
+                        <span className="badge b-purple text-[10px]">Caregiving Roster</span>
+                      </div>
+                    </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground italic">No specific classroom assigned as lead teacher.</p>
+                    <p className="text-xs text-muted-foreground italic">No specific classroom assigned.</p>
                   )}
                 </div>
 

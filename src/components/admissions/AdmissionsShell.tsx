@@ -15,6 +15,7 @@ import {
   Plus,
   Download,
   Share2,
+  QrCode,
 } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone'
 import { useI18n } from '@/lib/i18n'
@@ -46,6 +47,7 @@ export interface AdmissionsShellProps {
   onNewEnquiry?: () => void
   onImport?: () => void
   onSharePublicForm?: () => void
+  onPrintLobbyQr?: () => void
   actions?: React.ReactNode
   moduleCounts?: Partial<Record<string, number>>
   hideMobileHeaderAction?: boolean
@@ -67,6 +69,7 @@ export function AdmissionsShell({
   onNewEnquiry,
   onImport,
   onSharePublicForm,
+  onPrintLobbyQr,
   actions,
   moduleCounts = {},
   hideMobileHeaderAction = false,
@@ -103,11 +106,6 @@ export function AdmissionsShell({
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
             {title}
           </h1>
-          {description && (
-            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
-              {description}
-            </p>
-          )}
         </div>
 
         {/* Global / Action Controls */}
@@ -157,6 +155,19 @@ export function AdmissionsShell({
                 ))}
               </select>
             </div>
+          )}
+
+          {/* Lobby Front-Desk QR Action */}
+          {onPrintLobbyQr && (
+            <button
+              type="button"
+              onClick={onPrintLobbyQr}
+              className="btn btn-outline btn-sm h-8.5 px-2.5 gap-1.5 text-xs font-semibold rounded-xl border-primary/30 text-primary hover:bg-primary/5 shadow-2xs"
+              title="Print Front-Desk Lobby QR Standee for waiting parents"
+            >
+              <QrCode size={13} />
+              <span className="hidden sm:inline">Print Lobby QR</span>
+            </button>
           )}
 
           {/* Share Public Form Action */}

@@ -113,6 +113,7 @@ export class UserCsvEngine {
       'phone',
       'role',
       'branchCode',
+      'classroomCode',
       'employeeCode',
       'designation',
       'department',
@@ -124,10 +125,10 @@ export class UserCsvEngine {
     ]
 
     const sampleRows = [
-      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'REGULAR', '2026-06-01', '1992-05-14', 'FEMALE'],
-      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'REGULAR', '2026-05-15', '1988-11-20', 'MALE'],
-      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
-      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'REGULAR', '2026-05-01', '1985-08-09', 'MALE'],
+      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'NUR-A', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'FULL_TIME', '2026-06-01', '1992-05-14', 'FEMALE'],
+      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', '', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'FULL_TIME', '2026-05-15', '1988-11-20', 'MALE'],
+      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'PG-STAR', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
+      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', '', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'FULL_TIME', '2026-05-01', '1985-08-09', 'MALE'],
     ]
 
     return [
@@ -263,12 +264,20 @@ export class UserCsvEngine {
       'ATTENDANT',
     ]
 
-    // Fetch branches in tenant for code matching
-    const branches = await db.branch.findMany({
-      where: { tenantId, deletedAt: null },
-      select: { id: true, code: true, name: true },
-    })
+    // Fetch branches and classrooms in tenant for code matching
+    const [branches, classrooms] = await Promise.all([
+      db.branch.findMany({
+        where: { tenantId, deletedAt: null },
+        select: { id: true, code: true, name: true },
+      }),
+      db.classroom.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true, code: true, name: true, branchId: true },
+      }),
+    ])
     const branchCodeMap = new Map<string, string>(branches.map((b) => [b.code.toUpperCase(), b.id]))
+    const classroomCodeMap = new Map(classrooms.map((c) => [c.code.toUpperCase(), c]))
+    const classroomNameMap = new Map(classrooms.map((c) => [c.name.toLowerCase(), c]))
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]
@@ -350,6 +359,20 @@ export class UserCsvEngine {
         }
       }
 
+      // Check classroom assignment
+      const rawClassroom = (r.classroomCode || r.classroom || r.assignedClassroom || '')?.trim()
+      let classroomId: string | null = null
+      let classroomName: string | null = null
+      if (rawClassroom) {
+        const matched = classroomCodeMap.get(rawClassroom.toUpperCase()) || classroomNameMap.get(rawClassroom.toLowerCase())
+        if (matched) {
+          classroomId = matched.id
+          classroomName = matched.name
+        } else {
+          warnings.push(`Classroom "${rawClassroom}" not found in this school. Account will be created without classroom assignment.`)
+        }
+      }
+
       // Validate role
       const isKnownStaffRole =
         CANONICAL_STAFF_ROLES.includes(rawRole as any) ||
@@ -403,7 +426,7 @@ export class UserCsvEngine {
             identifier: email || username || phone,
             name: effectiveFullName,
             role: roleStr,
-            details: `Branch: ${branchId || 'Main'}, EmpCode: ${r.employeeCode || 'Auto'}`,
+            details: `Branch: ${branchId || 'Main'}, EmpCode: ${r.employeeCode || 'Auto'}${classroomName ? `, Class: ${classroomName}` : ''}`,
             errors,
             warnings,
             data: {
@@ -413,6 +436,7 @@ export class UserCsvEngine {
               phone,
               role: r.role ? roleStr : undefined,
               branchId,
+              classroomId: classroomId || undefined,
               designation: r.designation || null,
               department: r.department || null,
               employeeCode: r.employeeCode || null,

@@ -9,15 +9,21 @@ import {
   Download, Printer, DollarSign, History, ShieldAlert, Award, X,
   MessageCircle, FileSignature, GraduationCap, BarChart3, Filter,
   ArrowUpRight, ArrowDownRight, Layers, Sparkles, User, Info, CheckCircle,
-  Share2, LayoutGrid
+  Share2, LayoutGrid, Table, Kanban
 } from 'lucide-react'
 import { PageHead, Segmented, EmptyState, StatusBadge, StatusPill, StudentIdentityChip, FamilyIdentityChip, Skeleton, Breadcrumbs, BookPageLoader } from '@/components/preone'
 import { GlobalActionMenu } from '@/components/ui/action-menu'
 import Link from 'next/link'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
+import { LobbyQrStandeeModal } from '@/components/admissions/LobbyQrStandeeModal'
+import {
+  useLobbyWalkInNotifier,
+  LobbyWalkInAlertBanner,
+} from '@/components/admissions/LobbyWalkInNotification'
 import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
 import { AdmissionsNavigationRibbon } from '@/components/admissions/AdmissionsNavigationRibbon'
+import { AdmissionPipelineBoard } from '@/components/admissions/AdmissionPipelineBoard'
 import { DataTable, RowAction } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { DatePicker, MaskedInput, EnterNav, Wizard } from '@/components/preone/forms'
@@ -26,6 +32,12 @@ import { FunnelChart } from '@/components/preone/Chart'
 import { fmtDate, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { useAdmissionsCounts, invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
+import { QrCode } from 'lucide-react'
+import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
+import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
+import { CallLogDialog } from '@/components/admissions/CallLogDialog'
+import { WhatsAppTemplateModal } from '@/components/admissions/WhatsAppTemplateModal'
+import { CommunicationHistoryList } from '@/components/admissions/CommunicationHistoryList'
 
 // ── Master Types ─────────────────────────────────────────────────────────────
 interface AcademicSessionOption {
@@ -430,6 +442,31 @@ export default function AdmissionsPage() {
   // Navigation state (Default: Overview workspace)
   const [tab, setTab] = useState<string>('overview')
 
+  // View mode toggle: 'table' | 'pipeline' (persisted in preference & query param)
+  const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const viewParam = params.get('view')
+      const tabParam = params.get('tab')
+      const saved = localStorage.getItem('preone_admissions_view_mode')
+      if (viewParam === 'pipeline' || tabParam === 'pipeline' || (!viewParam && !tabParam && saved === 'pipeline')) {
+        setViewMode('pipeline')
+      }
+    }
+  }, [])
+
+  const handleViewModeChange = (mode: 'table' | 'pipeline') => {
+    setViewMode(mode)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('preone_admissions_view_mode', mode)
+      const url = new URL(window.location.href)
+      url.searchParams.set('view', mode)
+      window.history.replaceState({}, '', url.toString())
+    }
+  }
+
   // Master setup contexts (loaded from DB/ConfigurationService)
   const [sessions, setSessions] = useState<AcademicSessionOption[]>([])
   const [branches, setBranches] = useState<BranchOption[]>([])
@@ -459,6 +496,7 @@ export default function AdmissionsPage() {
   // Inspector & Modal states
   const [enquiryModal, setEnquiryModal] = useState(false)
   const [sharePublicModal, setSharePublicModal] = useState(false)
+  const [lobbyQrModal, setLobbyQrModal] = useState(false)
   const [formModal, setFormModal] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null)
   const [pendingFormPayload, setPendingFormPayload] = useState<any | null>(null)
@@ -466,6 +504,16 @@ export default function AdmissionsPage() {
   const [pendingEnquiryPayload, setPendingEnquiryPayload] = useState<any | null>(null)
   const [successModal, setSuccessModal] = useState<{ open: boolean; data: any | null }>({ open: false, data: null })
   const [pipelineModalOpen, setPipelineModalOpen] = useState(false)
+
+  // Real-time front-desk reception chime & notifier
+  const { latestLobbyLead, dismissLatestLobbyLead } = useLobbyWalkInNotifier({
+    branchId: selectedBranchId,
+    enabled: true,
+    onNewWalkIn: () => {
+      loadData()
+      invalidateAdmissionsCounts()
+    },
+  })
 
   // Final Confirmation Dialog State
   const [confirmAdmissionDialog, setConfirmAdmissionDialog] = useState(false)
@@ -566,6 +614,16 @@ export default function AdmissionsPage() {
     tab: 'overview',
   })
   const drawerPanelRef = React.useRef<HTMLDivElement>(null)
+
+  // Direct Communication Dialogs (1-Click Call & WhatsApp)
+  const [callLogModal, setCallLogModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
+  })
+  const [whatsAppModal, setWhatsAppModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
+  })
 
   useEffect(() => {
     if (!inspector.open) return
@@ -2291,7 +2349,6 @@ export default function AdmissionsPage() {
               {
                 id: 'new-enquiry',
                 label: 'New Enquiry',
-                helperText: 'Quick parent walk-in / phone call intake',
                 icon: <UserPlus className="w-4 h-4" />,
                 category: 'create',
                 groupId: 'intake',
@@ -2300,16 +2357,22 @@ export default function AdmissionsPage() {
               {
                 id: 'new-application',
                 label: 'New Admission Application',
-                helperText: 'Complete 3-step child & family dossier intake',
                 icon: <FileSignature className="w-4 h-4" />,
                 category: 'create',
                 groupId: 'intake',
                 onClick: () => setFormModal(true),
               },
               {
+                id: 'print-lobby-qr',
+                label: 'Print Lobby QR Code (Desk Standee)',
+                icon: <QrCode className="w-4 h-4 text-primary" />,
+                category: 'view',
+                groupId: 'sharing',
+                onClick: () => setLobbyQrModal(true),
+              },
+              {
                 id: 'share-link',
                 label: 'Share Public Form Link',
-                helperText: 'Generate QR code or copy parent enquiry URL',
                 icon: <Share2 className="w-4 h-4" />,
                 category: 'view',
                 groupId: 'sharing',
@@ -2318,7 +2381,6 @@ export default function AdmissionsPage() {
               {
                 id: 'import-leads',
                 label: 'Import Enquiries (CSV)',
-                helperText: 'Bulk import parent leads and contacts',
                 icon: <Download className="w-4 h-4" />,
                 category: 'import',
                 groupId: 'data',
@@ -2331,7 +2393,6 @@ export default function AdmissionsPage() {
               {
                 id: 'import-apps',
                 label: 'Import Applications (CSV)',
-                helperText: 'Bulk upload existing student admission dossiers',
                 icon: <FileCheck2 className="w-4 h-4" />,
                 category: 'import',
                 groupId: 'data',
@@ -2344,7 +2405,6 @@ export default function AdmissionsPage() {
               {
                 id: 'refresh-data',
                 label: t('common.refresh') || 'Refresh Data',
-                helperText: 'Reload live admissions counts and recent records',
                 icon: <RefreshCw className={`w-4 h-4 ${busy ? 'animate-spin text-purple-600' : ''}`} />,
                 category: 'general',
                 groupId: 'data',
@@ -2399,6 +2459,44 @@ export default function AdmissionsPage() {
               ))}
             </select>
           </div>
+          {/* Front-Desk Lobby QR Standee Quick Button */}
+          <button
+            type="button"
+            onClick={() => setLobbyQrModal(true)}
+            className="btn btn-outline btn-sm h-9 px-3 rounded-xl text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/5 shadow-2xs"
+            title="Print or share Lobby QR Code for waiting parents"
+          >
+            <QrCode size={14} />
+            <span className="hidden sm:inline">Print Lobby QR</span>
+          </button>
+        </div>
+
+        {/* View Mode Toggle: Table View vs Visual Pipeline */}
+        <div className="inline-flex items-center rounded-xl border border-border/70 bg-background p-1 shadow-2xs">
+          <button
+            type="button"
+            onClick={() => handleViewModeChange('table')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'table'
+                ? 'bg-muted text-foreground font-bold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Table size={13} />
+            <span>Table View</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleViewModeChange('pipeline')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              viewMode === 'pipeline'
+                ? 'bg-primary text-primary-foreground font-bold shadow-2xs'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Kanban size={13} />
+            <span>Visual Pipeline</span>
+          </button>
         </div>
       </div>
 
@@ -2414,7 +2512,37 @@ export default function AdmissionsPage() {
         }}
       />
 
-      {/* ── 3. WINDOWS-STYLE 8-MODULE LAUNCHER GRID (CLEAN & EASY TO UNDERSTAND) ── */}
+      {/* ── 3. VISUAL PIPELINE OR TABLE WORKSPACE ── */}
+      {viewMode === 'pipeline' ? (
+        <AdmissionPipelineBoard
+          selectedBranchId={selectedBranchId}
+          selectedSessionId={selectedSessionId}
+          branches={branches}
+          academicSessions={sessions}
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onInspect={(card) => {
+            if (card.kind === 'APPLICATION') {
+              openInspector(card.id, 'overview')
+            } else {
+              openLeadInspector(card.id, 'overview')
+            }
+          }}
+          onNewEnquiry={() => setEnquiryModal(true)}
+          onStartApplication={(card) => {
+            if (card.kind === 'LEAD') {
+              setStartAppModal({ open: true, enquiry: card })
+            }
+          }}
+          onGenerateOffer={(card) => {
+            if (card.kind === 'APPLICATION') {
+              openInspector(card.id, 'decision_offer')
+            }
+          }}
+        />
+      ) : (
+        <>
+      {/* ── 4. WINDOWS-STYLE 8-MODULE LAUNCHER GRID (CLEAN & EASY TO UNDERSTAND) ── */}
       {tab === 'overview' && (
       <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
@@ -2541,9 +2669,6 @@ export default function AdmissionsPage() {
               <h3 className="text-base font-bold text-foreground">
                 Authoritative Enquiries Ledger
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Track initial interest, phone calls, walk-ins, and automated duplicate prevention
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -2641,6 +2766,18 @@ export default function AdmissionsPage() {
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(ev) => ev.stopPropagation()}>
+                            <PromoteStageButton
+                              recordId={e.id}
+                              kind="LEAD"
+                              studentName={e.childName || e.parentName}
+                              referenceNumber={e.leadNumber}
+                              size="sm"
+                              onSuccess={() => {
+                                reloadAll()
+                                invalidateAdmissionsCounts()
+                              }}
+                              onOpenDetails={() => openLeadInspector(e.id)}
+                            />
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
@@ -2650,15 +2787,14 @@ export default function AdmissionsPage() {
                             >
                               Open
                             </button>
-                            <button
-                              type="button"
-                              className="btn btn-ghost btn-sm"
-                              onClick={() => setFollowUpModal({ open: true, enquiry: e, defaultType: 'Phone Call' })}
-                              title="Log follow-up"
-                              style={{ padding: '3px 8px', fontSize: 11.5 }}
-                            >
-                              <Phone size={13} />
-                            </button>
+                            <DirectContactButtonGroup
+                              phone={e.phone}
+                              parentName={e.parentName}
+                              onOpenCall={() => setCallLogModal({ open: true, target: e })}
+                              onOpenWhatsApp={() => setWhatsAppModal({ open: true, target: e })}
+                              showLabels={false}
+                              size="sm"
+                            />
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
@@ -3166,9 +3302,6 @@ export default function AdmissionsPage() {
               <h3 className="text-base font-bold text-foreground">
                 Admission Applications Dossiers
               </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Authoritative pre-enrollment pipeline with document verification, age checks, offers, and final confirmation
-              </p>
             </div>
             <button
               type="button"
@@ -3261,14 +3394,56 @@ export default function AdmissionsPage() {
                         </td>
                         <td>{fmtDate(app.submittedAt)}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={(e) => { e.stopPropagation(); openInspector(app.id, 'overview'); }}
-                            style={{ padding: '3px 8px', fontSize: 11.5 }}
-                          >
-                            <Eye size={13} /> Open
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(ev) => ev.stopPropagation()}>
+                            <DirectContactButtonGroup
+                              phone={app.parentPhone}
+                              parentName={app.parentName}
+                              onOpenCall={() => setCallLogModal({
+                                open: true,
+                                target: {
+                                  id: app.leadId || undefined,
+                                  applicationId: app.id,
+                                  parentName: app.parentName,
+                                  phone: app.parentPhone,
+                                  childName: app.childName || `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                  branchId: selectedBranchId,
+                                },
+                              })}
+                              onOpenWhatsApp={() => setWhatsAppModal({
+                                open: true,
+                                target: {
+                                  id: app.leadId || undefined,
+                                  applicationId: app.id,
+                                  parentName: app.parentName,
+                                  phone: app.parentPhone,
+                                  childName: app.childName || `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                  branchId: selectedBranchId,
+                                },
+                              })}
+                              showLabels={false}
+                              size="sm"
+                            />
+                            <PromoteStageButton
+                              recordId={app.id}
+                              kind="APPLICATION"
+                              studentName={app.childName || `${app.childFirstName} ${app.childLastName || ''}`.trim()}
+                              referenceNumber={app.applicationNumber}
+                              size="sm"
+                              onSuccess={() => {
+                                reloadAll()
+                                invalidateAdmissionsCounts()
+                              }}
+                              onOpenDetails={() => openInspector(app.id, 'overview')}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={(e) => { e.stopPropagation(); openInspector(app.id, 'overview'); }}
+                              style={{ padding: '3px 8px', fontSize: 11.5 }}
+                            >
+                              <Eye size={13} /> Open
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -3283,7 +3458,7 @@ export default function AdmissionsPage() {
                         description="Applications will appear here when prospective parents progress from enquiry to formal registration."
                         action={{
                           label: 'View Enquiries Pipeline',
-                          onClick: () => setTab('pipeline'),
+                          onClick: () => handleViewModeChange('pipeline'),
                           variant: 'secondary',
                         }}
                       />
@@ -3998,6 +4173,8 @@ export default function AdmissionsPage() {
           </div>
         </div>
       )}
+      </>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════════════════
           APPLICATION INSPECTOR DRAWER (Right Sliding Flyout Modal)
@@ -4258,7 +4435,37 @@ export default function AdmissionsPage() {
                         </div>
 
                         <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 14 }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Primary Parent</div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase' }}>Primary Parent</div>
+                            <DirectContactButtonGroup
+                              phone={inspector.data.application.parentPhone}
+                              parentName={inspector.data.application.parentName}
+                              onOpenCall={() => setCallLogModal({
+                                open: true,
+                                target: {
+                                  id: inspector.data?.application.leadId || undefined,
+                                  applicationId: inspector.data?.application.id,
+                                  parentName: inspector.data?.application.parentName,
+                                  phone: inspector.data?.application.parentPhone,
+                                  childName: `${inspector.data?.application.childFirstName} ${inspector.data?.application.childLastName || ''}`.trim(),
+                                  branchId: selectedBranchId,
+                                },
+                              })}
+                              onOpenWhatsApp={() => setWhatsAppModal({
+                                open: true,
+                                target: {
+                                  id: inspector.data?.application.leadId || undefined,
+                                  applicationId: inspector.data?.application.id,
+                                  parentName: inspector.data?.application.parentName,
+                                  phone: inspector.data?.application.parentPhone,
+                                  childName: `${inspector.data?.application.childFirstName} ${inspector.data?.application.childLastName || ''}`.trim(),
+                                  branchId: selectedBranchId,
+                                },
+                              })}
+                              showLabels={false}
+                              size="sm"
+                            />
+                          </div>
                           <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4 }}>
                             {inspector.data.application.parentName}
                           </div>
@@ -4454,8 +4661,16 @@ export default function AdmissionsPage() {
 
                   {/* TAB 5: FOLLOW-UP & VISIT */}
                   {inspector.tab === 'followup_visit' && (
-                    <form onSubmit={handleSaveCounselling} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>Counselling Session & Parent Meeting</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                      {/* Direct Communication Ledger */}
+                      <CommunicationHistoryList
+                        applicationId={inspector.data.application.id}
+                        leadId={inspector.data.application.leadId || undefined}
+                        title="Direct Parent Communications"
+                      />
+
+                      <form onSubmit={handleSaveCounselling} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>Counselling Session & Parent Meeting</h4>
                       <div className="form-grid">
                         <div className="field">
                           <label>Meeting Date & Time</label>
@@ -4516,7 +4731,8 @@ export default function AdmissionsPage() {
                         Save Counselling Record
                       </button>
                     </form>
-                  )}
+                  </div>
+                )}
 
                   {/* TAB 6: DECISION & OFFER */}
                   {inspector.tab === 'decision_offer' && (
@@ -5085,6 +5301,14 @@ export default function AdmissionsPage() {
                   {/* Action Command Bar */}
                   <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex flex-wrap items-center gap-2">
+                      <DirectContactButtonGroup
+                        phone={leadInspector.data?.phone}
+                        parentName={leadInspector.data?.parentName}
+                        onOpenCall={() => setCallLogModal({ open: true, target: leadInspector.data })}
+                        onOpenWhatsApp={() => setWhatsAppModal({ open: true, target: leadInspector.data })}
+                        showLabels={true}
+                        size="md"
+                      />
                       <button
                         type="button"
                         className="btn btn-outline btn-sm"
@@ -5133,7 +5357,13 @@ export default function AdmissionsPage() {
                   </div>
                 </div>
               ) : leadInspector.tab === 'activity' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {/* Direct Communication Ledger */}
+                  <CommunicationHistoryList
+                    leadId={leadInspector.data?.id}
+                    title="Direct Communication Ledger"
+                  />
+
                   <div className="text-xs font-bold text-foreground">Chronological Activity & Audit Ledger</div>
                   {leadInspector.activity && leadInspector.activity.length > 0 ? (
                     <div className="space-y-2.5">
@@ -6928,6 +7158,24 @@ export default function AdmissionsPage() {
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
       />
 
+      {/* ── MODAL: FRONT-DESK LOBBY QR STANDEE ── */}
+      <LobbyQrStandeeModal
+        open={lobbyQrModal}
+        onClose={() => setLobbyQrModal(false)}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── RECEPTIONIST ALERT: FLOATING LOBBY WALK-IN BANNER ── */}
+      <LobbyWalkInAlertBanner
+        lead={latestLobbyLead}
+        onDismiss={dismissLatestLobbyLead}
+        onViewLead={(walkIn) => {
+          dismissLatestLobbyLead()
+          openLeadInspector(walkIn.id)
+        }}
+      />
+
       {/* ── MODAL: START APPLICATION & ASSIGN FOLLOW-UP ── */}
       <StartApplicationModal
         open={startAppModal.open}
@@ -6942,6 +7190,40 @@ export default function AdmissionsPage() {
           if (data.applicationId) {
             openInspector(data.applicationId, 'documents')
           }
+        }}
+      />
+
+      {/* ── 1-CLICK CALL LOG OUTCOME DIALOG ── */}
+      <CallLogDialog
+        open={callLogModal.open}
+        onClose={() => setCallLogModal({ open: false, target: null })}
+        leadId={callLogModal.target?.id}
+        applicationId={callLogModal.target?.applicationId}
+        parentName={callLogModal.target?.parentName}
+        phoneNumber={callLogModal.target?.phone}
+        childName={callLogModal.target?.childName}
+        branchId={callLogModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        onSaved={() => {
+          loadData()
+          invalidateAdmissionsCounts()
+        }}
+      />
+
+      {/* ── 1-CLICK WHATSAPP PRE-FILLED TEMPLATE MODAL ── */}
+      <WhatsAppTemplateModal
+        open={whatsAppModal.open}
+        onClose={() => setWhatsAppModal({ open: false, target: null })}
+        leadId={whatsAppModal.target?.id}
+        applicationId={whatsAppModal.target?.applicationId}
+        parentName={whatsAppModal.target?.parentName}
+        phoneNumber={whatsAppModal.target?.phone}
+        childName={whatsAppModal.target?.childName}
+        branchName={whatsAppModal.target?.branchName || branches.find((b) => b.id === selectedBranchId)?.name}
+        branchId={whatsAppModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        schoolName="PreOne"
+        onPrepared={() => {
+          loadData()
+          invalidateAdmissionsCounts()
         }}
       />
     </div>

@@ -36,6 +36,8 @@ import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
 import { isoDate, enumLabel } from '@/lib/format'
 import { useI18n, formatDateLocale, getGlobalLocale } from '@/lib/i18n'
+import { ClassroomDayStream, DayStreamData } from '@/components/daily-diary/ClassroomDayStream'
+import { QuickLogModal, QuickLogType } from '@/components/daily-diary/QuickLogModal'
 
 function getFormattedDayAndDate(dateStr: string) {
   if (!dateStr) return ''
@@ -206,8 +208,14 @@ export default function DailyDiaryPage() {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('')
   const [adminViewMode, setAdminViewMode] = useState<'school' | 'class'>('class')
 
-  // Active Tab: overview | subjects | builder | attendance | observations | history | timetable
-  const [activeTab, setActiveTab] = useState<'overview' | 'subjects' | 'builder' | 'attendance' | 'observations' | 'history' | 'timetable'>('overview')
+  // Active View / Tab: stream | overview | subjects | builder | attendance | observations | history | timetable
+  const [activeTab, setActiveTab] = useState<'stream' | 'overview' | 'subjects' | 'builder' | 'attendance' | 'observations' | 'history' | 'timetable'>('stream')
+
+  // Stream State
+  const [streamData, setStreamData] = useState<DayStreamData | null>(null)
+  const [loadingStream, setLoadingStream] = useState(false)
+  const [quickLogModalOpen, setQuickLogModalOpen] = useState(false)
+  const [quickLogInitialType, setQuickLogInitialType] = useState<QuickLogType>('ACTIVITY')
 
   // Data States
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -400,29 +408,80 @@ export default function DailyDiaryPage() {
     }
   }, [selectedClassroomId, selectedDate, toast])
 
+  // Load Unified Day Stream
+  const loadDayStream = useCallback(async () => {
+    if (!selectedClassroomId || !selectedDate) return
+    try {
+      setLoadingStream(true)
+      const res = await fetch(`/api/v1/daily-diary/stream?classroomId=${selectedClassroomId}&date=${selectedDate}`)
+      const json = await res.json()
+      if (json.success && json.data) {
+        setStreamData(json.data)
+      }
+    } catch {
+      // quiet fallback
+    } finally {
+      setLoadingStream(false)
+    }
+  }, [selectedClassroomId, selectedDate])
+
+  const handleStartActivity = async (activityId: string) => {
+    try {
+      const res = await fetch(`/api/v1/daily-diary/activities/${activityId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'IN_PROGRESS' }),
+      })
+      if (res.ok) {
+        toast.success('Activity started')
+        loadDayStream()
+        loadOverview()
+      } else {
+        const j = await res.json()
+        toast.error(j.message || 'Failed to start activity')
+      }
+    } catch {
+      toast.error('Failed to start activity')
+    }
+  }
+
+  const handleCompleteActivity = async (activityId: string) => {
+    try {
+      const res = await fetch(`/api/v1/daily-diary/activities/${activityId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      })
+      if (res.ok) {
+        toast.success('Activity marked as completed')
+        loadDayStream()
+        loadOverview()
+      } else {
+        const j = await res.json()
+        toast.error(j.message || 'Failed to complete activity')
+      }
+    } catch {
+      toast.error('Failed to complete activity')
+    }
+  }
+
+
   // Trigger Data Fetching on Selection Changes
   useEffect(() => {
     if (adminViewMode === 'school') {
       loadAdminOverview()
     } else {
-      if (activeTab === 'overview' || activeTab === 'timetable' || activeTab === 'builder') {
-        loadOverview()
-      }
+      loadDayStream()
+      loadOverview()
+      loadAttendance()
       if (activeTab === 'subjects') {
         fetchSubjects()
-      }
-      if (activeTab === 'attendance') {
-        loadAttendance()
-        loadOverview()
-      }
-      if (activeTab === 'observations') {
-        loadOverview()
       }
       if (activeTab === 'history') {
         loadHistory()
       }
     }
-  }, [selectedClassroomId, selectedDate, activeTab, adminViewMode, selectedBranchId, loadOverview, loadAttendance, loadAdminOverview, loadHistory, fetchSubjects])
+  }, [selectedClassroomId, selectedDate, activeTab, adminViewMode, selectedBranchId, loadDayStream, loadOverview, loadAttendance, loadAdminOverview, loadHistory, fetchSubjects])
 
   // Sync builder rows whenever classroom overview activities change
   useEffect(() => {
@@ -682,7 +741,8 @@ export default function DailyDiaryPage() {
       if (json.success) {
         toast.success('Schedule Saved', `Added ${scheduleRows.length} activity entries to today's timetable.`)
         setShowScheduleBuilderModal(false)
-        if (activeTab === 'builder') setActiveTab('overview')
+        if (activeTab === 'builder') setActiveTab('stream')
+        loadDayStream()
         loadOverview()
         if (adminViewMode === 'school') loadAdminOverview()
       } else {
@@ -741,15 +801,16 @@ export default function DailyDiaryPage() {
     }
   }
 
-  const handleDeleteActivity = async (activityId: string, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}"?`)) return
+  const handleDeleteActivity = async (activityId: string, title?: string) => {
+    if (!confirm(`Are you sure you want to delete ${title ? `"${title}"` : 'this activity'}?`)) return
     try {
       const res = await fetch(`/api/v1/daily-diary/activities/${activityId}`, {
         method: 'DELETE',
       })
       const json = await res.json()
       if (json.success) {
-        toast.success('Activity Deleted', `"${title}" removed from timetable.`)
+        toast.success('Activity Deleted', title ? `"${title}" removed from timetable.` : 'Activity removed.')
+        loadDayStream()
         loadOverview()
         if (adminViewMode === 'school') loadAdminOverview()
       } else {
@@ -818,7 +879,7 @@ export default function DailyDiaryPage() {
   if (loadingContext) {
     return (
       <div className="space-y-6">
-        <PageHead title="Daily Diary" sub="Loading daily classroom activities..." />
+        <PageHead title="Daily Diary" />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="glass-panel p-6 animate-pulse h-28" />
@@ -880,18 +941,6 @@ export default function DailyDiaryPage() {
             </span>
             {t('dailyDiary.title')}
           </h1>
-
-          {/* Secondary Description */}
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {user?.isTeacher ? (
-              <>
-                {t('students.educator')}: <strong className="text-slate-800 dark:text-slate-200">{user.name}</strong> • {t('students.classSection')}:{' '}
-                <strong className="text-slate-800 dark:text-slate-200">{currentClass?.name || t('students.unassigned')}</strong>
-              </>
-            ) : (
-              <>{t('dailyDiary.subtitle')}</>
-            )}
-          </p>
         </div>
 
         {/* Header Right Controls */}
@@ -1546,14 +1595,14 @@ export default function DailyDiaryPage() {
               </select>
             </div>
 
-            {/* Tab Navigation Buttons */}
+            {/* Unified View Navigation Switcher */}
             <div className="flex flex-wrap items-center gap-1 bg-background/60 p-1 border border-border rounded-xl">
               <button
                 type="button"
-                className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-ghost'}`}
-                onClick={() => setActiveTab('overview')}
+                className={`btn btn-sm ${activeTab === 'stream' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setActiveTab('stream')}
               >
-                <BookOpen size={14} className="mr-1.5" /> Overview
+                <Sparkles size={14} className="mr-1.5" /> Day Stream
               </button>
 
               <button
@@ -1564,15 +1613,25 @@ export default function DailyDiaryPage() {
                   fetchSubjects()
                 }}
               >
-                <Clock size={14} className="mr-1.5" /> Schedule Activity
+                <Clock size={14} className="mr-1.5" /> Schedule Builder
               </button>
+
               <button
                 type="button"
                 className={`btn btn-sm ${activeTab === 'attendance' ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => setActiveTab('attendance')}
               >
-                <UserCheck size={14} className="mr-1.5" /> Attendance
+                <UserCheck size={14} className="mr-1.5" /> Attendance Register
               </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${activeTab === 'timetable' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setActiveTab('timetable')}
+              >
+                <Calendar size={14} className="mr-1.5" /> Weekly Timetable
+              </button>
+
               <button
                 type="button"
                 className={`btn btn-sm ${activeTab === 'observations' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1580,6 +1639,7 @@ export default function DailyDiaryPage() {
               >
                 <FileText size={14} className="mr-1.5" /> Observations
               </button>
+
               <button
                 type="button"
                 className={`btn btn-sm ${activeTab === 'history' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1587,12 +1647,64 @@ export default function DailyDiaryPage() {
               >
                 <HistoryIcon size={14} className="mr-1.5" /> History
               </button>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${activeTab === 'overview' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setActiveTab('overview')}
+              >
+                <BookOpen size={14} className="mr-1.5" /> Overview
+              </button>
             </div>
           </div>
 
-          {/* TAB 1: OVERVIEW */}
+          {/* PRIMARY VIEW: UNIFIED CLASSROOM DAY STREAM */}
+          {activeTab === 'stream' && (
+            <ClassroomDayStream
+              data={streamData}
+              loading={loadingStream}
+              selectedDate={selectedDate}
+              onDateChange={(d) => {
+                setSelectedDate(d)
+              }}
+              onRefresh={() => {
+                loadDayStream()
+                loadOverview()
+              }}
+              onOpenQuickLog={(type) => {
+                setQuickLogInitialType(type || 'ACTIVITY')
+                setQuickLogModalOpen(true)
+              }}
+              onOpenFastRollCall={() => setFastRollCallOpen(true)}
+              onOpenAttendanceRegister={() => setActiveTab('attendance')}
+              onOpenScheduleBuilder={() => {
+                setActiveTab('builder')
+                fetchSubjects()
+              }}
+              onStartActivity={handleStartActivity}
+              onCompleteActivity={handleCompleteActivity}
+              onDeleteActivity={handleDeleteActivity}
+              classrooms={classrooms}
+              selectedClassroomId={selectedClassroomId}
+              onClassroomChange={(cid) => {
+                setSelectedClassroomId(cid)
+              }}
+            />
+          )}
+
+          {/* SECONDARY VIEW: OVERVIEW */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              <div className="flex items-center justify-between bg-muted/30 px-4 py-2 rounded-xl border border-border/50 text-xs">
+                <span className="text-muted-foreground">Classroom Metrics & Activity Progression Overview</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('stream')}
+                  className="btn btn-xs btn-ghost text-primary hover:underline font-semibold flex items-center gap-1"
+                >
+                  ← Return to Classroom Day Stream
+                </button>
+              </div>
               {overview && (
                 <>
 
@@ -2925,7 +3037,45 @@ export default function DailyDiaryPage() {
         onAttendanceSaved={() => {
           loadAttendance()
           loadOverview()
+          loadDayStream()
         }}
+      />
+
+      {/* Contextual Quick Log Drawer / Modal */}
+      <QuickLogModal
+        isOpen={quickLogModalOpen}
+        onClose={() => setQuickLogModalOpen(false)}
+        classroomId={selectedClassroomId || currentClass?.id || ''}
+        classroomName={currentClass?.name || 'Classroom'}
+        dateStr={selectedDate}
+        students={
+          (streamData?.events?.find((e) => e.streamType === 'ATTENDANCE')?.items || []).map((s: any) => ({
+            id: s.studentId,
+            name: s.name,
+            admissionNo: s.admissionNo,
+            photoUrl: s.photoUrl,
+          })).length > 0
+            ? (streamData?.events?.find((e) => e.streamType === 'ATTENDANCE')?.items || []).map((s: any) => ({
+                id: s.studentId,
+                name: s.name,
+                admissionNo: s.admissionNo,
+                photoUrl: s.photoUrl,
+              }))
+            : attendanceRegister.map((s) => ({
+                id: s.studentId,
+                name: s.name,
+                admissionNo: s.admissionNo,
+                photoUrl: s.photoUrl,
+              }))
+        }
+        teachers={context?.teachers || []}
+        initialType={quickLogInitialType}
+        onSuccess={() => {
+          loadDayStream()
+          loadOverview()
+          loadAttendance()
+        }}
+        onOpenFastRollCall={() => setFastRollCallOpen(true)}
       />
     </div>
   )

@@ -444,9 +444,9 @@ export const enIN = {
   users: {
     title: 'Users & Access',
     subtitle: 'Manage staff, families and permissions for your school',
-    rolesDirectory: 'Roles Directory',
-    rolesDirectoryTitle: 'Roles Directory & Permissions Matrix',
-    rolesDirectorySub: 'Canonical RBAC roles & permissions matrix for PreOne Enterprise Preschool OS',
+    rolesDirectory: 'Who Can See What?',
+    rolesDirectoryTitle: 'Who Can See What?',
+    rolesDirectorySub: 'Understand what each staff role can access in your school.',
     staffUsers: 'Staff Users',
     staffUsersDesc: 'Teachers, Helpers, Principals, Accountants, HR & Drivers',
     activeStaffBadge: '{count} Active Staff',

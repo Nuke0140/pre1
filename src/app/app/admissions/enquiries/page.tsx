@@ -10,6 +10,12 @@ import {
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
+import { LobbyQrStandeeModal } from '@/components/admissions/LobbyQrStandeeModal'
+import {
+  useLobbyWalkInNotifier,
+  LobbyWalkInAlertBanner,
+  type LobbyWalkInLead,
+} from '@/components/admissions/LobbyWalkInNotification'
 import { StartApplicationModal } from '@/components/admissions/StartApplicationModal'
 import { EnquiryCard } from '@/components/admissions/EnquiryCard'
 import { MobileEnquiryActionBar } from '@/components/admissions/MobileEnquiryActionBar'
@@ -23,6 +29,11 @@ import {
   buildWhatsAppChatUrl,
 } from '@/lib/contact-utils'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
+import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
+import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
+import { CallLogDialog } from '@/components/admissions/CallLogDialog'
+import { WhatsAppTemplateModal } from '@/components/admissions/WhatsAppTemplateModal'
+import { CommunicationHistoryList } from '@/components/admissions/CommunicationHistoryList'
 
 export default function EnquiriesPage() {
   const toast = useToast()
@@ -52,10 +63,22 @@ export default function EnquiriesPage() {
   // Modals
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [lobbyQrModalOpen, setLobbyQrModalOpen] = useState(false)
   const [selectedEnquiry, setSelectedEnquiry] = useState<any | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerTab, setDrawerTab] = useState<'overview' | 'timeline'>('overview')
   const [timelineEvents, setTimelineEvents] = useState<any[]>([])
+
+  // Real-time front-desk reception chime & notifier
+  const { latestLobbyLead, dismissLatestLobbyLead } = useLobbyWalkInNotifier({
+    branchId: selectedBranchId,
+    enabled: true,
+    onNewWalkIn: (walkInLead) => {
+      // Auto reload enquiries ledger when a walk-in is submitted
+      loadEnquiries()
+      invalidateAdmissionsCounts()
+    },
+  })
 
   // Quick picker modal for "Start Application" when no enquiry is selected yet
   const [selectEnquiryModalOpen, setSelectEnquiryModalOpen] = useState(false)
@@ -73,6 +96,16 @@ export default function EnquiriesPage() {
   const [startAppModal, setStartAppModal] = useState<{ open: boolean; enquiry: any | null }>({
     open: false,
     enquiry: null,
+  })
+
+  // Direct Communication Dialogs (1-Click Call & WhatsApp)
+  const [callLogModal, setCallLogModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
+  })
+  const [whatsAppModal, setWhatsAppModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
   })
 
   // Load branches on mount
@@ -274,13 +307,13 @@ export default function EnquiriesPage() {
   return (
     <AdmissionsShell
       title="Enquiries"
-      description="Manage prospective family enquiries, walk-ins, and follow-ups"
       currentModuleKey="enquiries"
       branches={branches}
       selectedBranchId={selectedBranchId}
       onBranchChange={setSelectedBranchId}
       onNewEnquiry={() => setEnquiryModalOpen(true)}
       onSharePublicForm={() => setShareModalOpen(true)}
+      onPrintLobbyQr={() => setLobbyQrModalOpen(true)}
       hideMobileHeaderAction={true}
     >
       {/* Container with bottom padding so sticky bottom bar never obscures content */}
@@ -576,6 +609,8 @@ export default function EnquiriesPage() {
                   onLogFollowUp={(item) => setFollowUpModal({ open: true, enquiry: item })}
                   onStartApplication={handleStartApplication}
                   onConvertToApplication={handleConvertToApplication}
+                  onOpenCall={(item) => setCallLogModal({ open: true, target: item })}
+                  onOpenWhatsApp={(item) => setWhatsAppModal({ open: true, target: item })}
                   isSelected={selectedEnquiryForApp?.id === e.id}
                   onSelect={(item) => setSelectedEnquiryForApp(item)}
                   busy={busy}
@@ -715,33 +750,30 @@ export default function EnquiriesPage() {
                           </td>
                           <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(ev) => ev.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Direct Call action */}
-                              {telUrl && (
-                                <a
-                                  href={telUrl}
-                                  className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary gap-1 text-[11px] font-medium"
-                                  title={`Call ${e.phone}`}
-                                  aria-label={`Call ${e.parentName}`}
-                                >
-                                  <Phone size={12} />
-                                  <span className="hidden sm:inline">Call</span>
-                                </a>
-                              )}
+                              {/* Direct 1-Click Call & WhatsApp Actions */}
+                              <DirectContactButtonGroup
+                                phone={e.phone}
+                                parentName={e.parentName}
+                                onOpenCall={() => setCallLogModal({ open: true, target: e })}
+                                onOpenWhatsApp={() => setWhatsAppModal({ open: true, target: e })}
+                                showLabels={false}
+                                size="sm"
+                              />
 
-                              {/* Direct WhatsApp action */}
-                              {whatsAppUrl && (
-                                <a
-                                  href={whatsAppUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-ghost btn-sm h-7.5 px-2 rounded-lg hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 gap-1 text-[11px] font-medium"
-                                  title={`WhatsApp ${e.phone}`}
-                                  aria-label={`Message ${e.parentName} on WhatsApp`}
-                                >
-                                  <MessageCircle size={12} />
-                                  <span className="hidden sm:inline">WhatsApp</span>
-                                </a>
-                              )}
+                              {/* 1-Click Zero-Retype Stage Progression */}
+                              <PromoteStageButton
+                                recordId={e.id}
+                                kind="LEAD"
+                                studentName={e.childName || e.parentName}
+                                referenceNumber={e.leadNumber}
+                                branchId={e.branchId}
+                                size="sm"
+                                onSuccess={() => {
+                                  loadEnquiries()
+                                  invalidateAdmissionsCounts()
+                                }}
+                                onOpenDetails={() => openDossier(e)}
+                              />
 
                               {/* Dossier button */}
                               <button
@@ -863,6 +895,24 @@ export default function EnquiriesPage() {
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
       />
 
+      {/* ── MODAL: Front-Desk Lobby QR Standee ── */}
+      <LobbyQrStandeeModal
+        open={lobbyQrModalOpen}
+        onClose={() => setLobbyQrModalOpen(false)}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── RECEPTIONIST ALERT: Floating Lobby Walk-In Alert Banner ── */}
+      <LobbyWalkInAlertBanner
+        lead={latestLobbyLead}
+        onDismiss={dismissLatestLobbyLead}
+        onViewLead={(walkIn) => {
+          dismissLatestLobbyLead()
+          openDossier(walkIn)
+        }}
+      />
+
       {/* ── MODAL: Start Application & Staff Assignment ── */}
       <StartApplicationModal
         open={startAppModal.open}
@@ -980,8 +1030,18 @@ export default function EnquiriesPage() {
             {drawerTab === 'overview' ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-1">
-                    <div className="text-muted-foreground font-medium">Parent / Guardian Contact</div>
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/70 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-muted-foreground font-medium">Parent / Guardian Contact</div>
+                      <DirectContactButtonGroup
+                        phone={selectedEnquiry.phone}
+                        parentName={selectedEnquiry.parentName}
+                        onOpenCall={() => setCallLogModal({ open: true, target: selectedEnquiry })}
+                        onOpenWhatsApp={() => setWhatsAppModal({ open: true, target: selectedEnquiry })}
+                        showLabels={false}
+                        size="sm"
+                      />
+                    </div>
                     <div className="font-bold text-foreground">{selectedEnquiry.parentName}</div>
                     <div className="font-mono text-muted-foreground">{selectedEnquiry.phone}</div>
                   </div>
@@ -1032,39 +1092,48 @@ export default function EnquiriesPage() {
                       <Phone size={13} />
                       <span>Log Follow-up</span>
                     </button>
-                    {selectedEnquiry.status !== 'APPLICATION_STARTED' && selectedEnquiry.status !== 'CONVERTED' && selectedEnquiry.status !== 'LOST' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDrawerOpen(false)
-                          handleStartApplication(selectedEnquiry)
-                        }}
-                        className="btn btn-primary btn-sm h-8.5 px-3.5 rounded-xl text-xs font-semibold gap-1.5 shadow-xs"
-                      >
-                        <ClipboardList size={13} />
-                        <span>Start Application</span>
-                      </button>
-                    )}
+                    <PromoteStageButton
+                      recordId={selectedEnquiry.id}
+                      kind="LEAD"
+                      studentName={selectedEnquiry.childName || selectedEnquiry.parentName}
+                      referenceNumber={selectedEnquiry.leadNumber}
+                      branchId={selectedEnquiry.branchId}
+                      size="md"
+                      onSuccess={() => {
+                        setDrawerOpen(false)
+                        loadEnquiries()
+                        invalidateAdmissionsCounts()
+                      }}
+                      onOpenDetails={() => {}}
+                    />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                {timelineEvents.length > 0 ? (
-                  timelineEvents.map((ev, i) => (
-                    <div key={i} className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs space-y-1">
-                      <div className="flex items-center justify-between font-semibold text-foreground">
-                        <span>{ev.summary || ev.action}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground">{fmtDate(ev.createdAt)}</span>
-                      </div>
-                      {ev.actorName && (
-                        <div className="text-[11px] text-muted-foreground">By {ev.actorName}</div>
-                      )}
+              <div className="space-y-4 max-h-[460px] overflow-y-auto pr-1">
+                {/* Structured Direct Communications Ledger */}
+                <CommunicationHistoryList
+                  leadId={selectedEnquiry.id}
+                  title="Direct Communications Ledger"
+                />
+
+                {/* Legacy / System Timeline Events */}
+                {timelineEvents.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border/70">
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      System Activity & Milestones
                     </div>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-xs text-muted-foreground">
-                    No communications or events logged yet for this enquiry.
+                    {timelineEvents.map((ev, i) => (
+                      <div key={i} className="p-3 rounded-xl border border-border/60 bg-muted/20 text-xs space-y-1">
+                        <div className="flex items-center justify-between font-semibold text-foreground">
+                          <span>{ev.summary || ev.action}</span>
+                          <span className="text-[10px] font-mono text-muted-foreground">{fmtDate(ev.createdAt)}</span>
+                        </div>
+                        {ev.actorName && (
+                          <div className="text-[11px] text-muted-foreground">By {ev.actorName}</div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
                 <div className="flex items-center justify-end pt-3 border-t border-border/80">
@@ -1081,6 +1150,38 @@ export default function EnquiriesPage() {
           </div>
         </Modal>
       )}
+
+      {/* ── 1-CLICK CALL LOG OUTCOME DIALOG ── */}
+      <CallLogDialog
+        open={callLogModal.open}
+        onClose={() => setCallLogModal({ open: false, target: null })}
+        leadId={callLogModal.target?.id}
+        parentName={callLogModal.target?.parentName}
+        phoneNumber={callLogModal.target?.phone}
+        childName={callLogModal.target?.childName}
+        branchId={callLogModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        onSaved={() => {
+          loadEnquiries()
+          invalidateAdmissionsCounts()
+        }}
+      />
+
+      {/* ── 1-CLICK WHATSAPP PRE-FILLED TEMPLATE MODAL ── */}
+      <WhatsAppTemplateModal
+        open={whatsAppModal.open}
+        onClose={() => setWhatsAppModal({ open: false, target: null })}
+        leadId={whatsAppModal.target?.id}
+        parentName={whatsAppModal.target?.parentName}
+        phoneNumber={whatsAppModal.target?.phone}
+        childName={whatsAppModal.target?.childName}
+        branchName={whatsAppModal.target?.branchName || branches.find((b) => b.id === selectedBranchId)?.name}
+        branchId={whatsAppModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        schoolName="PreOne"
+        onPrepared={() => {
+          loadEnquiries()
+          invalidateAdmissionsCounts()
+        }}
+      />
     </AdmissionsShell>
   )
 }

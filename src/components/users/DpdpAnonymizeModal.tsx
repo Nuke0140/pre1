@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   Info,
 } from 'lucide-react'
-import { toast } from '@/components/ui/toast'
+import { toast } from 'sonner'
 import type { DpdpPreviewResult } from '@/lib/security/dpdp-service'
 
 interface DpdpAnonymizeModalProps {

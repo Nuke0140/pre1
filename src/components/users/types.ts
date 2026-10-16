@@ -9,6 +9,10 @@ export interface ClassroomOption {
   programType?: string
   code?: string
   branchId?: string | null
+  primaryTeacherId?: string | null
+  teacher?: string | null
+  capacity?: number
+  students?: number
 }
 
 export interface BranchOption {

@@ -237,6 +237,8 @@ export async function POST(req: NextRequest) {
       interestedProgram,
       preferredShift,
       notes,
+      medicalNotes,
+      source,
       consentGiven,
     } = body
 
@@ -447,8 +449,10 @@ export async function POST(req: NextRequest) {
     })
 
     if (existingLead) {
-      if (notes || childName || validatedShiftName) {
-        const updateText = `\n[Follow-up Online Submission] Program: ${progCandidate.name} | Shift: ${validatedShiftName || 'Not specified'} | Child: ${childName || 'Not specified'} | Notes: ${notes || 'None'}`
+      if (notes || childName || validatedShiftName || medicalNotes) {
+        const isLobby = source === 'LOBBY_QR' || source === 'WALK_IN'
+        const header = isLobby ? '[Front-Desk Lobby Walk-In]' : '[Follow-up Online Submission]'
+        const updateText = `\n${header} Program: ${progCandidate.name} | Shift: ${validatedShiftName || 'Not specified'} | Child: ${childName || 'Not specified'}${medicalNotes ? ` | Medical / Allergies: ${medicalNotes}` : ''} | Notes: ${notes || 'None'}`
         await db.lead
           .update({
             where: { id: existingLead.id },
@@ -466,6 +470,7 @@ export async function POST(req: NextRequest) {
         whatsAppNumber,
         status: existingLead.status,
         isExisting: true,
+        source: source === 'LOBBY_QR' ? 'LOBBY_QR' : existingLead.source,
         message: 'Thank you! Your inquiry is already registered. Our admissions counselor will contact you shortly.',
       })
     }
@@ -476,11 +481,17 @@ export async function POST(req: NextRequest) {
     const leadNumber = `ENQ-${year}-${String(count + 1).padStart(4, '0')}`
 
     // 10. Persist lead under resolved tenant and branch
+    const isLobbySubmission = source === 'LOBBY_QR' || source === 'WALK_IN'
+    const leadSource: LeadSource = isLobbySubmission ? LeadSource.WALK_IN : LeadSource.WEBSITE
+
     const notesSummary = [
-      `[Public Enquiry Portal]`,
+      isLobbySubmission ? `[Front-Desk Lobby Walk-In / Self-Fill QR]` : `[Public Enquiry Portal]`,
       targetSessionName ? `Academic Session: ${targetSessionName}` : null,
       `Program: ${progCandidate.name} (${progCandidate.programType})`,
       validatedShiftName ? `Preferred Shift: ${validatedShiftName}` : null,
+      medicalNotes && typeof medicalNotes === 'string' && medicalNotes.trim()
+        ? `Medical & Dietary Notes: ${medicalNotes.trim().slice(0, 500)}`
+        : null,
       `Consent: Verified on ${new Date().toISOString()}`,
       notes && typeof notes === 'string' && notes.trim() ? `Parent Message: ${notes.trim().slice(0, 1000)}` : null,
     ]
@@ -498,7 +509,7 @@ export async function POST(req: NextRequest) {
         childName: childName && typeof childName === 'string' ? childName.trim().slice(0, 150) : null,
         childDob: parsedDob,
         interestedProgram: validatedProgram,
-        source: LeadSource.WEBSITE,
+        source: leadSource,
         status: 'NEW',
         notes: notesSummary,
       },

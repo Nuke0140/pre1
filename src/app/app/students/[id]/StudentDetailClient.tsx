@@ -19,6 +19,7 @@ import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
 import { BulkReportCardModal } from '@/components/academics/BulkReportCardModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
+import { PickupSecurityPanel } from '@/components/students/PickupSecurityPanel'
 
 interface Props {
   profile: any
@@ -1155,198 +1156,55 @@ export function StudentDetailClient({ profile }: Props) {
           hidden={tab !== 'guardians'}
           className={tab === 'guardians' ? 'tab-panel-enter' : ''}
         >
-          <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Family & Guardian Roster</h2>
-              <p className="text-xs text-slate-500">Designated emergency contacts, billing responsibilities and dismissal PINs.</p>
-            </div>
-            <button
-              onClick={() => {
-                setGuardianForm({
-                  isEdit: false,
-                  guardianId: '',
-                  fullName: '',
-                  phone: '',
-                  email: '',
-                  relationship: 'MOTHER',
-                  isPrimary: false,
-                  canPickup: true,
-                  pickupPin: '',
-                  isFeePayer: false,
-                  receivesComm: true,
-                })
-                setGuardianModalOpen(true)
-              }}
-              className="bg-primary hover:bg-primary-hover text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5"
-            >
-              <UserPlus size={14} />
-              <span>Link Guardian</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {guardiansList && guardiansList.length > 0 ? (
-              guardiansList.map((g: any) => (
-                <div key={g.id} className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-sm">
-                        {g.name?.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white text-base">{g.name}</div>
-                        <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
-                          {enumLabel(g.relationship)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          setGuardianForm({
-                            isEdit: true,
-                            guardianId: g.id,
-                            fullName: g.name,
-                            phone: g.phone || '',
-                            email: g.email || '',
-                            occupation: g.occupation || '',
-                            relationship: g.relationship || 'MOTHER',
-                            isPrimary: !!g.isPrimary,
-                            canPickup: !!g.canPickup,
-                            pickupPin: '',
-                            isFeePayer: !!g.isFeePayer,
-                            receivesComm: !!g.receivesComm,
-                          })
-                          setGuardianModalOpen(true)
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Edit guardian"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setGuardianToUnlink({ id: g.id, name: g.name })
-                          setUnlinkModalOpen(true)
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        title="Unlink guardian"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Phone size={13} className="text-slate-400" />
-                      <span>{g.phone || 'No phone number'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Mail size={13} className="text-slate-400" />
-                      <span>{g.email || 'No email address'}</span>
-                    </div>
-                    {g.occupation && (
-                      <div className="flex items-center gap-2">
-                        <Briefcase size={13} className="text-slate-400" />
-                        <span>{g.occupation}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Badges / Flags */}
-                  <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    {g.isPrimary && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                        Primary Emergency
-                      </span>
-                    )}
-                    {g.canPickup && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        Pickup Authorized
-                      </span>
-                    )}
-                    {g.isFeePayer && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                        Fee Payer
-                      </span>
-                    )}
-                    {g.receivesComm && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                        Daily Updates
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Portal Account Link & Health */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                    {g.portalAccount ? (
-                      <div className="space-y-0.5">
-                        <div className={`flex items-center gap-1.5 font-semibold ${
-                          g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic
-                            ? 'text-amber-600 dark:text-amber-400'
-                            : 'text-emerald-600 dark:text-emerald-400'
-                        }`}>
-                          {g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic ? (
-                            <>
-                              <Clock size={14} className="animate-spin shrink-0" />
-                              <span>Invitation Pending ({g.portalAccount.email || g.email || 'Dispatched'})</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCheck size={14} />
-                              <span>Portal Connected ({g.portalAccount.email})</span>
-                            </>
-                          )}
-                        </div>
-                        {g.portalAccount.sessions && g.portalAccount.sessions.length > 0 ? (
-                          <div className="text-[11px] text-slate-400">
-                            {g.portalAccount.sessions.length} active session{g.portalAccount.sessions.length > 1 ? 's' : ''} • Last active {timeAgo(g.portalAccount.sessions[0].lastActiveAt)}
-                          </div>
-                        ) : (
-                          <div className="text-[11px] text-slate-400">
-                            {g.portalAccount.status === 'INVITATION_PENDING' || g.portalAccount.isOptimistic
-                              ? 'Invitation dispatched, waiting for parent acceptance'
-                              : g.portalAccount.lastLoginAt
-                              ? `Last login ${timeAgo(g.portalAccount.lastLoginAt)}`
-                              : 'Account active'}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-[11px] text-slate-400">No portal login linked</span>
-                        <button
-                          type="button"
-                          onClick={() => handleInviteGuardian(g.id, g.name)}
-                          disabled={invitingGuardianId === g.id}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Send size={11} />
-                          <span>{invitingGuardianId === g.id ? 'Inviting...' : 'Invite to Portal'}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-2">
-                <EmptyState
-                  icon={<Users size={32} />}
-                  title="No Guardians Linked"
-                  message="Link family members to configure emergency contacts and dismissal authorization."
-                  action={{
-                    label: '+ Link Guardian',
-                    onClick: () => setGuardianModalOpen(true),
-                  }}
-                />
-              </div>
-            )}
-          </div>
+          <PickupSecurityPanel
+            studentId={student?.id || ''}
+            studentName={`${student?.firstName || ''} ${student?.lastName || ''}`.trim()}
+            guardians={guardiansList || []}
+            alternatePickups={profile?.transport?.pickupAuthorizations || []}
+            isStaff={true}
+            invitingGuardianId={invitingGuardianId}
+            onInvitePortal={handleInviteGuardian}
+            onRefresh={() => router.refresh()}
+            onOpenLinkGuardian={() => {
+              setGuardianForm({
+                isEdit: false,
+                guardianId: '',
+                fullName: '',
+                phone: '',
+                email: '',
+                occupation: '',
+                relationship: 'MOTHER',
+                isPrimary: false,
+                canPickup: false,
+                pickupPin: '',
+                isFeePayer: false,
+                receivesComm: true,
+              })
+              setGuardianModalOpen(true)
+            }}
+            onEditGuardian={(g) => {
+              setGuardianForm({
+                isEdit: true,
+                guardianId: g.id,
+                fullName: g.name,
+                phone: g.phone || '',
+                email: g.email || '',
+                occupation: g.occupation || '',
+                relationship: g.relationship || 'MOTHER',
+                isPrimary: !!g.isPrimary,
+                canPickup: !!g.canPickup,
+                pickupPin: '',
+                isFeePayer: !!(g as any).isFeePayer,
+                receivesComm: !!(g as any).receivesComm,
+              })
+              setGuardianModalOpen(true)
+            }}
+            onUnlinkGuardian={(g) => {
+              setGuardianToUnlink({ id: g.id, name: g.name })
+              setUnlinkModalOpen(true)
+            }}
+          />
         </div>
-      </div>
       )}
 
       {/* ── TAB 3: ACADEMIC & CLASS ── */}

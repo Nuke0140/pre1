@@ -243,17 +243,69 @@ export class StaffUserService {
         }
       }
 
-      // Step D: Classroom binding if TEACHER
+      // Step D: Classroom binding if TEACHER or ATTENDANT
       let assignedClassroom: any = null
-      if (input.classroomId && assignedRoles.includes('TEACHER')) {
+      const isTeacher = assignedRoles.includes('TEACHER')
+      const isAttendant = assignedRoles.includes('ATTENDANT')
+
+      if (input.classroomId && (isTeacher || isAttendant)) {
         const room = await tx.classroom.findFirst({
           where: { id: input.classroomId, tenantId: ctx.tenantId },
         })
-        if (room) {
+        if (!room) {
+          const err: any = new Error(`Classroom ${input.classroomId} not found in this school`)
+          err.code = 'NOT_FOUND_CLASSROOM'
+          throw err
+        }
+        if (room.isActive === false) {
+          const err: any = new Error(`Classroom "${room.name}" is currently inactive or archived`)
+          err.code = 'INACTIVE_CLASSROOM'
+          throw err
+        }
+        if (input.branchId && room.branchId && room.branchId !== input.branchId) {
+          const err: any = new Error(`Classroom "${room.name}" does not belong to the selected campus branch`)
+          err.code = 'BRANCH_MISMATCH'
+          throw err
+        }
+
+        if (isTeacher) {
+          if (room.primaryTeacherId && room.primaryTeacherId !== user.id) {
+            if (!input.reassignClassroom) {
+              const existingTeacher = await tx.user.findUnique({
+                where: { id: room.primaryTeacherId },
+                select: { fullName: true },
+              })
+              const err: any = new Error(
+                `Classroom "${room.name}" already has a primary teacher assigned (${existingTeacher?.fullName || 'Another teacher'}). To replace them, confirm reassignment.`
+              )
+              err.code = 'CLASSROOM_PRIMARY_TEACHER_CONFLICT'
+              throw err
+            }
+          }
           assignedClassroom = await tx.classroom.update({
             where: { id: room.id },
             data: { primaryTeacherId: user.id },
           })
+        } else if (isAttendant) {
+          const currentPrefs = (user.preferences as any) || {}
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              preferences: {
+                ...currentPrefs,
+                assignedClassroomId: room.id,
+                assignedClassroomName: room.name,
+                classroomRole: 'ATTENDANT',
+              },
+            },
+          })
+          if (staffProfile && (!staffProfile.department || staffProfile.department === 'Caregiving')) {
+            staffProfile = await tx.staffProfile.update({
+              where: { id: staffProfile.id },
+              data: { department: `Caregiving — ${room.name}` },
+            })
+          }
+          assignedClassroom = room
         }
       }
 

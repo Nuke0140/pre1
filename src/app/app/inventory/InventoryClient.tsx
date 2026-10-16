@@ -1652,7 +1652,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                Requests & Preschool Material Distribution
+                Requests & Distribution
               </h2>
             </div>
 
@@ -2389,7 +2389,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                Approved Vendors & Educational Suppliers
+                Vendors
               </h2>
             </div>
             {canProcure && (
@@ -2501,7 +2501,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                Inventory Reports & Audit Ledger
+                Reports & Audit
               </h2>
             </div>
 
@@ -4162,7 +4162,6 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={grnModalOpen}
         onClose={() => setGrnModalOpen(false)}
         title="Receive Goods (GRN)"
-        subtitle={`PO ${selectedPO?.poNumber || ''} — Receive items, record batches, update stock & post vendor bill`}
         icon={<Truck size={20} />}
         iconClass="ic-blue"
         wide

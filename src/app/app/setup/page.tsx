@@ -8,26 +8,36 @@ import {
   Rocket, CheckCircle2, AlertTriangle, Lock, ChevronRight, PlayCircle,
   ClipboardCheck, LayoutList, ArrowRight, History, Sparkles, Edit3, Plus,
   Sliders, Activity, Check, RefreshCw, Layers, ExternalLink, AlertCircle, Info,
+  Globe, Copy,
 } from 'lucide-react'
 import {
   PageHead, Skeleton, EmptyState, StatusBadge,
   SetupPhaseCard, SetupStepTile,
+  MilestoneProgress, type MilestoneItem, type MilestoneStatus,
+  SetupScopeBadge,
 } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { PHASES, SETUP_STEPS, STEP_MAP, type StepKey } from '@/lib/setup/steps'
+import { CopyBranchSetupModal } from '@/components/setup/CopyBranchSetupModal'
+import {
+  SETUP_SCOPE_REGISTRY,
+  calculateScopedProgress,
+  type ScopedProgressMetrics,
+} from '@/lib/setup/scope-model'
 
 const ICONS: Record<string, React.ComponentType<{ size?: number | string; className?: string }>> = {
   School, Building2, Palette, Blocks, DoorOpen, Clock, ShieldCheck, Users,
   CalendarRange, LayoutGrid, GraduationCap, BookOpen, CalendarDays, IndianRupee,
   ClipboardList, HeartHandshake, Sun, Cross, Megaphone, FileText, Upload,
-  ClipboardCheck, ArrowRight,
+  ClipboardCheck, ArrowRight, Globe, Copy,
 }
 
 interface StepRow {
   key: string
   label: string
   phase: string
+  scope?: 'TENANT' | 'BRANCH'
   applicability: 'MANDATORY' | 'OPTIONAL' | 'RECOMMENDED'
   icon: string
   description: string
@@ -152,6 +162,9 @@ export default function SetupPage() {
   // Step filter in Tab 2
   const [phaseFilter, setPhaseFilter] = useState<string>('ALL')
   const [stepStatusFilter, setStepStatusFilter] = useState<string>('ALL')
+  const [groupingView, setGroupingView] = useState<'SCOPE' | 'PHASE'>('SCOPE')
+  const [copyModalOpen, setCopyModalOpen] = useState(false)
+  const [branchSwitched, setBranchSwitched] = useState(false)
 
   // Master Data
   const [profile, setProfile] = useState<Dict | null>(null)
@@ -166,6 +179,70 @@ export default function SetupPage() {
   const [activeModal, setActiveModal] = useState<string | null>(null)
   const [editingItem, setEditingItem] = useState<Dict | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setBranchSwitched(true)
+    const timer = setTimeout(() => setBranchSwitched(false), 900)
+    return () => clearTimeout(timer)
+  }, [selectedBranchId])
+
+  const activeBranch = useMemo(() => {
+    return branches.find((b: any) => String(b.id) === selectedBranchId) ?? null
+  }, [branches, selectedBranchId])
+
+  const activeBranchName = useMemo(() => {
+    if (selectedBranchId === 'ALL') return 'All Campuses'
+    return activeBranch?.name ?? 'Selected Campus'
+  }, [selectedBranchId, activeBranch])
+
+  const scopedMetrics: ScopedProgressMetrics | null = useMemo(() => {
+    if (!status?.steps) return null
+    return calculateScopedProgress(
+      status.steps.map((s) => ({
+        key: s.key,
+        scope: (SETUP_SCOPE_REGISTRY as any)[s.key]?.scope || s.scope || 'TENANT',
+        status: s.status,
+        applicability: s.applicability,
+      })),
+      selectedBranchId !== 'ALL' ? selectedBranchId : null,
+      activeBranch?.name ?? null
+    )
+  }, [status?.steps, selectedBranchId, activeBranch])
+
+  const globalSteps = useMemo(() => {
+    if (!status?.steps) return []
+    return status.steps.filter((s) => {
+      const scope = (SETUP_SCOPE_REGISTRY as any)[s.key]?.scope || s.scope || 'TENANT'
+      return scope === 'TENANT'
+    })
+  }, [status?.steps])
+
+  const branchSteps = useMemo(() => {
+    if (!status?.steps) return []
+    return status.steps.filter((s) => {
+      const scope = (SETUP_SCOPE_REGISTRY as any)[s.key]?.scope || s.scope || 'TENANT'
+      return scope === 'BRANCH'
+    })
+  }, [status?.steps])
+
+  const getStepHelper = useCallback(
+    (s: StepRow) => {
+      const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
+      if (isDrifted) {
+        return 'Configuration drifted — underlying data modified since completion'
+      }
+      const scopeInfo = (SETUP_SCOPE_REGISTRY as any)[s.key]
+      const isGlobal = (scopeInfo?.scope || s.scope) === 'TENANT'
+      if (isGlobal && scopeInfo?.schoolWideExplanation) {
+        return scopeInfo.schoolWideExplanation
+      }
+      if (!isGlobal && activeBranch) {
+        return `Configured for ${activeBranch.name}. ${s.detail || s.description}`
+      }
+      return s.detail || s.description
+    },
+    [activeBranch]
+  )
 
   const load = useCallback(async (bId?: string) => {
     setLoadError(null)
@@ -341,6 +418,44 @@ export default function SetupPage() {
     })
   }, [status, phaseFilter, stepStatusFilter])
 
+  const foundationMilestones: MilestoneItem[] = useMemo(() => {
+    const findStep = (k: string) => status?.steps?.find((s) => s.key === k)
+    const sp = findStep('school_profile')
+    const ay = findStep('academic_year')
+    const cls = findStep('classroom') || findStep('classroom_foundation')
+
+    const mapStatus = (s?: StepRow): MilestoneStatus => {
+      if (!s) return 'NOT_STARTED'
+      if (s.status === 'COMPLETE' || s.status === 'SKIPPED') return 'COMPLETED'
+      if (s.status === 'BLOCKED') return 'BLOCKED'
+      return 'IN_PROGRESS'
+    }
+
+    return [
+      {
+        id: 'school_profile',
+        title: 'School Profile (All Branches)',
+        status: mapStatus(sp),
+        statusLabel: mapStatus(sp) === 'COMPLETED' ? 'Complete' : 'Pending',
+        onClick: () => setActiveModal('school_profile'),
+      },
+      {
+        id: 'academic_year',
+        title: `Academic Year (${activeBranchName})`,
+        status: mapStatus(ay),
+        statusLabel: mapStatus(ay) === 'COMPLETED' ? 'Complete' : 'Pending',
+        onClick: () => setActiveModal('academic_year'),
+      },
+      {
+        id: 'classroom',
+        title: `Classrooms (${activeBranchName})`,
+        status: mapStatus(cls),
+        statusLabel: mapStatus(cls) === 'COMPLETED' ? 'Complete' : 'Pending',
+        onClick: () => setActiveModal('classroom'),
+      },
+    ]
+  }, [status?.steps, activeBranchName])
+
   if (!status) {
     if (loadError) {
       return (
@@ -416,6 +531,16 @@ export default function SetupPage() {
                 </select>
               </div>
             )}
+            {branches.length > 1 && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setCopyModalOpen(true)}
+                title="Copy setup structure from one branch to another"
+              >
+                <Copy size={14} /> Copy Setup
+              </button>
+            )}
             <button className="btn btn-outline" onClick={() => { setDepOpen(true); if (!deps) loadDeps() }}>
               <LayoutList size={14} /> Dependency Graph
             </button>
@@ -437,15 +562,11 @@ export default function SetupPage() {
               <span>Campus Readiness Matrix</span>
               <span className="badge b-neutral" style={{ fontSize: 10.5 }}>{status.branchReadiness.length} Campuses</span>
             </div>
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-              {selectedBranchId !== 'ALL' ? 'Showing filtered campus — click a card or select All Campuses to see full school' : 'All operating campuses must pass operational readiness before Go-Live'}
-            </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
             {status.branchReadiness.map((br) => {
               const isReady = br.status === 'READY'
-              const isBlocked = br.status === 'BLOCKED'
-              const badgeCls = isReady ? 'b-success' : isBlocked ? 'b-danger' : 'b-orange'
+              const badgeCls = isReady ? 'b-success' : br.completedSteps > 0 ? 'b-orange' : 'b-neutral'
               const isSelected = selectedBranchId === br.branchId
               return (
                 <div
@@ -456,8 +577,6 @@ export default function SetupPage() {
                     cursor: 'pointer',
                     border: isSelected
                       ? '2px solid var(--primary)'
-                      : isBlocked
-                      ? '1px solid var(--danger, #ef4444)'
                       : '1px solid var(--border-subtle)',
                     background: isSelected ? 'var(--bg-subtle)' : 'var(--bg-card)',
                     transition: 'all 0.15s ease',
@@ -475,7 +594,7 @@ export default function SetupPage() {
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 6 }}>({br.branchCode})</span>
                     </div>
                     <span className={`badge ${badgeCls}`} style={{ fontSize: 10.5 }}>
-                      {br.status.replaceAll('_', ' ')}
+                      {isReady ? 'READY' : br.completedSteps > 0 ? 'IN PROGRESS' : 'PENDING'}
                     </span>
                   </div>
 
@@ -489,23 +608,21 @@ export default function SetupPage() {
                         style={{
                           width: `${br.progress}%`,
                           height: '100%',
-                          background: isReady ? 'var(--success, #16a34a)' : isBlocked ? 'var(--danger, #dc2626)' : 'var(--primary)',
+                          background: isReady ? 'var(--success, #16a34a)' : 'var(--primary)',
                           borderRadius: 99,
                         }}
                       />
                     </div>
                   </div>
 
-                  {br.blockers.length > 0 ? (
-                    <div style={{ fontSize: 11, color: 'var(--danger, #b91c1c)', background: 'var(--danger-bg, #fef2f2)', padding: '5px 8px', borderRadius: 6, marginTop: 4 }}>
-                      <div style={{ fontWeight: 600 }}>Blocker:</div>
-                      <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{br.blockers[0]}</div>
-                      {br.blockers.length > 1 && <div style={{ fontSize: 10, opacity: 0.8 }}>+{br.blockers.length - 1} more</div>}
-                    </div>
-                  ) : (
+                  {isReady ? (
                     <div style={{ fontSize: 11, color: 'var(--success, #16a34a)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                       <CheckCircle2 size={12} />
                       <span>All campus checks ready</span>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <span>{br.completedSteps > 0 ? 'Setup in progress' : 'Setup pending'}</span>
                     </div>
                   )}
                 </div>
@@ -515,74 +632,311 @@ export default function SetupPage() {
         </div>
       )}
 
-      {/* ── 3. SETUP PHASES & STEPS (4 PHASE METRO CARDS) ── */}
-      <div style={{ marginTop: 8 }}>
-
-        {/* 4 Phase Columns */}
-        <div className="setup-phases-grid">
-          {PHASES.map((phase, idx) => {
-            const phaseKey = phase.key === 'FOUNDATION'
-              ? 'foundation'
-              : phase.key === 'ACADEMIC_STRUCTURE'
-              ? 'academic'
-              : phase.key === 'BUSINESS_RULES'
-              ? 'business'
-              : 'operations'
-            const stepsInPhase = phaseSteps[phase.key] || []
-            const counts = phaseCounts[phase.key] || { total: 0, completed: 0 }
-
-            return (
-              <SetupPhaseCard
-                key={phase.key}
-                phaseNumber={idx + 1}
-                phaseKey={phaseKey}
-                title={phase.label}
-                description=""
-                completedCount={counts.completed}
-                totalCount={counts.total}
-              >
-                {stepsInPhase.length === 0 ? (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                    No steps match this filter
-                  </div>
-                ) : (
-                  stepsInPhase.map((s) => {
-                    const Icon = ICONS[s.icon] ?? School
-                    const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
-                    const badge = isDrifted ? { cls: 'b-warning', label: 'Drifted' } : (STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING)
-                    return (
-                      <SetupStepTile
-                        key={s.key}
-                        href={
-                          s.key === 'branding'
-                            ? '/app/setup/branding'
-                            : s.key === 'templates'
-                            ? '/app/setup/templates'
-                            : `/app/setup/${s.key}`
-                        }
-                        name={s.label}
-                        status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
-                        icon={<Icon size={16} />}
-                        applicability={s.applicability}
-                        statusBadge={
-                          <span className={`badge ${badge.cls}`} style={{ fontSize: 10.5 }}>
-                            {badge.label}
-                          </span>
-                        }
-                        helper={
-                          isDrifted
-                            ? 'Configuration drifted — underlying data modified since completion'
-                            : (s.detail || s.description)
-                        }
-                      />
-                    )
-                  })
-                )}
-              </SetupPhaseCard>
-            )
-          })}
-        </div>
+      {/* ── FOUNDATION SETUP MILESTONES (ACTIONABLE PROGRESS & RESTRAINED CELEBRATION) ── */}
+      <div style={{ marginTop: 12, marginBottom: 16 }}>
+        <MilestoneProgress
+          milestones={foundationMilestones}
+          title="Foundation Setup Milestones"
+          celebrationTitle="🎉 Foundation Complete"
+          celebrationMessage="3 of 3 steps ready — Your school's essential setup is complete."
+          workflowKey={`foundation_setup_${selectedBranchId}`}
+          collapsible={true}
+          defaultExpanded={true}
+        />
       </div>
+
+      {/* ── 3. VIEW MODE CONTROLS & SCOPED PROGRESS ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, marginTop: 14, flexWrap: 'wrap', gap: 10 }}>
+        {/* Left: View Mode Tabs */}
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', padding: 3, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${groupingView === 'SCOPE' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: 12, padding: '4px 12px' }}
+            onClick={() => setGroupingView('SCOPE')}
+          >
+            <Layers size={13} /> Scope View (School-Wide vs. Branch)
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${groupingView === 'PHASE' ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ fontSize: 12, padding: '4px 12px' }}
+            onClick={() => setGroupingView('PHASE')}
+          >
+            <LayoutList size={13} /> Canonical Phase View
+          </button>
+        </div>
+
+        {/* Right: Scoped Progress Summary Pills */}
+        {scopedMetrics && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span className="badge b-info" style={{ fontSize: 11, padding: '4px 8px' }}>
+              🌐 School-Wide: {scopedMetrics.schoolWide.completed}/{scopedMetrics.schoolWide.total} ({scopedMetrics.schoolWide.percentage}%)
+            </span>
+            <span className="badge b-orange" style={{ fontSize: 11, padding: '4px 8px' }}>
+              🏫 {activeBranch ? activeBranch.name : 'Branch'}: {scopedMetrics.branchSpecific.completed}/{scopedMetrics.branchSpecific.total} ({scopedMetrics.branchSpecific.percentage}%)
+            </span>
+            {branches.length > 1 && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ fontSize: 12 }}
+                onClick={() => setCopyModalOpen(true)}
+              >
+                <Copy size={13} /> Copy Setup to Another Branch
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── 4. CONDITIONAL SETUP DISPLAY ── */}
+      {groupingView === 'SCOPE' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* ── 4A. SCHOOL-WIDE (GLOBAL) SETUP ── */}
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-subtle)', padding: '16px 18px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 14,
+              flexWrap: 'wrap',
+              gap: 10,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: 'var(--primary-bg, rgba(99, 102, 241, 0.12))',
+                  color: 'var(--primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Globe size={19} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>School-Wide Setup</h3>
+                    <SetupScopeBadge scope="TENANT" />
+                  </div>
+                </div>
+              </div>
+              {scopedMetrics && (
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                    {scopedMetrics.schoolWide.completed} of {scopedMetrics.schoolWide.total} Complete
+                  </div>
+                  <div style={{ width: 130, height: 5, background: 'var(--border-subtle)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${scopedMetrics.schoolWide.percentage}%`, height: '100%', background: 'var(--primary)', borderRadius: 99 }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+              {globalSteps.map((s) => {
+                const Icon = ICONS[s.icon] ?? School
+                const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
+                const badge = isDrifted ? { cls: 'b-warning', label: 'Drifted' } : (STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING)
+                return (
+                  <SetupStepTile
+                    key={s.key}
+                    href={
+                      s.key === 'branding'
+                        ? '/app/setup/branding'
+                        : s.key === 'templates'
+                        ? '/app/setup/templates'
+                        : `/app/setup/${s.key}`
+                    }
+                    name={s.label}
+                    status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
+                    icon={<Icon size={16} />}
+                    applicability={s.applicability}
+                    statusBadge={
+                      <span className={`badge ${badge.cls}`} style={{ fontSize: 10.5 }}>
+                        {badge.label}
+                      </span>
+                    }
+                    scopeBadge={<SetupScopeBadge scope="TENANT" />}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── 4B. BRANCH-SPECIFIC SETUP ── */}
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              borderRadius: 12,
+              border: branchSwitched ? '2px solid var(--primary)' : '1px solid var(--border-subtle)',
+              padding: '16px 18px',
+              transition: 'border 0.3s ease, background 0.3s ease',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 14,
+                flexWrap: 'wrap',
+                gap: 10,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: 'var(--warning-bg, rgba(245, 158, 11, 0.12))',
+                  color: 'var(--warning, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Building2 size={19} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <h3 style={{ margin: 0, fontSize: 15.5, fontWeight: 700 }}>
+                      Setup for {activeBranchName}
+                    </h3>
+                    <SetupScopeBadge scope="BRANCH" branchName={activeBranch?.name} />
+                    {branchSwitched && (
+                      <span className="badge b-primary" style={{ fontSize: 10 }}>Active Campus Refreshed</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {scopedMetrics && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 600 }}>
+                      {scopedMetrics.branchSpecific.completed} of {scopedMetrics.branchSpecific.total} Ready
+                    </div>
+                    <div style={{ width: 130, height: 5, background: 'var(--border-subtle)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                      <div style={{ width: `${scopedMetrics.branchSpecific.percentage}%`, height: '100%', background: 'var(--success, #16a34a)', borderRadius: 99 }} />
+                    </div>
+                  </div>
+                )}
+                {branches.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setCopyModalOpen(true)}
+                    title="Copy configuration from or to this branch"
+                  >
+                    <Copy size={13} /> Copy Setup
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+              {branchSteps.map((s) => {
+                const Icon = ICONS[s.icon] ?? School
+                const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
+                const badge = isDrifted ? { cls: 'b-warning', label: 'Drifted' } : (STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING)
+                return (
+                  <SetupStepTile
+                    key={s.key}
+                    href={
+                      s.key === 'branding'
+                        ? '/app/setup/branding'
+                        : s.key === 'templates'
+                        ? '/app/setup/templates'
+                        : `/app/setup/${s.key}`
+                    }
+                    name={s.label}
+                    status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
+                    icon={<Icon size={16} />}
+                    applicability={s.applicability}
+                    statusBadge={
+                      <span className={`badge ${badge.cls}`} style={{ fontSize: 10.5 }}>
+                        {badge.label}
+                      </span>
+                    }
+                    scopeBadge={<SetupScopeBadge scope="BRANCH" branchName={activeBranch?.name} />}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ── 4C. CANONICAL 4 PHASE METRO CARDS ── */
+        <div style={{ marginTop: 8 }}>
+          <div className="setup-phases-grid">
+            {PHASES.map((phase, idx) => {
+              const phaseKey = phase.key === 'FOUNDATION'
+                ? 'foundation'
+                : phase.key === 'ACADEMIC_STRUCTURE'
+                ? 'academic'
+                : phase.key === 'BUSINESS_RULES'
+                ? 'business'
+                : 'operations'
+              const stepsInPhase = phaseSteps[phase.key] || []
+              const counts = phaseCounts[phase.key] || { total: 0, completed: 0 }
+
+              return (
+                <SetupPhaseCard
+                  key={phase.key}
+                  phaseNumber={idx + 1}
+                  phaseKey={phaseKey}
+                  title={phase.label}
+                  description=""
+                  completedCount={counts.completed}
+                  totalCount={counts.total}
+                >
+                  {stepsInPhase.length === 0 ? (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                      No steps match this filter
+                    </div>
+                  ) : (
+                    stepsInPhase.map((s) => {
+                      const Icon = ICONS[s.icon] ?? School
+                      const isDrifted = s.driftState || (s.status === 'COMPLETE' && s.changedAfterCompletion)
+                      const badge = isDrifted ? { cls: 'b-warning', label: 'Drifted' } : (STEP_STATUS_MAP[s.status] || STEP_STATUS_MAP.PENDING)
+                      const stepScope = s.scope || (SETUP_SCOPE_REGISTRY as any)[s.key]?.scope || 'TENANT'
+                      return (
+                        <SetupStepTile
+                          key={s.key}
+                          href={
+                            s.key === 'branding'
+                              ? '/app/setup/branding'
+                              : s.key === 'templates'
+                              ? '/app/setup/templates'
+                              : `/app/setup/${s.key}`
+                          }
+                          name={s.label}
+                          status={s.status === 'BLOCKED' ? 'PENDING' : s.status}
+                          icon={<Icon size={16} />}
+                          applicability={s.applicability}
+                          statusBadge={
+                            <span className={`badge ${badge.cls}`} style={{ fontSize: 10.5 }}>
+                              {badge.label}
+                            </span>
+                          }
+                          scopeBadge={
+                            <SetupScopeBadge
+                              scope={stepScope}
+                              branchName={stepScope === 'BRANCH' ? activeBranch?.name : null}
+                            />
+                          }
+                        />
+                      )
+                    })
+                  )}
+                </SetupPhaseCard>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════ CANONICAL MODALS ════════════════════ */}
 
@@ -1115,9 +1469,19 @@ export default function SetupPage() {
                   </span>
                 </div>
                 {g.blockedBy && g.blockedBy.length > 0 && (
-                  <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Lock size={12} />
-                    <span>Needs {g.blockedBy.map((b: any) => b.label).join(' and ')} completed first</span>
+                  <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Lock size={12} />
+                      <span>Needs {g.blockedBy.map((b: any) => b.label).join(' and ')} completed first</span>
+                    </div>
+                    <a
+                      href={`/app/setup/${g.key}`}
+                      className="btn btn-xs btn-primary"
+                      onClick={() => setDepOpen(false)}
+                      style={{ fontSize: 11, padding: '2px 8px' }}
+                    >
+                      ⚡ Unblock in 1 Click
+                    </a>
                   </div>
                 )}
               </div>
@@ -1152,6 +1516,18 @@ export default function SetupPage() {
           </button>
         </div>
       </Modal>
+
+      {/* 12. COPY BRANCH SETUP MODAL */}
+      <CopyBranchSetupModal
+        open={copyModalOpen}
+        onClose={() => setCopyModalOpen(false)}
+        branches={branches.map((b: any) => ({ id: String(b.id), name: b.name, code: b.code }))}
+        initialSourceBranchId={selectedBranchId !== 'ALL' ? selectedBranchId : undefined}
+        onSuccess={() => {
+          refreshAll()
+        }}
+      />
     </div>
   )
 }
+

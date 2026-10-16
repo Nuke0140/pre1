@@ -9,6 +9,7 @@ import {
 import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
+import { LobbyQrStandeeModal } from '@/components/admissions/LobbyQrStandeeModal'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
@@ -37,6 +38,7 @@ export default function FollowUpsPage() {
   // Modals
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [lobbyQrModalOpen, setLobbyQrModalOpen] = useState(false)
 
   // Follow-up quick action modal
   const [logModal, setLogModal] = useState<{ open: boolean; item: any | null }>({
@@ -262,13 +264,13 @@ export default function FollowUpsPage() {
   return (
     <AdmissionsShell
       title="Follow-ups"
-      description="Systematic parent outreach, phone consultations, WhatsApp notes, and communication cadence"
       currentModuleKey="follow-ups"
       branches={branches}
       selectedBranchId={selectedBranchId}
       onBranchChange={setSelectedBranchId}
       onNewEnquiry={() => setEnquiryModalOpen(true)}
       onSharePublicForm={() => setShareModalOpen(true)}
+      onPrintLobbyQr={() => setLobbyQrModalOpen(true)}
       actions={
         <button
           type="button"
@@ -711,6 +713,12 @@ export default function FollowUpsPage() {
       <SharePublicFormModal
         open={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
+        branchId={selectedBranchId}
+        branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+      <LobbyQrStandeeModal
+        open={lobbyQrModalOpen}
+        onClose={() => setLobbyQrModalOpen(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
       />

@@ -7,7 +7,14 @@ import {
   Calendar, Building2, Save, Send, AlertTriangle, X
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
-import { StatusPill } from '@/components/preone'
+import {
+  StatusPill,
+  SaveStatusIndicator,
+  DraftRecoveryBanner,
+  MilestoneProgress,
+  type MilestoneItem,
+} from '@/components/preone'
+import { useAutosave } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
 
 export interface AdditionalGuardian {
@@ -95,10 +102,13 @@ export function StaffAdmissionFormModal({
   const [parentConsent, setParentConsent] = useState(true)
   const [authorizedPickupConsent, setAuthorizedPickupConsent] = useState(true)
   const [declaredByName, setDeclaredByName] = useState('')
+  const [persistedDraftId, setPersistedDraftId] = useState<string | null>(applicationId || null)
 
   // Populate form on open / initialData change
   useEffect(() => {
     if (!open) return
+
+    setPersistedDraftId(applicationId || initialData?.id || null)
 
     if (initialData) {
       setBranchId(initialData.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : ''))
@@ -258,7 +268,7 @@ export function StaffAdmissionFormModal({
   // Document Upload Handler
   const handleAttachFile = async (docType: string, file: File) => {
     if (!applicationId) {
-      toast.show('Please save the application draft first before attaching files.', { type: 'error' })
+      toast.error('Please save the application draft first before attaching files.')
       return
     }
 
@@ -275,17 +285,17 @@ export function StaffAdmissionFormModal({
       }).then((r) => r.json())
 
       if (res.success) {
-        toast.show(`Document attached: ${file.name}`, { type: 'success' })
+        toast.success(`Document attached: ${file.name}`)
         // Refresh documents list
         const refreshRes = await fetch(`/api/v1/applications/${applicationId}/documents`).then((r) => r.json())
         if (refreshRes.success && refreshRes.data?.documents) {
           setDocuments(refreshRes.data.documents)
         }
       } else {
-        toast.show(res.error?.message || 'Failed to attach file', { type: 'error' })
+        toast.error(res.error?.message || 'Failed to attach file')
       }
     } catch {
-      toast.show('Network error attaching document', { type: 'error' })
+      toast.error('Network error attaching document')
     } finally {
       setLoadingDoc(null)
     }
@@ -301,59 +311,281 @@ export function StaffAdmissionFormModal({
       }).then((r) => r.json())
 
       if (res.success) {
-        toast.show('Document removed', { type: 'success' })
+        toast.success('Document removed')
         const refreshRes = await fetch(`/api/v1/applications/${applicationId}/documents`).then((r) => r.json())
         if (refreshRes.success && refreshRes.data?.documents) {
           setDocuments(refreshRes.data.documents)
         }
       } else {
-        toast.show(res.error?.message || 'Failed to remove document', { type: 'error' })
+        toast.error(res.error?.message || 'Failed to remove document')
       }
     } catch {
-      toast.show('Network error removing document', { type: 'error' })
+      toast.error('Network error removing document')
     } finally {
       setLoadingDoc(null)
     }
   }
 
+  // Form data for autosave tracking
+  const formDataForAutosave = useMemo(
+    () => ({
+      branchId,
+      academicYearId,
+      programId,
+      programType,
+      childFirstName,
+      childMiddleName,
+      childLastName,
+      childDob,
+      childGender,
+      bloodGroup,
+      address,
+      previousSchool,
+      medicalNotes,
+      emergencyContact,
+      parentName,
+      parentRelationship,
+      parentPhone,
+      alternatePhone,
+      parentEmail,
+      isPrimaryFeePayer,
+      isPrimaryPickupAuth,
+      guardians,
+      notes,
+      accuracyDeclared,
+      parentConsent,
+      authorizedPickupConsent,
+      declaredByName,
+    }),
+    [
+      branchId,
+      academicYearId,
+      programId,
+      programType,
+      childFirstName,
+      childMiddleName,
+      childLastName,
+      childDob,
+      childGender,
+      bloodGroup,
+      address,
+      previousSchool,
+      medicalNotes,
+      emergencyContact,
+      parentName,
+      parentRelationship,
+      parentPhone,
+      alternatePhone,
+      parentEmail,
+      isPrimaryFeePayer,
+      isPrimaryPickupAuth,
+      guardians,
+      notes,
+      accuracyDeclared,
+      parentConsent,
+      authorizedPickupConsent,
+      declaredByName,
+    ]
+  )
+
+  const autosave = useAutosave({
+    key: applicationId ? `admission:${applicationId}` : 'admission:new_application',
+    data: formDataForAutosave,
+    debounceMs: 2500,
+    tenantId: initialData?.tenantId || 'school',
+    userId: 'staff_user',
+    validateForDraft: (d) => {
+      return Boolean(
+        (d.childFirstName && d.childFirstName.trim().length > 0) ||
+        (d.parentName && d.parentName.trim().length > 0) ||
+        (d.parentPhone && d.parentPhone.trim().length > 0)
+      )
+    },
+    onSave: async (draftData) => {
+      const targetBranch = draftData.branchId || selectedBranchId
+      if (!targetBranch || targetBranch === '__ALL_BRANCHES__') {
+        return
+      }
+
+      const selectedProg = programs.find(
+        (p) =>
+          (p.programType || p.code) === draftData.programType ||
+          p.id === draftData.programId
+      )
+
+      const payload = {
+        branchId: targetBranch,
+        academicYearId: draftData.academicYearId || selectedSessionId,
+        programId: selectedProg?.id || draftData.programId || null,
+        programType: selectedProg?.programType || draftData.programType,
+        childFirstName: draftData.childFirstName.trim(),
+        childLastName: draftData.childLastName.trim() || null,
+        childMiddleName: draftData.childMiddleName.trim() || null,
+        childDob: draftData.childDob || undefined,
+        childGender: draftData.childGender,
+        bloodGroup: draftData.bloodGroup || null,
+        address: draftData.address.trim() || null,
+        previousSchool: draftData.previousSchool.trim() || null,
+        medicalNotes: draftData.medicalNotes.trim() || null,
+        emergencyContact: draftData.emergencyContact.trim() || null,
+        parentName: draftData.parentName.trim(),
+        relationship: draftData.parentRelationship,
+        parentPhone: draftData.parentPhone.trim(),
+        alternatePhone: draftData.alternatePhone.trim() || null,
+        parentEmail: draftData.parentEmail.trim() || null,
+        additionalGuardians: draftData.guardians.filter((g: any) => g.fullName?.trim() || g.phone?.trim()),
+        declarations: {
+          accuracyDeclared: draftData.accuracyDeclared,
+          parentConsent: draftData.parentConsent,
+          authorizedPickupConsent: draftData.authorizedPickupConsent,
+          declaredByName: draftData.declaredByName.trim() || draftData.parentName.trim(),
+          declaredAt: new Date().toISOString(),
+        },
+        notes: draftData.notes.trim(),
+        isDraft: true,
+        status: 'DRAFT',
+        leadId,
+      }
+
+      const currentId = persistedDraftId || applicationId
+      if (currentId) {
+        const res = await fetch(`/api/v1/applications/${currentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then((r) => r.json())
+        if (!res.success) {
+          throw new Error(res.error?.message || 'Autosave draft update failed')
+        }
+        return res.data
+      } else {
+        const res = await fetch('/api/v1/applications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).then((r) => r.json())
+        if (!res.success) {
+          throw new Error(res.error?.message || 'Autosave draft creation failed')
+        }
+        if (res.data?.id) {
+          setPersistedDraftId(res.data.id)
+          if (res.data.applicationNumber) {
+            setApplicationNumber(res.data.applicationNumber)
+          }
+        }
+        return res.data
+      }
+    },
+    onRestore: (restored: any) => {
+      if (restored.branchId) setBranchId(restored.branchId)
+      if (restored.academicYearId) setAcademicYearId(restored.academicYearId)
+      if (restored.programId) setProgramId(restored.programId)
+      if (restored.programType) setProgramType(restored.programType)
+      if (restored.childFirstName) setChildFirstName(restored.childFirstName)
+      if (restored.childMiddleName) setChildMiddleName(restored.childMiddleName)
+      if (restored.childLastName) setChildLastName(restored.childLastName)
+      if (restored.childDob) setChildDob(restored.childDob)
+      if (restored.childGender) setChildGender(restored.childGender)
+      if (restored.bloodGroup) setBloodGroup(restored.bloodGroup)
+      if (restored.address) setAddress(restored.address)
+      if (restored.previousSchool) setPreviousSchool(restored.previousSchool)
+      if (restored.medicalNotes) setMedicalNotes(restored.medicalNotes)
+      if (restored.emergencyContact) setEmergencyContact(restored.emergencyContact)
+      if (restored.parentName) setParentName(restored.parentName)
+      if (restored.parentRelationship) setParentRelationship(restored.parentRelationship)
+      if (restored.parentPhone) setParentPhone(restored.parentPhone)
+      if (restored.alternatePhone) setAlternatePhone(restored.alternatePhone)
+      if (restored.parentEmail) setParentEmail(restored.parentEmail)
+      if (Array.isArray(restored.guardians)) setGuardians(restored.guardians)
+      if (restored.notes) setNotes(restored.notes)
+      if (restored.declaredByName) setDeclaredByName(restored.declaredByName)
+      toast.success('Draft restored successfully')
+    },
+  })
+
+  // Derive Milestone Checklist from real state
+  const admissionMilestones: MilestoneItem[] = useMemo(() => [
+    {
+      id: 'school',
+      title: 'School & Campus',
+      description: branchId ? 'Campus assigned' : 'Select school campus branch',
+      status: branchId ? 'COMPLETED' : 'IN_PROGRESS',
+      statusLabel: branchId ? 'Ready' : 'Pending',
+      onClick: () => setActiveTab('school'),
+    },
+    {
+      id: 'child',
+      title: 'Child Dossier',
+      description: childFirstName && childDob ? `${childFirstName} (${childGender})` : 'Name & Date of Birth required',
+      status: childFirstName && childDob ? 'COMPLETED' : childFirstName ? 'IN_PROGRESS' : 'NOT_STARTED',
+      statusLabel: childFirstName && childDob ? 'Complete' : childFirstName ? 'In Progress' : 'Required',
+      onClick: () => setActiveTab('child'),
+    },
+    {
+      id: 'parent',
+      title: 'Primary Guardian',
+      description: parentName && parentPhone ? `${parentName} • ${parentPhone}` : 'Guardian contact required',
+      status: parentName && parentPhone ? 'COMPLETED' : parentName ? 'IN_PROGRESS' : 'NOT_STARTED',
+      statusLabel: parentName && parentPhone ? 'Complete' : parentName ? 'In Progress' : 'Required',
+      onClick: () => setActiveTab('parent'),
+    },
+    {
+      id: 'documents',
+      title: 'Documents',
+      description: documents.length > 0 ? `${documents.length} files attached` : 'Birth certificate & health records',
+      status: documents.length > 0 ? 'COMPLETED' : 'NOT_STARTED',
+      statusLabel: documents.length > 0 ? 'Uploaded' : 'Optional',
+      required: false,
+      onClick: () => setActiveTab('documents'),
+    },
+    {
+      id: 'declarations',
+      title: 'Declarations & Consent',
+      description: accuracyDeclared && parentConsent ? 'Parent consent verified' : 'Accuracy and pickup consent',
+      status: accuracyDeclared && parentConsent ? 'COMPLETED' : 'NOT_STARTED',
+      statusLabel: accuracyDeclared && parentConsent ? 'Confirmed' : 'Pending',
+      onClick: () => setActiveTab('declarations'),
+    },
+  ], [branchId, childFirstName, childDob, childGender, parentName, parentPhone, documents.length, accuracyDeclared, parentConsent])
+
   // Save / Submit Master Handler
   const handleSave = async (isDraft: boolean) => {
     const targetBranch = branchId || selectedBranchId
     if (!targetBranch || targetBranch === '__ALL_BRANCHES__') {
-      toast.show('Please select a specific school campus branch.', { type: 'error' })
+      toast.error('Please select a specific school campus branch.')
       setActiveTab('school')
       return
     }
 
     if (!isDraft) {
       if (!childFirstName.trim()) {
-        toast.show('Child first name is required for formal submission.', { type: 'error' })
+        toast.error('Child first name is required for formal submission.')
         setActiveTab('child')
         return
       }
       if (!childDob) {
-        toast.show('Child date of birth is required for formal submission.', { type: 'error' })
+        toast.error('Child date of birth is required for formal submission.')
         setActiveTab('child')
         return
       }
       if (!parentName.trim() || !parentPhone.trim()) {
-        toast.show('Primary parent name and phone are required for formal submission.', { type: 'error' })
+        toast.error('Primary parent name and phone are required for formal submission.')
         setActiveTab('parent')
         return
       }
       if (ageCheck && !ageCheck.eligible) {
-        toast.show(ageCheck.reason, { type: 'error' })
+        toast.error(ageCheck.reason)
         setActiveTab('child')
         return
       }
       if (!accuracyDeclared) {
-        toast.show('Please check and confirm the accuracy declaration.', { type: 'error' })
+        toast.error('Please check and confirm the accuracy declaration.')
         setActiveTab('declarations')
         return
       }
     } else {
       if (!childFirstName.trim() && !parentName.trim() && !parentPhone.trim()) {
-        toast.show('Please enter at least a child name or parent contact to save a draft.', { type: 'error' })
+        toast.error('Please enter at least a child name or parent contact to save a draft.')
         return
       }
     }
@@ -397,8 +629,9 @@ export function StaffAdmissionFormModal({
       }
 
       let res
-      if (applicationId) {
-        res = await fetch(`/api/v1/applications/${applicationId}`, {
+      const activeAppId = persistedDraftId || applicationId
+      if (activeAppId) {
+        res = await fetch(`/api/v1/applications/${activeAppId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -412,20 +645,26 @@ export function StaffAdmissionFormModal({
       }
 
       if (res.success) {
-        toast.show(
-          isDraft
-            ? 'Application draft saved successfully ✓'
-            : 'Application submitted formally for review 📋',
-          { type: 'success' }
-        )
-        onSuccess(res.data)
-        onClose()
+        if (!isDraft) {
+          autosave.clearDraft()
+          toast.success('Application submitted formally for review 📋')
+          onSuccess(res.data)
+          onClose()
+        } else {
+          if (res.data?.id) {
+            setPersistedDraftId(res.data.id)
+            if (res.data.applicationNumber) {
+              setApplicationNumber(res.data.applicationNumber)
+            }
+          }
+          toast.success('Application draft saved successfully ✓')
+        }
       } else {
         const msg = typeof res.error === 'string' ? res.error : res.error?.message || 'Failed to save application'
-        toast.show(msg, { type: 'error' })
+        toast.error(msg)
       }
     } catch {
-      toast.show('Network error while saving application', { type: 'error' })
+      toast.error('Network error while saving application')
     } finally {
       setSaving(false)
     }
@@ -443,7 +682,7 @@ export function StaffAdmissionFormModal({
       <div className="space-y-4">
         {/* Status & Reference Header */}
         <div className="p-3 rounded-2xl bg-muted/40 border border-border/70 flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <StatusPill status={appStatus} />
             {applicationNumber && (
               <span className="font-mono text-xs font-bold text-foreground">
@@ -455,11 +694,38 @@ export function StaffAdmissionFormModal({
                 Lead: {leadNumber}
               </span>
             )}
+            {/* AutoSave Status Indicator */}
+            <SaveStatusIndicator
+              status={autosave.status}
+              lastSavedAt={autosave.lastSavedAt}
+              error={autosave.error}
+              onRetry={autosave.retry}
+            />
           </div>
           <div className="text-[11px] text-muted-foreground">
             Strict PreOne Invariant: Submission does NOT create student or parent accounts.
           </div>
         </div>
+
+        {/* Local Draft Recovery Notification */}
+        {autosave.hasLocalDraft && !initialData && (
+          <DraftRecoveryBanner
+            onRestore={autosave.restoreDraft}
+            onDiscard={autosave.discardDraft}
+            savedAt={autosave.lastSavedAt}
+          />
+        )}
+
+        {/* Milestone-Based Admission Workflow Progress */}
+        <MilestoneProgress
+          milestones={admissionMilestones}
+          title="Admission Milestones"
+          subtitle="Real-time requirements checklist before formal submission"
+          celebrationTitle="🎉 Application Ready for Review"
+          celebrationMessage="All required candidate records and guardian contacts are completed."
+          workflowKey={`admission_modal_${applicationId || 'new'}`}
+          compact
+        />
 
         {/* Workspace Tab Navigator */}
         <div className="flex items-center gap-1.5 border-b border-border/80 overflow-x-auto no-scrollbar text-xs font-semibold">
@@ -1109,18 +1375,26 @@ export function StaffAdmissionFormModal({
 
         {/* Modal Action Footer */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/80">
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-ghost btn-sm h-9 px-3.5 text-xs rounded-xl"
-          >
-            Cancel
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-ghost btn-sm h-9 px-3.5 text-xs rounded-xl"
+            >
+              Cancel
+            </button>
+            <SaveStatusIndicator
+              status={autosave.status}
+              lastSavedAt={autosave.lastSavedAt}
+              error={autosave.error}
+              onRetry={autosave.retry}
+            />
+          </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || autosave.status === 'SAVING'}
               onClick={() => handleSave(true)}
               className="btn btn-outline btn-sm h-9 px-3.5 text-xs font-semibold rounded-xl gap-1.5"
             >
@@ -1130,7 +1404,7 @@ export function StaffAdmissionFormModal({
 
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || autosave.status === 'SAVING'}
               onClick={() => handleSave(false)}
               className="btn btn-primary btn-sm h-9 px-4 text-xs font-semibold rounded-xl gap-1.5 shadow-xs"
             >

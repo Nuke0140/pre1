@@ -405,7 +405,6 @@ export default function AdmissionsReportsPage() {
   return (
     <AdmissionsShell
       title="Admissions Reports & Analytics"
-      description="Conversion funnels, acquisition channels, program demand, and enrollment velocity across preschool branches."
       currentModuleKey="reports"
       branches={branches}
       selectedBranchId={selectedBranchId}

@@ -344,14 +344,16 @@ export class StudentService {
                 fullName: true,
                 phone: true,
                 email: true,
+                photoUrl: true,
                 occupation: true,
                 relationship: true,
+                pickupPin: true,
                 userId: true,
                 user: { select: { id: true, email: true, status: true, lastLoginAt: true } },
               },
             },
           },
-          orderBy: { isPrimary: 'desc' },
+          orderBy: [{ isPrimary: 'desc' }, { emergencyPriority: 'asc' }],
         },
         allocations: {
           include: {
@@ -814,15 +816,30 @@ export class StudentService {
         const tu = g.guardian.userId ? tenantUserMap.get(g.guardian.userId) : null
         const sessions = g.guardian.userId ? sessionMap.get(g.guardian.userId) || [] : []
         const isStaff = ctx.actorRole !== 'PARENT' && ctx.actorRole !== 'GUARDIAN'
+        const hasPin = Boolean((g.pickupPin && g.pickupPin.trim()) || (g.guardian.pickupPin && g.guardian.pickupPin.trim()))
         return {
           id: g.guardian.id,
+          linkId: g.id,
           name: g.guardian.fullName,
-          relationship: g.guardian.relationship,
+          relationship: g.relationship || g.guardian.relationship,
           phone: g.guardian.phone,
           email: g.guardian.email,
+          photoUrl: g.guardian.photoUrl || null,
           occupation: g.guardian.occupation || null,
           isPrimary: g.isPrimary,
+          isEmergencyContact: g.isEmergencyContact ?? g.isPrimary,
+          emergencyPriority: g.emergencyPriority ?? 1,
           canPickup: g.canPickup,
+          pickupStatus: g.pickupStatus || (g.canPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED'),
+          pickupDays: g.pickupDays || null,
+          pickupTimeWindow: g.pickupTimeWindow || null,
+          pickupRestrictions: g.pickupRestrictions || null,
+          authStartDate: g.authStartDate || null,
+          authExpiresAt: g.authExpiresAt || null,
+          verifiedAt: g.verifiedAt || null,
+          verifiedByName: g.verifiedByName || null,
+          hasPickupPin: hasPin,
+          pickupPinMasked: hasPin ? '••••' : null,
           isFeePayer: g.isFeePayer,
           receivesComm: g.receivesComm,
           portalAccount: g.guardian.user
@@ -1842,15 +1859,26 @@ export class StudentService {
       fullName?: string
       phone?: string
       email?: string
+      photoUrl?: string
       occupation?: string
       relationship?: string
       isPrimary?: boolean
+      isEmergencyContact?: boolean
+      emergencyPriority?: number
       canPickup?: boolean
+      pickupStatus?: string
+      pickupDays?: string
+      pickupTimeWindow?: string
+      pickupRestrictions?: string
+      authStartDate?: string | Date | null
+      authExpiresAt?: string | Date | null
+      verifiedAt?: string | Date | null
+      verifiedByName?: string | null
       pickupPin?: string
       isFeePayer?: boolean
       receivesComm?: boolean
       alternateGuardianId?: string
-      action: 'LINK' | 'UPDATE' | 'UNLINK' | 'INVITE'
+      action: 'LINK' | 'UPDATE' | 'UNLINK' | 'INVITE' | 'MANAGE_PICKUP'
     }
   ) {
     const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicSessionId)
@@ -1975,13 +2003,14 @@ export class StudentService {
       if (!guardian) throw new Error('Guardian not found')
 
       // Update canonical guardian details if provided
-      if (input.fullName || input.phone || input.email !== undefined || input.occupation !== undefined) {
+      if (input.fullName || input.phone || input.email !== undefined || input.occupation !== undefined || input.photoUrl !== undefined) {
         guardian = await db.guardian.update({
           where: { id: guardian.id },
           data: {
             ...(input.fullName ? { fullName: input.fullName.trim() } : {}),
             ...(input.phone ? { phone: input.phone.trim() } : {}),
             ...(input.email !== undefined ? { email: input.email?.trim() || null } : {}),
+            ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl?.trim() || null } : {}),
             ...(input.occupation !== undefined ? { occupation: input.occupation?.trim() || null } : {}),
           },
         })
@@ -2009,6 +2038,7 @@ export class StudentService {
             fullName: input.fullName.trim(),
             phone: phoneNorm,
             email: input.email?.trim() || null,
+            photoUrl: input.photoUrl?.trim() || null,
             occupation: input.occupation?.trim() || null,
             relationship: (input.relationship as any) || 'MOTHER',
             pickupPin: input.pickupPin?.trim() || null,
@@ -2031,8 +2061,21 @@ export class StudentService {
       where: { studentId: student.id, guardianId: guardian.id },
     })
 
-    const isAuthChange = existingLink && input.canPickup !== undefined && existingLink.canPickup !== input.canPickup
-    const actionType = isAuthChange ? 'GUARDIAN_AUTHORIZATION_CHANGED' : existingLink ? 'GUARDIAN_UPDATED' : 'GUARDIAN_LINKED'
+    const isAuthChange = input.action === 'MANAGE_PICKUP' || (existingLink && (
+      (input.canPickup !== undefined && existingLink.canPickup !== input.canPickup) ||
+      (input.pickupStatus !== undefined && existingLink.pickupStatus !== input.pickupStatus)
+    ))
+    const actionType = input.action === 'MANAGE_PICKUP'
+      ? 'PICKUP_AUTHORIZATION_UPDATED'
+      : isAuthChange
+      ? 'GUARDIAN_AUTHORIZATION_CHANGED'
+      : existingLink
+      ? 'GUARDIAN_UPDATED'
+      : 'GUARDIAN_LINKED'
+
+    const computedCanPickup = input.pickupStatus !== undefined
+      ? (input.pickupStatus === 'AUTHORIZED' || input.pickupStatus === 'RESTRICTED')
+      : (input.canPickup ?? false)
 
     const link = await db.studentGuardian.upsert({
       where: {
@@ -2043,7 +2086,17 @@ export class StudentService {
         guardianId: guardian.id,
         relationship: (input.relationship as any) || guardian.relationship,
         isPrimary: input.isPrimary ?? false,
-        canPickup: input.canPickup ?? true,
+        isEmergencyContact: input.isEmergencyContact ?? (input.isPrimary ?? false),
+        emergencyPriority: input.emergencyPriority ?? 1,
+        canPickup: computedCanPickup,
+        pickupStatus: input.pickupStatus || (computedCanPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED'),
+        pickupDays: input.pickupDays || null,
+        pickupTimeWindow: input.pickupTimeWindow || null,
+        pickupRestrictions: input.pickupRestrictions || null,
+        authStartDate: input.authStartDate ? new Date(input.authStartDate) : null,
+        authExpiresAt: input.authExpiresAt ? new Date(input.authExpiresAt) : null,
+        verifiedAt: input.verifiedAt ? new Date(input.verifiedAt) : null,
+        verifiedByName: input.verifiedByName || null,
         pickupPin: input.pickupPin?.trim() || null,
         isFeePayer: input.isFeePayer ?? false,
         receivesComm: input.receivesComm ?? true,
@@ -2051,7 +2104,22 @@ export class StudentService {
       update: {
         ...(input.relationship !== undefined ? { relationship: input.relationship as any } : {}),
         ...(input.isPrimary !== undefined ? { isPrimary: input.isPrimary } : {}),
-        ...(input.canPickup !== undefined ? { canPickup: input.canPickup } : {}),
+        ...(input.isEmergencyContact !== undefined ? { isEmergencyContact: input.isEmergencyContact } : {}),
+        ...(input.emergencyPriority !== undefined ? { emergencyPriority: input.emergencyPriority } : {}),
+        ...(input.pickupStatus !== undefined ? {
+          pickupStatus: input.pickupStatus,
+          canPickup: input.pickupStatus === 'AUTHORIZED' || input.pickupStatus === 'RESTRICTED',
+        } : (input.canPickup !== undefined ? {
+          canPickup: input.canPickup,
+          pickupStatus: input.canPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED',
+        } : {})),
+        ...(input.pickupDays !== undefined ? { pickupDays: input.pickupDays } : {}),
+        ...(input.pickupTimeWindow !== undefined ? { pickupTimeWindow: input.pickupTimeWindow } : {}),
+        ...(input.pickupRestrictions !== undefined ? { pickupRestrictions: input.pickupRestrictions } : {}),
+        ...(input.authStartDate !== undefined ? { authStartDate: input.authStartDate ? new Date(input.authStartDate) : null } : {}),
+        ...(input.authExpiresAt !== undefined ? { authExpiresAt: input.authExpiresAt ? new Date(input.authExpiresAt) : null } : {}),
+        ...(input.verifiedAt !== undefined ? { verifiedAt: input.verifiedAt ? new Date(input.verifiedAt) : null } : {}),
+        ...(input.verifiedByName !== undefined ? { verifiedByName: input.verifiedByName } : {}),
         ...(input.pickupPin !== undefined ? { pickupPin: input.pickupPin?.trim() || null } : {}),
         ...(input.isFeePayer !== undefined ? { isFeePayer: input.isFeePayer } : {}),
         ...(input.receivesComm !== undefined ? { receivesComm: input.receivesComm } : {}),
@@ -2066,7 +2134,7 @@ export class StudentService {
       action: actionType,
       entity: 'StudentGuardian',
       entityId: link.id,
-      summary: `${actionType === 'GUARDIAN_AUTHORIZATION_CHANGED' ? 'Changed pickup authorization' : 'Updated guardian link'} (${guardian.fullName}) for student ${student.firstName}`,
+      summary: `${actionType === 'PICKUP_AUTHORIZATION_UPDATED' || actionType === 'GUARDIAN_AUTHORIZATION_CHANGED' ? `Updated pickup authorization (${input.pickupStatus || link.pickupStatus})` : 'Updated guardian link'} (${guardian.fullName}) for student ${student.firstName}`,
     })
 
     return link

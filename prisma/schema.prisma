@@ -58,6 +58,7 @@ model Tenant {
   payments               Payment[]
   programs               Program[]
   programBranches        ProgramBranch[]
+  admissionCommunications AdmissionCommunication[]
   receipts               Receipt[]
   schoolConfigs          SchoolConfig[]
   setupSteps             SchoolSetupStep[]
@@ -441,6 +442,7 @@ model Guardian {
   relationship     Relationship
   phone            String
   email            String?
+  photoUrl         String?
   occupation       String?
   isPrimaryContact Boolean           @default(false)
   userId           String?           @unique
@@ -459,18 +461,31 @@ model Guardian {
 }
 
 model StudentGuardian {
-  id           String        @id @default(uuid())
-  studentId    String
-  guardianId   String
-  relationship Relationship?
-  isPrimary    Boolean       @default(false)
-  canPickup    Boolean       @default(true)
-  pickupPin    String?
-  isFeePayer   Boolean       @default(true)
-  receivesComm Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  guardian     Guardian      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
-  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id                 String        @id @default(uuid())
+  studentId          String
+  guardianId         String
+  relationship       Relationship?
+  isPrimary          Boolean       @default(false)
+  canPickup          Boolean       @default(false)
+  pickupPin          String?
+  isFeePayer         Boolean       @default(true)
+  receivesComm       Boolean       @default(true)
+  
+  // Extended child safety & pickup security fields
+  isEmergencyContact Boolean       @default(false)
+  emergencyPriority  Int?          @default(1)
+  pickupStatus       String        @default("NOT_AUTHORIZED") // AUTHORIZED | NOT_AUTHORIZED | PENDING | RESTRICTED | EXPIRED
+  pickupDays         String?       // e.g. "Mon, Tue, Wed, Thu, Fri" or "All Days"
+  pickupTimeWindow   String?       // e.g. "01:45 PM – 02:15 PM"
+  pickupRestrictions String?       // e.g. "Must show physical ID card at gate"
+  authStartDate      DateTime?
+  authExpiresAt      DateTime?
+  verifiedAt         DateTime?
+  verifiedByName     String?
+
+  createdAt          DateTime      @default(now())
+  guardian           Guardian      @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  student            Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, guardianId])
   @@map("student_guardians")
@@ -497,6 +512,7 @@ model Lead {
   updatedAt              DateTime               @updatedAt
   deletedAt              DateTime?
   applications           AdmissionApplication[]
+  communications         AdmissionCommunication[]
   tenant                 Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, leadNumber])
@@ -543,6 +559,7 @@ model AdmissionApplication {
   guardian                 Guardian?             @relation(fields: [guardianId], references: [id])
   documents                ApplicationDocument[]
   offers                   AdmissionOffer[]
+  communications           AdmissionCommunication[]
 
   @@unique([tenantId, applicationNumber])
   @@index([tenantId, status])
@@ -597,6 +614,34 @@ model ApplicationDocument {
 
   @@index([applicationId])
   @@map("application_documents")
+}
+
+model AdmissionCommunication {
+  id              String                    @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  leadId          String?
+  applicationId   String?
+  channel         CommunicationChannel
+  interactionType CommunicationInteractionType
+  callOutcome     CallOutcome?
+  notes           String?
+  parentName      String?
+  phone           String?
+  followUpDate    DateTime?
+  createdById     String?
+  createdByName   String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead            Lead?                     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  application     AdmissionApplication?    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, leadId])
+  @@index([tenantId, applicationId])
+  @@index([tenantId, createdAt])
+  @@map("admission_communications")
 }
 
 model Attendance {
@@ -1637,6 +1682,26 @@ enum DocumentStatus {
   UNDER_REVIEW
   VERIFIED
   REJECTED
+}
+
+enum CommunicationChannel {
+  CALL
+  WHATSAPP
+}
+
+enum CommunicationInteractionType {
+  CALL_LOGGED
+  CALL_INITIATED
+  WHATSAPP_PREPARED
+}
+
+enum CallOutcome {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  CALL_BACK_REQUESTED
+  WRONG_NUMBER
+  OTHER
 }
 
 enum DocumentType {

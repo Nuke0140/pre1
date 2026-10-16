@@ -21,6 +21,8 @@ import {
   normalizePhoneNumberForTel,
   buildWhatsAppChatUrl,
 } from '@/lib/contact-utils'
+import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
+import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
 
 export interface EnquiryCardProps {
   enquiry: any
@@ -28,6 +30,8 @@ export interface EnquiryCardProps {
   onLogFollowUp: (enquiry: any) => void
   onStartApplication: (enquiry: any) => void
   onConvertToApplication: (enquiry: any) => void
+  onOpenCall?: (enquiry: any) => void
+  onOpenWhatsApp?: (enquiry: any) => void
   isSelected?: boolean
   onSelect?: (enquiry: any) => void
   busy?: boolean
@@ -40,6 +44,8 @@ export function EnquiryCard({
   onLogFollowUp,
   onStartApplication,
   onConvertToApplication,
+  onOpenCall,
+  onOpenWhatsApp,
   isSelected = false,
   onSelect,
   busy = false,
@@ -179,85 +185,85 @@ export function EnquiryCard({
         >
           {/* Quick Contact Actions: Call & WhatsApp */}
           <div className="flex items-center gap-1.5">
-            {telUrl ? (
-              <a
-                href={telUrl}
-                aria-label={`Call ${e.parentName}`}
-                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold gap-1.5 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs"
-                title={`Call ${e.phone}`}
-              >
-                <Phone size={12} className="text-primary group-hover:text-inherit" />
-                <span>Call</span>
-              </a>
+            {onOpenCall && onOpenWhatsApp ? (
+              <DirectContactButtonGroup
+                phone={e.phone}
+                parentName={e.parentName}
+                onOpenCall={() => onOpenCall(e)}
+                onOpenWhatsApp={() => onOpenWhatsApp(e)}
+                showLabels={true}
+                size="sm"
+              />
             ) : (
-              <button
-                type="button"
-                disabled
-                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs opacity-50 cursor-not-allowed"
-                title="No phone number provided"
-              >
-                <Phone size={12} />
-                <span>Call</span>
-              </button>
-            )}
+              <>
+                {telUrl ? (
+                  <a
+                    href={telUrl}
+                    aria-label={`Call ${e.parentName}`}
+                    className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold gap-1.5 hover:bg-primary hover:text-primary-foreground transition-all shadow-xs"
+                    title={`Call ${e.phone}`}
+                  >
+                    <Phone size={12} className="text-primary group-hover:text-inherit" />
+                    <span>Call</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs opacity-50 cursor-not-allowed"
+                    title="No phone number provided"
+                  >
+                    <Phone size={12} />
+                    <span>Call</span>
+                  </button>
+                )}
 
-            {whatsAppUrl ? (
-              <a
-                href={whatsAppUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Chat with ${e.parentName} on WhatsApp`}
-                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 gap-1.5 transition-all shadow-xs"
-                title={`WhatsApp message to ${e.phone}`}
-              >
-                <MessageCircle size={12} />
-                <span>WhatsApp</span>
-              </a>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs opacity-50 cursor-not-allowed"
-                title="No valid WhatsApp contact"
-              >
-                <MessageCircle size={12} />
-                <span>WhatsApp</span>
-              </button>
+                {whatsAppUrl ? (
+                  <a
+                    href={whatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Chat with ${e.parentName} on WhatsApp`}
+                    className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 gap-1.5 transition-all shadow-xs"
+                    title={`WhatsApp message to ${e.phone}`}
+                  >
+                    <MessageCircle size={12} />
+                    <span>WhatsApp</span>
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs opacity-50 cursor-not-allowed"
+                    title="No valid WhatsApp contact"
+                  >
+                    <MessageCircle size={12} />
+                    <span>WhatsApp</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
 
           {/* Workflow Status Action */}
-          <div className="flex items-center gap-1.5">
-            {e.status === 'QUALIFIED' && (
-              <button
-                type="button"
-                onClick={() => onConvertToApplication(e)}
-                disabled={busy}
-                className="btn btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1 shadow-xs"
-                title="Convert to Admission Application"
-              >
-                <CheckCircle2 size={12} />
-                <span>Move to App</span>
-              </button>
-            )}
+          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <PromoteStageButton
+              recordId={e.id}
+              kind="LEAD"
+              studentName={e.childName || e.parentName}
+              referenceNumber={e.leadNumber}
+              branchId={e.branchId}
+              size="sm"
+              onSuccess={() => onConvertToApplication(e)}
+              onOpenDetails={() => onViewDossier(e)}
+            />
 
             {e.status === 'NEW' && (
               <button
                 type="button"
                 onClick={() => onStartApplication(e)}
-                className="btn btn-primary btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold shadow-xs gap-1"
+                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold shadow-xs gap-1"
                 title="Move to Follow-ups & schedule outreach"
-              >
-                <span>Move to Follow-ups</span>
-              </button>
-            )}
-
-            {e.status === 'CONTACTED' && (
-              <button
-                type="button"
-                onClick={() => onLogFollowUp(e)}
-                className="btn btn-outline btn-sm h-8 px-2.5 rounded-xl text-xs font-semibold gap-1"
-                title="Record follow-up notes"
               >
                 <span>Follow-up</span>
               </button>

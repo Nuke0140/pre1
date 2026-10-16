@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   HelpCircle,
   RotateCcw,
+  HeartPulse,
 } from 'lucide-react'
 
 // Official WhatsApp icon
@@ -86,6 +87,7 @@ function PublicEnquiryForm() {
   const searchParams = useSearchParams()
   const initialBranchParam = searchParams.get('branchId') || ''
   const initialSchoolCode = searchParams.get('schoolCode') || searchParams.get('code') || ''
+  const initialSourceParam = searchParams.get('source') || ''
 
   // Loading & submission state
   const [loading, setLoading] = useState(true)
@@ -124,6 +126,7 @@ function PublicEnquiryForm() {
   const [interestedProgram, setInterestedProgram] = useState('')
   const [preferredShift, setPreferredShift] = useState('')
   const [notes, setNotes] = useState('')
+  const [medicalNotes, setMedicalNotes] = useState('')
   const [consentGiven, setConsentGiven] = useState(false)
 
   // Step 1 Field error flags for inline feedback
@@ -331,6 +334,8 @@ function PublicEnquiryForm() {
           interestedProgram,
           preferredShift: preferredShift || undefined,
           notes: notes.trim() || undefined,
+          medicalNotes: medicalNotes.trim() || undefined,
+          source: initialSourceParam || undefined,
           consentGiven: true,
         }),
       })
@@ -418,12 +423,20 @@ function PublicEnquiryForm() {
                   <span>{selectedBranch.name}</span>
                 </span>
               )}
+              {initialSourceParam === 'LOBBY_QR' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Front-Desk Self-Fill</span>
+                </span>
+              )}
             </div>
           </div>
 
           {/* Welcoming Admissions Subtitle */}
           <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-            Welcome to {schoolName} Admissions. Tell us a little about your child, and our admissions team will help you with the next steps.
+            {initialSourceParam === 'LOBBY_QR'
+              ? `Welcome to our campus reception! Please take a moment to share your child's basic details and medical notes below while waiting. Our counselor will assist you momentarily.`
+              : `Welcome to ${schoolName} Admissions. Tell us a little about your child, and our admissions team will help you with the next steps.`}
           </p>
         </header>
 
@@ -1045,6 +1058,26 @@ function PublicEnquiryForm() {
                               )
                             })}
                           </div>
+                        </div>
+
+                        {/* Child Medical, Dietary & Special Care Notes (Front-Desk Self-Fill) */}
+                        <div className="space-y-1 pt-1">
+                          <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <HeartPulse size={13} className="text-rose-500" />
+                              <span>Medical Notes & Dietary Needs (Optional)</span>
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-normal">
+                              Food allergies, medications, or special requirements
+                            </span>
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder="e.g. Peanut allergy, lactose intolerant, asthma inhaler as needed, special attention for quiet nap time..."
+                            value={medicalNotes}
+                            onChange={(e) => setMedicalNotes(e.target.value)}
+                            className="input text-xs w-full rounded-2xl py-2 resize-none border-border/70 focus:border-rose-400"
+                          />
                         </div>
 
                         {/* Additional Questions / Notes */}

@@ -455,7 +455,6 @@ export function AddFamilyModal({
       open={open}
       onClose={onClose}
       title="Add Family Member"
-      subtitle="Connect parents and authorized guardians to students effortlessly"
       icon={<Baby className="w-5 h-5" />}
       iconClass="ic-orange"
       wide

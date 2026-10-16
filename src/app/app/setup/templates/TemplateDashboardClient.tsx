@@ -32,6 +32,7 @@ import {
   Star,
 } from 'lucide-react'
 import { PageHead, Skeleton, StatusBadge, EmptyState } from '@/components/preone/ui'
+import { SetupScopeBadge } from '@/components/preone/SetupScopeBadge'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import {
@@ -306,7 +307,12 @@ export default function TemplateDashboardClient() {
     <div className="page-shell" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px' }}>
       {/* ── Page Header ── */}
       <PageHead
-        title="No-Code Template Studio"
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span>No-Code Template Studio</span>
+            <SetupScopeBadge scope="TENANT" size="md" />
+          </div>
+        }
         subtitle="Visual drag-and-drop designer for student ID cards, fee receipts, completion certificates, and school documents."
         breadcrumbs={[
           { label: 'Home', href: '/app' },

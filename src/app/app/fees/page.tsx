@@ -30,12 +30,14 @@ import {
   DollarSign,
   UserCheck,
   Download,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, SearchFilterBar } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
+import { SpreadsheetImportWorkspace } from '@/components/importers/SpreadsheetImportWorkspace'
 
 interface FeeStructureItem {
   id?: string
@@ -145,7 +147,7 @@ export default function FeesPage() {
   const [loadingUser, setLoadingUser] = useState(true)
 
   // Navigation Tabs for Admin
-  const [activeTab, setActiveTab] = useState<'STRUCTURES' | 'SCHEDULES' | 'DEPOSITS' | 'PAYMENTS'>('STRUCTURES')
+  const [activeTab, setActiveTab] = useState<'STRUCTURES' | 'SCHEDULES' | 'DEPOSITS' | 'PAYMENTS' | 'IMPORT'>('STRUCTURES')
 
   // Master Options
   const [branches, setBranches] = useState<{ id: string; name: string; code: string }[]>([])
@@ -885,6 +887,17 @@ export default function FeesPage() {
         actions={
           <div className="flex gap-2">
             <button
+              onClick={() => setActiveTab(activeTab === 'IMPORT' ? 'STRUCTURES' : 'IMPORT')}
+              className={`px-3.5 py-2 rounded-lg font-medium text-sm flex items-center gap-1.5 shadow-sm transition-colors ${
+                activeTab === 'IMPORT'
+                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 font-semibold'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <FileSpreadsheet className="size-4 text-purple-600" />
+              <span>{activeTab === 'IMPORT' ? 'View Structures' : 'Import via Spreadsheet'}</span>
+            </button>
+            <button
               onClick={() => setShowStructureModal(true)}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm flex items-center gap-1.5 shadow-sm"
             >
@@ -959,6 +972,7 @@ export default function FeesPage() {
           { key: 'SCHEDULES', label: 'Student Dues & Schedules', icon: Calendar },
           { key: 'DEPOSITS', label: t('fees.securityDepositsTab'), icon: ShieldCheck },
           { key: 'PAYMENTS', label: t('fees.paymentReceiptsTab'), icon: Receipt },
+          { key: 'IMPORT', label: 'Import via Spreadsheet', icon: FileSpreadsheet },
         ].map((tItem) => {
           const Icon = tItem.icon
           const isActive = activeTab === tItem.key
@@ -1538,6 +1552,19 @@ export default function FeesPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 5: SPREADSHEET IMPORT */}
+      {activeTab === 'IMPORT' && (
+        <div className="space-y-4">
+          <SpreadsheetImportWorkspace
+            module="FEES"
+            onSuccess={() => {
+              loadData()
+              setActiveTab('STRUCTURES')
+            }}
+          />
         </div>
       )}
 

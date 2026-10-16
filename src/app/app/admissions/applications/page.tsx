@@ -16,6 +16,11 @@ import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
+import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
+import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
+import { CallLogDialog } from '@/components/admissions/CallLogDialog'
+import { WhatsAppTemplateModal } from '@/components/admissions/WhatsAppTemplateModal'
+import { CommunicationHistoryList } from '@/components/admissions/CommunicationHistoryList'
 
 export default function ApplicationsPage() {
   const toast = useToast()
@@ -58,6 +63,16 @@ export default function ApplicationsPage() {
     formId: null,
     data: null,
     tab: 'overview',
+  })
+
+  // Direct Communication Dialogs (1-Click Call & WhatsApp)
+  const [callLogModal, setCallLogModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
+  })
+  const [whatsAppModal, setWhatsAppModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
   })
 
   // Load master data (Branches, Sessions, Programs)
@@ -405,7 +420,6 @@ export default function ApplicationsPage() {
   return (
     <AdmissionsShell
       title="Applications"
-      description="Formal admission applications, comprehensive child dossiers, document verification, and offer management"
       currentModuleKey="applications"
       branches={branches}
       selectedBranchId={selectedBranchId}
@@ -583,7 +597,49 @@ export default function ApplicationsPage() {
                           {fmtDate(app.submittedAt)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <DirectContactButtonGroup
+                              phone={app.parentPhone}
+                              parentName={app.parentName}
+                              onOpenCall={() => setCallLogModal({
+                                open: true,
+                                target: {
+                                  id: app.leadId || undefined,
+                                  applicationId: app.id,
+                                  parentName: app.parentName,
+                                  phone: app.parentPhone,
+                                  childName: `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                  branchId: app.branchId || selectedBranchId,
+                                },
+                              })}
+                              onOpenWhatsApp={() => setWhatsAppModal({
+                                open: true,
+                                target: {
+                                  id: app.leadId || undefined,
+                                  applicationId: app.id,
+                                  parentName: app.parentName,
+                                  phone: app.parentPhone,
+                                  childName: `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                  branchId: app.branchId || selectedBranchId,
+                                },
+                              })}
+                              showLabels={false}
+                              size="sm"
+                            />
+                            <PromoteStageButton
+                              recordId={app.id}
+                              kind="APPLICATION"
+                              studentName={`${app.childFirstName} ${app.childLastName || ''}`.trim()}
+                              referenceNumber={app.applicationNumber}
+                              branchId={app.branchId || selectedBranchId}
+                              academicSessionId={app.academicSessionId || selectedSessionId}
+                              size="sm"
+                              onSuccess={() => {
+                                loadApplications()
+                                invalidateAdmissionsCounts()
+                              }}
+                              onOpenDetails={() => openInspector(app.id, 'overview', app.branchId)}
+                            />
                             <button
                               type="button"
                               onClick={(e) => {
@@ -702,7 +758,37 @@ export default function ApplicationsPage() {
                       <p className="font-bold text-foreground mt-0.5">{inspector.data.application?.parentName}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-[11px]">Contact Phone:</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-[11px]">Contact Phone:</span>
+                        <DirectContactButtonGroup
+                          phone={inspector.data.application?.parentPhone}
+                          parentName={inspector.data.application?.parentName}
+                          onOpenCall={() => setCallLogModal({
+                            open: true,
+                            target: {
+                              id: inspector.data?.application?.leadId || undefined,
+                              applicationId: inspector.data?.application?.id,
+                              parentName: inspector.data?.application?.parentName,
+                              phone: inspector.data?.application?.parentPhone,
+                              childName: `${inspector.data?.application?.childFirstName} ${inspector.data?.application?.childLastName || ''}`.trim(),
+                              branchId: inspector.data?.application?.branchId || selectedBranchId,
+                            },
+                          })}
+                          onOpenWhatsApp={() => setWhatsAppModal({
+                            open: true,
+                            target: {
+                              id: inspector.data?.application?.leadId || undefined,
+                              applicationId: inspector.data?.application?.id,
+                              parentName: inspector.data?.application?.parentName,
+                              phone: inspector.data?.application?.parentPhone,
+                              childName: `${inspector.data?.application?.childFirstName} ${inspector.data?.application?.childLastName || ''}`.trim(),
+                              branchId: inspector.data?.application?.branchId || selectedBranchId,
+                            },
+                          })}
+                          showLabels={false}
+                          size="sm"
+                        />
+                      </div>
                       <p className="font-mono font-semibold text-foreground mt-0.5">{inspector.data.application?.parentPhone}</p>
                     </div>
                     <div>
@@ -786,6 +872,21 @@ export default function ApplicationsPage() {
 
                   {/* Action Bar inside dossier */}
                   <div className="pt-2 flex flex-wrap items-center gap-2">
+                    <PromoteStageButton
+                      recordId={inspector.data.application?.id}
+                      kind="APPLICATION"
+                      studentName={`${inspector.data.application?.childFirstName} ${inspector.data.application?.childLastName || ''}`.trim()}
+                      referenceNumber={inspector.data.application?.applicationNumber}
+                      branchId={inspector.data.application?.branchId || selectedBranchId}
+                      academicSessionId={inspector.data.application?.academicSessionId || selectedSessionId}
+                      size="md"
+                      onSuccess={() => {
+                        loadApplications()
+                        openInspector(inspector.data.application?.id, 'overview', inspector.data.application?.branchId)
+                        invalidateAdmissionsCounts()
+                      }}
+                      onOpenDetails={() => {}}
+                    />
                     {inspector.data.application?.status === 'DRAFT' && (
                       <button
                         type="button"
@@ -800,7 +901,7 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         onClick={handleApproveApplication}
-                        className="btn btn-primary btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
+                        className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
                       >
                         <Sparkles size={13} />
                         <span>Principal Approval</span>
@@ -810,20 +911,11 @@ export default function ApplicationsPage() {
                       <button
                         type="button"
                         onClick={handleGenerateOffer}
-                        className="btn btn-primary btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
+                        className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
                       >
                         <Send size={13} />
-                        <span>Generate & Send Offer Letter</span>
+                        <span>Generate Offer Letter</span>
                       </button>
-                    )}
-                    {inspector.data.application?.status === 'OFFER_ACCEPTED' && (
-                      <a
-                        href="/app/admissions/admitted"
-                        className="btn btn-primary btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
-                      >
-                        <GraduationCap size={13} />
-                        <span>Complete Classroom Enrollment →</span>
-                      </a>
                     )}
                   </div>
                 </div>
@@ -997,16 +1089,30 @@ export default function ApplicationsPage() {
 
               {/* TIMELINE TAB */}
               {inspector.tab === 'timeline' && (
-                <div className="space-y-2.5">
-                  {inspector.data.timeline?.map((evt: any) => (
-                    <div key={evt.id} className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground">{evt.summary}</span>
-                        <span className="font-mono text-[10px] text-muted-foreground">{fmtDate(evt.createdAt)}</span>
+                <div className="space-y-4">
+                  {/* Direct Communication Ledger */}
+                  <CommunicationHistoryList
+                    applicationId={inspector.data.application?.id}
+                    leadId={inspector.data.application?.leadId || undefined}
+                    title="Direct Communication Ledger"
+                  />
+
+                  {inspector.data.timeline && inspector.data.timeline.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border/70">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        System & Application Timeline
                       </div>
-                      <p className="text-[11px] text-muted-foreground">{evt.action}</p>
+                      {inspector.data.timeline.map((evt: any) => (
+                        <div key={evt.id} className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-0.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-foreground">{evt.summary}</span>
+                            <span className="font-mono text-[10px] text-muted-foreground">{fmtDate(evt.createdAt)}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">{evt.action}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
@@ -1074,6 +1180,40 @@ export default function ApplicationsPage() {
         onClose={() => setShareModalOpen(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── 1-CLICK CALL LOG OUTCOME DIALOG ── */}
+      <CallLogDialog
+        open={callLogModal.open}
+        onClose={() => setCallLogModal({ open: false, target: null })}
+        leadId={callLogModal.target?.id}
+        applicationId={callLogModal.target?.applicationId}
+        parentName={callLogModal.target?.parentName}
+        phoneNumber={callLogModal.target?.phone}
+        childName={callLogModal.target?.childName}
+        branchId={callLogModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        onSaved={() => {
+          loadApplications()
+          invalidateAdmissionsCounts()
+        }}
+      />
+
+      {/* ── 1-CLICK WHATSAPP PRE-FILLED TEMPLATE MODAL ── */}
+      <WhatsAppTemplateModal
+        open={whatsAppModal.open}
+        onClose={() => setWhatsAppModal({ open: false, target: null })}
+        leadId={whatsAppModal.target?.id}
+        applicationId={whatsAppModal.target?.applicationId}
+        parentName={whatsAppModal.target?.parentName}
+        phoneNumber={whatsAppModal.target?.phone}
+        childName={whatsAppModal.target?.childName}
+        branchName={whatsAppModal.target?.branchName || branches.find((b) => b.id === selectedBranchId)?.name}
+        branchId={whatsAppModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        schoolName="PreOne"
+        onPrepared={() => {
+          loadApplications()
+          invalidateAdmissionsCounts()
+        }}
       />
     </AdmissionsShell>
   )

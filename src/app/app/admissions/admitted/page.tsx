@@ -13,6 +13,10 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
+import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
+import { CallLogDialog } from '@/components/admissions/CallLogDialog'
+import { WhatsAppTemplateModal } from '@/components/admissions/WhatsAppTemplateModal'
 
 export default function ConfirmedAdmissionsPage() {
   const toast = useToast()
@@ -46,6 +50,16 @@ export default function ConfirmedAdmissionsPage() {
     open: false,
     application: null,
     classroomId: '',
+  })
+
+  // Direct Communication Dialogs (1-Click Call & WhatsApp)
+  const [callLogModal, setCallLogModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
+  })
+  const [whatsAppModal, setWhatsAppModal] = useState<{ open: boolean; target: any | null }>({
+    open: false,
+    target: null,
   })
 
   // Load masters on mount
@@ -159,7 +173,6 @@ export default function ConfirmedAdmissionsPage() {
   return (
     <AdmissionsShell
       title="Confirmed Admissions"
-      description="Official ledger of finalized admissions with created Student profiles, Family IAM, and connected finance invoices"
       currentModuleKey="admitted"
       branches={branches}
       selectedBranchId={selectedBranchId}
@@ -223,19 +236,16 @@ export default function ConfirmedAdmissionsPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEnrollModal({
-                        open: true,
-                        application: candidate,
-                        classroomId: '',
-                      })
-                    }}
-                    className="btn btn-primary btn-sm h-8 rounded-lg text-xs font-semibold w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    Confirm & Enroll Student →
-                  </button>
+                  <PromoteStageButton
+                    recordId={candidate.id}
+                    kind="APPLICATION"
+                    studentName={`${candidate.childFirstName} ${candidate.childLastName || ''}`.trim()}
+                    referenceNumber={candidate.applicationNumber}
+                    branchId={candidate.branchId || selectedBranchId}
+                    academicSessionId={candidate.academicSessionId || selectedSessionId}
+                    size="sm"
+                    onSuccess={() => loadAdmissionsLedger()}
+                  />
                 </div>
               ))}
             </div>
@@ -324,7 +334,35 @@ export default function ConfirmedAdmissionsPage() {
                         {fmtDate(app.verifiedAt || app.submittedAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <DirectContactButtonGroup
+                            phone={app.parentPhone}
+                            parentName={app.parentName}
+                            onOpenCall={() => setCallLogModal({
+                              open: true,
+                              target: {
+                                id: app.leadId || undefined,
+                                applicationId: app.id,
+                                parentName: app.parentName,
+                                phone: app.parentPhone,
+                                childName: `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                branchId: app.branchId || selectedBranchId,
+                              },
+                            })}
+                            onOpenWhatsApp={() => setWhatsAppModal({
+                              open: true,
+                              target: {
+                                id: app.leadId || undefined,
+                                applicationId: app.id,
+                                parentName: app.parentName,
+                                phone: app.parentPhone,
+                                childName: `${app.childFirstName} ${app.childLastName || ''}`.trim(),
+                                branchId: app.branchId || selectedBranchId,
+                              },
+                            })}
+                            showLabels={false}
+                            size="sm"
+                          />
                           <Link
                             href="/app/students"
                             className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1"
@@ -439,6 +477,34 @@ export default function ConfirmedAdmissionsPage() {
         onClose={() => setShareModalOpen(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+
+      {/* ── 1-CLICK CALL LOG OUTCOME DIALOG ── */}
+      <CallLogDialog
+        open={callLogModal.open}
+        onClose={() => setCallLogModal({ open: false, target: null })}
+        leadId={callLogModal.target?.id}
+        applicationId={callLogModal.target?.applicationId}
+        parentName={callLogModal.target?.parentName}
+        phoneNumber={callLogModal.target?.phone}
+        childName={callLogModal.target?.childName}
+        branchId={callLogModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        onSaved={loadAdmissionsLedger}
+      />
+
+      {/* ── 1-CLICK WHATSAPP PRE-FILLED TEMPLATE MODAL ── */}
+      <WhatsAppTemplateModal
+        open={whatsAppModal.open}
+        onClose={() => setWhatsAppModal({ open: false, target: null })}
+        leadId={whatsAppModal.target?.id}
+        applicationId={whatsAppModal.target?.applicationId}
+        parentName={whatsAppModal.target?.parentName}
+        phoneNumber={whatsAppModal.target?.phone}
+        childName={whatsAppModal.target?.childName}
+        branchName={whatsAppModal.target?.branchName || branches.find((b) => b.id === selectedBranchId)?.name}
+        branchId={whatsAppModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
+        schoolName="PreOne"
+        onPrepared={loadAdmissionsLedger}
       />
     </AdmissionsShell>
   )

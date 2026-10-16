@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ShieldCheck, ArrowRight, UserPlus, ChevronDown, Briefcase, Users } from 'lucide-react'
+import { ShieldCheck, ArrowRight, UserPlus, ChevronDown, Briefcase, Users, FileSpreadsheet } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { PageHead, Card } from '@/components/preone/ui'
 import { StaffUsersIllustration, FamilyUsersIllustration } from '@/components/preone/illustrations'
@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { BranchOption, ClassroomOption } from '@/components/users/types'
 import { useI18n } from '@/lib/i18n'
@@ -86,7 +87,6 @@ export default function UsersLauncherPage() {
       {/* Page Header */}
       <PageHead
         title={t('users.title')}
-        sub={t('users.subtitle')}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -117,10 +117,7 @@ export default function UsersLauncherPage() {
                   <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center shrink-0">
                     <Briefcase className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addStaff') || 'Add Staff Member'}</div>
-                    <div className="text-[10px] text-gray-500">Teachers, Admins, Staff</div>
-                  </div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addStaff') || 'Add Staff Member'}</div>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setAddFamilyOpen(true)}
@@ -129,10 +126,19 @@ export default function UsersLauncherPage() {
                   <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
                     <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addFamily') || 'Add Family / Parent'}</div>
-                    <div className="text-[10px] text-gray-500">Parents & Guardians</div>
-                  </div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addFamily') || 'Add Family / Parent'}</div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/app/users/staff?tab=import"
+                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-medium transition-colors"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="font-semibold text-gray-900 dark:text-gray-100">Import via Spreadsheet</div>
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -150,7 +156,7 @@ export default function UsersLauncherPage() {
             variant="nav"
             className="group"
           >
-            {/* Top Row: Category Tag + Status Badge (Old Lucide code icon removed) */}
+            {/* Top Row: Category Tag + Status Badge */}
             <div className="flex items-center justify-between gap-3 w-full">
               <span className="text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2.5 py-0.5 rounded-full border border-purple-200/50 dark:border-purple-800/40">
                 Staff Directory
@@ -160,15 +166,12 @@ export default function UsersLauncherPage() {
               </span>
             </div>
 
-            {/* Middle Content: Heading, Description & Transparent 3D Icon */}
-            <div className="flex flex-row items-center justify-between gap-3 my-2 sm:my-5 w-full">
-              <div className="space-y-1 sm:space-y-2 min-w-0 flex-1">
-                <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-primary transition-colors">
+            {/* Middle Content: Heading & Transparent 3D Icon */}
+            <div className="flex flex-row items-center justify-between gap-3 my-3 sm:my-6 w-full">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-primary transition-colors">
                   {t('users.staffUsers')}
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-normal sm:leading-relaxed max-w-[280px]">
-                  {t('users.staffUsersDesc')}
-                </p>
               </div>
               <div className="shrink-0 flex items-center justify-center">
                 <div className="block sm:hidden">
@@ -204,7 +207,7 @@ export default function UsersLauncherPage() {
             variant="nav"
             className="group"
           >
-            {/* Top Row: Category Tag + Status Badge (Old Lucide code icon removed) */}
+            {/* Top Row: Category Tag + Status Badge */}
             <div className="flex items-center justify-between gap-3 w-full">
               <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-0.5 rounded-full border border-amber-200/50 dark:border-amber-800/40">
                 Family Directory
@@ -214,15 +217,12 @@ export default function UsersLauncherPage() {
               </span>
             </div>
 
-            {/* Middle Content: Heading, Description & Transparent 3D Icon */}
-            <div className="flex flex-row items-center justify-between gap-3 my-2 sm:my-5 w-full">
-              <div className="space-y-1 sm:space-y-2 min-w-0 flex-1">
-                <h2 className="text-lg sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+            {/* Middle Content: Heading & Transparent 3D Icon */}
+            <div className="flex flex-row items-center justify-between gap-3 my-3 sm:my-6 w-full">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                   {t('users.familyUsers')}
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 leading-normal sm:leading-relaxed max-w-[280px]">
-                  {t('users.familyUsersDesc')}
-                </p>
               </div>
               <div className="shrink-0 flex items-center justify-center">
                 <div className="block sm:hidden">

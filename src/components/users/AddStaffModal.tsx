@@ -56,6 +56,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [joiningDate, setJoiningDate] = useState('')
   const [reportingManagerId, setReportingManagerId] = useState('')
   const [classroomId, setClassroomId] = useState('')
+  const [reassignClassroom, setReassignClassroom] = useState(false)
+  const [classroomLoading, setClassroomLoading] = useState(false)
+  const [fetchedClassrooms, setFetchedClassrooms] = useState<ClassroomOption[]>([])
   const [panNumber, setPanNumber] = useState('')
   const [aadhaarNumber, setAadhaarNumber] = useState('')
   const [uanNumber, setUanNumber] = useState('')
@@ -247,10 +250,45 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   }
 
   const isTeacher = primaryRole === 'TEACHER' || additionalRoles.includes('TEACHER')
+  const isAttendant = primaryRole === 'ATTENDANT' || additionalRoles.includes('ATTENDANT')
+  const isClassroomStaff = isTeacher || isAttendant
+
+  // If role changes away from classroom staff, clear classroom selection and reassignment flag
+  useEffect(() => {
+    if (!isClassroomStaff) {
+      setClassroomId('')
+      setReassignClassroom(false)
+    }
+  }, [isClassroomStaff])
+
+  // Fetch real classrooms when modal opens or branch changes if needed
+  useEffect(() => {
+    if (open && isClassroomStaff) {
+      setClassroomLoading(true)
+      const url = branchId ? `/api/v1/classrooms?branchId=${encodeURIComponent(branchId)}` : '/api/v1/classrooms'
+      fetch(url)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.success && Array.isArray(json.data)) {
+            setFetchedClassrooms(json.data)
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setClassroomLoading(false)
+        })
+    }
+  }, [open, isClassroomStaff, branchId])
 
   // Available classrooms filtered by branch if selected
-  const availableClassrooms = classrooms.filter(
+  const allClassrooms = fetchedClassrooms.length > 0 ? fetchedClassrooms : classrooms
+  const availableClassrooms = allClassrooms.filter(
     (c) => !branchId || !c.branchId || c.branchId === branchId
+  )
+
+  const selectedClassroom = availableClassrooms.find((c) => c.id === classroomId)
+  const hasTeacherConflict = Boolean(
+    isTeacher && selectedClassroom && selectedClassroom.primaryTeacherId
   )
 
   const resetForm = () => {
@@ -291,6 +329,8 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setJoiningDate('')
     setReportingManagerId('')
     setClassroomId('')
+    setReassignClassroom(false)
+    setFetchedClassrooms([])
     setPanNumber('')
     setAadhaarNumber('')
     setUanNumber('')
@@ -322,6 +362,14 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     }
     if (!designation.trim()) {
       toast.error('Validation Error', 'Job Designation is required')
+      return false
+    }
+
+    if (isTeacher && classroomId && hasTeacherConflict && !reassignClassroom) {
+      toast.error(
+        'Classroom Assignment Conflict',
+        `Classroom "${selectedClassroom?.name}" already has a primary teacher assigned (${selectedClassroom?.teacher || 'Another teacher'}). Please confirm reassignment or choose another classroom.`
+      )
       return false
     }
 
@@ -476,7 +524,8 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           qualification: qualification.trim() || undefined,
           joiningDate: joiningDate || undefined,
           reportingManagerId: reportingManagerId || undefined,
-          classroomId: isTeacher && classroomId ? classroomId : undefined,
+          classroomId: isClassroomStaff && classroomId ? classroomId : undefined,
+          reassignClassroom: isTeacher && classroomId && reassignClassroom ? true : undefined,
           panNumber: panNumber.trim().toUpperCase() || undefined,
           aadhaarNumber: aadhaarNumber.trim() || undefined,
           uanNumber: uanNumber.trim() || undefined,
@@ -499,12 +548,16 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       if (isInvite) {
         toast.success(
           'Staff Invitation Created',
-          `${fullName} onboarded with Pending status. Invitation ready for credential setup.`
+          isClassroomStaff && classroomId && selectedClassroom
+            ? `${fullName} onboarded as ${ROLE_BADGE[primaryRole]?.label || primaryRole} with Pending status and assigned to ${selectedClassroom.name}.`
+            : `${fullName} onboarded with Pending status. Invitation ready for credential setup.`
         )
       } else {
         toast.success(
           'Staff Member Onboarded',
-          `${fullName} registered as ${ROLE_BADGE[primaryRole]?.label || primaryRole} (Username: @${json.data?.username || username.trim().toLowerCase()}).`
+          isClassroomStaff && classroomId && selectedClassroom
+            ? `${fullName} registered as ${ROLE_BADGE[primaryRole]?.label || primaryRole} (Username: @${json.data?.username || username.trim().toLowerCase()}) and assigned to ${selectedClassroom.name}.`
+            : `${fullName} registered as ${ROLE_BADGE[primaryRole]?.label || primaryRole} (Username: @${json.data?.username || username.trim().toLowerCase()}).`
         )
       }
       resetForm()
@@ -518,7 +571,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   }
 
   const selectedBranchObj = branches.find((b) => b.id === branchId)
-  const selectedClassroomObj = classrooms.find((c) => c.id === classroomId)
+  const selectedClassroomObj = availableClassrooms.find((c) => c.id === classroomId)
 
   const modalFooter = (
     <div className="flex items-center justify-between w-full gap-3">
@@ -587,7 +640,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       open={open}
       onClose={onClose}
       title="Add Staff Member"
-      subtitle="Complete progressive staff onboarding in 3 simple steps"
       icon={<Briefcase className="w-5 h-5" />}
       iconClass="ic-purple"
       wide
@@ -927,6 +979,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                           const newB = e.target.value
                           setBranchId(newB)
                           setClassroomId('')
+                          setReassignClassroom(false)
                           if (newB && !assignedBranchIds.includes(newB)) {
                             setAssignedBranchIds((prev) => [...prev, newB])
                           }
@@ -1199,34 +1252,86 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                 </div>
               </div>
 
-              {/* ── TEACHING ASSIGNMENT: RENDERED STRICTLY ONLY FOR TEACHERS ── */}
-              {isTeacher && (
+              {/* ── CLASSROOM ASSIGNMENT: RENDERED FOR TEACHER & ATTENDANT ── */}
+              {isClassroomStaff && (
                 <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-bold text-purple-800 dark:text-purple-300">
-                    <DoorOpen className="w-4 h-4" />
-                    <span>Teaching Assignment (Classroom)</span>
+                  <div className="flex items-center justify-between text-xs font-bold text-purple-800 dark:text-purple-300">
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="w-4 h-4" />
+                      <span>
+                        {isTeacher
+                          ? 'Teaching Assignment (Classroom)'
+                          : 'Caregiving & Attendant Assignment (Classroom)'}
+                      </span>
+                    </div>
+                    {classroomLoading && (
+                      <span className="flex items-center gap-1 text-[11px] font-normal text-purple-600 dark:text-purple-400">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Loading classrooms...
+                      </span>
+                    )}
                   </div>
 
                   <div className="field">
                     <label className="text-xs font-medium text-purple-900 dark:text-purple-200">
-                      Assigned Primary Classroom
+                      Assign to Classroom <span className="text-[11px] font-normal text-purple-600 dark:text-purple-400">(Optional)</span>
                     </label>
                     <div className="relative mt-1">
                       <select
                         value={classroomId}
-                        onChange={(e) => setClassroomId(e.target.value)}
+                        onChange={(e) => {
+                          setClassroomId(e.target.value)
+                          setReassignClassroom(false)
+                        }}
                         className="select w-full text-xs bg-white dark:bg-gray-900"
+                        disabled={classroomLoading}
                       >
                         <option value="">Select Classroom / Section (Optional)</option>
-                        {availableClassrooms.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} {c.code ? `(${c.code})` : ''} {c.programType ? `— ${c.programType}` : ''}
-                          </option>
-                        ))}
+                        {availableClassrooms.map((c) => {
+                          const teacherLabel = c.teacher ? ` • Lead: ${c.teacher}` : ''
+                          const programLabel = c.programType ? ` • ${c.programType}` : ''
+                          const codeLabel = c.code ? ` (${c.code})` : ''
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {c.name}{codeLabel}{programLabel}{teacherLabel}
+                            </option>
+                          )
+                        })}
                       </select>
                     </div>
+
+                    {availableClassrooms.length === 0 && !classroomLoading && (
+                      <div className="mt-2 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200/60 dark:border-amber-900/40">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>No active classrooms found for this campus branch. You can complete staff creation now and assign a classroom later in Academic Setup.</span>
+                      </div>
+                    )}
+
+                    {/* Conflict Warning & Confirmation for Primary Teacher */}
+                    {isTeacher && hasTeacherConflict && selectedClassroom && (
+                      <div className="mt-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-2">
+                        <div className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200 font-medium">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span>Classroom <strong>"{selectedClassroom.name}"</strong> already has a primary teacher assigned ({selectedClassroom.teacher || 'Another teacher'}).</span>
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200 font-medium cursor-pointer pl-6">
+                          <input
+                            type="checkbox"
+                            checked={reassignClassroom}
+                            onChange={(e) => setReassignClassroom(e.target.checked)}
+                            className="rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span>Reassign primary teacher position (replace {selectedClassroom.teacher || 'current teacher'} with {fullName || 'this teacher'})</span>
+                        </label>
+                      </div>
+                    )}
+
                     <p className="text-[11px] text-purple-700 dark:text-purple-300 mt-1.5 leading-relaxed">
-                      Assigning a classroom allows the teacher to take daily attendance, post learning observations, and manage classroom activity logs.
+                      {isTeacher
+                        ? 'Assigning a classroom links the teacher as primary teacher for attendance, learning observations, and daily diary logs.'
+                        : 'Assigning a classroom links the attendant to the classroom caregiving roster, daily activity assistance, and child nap/meal logs.'}
                     </p>
                   </div>
                 </div>
@@ -1537,10 +1642,19 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     <span className="text-[11px] text-gray-400 block">Employee Code</span>
                     <span className="font-mono font-semibold text-purple-700 dark:text-purple-300">{employeeCode || '—'}</span>
                   </div>
-                  {isTeacher && selectedClassroomObj && (
+                  {isClassroomStaff && selectedClassroomObj && (
                     <div className="col-span-2">
-                      <span className="text-[11px] text-gray-400 block">Assigned Classroom</span>
-                      <span className="font-semibold text-purple-700 dark:text-purple-300">{selectedClassroomObj.name}</span>
+                      <span className="text-[11px] text-gray-400 block">
+                        {isTeacher ? 'Assigned Classroom (Teaching)' : 'Assigned Classroom (Caregiving)'}
+                      </span>
+                      <span className="font-semibold text-purple-700 dark:text-purple-300">
+                        {selectedClassroomObj.name} {selectedClassroomObj.code ? `(${selectedClassroomObj.code})` : ''}
+                        {isTeacher && hasTeacherConflict && reassignClassroom && (
+                          <span className="ml-2 text-[10px] text-amber-700 dark:text-amber-300 font-normal bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded">
+                            Reassigning primary teacher
+                          </span>
+                        )}
+                      </span>
                     </div>
                   )}
                 </div>

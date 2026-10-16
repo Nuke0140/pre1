@@ -100,6 +100,7 @@ export interface ProgramCapacitySummary {
 
 export class WaitingListService {
   private static schemaInitialized = false
+  private static initPromise: Promise<void> | null = null
 
   /**
    * Ensure the PostgreSQL tables and indices exist.
@@ -107,8 +108,9 @@ export class WaitingListService {
    */
   static async initSchema(): Promise<void> {
     if (this.schemaInitialized) return
-
-    await db.$executeRawUnsafe(`
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        await db.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS waiting_list_entries (
         id TEXT PRIMARY KEY,
         tenant_id TEXT NOT NULL,
@@ -169,7 +171,12 @@ export class WaitingListService {
 
     await db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS idx_wl_priority_audits_entry ON waiting_list_priority_audits(waiting_list_entry_id)`)
 
-    this.schemaInitialized = true
+        this.schemaInitialized = true
+      })().finally(() => {
+        this.initPromise = null
+      })
+    }
+    return this.initPromise
   }
 
   /**

@@ -144,7 +144,6 @@ export default function ClassroomPlacementsPage() {
   return (
     <AdmissionsShell
       title="Classroom Placements"
-      description="Seat distribution across classroom divisions, batch timings, educator ratios, and placement readiness"
       currentModuleKey="classroom-placements"
       branches={branches}
       selectedBranchId={selectedBranchId}
