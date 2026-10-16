@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { POST as usersPost } from '@/app/api/v1/users/route'
 import { GET as userGet, PATCH as userPatch } from '@/app/api/v1/users/[id]/route'
 import { signSession, SESSION_COOKIE } from '@/lib/auth'
+import { EncryptionService } from '@/lib/security/encryption-service'
 
 describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () => {
   const ts = Date.now().toString()
@@ -179,12 +180,12 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(sp.bloodGroup).toBe('B_POSITIVE')
       expect(sp.emergencyContactName).toBe('Jack Crusher')
       expect(sp.emergencyContactPhone).toBe('+91 99887 11223')
-      expect(sp.currentAddress).toContain('Bandra West')
-      expect(sp.permanentAddress).toContain('Pune City')
-      expect(sp.panNumber).toBe('ABCDE1234F')
-      expect(sp.aadhaarNumber).toBe('998877665548')
-      expect(sp.uanNumber).toBe('100998877665')
-      expect(sp.esiNumber).toBe('31998877665544332')
+      expect(EncryptionService.decrypt(sp.currentAddress, tenant.id)).toContain('Bandra West')
+      expect(EncryptionService.decrypt(sp.permanentAddress, tenant.id)).toContain('Pune City')
+      expect(EncryptionService.decrypt(sp.panNumber, tenant.id)).toBe('ABCDE1234F')
+      expect(EncryptionService.decrypt(sp.aadhaarNumber, tenant.id)).toBe('998877665548')
+      expect(EncryptionService.decrypt(sp.uanNumber, tenant.id)).toBe('100998877665')
+      expect(EncryptionService.decrypt(sp.esiNumber, tenant.id)).toBe('31998877665544332')
       expect(sp.noticePeriodDays).toBe(45)
 
       // Verify classroom assignment
@@ -308,10 +309,10 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       expect(sp.bloodGroup).toBe('AB_POSITIVE')
       expect(sp.emergencyContactName).toBe('Leonard McCoy')
       expect(sp.emergencyContactPhone).toBe('+91 98765 99887')
-      expect(sp.currentAddress).toContain('Nariman Point')
-      expect(sp.permanentAddress).toContain('Lonavala')
-      expect(sp.panNumber).toBe('WXYZP9876Q')
-      expect(sp.aadhaarNumber).toBe('212233445569')
+      expect(EncryptionService.decrypt(sp.currentAddress, tenant.id)).toContain('Nariman Point')
+      expect(EncryptionService.decrypt(sp.permanentAddress, tenant.id)).toContain('Lonavala')
+      expect(EncryptionService.decrypt(sp.panNumber, tenant.id)).toBe('WXYZP9876Q')
+      expect(EncryptionService.decrypt(sp.aadhaarNumber, tenant.id)).toBe('212233445569')
       expect(sp.noticePeriodDays).toBe(60)
     })
 
@@ -349,12 +350,12 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
       // All untouched fields MUST be strictly preserved
       expect(dbStaff?.user.fullName).toBe('Dr. Katherine Pulaski-McCoy')
       expect(dbStaff?.user.locale).toBe('hi')
-      expect(dbStaff?.staffProfile?.panNumber).toBe('WXYZP9876Q')
-      expect(dbStaff?.staffProfile?.aadhaarNumber).toBe('212233445569')
+      expect(EncryptionService.decrypt(dbStaff?.staffProfile?.panNumber, tenant.id)).toBe('WXYZP9876Q')
+      expect(EncryptionService.decrypt(dbStaff?.staffProfile?.aadhaarNumber, tenant.id)).toBe('212233445569')
       expect(dbStaff?.staffProfile?.emergencyContactName).toBe('Leonard McCoy')
       expect(dbStaff?.staffProfile?.emergencyContactPhone).toBe('+91 98765 99887')
       expect(dbStaff?.staffProfile?.bloodGroup).toBe('AB_POSITIVE')
-      expect(dbStaff?.staffProfile?.currentAddress).toContain('Nariman Point')
+      expect(EncryptionService.decrypt(dbStaff?.staffProfile?.currentAddress, tenant.id)).toContain('Nariman Point')
       expect(dbStaff?.staffProfile?.noticePeriodDays).toBe(60)
     })
 
@@ -428,7 +429,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
 
       // Verify that non-nullified fields still remain
       expect(sp.emergencyContactName).toBe('Leonard McCoy')
-      expect(sp.aadhaarNumber).toBe('212233445569')
+      expect(EncryptionService.decrypt(sp.aadhaarNumber, tenant.id)).toBe('212233445569')
     })
   })
 
@@ -501,6 +502,33 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
 
     it('edits family user occupation, primary contact status, pickup rights, and PIN', async () => {
       const userId = familyUser.userId || familyUser.id
+
+      // Link an alternate guardian to the student so primary contact deactivation guard is satisfied
+      const existingGuardian = await db.guardian.findFirst({
+        where: { tenantId: tenant.id, userId },
+        include: { studentLinks: true },
+      })
+      const studentId = existingGuardian?.studentLinks[0]?.studentId
+      let alternateGuardian: any = null
+      if (studentId) {
+        alternateGuardian = await db.guardian.create({
+          data: {
+            tenantId: tenant.id,
+            fullName: 'Ananya Roy',
+            phone: '+91 98888 77777',
+            relationship: 'MOTHER',
+            isPrimaryContact: false,
+            studentLinks: {
+              create: {
+                studentId,
+                relationship: 'MOTHER',
+                isPrimary: false,
+              },
+            },
+          },
+        })
+      }
+
       const patchReq = new NextRequest(`http://localhost/api/v1/users/${userId}`, {
         method: 'PATCH',
         headers: {
@@ -511,6 +539,7 @@ describe('PreOne Users Module — Complete Add, View & Edit Field Parity', () =>
           fullName: 'Vikramaditya Roy, Ph.D.',
           occupation: 'Chief Scientist & Professor',
           isPrimaryContact: false,
+          nominateAlternateId: alternateGuardian?.id,
           locale: 'en',
           canPickup: false,
           pickupPin: '9876',
