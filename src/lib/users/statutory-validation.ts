@@ -140,18 +140,11 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     }
   }
 
-<<<<<<< Updated upstream
-  if (!validateVerhoeff(clean)) {
-    return {
-      valid: false,
-      error: 'Invalid Aadhaar number: failed Verhoeff checksum validation',
-=======
   // Reject repeating dummy patterns (e.g. 111111111111, 000000000000)
   if (/^(\d)\1{11}$/.test(clean)) {
     return {
       valid: false,
       error: 'Invalid Aadhaar number: cannot be all identical digits',
->>>>>>> Stashed changes
     }
   }
 
