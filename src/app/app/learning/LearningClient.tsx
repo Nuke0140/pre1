@@ -60,7 +60,9 @@ import {
   Field,
   Avatar,
   TabularNumber,
-} from '@/components/preone/ui'
+  GlobalModuleNavigation,
+  getLearningNavConfig,
+} from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { TactileButton } from '@/components/preone/TactileMotion'
@@ -2190,19 +2192,16 @@ export function LearningClient({ session }: LearningClientProps) {
       </div>
 
       {/* ── Module Tabs ── */}
-      <div className="flex items-center justify-between border-b border-border/60 pb-1">
-        <Segmented
-          value={tab}
-          onChange={(val: any) => setTab(val)}
-          options={[
-            { key: 'overview', label: 'Overview' },
-            { key: 'curriculum', label: `Curriculum & Goals (${curricula.length})` },
-            { key: 'activities', label: `Activity Planner (${activities.length})` },
-            { key: 'observations', label: `Observations (${observations.length})` },
-            { key: 'progress', label: 'Milestone Matrix' },
-          ]}
-        />
-      </div>
+      <GlobalModuleNavigation
+        items={getLearningNavConfig({
+          curricula: curricula.length,
+          activities: activities.length,
+          observations: observations.length,
+        })}
+        activeId={tab}
+        onSelect={(id) => setTab(id as any)}
+        ariaLabel="Learning & Curriculum navigation"
+      />
 
       {/* ═════════════════════════════════════════════════════════════════════
           TAB 1: OVERVIEW DASHBOARD

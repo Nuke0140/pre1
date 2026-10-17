@@ -24,6 +24,12 @@ export const GET = withApi(async (req: NextRequest) => {
   const programType = (sp.get('programType') as ProgramType) || undefined
   const status = (sp.get('status') as StudentStatus) || undefined
 
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+  if (isTeacher && session.branchId && sp.get('branchId') && sp.get('branchId') !== session.branchId) {
+    throw errPermission('Teacher cannot access students outside assigned campus')
+  }
+
   const result = await StudentService.listStudents(
     {
       tenantId: session.tenantId,
@@ -32,6 +38,7 @@ export const GET = withApi(async (req: NextRequest) => {
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
+      actorRoles: effectiveRoles,
     },
     {
       page,

@@ -294,6 +294,27 @@ export class UserLifecycleService {
       }
     }
 
+    // Last administrator protection: cannot suspend or deactivate the last active administrator/owner
+    if (['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(member.role as any) && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(targetStatus)) {
+      const activeAdmins = await db.tenantUser.count({
+        where: {
+          tenantId: actorSession.tenantId || undefined,
+          role: { in: ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'] as any },
+          status: 'ACTIVE',
+          deletedAt: null,
+          id: { not: member.id },
+        },
+      })
+      if (activeAdmins === 0) {
+        return {
+          success: false,
+          error: 'Cannot suspend or deactivate the last active administrator or owner of the school',
+          code: 'LAST_ADMIN_PROTECTION',
+          statusHttp: 403,
+        }
+      }
+    }
+
     // Special case for unlock: even if user is already ACTIVE, clear failed attempts and return success
     if (action === 'unlock') {
       await resetPersistentFailedAttempts(member.userId)

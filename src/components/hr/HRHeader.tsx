@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react'
 import type { HRTabKey } from './types'
+import { GlobalModuleNavigation, getHrNavConfig } from '@/components/preone'
 
 interface HRHeaderProps {
   activeTab: HRTabKey
@@ -40,16 +41,6 @@ interface HRHeaderProps {
   onOpenProcessPayroll?: () => void
 }
 
-interface ModuleDef {
-  key: HRTabKey
-  label: string
-  desc: string
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  badge?: number | string
-  accentColor: string
-  iconBg: string
-}
-
 export function HRHeader({
   activeTab,
   onTabChange,
@@ -65,90 +56,6 @@ export function HRHeader({
   canApprove,
   onOpenProcessPayroll,
 }: HRHeaderProps) {
-  const modules: ModuleDef[] = [
-    {
-      key: 'dashboard',
-      label: 'Dashboard',
-      desc: 'Workforce snapshot & KPIs',
-      icon: LayoutDashboard,
-      accentColor: 'text-purple-600 dark:text-purple-400',
-      iconBg: 'bg-purple-500/10 dark:bg-purple-500/20',
-    },
-    {
-      key: 'employees',
-      label: 'Employees',
-      desc: 'Staff profiles & directory',
-      icon: Users,
-      accentColor: 'text-blue-600 dark:text-blue-400',
-      iconBg: 'bg-blue-500/10 dark:bg-blue-500/20',
-    },
-    {
-      key: 'attendance',
-      label: 'Attendance',
-      desc: 'Daily roll call & punches',
-      icon: CalendarCheck,
-      accentColor: 'text-emerald-600 dark:text-emerald-400',
-      iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20',
-    },
-    {
-      key: 'leave',
-      label: 'Leave',
-      desc: 'Balances & approvals',
-      icon: CalendarDays,
-      accentColor: 'text-amber-600 dark:text-amber-400',
-      iconBg: 'bg-amber-500/10 dark:bg-amber-500/20',
-    },
-    {
-      key: 'schedule',
-      label: 'Staff Schedule',
-      desc: 'Timetables & classrooms',
-      icon: CalendarRange,
-      accentColor: 'text-indigo-600 dark:text-indigo-400',
-      iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20',
-    },
-    {
-      key: 'payroll',
-      label: 'Payroll',
-      desc: 'Cycles, PF/ESI & payouts',
-      icon: CreditCard,
-      accentColor: 'text-teal-600 dark:text-teal-400',
-      iconBg: 'bg-teal-500/10 dark:bg-teal-500/20',
-    },
-    {
-      key: 'performance',
-      label: 'Performance',
-      desc: 'Appraisals & reviews',
-      icon: Award,
-      accentColor: 'text-violet-600 dark:text-violet-400',
-      iconBg: 'bg-violet-500/10 dark:bg-violet-500/20',
-    },
-    {
-      key: 'training',
-      label: 'Training',
-      desc: 'POSH, safety & ECCE',
-      icon: ShieldCheck,
-      accentColor: 'text-cyan-600 dark:text-cyan-400',
-      iconBg: 'bg-cyan-500/10 dark:bg-cyan-500/20',
-    },
-    {
-      key: 'requests',
-      label: 'Requests',
-      desc: 'Unified approvals inbox',
-      icon: Inbox,
-      badge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
-      accentColor: 'text-orange-600 dark:text-orange-400',
-      iconBg: 'bg-orange-500/10 dark:bg-orange-500/20',
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      desc: 'Analytics & compliance',
-      icon: FileBarChart,
-      accentColor: 'text-slate-600 dark:text-slate-400',
-      iconBg: 'bg-slate-500/10 dark:bg-slate-500/20',
-    },
-  ]
-
   // Render contextual action buttons per active tab
   const renderContextualActions = () => {
     switch (activeTab) {
@@ -350,66 +257,14 @@ export function HRHeader({
       </div>
 
       {/* ── 2. Windows / Metro-Inspired Module Navigation (10 Interactive Cards) ── */}
-      <nav aria-label="HR Modules" className="w-full">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-          {modules.map((m) => {
-            const Icon = m.icon
-            const isActive = activeTab === m.key
-
-            return (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => onTabChange(m.key)}
-                className={`group relative text-left p-3 sm:p-3.5 rounded-2xl border transition-all duration-200 outline-none flex flex-col justify-between min-h-[96px] sm:min-h-[104px] cursor-pointer ${
-                  isActive
-                    ? 'bg-primary/5 dark:bg-primary/10 border-primary/60 dark:border-primary/50 shadow-sm ring-1 ring-primary/20'
-                    : 'bg-card/90 hover:bg-card border-border/80 hover:border-border/90 hover:shadow-sm'
-                }`}
-              >
-                {/* Top Row: Icon container + Badge + Active indicator */}
-                <div className="flex items-center justify-between w-full">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${m.iconBg} ${m.accentColor}`}
-                  >
-                    <Icon size={16} />
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {m.badge !== undefined && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white leading-none">
-                        {m.badge}
-                      </span>
-                    )}
-                    {isActive ? (
-                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse" title="Active Module" />
-                    ) : (
-                      <ChevronRight
-                        size={14}
-                        className="text-muted-foreground/50 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Row: Module Title + Descriptor */}
-                <div className="mt-2.5 space-y-0.5">
-                  <div
-                    className={`text-xs sm:text-sm font-bold tracking-tight leading-tight line-clamp-1 ${
-                      isActive ? 'text-primary' : 'text-foreground group-hover:text-primary transition-colors'
-                    }`}
-                  >
-                    {m.label}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground line-clamp-1 leading-normal">
-                    {m.desc}
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </nav>
+      {/* ── 2. Unified Global Module Navigation ── */}
+      <GlobalModuleNavigation
+        items={getHrNavConfig({ pendingRequestsCount })}
+        activeId={activeTab}
+        onSelect={(id) => onTabChange(id as HRTabKey)}
+        ariaLabel="HR Modules"
+        className="w-full"
+      />
     </div>
   )
 }

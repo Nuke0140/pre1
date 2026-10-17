@@ -99,7 +99,7 @@ export class DailyDiaryService {
     })
 
     // 2. Fetch branches for tenant
-    const branches = await db.branch.findMany({
+    const allBranches = await db.branch.findMany({
       where: { tenantId, isActive: true, deletedAt: null },
       select: { id: true, name: true, code: true, isMain: true },
       orderBy: { isMain: 'desc' },
@@ -144,6 +144,20 @@ export class DailyDiaryService {
       },
       orderBy: { name: 'asc' },
     })
+
+    // Filter branches strictly for teachers and branch-scoped staff
+    let branches = allBranches
+    if (scope.isTeacher) {
+      const teacherBranchIds = Array.from(
+        new Set([
+          ...(session.branchId ? [session.branchId] : []),
+          ...classrooms.map((c) => c.branchId).filter(Boolean),
+        ])
+      )
+      branches = allBranches.filter((b) => teacherBranchIds.includes(b.id))
+    } else if (scope.branchId) {
+      branches = allBranches.filter((b) => b.id === scope.branchId)
+    }
 
     // 4. Fetch teachers for Admin dropdown scheduling
     let teachers: { id: string; fullName: string; email: string | null }[] = []

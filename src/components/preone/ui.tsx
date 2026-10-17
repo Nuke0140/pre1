@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react'
 import { initials, avatarClass, enumLabel } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { Breadcrumbs, type Crumb } from './Breadcrumbs'
+import { GlobalKpiCard } from './GlobalKpiCard'
 
 export function Avatar({
   name,
@@ -282,6 +283,9 @@ export function StatusBadge({
 
 export * from './EmptyState'
 export * from './KpiMetricCard'
+export * from './GlobalKpiCard'
+export * from './GlobalModuleNavigation'
+export * from './module-navigation.config'
 
 export function Card({
   children,
@@ -317,14 +321,25 @@ export function Card({
 }
 
 export function KpiTile({
-  label, value, unit, icon, iconClass, meta, trend, onClick, active, variant, hero, className = '',
+  label,
+  value,
+  unit,
+  icon,
+  iconClass,
+  meta,
+  trend,
+  onClick,
+  active,
+  variant,
+  hero,
+  className = '',
 }: {
   label: string
-  value: string | number
+  value: string | number | null | undefined
   unit?: string
-  icon: React.ReactNode
-  iconClass: string
-  meta?: string
+  icon?: React.ReactNode
+  iconClass?: string
+  meta?: React.ReactNode
   trend?: { dir: 'up' | 'down' | 'flat'; text: string }
   onClick?: () => void
   active?: boolean
@@ -332,39 +347,21 @@ export function KpiTile({
   hero?: boolean
   className?: string
 }) {
-  const isHero = hero || variant === 'hero' || variant === 'primary'
-  const vClass = isHero ? 'kpi-hero' : variant ? `kpi-${variant}` : ''
   return (
-    <div
-      className={`kpi ${vClass}${onClick ? ' clickable' : ''}${active ? ' active' : ''} ${className}`}
-      aria-pressed={onClick && active != null ? active : undefined}
-      {...(onClick
-        ? {
-            role: 'button',
-            tabIndex: 0,
-            onClick,
-            onKeyDown: (e: React.KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onClick()
-              }
-            },
-          }
-        : {})}
-    >
-      <div className="kpi-top">
-        <div className={`kpi-ic ${iconClass}`}>{icon}</div>
-        {trend && <span className={`trend ${trend.dir}`}>{trend.text}</span>}
-      </div>
-      <div>
-        <div className="kpi-label">{label}</div>
-        <div className="kpi-value font-mono font-bold tabular-nums">
-          {value}
-          {unit && <span className="unit">{unit}</span>}
-        </div>
-      </div>
-      {meta && <div className="kpi-meta">{meta}</div>}
-    </div>
+    <GlobalKpiCard
+      label={label}
+      value={value}
+      unit={unit}
+      icon={icon}
+      iconClass={iconClass}
+      supportingText={meta}
+      trend={trend}
+      onClick={onClick}
+      active={active}
+      variant={variant}
+      hero={hero}
+      className={className}
+    />
   )
 }
 

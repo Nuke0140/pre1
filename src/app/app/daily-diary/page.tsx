@@ -30,6 +30,7 @@ import {
   Trash2,
   Minus,
   Copy,
+  Download,
 } from 'lucide-react'
 import { PageHead, Avatar, Breadcrumbs, EmptyState, Skeleton } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -242,6 +243,7 @@ export default function DailyDiaryPage() {
   const [attendanceRegister, setAttendanceRegister] = useState<AttendanceStudent[]>([])
   const [loadingAttendance, setLoadingAttendance] = useState(false)
   const [savingAttendance, setSavingAttendance] = useState(false)
+  const [exportingAttendance, setExportingAttendance] = useState(false)
   const [fastRollCallOpen, setFastRollCallOpen] = useState(false)
 
   useEffect(() => {
@@ -583,6 +585,44 @@ export default function DailyDiaryPage() {
       toast.error('Error', 'Could not save attendance register')
     } finally {
       setSavingAttendance(false)
+    }
+  }
+
+  const handleExportAttendanceCsv = async () => {
+    try {
+      setExportingAttendance(true)
+      const params = new URLSearchParams()
+      if (selectedClassroomId && selectedClassroomId !== 'all') {
+        params.set('classroomId', selectedClassroomId)
+      }
+      if (selectedDate) {
+        params.set('date', selectedDate)
+      }
+      if (selectedBranchId && selectedBranchId !== 'all') {
+        params.set('branchId', selectedBranchId)
+      }
+
+      const res = await fetch(`/api/v1/attendance/export?${params.toString()}`)
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.error || 'Failed to export attendance records')
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `attendance_export_${selectedDate || 'records'}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+
+      toast.success('Export Complete', 'Attendance records successfully exported to CSV.')
+    } catch (err: any) {
+      toast.error('Export Failed', err.message)
+    } finally {
+      setExportingAttendance(false)
     }
   }
 
@@ -2385,6 +2425,16 @@ export default function DailyDiaryPage() {
                   >
                     {savingAttendance ? <RefreshCw className="animate-spin" size={15} /> : <Save size={15} />}
                     Save Attendance
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline flex items-center gap-1.5"
+                    onClick={handleExportAttendanceCsv}
+                    disabled={exportingAttendance}
+                    title="Export attendance records to CSV"
+                  >
+                    {exportingAttendance ? <RefreshCw className="animate-spin" size={15} /> : <Download size={15} />}
+                    Export CSV
                   </button>
                 </div>
               </div>

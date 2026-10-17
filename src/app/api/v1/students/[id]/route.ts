@@ -34,6 +34,7 @@ async function _GET(
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
+        actorRoles: effectiveRoles,
       },
       id
     )

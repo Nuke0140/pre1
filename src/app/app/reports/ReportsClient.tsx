@@ -8,7 +8,7 @@ import {
   Sliders, AlertTriangle, ArrowLeft, ChevronRight, X, RotateCcw,
   GraduationCap, ClipboardList, ShieldAlert
 } from 'lucide-react'
-import { PageHead, Segmented, KpiTile, EmptyState, Field, StatusBadge } from '@/components/preone/ui'
+import { PageHead, Segmented, KpiTile, EmptyState, Field, StatusBadge, GlobalKpiCard, KpiGrid } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { useToast } from '@/components/preone/Toast'
@@ -1080,28 +1080,22 @@ export default function ReportsClient() {
 
       {/* Summary KPI Strip (If report provides summary metrics) */}
       {reportData?.summary && Object.keys(reportData.summary).length > 0 && (
-        <div
-          className="metric-strip"
-          style={{
-            marginBottom: 20,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: 12,
-          }}
-        >
-          {Object.entries(reportData.summary).map(([key, val]) => {
-            const formattedLabel = key
-              .replace(/([A-Z])/g, ' $1')
-              .replace(/^./, (str) => str.toUpperCase())
-            return (
-              <div key={key} className="metric-cell" style={{ padding: '12px 16px', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                <div className="metric-cell-label" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{formattedLabel}</div>
-                <div className="metric-cell-value" style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>
-                  {String(val)}
-                </div>
-              </div>
-            )
-          })}
+        <div className="mb-5">
+          <KpiGrid columns="auto">
+            {Object.entries(reportData.summary).map(([key, val]) => {
+              const formattedLabel = key
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, (str) => str.toUpperCase())
+              return (
+                <GlobalKpiCard
+                  key={key}
+                  label={formattedLabel}
+                  value={String(val)}
+                  size="compact"
+                />
+              )
+            })}
+          </KpiGrid>
         </div>
       )}
 

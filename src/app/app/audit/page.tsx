@@ -20,8 +20,8 @@ import {
   Layers,
   FileCode2,
 } from 'lucide-react'
-import { PageHead, EmptyState, Skeleton, KpiTile } from '@/components/preone/ui'
-import { SearchFilterBar } from '@/components/preone'
+import { PageHead, EmptyState, Skeleton, KpiTile, GlobalKpiCard, KpiGrid } from '@/components/preone/ui'
+import { SearchFilterBar, GlobalModuleNavigation, AUDIT_CATEGORY_CONFIG } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, timeAgo } from '@/lib/format'
@@ -90,14 +90,6 @@ const MODULES = [
 ]
 
 const SEVERITIES = ['ALL', 'INFO', 'WARNING', 'CRITICAL']
-
-const CATEGORY_TABS = [
-  { key: 'all', label: 'All Activity' },
-  { key: 'security', label: 'Security Events' },
-  { key: 'changes', label: 'Data Changes' },
-  { key: 'finance', label: 'Payment Activity' },
-  { key: 'exports', label: 'Exports' },
-]
 
 export default function AuditPage() {
   const toast = useToast()
@@ -219,94 +211,63 @@ export default function AuditPage() {
       />
 
       {/* ── Canonical Metric Strip ── */}
-      <div className="metric-strip" style={{ marginBottom: 16 }}>
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Total Events</span>
-            <ScrollText size={15} style={{ color: 'var(--primary)' }} />
-          </div>
-          <div className="m-val">{kpis?.totalEvents ?? '...'}</div>
-          <div className="m-meta">System audit log</div>
-        </div>
-
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Today's Activity</span>
-            <Clock size={15} style={{ color: 'var(--accent)' }} />
-          </div>
-          <div className="m-val">{kpis?.todayEvents ?? '...'}</div>
-          <div className="m-meta">Logged today</div>
-        </div>
-
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Security Events</span>
-            <ShieldCheck size={15} style={{ color: 'var(--warning)' }} />
-          </div>
-          <div className="m-val" style={{ color: 'var(--warning-text, var(--warning))' }}>{kpis?.securityEvents ?? '...'}</div>
-          <div className="m-meta">Auth & access</div>
-        </div>
-
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Critical Mutations</span>
-            <Flame size={15} style={{ color: 'var(--danger)' }} />
-          </div>
-          <div className="m-val" style={{ color: 'var(--danger)' }}>{kpis?.criticalEvents ?? '...'}</div>
-          <div className="m-meta">Data modifications</div>
-        </div>
-
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Failed Actions</span>
-            <AlertTriangle size={15} style={{ color: 'var(--danger)' }} />
-          </div>
-          <div className="m-val" style={{ color: 'var(--danger)' }}>{kpis?.failedActions ?? '...'}</div>
-          <div className="m-meta">System rejections</div>
-        </div>
-
-        <div className="metric-cell">
-          <div className="m-top">
-            <span className="m-lbl">Audit Exports</span>
-            <FileSpreadsheet size={15} style={{ color: 'var(--foreground-muted)' }} />
-          </div>
-          <div className="m-val">{kpis?.exportEvents ?? '...'}</div>
-          <div className="m-meta">CSV generations</div>
-        </div>
+      <div className="mb-4">
+        <KpiGrid columns={6}>
+          <GlobalKpiCard
+            label="Total Events"
+            value={kpis?.totalEvents ?? '...'}
+            supportingText="System audit log"
+            icon={<ScrollText size={15} />}
+          />
+          <GlobalKpiCard
+            label="Today's Activity"
+            value={kpis?.todayEvents ?? '...'}
+            supportingText="Logged today"
+            icon={<Clock size={15} />}
+            iconClass="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+          />
+          <GlobalKpiCard
+            label="Security Events"
+            value={kpis?.securityEvents ?? '...'}
+            supportingText="Auth & access"
+            icon={<ShieldCheck size={15} />}
+            iconClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+          />
+          <GlobalKpiCard
+            label="Critical Mutations"
+            value={kpis?.criticalEvents ?? '...'}
+            supportingText="Data modifications"
+            icon={<Flame size={15} />}
+            iconClass="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+          />
+          <GlobalKpiCard
+            label="Failed Actions"
+            value={kpis?.failedActions ?? '...'}
+            supportingText="System rejections"
+            icon={<AlertTriangle size={15} />}
+            iconClass="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+          />
+          <GlobalKpiCard
+            label="Audit Exports"
+            value={kpis?.exportEvents ?? '...'}
+            supportingText="CSV generations"
+            icon={<FileSpreadsheet size={15} />}
+            iconClass="bg-slate-500/10 text-slate-600 dark:text-slate-400"
+          />
+        </KpiGrid>
       </div>
 
       {/* ── Category Views / Views Bar ── */}
-      <div
-        className="w-full min-w-0 max-w-full overflow-x-auto touch-pan-x scrollbar-none"
-        style={{
-          display: 'flex',
-          gap: 4,
-          background: 'var(--surface-sunken)',
-          padding: 4,
-          borderRadius: 'var(--radius-12)',
-          marginBottom: 14,
+      <GlobalModuleNavigation
+        items={AUDIT_CATEGORY_CONFIG}
+        activeId={category}
+        onSelect={(id) => {
+          setCategory(id)
+          setPage(1)
         }}
-      >
-        {CATEGORY_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            className={`btn btn-sm ${category === tab.key ? 'btn-primary' : 'btn-ghost'} shrink-0`}
-            style={{
-              padding: '6px 14px',
-              fontSize: 12.5,
-              fontWeight: 600,
-              borderRadius: 'var(--radius-8)',
-              whiteSpace: 'nowrap',
-            }}
-            onClick={() => {
-              setCategory(tab.key)
-              setPage(1)
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        ariaLabel="Audit category views"
+        className="mb-3.5"
+      />
 
       {/* ── Main Activity Table & Advanced Filters ── */}
       <div className="card w-full min-w-0 max-w-full overflow-hidden" style={{ padding: 0 }}>

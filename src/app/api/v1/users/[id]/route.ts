@@ -557,8 +557,11 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       }
     }
 
-    // Critical-role protection on status change: cannot deactivate/suspend the sole Owner
+    // Critical-role protection on status change: cannot deactivate/suspend the sole Owner or last Administrator
     if (lifecycleStatusToApply && ['SUSPENDED', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(lifecycleStatusToApply)) {
+      if (member.userId === session.uid) {
+        return bad('Cannot suspend or deactivate your own account', 'CANNOT_SUSPEND_SELF')
+      }
       if (member.role === 'OWNER') {
         const ownerCount = await db.tenantUser.count({
           where: {
@@ -571,6 +574,20 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         })
         if (ownerCount === 0) {
           return forbidden('Cannot suspend or deactivate the sole active Owner of the school')
+        }
+      }
+      if (['OWNER', 'ADMIN'].includes(member.role)) {
+        const adminCount = await db.tenantUser.count({
+          where: {
+            tenantId: session.tenantId,
+            role: { in: ['OWNER', 'ADMIN'] },
+            status: 'ACTIVE',
+            deletedAt: null,
+            id: { not: member.id },
+          },
+        })
+        if (adminCount === 0) {
+          return forbidden('Cannot suspend or deactivate the last active administrator or owner of the school', 'LAST_ADMIN_PROTECTION')
         }
       }
     }
@@ -1267,8 +1284,27 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
   const { targetMember: member } = manageCheck
 
   try {
+    if (member.userId === session.uid) {
+      return bad('Cannot delete your own account', 'CANNOT_DELETE_SELF')
+    }
+
     if (member.role === 'OWNER') {
       return forbidden('Cannot delete school owner account')
+    }
+
+    if (['OWNER', 'ADMIN'].includes(member.role)) {
+      const activeAdmins = await db.tenantUser.count({
+        where: {
+          tenantId: session.tenantId,
+          role: { in: ['OWNER', 'ADMIN'] },
+          status: 'ACTIVE',
+          deletedAt: null,
+          id: { not: member.id },
+        },
+      })
+      if (activeAdmins === 0) {
+        return forbidden('Cannot delete the last active administrator or owner of the school', 'LAST_ADMIN_PROTECTION')
+      }
     }
 
     // Primary contact deactivation guard (Doc 3.2): cannot delete/deactivate primary contact without nominating alternate
@@ -1365,9 +1401,10 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
       entityId: member.userId,
       module: 'Users',
       severity: 'WARNING',
-      summary: `Deactivated user ${member.user.fullName} from school`,
+      summary: `Deactivated user ${member.user.fullName} from school${deleteBody.reason ? `: ${deleteBody.reason}` : ''}`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
+      newValues: { status: 'INACTIVE', reason: deleteBody.reason },
     })
 
     return ok({ deactivated: true })

@@ -73,20 +73,31 @@ export async function resolveAuthorizedBranchScope(
   // Derive user's authorized branch list
   let authorizedBranches = allTenantBranches
   if (!canAccessAll) {
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : (session.role ? [session.role] : [])
+    const isTeacher = effectiveRoles.includes('TEACHER')
     let userBranchId = session.branchId
 
     if (!userBranchId) {
-      // Fallback: If session.branchId is not specified, resolve from user's assigned classroom or tenant main branch
+      // Fallback: If session.branchId is not specified, resolve from user's assigned classroom
       if (session.uid) {
         const assignedClassroom = await db.classroom.findFirst({
-          where: { tenantId, primaryTeacherId: session.uid, isActive: true },
+          where: {
+            tenantId,
+            isActive: true,
+            OR: [
+              { primaryTeacherId: session.uid },
+              { subjectMappings: { some: { specialistTeacherId: session.uid } } },
+            ],
+          },
           select: { branchId: true },
         })
         if (assignedClassroom?.branchId) {
           userBranchId = assignedClassroom.branchId
         }
       }
-      if (!userBranchId) {
+
+      // Non-teachers can fallback to main branch, but teachers strictly require explicit branch or classroom assignment
+      if (!userBranchId && !isTeacher) {
         const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
         if (defaultBranch) {
           userBranchId = defaultBranch.id
@@ -107,6 +118,16 @@ export async function resolveAuthorizedBranchScope(
 
     authorizedBranches = allTenantBranches.filter((b) => b.id === userBranchId)
     if (authorizedBranches.length === 0) {
+      if (isTeacher) {
+        return {
+          tenantId,
+          mode: 'NO_BRANCH_ACCESS',
+          selectedBranchId: null,
+          authorizedBranchIds: [],
+          branches: [],
+          isMultiBranchAuthorized: false,
+        }
+      }
       const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
       if (defaultBranch) {
         authorizedBranches = [defaultBranch]

@@ -6,7 +6,7 @@ import {
   LayoutGrid, Plus, FileSpreadsheet, Building2, Blocks,
   GraduationCap, Users, RefreshCw, Search, ShieldCheck
 } from 'lucide-react'
-import { PageHead, KpiTile, EmptyState } from '@/components/preone'
+import { PageHead, KpiTile, EmptyState, GlobalFilterToolbar, GlobalModuleNavigation, getClassroomsNavConfig } from '@/components/preone'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { useToast } from '@/components/preone/Toast'
 import { useI18n } from '@/lib/i18n'
@@ -198,76 +198,76 @@ export default function ClassroomsPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-gray-200 dark:border-gray-800 space-x-6 text-sm font-semibold">
-        <button
-          type="button"
-          onClick={() => setActiveTab('DIRECTORY')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'DIRECTORY'
-              ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400 font-bold'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-          }`}
-        >
-          <LayoutGrid className="w-4 h-4" />
-          <span>Classrooms Directory ({classrooms.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('IMPORT')}
-          className={`pb-3 flex items-center gap-2 border-b-2 transition-all ${
-            activeTab === 'IMPORT'
-              ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400 font-bold'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Import via Spreadsheet</span>
-        </button>
-      </div>
+      <GlobalModuleNavigation
+        items={getClassroomsNavConfig({ classrooms: classrooms.length })}
+        activeId={activeTab}
+        onSelect={(id) => setActiveTab(id as 'DIRECTORY' | 'IMPORT')}
+        ariaLabel="Classrooms Section Navigation"
+      />
 
       {/* TAB 1: DIRECTORY */}
       {activeTab === 'DIRECTORY' && (
         <div className="space-y-4">
-          {/* Filter Bar */}
-          <div className="card p-3 rounded-xl border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap text-xs">
-            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search classroom by name, code, campus or teacher..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-transparent border-0 focus:outline-none text-xs text-gray-900 dark:text-gray-100"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
-                className="select py-1 px-2.5 text-xs rounded-lg border border-gray-200 dark:border-gray-800 bg-card text-gray-800 dark:text-gray-200"
-              >
-                <option value="ALL">All Campuses</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedProgram}
-                onChange={(e) => setSelectedProgram(e.target.value)}
-                className="select py-1 px-2.5 text-xs rounded-lg border border-gray-200 dark:border-gray-800 bg-card text-gray-800 dark:text-gray-200"
-              >
-                <option value="ALL">All Programs</option>
-                <option value="PLAYGROUP">Playgroup</option>
-                <option value="NURSERY">NURSERY</option>
-                <option value="LKG">Junior KG (LKG)</option>
-                <option value="UKG">Senior KG (UKG)</option>
-                <option value="DAYCARE">Daycare</option>
-              </select>
-            </div>
-          </div>
+          {/* ── Standardized Global Filter Toolbar ── */}
+          <GlobalFilterToolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search classroom by name, code, campus or teacher...',
+              shortcut: '/',
+            }}
+            filters={[
+              {
+                id: 'branch',
+                label: 'Campus',
+                type: 'branch',
+                value: selectedBranch,
+                defaultValue: 'ALL',
+                placeholder: 'All Campuses',
+                options: [
+                  { value: 'ALL', label: 'All Campuses' },
+                  ...branches.map((b) => ({
+                    value: b.id,
+                    label: b.name,
+                    isMain: b.isMain,
+                  })),
+                ],
+                onChange: setSelectedBranch,
+              },
+              {
+                id: 'program',
+                label: 'Program',
+                type: 'select',
+                value: selectedProgram,
+                defaultValue: 'ALL',
+                placeholder: 'All Programs',
+                options: [
+                  { value: 'ALL', label: 'All Programs' },
+                  { value: 'PLAYGROUP', label: 'Playgroup' },
+                  { value: 'NURSERY', label: 'NURSERY' },
+                  { value: 'LKG', label: 'Junior KG (LKG)' },
+                  { value: 'UKG', label: 'Senior KG (UKG)' },
+                  { value: 'DAYCARE', label: 'Daycare' },
+                ],
+                onChange: setSelectedProgram,
+              },
+            ]}
+            refresh={{
+              onRefresh: loadData,
+              refreshing: loading,
+              label: 'Refresh Classrooms',
+            }}
+            onReset={() => {
+              setSearch('')
+              setSelectedBranch('ALL')
+              setSelectedProgram('ALL')
+            }}
+            extraActions={
+              <div className="text-xs text-muted-foreground font-mono hidden sm:block">
+                {filteredClassrooms.length} classrooms
+              </div>
+            }
+          />
 
           {/* Classrooms Grid / Table */}
           {filteredClassrooms.length === 0 ? (

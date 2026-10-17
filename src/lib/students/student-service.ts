@@ -205,6 +205,18 @@ export class StudentService {
         select: { id: true },
       })
       const roomIds = assignedRooms.map((r) => r.id)
+      if (roomIds.length === 0) {
+        return {
+          data: [],
+          pagination: {
+            page,
+            pageSize,
+            total: 0,
+            totalPages: 0,
+            unassigned: true,
+          },
+        }
+      }
       if (filters.classroomId) {
         where.currentClassroomId = roomIds.includes(filters.classroomId) ? filters.classroomId : { in: [] }
       } else {
@@ -290,7 +302,8 @@ export class StudentService {
               name: s.guardians[0].guardian.fullName,
               phone: s.guardians[0].guardian.phone,
               email: s.guardians[0].guardian.email,
-              relationship: s.guardians[0].guardian.relationship,
+              relationship: s.guardians[0].relationship || s.guardians[0].guardian.relationship,
+              isPrimary: s.guardians[0].isPrimary,
               hasPortalAccount: !!s.guardians[0].guardian.userId,
             }
           : null,
@@ -411,9 +424,17 @@ export class StudentService {
     }
 
     // Teacher permission check: Only allowed to view students in assigned classrooms
-    if (ctx.actorRole === 'TEACHER' && ctx.actorId) {
-      if (student.currentClassroom?.primaryTeacher?.id !== ctx.actorId) {
-        throw new Error('Unauthorized: You are only authorized to view students in your classroom')
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
+    const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+    if (isTeacher && ctx.actorId) {
+      const isPrimary = student.currentClassroom?.primaryTeacher?.id === ctx.actorId
+      const isSpecialist = student.currentClassroomId
+        ? await db.classroomSubject.findFirst({
+            where: { classroomId: student.currentClassroomId, specialistTeacherId: ctx.actorId },
+          })
+        : null
+      if (!isPrimary && !isSpecialist) {
+        throw new Error('Unauthorized: You are only authorized to view students in your assigned classroom')
       }
     }
 

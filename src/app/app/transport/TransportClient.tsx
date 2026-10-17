@@ -36,7 +36,7 @@ import {
   QrCode,
   Eye,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Segmented, Field } from '@/components/preone/ui'
+import { PageHead, StatusBadge, EmptyState, KpiTile, Segmented, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getTransportNavConfig } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
@@ -1703,77 +1703,36 @@ export function TransportClient({ session }: { session: SessionProps }) {
       )}
 
       {/* 5-DESTINATION SIMPLIFIED HORIZONTAL METRO NAVIGATION */}
-      <nav
-        aria-label="Transport Workspaces"
-        style={{
-          display: 'flex',
-          gap: 6,
-          padding: 6,
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-lg, 16px)',
-          boxShadow: 'var(--elevation-1)',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          marginBottom: 20,
-        }}
-      >
-        {allowedTabs.map((t) => {
-          const isActive =
-            tab === t.key ||
-            (t.key === 'HOME' && tab === 'OVERVIEW') ||
-            (t.key === 'STUDENTS_ROUTES' && (tab === 'STUDENTS' || tab === 'ROUTES')) ||
-            (t.key === 'SAFETY' && (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY')) ||
-            (t.key === 'FLEET_SETTINGS' && (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED'))
-          const Icon = t.icon
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => handleSelectTab(t.key)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '9px 16px',
-                fontSize: '0.85rem',
-                fontWeight: isActive ? 600 : 500,
-                borderRadius: 'var(--radius-md, 12px)',
-                border: isActive
-                  ? '1px solid color-mix(in srgb, var(--primary) 28%, transparent)'
-                  : '1px solid transparent',
-                background: isActive
-                  ? 'var(--primary-light)'
-                  : 'transparent',
-                color: isActive
-                  ? 'var(--primary)'
-                  : 'var(--text-secondary, #4a5a72)',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.15s ease',
-                boxShadow: isActive ? 'inset 0 1px 0 rgba(255, 255, 255, 0.8)' : 'none',
-              }}
-            >
-              <Icon size={16} style={{ color: isActive ? 'var(--primary)' : 'var(--text-muted)' }} />
-              <span>{t.label}</span>
-              {t.badge !== undefined && (
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    padding: '1px 6px',
-                    borderRadius: 9999,
-                    background: isActive ? 'var(--primary)' : 'var(--border-default, #cbd5e1)',
-                    color: isActive ? '#ffffff' : 'var(--text-secondary, #475569)',
-                    fontWeight: 700,
-                  }}
-                >
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          )
+      <GlobalModuleNavigation
+        items={getTransportNavConfig({
+          isAdmin,
+          isParent,
+          isDriver,
+          isTeacher,
+          isSecurity,
+          activeTripsCount: trips.length > 0 ? trips.length : undefined,
+          unreadIncidentsCount: (authorizations.filter((a: any) => a.status === 'PENDING').length + criticalIncidents.length) || undefined,
+          assignmentsCount: assignments.length > 0 ? assignments.length : undefined,
+          vehiclesCount: vehicles.length > 0 ? vehicles.length : undefined,
+          myChildrenCount: myChildren.length > 0 ? myChildren.length : undefined,
+          pendingArrivalsCount: teacherData?.pendingArrivals?.length > 0 ? teacherData.pendingArrivals.length : undefined,
+          pendingAuthCount: authorizations.filter((a: any) => a.status === 'PENDING').length || undefined,
         })}
-      </nav>
+        activeId={
+          tab === 'OVERVIEW'
+            ? 'HOME'
+            : tab === 'STUDENTS' || tab === 'ROUTES'
+            ? 'STUDENTS_ROUTES'
+            : isAdmin && (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY')
+            ? 'SAFETY'
+            : isAdmin && (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED')
+            ? 'FLEET_SETTINGS'
+            : tab
+        }
+        onSelect={(id) => handleSelectTab(id as TabKey)}
+        ariaLabel="Transport Workspaces"
+        className="mb-5"
+      />
       {/* ========================================================================= */}
       {/* TAB: PARENT — MY CHILDREN & TRANSPORT */}
       {/* ========================================================================= */}
@@ -2343,146 +2302,62 @@ export function TransportClient({ session }: { session: SessionProps }) {
           </div>
 
           {/* Fluent Metro KPI Tiles */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: 16,
-              marginBottom: 20,
-            }}
-          >
-            {/* 1. Active Routes */}
-            <div
-              onClick={() => setTab('ROUTES')}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Routes</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(124, 58, 237, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Bus size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
-                {metrics?.activeRoutes ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                Daily routes configured →
-              </div>
-            </div>
-
-            {/* 2. In-Service Fleet */}
-            <div
-              onClick={() => setTab('VEHICLES')}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>In-Service Fleet</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <CheckCircle2 size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1.1 }}>
-                {metrics?.activeVehicles ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                {metrics?.vehiclesInMaintenance ? `${metrics.vehiclesInMaintenance} in maintenance →` : '100% operational →'}
-              </div>
-            </div>
-
-            {/* 3. Assigned Children */}
-            <div
-              onClick={() => setTab('STUDENTS')}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Assigned Children</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(14, 165, 233, 0.1)', color: 'var(--accent, #0ea5e9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Users size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
-                {metrics?.studentsUsingTransport ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                Allocated seats →
-              </div>
-            </div>
-
-            {/* 4. Boarded Today */}
-            <div
-              onClick={() => setTab('TRIPS')}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Boarded Today</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(59, 130, 246, 0.1)', color: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <UserCheck size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.1 }}>
-                {metrics?.childrenBoarded ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                Morning arrivals logged →
-              </div>
-            </div>
-
-            {/* 5. Safely Dropped */}
-            <div
-              onClick={() => setTab('TRIPS')}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Safely Dropped</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <ShieldCheck size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: 'var(--success)', lineHeight: 1.1 }}>
-                {metrics?.childrenDropped ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                Guardian PIN verified →
-              </div>
-            </div>
-
-            {/* 6. Delayed Trips */}
-            <div
-              onClick={() => { setTab('TRIPS'); setTripStatusFilter('DELAYED'); }}
-              className="premium-card premium-card-interactive cursor-pointer"
-              style={{
-                padding: '16px 18px',
-                borderColor: metrics?.delayedTrips > 0 ? 'rgba(239, 68, 68, 0.3)' : undefined,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Delayed Trips</span>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: metrics?.delayedTrips > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: metrics?.delayedTrips > 0 ? 'var(--danger)' : 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <AlertTriangle size={16} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.65rem', fontWeight: 800, color: metrics?.delayedTrips > 0 ? 'var(--danger)' : 'var(--foreground)', lineHeight: 1.1 }}>
-                {metrics?.delayedTrips ?? 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6, fontWeight: 500 }}>
-                {metrics?.delayedTrips > 0 ? 'Review & Alert →' : 'On schedule →'}
-              </div>
-            </div>
+          <div className="mb-5">
+            <KpiGrid columns={6}>
+              <GlobalKpiCard
+                label="Active Routes"
+                value={metrics?.activeRoutes ?? 0}
+                supportingText="Daily routes configured →"
+                icon={<Bus size={16} />}
+                onClick={() => setTab('ROUTES')}
+                tooltip="Click to view configured bus routes"
+              />
+              <GlobalKpiCard
+                label="In-Service Fleet"
+                value={metrics?.activeVehicles ?? 0}
+                supportingText={metrics?.vehiclesInMaintenance ? `${metrics.vehiclesInMaintenance} in maintenance →` : '100% operational →'}
+                icon={<CheckCircle2 size={16} />}
+                iconClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                onClick={() => setTab('VEHICLES')}
+                tooltip="Click to view fleet vehicles"
+              />
+              <GlobalKpiCard
+                label="Assigned Children"
+                value={metrics?.studentsUsingTransport ?? 0}
+                supportingText="Allocated seats →"
+                icon={<Users size={16} />}
+                iconClass="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                onClick={() => setTab('STUDENTS')}
+                tooltip="Click to view assigned students"
+              />
+              <GlobalKpiCard
+                label="Boarded Today"
+                value={metrics?.childrenBoarded ?? 0}
+                supportingText="Morning arrivals logged →"
+                icon={<UserCheck size={16} />}
+                iconClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                onClick={() => setTab('TRIPS')}
+                tooltip="Click to view live trip boardings"
+              />
+              <GlobalKpiCard
+                label="Safely Dropped"
+                value={metrics?.childrenDropped ?? 0}
+                supportingText="Guardian PIN verified →"
+                icon={<ShieldCheck size={16} />}
+                iconClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                onClick={() => setTab('TRIPS')}
+                tooltip="Click to view safe drops"
+              />
+              <GlobalKpiCard
+                label="Delayed Trips"
+                value={metrics?.delayedTrips ?? 0}
+                supportingText={metrics?.delayedTrips > 0 ? 'Review & Alert →' : 'On schedule →'}
+                icon={<AlertTriangle size={16} />}
+                iconClass={metrics?.delayedTrips > 0 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}
+                onClick={() => { setTab('TRIPS'); setTripStatusFilter('DELAYED'); }}
+                tooltip="Click to filter delayed trips"
+              />
+            </KpiGrid>
           </div>
 
           {/* 2-Column Overview Grid */}

@@ -6,7 +6,7 @@ import {
   AlertTriangle, Clock, XCircle, ChevronRight, ArrowLeft, RotateCcw,
   Eye, Trash2, Building, Users, Sparkles, Layers, ShieldCheck, FileSpreadsheet
 } from 'lucide-react'
-import { PageHead, Segmented, KpiTile, EmptyState, Field, StatusBadge } from '@/components/preone/ui'
+import { PageHead, Segmented, KpiTile, EmptyState, Field, StatusBadge, GlobalKpiCard, KpiGrid } from '@/components/preone/ui'
 import { Modal } from '@/components/preone/Modal'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { useToast } from '@/components/preone/Toast'
@@ -466,25 +466,35 @@ export function BulkDocumentJobsClient({ onBackToReports }: BulkDocumentJobsClie
           </div>
 
           {/* KPI Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-center">
-              <div className="text-lg font-bold text-slate-900 dark:text-white">{jobDetail.totalCount}</div>
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Eligible Records</div>
-            </div>
-            <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 text-center">
-              <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{jobDetail.successCount}</div>
-              <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Succeeded</div>
-            </div>
-            <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 text-center">
-              <div className="text-lg font-bold text-rose-600 dark:text-rose-400">{jobDetail.failedCount}</div>
-              <div className="text-[11px] font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider">Failed</div>
-            </div>
-            <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-center">
-              <div className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
-                {jobDetail.zipSizeBytes ? `${(jobDetail.zipSizeBytes / (1024 * 1024)).toFixed(2)} MB` : 'Pending'}
-              </div>
-              <div className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider">Package Size</div>
-            </div>
+          <div className="pt-2">
+            <KpiGrid columns={4}>
+              <GlobalKpiCard
+                label="Eligible Records"
+                value={jobDetail.totalCount}
+                size="compact"
+              />
+              <GlobalKpiCard
+                label="Succeeded"
+                value={jobDetail.successCount}
+                size="compact"
+                icon={<CheckCircle2 size={15} />}
+                iconClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              />
+              <GlobalKpiCard
+                label="Failed"
+                value={jobDetail.failedCount}
+                size="compact"
+                icon={<XCircle size={15} />}
+                iconClass={jobDetail.failedCount > 0 ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-slate-500/10 text-slate-500"}
+              />
+              <GlobalKpiCard
+                label="Package Size"
+                value={jobDetail.zipSizeBytes ? `${(jobDetail.zipSizeBytes / (1024 * 1024)).toFixed(2)} MB` : 'Pending'}
+                size="compact"
+                icon={<Download size={15} />}
+                iconClass="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+              />
+            </KpiGrid>
           </div>
         </div>
 

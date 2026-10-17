@@ -29,6 +29,7 @@ import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import { ResetPasswordModal } from '@/components/users/ResetPasswordModal'
 import { SuspendUserModal } from '@/components/users/SuspendUserModal'
+import { DeleteUserModal } from '@/components/users/DeleteUserModal'
 import { OrgHierarchyView } from '@/components/users/OrgHierarchyView'
 import {
   DropdownMenu,
@@ -103,6 +104,7 @@ export default function StaffUsersPage() {
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
   const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
+  const [deleteModalUser, setDeleteModalUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'directory' | 'hierarchy' | 'import'>(() => {
     return searchParams?.get('tab') === 'import' ? 'import' : 'directory'
@@ -509,6 +511,17 @@ export default function StaffUsersPage() {
               >
                 <Send size={14} className="text-sky-600 dark:text-sky-400" />
                 <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Delete / Deactivate User */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+                onClick={() => setDeleteModalUser(u)}
+              >
+                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+                <span>Delete Account</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1106,6 +1119,13 @@ export default function StaffUsersPage() {
         open={Boolean(suspendModalUser)}
         onClose={() => setSuspendModalUser(null)}
         user={suspendModalUser}
+        onSuccess={fetchStaff}
+      />
+
+      <DeleteUserModal
+        open={Boolean(deleteModalUser)}
+        onClose={() => setDeleteModalUser(null)}
+        user={deleteModalUser}
         onSuccess={fetchStaff}
       />
     </div>

@@ -35,6 +35,18 @@ export const GET = withApi(async (req: NextRequest) => {
     throw errNotFound('Classroom')
   }
 
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+  if (isTeacher) {
+    const isPrimary = classroom.primaryTeacherId === session.uid
+    const isSpecialist = await db.classroomSubject.findFirst({
+      where: { classroomId, specialistTeacherId: session.uid },
+    })
+    if (!isPrimary && !isSpecialist) {
+      throw errPermission('Teacher is only authorized to access assigned classrooms')
+    }
+  }
+
   const branch = await db.branch.findFirst({
     where: { id: classroom.branchId, tenantId: session.tenantId },
     select: { id: true, name: true, code: true },
@@ -211,6 +223,18 @@ export const POST = withApi(async (req: NextRequest) => {
   })
   if (!classroom) {
     throw errNotFound('Classroom')
+  }
+
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+  if (isTeacher) {
+    const isPrimary = classroom.primaryTeacherId === session.uid
+    const isSpecialist = await db.classroomSubject.findFirst({
+      where: { classroomId, specialistTeacherId: session.uid },
+    })
+    if (!isPrimary && !isSpecialist) {
+      throw errPermission('Teacher is only authorized to mark attendance for assigned classrooms')
+    }
   }
 
   // Calendar consumption — M00 config is the single source of truth

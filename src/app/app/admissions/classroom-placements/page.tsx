@@ -12,7 +12,7 @@ import { SharePublicFormModal } from '@/components/admissions/SharePublicFormMod
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { EmptyState, StudentIdentityChip, FamilyIdentityChip, GlobalFilterToolbar } from '@/components/preone'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function ClassroomPlacementsPage() {
@@ -28,6 +28,8 @@ export default function ClassroomPlacementsPage() {
   // Applications awaiting placement
   const [candidates, setCandidates] = useState<any[]>([])
   const [busy, setBusy] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterProgram, setFilterProgram] = useState('')
 
   // Allocation Modal
   const [allocateModal, setAllocateModal] = useState<{
@@ -141,6 +143,31 @@ export default function ClassroomPlacementsPage() {
     }
   }
 
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      if (filterProgram && c.programType !== filterProgram) return false
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase()
+        const child = `${c.childFirstName} ${c.childLastName || ''}`.toLowerCase()
+        const parent = (c.parentName || '').toLowerCase()
+        const phone = (c.parentPhone || '').toLowerCase()
+        const appNo = (c.applicationNumber || '').toLowerCase()
+        if (!child.includes(q) && !parent.includes(q) && !phone.includes(q) && !appNo.includes(q)) {
+          return false
+        }
+      }
+      return true
+    })
+  }, [candidates, searchQuery, filterProgram])
+
+  const candidatePrograms = useMemo(() => {
+    const set = new Set<string>()
+    candidates.forEach((c) => {
+      if (c.programType) set.add(c.programType)
+    })
+    return Array.from(set).map((p) => ({ value: p, label: p }))
+  }, [candidates])
+
   return (
     <AdmissionsShell
       title="Classroom Placements"
@@ -231,12 +258,55 @@ export default function ClassroomPlacementsPage() {
           </div>
         </div>
 
+        {/* ── Standardized Global Filter Toolbar ── */}
+        <GlobalFilterToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search candidates by name, parent, phone, or app #...',
+            shortcut: '/',
+          }}
+          filters={[
+            ...(candidatePrograms.length > 0
+              ? [
+                  {
+                    id: 'program',
+                    label: 'Program',
+                    type: 'select' as const,
+                    value: filterProgram,
+                    defaultValue: '',
+                    placeholder: 'All Programs',
+                    options: [
+                      { value: '', label: 'All Programs' },
+                      ...candidatePrograms,
+                    ],
+                    onChange: setFilterProgram,
+                  },
+                ]
+              : []),
+          ]}
+          refresh={{
+            onRefresh: loadPlacementData,
+            refreshing: busy,
+            label: 'Refresh Placements',
+          }}
+          onReset={() => {
+            setSearchQuery('')
+            setFilterProgram('')
+          }}
+          extraActions={
+            <div className="text-xs text-muted-foreground font-mono hidden sm:block">
+              {filteredCandidates.length} awaiting placement
+            </div>
+          }
+        />
+
         {/* ── Candidates Waiting for Classroom Placement ── */}
         <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-border/80 flex items-center justify-between">
             <div>
               <h3 className="text-base font-bold text-foreground">
-                Candidates Ready for Placement ({candidates.length})
+                Candidates Ready for Placement ({filteredCandidates.length})
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Approved candidates with accepted offers awaiting division & classroom assignment
@@ -260,8 +330,8 @@ export default function ClassroomPlacementsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {candidates.length > 0 ? (
-                  candidates.map((cand) => (
+                {filteredCandidates.length > 0 ? (
+                  filteredCandidates.map((cand) => (
                     <tr key={cand.id} className="table-frosted-row">
                       <td className="px-4 py-3 font-mono font-bold text-primary">
                         {cand.applicationNumber}

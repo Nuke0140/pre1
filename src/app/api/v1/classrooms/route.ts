@@ -17,8 +17,11 @@ async function _GET(req: NextRequest) {
 
     const branchScope = await resolveAuthorizedBranchScope(session, requestedBranchId)
     if (branchScope.mode === 'NO_BRANCH_ACCESS') {
-      return Errors.forbidden('No authorized branch access for active user')
+      return ok([])
     }
+
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : (session.role ? [session.role] : [])
+    const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
 
     const where: any = {
       tenantId: branchScope.tenantId,
@@ -29,6 +32,13 @@ async function _GET(req: NextRequest) {
       where.branchId = branchScope.selectedBranchId
     } else {
       where.branchId = { in: branchScope.authorizedBranchIds }
+    }
+
+    if (isTeacher) {
+      where.OR = [
+        { primaryTeacherId: session.uid },
+        { subjectMappings: { some: { specialistTeacherId: session.uid } } },
+      ]
     }
 
     const classrooms = await db.classroom.findMany({

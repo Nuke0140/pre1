@@ -42,7 +42,7 @@ import {
   Utensils,
   HeartPulse,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, Field } from '@/components/preone/ui'
+import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getInventoryNavConfig } from '@/components/preone'
 import { Modal, Drawer } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
@@ -1350,90 +1350,22 @@ export function InventoryClient({ session }: { session: SessionProps }) {
       />
 
       {/* CANONICAL WORKSPACE HORIZONTAL METRO NAVIGATION */}
-      <nav
-        aria-label="Inventory Workspaces"
-        style={{
-          display: 'flex',
-          gap: 6,
-          padding: 6,
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--elevation-1)',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          marginBottom: 20,
+      <GlobalModuleNavigation
+        items={getInventoryNavConfig({
+          isTeacher,
+          canApprove,
+          pendingRequestsCount: requests.filter((r) => r.status === 'PENDING').length,
+        })}
+        activeId={activeTab}
+        onSelect={(id) => {
+          setActiveTab(id as TabKey)
+          if (id === 'STORE') {
+            loadSupplyCatalog()
+          }
         }}
-      >
-        {[
-          { key: 'STORE', label: 'Classroom Supply Store', icon: ShoppingCart },
-          { key: 'APPROVALS', label: 'Approvals Inbox', icon: ShieldCheck, badge: requests.filter((r) => r.status === 'PENDING').length || undefined, hide: !canApprove },
-          { key: 'OVERVIEW', label: '1. Overview', icon: BarChart3, hide: isTeacher },
-          { key: 'ITEMS', label: '2. Items & Stock', icon: Package, hide: isTeacher },
-          { key: 'DISTRIBUTION', label: isTeacher ? 'Classroom Distributions' : '3. Requests & Distribution', icon: Sparkles, badge: isTeacher ? undefined : requests.filter((r) => r.status === 'PENDING').length || undefined },
-          { key: 'STORES', label: '4. Stores & Transfers', icon: Warehouse, hide: isTeacher },
-          { key: 'PROCUREMENT', label: '5. Procurement', icon: ShoppingCart, hide: isTeacher },
-          { key: 'RECEIVING', label: '6. Receiving (GRN)', icon: Truck, hide: isTeacher },
-          { key: 'VENDORS', label: '7. Vendors', icon: Building2, hide: isTeacher },
-          { key: 'REPORTS', label: '8. Reports & Audit', icon: Boxes, hide: isTeacher },
-        ]
-          .filter((t) => !t.hide)
-          .map((tab) => {
-            const isActive = activeTab === tab.key
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => {
-                  setActiveTab(tab.key as TabKey)
-                  if (tab.key === 'STORE') {
-                    loadSupplyCatalog()
-                  }
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '9px 16px',
-                  fontSize: '0.85rem',
-                  fontWeight: isActive ? 600 : 500,
-                  borderRadius: 'var(--radius-md, 12px)',
-                  border: isActive
-                    ? '1px solid color-mix(in srgb, var(--primary, #7c3aed) 28%, transparent)'
-                    : '1px solid transparent',
-                  background: isActive
-                    ? 'var(--preone-primary-soft, #f3eeff)'
-                    : 'transparent',
-                  color: isActive
-                    ? 'var(--primary, #7c3aed)'
-                    : 'var(--text-secondary, #4a5a72)',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isActive ? 'inset 0 1px 0 rgba(255, 255, 255, 0.8)' : 'none',
-                }}
-              >
-                <Icon size={16} style={{ color: isActive ? 'var(--primary, #7c3aed)' : 'var(--text-muted)' }} />
-                <span>{tab.label}</span>
-                {tab.badge ? (
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      padding: '1px 6px',
-                      borderRadius: '999px',
-                      background: isActive ? 'var(--primary, #7c3aed)' : 'var(--bg-muted)',
-                      color: isActive ? '#fff' : 'var(--text-muted)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {tab.badge}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-      </nav>
+        ariaLabel="Inventory Workspaces"
+        className="mb-5"
+      />
 
       {/* ========================================================================= */}
       {/* WORKSPACE: CLASSROOM SUPPLY STORE (AMAZON-STYLE TEACHER CART & REQUESTS)  */}
@@ -1585,123 +1517,58 @@ export function InventoryClient({ session }: { session: SessionProps }) {
       {activeTab === 'OVERVIEW' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* COMPACT METRO KPI TILES (5-COLUMN BALANCED GRID) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-            <div
-              className="card card-interactive"
-              style={{ padding: '14px 16px', cursor: 'pointer' }}
+          <KpiGrid columns={5}>
+            <GlobalKpiCard
+              label="Total Items"
+              value={metrics?.totalItems || items.length}
+              supportingText={`${categories.length} categories active →`}
+              icon={<Package size={16} />}
               onClick={() => setActiveTab('ITEMS')}
-              title="Click to view full inventory catalog"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Total Items
-                </span>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(124, 58, 237, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Package size={16} color="var(--primary)" />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {metrics?.totalItems || items.length}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                {categories.length} categories active &rarr;
-              </div>
-            </div>
-
-            <div
-              className="card card-interactive"
-              style={{ padding: '14px 16px', cursor: 'pointer' }}
+              tooltip="Click to view full inventory catalog"
+            />
+            <GlobalKpiCard
+              label="Stock Valuation"
+              value={inr(metrics?.totalInventoryValueCents || 0, { compact: true })}
+              supportingText={`Across ${locations.length} store locations →`}
+              icon={<DollarSign size={16} />}
+              iconClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
               onClick={() => setActiveTab('STORES')}
-              title="Click to view live store stock balances"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Stock Valuation
-                </span>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <DollarSign size={16} color="var(--success)" />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {inr(metrics?.totalInventoryValueCents || 0, { compact: true })}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                Across {locations.length} store locations &rarr;
-              </div>
-            </div>
-
-            <div
-              className="card card-interactive"
-              style={{ padding: '14px 16px', cursor: 'pointer' }}
+              tooltip="Click to view live store stock balances"
+            />
+            <GlobalKpiCard
+              label="Low Stock Alerts"
+              value={metrics?.lowStockItemsCount || 0}
+              supportingText={(metrics?.lowStockItemsCount || 0) > 0 ? 'Shortage attention required →' : 'All stock levels healthy'}
+              icon={<AlertTriangle size={16} />}
+              iconClass={(metrics?.lowStockItemsCount || 0) > 0 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}
               onClick={() => {
                 setActiveTab('REPORTS')
                 setReportSubTab('LOW_STOCK')
               }}
-              title="Click to view items requiring reorder"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Low Stock Alerts
-                </span>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: (metrics?.lowStockItemsCount || 0) > 0 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <AlertTriangle size={16} color={(metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--warning)'} />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: (metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {metrics?.lowStockItemsCount || 0}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: (metrics?.lowStockItemsCount || 0) > 0 ? 'var(--danger)' : 'var(--text-muted)', marginTop: 4 }}>
-                {(metrics?.lowStockItemsCount || 0) > 0 ? 'Shortage attention required &rarr;' : 'All stock levels healthy'}
-              </div>
-            </div>
-
-            <div
-              className="card card-interactive"
-              style={{ padding: '14px 16px', cursor: 'pointer' }}
+              tooltip="Click to view items requiring reorder"
+            />
+            <GlobalKpiCard
+              label="Pending Requisitions"
+              value={metrics?.pendingMaterialRequestsCount || requests.filter((r) => r.status === 'PENDING').length}
+              supportingText="Classroom material requests →"
+              icon={<Clock size={16} />}
+              iconClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
               onClick={() => {
                 setActiveTab('DISTRIBUTION')
                 setDistSubTab('REQUISITIONS')
               }}
-              title="Click to view material requisitions"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Pending Requisitions
-                </span>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Clock size={16} color="var(--info)" />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {metrics?.pendingMaterialRequestsCount || requests.filter((r) => r.status === 'PENDING').length}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                Classroom material requests &rarr;
-              </div>
-            </div>
-
-            <div
-              className="card card-interactive"
-              style={{ padding: '14px 16px', cursor: 'pointer' }}
+              tooltip="Click to view material requisitions"
+            />
+            <GlobalKpiCard
+              label="Open Orders"
+              value={metrics?.openPurchaseOrdersCount || orders.filter((o) => o.status === 'ORDERED' || o.status === 'ISSUED').length}
+              supportingText="Pending delivery & GRN →"
+              icon={<Truck size={16} />}
+              iconClass="bg-teal-500/10 text-teal-600 dark:text-teal-400"
               onClick={() => setActiveTab('PROCUREMENT')}
-              title="Click to view open purchase orders"
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Open Orders
-                </span>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(20, 184, 166, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Truck size={16} color="var(--secondary)" />
-                </div>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono, monospace)', fontVariantNumeric: 'tabular-nums' }}>
-                {metrics?.openPurchaseOrdersCount || orders.filter((o) => o.status === 'ORDERED' || o.status === 'ISSUED').length}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                Pending delivery & GRN &rarr;
-              </div>
-            </div>
-          </div>
+              tooltip="Click to view open purchase orders"
+            />
+          </KpiGrid>
 
           {/* BALANCED 2-COLUMN OPERATIONAL DASHBOARD */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)] gap-4 w-full max-w-full min-w-0" style={{ alignItems: 'start' }}>

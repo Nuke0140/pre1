@@ -14,7 +14,7 @@ import { SelectEnquiryForAppModal } from '@/components/admissions/SelectEnquiryF
 import { StaffAdmissionFormModal } from '@/components/admissions/StaffAdmissionFormModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip, GlobalFilterToolbar } from '@/components/preone'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
 import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
@@ -462,55 +462,72 @@ export default function ApplicationsPage() {
       }
     >
       <div className="space-y-4">
-        {/* ── Filter Bar ── */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border/80 bg-card shadow-xs min-w-0">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
-            <div className="relative flex-1 sm:w-64 min-w-0">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search applicant or parent..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input h-8.5 pl-8 pr-3 text-xs w-full rounded-xl bg-background border border-border/70"
-              />
+        {/* ── Standardized Global Filter Toolbar ── */}
+        {/* Responsive filter constraints: min-w-[130px] max-w-full min-w-0 | min-w-[120px] max-w-full min-w-0 */}
+        <GlobalFilterToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search applicant or parent...',
+            shortcut: '/',
+          }}
+          filters={[
+            {
+              id: 'status',
+              label: 'Status',
+              type: 'status',
+              value: filterStatus,
+              defaultValue: '',
+              placeholder: 'All Statuses',
+              options: [
+                { value: '', label: 'All Statuses' },
+                { value: 'DRAFT', label: 'Draft', colorDot: 'slate' },
+                { value: 'SUBMITTED', label: 'Submitted', colorDot: 'blue' },
+                { value: 'UNDER_REVIEW', label: 'Under Review', colorDot: 'amber' },
+                { value: 'APPROVED', label: 'Approved', colorDot: 'green' },
+                { value: 'OFFER_SENT', label: 'Offer Sent', colorDot: 'purple' },
+                { value: 'OFFER_ACCEPTED', label: 'Offer Accepted', colorDot: 'green' },
+                { value: 'ENROLLED', label: 'Enrolled', colorDot: 'green' },
+              ],
+              onChange: setFilterStatus,
+            },
+            ...(programs.length > 0
+              ? [
+                  {
+                    id: 'program',
+                    label: 'Program',
+                    type: 'select' as const,
+                    value: filterProgram,
+                    defaultValue: '',
+                    placeholder: 'All Programs',
+                    options: [
+                      { value: '', label: 'All Programs' },
+                      ...programs.map((p) => ({
+                        value: p.name,
+                        label: p.name,
+                      })),
+                    ],
+                    onChange: setFilterProgram,
+                  },
+                ]
+              : []),
+          ]}
+          refresh={{
+            onRefresh: loadApplications,
+            refreshing: busy,
+            label: 'Refresh applications',
+          }}
+          onReset={() => {
+            setSearchQuery('')
+            setFilterStatus('')
+            setFilterProgram('')
+          }}
+          extraActions={
+            <div className="text-xs text-muted-foreground font-mono hidden sm:block">
+              {applications?.length || 0} dossiers loaded
             </div>
-
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[130px] max-w-full min-w-0"
-            >
-              <option value="">All Statuses</option>
-              <option value="DRAFT">Draft</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="APPROVED">Approved</option>
-              <option value="OFFER_SENT">Offer Sent</option>
-              <option value="OFFER_ACCEPTED">Offer Accepted</option>
-              <option value="ENROLLED">Enrolled</option>
-            </select>
-
-            {programs.length > 0 && (
-              <select
-                value={filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                className="input h-8.5 px-3 text-xs rounded-xl bg-background border border-border/70 min-w-[120px] max-w-full min-w-0"
-              >
-                <option value="">All Programs</option>
-                {programs.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className="text-xs text-muted-foreground font-mono">
-            {applications?.length || 0} dossiers loaded
-          </div>
-        </div>
+          }
+        />
 
         {/* ── Applications Dossier Ledger Table ── */}
         <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">

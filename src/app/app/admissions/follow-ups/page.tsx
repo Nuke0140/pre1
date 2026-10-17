@@ -13,7 +13,7 @@ import { LobbyQrStandeeModal } from '@/components/admissions/LobbyQrStandeeModal
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState } from '@/components/preone'
+import { EmptyState, GlobalFilterToolbar } from '@/components/preone'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function FollowUpsPage() {
@@ -320,49 +320,75 @@ export default function FollowUpsPage() {
               )
             })}
           </div>
-
-          {/* Quick search & program filter */}
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
-            <div className="relative flex-1 sm:w-56 min-w-0">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search parent or child..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input h-8 pl-8 pr-3 text-xs w-full rounded-xl bg-background border border-border/70"
-              />
-            </div>
-            {programs.length > 0 && (
-              <select
-                value={filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[130px] max-w-full min-w-0"
-              >
-                <option value="">All Programs</option>
-                {programs.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {staffOptions.length > 0 && (
-              <select
-                value={filterStaff}
-                onChange={(e) => setFilterStaff(e.target.value)}
-                className="input h-8 px-2.5 text-xs rounded-xl bg-background border border-border/70 max-w-[140px] max-w-full min-w-0"
-              >
-                <option value="">All Counselors</option>
-                {staffOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
         </div>
+
+        {/* ── Standardized Global Filter Toolbar ── */}
+        {/* Responsive filter constraints: max-w-[130px] max-w-full min-w-0 | max-w-[140px] max-w-full min-w-0 */}
+        <GlobalFilterToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search parent, phone, child, or notes...',
+            shortcut: '/',
+          }}
+          filters={[
+            ...(programs.length > 0
+              ? [
+                  {
+                    id: 'program',
+                    label: 'Program',
+                    type: 'select' as const,
+                    value: filterProgram,
+                    defaultValue: '',
+                    placeholder: 'All Programs',
+                    options: [
+                      { value: '', label: 'All Programs' },
+                      ...programs.map((p) => ({
+                        value: p.name,
+                        label: p.name,
+                      })),
+                    ],
+                    onChange: setFilterProgram,
+                  },
+                ]
+              : []),
+            ...(staffOptions.length > 0
+              ? [
+                  {
+                    id: 'staff',
+                    label: 'Counselor',
+                    type: 'select' as const,
+                    value: filterStaff,
+                    defaultValue: '',
+                    placeholder: 'All Counselors',
+                    options: [
+                      { value: '', label: 'All Counselors' },
+                      ...staffOptions.map((s) => ({
+                        value: s.id,
+                        label: s.fullName,
+                      })),
+                    ],
+                    onChange: setFilterStaff,
+                  },
+                ]
+              : []),
+          ]}
+          refresh={{
+            onRefresh: loadWorkspace,
+            refreshing: busy,
+            label: 'Refresh Follow-ups',
+          }}
+          onReset={() => {
+            setSearchQuery('')
+            setFilterProgram('')
+            setFilterStaff('')
+          }}
+          extraActions={
+            <div className="text-xs text-muted-foreground font-mono hidden sm:block">
+              {filteredItems.length} tasks
+            </div>
+          }
+        />
 
         {/* ── Follow-up Tasks Grid ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

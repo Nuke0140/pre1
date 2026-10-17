@@ -32,7 +32,7 @@ import {
   Download,
   FileSpreadsheet,
 } from 'lucide-react'
-import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, SearchFilterBar } from '@/components/preone'
+import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, SearchFilterBar, GlobalModuleNavigation, FEES_NAVIGATION_CONFIG } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
@@ -966,32 +966,17 @@ export default function FeesPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 space-x-6 w-full min-w-0 overflow-x-auto scrollbar-none touch-pan-x whitespace-nowrap">
-        {[
-          { key: 'STRUCTURES', label: t('fees.feeStructuresTab'), icon: Layers },
-          { key: 'SCHEDULES', label: 'Student Dues & Schedules', icon: Calendar },
-          { key: 'DEPOSITS', label: t('fees.securityDepositsTab'), icon: ShieldCheck },
-          { key: 'PAYMENTS', label: t('fees.paymentReceiptsTab'), icon: Receipt },
-          { key: 'IMPORT', label: 'Import via Spreadsheet', icon: FileSpreadsheet },
-        ].map((tItem) => {
-          const Icon = tItem.icon
-          const isActive = activeTab === tItem.key
-          return (
-            <button
-              key={tItem.key}
-              onClick={() => setActiveTab(tItem.key as any)}
-              className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all duration-150 shrink-0 ${
-                isActive
-                  ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
-            >
-              <Icon className="size-4" />
-              {tItem.label}
-            </button>
-          )
+      <GlobalModuleNavigation
+        items={FEES_NAVIGATION_CONFIG.map((item) => {
+          if (item.id === 'STRUCTURES') return { ...item, label: t('fees.feeStructuresTab') || item.label }
+          if (item.id === 'DEPOSITS') return { ...item, label: t('fees.securityDepositsTab') || item.label }
+          if (item.id === 'PAYMENTS') return { ...item, label: t('fees.paymentReceiptsTab') || item.label }
+          return item
         })}
-      </div>
+        activeId={activeTab}
+        onSelect={(id) => setActiveTab(id as any)}
+        ariaLabel="Fee Management Sections"
+      />
 
       {/* TAB 1: FEE STRUCTURES */}
       {activeTab === 'STRUCTURES' && (

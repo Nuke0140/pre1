@@ -7,9 +7,9 @@ import {
   Phone, Mail, Edit3, Shield, Eye, Lock,
   ChevronLeft, CheckCircle2, User, Users,
   KeyRound, Clock, X, Camera, Unlock, UserX, UserCheck, Send, ShieldAlert,
-  Building2, LayoutGrid, Table, Home, Sparkles, MapPin, Star
+  Building2, LayoutGrid, Table, Home, Sparkles, MapPin, Star, Trash2
 } from 'lucide-react'
-import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
+import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton, GlobalModuleNavigation, getFamilyNavConfig } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
@@ -26,6 +26,7 @@ import { BulkActionModal } from '@/components/users/BulkActionModal'
 import { ZipPhotoUploadModal } from '@/components/users/ZipPhotoUploadModal'
 import { ResetPasswordModal } from '@/components/users/ResetPasswordModal'
 import { SuspendUserModal } from '@/components/users/SuspendUserModal'
+import { DeleteUserModal } from '@/components/users/DeleteUserModal'
 import { PickupPinModal } from '@/components/users/PickupPinModal'
 import {
   DropdownMenu,
@@ -96,6 +97,7 @@ export default function FamilyUsersPage() {
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const [resetPasswordUser, setResetPasswordUser] = useState<UserRecord | null>(null)
   const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
+  const [deleteModalUser, setDeleteModalUser] = useState<UserRecord | null>(null)
   const [pickupPinUser, setPickupPinUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
 
@@ -505,6 +507,17 @@ export default function FamilyUsersPage() {
                 <Send size={14} className="text-sky-600 dark:text-sky-400" />
                 <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Delete / Deactivate User */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+                onClick={() => setDeleteModalUser(u)}
+              >
+                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+                <span>Delete Account</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -748,6 +761,17 @@ export default function FamilyUsersPage() {
                 <Send size={14} className="text-sky-600 dark:text-sky-400" />
                 <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
               </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Delete / Deactivate User */}
+              <DropdownMenuItem
+                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+                onClick={() => setDeleteModalUser(u)}
+              >
+                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+                <span>Delete Account</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -880,37 +904,19 @@ export default function FamilyUsersPage() {
       {/* Workspace Tabs & View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-800 pb-3">
         {viewMode === 'TABLE' ? (
-          <div className="seg users-segmented-nav" role="tablist">
-            <button
-              role="tab"
-              aria-selected={activeTab === 'PARENTS'}
-              className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'PARENTS' ? 'on' : ''}`}
-              onClick={() => {
-                setActiveTab('PARENTS')
-                setPage(1)
-              }}
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                <User className="w-3.5 h-3.5" />
-                <span>{t('users.parentsTab', { count: parentCount })}</span>
-              </span>
-            </button>
-
-            <button
-              role="tab"
-              aria-selected={activeTab === 'GUARDIANS'}
-              className={`px-3 sm:px-4 py-1.5 text-center justify-center ${activeTab === 'GUARDIANS' ? 'on' : ''}`}
-              onClick={() => {
-                setActiveTab('GUARDIANS')
-                setPage(1)
-              }}
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                <Shield className="w-3.5 h-3.5" />
-                <span>{t('users.guardiansTab', { count: guardianCount })}</span>
-              </span>
-            </button>
-          </div>
+          <GlobalModuleNavigation
+            items={getFamilyNavConfig({ parents: parentCount, guardians: guardianCount }).map((item) => {
+              if (item.id === 'PARENTS') return { ...item, label: t('users.parentsTab', { count: parentCount }) || item.label }
+              if (item.id === 'GUARDIANS') return { ...item, label: t('users.guardiansTab', { count: guardianCount }) || item.label }
+              return item
+            })}
+            activeId={activeTab}
+            onSelect={(id) => {
+              setActiveTab(id as 'PARENTS' | 'GUARDIANS')
+              setPage(1)
+            }}
+            ariaLabel="Family Directories Navigation"
+          />
         ) : (
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-900">
@@ -952,7 +958,7 @@ export default function FamilyUsersPage() {
             )}
           </button>
 
-          {/* View Mode Switcher: TABLE vs HOUSEHOLDS */}
+          {/* View Mode Switcher: TABLE (Parent Accounts) vs HOUSEHOLDS (Family Groups) */}
           <div className="seg bg-gray-100 dark:bg-gray-800 p-0.5 rounded-lg inline-flex">
             <button
               type="button"
@@ -962,7 +968,7 @@ export default function FamilyUsersPage() {
               onClick={() => setViewMode('TABLE')}
             >
               <Table className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Directory Table</span>
+              <span className="hidden sm:inline">Parent Accounts</span>
             </button>
             <button
               type="button"
@@ -972,7 +978,7 @@ export default function FamilyUsersPage() {
               onClick={() => setViewMode('HOUSEHOLDS')}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Family Groups</span>
+              <span className="hidden sm:inline">Family Groups (Households)</span>
             </button>
           </div>
         </div>
@@ -980,6 +986,22 @@ export default function FamilyUsersPage() {
 
       {viewMode === 'TABLE' ? (
         <>
+          {/* Clarifying Context for Parent Accounts Directory */}
+          <div className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-indigo-500 shrink-0" />
+              <span>
+                <strong>Parent & Guardian Accounts:</strong> Managing authentication identities, login access, cryptographic PINs, and account lifecycle status.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewMode('HOUSEHOLDS')}
+              className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline shrink-0"
+            >
+              Switch to Family Groups &rarr;
+            </button>
+          </div>
           {/* All 5 KPI & Policy Boxes in ONE LINE on Desktop, Fully Responsive */}
           <div className="kpi-row kpi-5">
             {activeTab === 'PARENTS' ? (
@@ -1261,6 +1283,18 @@ export default function FamilyUsersPage() {
         /* FAMILY HOUSEHOLDS & SIBLING CLUSTERS GRID VIEW            */
         /* ────────────────────────────────────────────────────────── */
         <div className="space-y-4">
+          {/* Clarifying Information Banner: Household vs Account separation */}
+          <div className="p-3.5 rounded-xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/30 flex items-start gap-3 text-xs text-indigo-900 dark:text-indigo-200">
+            <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <span className="font-semibold block">Household & Sibling Unit Context</span>
+              <p className="text-indigo-800/90 dark:text-indigo-300/90">
+                This view aggregates enrolled siblings across campuses with their shared emergency contacts, household grouping, and pickup authorizations.
+                Individual user identities, login credentials, and security permissions are managed separately under the <strong>Parent Accounts</strong> tab.
+              </p>
+            </div>
+          </div>
+
           <SearchFilterBar
             search={{
               value: search,
@@ -1491,6 +1525,8 @@ export default function FamilyUsersPage() {
         onClose={() => setViewingUser(null)}
         user={viewingUser}
         onEdit={(u) => setEditingUser(u)}
+        onStatusChange={(u) => setSuspendModalUser(u)}
+        onDelete={(u) => setDeleteModalUser(u)}
       />
 
       <EditUserModal
@@ -1558,6 +1594,13 @@ export default function FamilyUsersPage() {
         open={Boolean(suspendModalUser)}
         onClose={() => setSuspendModalUser(null)}
         user={suspendModalUser}
+        onSuccess={fetchFamilyUsers}
+      />
+
+      <DeleteUserModal
+        open={Boolean(deleteModalUser)}
+        onClose={() => setDeleteModalUser(null)}
+        user={deleteModalUser}
         onSuccess={fetchFamilyUsers}
       />
 

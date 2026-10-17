@@ -6,17 +6,19 @@ import {
   Plus, ChevronRight, Users, GraduationCap, ArrowRightLeft, UserX,
   Activity, Calendar, Building, BookOpen, UserRound, CheckSquare2,
   Search, RefreshCw, School, CheckCircle2, AlertCircle, X,
-  SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight
+  SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight,
+  LayoutGrid, Table
 } from 'lucide-react'
-import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, SearchFilterBar, BookPageLoader, SaveStatusIndicator } from '@/components/preone'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, GlobalFilterToolbar, SearchFilterBar, BookPageLoader, SaveStatusIndicator } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { RecordInspector } from '@/components/preone/RecordInspector'
 import { DatePicker, MaskedInput, EnterNav, useFormDraft } from '@/components/preone/forms'
 import { SaveStatus } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
-import { fmtDate, enumLabel } from '@/lib/format'
+import { fmtDate, enumLabel, formatPreschoolAge } from '@/lib/format'
 import { useI18n } from '@/lib/i18n/context'
+import { StudentRosterCardGrid } from '@/components/students/StudentRosterCardGrid'
 
 interface StudentRow {
   id: string
@@ -24,14 +26,16 @@ interface StudentRow {
   seatNumber?: string | null
   photoUrl?: string | null
   name: string
+  firstName?: string
+  lastName?: string
   dob: string
   gender: string
   status: string
-  classroom: { id: string; name: string; code: string; programType: string; teacher: string } | null
+  classroom: { id: string; name: string; code?: string; programType?: string; teacher?: string } | null
   programType: string | null
   branchName?: string | null
   academicSessionName?: string | null
-  primaryGuardian: { name: string; phone: string; relationship: string } | null
+  primaryGuardian: { name: string; phone?: string; relationship?: string; isPrimary?: boolean } | null
   attendance?: { rate: number; totalTracked: number }
 }
 
@@ -62,19 +66,7 @@ interface ContextOption {
 
 // Helper: Calculate child age in human-readable preschool format
 function formatAge(dobString: string): string {
-  if (!dobString) return ''
-  const birth = new Date(dobString)
-  if (isNaN(birth.getTime())) return ''
-  const now = new Date()
-  let years = now.getFullYear() - birth.getFullYear()
-  let months = now.getMonth() - birth.getMonth()
-  if (months < 0) {
-    years--
-    months += 12
-  }
-  if (years <= 0) return `${months} mos`
-  if (months === 0) return `${years} yrs`
-  return `${years}y ${months}m`
+  return formatPreschoolAge(dobString)
 }
 
 export default function StudentsPage() {
@@ -84,6 +76,26 @@ export default function StudentsPage() {
   const [rows, setRows] = useState<StudentRow[] | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  // View Mode: Prominent toggle between Roster Cards and Data Table
+  const [viewMode, setViewMode] = useState<'CARDS' | 'TABLE'>('CARDS')
+
+  // Restore saved view preference
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('preone_student_roster_view')
+      if (saved === 'TABLE' || saved === 'CARDS') {
+        setViewMode(saved)
+      }
+    } catch {}
+  }, [])
+
+  const handleViewChange = (mode: 'CARDS' | 'TABLE') => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem('preone_student_roster_view', mode)
+    } catch {}
+  }
 
   // Filters & Context State
   const [q, setQ] = useState('')
@@ -751,7 +763,7 @@ export default function StudentsPage() {
       </div>
 
       {/* ── 3. SEARCH & FILTER WORKSPACE ── */}
-      <SearchFilterBar
+      <GlobalFilterToolbar
         search={{
           value: q,
           onChange: setQ,
@@ -826,6 +838,19 @@ export default function StudentsPage() {
             onChange: setStatusFilter,
           },
         ]}
+        viewMode={{
+          mode: viewMode,
+          onChange: handleViewChange,
+          options: [
+            { key: 'CARDS', label: 'Roster Cards', icon: <LayoutGrid size={13} /> },
+            { key: 'TABLE', label: 'Data Table', icon: <Table size={13} /> },
+          ],
+        }}
+        refresh={{
+          onRefresh: load,
+          refreshing: loading,
+          label: 'Refresh student records',
+        }}
         onReset={() => {
           setQ('')
           setBranchFilter('ALL')
@@ -920,6 +945,46 @@ export default function StudentsPage() {
               </p>
             </div>
           </div>
+
+          {/* Prominent View Switch: [ ▦ Roster Cards ] [ ☰ Data Table ] */}
+          <div
+            className="flex items-center gap-1 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-xl border border-slate-300/60 dark:border-slate-700/60 self-start sm:self-auto shrink-0 shadow-2xs"
+            role="tablist"
+            aria-label="Student Roster Display Mode"
+          >
+            <button
+              type="button"
+              role="tab"
+              id="tab-roster-cards"
+              aria-controls="panel-roster-cards"
+              aria-selected={viewMode === 'CARDS'}
+              onClick={() => handleViewChange('CARDS')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer min-h-[36px] ${
+                viewMode === 'CARDS'
+                  ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs border border-purple-200/60 dark:border-purple-800/60'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <LayoutGrid size={15} className={viewMode === 'CARDS' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'} />
+              <span>Roster Cards</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="tab-data-table"
+              aria-controls="panel-data-table"
+              aria-selected={viewMode === 'TABLE'}
+              onClick={() => handleViewChange('TABLE')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer min-h-[36px] ${
+                viewMode === 'TABLE'
+                  ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs border border-purple-200/60 dark:border-purple-800/60'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Table size={15} className={viewMode === 'TABLE' ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'} />
+              <span>Data Table</span>
+            </button>
+          </div>
         </div>
 
         {loadError ? (
@@ -938,8 +1003,32 @@ export default function StudentsPage() {
               <span>Retry</span>
             </button>
           </div>
+        ) : viewMode === 'CARDS' ? (
+          /* ── Face-First Photo Roster Cards Grid ── */
+          <div id="panel-roster-cards" role="tabpanel" aria-labelledby="tab-roster-cards">
+            <StudentRosterCardGrid
+              students={rows || []}
+              loading={loading}
+              selectedIds={selected}
+              onToggleSelect={(id) => {
+                setSelected((prev) =>
+                  prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                )
+              }}
+              onSelectAll={(newIds) => setSelected(newIds)}
+              canSelect={canWriteStudents}
+              onInspect={(s) => setInspectingStudent(s)}
+              onViewProfile={(id) => router.push(`/app/students/${id}`)}
+              onAssignClass={(id) => openBulkClass([id])}
+              canWriteStudents={canWriteStudents}
+              activeFiltersCount={activeFiltersCount}
+              onClearFilters={clearAllFilters}
+              onEnrollChild={() => setCreateOpen(true)}
+              pageSize={12}
+            />
+          </div>
         ) : (
-          <>
+          <div id="panel-data-table" role="tabpanel" aria-labelledby="tab-data-table">
             {/* Tablet Master-Detail View (768px - 1279px / md to lg) — Kills 950px overflow by design */}
             <div className="hidden md:grid xl:hidden grid-cols-12 border-t border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 min-h-[580px]">
               {/* Left Column: List Rail */}
@@ -1308,7 +1397,7 @@ export default function StudentsPage() {
                 />
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
 

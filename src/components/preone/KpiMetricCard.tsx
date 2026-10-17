@@ -116,14 +116,10 @@ export function KpiMetricCard({
 
   return (
     <div
-      className={`group relative rounded-2xl border border-border/60 bg-white/96 p-4 sm:p-5 [box-shadow:var(--shadow-1)] transition-all duration-200 dark:border-border/40 dark:bg-slate-900/96 ${
-        isInteractive
-          ? 'cursor-pointer hover:border-border/80 dark:hover:border-border/60 hover:[box-shadow:var(--shadow-2)] hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]'
-          : ''
+      className={`preone-kpi-card group ${
+        isInteractive ? 'interactive cursor-pointer' : ''
       } ${
-        active
-          ? 'ring-2 ring-purple-500/40 border-purple-400 dark:border-purple-600'
-          : ''
+        active ? 'active' : ''
       } ${className}`.trim()}
       onClick={onClick}
       role={isInteractive ? 'button' : undefined}

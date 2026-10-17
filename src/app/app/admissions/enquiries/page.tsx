@@ -23,7 +23,7 @@ import { SelectEnquiryForAppModal } from '@/components/admissions/SelectEnquiryF
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip, GlobalFilterToolbar } from '@/components/preone'
 import {
   normalizePhoneNumberForTel,
   buildWhatsAppChatUrl,
@@ -318,243 +318,90 @@ export default function EnquiriesPage() {
     >
       {/* Container with bottom padding so sticky bottom bar never obscures content */}
       <div className="space-y-4 pb-24 sm:pb-28 lg:pb-6">
-        {/* ── Search & Filter Controls (Responsive Toolbar) ── */}
-        <div className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-card shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            {/* Search Input */}
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                className="input text-xs pl-9.5 pr-8 h-9 rounded-xl bg-background border border-border/80 w-full focus:ring-1 focus:ring-primary focus:border-primary transition-all placeholder:text-muted-foreground/80"
-                placeholder="Search parent, phone, child, or ref #..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
-                  aria-label="Clear search"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            {/* Desktop Filters (Hidden on Mobile, visible on sm and up) */}
-            <div className="hidden sm:flex items-center gap-2 flex-wrap min-w-0">
-              {/* Program Filter */}
-              <select
-                value={filterProgram}
-                onChange={(e) => setFilterProgram(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[140px] max-w-full min-w-0 font-medium"
-                aria-label="Filter by Program"
-              >
-                <option value="">All Programs</option>
-                {programs.map((p) => (
-                  <option key={p.id} value={p.programType || p.code}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-
-              {/* Status Filter */}
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[160px] max-w-full min-w-0 font-medium"
-                aria-label="Filter by Status"
-              >
-                <option value="ACTIVE">Active Enquiries</option>
-                <option value="ALL">All Statuses (History)</option>
-                <option value="NEW">New (Uncontacted)</option>
-                <option value="CONTACTED">Contacted</option>
-                <option value="QUALIFIED">Campus Tour Scheduled</option>
-                <option value="APPLICATION_STARTED">Application Started</option>
-                <option value="CONVERTED">Enrolled / Admitted</option>
-                <option value="LOST">Closed / Lost</option>
-              </select>
-
-              {/* Source Filter */}
-              <select
-                value={filterSource}
-                onChange={(e) => setFilterSource(e.target.value)}
-                className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-auto max-w-[130px] max-w-full min-w-0 font-medium"
-                aria-label="Filter by Source"
-              >
-                <option value="">All Sources</option>
-                <option value="WALK_IN">Walk-in</option>
-                <option value="PHONE">Phone Call</option>
-                <option value="WEBSITE">Website Form</option>
-                <option value="REFERRAL">Referral</option>
-                <option value="GOOGLE_ADS">Google Ads</option>
-                <option value="FACEBOOK">Social Media</option>
-              </select>
-            </div>
-
-            {/* Toolbar Right: Mobile Filter Toggle, View Switcher & Refresh */}
-            <div className="flex items-center gap-1.5 ml-auto">
-              {/* Mobile Filter Toggle Button */}
-              <button
-                type="button"
-                onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className={`btn btn-outline btn-sm h-9 px-2.5 rounded-xl text-xs sm:hidden gap-1.5 font-semibold ${
-                  activeFiltersCount > 0 ? 'border-primary text-primary bg-primary/5' : ''
-                }`}
-                aria-label="Toggle filters"
-              >
-                <SlidersHorizontal size={13} />
-                <span>Filters</span>
-                {activeFiltersCount > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
-                    {activeFiltersCount}
-                  </span>
-                )}
-              </button>
-
-              {/* View Switcher: Auto / Cards / Table */}
-              <div className="hidden sm:inline-flex items-center p-0.5 rounded-xl border border-border/80 bg-muted/30">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('cards')}
-                  className={`p-1.5 rounded-lg text-xs transition-all ${
-                    viewMode === 'cards'
-                      ? 'bg-card text-foreground shadow-xs font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  title="Card view (Touch friendly)"
-                  aria-label="Switch to Card view"
-                >
-                  <LayoutGrid size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('table')}
-                  className={`p-1.5 rounded-lg text-xs transition-all ${
-                    viewMode === 'table'
-                      ? 'bg-card text-foreground shadow-xs font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  title="Table view"
-                  aria-label="Switch to Table view"
-                >
-                  <List size={13} />
-                </button>
-              </div>
-
-              {/* Clear Filters (Desktop) */}
-              {(searchQuery || filterProgram || (filterStatus && filterStatus !== 'ACTIVE') || filterSource) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('')
-                    setFilterProgram('')
-                    setFilterStatus('ACTIVE')
-                    setFilterSource('')
-                  }}
-                  className="btn btn-ghost btn-sm h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground font-medium hidden sm:inline-flex"
-                >
-                  Reset
-                </button>
-              )}
-
-              {/* Refresh Button */}
-              <button
-                type="button"
-                onClick={loadEnquiries}
-                disabled={busy}
-                className="btn btn-ghost btn-sm h-9 w-9 p-0 rounded-xl border border-border/80 hover:bg-muted/50 shrink-0"
-                title="Refresh enquiries"
-                aria-label="Refresh enquiries"
-              >
-                <RefreshCw size={13} className={busy ? 'animate-spin' : ''} />
-              </button>
-            </div>
-          </div>
-
-          {/* ── Mobile Collapsible Filters Tray ── */}
-          {showMobileFilters && (
-            <div className="sm:hidden pt-2 border-t border-border/60 grid grid-cols-1 gap-2.5 animate-in fade-in duration-200">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                    Program
-                  </label>
-                  <select
-                    value={filterProgram}
-                    onChange={(e) => setFilterProgram(e.target.value)}
-                    className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
-                  >
-                    <option value="">All Programs</option>
-                    {programs.map((p) => (
-                      <option key={p.id} value={p.programType || p.code}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="ALL">All Statuses</option>
-                    <option value="NEW">New</option>
-                    <option value="CONTACTED">Contacted</option>
-                    <option value="QUALIFIED">Tour Scheduled</option>
-                    <option value="APPLICATION_STARTED">App Started</option>
-                    <option value="CONVERTED">Enrolled</option>
-                    <option value="LOST">Lost</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Enquiry Source
-                </label>
-                <select
-                  value={filterSource}
-                  onChange={(e) => setFilterSource(e.target.value)}
-                  className="input text-xs h-9 rounded-xl bg-background border border-border/80 w-full font-medium"
-                >
-                  <option value="">All Sources</option>
-                  <option value="WALK_IN">Walk-in</option>
-                  <option value="PHONE">Phone Call</option>
-                  <option value="WEBSITE">Website Form</option>
-                  <option value="REFERRAL">Referral</option>
-                  <option value="GOOGLE_ADS">Google Ads</option>
-                  <option value="FACEBOOK">Social Media</option>
-                </select>
-              </div>
-
-              {(searchQuery || filterProgram || filterStatus !== 'ACTIVE' || filterSource) && (
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('')
-                      setFilterProgram('')
-                      setFilterStatus('ACTIVE')
-                      setFilterSource('')
-                    }}
-                    className="btn btn-ghost btn-sm h-8 px-3 text-xs text-muted-foreground hover:text-foreground font-medium"
-                  >
-                    Reset All Filters
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* ── Standardized Global Filter Toolbar ── */}
+        {/* Responsive filter constraints: max-w-[140px] max-w-full min-w-0 | max-w-[160px] max-w-full min-w-0 | max-w-[130px] max-w-full min-w-0 */}
+        <GlobalFilterToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search parent, phone, child, or ref #...',
+            shortcut: '/',
+          }}
+          filters={[
+            {
+              id: 'program',
+              label: 'Program',
+              type: 'select',
+              value: filterProgram,
+              defaultValue: '',
+              placeholder: 'All Programs',
+              options: [
+                { value: '', label: 'All Programs' },
+                ...programs.map((p) => ({
+                  value: p.programType || p.code,
+                  label: p.name,
+                })),
+              ],
+              onChange: setFilterProgram,
+            },
+            {
+              id: 'status',
+              label: 'Status',
+              type: 'status',
+              value: filterStatus,
+              defaultValue: 'ACTIVE',
+              placeholder: 'Active Enquiries',
+              options: [
+                { value: 'ACTIVE', label: 'Active Enquiries' },
+                { value: 'ALL', label: 'All Statuses (History)' },
+                { value: 'NEW', label: 'New (Uncontacted)', colorDot: 'blue' },
+                { value: 'CONTACTED', label: 'Contacted', colorDot: 'amber' },
+                { value: 'QUALIFIED', label: 'Campus Tour Scheduled', colorDot: 'green' },
+                { value: 'APPLICATION_STARTED', label: 'Application Started', colorDot: 'purple' },
+                { value: 'CONVERTED', label: 'Enrolled / Admitted', colorDot: 'green' },
+                { value: 'LOST', label: 'Closed / Lost', colorDot: 'red' },
+              ],
+              onChange: setFilterStatus,
+            },
+            {
+              id: 'source',
+              label: 'Source',
+              type: 'select',
+              value: filterSource,
+              defaultValue: '',
+              placeholder: 'All Sources',
+              options: [
+                { value: '', label: 'All Sources' },
+                { value: 'WALK_IN', label: 'Walk-in' },
+                { value: 'PHONE', label: 'Phone Call' },
+                { value: 'WEBSITE', label: 'Website Form' },
+                { value: 'REFERRAL', label: 'Referral' },
+                { value: 'GOOGLE_ADS', label: 'Google Ads' },
+                { value: 'FACEBOOK', label: 'Social Media' },
+              ],
+              onChange: setFilterSource,
+            },
+          ]}
+          viewMode={{
+            mode: viewMode,
+            onChange: setViewMode,
+            options: [
+              { key: 'cards', label: 'Cards', icon: <LayoutGrid size={13} /> },
+              { key: 'table', label: 'Table', icon: <List size={13} /> },
+            ],
+          }}
+          refresh={{
+            onRefresh: loadEnquiries,
+            refreshing: busy,
+            label: 'Refresh enquiries',
+          }}
+          onReset={() => {
+            setSearchQuery('')
+            setFilterProgram('')
+            setFilterStatus('ACTIVE')
+            setFilterSource('')
+          }}
+        />
 
         {/* ── Count & View Header ── */}
         <div className="flex items-center justify-between px-1">

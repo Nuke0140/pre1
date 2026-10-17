@@ -29,6 +29,7 @@ interface User360DrawerProps {
   user: UserRecord | null
   onEdit?: (user: UserRecord) => void
   onStatusChange?: (user: UserRecord) => void
+  onDelete?: (user: UserRecord) => void
 }
 
 function maskAadhaar(aadhaar?: string | null) {
@@ -1728,6 +1729,19 @@ export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: U
                 }}
               >
                 {user.status === 'ACTIVE' ? t('users.statusSuspended') : t('users.statusActive')}
+              </button>
+            )}
+            {onDelete && user.status !== 'ARCHIVED' && (
+              <button
+                type="button"
+                className="btn btn-ghost text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-1.5 font-medium"
+                onClick={() => {
+                  onClose()
+                  onDelete(user)
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Account</span>
               </button>
             )}
           </div>

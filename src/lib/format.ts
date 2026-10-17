@@ -73,3 +73,37 @@ export function avatarClass(seed?: string | null): string {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   return AVATAR_CLASSES[h % AVATAR_CLASSES.length]!
 }
+
+/**
+ * Authoritative child age calculation in preschool format:
+ * e.g. "3y 2m", "4y 0m", "5y 7m", or "8m" if under 1 year.
+ * Handles missing/invalid dates and negative/future dates safely.
+ */
+export function formatPreschoolAge(dob: string | Date | null | undefined, referenceDate: Date = new Date()): string {
+  if (!dob) return '—'
+  const birth = typeof dob === 'string' ? new Date(dob) : dob
+  if (isNaN(birth.getTime())) return '—'
+
+  let years = referenceDate.getFullYear() - birth.getFullYear()
+  let months = referenceDate.getMonth() - birth.getMonth()
+  let days = referenceDate.getDate() - birth.getDate()
+
+  if (days < 0) {
+    months--
+  }
+  if (months < 0) {
+    years--
+    months += 12
+  }
+
+  // Prevent negative/nonsensical ages (e.g. future DOB)
+  if (years < 0 || (years === 0 && months < 0)) {
+    return '0m'
+  }
+
+  if (years <= 0) {
+    return `${Math.max(0, months)}m`
+  }
+  return `${years}y ${Math.max(0, months)}m`
+}
+

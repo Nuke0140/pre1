@@ -12,7 +12,7 @@ import { SharePublicFormModal } from '@/components/admissions/SharePublicFormMod
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
-import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip } from '@/components/preone'
+import { EmptyState, StatusPill, StudentIdentityChip, FamilyIdentityChip, GlobalFilterToolbar } from '@/components/preone'
 import { DirectContactButtonGroup } from '@/components/admissions/DirectContactButtonGroup'
 import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
 import { CallLogDialog } from '@/components/admissions/CallLogDialog'
@@ -31,6 +31,7 @@ export default function ConfirmedAdmissionsPage() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('')
   const [filterClass, setFilterClass] = useState('')
+  const [filterProgram, setFilterProgram] = useState('')
 
   // Data states
   const [admittedStudents, setAdmittedStudents] = useState<any[] | null>(null)
@@ -156,6 +157,9 @@ export default function ConfirmedAdmissionsPage() {
   const filteredStudents = useMemo(() => {
     if (!admittedStudents) return []
     return admittedStudents.filter((app) => {
+      if (filterProgram && app.programType !== filterProgram) {
+        return false
+      }
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const child = `${app.childFirstName} ${app.childLastName || ''}`.toLowerCase()
@@ -168,7 +172,16 @@ export default function ConfirmedAdmissionsPage() {
       }
       return true
     })
-  }, [admittedStudents, searchQuery])
+  }, [admittedStudents, searchQuery, filterProgram])
+
+  const availablePrograms = useMemo(() => {
+    if (!admittedStudents) return []
+    const set = new Set<string>()
+    admittedStudents.forEach((a) => {
+      if (a.programType) set.add(a.programType)
+    })
+    return Array.from(set).map((p) => ({ value: p, label: p }))
+  }, [admittedStudents])
 
   return (
     <AdmissionsShell
@@ -252,6 +265,49 @@ export default function ConfirmedAdmissionsPage() {
           </div>
         )}
 
+        {/* ── Standardized Global Filter Toolbar ── */}
+        <GlobalFilterToolbar
+          search={{
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: 'Search enrolled pupil, parent, or application #...',
+            shortcut: '/',
+          }}
+          filters={[
+            ...(availablePrograms.length > 0
+              ? [
+                  {
+                    id: 'program',
+                    label: 'Program',
+                    type: 'select' as const,
+                    value: filterProgram,
+                    defaultValue: '',
+                    placeholder: 'All Programs',
+                    options: [
+                      { value: '', label: 'All Programs' },
+                      ...availablePrograms,
+                    ],
+                    onChange: setFilterProgram,
+                  },
+                ]
+              : []),
+          ]}
+          refresh={{
+            onRefresh: loadAdmissionsLedger,
+            refreshing: busy,
+            label: 'Refresh Ledger',
+          }}
+          onReset={() => {
+            setSearchQuery('')
+            setFilterProgram('')
+          }}
+          extraActions={
+            <div className="text-xs text-muted-foreground font-mono hidden sm:block">
+              {filteredStudents.length} enrolled records
+            </div>
+          }
+        />
+
         {/* ── Authoritative Admissions Ledger ── */}
         <div className="rounded-2xl border border-border/80 bg-card shadow-xs overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-border/80 flex flex-wrap items-center justify-between gap-3">
@@ -262,17 +318,6 @@ export default function ConfirmedAdmissionsPage() {
               <p className="text-xs text-muted-foreground mt-0.5">
                 Completed admissions fan-out with active pupil profiles, parent IAM, and tuition fee schedules
               </p>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search enrolled pupil..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="input h-8.5 pl-8 pr-3 text-xs w-full rounded-xl bg-background border border-border/70"
-              />
             </div>
           </div>
 
