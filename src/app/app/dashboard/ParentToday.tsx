@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Baby, AlertTriangle, Wallet, Sparkles, CalendarCheck, FileText, Eye, Download } from 'lucide-react'
 import { PageHead, Skeleton, Avatar, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { PdfViewerModal } from '@/components/preone/PdfViewerModal'
+import { ParentDailyReportModal } from '@/components/daily-diary/ParentDailyReportModal'
 import { inr, timeAgo } from '@/lib/format'
 
 interface ChildData {
@@ -25,6 +26,8 @@ export function ParentToday() {
   const [data, setData] = useState<{ today: string; children: ChildData[] } | null>(null)
   const [documents, setDocuments] = useState<any[]>([])
   const [previewDoc, setPreviewDoc] = useState<any>(null)
+  const [selectedChildForReport, setSelectedChildForReport] = useState<ChildData | null>(null)
+  const [showReportModal, setShowReportModal] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -82,6 +85,18 @@ export function ParentToday() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedChildForReport(c)
+                  setShowReportModal(true)
+                }}
+                className="btn btn-xs btn-outline border-border/80 rounded-lg flex items-center gap-1 font-semibold"
+                title="View full mobile daily report"
+              >
+                <FileText size={12} />
+                <span>Daily Report</span>
+              </button>
               {c.attendance
                 ? <StatusBadge status={c.attendance} />
                 : <span className="badge b-neutral">Attendance pending</span>}
@@ -240,6 +255,16 @@ export function ParentToday() {
           documentType={previewDoc.documentType}
           fileSizeBytes={previewDoc.fileSizeBytes}
           fileName={previewDoc.fileName}
+        />
+      )}
+
+      {selectedChildForReport && data && (
+        <ParentDailyReportModal
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          studentId={selectedChildForReport.id}
+          studentName={selectedChildForReport.name}
+          dateStr={data.today}
         />
       )}
     </>

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Tenant {
@@ -76,6 +77,8 @@ model Tenant {
   curriculumLearningAreas CurriculumLearningArea[]
   learningGoals          LearningGoal[]
   classroomActivities    ClassroomActivity[]
+  weeklyThemeTemplates   WeeklyThemeTemplate[]
+  dailyReports           DailyReport[]
   studentProgresses      StudentProgress[]
   inventoryCategories    InventoryCategory[]
   inventoryUnits         InventoryUnit[]
@@ -91,6 +94,8 @@ model Tenant {
   stockIssues            StockIssue[]
   stockReturns           StockReturn[]
   stockAdjustments       StockAdjustment[]
+  inventoryBundles       InventoryBundle[]
+  studentKitIssuances    StudentKitIssuance[]
 
   // HR Relations
   staffDocuments         StaffDocument[]
@@ -178,6 +183,8 @@ model Branch {
   stockIssues        StockIssue[]
   stockReturns       StockReturn[]
   stockAdjustments   StockAdjustment[]
+  inventoryBundles   InventoryBundle[]
+  studentKitIssuances StudentKitIssuance[]
 
   // HR Relations
   attendanceStaff    AttendanceStaff[]
@@ -233,6 +240,7 @@ model User {
   specialistSubjects ClassroomSubject[] @relation("SubjectSpecialistTeacher")
   receivedInvitations UserInvitation[]   @relation("UserReceivedInvitations")
   sentInvitations     UserInvitation[]   @relation("UserSentInvitations")
+  publishedDailyReports DailyReport[]    @relation("DailyReportPublisher")
 
   @@map("users")
 }
@@ -333,6 +341,7 @@ model AcademicSession {
   stockIssues         StockIssue[]
   studentTransportAssignments StudentTransportAssignment[]
   studentReportCards          StudentReportCard[]
+  dailyReports                DailyReport[]
 
   @@unique([tenantId, name])
   @@map("academic_sessions")
@@ -373,6 +382,7 @@ model Classroom {
   leaveCoverages    LeaveCoverage[]
   subjectMappings   ClassroomSubject[]
   studentReportCards StudentReportCard[]
+  dailyReports       DailyReport[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -418,6 +428,7 @@ model Student {
   timelineEntries    TimelineEntry[]
   progressRecords    StudentProgress[]
   stockIssues        StockIssue[]
+  kitIssuances       StudentKitIssuance[]
   transportAssignments StudentTransportAssignment[]
   tripManifestItems    TripManifestItem[]
   transportIncidents   TransportIncident[]
@@ -426,6 +437,7 @@ model Student {
   generatedDocuments      GeneratedProfileDocument[]
   reportCards             StudentReportCard[]
   activityProgress        ActivityProgress[]
+  dailyReports            DailyReport[]
 
   @@unique([tenantId, admissionNo])
   @@index([tenantId, branchId])
@@ -2070,6 +2082,63 @@ model ClassroomActivity {
   @@map("classroom_activities")
 }
 
+model WeeklyThemeTemplate {
+  id          String       @id @default(uuid())
+  tenantId    String
+  name        String
+  theme       String
+  description String?
+  programType ProgramType?
+  activities  Json
+  isDefault   Boolean      @default(false)
+  status      String       @default("ACTIVE")
+  createdBy   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("weekly_theme_templates")
+}
+
+model DailyReport {
+  id                    String            @id @default(uuid())
+  tenantId              String
+  studentId             String
+  classroomId           String
+  academicSessionId     String?
+  reportDate            DateTime          @db.Date
+  status                String            @default("DRAFT") // DRAFT | READY | PUBLISHED
+  publishedAt           DateTime?
+  publishedBy           String?
+  attendanceStatus      String?
+  summaryText           String?
+  activitiesSummary     Json?
+  mealsSummary          Json?
+  napSummary            Json?
+  observationsSummary   Json?
+  photos                Json?
+  readinessIssues       Json?
+  parentRecipientsCount Int               @default(0)
+  notificationStatus    String?           @default("PENDING") // PENDING | SENT | FAILED | NO_GUARDIAN
+  metadata              Json?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  deletedAt             DateTime?
+
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student               Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classroom             Classroom         @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  academicSession       AcademicSession?  @relation(fields: [academicSessionId], references: [id])
+  publisher             User?             @relation("DailyReportPublisher", fields: [publishedBy], references: [id])
+
+  @@unique([tenantId, studentId, reportDate])
+  @@index([tenantId, classroomId, reportDate])
+  @@index([tenantId, studentId, status])
+  @@map("daily_reports")
+}
+
 model StudentProgress {
   id                String          @id @default(uuid())
   tenantId          String
@@ -2349,6 +2418,7 @@ model InventoryItem {
   sku                  String
   name                 String
   description          String?
+  imageUrl             String?
   itemType             ItemType              @default(CONSUMABLE)
   trackStock           Boolean               @default(true)
   trackBatch           Boolean               @default(false)
@@ -2378,6 +2448,7 @@ model InventoryItem {
   stockIssueItems      StockIssueItem[]
   stockReturnItems     StockReturnItem[]
   stockAdjustmentItems StockAdjustmentItem[]
+  bundleItems          InventoryBundleItem[]
 
   @@unique([tenantId, sku])
   @@index([tenantId, categoryId])
@@ -2706,6 +2777,7 @@ model StockIssue {
   student            Student?         @relation(fields: [studentId], references: [id], onDelete: SetNull)
   items              StockIssueItem[]
   returns            StockReturn[]
+  kitIssuance        StudentKitIssuance?
 
   @@unique([tenantId, issueNumber])
   @@index([tenantId, branchId])
@@ -2807,6 +2879,78 @@ model StockAdjustmentItem {
   item               InventoryItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@map("stock_adjustment_items")
+}
+
+model InventoryBundle {
+  id          String   @id @default(uuid())
+  tenantId    String
+  branchId    String?
+  name        String
+  code        String
+  description String?
+  programType ProgramType?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  items       InventoryBundleItem[]
+  issuances   StudentKitIssuance[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@index([tenantId, branchId])
+  @@map("inventory_bundles")
+}
+
+model InventoryBundleItem {
+  id          String   @id @default(uuid())
+  bundleId    String
+  itemId      String?
+  itemName    String
+  quantity    Decimal  @default(1) @db.Decimal(12, 4)
+  hasVariants Boolean  @default(false)
+  variantType String?
+  variantMap  Json?
+  sortOrder   Int      @default(0)
+
+  bundle      InventoryBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  item        InventoryItem?  @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([bundleId])
+  @@map("inventory_bundle_items")
+}
+
+model StudentKitIssuance {
+  id              String   @id @default(uuid())
+  tenantId        String
+  branchId        String
+  bundleId        String
+  studentId       String
+  stockIssueId    String   @unique
+  kitNumber       String
+  bundleName      String
+  variantValues   Json?
+  idempotencyKey  String?  @unique
+  issuedById      String
+  issuedByName    String
+  recipientName   String?
+  guardianName    String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  bundle          InventoryBundle @relation(fields: [bundleId], references: [id])
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  stockIssue      StockIssue      @relation(fields: [stockIssueId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kitNumber])
+  @@index([tenantId, studentId])
+  @@index([tenantId, branchId])
+  @@map("student_kit_issuances")
 }
 
 // ============================================================

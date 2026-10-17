@@ -11,7 +11,7 @@ import {
   AlertTriangle, Upload, UserPlus, ArrowRightLeft, GraduationCap,
   ExternalLink, Check, X, AlertCircle, RefreshCw, ArrowLeft,
   Calendar, CheckCircle, Clock, Eye, Lock, Download,
-  Briefcase, Package, Send, CheckCheck
+  Briefcase, Package, Send, CheckCheck, Printer
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState, Breadcrumbs } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -20,6 +20,8 @@ import { BulkReportCardModal } from '@/components/academics/BulkReportCardModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 import { PickupSecurityPanel } from '@/components/students/PickupSecurityPanel'
+import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModal'
+import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
 
 interface Props {
   profile: any
@@ -85,6 +87,9 @@ export function StudentDetailClient({ profile }: Props) {
   const [guardianModalOpen, setGuardianModalOpen] = useState(false)
   const [unlinkModalOpen, setUnlinkModalOpen] = useState(false)
   const [cancelTransportOpen, setCancelTransportOpen] = useState(false)
+  const [welcomeKitOpen, setWelcomeKitOpen] = useState(false)
+  const [handoverSlipOpen, setHandoverSlipOpen] = useState(false)
+  const [selectedKitId, setSelectedKitId] = useState<string | null>(null)
 
   // Photo upload reference
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -851,6 +856,14 @@ export function StudentDetailClient({ profile }: Props) {
               className="h-10 px-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
             >
               <span>Change Status</span>
+            </button>
+            <button
+              onClick={() => setWelcomeKitOpen(true)}
+              className="h-10 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+              title="Issue preconfigured Welcome Kit bundle with uniform sets, school bag, diary & workbook"
+            >
+              <Package size={14} />
+              <span>Issue Welcome Kit</span>
             </button>
           </div>
         </div>
@@ -2054,9 +2067,18 @@ export function StudentDetailClient({ profile }: Props) {
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Student Inventory & Issued Assets</h2>
               <p className="text-xs text-slate-500">Track kits, books, uniforms, learning materials and recorded returns.</p>
             </div>
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-              {profile.inventory?.stockIssues?.length || 0} Issue Batches
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setWelcomeKitOpen(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+              >
+                <Package size={14} />
+                <span>Issue Welcome Kit</span>
+              </button>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                {profile.inventory?.stockIssues?.length || 0} Issue Batches
+              </span>
+            </div>
           </div>
 
           {/* Inventory Items List */}
@@ -2083,8 +2105,19 @@ export function StudentDetailClient({ profile }: Props) {
                           Issued on {fmtDate(issue.issueDate)} {issue.location?.name ? `• Location: ${issue.location.name}` : ''}
                         </div>
                       </div>
-                      <div className="text-slate-400 text-[11px]">
-                        {issue.notes && <span className="italic">&ldquo;{issue.notes}&rdquo;</span>}
+                      <div className="flex items-center gap-2">
+                        {issue.notes && <span className="text-slate-400 text-[11px] italic">&ldquo;{issue.notes}&rdquo;</span>}
+                        <button
+                          onClick={() => {
+                            setSelectedKitId(issue.id)
+                            setHandoverSlipOpen(true)
+                          }}
+                          className="px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 text-purple-700 dark:text-purple-300 text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                          title="Print official handover slip"
+                        >
+                          <Printer size={12} />
+                          <span>Handover Slip</span>
+                        </button>
                       </div>
                     </div>
 
@@ -3337,6 +3370,34 @@ export function StudentDetailClient({ profile }: Props) {
           loadReportCards()
           loadStudentDocuments()
         }}
+      />
+
+      {/* ── MODAL: 1-CLICK STUDENT WELCOME KIT BUNDLE ISSUANCE ── */}
+      <IssueWelcomeKitModal
+        open={welcomeKitOpen}
+        onClose={() => setWelcomeKitOpen(false)}
+        student={{
+          id: student.id,
+          admissionNo: student.admissionNo,
+          fullName: `${student.firstName} ${student.lastName || ''}`.trim(),
+          branchId: student.branchId,
+          classroomName: academic?.classroom?.name || student.currentClassroom?.name,
+          guardianName: guardiansList[0]?.name || guardiansList[0]?.fullName,
+          guardianPhone: guardiansList[0]?.phone,
+        }}
+        onSuccess={(result) => {
+          toast.success('Welcome Kit Issued', `Kit ${result.kitNumber} successfully issued!`)
+          setSelectedKitId(result.kitIssuance?.id || result.kitNumber)
+          setHandoverSlipOpen(true)
+          router.refresh()
+        }}
+      />
+
+      {/* ── MODAL: PRINTABLE KIT HANDOVER SLIP ── */}
+      <KitHandoverSlipModal
+        open={handoverSlipOpen}
+        onClose={() => setHandoverSlipOpen(false)}
+        kitIssuanceId={selectedKitId}
       />
     </div>
   )

@@ -21,7 +21,9 @@ import {
   Building,
   UserCheck,
   ChevronDown,
+  ArrowRight,
 } from 'lucide-react'
+import Link from 'next/link'
 import { PipelineCard } from './PipelineCard'
 import type {
   PipelineCardData,
@@ -68,19 +70,19 @@ export function AdmissionPipelineBoard({
   // Data states
   const [loading, setLoading] = useState(true)
   const [stages, setStages] = useState<Record<PipelineStageKey, PipelineCardData[]>>({
-    NEW_LEADS: [],
-    TOUR_BOOKED: [],
-    APPLICATION_SHARED: [],
-    OFFER_PENDING_FEE: [],
-    ENROLLED_PLACED: [],
+    ENQUIRIES: [],
+    FOLLOW_UPS: [],
+    APPLICATIONS: [],
+    CONFIRMED_ADMISSIONS: [],
+    CLASSROOM_PLACEMENTS: [],
   })
   const [metrics, setMetrics] = useState<PipelineMetrics>({
     totalActive: 0,
-    newLeads: 0,
-    toursBooked: 0,
-    applicationsShared: 0,
-    offersPendingFee: 0,
-    enrolledPlaced: 0,
+    enquiries: 0,
+    followUps: 0,
+    applications: 0,
+    confirmedAdmissions: 0,
+    classroomPlacements: 0,
     followupsOverdue: 0,
     followupsDueToday: 0,
     upcomingTours: 0,
@@ -302,8 +304,8 @@ export function AdmissionPipelineBoard({
     if (!draggedCard) return
     if (draggedCard.stage === targetStage) return
 
-    // If moving to TOUR_BOOKED, show visit scheduler modal for rich context
-    if (targetStage === 'TOUR_BOOKED') {
+    // If moving to FOLLOW_UPS, show visit/follow-up scheduler modal for rich context
+    if (targetStage === 'FOLLOW_UPS') {
       const nextDate = new Date(Date.now() + 48 * 60 * 60 * 1000)
       const dateStr = nextDate.toISOString().slice(0, 16)
       setTourModal({
@@ -324,7 +326,7 @@ export function AdmissionPipelineBoard({
   // Confirm Tour Schedule from Modal
   const handleConfirmTour = async () => {
     if (!tourModal.card || !tourModal.scheduledAt) return
-    await executeTransition(tourModal.card, 'TOUR_BOOKED', {
+    await executeTransition(tourModal.card, 'FOLLOW_UPS', {
       followUp: {
         dueAt: new Date(tourModal.scheduledAt).toISOString(),
         tourFocus: tourModal.tourFocus,
@@ -361,39 +363,39 @@ export function AdmissionPipelineBoard({
             bg: 'bg-card',
           },
           {
-            label: 'New Leads',
-            value: metrics.newLeads,
+            label: 'Enquiries',
+            value: metrics.enquiries,
             icon: Users,
-            color: 'text-sky-600 dark:text-sky-400',
-            bg: 'bg-sky-500/5',
+            color: 'text-rose-600 dark:text-rose-400',
+            bg: 'bg-rose-500/5',
           },
           {
-            label: 'Tours Booked',
-            value: metrics.toursBooked,
-            icon: Calendar,
+            label: 'Follow-ups',
+            value: metrics.followUps,
+            icon: Clock,
             color: 'text-amber-600 dark:text-amber-400',
             bg: 'bg-amber-500/5',
           },
           {
-            label: 'Apps Shared',
-            value: metrics.applicationsShared,
+            label: 'Applications',
+            value: metrics.applications,
             icon: FileSpreadsheet,
             color: 'text-violet-600 dark:text-violet-400',
             bg: 'bg-violet-500/5',
           },
           {
-            label: 'Pending Fee',
-            value: metrics.offersPendingFee,
+            label: 'Confirmed',
+            value: metrics.confirmedAdmissions,
             icon: Sparkles,
-            color: 'text-indigo-600 dark:text-indigo-400',
-            bg: 'bg-indigo-500/5',
-          },
-          {
-            label: 'Enrolled',
-            value: metrics.enrolledPlaced,
-            icon: GraduationCap,
             color: 'text-emerald-600 dark:text-emerald-400',
             bg: 'bg-emerald-500/5',
+          },
+          {
+            label: 'Placements',
+            value: metrics.classroomPlacements,
+            icon: GraduationCap,
+            color: 'text-teal-600 dark:text-teal-400',
+            bg: 'bg-teal-500/5',
           },
           {
             label: 'Overdue',
@@ -406,7 +408,7 @@ export function AdmissionPipelineBoard({
           {
             label: 'Due Today',
             value: metrics.followupsDueToday,
-            icon: Clock,
+            icon: Calendar,
             color: metrics.followupsDueToday > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
             bg: metrics.followupsDueToday > 0 ? 'bg-amber-500/10 border-amber-300 dark:border-amber-800' : 'bg-card',
           },
@@ -559,16 +561,27 @@ export function AdmissionPipelineBoard({
                       </span>
                     </div>
 
-                    {stageKey === 'NEW_LEADS' && onNewEnquiry && (
-                      <button
-                        type="button"
-                        onClick={onNewEnquiry}
-                        aria-label="Add new lead"
-                        className="w-5 h-5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted flex items-center justify-center transition-colors"
-                      >
-                        <Plus size={13} />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {stageKey === 'ENQUIRIES' && onNewEnquiry && (
+                        <button
+                          type="button"
+                          onClick={onNewEnquiry}
+                          aria-label="Add new enquiry"
+                          className="w-5 h-5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted flex items-center justify-center transition-colors"
+                        >
+                          <Plus size={13} />
+                        </button>
+                      )}
+                      {config.href && (
+                        <Link
+                          href={config.href}
+                          aria-label={`Open ${config.label} page`}
+                          className="w-5 h-5 rounded-md text-muted-foreground hover:text-primary hover:bg-muted flex items-center justify-center transition-colors"
+                        >
+                          <ArrowRight size={13} />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                     {config.description}
@@ -624,7 +637,7 @@ export function AdmissionPipelineBoard({
                         onMoveStage={(c, st) => executeTransition(c, st)}
                         onStartApplication={onStartApplication}
                         onGenerateOffer={onGenerateOffer}
-                        onPromoteSuccess={() => loadPipelineData()}
+                        onPromoteSuccess={() => loadPipeline()}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         onOpenCall={(c) => setCallLogModal({ open: true, card: c })}
@@ -867,6 +880,17 @@ export function AdmissionPipelineBoard({
                   <Sparkles size={13} />
                   <span>Generate Offer Now</span>
                 </button>
+              )}
+
+              {rejectionModal.requireAction === 'ALLOCATE_CLASSROOM' && (
+                <Link
+                  href="/app/admissions/classroom-placements"
+                  className="btn btn-primary btn-sm flex items-center gap-1.5"
+                  onClick={() => setRejectionModal({ open: false, message: '', card: null })}
+                >
+                  <GraduationCap size={13} />
+                  <span>Go to Classroom Placements</span>
+                </Link>
               )}
 
               {rejectionModal.requireAction === 'CREATE_APPLICATION' && rejectionModal.card && onStartApplication && (

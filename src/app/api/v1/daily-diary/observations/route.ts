@@ -13,8 +13,8 @@ async function _POST(req: NextRequest) {
     const body = await req.json()
     const { studentId, classroomId, narrative, category, concern, activityId } = body
 
-    if (!studentId || !classroomId || !narrative) {
-      return Errors.badRequest('studentId, classroomId, and narrative are required')
+    if (!classroomId || !narrative) {
+      return Errors.badRequest('classroomId and narrative are required')
     }
 
     const obs = await DailyDiaryService.createObservation(session, {

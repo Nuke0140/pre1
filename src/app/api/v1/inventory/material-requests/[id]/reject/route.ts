@@ -3,8 +3,13 @@ import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
-import { InventoryService } from '@/lib/inventory/inventory-service'
+import { SupplyCartService } from '@/lib/inventory/supply-cart-service'
 
+/**
+ * POST /api/v1/inventory/material-requests/[id]/reject
+ * Rejects the classroom supply request. Mandates rejection reason, records reviewer,
+ * dispatches notification to requesting teacher, and audits.
+ */
 async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,10 +23,14 @@ async function _POST(
     const body = await req.json().catch(() => ({}))
     const meta = getRequestMeta(req)
 
-    const rejected = await InventoryService.rejectMaterialRequest(
+    if (!body.reason || !body.reason.trim()) {
+      return Errors.badRequest('A rejection reason is mandatory when rejecting a supply request.')
+    }
+
+    const rejected = await SupplyCartService.rejectSupplyRequest(
       session.tenantId,
       id,
-      body.reason || 'Rejected by approver',
+      body.reason.trim(),
       {
         id: session.uid,
         name: session.name,

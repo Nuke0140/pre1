@@ -3,8 +3,13 @@ import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
-import { InventoryService } from '@/lib/inventory/inventory-service'
+import { SupplyCartService } from '@/lib/inventory/supply-cart-service'
 
+/**
+ * POST /api/v1/inventory/material-requests/[id]/approve
+ * Authorizes the classroom supply request. Records reviewer identity, timestamp,
+ * updates approved quantities, dispatches notification to requesting teacher, and audits.
+ */
 async function _POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,9 +20,10 @@ async function _POST(
 
   try {
     const { id } = await params
+    const body = await req.json().catch(() => ({}))
     const meta = getRequestMeta(req)
 
-    const approved = await InventoryService.approveMaterialRequest(
+    const approved = await SupplyCartService.approveSupplyRequest(
       session.tenantId,
       id,
       {
@@ -26,6 +32,10 @@ async function _POST(
         role: session.role,
         ipAddress: meta.ipAddress,
         userAgent: meta.userAgent,
+      },
+      {
+        approvedItems: body.approvedItems,
+        notes: body.notes,
       }
     )
 

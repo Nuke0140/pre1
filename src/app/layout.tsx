@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import PreHydration from "@/components/PreHydration";
+import { GlobalScrollbar } from "@/components/scrollbar/GlobalScrollbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -95,6 +96,7 @@ export default function RootLayout({
       </head>
       <body>
         <PreHydration />
+        <GlobalScrollbar />
         {children}
       </body>
     </html>

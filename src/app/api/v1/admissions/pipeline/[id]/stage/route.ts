@@ -27,14 +27,8 @@ async function _PATCH(
     return Errors.badRequest('targetStage is required')
   }
 
-  const validStages: PipelineStageKey[] = [
-    'NEW_LEADS',
-    'TOUR_BOOKED',
-    'APPLICATION_SHARED',
-    'OFFER_PENDING_FEE',
-    'ENROLLED_PLACED',
-  ]
-  if (!validStages.includes(targetStage)) {
+  const normalizedTarget = normalizePipelineStageKey(targetStage)
+  if (!ORDERED_PIPELINE_STAGES.includes(normalizedTarget)) {
     return Errors.badRequest(`Invalid targetStage: ${targetStage}`)
   }
 

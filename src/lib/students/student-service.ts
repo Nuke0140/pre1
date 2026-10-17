@@ -656,6 +656,14 @@ export class StudentService {
             items: true,
           },
         },
+        kitIssuance: {
+          select: {
+            id: true,
+            kitNumber: true,
+            bundleName: true,
+            variantValues: true,
+          },
+        },
       },
       orderBy: { issueDate: 'desc' },
     })
@@ -874,6 +882,7 @@ export class StudentService {
           locationName: si.location?.name || 'Main Store',
           issuedByName: si.issuedByName,
           notes: si.notes,
+          kitIssuance: si.kitIssuance || null,
           items: si.items.map((it) => ({
             id: it.id,
             itemName: it.item?.name || 'General Item',

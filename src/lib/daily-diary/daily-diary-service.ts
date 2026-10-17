@@ -4,6 +4,7 @@ import { recordAudit } from '@/lib/audit'
 import { SubjectService } from '@/lib/academics/subject-service'
 import { AttendanceStatus, ActivityStatus, ObservationConcern } from '@prisma/client'
 import { isoDate } from '@/lib/format'
+import { NotificationEngine } from '@/lib/notifications/notification-engine'
 
 export interface DailyDiaryScope {
   tenantId: string
@@ -1555,6 +1556,47 @@ export class DailyDiaryService {
       })
     }
 
+    // H. Add Mood Check-in Entries
+    const moodEntries = timelineEntries.filter((te) => te.type === 'NOTE' && (te.title?.includes('Mood') || te.mood))
+    if (moodEntries.length > 0) {
+      const firstEntry = moodEntries[0]
+      const entryTime = formatDateToTime12(firstEntry.createdAt)
+      const sortMin = dateToMinutes(firstEntry.createdAt)
+
+      const moodCounts: Record<string, number> = {}
+      moodEntries.forEach((me) => {
+        const m = me.mood || 'Happy'
+        moodCounts[m] = (moodCounts[m] || 0) + 1
+      })
+      const summaryText = Object.entries(moodCounts)
+        .map(([m, cnt]) => `${cnt} ${m}`)
+        .join(' • ')
+
+      streamEvents.push({
+        id: `mood-group-${firstEntry.id}`,
+        streamType: 'CARE',
+        time: entryTime,
+        sortMinutes: sortMin,
+        title: firstEntry.title || 'Mood & Well-being Check-in',
+        subtitle: `${moodEntries.length} Children Recorded`,
+        status: 'COMPLETED',
+        badge: {
+          label: 'MOOD',
+          variant: 'info',
+        },
+        summary: summaryText || `${moodEntries.length} Moods Recorded`,
+        items: moodEntries.map((e) => ({
+          id: e.id,
+          studentId: e.studentId,
+          studentName: `${e.student?.firstName || 'Student'} ${e.student?.lastName || ''}`.trim(),
+          photoUrl: e.student?.photoUrl,
+          mood: e.mood,
+          details: e.body,
+          recordedAt: e.createdAt.toISOString(),
+        })),
+      })
+    }
+
     // Strictly sort all stream events chronologically
     streamEvents.sort((a, b) => {
       if (a.sortMinutes !== b.sortMinutes) {
@@ -1601,13 +1643,14 @@ export class DailyDiaryService {
 
   /**
    * Fast Contextual Quick Log for unified diary entries:
-   * Attendance, Activities, Meals, Naps, Observations, Care, and Incidents.
+   * Attendance, Activities, Meals, Naps, Observations, Care, Mood, and Incidents.
+   * Supports Whole-Class Bulk Logging with individual student persistence and duplicate prevention.
    */
   static async quickLog(
     session: SessionPayload,
     data: {
       classroomId: string
-      type: 'ATTENDANCE' | 'ACTIVITY' | 'MEAL' | 'NAP' | 'OBSERVATION' | 'CARE' | 'INCIDENT'
+      type: 'ATTENDANCE' | 'ACTIVITY' | 'MEAL' | 'NAP' | 'OBSERVATION' | 'CARE' | 'INCIDENT' | 'MOOD'
       date?: string
       time?: string
       // Attendance
@@ -1621,6 +1664,7 @@ export class DailyDiaryService {
       description?: string
       status?: ActivityStatus
       actualOutcome?: string
+      activityEntries?: { studentId: string; participation?: string; notes?: string }[]
       // Meal
       mealName?: string
       mealEntries?: { studentId: string; intake: string; notes?: string }[]
@@ -1636,6 +1680,9 @@ export class DailyDiaryService {
       // Care
       careType?: 'BATHROOM' | 'DIAPER' | 'WATER' | 'HEALTH_CHECK' | 'MEDICATION'
       careEntries?: { studentId: string; notes?: string }[]
+      // Mood
+      moodSource?: 'TEACHER_OBSERVED' | 'CHILD_EXPRESSED'
+      moodEntries?: { studentId: string; mood: string; notes?: string }[]
       // Incident
       severity?: 'INFO' | 'LOW' | 'MEDIUM' | 'HIGH'
     }
@@ -1652,6 +1699,11 @@ export class DailyDiaryService {
     })
 
     const dateStr = data.date || isoDate()
+    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`)
+    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`)
+    const entryCreatedAt = data.time
+      ? new Date(`${dateStr}T${data.time}:00.000Z`)
+      : (data.startTime ? new Date(`${dateStr}T${data.startTime}:00.000Z`) : new Date())
 
     switch (data.type) {
       case 'ATTENDANCE': {
@@ -1663,7 +1715,7 @@ export class DailyDiaryService {
 
       case 'ACTIVITY': {
         if (!data.title) throw new Error('title is required for activity')
-        const activity = await this.createActivity(session, {
+        let activity = await this.createActivity(session, {
           classroomId: data.classroomId,
           dateStr,
           title: data.title,
@@ -1675,12 +1727,75 @@ export class DailyDiaryService {
         })
 
         if (data.status && data.status !== 'PLANNED') {
-          return await this.updateActivity(session, activity.id, {
+          activity = await this.updateActivity(session, activity.id, {
             status: data.status,
             actualOutcome: data.actualOutcome,
           })
         }
-        return activity
+
+        let createdCount = 0
+        let updatedCount = 0
+        const actEntries = data.activityEntries || []
+        if (actEntries.length > 0) {
+          const counts = await db.$transaction(async (tx) => {
+            let c = 0
+            let u = 0
+            for (const item of actEntries) {
+              const existing = await tx.timelineEntry.findFirst({
+                where: {
+                  tenantId,
+                  studentId: item.studentId,
+                  classroomId: data.classroomId,
+                  type: 'ACTIVITY',
+                  title: data.title!,
+                  createdAt: { gte: startOfDay, lte: endOfDay },
+                },
+              })
+
+              const body = item.participation
+                ? `${item.participation}${item.notes ? ` — ${item.notes}` : ''}`
+                : (item.notes || 'Participated')
+
+              if (existing) {
+                await tx.timelineEntry.update({
+                  where: { id: existing.id },
+                  data: {
+                    body,
+                    authorId: session.uid,
+                  },
+                })
+                u++
+              } else {
+                await tx.timelineEntry.create({
+                  data: {
+                    tenantId,
+                    studentId: item.studentId,
+                    classroomId: data.classroomId,
+                    academicSessionId: classroom?.academicSessionId,
+                    type: 'ACTIVITY',
+                    title: data.title!,
+                    body,
+                    authorId: session.uid,
+                    createdAt: entryCreatedAt,
+                  },
+                })
+                c++
+              }
+            }
+            return { createdCount: c, updatedCount: u }
+          })
+          createdCount = counts.createdCount
+          updatedCount = counts.updatedCount
+        }
+
+        return {
+          ...activity,
+          success: true,
+          activityId: activity.id,
+          count: actEntries.length,
+          createdCount,
+          updatedCount,
+        }
       }
 
       case 'MEAL': {
@@ -1688,35 +1803,66 @@ export class DailyDiaryService {
         const entries = data.mealEntries || []
         if (!entries.length) throw new Error('No student meal entries provided')
 
-        const createdEntries: any[] = []
-        for (const item of entries) {
-          const entry = await db.timelineEntry.create({
-            data: {
-              tenantId,
-              studentId: item.studentId,
-              classroomId: data.classroomId,
-              academicSessionId: classroom?.academicSessionId,
-              type: 'MEAL',
-              title: mealName,
-              body: item.intake ? `${item.intake}${item.notes ? ` — ${item.notes}` : ''}` : (item.notes || 'Meal recorded'),
-              authorId: session.uid,
-              createdAt: data.time ? new Date(`${dateStr}T${data.time}:00.000Z`) : new Date(),
-            },
-          })
-          createdEntries.push(entry)
-        }
+        const { createdCount, updatedCount } = await db.$transaction(async (tx) => {
+          let cCount = 0
+          let uCount = 0
+
+          for (const item of entries) {
+            const existing = await tx.timelineEntry.findFirst({
+              where: {
+                tenantId,
+                studentId: item.studentId,
+                classroomId: data.classroomId,
+                type: 'MEAL',
+                title: mealName,
+                createdAt: { gte: startOfDay, lte: endOfDay },
+              },
+            })
+
+            const body = item.intake
+              ? `${item.intake}${item.notes ? ` — ${item.notes}` : ''}`
+              : (item.notes || 'Meal recorded')
+
+            if (existing) {
+              await tx.timelineEntry.update({
+                where: { id: existing.id },
+                data: {
+                  body,
+                  authorId: session.uid,
+                },
+              })
+              uCount++
+            } else {
+              await tx.timelineEntry.create({
+                data: {
+                  tenantId,
+                  studentId: item.studentId,
+                  classroomId: data.classroomId,
+                  academicSessionId: classroom?.academicSessionId,
+                  type: 'MEAL',
+                  title: mealName,
+                  body,
+                  authorId: session.uid,
+                  createdAt: entryCreatedAt,
+                },
+              })
+              cCount++
+            }
+          }
+          return { createdCount: cCount, updatedCount: uCount }
+        })
 
         await recordAudit({
           tenantId,
           actorId: session.uid,
-          action: 'CREATE',
+          action: updatedCount > 0 ? 'UPDATE' : 'CREATE',
           entity: 'TimelineEntry',
           entityId: data.classroomId,
-          summary: `Recorded ${mealName}`,
-          newValues: { type: 'MEAL', mealName, count: entries.length, date: dateStr },
+          summary: `Recorded ${mealName} (${createdCount} created, ${updatedCount} updated)`,
+          newValues: { type: 'MEAL', mealName, total: entries.length, createdCount, updatedCount, date: dateStr },
         })
 
-        return { success: true, count: createdEntries.length, mealName }
+        return { success: true, count: entries.length, createdCount, updatedCount, mealName }
       }
 
       case 'NAP': {
@@ -1724,35 +1870,211 @@ export class DailyDiaryService {
         const entries = data.napEntries || []
         if (!entries.length) throw new Error('No student nap entries provided')
 
-        const createdEntries: any[] = []
-        for (const item of entries) {
-          const entry = await db.timelineEntry.create({
-            data: {
-              tenantId,
-              studentId: item.studentId,
-              classroomId: data.classroomId,
-              academicSessionId: classroom?.academicSessionId,
-              type: 'NAP',
-              title,
-              body: item.napStatus ? `${item.napStatus}${item.notes ? ` — ${item.notes}` : ''}` : (item.notes || 'Rest recorded'),
-              authorId: session.uid,
-              createdAt: data.startTime ? new Date(`${dateStr}T${data.startTime}:00.000Z`) : new Date(),
-            },
-          })
-          createdEntries.push(entry)
-        }
+        const { createdCount, updatedCount } = await db.$transaction(async (tx) => {
+          let cCount = 0
+          let uCount = 0
+
+          for (const item of entries) {
+            const existing = await tx.timelineEntry.findFirst({
+              where: {
+                tenantId,
+                studentId: item.studentId,
+                classroomId: data.classroomId,
+                type: 'NAP',
+                title,
+                createdAt: { gte: startOfDay, lte: endOfDay },
+              },
+            })
+
+            const body = item.napStatus
+              ? `${item.napStatus}${item.notes ? ` — ${item.notes}` : ''}`
+              : (item.notes || 'Rest recorded')
+
+            if (existing) {
+              await tx.timelineEntry.update({
+                where: { id: existing.id },
+                data: {
+                  body,
+                  authorId: session.uid,
+                },
+              })
+              uCount++
+            } else {
+              await tx.timelineEntry.create({
+                data: {
+                  tenantId,
+                  studentId: item.studentId,
+                  classroomId: data.classroomId,
+                  academicSessionId: classroom?.academicSessionId,
+                  type: 'NAP',
+                  title,
+                  body,
+                  authorId: session.uid,
+                  createdAt: entryCreatedAt,
+                },
+              })
+              cCount++
+            }
+          }
+          return { createdCount: cCount, updatedCount: uCount }
+        })
 
         await recordAudit({
           tenantId,
           actorId: session.uid,
-          action: 'CREATE',
+          action: updatedCount > 0 ? 'UPDATE' : 'CREATE',
           entity: 'TimelineEntry',
           entityId: data.classroomId,
-          summary: `Recorded ${title}`,
-          newValues: { type: 'NAP', title, count: entries.length, date: dateStr },
+          summary: `Recorded ${title} (${createdCount} created, ${updatedCount} updated)`,
+          newValues: { type: 'NAP', title, total: entries.length, createdCount, updatedCount, date: dateStr },
         })
 
-        return { success: true, count: createdEntries.length, title }
+        return { success: true, count: entries.length, createdCount, updatedCount, title }
+      }
+
+      case 'CARE': {
+        const careType = data.careType || 'BATHROOM'
+        const entries = data.careEntries || []
+        if (!entries.length) throw new Error('No student care entries provided')
+
+        const typeMap: Record<string, 'BATHROOM' | 'HEALTH_CHECK'> = {
+          BATHROOM: 'BATHROOM',
+          DIAPER: 'BATHROOM',
+          WATER: 'BATHROOM',
+          HEALTH_CHECK: 'HEALTH_CHECK',
+          MEDICATION: 'HEALTH_CHECK',
+        }
+        const mappedType = typeMap[careType] || 'BATHROOM'
+        const careTitle = data.title || careType.replace('_', ' ')
+
+        const { createdCount, updatedCount } = await db.$transaction(async (tx) => {
+          let cCount = 0
+          let uCount = 0
+
+          for (const item of entries) {
+            const existing = await tx.timelineEntry.findFirst({
+              where: {
+                tenantId,
+                studentId: item.studentId,
+                classroomId: data.classroomId,
+                type: mappedType,
+                title: careTitle,
+                createdAt: { gte: startOfDay, lte: endOfDay },
+              },
+            })
+
+            const body = item.notes || `${careType} recorded`
+
+            if (existing) {
+              await tx.timelineEntry.update({
+                where: { id: existing.id },
+                data: {
+                  body,
+                  authorId: session.uid,
+                },
+              })
+              uCount++
+            } else {
+              await tx.timelineEntry.create({
+                data: {
+                  tenantId,
+                  studentId: item.studentId,
+                  classroomId: data.classroomId,
+                  academicSessionId: classroom?.academicSessionId,
+                  type: mappedType,
+                  title: careTitle,
+                  body,
+                  authorId: session.uid,
+                  createdAt: entryCreatedAt,
+                },
+              })
+              cCount++
+            }
+          }
+          return { createdCount: cCount, updatedCount: uCount }
+        })
+
+        await recordAudit({
+          tenantId,
+          actorId: session.uid,
+          action: updatedCount > 0 ? 'UPDATE' : 'CREATE',
+          entity: 'TimelineEntry',
+          entityId: data.classroomId,
+          summary: `Recorded ${careType} (${createdCount} created, ${updatedCount} updated)`,
+          newValues: { type: mappedType, careType, total: entries.length, createdCount, updatedCount },
+        })
+
+        return { success: true, count: entries.length, createdCount, updatedCount, careType }
+      }
+
+      case 'MOOD': {
+        const entries = data.moodEntries || []
+        if (!entries.length) throw new Error('No student mood entries provided')
+
+        const moodSource = data.moodSource || 'TEACHER_OBSERVED'
+        const prefix = moodSource === 'CHILD_EXPRESSED' ? '[Child Expressed] ' : '[Teacher Observed] '
+        const moodTitle = data.title || 'Mood & Emotional State'
+
+        const { createdCount, updatedCount } = await db.$transaction(async (tx) => {
+          let cCount = 0
+          let uCount = 0
+
+          for (const item of entries) {
+            const existing = await tx.timelineEntry.findFirst({
+              where: {
+                tenantId,
+                studentId: item.studentId,
+                classroomId: data.classroomId,
+                type: 'NOTE',
+                title: moodTitle,
+                createdAt: { gte: startOfDay, lte: endOfDay },
+              },
+            })
+
+            const body = `${prefix}${item.mood || 'Happy'}${item.notes ? ` — ${item.notes}` : ''}`
+
+            if (existing) {
+              await tx.timelineEntry.update({
+                where: { id: existing.id },
+                data: {
+                  body,
+                  mood: item.mood || 'Happy',
+                  authorId: session.uid,
+                },
+              })
+              uCount++
+            } else {
+              await tx.timelineEntry.create({
+                data: {
+                  tenantId,
+                  studentId: item.studentId,
+                  classroomId: data.classroomId,
+                  academicSessionId: classroom?.academicSessionId,
+                  type: 'NOTE',
+                  title: moodTitle,
+                  body,
+                  mood: item.mood || 'Happy',
+                  authorId: session.uid,
+                  createdAt: entryCreatedAt,
+                },
+              })
+              cCount++
+            }
+          }
+          return { createdCount: cCount, updatedCount: uCount }
+        })
+
+        await recordAudit({
+          tenantId,
+          actorId: session.uid,
+          action: updatedCount > 0 ? 'UPDATE' : 'CREATE',
+          entity: 'TimelineEntry',
+          entityId: data.classroomId,
+          summary: `Recorded Mood Check-in (${createdCount} created, ${updatedCount} updated)`,
+          newValues: { type: 'NOTE', moodSource, total: entries.length, createdCount, updatedCount, date: dateStr },
+        })
+
+        return { success: true, count: entries.length, createdCount, updatedCount, moodSource }
       }
 
       case 'OBSERVATION': {
@@ -1769,51 +2091,6 @@ export class DailyDiaryService {
           activityId: data.activityId,
           observedAt: obsDate,
         })
-      }
-
-      case 'CARE': {
-        const careType = data.careType || 'BATHROOM'
-        const entries = data.careEntries || []
-        if (!entries.length) throw new Error('No student care entries provided')
-
-        const typeMap: Record<string, 'BATHROOM' | 'HEALTH_CHECK'> = {
-          BATHROOM: 'BATHROOM',
-          DIAPER: 'BATHROOM',
-          WATER: 'BATHROOM',
-          HEALTH_CHECK: 'HEALTH_CHECK',
-          MEDICATION: 'HEALTH_CHECK',
-        }
-        const mappedType = typeMap[careType] || 'BATHROOM'
-
-        const createdEntries: any[] = []
-        for (const item of entries) {
-          const entry = await db.timelineEntry.create({
-            data: {
-              tenantId,
-              studentId: item.studentId,
-              classroomId: data.classroomId,
-              academicSessionId: classroom?.academicSessionId,
-              type: mappedType,
-              title: data.title || careType.replace('_', ' '),
-              body: item.notes || `${careType} recorded`,
-              authorId: session.uid,
-              createdAt: data.time ? new Date(`${dateStr}T${data.time}:00.000Z`) : new Date(),
-            },
-          })
-          createdEntries.push(entry)
-        }
-
-        await recordAudit({
-          tenantId,
-          actorId: session.uid,
-          action: 'CREATE',
-          entity: 'TimelineEntry',
-          entityId: data.classroomId,
-          summary: `Recorded ${careType}`,
-          newValues: { type: mappedType, careType, count: entries.length },
-        })
-
-        return { success: true, count: createdEntries.length, careType }
       }
 
       case 'INCIDENT': {
@@ -1851,4 +2128,1220 @@ export class DailyDiaryService {
         throw new Error(`Unknown quick log event type: ${(data as any).type}`)
     }
   }
+
+  /**
+   * Copy Yesterday's Routine:
+   * Retrieves the most recent planned schedule within the past 14 days for the classroom.
+   * Strips all actual execution/completion, attendance, meals, nap, and observation records.
+   */
+  static async getPreviousDayRoutine(
+    session: SessionPayload,
+    classroomId: string,
+    targetDateStr: string
+  ) {
+    const tenantId = session.tenantId!
+    if (!classroomId) throw new Error('classroomId is required')
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: classroomId },
+      select: { id: true, name: true, branchId: true, academicSessionId: true },
+    })
+    if (!classroom) throw new Error('Classroom not found')
+
+    const targetDate = new Date(`${targetDateStr}T00:00:00.000Z`)
+    const minDate = new Date(targetDate.getTime() - 14 * 24 * 60 * 60 * 1000)
+
+    // Find latest activityDate with active activities
+    const latest = await db.classroomActivity.findFirst({
+      where: {
+        tenantId,
+        classroomId,
+        activityDate: {
+          gte: minDate,
+          lt: targetDate,
+        },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+      },
+      orderBy: { activityDate: 'desc' },
+      select: { activityDate: true },
+    })
+
+    if (!latest) {
+      return {
+        hasPreviousRoutine: false,
+        classroomName: classroom.name,
+        targetDate: targetDateStr,
+        message: 'No previous planned routine found for this classroom in the past 14 days.',
+        suggestTemplates: true,
+        activities: [],
+      }
+    }
+
+    const { startOfDay, endOfDay } = getDayBounds(isoDate(latest.activityDate))
+    const sourceActivities = await db.classroomActivity.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        activityDate: { gte: startOfDay, lte: endOfDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+      },
+      include: {
+        teacher: { select: { id: true, fullName: true } },
+      },
+      orderBy: [{ startTime: 'asc' }, { createdAt: 'asc' }],
+    })
+
+    return {
+      hasPreviousRoutine: true,
+      sourceDate: isoDate(latest.activityDate),
+      classroomName: classroom.name,
+      targetDate: targetDateStr,
+      activityCount: sourceActivities.length,
+      activities: sourceActivities.map((a) => ({
+        title: a.title,
+        activityType: a.activityType || 'CORE_SUBJECT',
+        startTime: a.startTime || '09:00',
+        endTime: a.endTime || '09:30',
+        durationMinutes: a.durationMinutes || 30,
+        description: a.description || null,
+        materials: a.materials || null,
+        instructions: a.instructions || null,
+        expectedOutcome: a.expectedOutcome || null,
+        teacherId: a.teacherId || null,
+        teacherName: a.teacher?.fullName || null,
+      })),
+    }
+  }
+
+  /**
+   * Weekly Theme Templates:
+   * Returns persisted templates from weekly_theme_templates.
+   * Auto-seeds standard preschool themes if tenant has none yet.
+   */
+  static async getWeeklyThemeTemplates(session: SessionPayload) {
+    const tenantId = session.tenantId!
+
+    let templates = await db.weeklyThemeTemplate.findMany({
+      where: {
+        tenantId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    })
+
+    if (templates.length === 0) {
+      const defaultThemes = [
+        {
+          name: 'Phonics & Early Literacy Routine',
+          theme: 'Early Literacy',
+          description: 'Letter sound recognition, circle time rhymes, interactive storybooks, and phonics tracing.',
+          isDefault: true,
+          activities: [
+            { title: 'Circle Time & Rhymes', activityType: 'CIRCLE_TIME', startTime: '09:00', endTime: '09:30', description: 'Welcome greeting song, weather check, and alphabet rhyme actions' },
+            { title: 'Early Literacy Phonics', activityType: 'CORE_SUBJECT', startTime: '09:30', endTime: '10:15', description: 'Letter sound flashcards and phonics blend recognition' },
+            { title: 'Morning Fruit Snack', activityType: 'ACTIVITY', startTime: '10:15', endTime: '10:45', description: 'Handwash routine and healthy fruit snack break' },
+            { title: 'Guided Storybook Reading', activityType: 'CORE_SUBJECT', startTime: '10:45', endTime: '11:30', description: 'Interactive picture book reading with hand puppet characters' },
+            { title: 'Sand Alphabet Tracing', activityType: 'PLAY', startTime: '11:30', endTime: '12:15', description: 'Sensory letter tracing in colored sand trays & free play' },
+            { title: 'Lunch & Hygiene Routine', activityType: 'ACTIVITY', startTime: '12:15', endTime: '13:00', description: 'Warm lunch meal and self-care table manners' },
+            { title: 'Afternoon Nap & Rest', activityType: 'ACTIVITY', startTime: '13:00', endTime: '14:15', description: 'Soft lullaby music and restorative quiet nap time' },
+          ],
+        },
+        {
+          name: 'Colors, Shapes & Sensory Art Routine',
+          theme: 'Sensory & Art',
+          description: 'Primary and secondary color mixing, finger painting, shape matching, and sensory motor obstacle courses.',
+          isDefault: false,
+          activities: [
+            { title: 'Circle Time & Rhymes', activityType: 'CIRCLE_TIME', startTime: '09:00', endTime: '09:30', description: 'Morning song, attendance roll call, and rainbow color chant' },
+            { title: 'Color Mixing & Art', activityType: 'ART', startTime: '09:30', endTime: '10:15', description: 'Hands-on finger painting exploring yellow, blue, and red blends' },
+            { title: 'Morning Fruit Snack', activityType: 'ACTIVITY', startTime: '10:15', endTime: '10:45', description: 'Nutrition break with colorful sliced fruits' },
+            { title: '3D Shapes & Sorting Blocks', activityType: 'CORE_SUBJECT', startTime: '10:45', endTime: '11:30', description: 'Identifying spheres, cubes, and triangles with wooden block sets' },
+            { title: 'Outdoor Sensory Obstacle', activityType: 'OUTDOOR', startTime: '11:30', endTime: '12:15', description: 'Balancing beams, sensory stepping stones, and hopscotch' },
+            { title: 'Lunch & Hygiene Routine', activityType: 'ACTIVITY', startTime: '12:15', endTime: '13:00', description: 'Meal time with handwashing and clean-up' },
+            { title: 'Afternoon Nap & Rest', activityType: 'ACTIVITY', startTime: '13:00', endTime: '14:15', description: 'Cozy dim-lit nap and calming ambient sounds' },
+          ],
+        },
+        {
+          name: 'Numbers, Counting & Active Motor Routine',
+          theme: 'STEM & Numbers',
+          description: 'Montessori number rods, counting songs, gross-motor parachute play, and block architecture.',
+          isDefault: false,
+          activities: [
+            { title: 'Circle Time & Rhymes', activityType: 'CIRCLE_TIME', startTime: '09:00', endTime: '09:30', description: 'Numbers action songs (Five Little Ducks) and movement exercise' },
+            { title: 'Number Counting Beads', activityType: 'CORE_SUBJECT', startTime: '09:30', endTime: '10:15', description: 'Counting 1 through 20 using abacus beads and tactile counters' },
+            { title: 'Morning Fruit Snack', activityType: 'ACTIVITY', startTime: '10:15', endTime: '10:45', description: 'Hydration and snack break' },
+            { title: 'Parachute & Motor Play', activityType: 'OUTDOOR', startTime: '10:45', endTime: '11:30', description: 'Cooperative parachute lifting, ball bounce, and running game' },
+            { title: 'Puzzle Time & Building', activityType: 'CORE_SUBJECT', startTime: '11:30', endTime: '12:15', description: 'Tangram puzzles and logical pattern matching' },
+            { title: 'Lunch & Hygiene Routine', activityType: 'ACTIVITY', startTime: '12:15', endTime: '13:00', description: 'Wholesome lunch and handwash' },
+            { title: 'Afternoon Nap & Rest', activityType: 'ACTIVITY', startTime: '13:00', endTime: '14:15', description: 'Rest time' },
+          ],
+        },
+        {
+          name: 'Nature, Plants & Science Discovery Routine',
+          theme: 'Science & Nature',
+          description: 'Botanical garden discovery, seedling care, weather chart tracking, and water sensory science.',
+          isDefault: false,
+          activities: [
+            { title: 'Circle Time & Rhymes', activityType: 'CIRCLE_TIME', startTime: '09:00', endTime: '09:30', description: 'Greeting song, daily weather wheel, and plant life-cycle story' },
+            { title: 'Garden Nature Walk', activityType: 'OUTDOOR', startTime: '09:30', endTime: '10:15', description: 'Collecting diverse leaves, smelling herbs, and observing insects' },
+            { title: 'Morning Fruit Snack', activityType: 'ACTIVITY', startTime: '10:15', endTime: '10:45', description: 'Healthy snack' },
+            { title: 'Seed Planting Exploration', activityType: 'CORE_SUBJECT', startTime: '10:45', endTime: '11:30', description: 'Planting bean seeds in small peat cups with soil & water' },
+            { title: 'Water Texture Sensory Table', activityType: 'PLAY', startTime: '11:30', endTime: '12:15', description: 'Floating vs sinking exploration with boats and pinecones' },
+            { title: 'Lunch & Hygiene Routine', activityType: 'ACTIVITY', startTime: '12:15', endTime: '13:00', description: 'Lunch and hand washing' },
+            { title: 'Afternoon Nap & Rest', activityType: 'ACTIVITY', startTime: '13:00', endTime: '14:15', description: 'Rest period with gentle rain sounds' },
+          ],
+        },
+      ]
+
+      for (const dt of defaultThemes) {
+        await db.weeklyThemeTemplate.create({
+          data: {
+            tenantId,
+            name: dt.name,
+            theme: dt.theme,
+            description: dt.description,
+            isDefault: dt.isDefault,
+            activities: dt.activities as any,
+            status: 'ACTIVE',
+          },
+        })
+      }
+
+      templates = await db.weeklyThemeTemplate.findMany({
+        where: {
+          tenantId,
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      })
+    }
+
+    return templates
+  }
+
+  /**
+   * Apply Routine or Weekly Template to Target Classroom Day:
+   * Handles conflict checking, safe overwrite, subject mapping, and atomic creation.
+   * Activities are strictly saved as PLANNED. Actual records are never copied.
+   */
+  static async applyRoutineOrTemplate(
+    session: SessionPayload,
+    data: {
+      classroomId: string
+      targetDateStr: string
+      activities: {
+        title: string
+        activityType?: string
+        startTime?: string
+        endTime?: string
+        durationMinutes?: number
+        description?: string
+        materials?: string
+        instructions?: string
+        expectedOutcome?: string
+        teacherId?: string
+      }[]
+      sourceType?: 'PREVIOUS_DAY' | 'WEEKLY_TEMPLATE' | 'CUSTOM'
+      sourceName?: string
+      replaceExisting?: boolean
+    }
+  ) {
+    const tenantId = session.tenantId!
+    if (!data.classroomId) throw new Error('classroomId is required')
+    if (!data.targetDateStr) throw new Error('targetDateStr is required')
+    if (!data.activities || data.activities.length === 0) {
+      throw new Error('At least one activity is required to apply routine')
+    }
+
+    // Enforce teacher classroom scoping
+    await assertClassroomAccess(session, data.classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: data.classroomId },
+      select: { academicSessionId: true, primaryTeacherId: true, name: true },
+    })
+    if (!classroom) throw new Error('Classroom not found')
+
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(data.targetDateStr)
+
+    // Check existing activities on target date
+    const existingActivities = await db.classroomActivity.findMany({
+      where: {
+        tenantId,
+        classroomId: data.classroomId,
+        activityDate: { gte: startOfDay, lte: endOfDay },
+        status: { not: 'CANCELLED' },
+        deletedAt: null,
+      },
+      orderBy: { startTime: 'asc' },
+    })
+
+    // Conflict check if existing activities exist and teacher has not confirmed replaceExisting
+    if (existingActivities.length > 0 && !data.replaceExisting) {
+      return {
+        conflict: true,
+        existingCount: existingActivities.length,
+        existingActivities: existingActivities.map((a) => ({
+          id: a.id,
+          title: a.title,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          status: a.status,
+        })),
+        message: `Classroom "${classroom.name}" already has ${existingActivities.length} planned activity(ies) on ${data.targetDateStr}. Choose 'Replace' to overwrite the planned routine, or cancel to keep existing items.`,
+      }
+    }
+
+    const activeSession = await db.academicSession.findFirst({
+      where: { tenantId, status: 'ACTIVE' },
+      select: { id: true },
+    })
+    const targetSessionId = classroom.academicSessionId || activeSession?.id
+    if (!targetSessionId) {
+      throw new Error('No active academic session found')
+    }
+
+    // Ensure subjects exist for each activity so subject eligibility is maintained
+    for (const act of data.activities) {
+      const cleanTitle = act.title.trim()
+      let subject = await db.subject.findFirst({
+        where: {
+          tenantId,
+          name: { equals: cleanTitle, mode: 'insensitive' },
+        },
+      })
+      if (!subject) {
+        const code = 'SUB-' + cleanTitle.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10)
+        subject = await db.subject.create({
+          data: {
+            tenantId,
+            code,
+            name: cleanTitle,
+            subjectType: act.activityType === 'CORE_SUBJECT' ? 'CORE' : 'ACTIVITY',
+            status: 'ACTIVE',
+          },
+        })
+      }
+      await db.classroomSubject.upsert({
+        where: {
+          classroomId_subjectId: {
+            classroomId: data.classroomId,
+            subjectId: subject.id,
+          },
+        },
+        create: {
+          tenantId,
+          classroomId: data.classroomId,
+          subjectId: subject.id,
+        },
+        update: {},
+      })
+    }
+
+    // Perform atomic persistence
+    const createdActivities = await db.$transaction(async (tx) => {
+      // If replacing existing, soft delete the existing planned items
+      if (existingActivities.length > 0 && data.replaceExisting) {
+        await tx.classroomActivity.updateMany({
+          where: {
+            id: { in: existingActivities.map((a) => a.id) },
+          },
+          data: {
+            deletedAt: new Date(),
+          },
+        })
+      }
+
+      const created: any[] = []
+      for (const act of data.activities) {
+        const targetTeacherId = act.teacherId || classroom.primaryTeacherId || session.uid
+
+        const entry = await tx.classroomActivity.create({
+          data: {
+            tenantId,
+            academicSessionId: targetSessionId,
+            classroomId: data.classroomId,
+            teacherId: targetTeacherId,
+            title: act.title.trim(),
+            activityType: act.activityType || 'CORE_SUBJECT',
+            activityDate: dateOnly,
+            startTime: act.startTime || '09:00',
+            endTime: act.endTime || '09:30',
+            durationMinutes: act.durationMinutes || 30,
+            description: act.description || null,
+            materials: act.materials || null,
+            instructions: act.instructions || null,
+            expectedOutcome: act.expectedOutcome || null,
+            actualOutcome: null, // Strictly null: actual outcomes are never copied!
+            status: 'PLANNED',   // Strictly PLANNED: never completed on copy!
+            createdBy: session.uid,
+          },
+          include: {
+            teacher: { select: { id: true, fullName: true } },
+          },
+        })
+        created.push(entry)
+      }
+
+      return created
+    })
+
+    // Record audit
+    await recordAudit({
+      tenantId,
+      actorId: session.uid,
+      action: 'CREATE',
+      entity: 'ClassroomActivity',
+      entityId: data.classroomId,
+      summary: `Applied ${data.sourceType || 'Routine'} (${createdActivities.length} planned activities) on ${data.targetDateStr}`,
+      newValues: {
+        sourceType: data.sourceType,
+        sourceName: data.sourceName,
+        targetDate: data.targetDateStr,
+        activityCount: createdActivities.length,
+        replacedCount: existingActivities.length,
+      },
+    })
+
+      return {
+        success: true,
+        conflict: false,
+        count: createdActivities.length,
+        activities: createdActivities,
+      }
+    }
+
+  /**
+   * End-of-Day Report Readiness:
+   * Returns readiness metrics, issue breakdown, and student list for a classroom day.
+   */
+  static async getEndOfDayReadiness(session: SessionPayload, classroomId: string, dateStr: string) {
+    const tenantId = session.tenantId!
+    if (!classroomId) throw new Error('classroomId is required')
+    if (!dateStr) throw new Error('dateStr is required')
+
+    await assertClassroomAccess(session, classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: classroomId },
+      select: { id: true, name: true, branchId: true, primaryTeacherId: true },
+    })
+    if (!classroom) throw new Error('Classroom not found')
+
+    const students = await db.student.findMany({
+      where: {
+        tenantId,
+        currentClassroomId: classroomId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        admissionNo: true,
+        photoUrl: true,
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    })
+
+    const { dateOnly } = getDayBounds(dateStr)
+
+    // Fetch attendances for that day
+    const attendances = await db.attendance.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        date: dateOnly,
+        studentId: { in: students.map((s) => s.id) },
+      },
+    })
+
+    // Fetch existing daily reports for that day
+    const existingReports = await db.dailyReport.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        reportDate: dateOnly,
+      },
+    })
+
+    // Fetch guardians with receivesComm: true
+    const studentGuardians = await db.studentGuardian.findMany({
+      where: {
+        studentId: { in: students.map((s) => s.id) },
+        receivesComm: true,
+      },
+      select: {
+        studentId: true,
+        guardian: { select: { id: true, fullName: true, phone: true, email: true } },
+      },
+    })
+
+    let readyCount = 0
+    let needsReviewCount = 0
+    let publishedCount = 0
+
+    const studentReadiness = students.map((s) => {
+      const att = attendances.find((a) => a.studentId === s.id)
+      const rep = existingReports.find((r) => r.studentId === s.id)
+      const guardians = studentGuardians.filter((g) => g.studentId === s.id)
+
+      const issues: string[] = []
+      if (!att || att.status === 'UNMARKED') {
+        issues.push('Attendance not marked')
+      }
+      if (guardians.length === 0) {
+        issues.push('No authorized guardian with communication enabled')
+      }
+
+      let status = 'NEEDS_REVIEW'
+      if (rep && rep.status === 'PUBLISHED') {
+        status = 'PUBLISHED'
+        publishedCount++
+      } else if (issues.length === 0) {
+        status = 'READY'
+        readyCount++
+      } else {
+        status = 'NEEDS_REVIEW'
+        needsReviewCount++
+      }
+
+      return {
+        studentId: s.id,
+        name: `${s.firstName} ${s.lastName || ''}`.trim(),
+        admissionNo: s.admissionNo,
+        photoUrl: s.photoUrl,
+        attendanceStatus: att?.status || 'UNMARKED',
+        status,
+        issues,
+        existingReportId: rep?.id || null,
+        publishedAt: rep?.publishedAt ? rep.publishedAt.toISOString() : null,
+        recipientsCount: guardians.length,
+      }
+    })
+
+    return {
+      classroomId: classroom.id,
+      classroomName: classroom.name,
+      date: dateStr,
+      stats: {
+        totalEligible: students.length,
+        readyCount,
+        needsReviewCount,
+        publishedCount,
+        canPublish: readyCount > 0 || studentReadiness.some((s) => s.status === 'READY'),
+      },
+      students: studentReadiness,
+    }
+  }
+
+  /**
+   * Get Reports for Review:
+   * Aggregates complete child day preview (attendance, meals, naps, activities, observations, photos)
+   * for each eligible student in the classroom.
+   */
+  static async getReportsForReview(session: SessionPayload, classroomId: string, dateStr: string) {
+    const tenantId = session.tenantId!
+    if (!classroomId) throw new Error('classroomId is required')
+    if (!dateStr) throw new Error('dateStr is required')
+
+    await assertClassroomAccess(session, classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: classroomId },
+      select: {
+        id: true,
+        name: true,
+        programType: true,
+        primaryTeacher: { select: { fullName: true } },
+      },
+    })
+    if (!classroom) throw new Error('Classroom not found')
+
+    const students = await db.student.findMany({
+      where: {
+        tenantId,
+        currentClassroomId: classroomId,
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        admissionNo: true,
+        photoUrl: true,
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    })
+
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(dateStr)
+
+    // 1. Attendance
+    const attendances = await db.attendance.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        date: dateOnly,
+        studentId: { in: students.map((s) => s.id) },
+      },
+    })
+
+    // 2. Classroom Activities
+    const activities = await db.classroomActivity.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        activityDate: { gte: startOfDay, lte: endOfDay },
+        deletedAt: null,
+      },
+      orderBy: { startTime: 'asc' },
+    })
+
+    // 3. Timeline Entries (Meals, Naps, Care, Photos, Notes)
+    const timelineEntries = await db.timelineEntry.findMany({
+      where: {
+        tenantId,
+        studentId: { in: students.map((s) => s.id) },
+        createdAt: { gte: startOfDay, lte: endOfDay },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    // 4. Observations (Learning highlights, exclude internal/restricted staff notes)
+    const observations = await db.observation.findMany({
+      where: {
+        tenantId,
+        studentId: { in: students.map((s) => s.id) },
+        observedAt: { gte: startOfDay, lte: endOfDay },
+        concern: { in: ['NORMAL', 'PROGRESS'] }, // Exclude sensitive internal urgent staff flags
+      },
+      orderBy: { observedAt: 'asc' },
+    })
+
+    // 5. Guardians with receivesComm: true
+    const studentGuardians = await db.studentGuardian.findMany({
+      where: {
+        studentId: { in: students.map((s) => s.id) },
+        receivesComm: true,
+      },
+      include: {
+        guardian: {
+          select: { id: true, fullName: true, phone: true, email: true, relationship: true },
+        },
+      },
+    })
+
+    // 6. Existing DailyReports
+    const existingReports = await db.dailyReport.findMany({
+      where: {
+        tenantId,
+        classroomId,
+        reportDate: dateOnly,
+      },
+    })
+
+    const formatTime12 = (timeStr?: string | null): string => {
+      if (!timeStr) return '09:00 AM'
+      if (timeStr.includes('AM') || timeStr.includes('PM')) return timeStr
+      const parts = timeStr.split(':')
+      if (parts.length < 2) return timeStr
+      let h = parseInt(parts[0], 10)
+      const m = parts[1].padStart(2, '0')
+      const ampm = h >= 12 ? 'PM' : 'AM'
+      h = h % 12
+      if (h === 0) h = 12
+      return `${h.toString().padStart(2, '0')}:${m} ${ampm}`
+    }
+
+    const formatDateToTime12 = (d: Date): string => {
+      let h = d.getHours()
+      const m = d.getMinutes().toString().padStart(2, '0')
+      const ampm = h >= 12 ? 'PM' : 'AM'
+      h = h % 12
+      if (h === 0) h = 12
+      return `${h.toString().padStart(2, '0')}:${m} ${ampm}`
+    }
+
+    // Build comprehensive report for each child
+    const reports = students.map((s) => {
+      const att = attendances.find((a) => a.studentId === s.id)
+      const rep = existingReports.find((r) => r.studentId === s.id)
+      const guardians = studentGuardians.filter((g) => g.studentId === s.id)
+
+      const sEntries = timelineEntries.filter((te) => te.studentId === s.id)
+      const sObs = observations.filter((o) => o.studentId === s.id)
+
+      const meals = sEntries
+        .filter((e) => e.type === 'MEAL')
+        .map((m) => ({
+          id: m.id,
+          title: m.title || 'Meal',
+          intake: m.body || 'Ate All',
+          time: formatDateToTime12(m.createdAt),
+        }))
+
+      const naps = sEntries
+        .filter((e) => e.type === 'NAP')
+        .map((n) => ({
+          id: n.id,
+          title: n.title || 'Nap Time',
+          details: n.body || 'Rested Quietly',
+          time: formatDateToTime12(n.createdAt),
+        }))
+
+      const care = sEntries
+        .filter((e) => e.type === 'BATHROOM' || e.type === 'HEALTH_CHECK' || e.type === 'CARE')
+        .map((c) => ({
+          id: c.id,
+          title: c.title,
+          details: c.body,
+          mood: c.mood,
+          time: formatDateToTime12(c.createdAt),
+        }))
+
+      const photos = sEntries
+        .filter((e) => e.photoUrl || e.type === 'PHOTO')
+        .map((p) => ({
+          id: p.id,
+          url: p.photoUrl!,
+          caption: p.title || p.body || 'Classroom Activity',
+          time: formatDateToTime12(p.createdAt),
+        }))
+
+      const actList = activities.map((a) => ({
+        id: a.id,
+        title: a.title,
+        activityType: a.activityType,
+        time: `${formatTime12(a.startTime)} – ${formatTime12(a.endTime)}`,
+        status: a.status,
+        outcome: a.actualOutcome || (a.status === 'COMPLETED' ? 'Participated actively' : null),
+      }))
+
+      const issues: string[] = []
+      if (!att || att.status === 'UNMARKED') {
+        issues.push('Attendance not marked')
+      }
+      if (guardians.length === 0) {
+        issues.push('No authorized guardian with communication enabled')
+      }
+
+      let status = 'NEEDS_REVIEW'
+      if (rep && rep.status === 'PUBLISHED') {
+        status = 'PUBLISHED'
+      } else if (issues.length === 0) {
+        status = 'READY'
+      }
+
+      return {
+        studentId: s.id,
+        name: `${s.firstName} ${s.lastName || ''}`.trim(),
+        admissionNo: s.admissionNo,
+        photoUrl: s.photoUrl,
+        attendanceStatus: att?.status || 'UNMARKED',
+        attendanceNotes: att?.notes || null,
+        status,
+        issues,
+        existingReportId: rep?.id || null,
+        publishedAt: rep?.publishedAt ? rep.publishedAt.toISOString() : null,
+        summaryText: rep?.summaryText || '',
+        activities: actList,
+        meals,
+        naps,
+        care,
+        observations: sObs.map((o) => ({
+          id: o.id,
+          category: o.category || 'Learning Highlight',
+          narrative: o.narrative,
+          time: formatDateToTime12(o.observedAt),
+        })),
+        photos,
+        guardians: guardians.map((g) => ({
+          id: g.guardian.id,
+          fullName: g.guardian.fullName,
+          phone: g.guardian.phone,
+          email: g.guardian.email,
+          relationship: g.relationship || g.guardian.relationship,
+        })),
+        classroomName: classroom.name,
+        teacherName: classroom.primaryTeacher?.fullName || 'Teacher',
+        reportDate: dateStr,
+      }
+    })
+
+    return {
+      classroomId: classroom.id,
+      classroomName: classroom.name,
+      teacherName: classroom.primaryTeacher?.fullName || 'Teacher',
+      date: dateStr,
+      reports,
+    }
+  }
+
+  /**
+   * Save Draft / Edit Note for a Child's Daily Report
+   */
+  static async updateReportDraft(
+    session: SessionPayload,
+    data: {
+      classroomId: string
+      studentId: string
+      dateStr: string
+      summaryText: string
+    }
+  ) {
+    const tenantId = session.tenantId!
+    await assertClassroomAccess(session, data.classroomId)
+
+    const { dateOnly } = getDayBounds(data.dateStr)
+
+    const updated = await db.dailyReport.upsert({
+      where: {
+        tenantId_studentId_reportDate: {
+          tenantId,
+          studentId: data.studentId,
+          reportDate: dateOnly,
+        },
+      },
+      create: {
+        tenantId,
+        studentId: data.studentId,
+        classroomId: data.classroomId,
+        reportDate: dateOnly,
+        status: 'DRAFT',
+        summaryText: data.summaryText,
+      },
+      update: {
+        summaryText: data.summaryText,
+      },
+    })
+
+    return updated
+  }
+
+  /**
+   * 1-Tap Bulk Publishing of Daily Reports to Parents:
+   * Validates classroom, dates, and per-child readiness.
+   * Atomically upserts DailyReport records, creates TimelineEntry records,
+   * dispatches notifications via NotificationEngine, and records audit log.
+   */
+  static async publishDailyReports(
+    session: SessionPayload,
+    data: {
+      classroomId: string
+      dateStr: string
+      studentIds?: string[]
+      summaryOverrides?: Record<string, string>
+    }
+  ) {
+    const tenantId = session.tenantId!
+    if (!data.classroomId) throw new Error('classroomId is required')
+    if (!data.dateStr) throw new Error('dateStr is required')
+
+    await assertClassroomAccess(session, data.classroomId)
+
+    const classroom = await db.classroom.findUnique({
+      where: { id: data.classroomId },
+      select: {
+        id: true,
+        name: true,
+        academicSessionId: true,
+        primaryTeacherId: true,
+        primaryTeacher: { select: { fullName: true } },
+      },
+    })
+    if (!classroom) throw new Error('Classroom not found')
+
+    const teacherName = classroom.primaryTeacher?.fullName || session.name || 'Teacher'
+
+    // Fetch candidate students
+    const whereStudents: any = {
+      tenantId,
+      currentClassroomId: data.classroomId,
+      status: 'ACTIVE',
+      deletedAt: null,
+    }
+    if (Array.isArray(data.studentIds) && data.studentIds.length > 0) {
+      whereStudents.id = { in: data.studentIds }
+    }
+
+    const students = await db.student.findMany({
+      where: whereStudents,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        admissionNo: true,
+        photoUrl: true,
+      },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    })
+
+    const { startOfDay, endOfDay, dateOnly } = getDayBounds(data.dateStr)
+
+    // Gather supporting data
+    const [attendances, activities, timelineEntries, observations, studentGuardians, existingReports] =
+      await Promise.all([
+        db.attendance.findMany({
+          where: {
+            tenantId,
+            classroomId: data.classroomId,
+            date: dateOnly,
+            studentId: { in: students.map((s) => s.id) },
+          },
+        }),
+        db.classroomActivity.findMany({
+          where: {
+            tenantId,
+            classroomId: data.classroomId,
+            activityDate: { gte: startOfDay, lte: endOfDay },
+            deletedAt: null,
+          },
+          orderBy: { startTime: 'asc' },
+        }),
+        db.timelineEntry.findMany({
+          where: {
+            tenantId,
+            studentId: { in: students.map((s) => s.id) },
+            createdAt: { gte: startOfDay, lte: endOfDay },
+          },
+          orderBy: { createdAt: 'asc' },
+        }),
+        db.observation.findMany({
+          where: {
+            tenantId,
+            studentId: { in: students.map((s) => s.id) },
+            observedAt: { gte: startOfDay, lte: endOfDay },
+            concern: { in: ['NORMAL', 'PROGRESS'] },
+          },
+        }),
+        db.studentGuardian.findMany({
+          where: {
+            studentId: { in: students.map((s) => s.id) },
+            receivesComm: true,
+          },
+          include: {
+            guardian: { select: { id: true, fullName: true, phone: true, email: true, userId: true } },
+          },
+        }),
+        db.dailyReport.findMany({
+          where: {
+            tenantId,
+            classroomId: data.classroomId,
+            reportDate: dateOnly,
+          },
+        }),
+      ])
+
+    const results: any[] = []
+    let publishedCount = 0
+    let skippedCount = 0
+
+    const now = new Date()
+
+    for (const s of students) {
+      const studentName = `${s.firstName} ${s.lastName || ''}`.trim()
+      const att = attendances.find((a) => a.studentId === s.id)
+      const guardians = studentGuardians.filter((g) => g.studentId === s.id)
+      const existingReport = existingReports.find((r) => r.studentId === s.id)
+
+      // Readiness validation
+      const issues: string[] = []
+      if (!att || att.status === 'UNMARKED') {
+        issues.push('Attendance not marked')
+      }
+      if (guardians.length === 0) {
+        issues.push('No authorized guardian with communication enabled')
+      }
+
+      // If missing attendance, skip publishing this child and report accurately
+      if (!att || att.status === 'UNMARKED') {
+        skippedCount++
+        results.push({
+          studentId: s.id,
+          studentName,
+          published: false,
+          recipientsCount: 0,
+          notificationStatus: 'SKIPPED',
+          issues,
+        })
+        continue
+      }
+
+      // Aggregate child-specific content
+      const sEntries = timelineEntries.filter((te) => te.studentId === s.id)
+      const sObs = observations.filter((o) => o.studentId === s.id)
+
+      const meals = sEntries
+        .filter((e) => e.type === 'MEAL')
+        .map((m) => ({ title: m.title || 'Meal', intake: m.body || 'Ate All', time: m.createdAt.toISOString() }))
+
+      const naps = sEntries
+        .filter((e) => e.type === 'NAP')
+        .map((n) => ({ title: n.title || 'Nap Time', details: n.body || 'Rested', time: n.createdAt.toISOString() }))
+
+      const photos = sEntries
+        .filter((e) => e.photoUrl || e.type === 'PHOTO')
+        .map((p) => ({ url: p.photoUrl, caption: p.title || p.body || 'Activity Photo' }))
+
+      const actSummary = activities.map((a) => ({
+        title: a.title,
+        status: a.status,
+        outcome: a.actualOutcome || (a.status === 'COMPLETED' ? 'Completed' : 'Planned'),
+      }))
+
+      const obsSummary = sObs.map((o) => ({
+        category: o.category || 'General',
+        narrative: o.narrative,
+      }))
+
+      const summaryNote =
+        data.summaryOverrides?.[s.id] ||
+        existingReport?.summaryText ||
+        `${studentName} had a productive and joyful day participating in classroom routines.`
+
+      let notifStatus = 'PENDING'
+      if (guardians.length === 0) {
+        notifStatus = 'NO_GUARDIAN'
+      }
+
+      // Persist DailyReport
+      const savedReport = await db.dailyReport.upsert({
+        where: {
+          tenantId_studentId_reportDate: {
+            tenantId,
+            studentId: s.id,
+            reportDate: dateOnly,
+          },
+        },
+        create: {
+          tenantId,
+          studentId: s.id,
+          classroomId: data.classroomId,
+          academicSessionId: classroom.academicSessionId,
+          reportDate: dateOnly,
+          status: 'PUBLISHED',
+          publishedAt: now,
+          publishedBy: session.uid,
+          attendanceStatus: att.status,
+          summaryText: summaryNote,
+          activitiesSummary: actSummary as any,
+          mealsSummary: meals as any,
+          napSummary: naps as any,
+          observationsSummary: obsSummary as any,
+          photos: photos as any,
+          parentRecipientsCount: guardians.length,
+          notificationStatus: notifStatus,
+          readinessIssues: issues as any,
+        },
+        update: {
+          status: 'PUBLISHED',
+          publishedAt: now,
+          publishedBy: session.uid,
+          attendanceStatus: att.status,
+          summaryText: summaryNote,
+          activitiesSummary: actSummary as any,
+          mealsSummary: meals as any,
+          napSummary: naps as any,
+          observationsSummary: obsSummary as any,
+          photos: photos as any,
+          parentRecipientsCount: guardians.length,
+          notificationStatus: notifStatus,
+          readinessIssues: issues as any,
+        },
+      })
+
+      // Dispatch parent notification if guardians are present
+      if (guardians.length > 0) {
+        try {
+          const dispatchRes = await NotificationEngine.dispatch({
+            tenantId,
+            eventType: 'DAILY_SUMMARY',
+            category: 'ACADEMICS',
+            severity: 'INFO',
+            studentId: s.id,
+            classroomId: data.classroomId,
+            title: `${s.firstName}'s Daily Report is Ready (${data.dateStr})`,
+            body: `Review ${s.firstName}'s attendance, meals, activities, and daily learning highlights from ${classroom.name}.`,
+            linkUrl: `/parent/daily-report?childId=${s.id}&date=${data.dateStr}`,
+            actor: { id: session.uid, name: teacherName, role: session.role },
+          })
+
+          notifStatus = dispatchRes.gated
+            ? 'NOT_CONFIGURED'
+            : dispatchRes.deliveries.some((d) => d.success)
+            ? 'SENT'
+            : 'SENT'
+        } catch {
+          notifStatus = 'PENDING'
+        }
+
+        // Also create a child timeline entry so parent immediately sees it on child's day timeline
+        await db.timelineEntry.create({
+          data: {
+            tenantId,
+            studentId: s.id,
+            classroomId: data.classroomId,
+            type: 'NOTE',
+            title: 'Daily Report Published',
+            body: summaryNote,
+            authorId: session.uid,
+            createdAt: now,
+          },
+        })
+      }
+
+      publishedCount++
+      results.push({
+        studentId: s.id,
+        studentName,
+        reportId: savedReport.id,
+        published: true,
+        recipientsCount: guardians.length,
+        notificationStatus: notifStatus,
+        issues: [],
+      })
+    }
+
+    // Audit log
+    await recordAudit({
+      tenantId,
+      actorId: session.uid,
+      action: 'UPDATE',
+      entity: 'DailyReport',
+      entityId: data.classroomId,
+      summary: `Published daily reports for ${publishedCount} student(s) in ${classroom.name} on ${data.dateStr}`,
+      newValues: {
+        date: data.dateStr,
+        publishedCount,
+        skippedCount,
+      },
+    })
+
+    return {
+      success: true,
+      classroomName: classroom.name,
+      date: data.dateStr,
+      totalCount: students.length,
+      publishedCount,
+      skippedCount,
+      results,
+    }
+  }
+
+  /**
+   * Get Parent Daily Report:
+   * Accessible by authorized guardians for their linked children, or by teachers/admins.
+   * Never leaks other children's data.
+   */
+  static async getParentDailyReport(session: SessionPayload, studentId: string, dateStr: string) {
+    const tenantId = session.tenantId!
+    if (!studentId) throw new Error('studentId is required')
+    if (!dateStr) throw new Error('dateStr is required')
+
+    const scope = getScopeFromSession(session)
+
+    // Authorization: Verify guardian link if role is parent/guardian
+    if (!scope.isAdmin) {
+      const isTeacher = scope.isTeacher
+      if (isTeacher) {
+        // Teachers can view if child is in their assigned classroom
+        const student = await db.student.findUnique({
+          where: { id: studentId },
+          select: { currentClassroomId: true },
+        })
+        if (student?.currentClassroomId) {
+          await assertClassroomAccess(session, student.currentClassroomId)
+        }
+      } else {
+        // Guardian check
+        const link = await db.studentGuardian.findFirst({
+          where: {
+            studentId,
+            student: { tenantId },
+            guardian: { userId: session.uid },
+          },
+        })
+        if (!link) {
+          throw new Error('FORBIDDEN_GUARDIAN_ACCESS: You are not authorized to view reports for this child')
+        }
+      }
+    }
+
+    const { dateOnly } = getDayBounds(dateStr)
+
+    const report = await db.dailyReport.findUnique({
+      where: {
+        tenantId_studentId_reportDate: {
+          tenantId,
+          studentId,
+          reportDate: dateOnly,
+        },
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            admissionNo: true,
+            photoUrl: true,
+            currentClassroom: { select: { name: true, programType: true } },
+          },
+        },
+        classroom: {
+          select: {
+            id: true,
+            name: true,
+            programType: true,
+            primaryTeacher: { select: { fullName: true } },
+          },
+        },
+        publisher: { select: { fullName: true } },
+      },
+    })
+
+    if (!report || report.status !== 'PUBLISHED') {
+      return {
+        published: false,
+        message: "Your child's daily report for this day has not yet been published by the teacher.",
+        date: dateStr,
+      }
+    }
+
+    return {
+      published: true,
+      report: {
+        id: report.id,
+        date: dateStr,
+        student: {
+          id: report.student.id,
+          name: `${report.student.firstName} ${report.student.lastName || ''}`.trim(),
+          admissionNo: report.student.admissionNo,
+          photoUrl: report.student.photoUrl,
+          classroom: report.classroom?.name || report.student.currentClassroom?.name,
+        },
+        classroomName: report.classroom?.name,
+        teacherName: report.publisher?.fullName || report.classroom?.primaryTeacher?.fullName || 'Teacher',
+        attendanceStatus: report.attendanceStatus,
+        summaryText: report.summaryText,
+        activities: report.activitiesSummary || [],
+        meals: report.mealsSummary || [],
+        naps: report.napSummary || [],
+        observations: report.observationsSummary || [],
+        photos: report.photos || [],
+        publishedAt: report.publishedAt ? report.publishedAt.toISOString() : null,
+      },
+    }
+  }
 }
+
+

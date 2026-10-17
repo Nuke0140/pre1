@@ -29,6 +29,7 @@ import {
   Edit3,
   Trash2,
   Minus,
+  Copy,
 } from 'lucide-react'
 import { PageHead, Avatar, Breadcrumbs, EmptyState, Skeleton } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -38,6 +39,8 @@ import { isoDate, enumLabel } from '@/lib/format'
 import { useI18n, formatDateLocale, getGlobalLocale } from '@/lib/i18n'
 import { ClassroomDayStream, DayStreamData } from '@/components/daily-diary/ClassroomDayStream'
 import { QuickLogModal, QuickLogType } from '@/components/daily-diary/QuickLogModal'
+import { VoiceObservationInput } from '@/components/daily-diary/VoiceObservationInput'
+import { RoutineReuseModal } from '@/components/daily-diary/RoutineReuseModal'
 
 function getFormattedDayAndDate(dateStr: string) {
   if (!dateStr) return ''
@@ -216,6 +219,20 @@ export default function DailyDiaryPage() {
   const [loadingStream, setLoadingStream] = useState(false)
   const [quickLogModalOpen, setQuickLogModalOpen] = useState(false)
   const [quickLogInitialType, setQuickLogInitialType] = useState<QuickLogType>('ACTIVITY')
+
+  // Routine & Weekly Theme Modal State
+  const [routineModalOpen, setRoutineModalOpen] = useState(false)
+  const [routineModalMode, setRoutineModalMode] = useState<'COPY_YESTERDAY' | 'WEEKLY_TEMPLATE'>('COPY_YESTERDAY')
+
+  const handleOpenCopyRoutine = () => {
+    setRoutineModalMode('COPY_YESTERDAY')
+    setRoutineModalOpen(true)
+  }
+
+  const handleOpenWeeklyTemplate = () => {
+    setRoutineModalMode('WEEKLY_TEMPLATE')
+    setRoutineModalOpen(true)
+  }
 
   // Data States
   const [overview, setOverview] = useState<OverviewData | null>(null)
@@ -1681,6 +1698,8 @@ export default function DailyDiaryPage() {
                 setActiveTab('builder')
                 fetchSubjects()
               }}
+              onOpenCopyRoutine={handleOpenCopyRoutine}
+              onOpenWeeklyTemplate={handleOpenWeeklyTemplate}
               onStartActivity={handleStartActivity}
               onCompleteActivity={handleCompleteActivity}
               onDeleteActivity={handleDeleteActivity}
@@ -1923,9 +1942,29 @@ export default function DailyDiaryPage() {
                       Configure multi-row core subjects & activities for {currentClass?.name}.
                     </p>
                   </div>
-                  <span className="badge b-indigo text-xs font-bold px-2.5 py-1">
-                    {scheduleRows.length} {scheduleRows.length === 1 ? 'Row' : 'Rows'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenCopyRoutine}
+                      className="btn btn-xs btn-ghost border border-border/80 rounded-lg flex items-center gap-1 text-xs font-semibold hover:border-primary/50 text-foreground"
+                      title="Copy yesterday's planned routine"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-primary" />
+                      <span>📋 Copy Yesterday</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenWeeklyTemplate}
+                      className="btn btn-xs btn-ghost border border-purple-500/30 rounded-lg flex items-center gap-1 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                      title="Load weekly theme routine template"
+                    >
+                      <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+                      <span>📚 Template</span>
+                    </button>
+                    <span className="badge b-indigo text-xs font-bold px-2.5 py-1">
+                      {scheduleRows.length} {scheduleRows.length === 1 ? 'Row' : 'Rows'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Target Program, Class & Date Selector Inside Builder Box */}
@@ -2994,16 +3033,15 @@ export default function DailyDiaryPage() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-foreground">Observation Narrative *</label>
-              <textarea
-                className="input text-xs mt-1 w-full min-h-[100px] p-3"
-                placeholder="Describe what was observed during today's activities..."
-                value={obsNarrative}
-                onChange={(e) => setObsNarrative(e.target.value)}
-                required
-              />
-            </div>
+            <VoiceObservationInput
+              value={obsNarrative}
+              onChange={setObsNarrative}
+              studentName={attendanceRegister.find((s) => s.studentId === obsStudentId)?.name}
+              label="Observation Narrative"
+              placeholder="Describe what was observed during today's activities..."
+              rows={4}
+              required
+            />
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
               <button
@@ -3054,18 +3092,21 @@ export default function DailyDiaryPage() {
             name: s.name,
             admissionNo: s.admissionNo,
             photoUrl: s.photoUrl,
+            attendanceStatus: s.status,
           })).length > 0
             ? (streamData?.events?.find((e) => e.streamType === 'ATTENDANCE')?.items || []).map((s: any) => ({
                 id: s.studentId,
                 name: s.name,
                 admissionNo: s.admissionNo,
                 photoUrl: s.photoUrl,
+                attendanceStatus: s.status,
               }))
             : attendanceRegister.map((s) => ({
                 id: s.studentId,
                 name: s.name,
                 admissionNo: s.admissionNo,
                 photoUrl: s.photoUrl,
+                attendanceStatus: s.status,
               }))
         }
         teachers={context?.teachers || []}
@@ -3076,6 +3117,20 @@ export default function DailyDiaryPage() {
           loadAttendance()
         }}
         onOpenFastRollCall={() => setFastRollCallOpen(true)}
+      />
+
+      {/* Classroom Routine Reuse & Weekly Theme Templates Modal */}
+      <RoutineReuseModal
+        open={routineModalOpen}
+        onClose={() => setRoutineModalOpen(false)}
+        classroomId={selectedClassroomId || currentClass?.id || ''}
+        classroomName={currentClass?.name || 'Classroom'}
+        targetDateStr={selectedDate}
+        initialMode={routineModalMode}
+        onSuccess={() => {
+          loadDayStream()
+          loadOverview()
+        }}
       />
     </div>
   )

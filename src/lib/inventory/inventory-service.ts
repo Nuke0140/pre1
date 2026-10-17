@@ -1196,7 +1196,20 @@ export class InventoryService {
       db.materialRequest.findMany({
         where,
         include: {
-          items: { include: { item: { select: { id: true, name: true, sku: true } } } },
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  imageUrl: true,
+                  unit: { select: { name: true, symbol: true } },
+                  category: { select: { name: true } },
+                },
+              },
+            },
+          },
           classroom: { select: { id: true, name: true, code: true } },
           branch: { select: { id: true, name: true, code: true } },
         },

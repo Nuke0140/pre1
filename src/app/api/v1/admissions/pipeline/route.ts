@@ -3,7 +3,12 @@ import { NextRequest } from 'next/server'
 import { ok, fail, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { resolveAuthorizedBranchScope } from '@/lib/admissions/branch-context'
-import { AdmissionsPipelineService, type PipelineStageKey } from '@/lib/admissions/pipeline-service'
+import {
+  AdmissionsPipelineService,
+  ORDERED_PIPELINE_STAGES,
+  normalizePipelineStageKey,
+  type PipelineStageKey,
+} from '@/lib/admissions/pipeline-service'
 
 /**
  * GET /api/v1/admissions/pipeline
@@ -71,14 +76,8 @@ async function _POST(req: NextRequest) {
     return Errors.badRequest('targetStage is required')
   }
 
-  const validStages: PipelineStageKey[] = [
-    'NEW_LEADS',
-    'TOUR_BOOKED',
-    'APPLICATION_SHARED',
-    'OFFER_PENDING_FEE',
-    'ENROLLED_PLACED',
-  ]
-  if (!validStages.includes(targetStage)) {
+  const normalizedTarget = normalizePipelineStageKey(targetStage)
+  if (!ORDERED_PIPELINE_STAGES.includes(normalizedTarget)) {
     return Errors.badRequest(`Invalid targetStage: ${targetStage}`)
   }
 

@@ -1,12 +1,12 @@
 /**
  * PreOne — Authoritative Visual Admission Pipeline Service
  *
- * Implements the 5 canonical business-facing pipeline stages:
- * 1. NEW_LEADS: New enquiries needing initial contact
- * 2. TOUR_BOOKED: Scheduled campus visit / school tour
- * 3. APPLICATION_SHARED: Application started / submitted / reviewing
- * 4. OFFER_PENDING_FEE: Offer issued; acceptance or fee pending
- * 5. ENROLLED_PLACED: Fully enrolled student & placed in class
+ * Implements the 5 canonical business-facing pipeline stages matching the 5 core modules:
+ * 1. ENQUIRIES: New enquiries needing initial contact (/app/admissions/enquiries)
+ * 2. FOLLOW_UPS: Open tasks, scheduled campus tours & calls (/app/admissions/follow-ups)
+ * 3. APPLICATIONS: Applications submitted / under review / offer issued (/app/admissions/applications)
+ * 4. CONFIRMED_ADMISSIONS: Admitted students & accepted offers awaiting placement (/app/admissions/admitted)
+ * 5. CLASSROOM_PLACEMENTS: Enrolled students with classroom section allocated (/app/admissions/classroom-placements)
  *
  * Business Safety:
  * - Real persisted records (Lead & AdmissionApplication).
@@ -25,6 +25,8 @@ import type { SchoolRole } from '@/lib/auth'
 import {
   PIPELINE_STAGES,
   ORDERED_PIPELINE_STAGES,
+  normalizePipelineStageKey,
+  type CanonicalPipelineStageKey,
   type PipelineStageKey,
   type PipelineCardData,
   type PipelineMetrics,
@@ -50,7 +52,7 @@ export class AdmissionsPipelineService {
     applications?: any[]
     schoolVisits?: any[]
     nextFollowUpAt?: Date | null
-  }): PipelineStageKey | 'EXCLUDED' {
+  }): CanonicalPipelineStageKey | 'EXCLUDED' {
     // If converted or linked to application, it is handled as an APPLICATION card to avoid duplicate entries
     if (
       lead.status === 'CONVERTED' ||
@@ -67,20 +69,26 @@ export class AdmissionsPipelineService {
 
     // Application started before conversion
     if (lead.status === 'APPLICATION_STARTED') {
-      return 'APPLICATION_SHARED'
+      return 'APPLICATIONS'
     }
 
-    // Campus tour booked / scheduled
+    // Follow-ups: Scheduled visit / campus tour, active follow-up date, or in follow-up status
     const hasScheduledVisit =
       Array.isArray(lead.schoolVisits) &&
       lead.schoolVisits.some((v) => ['OPEN', 'IN_PROGRESS', 'WAITING'].includes(v.status))
 
-    if (hasScheduledVisit || lead.status === 'QUALIFIED') {
-      return 'TOUR_BOOKED'
+    const hasScheduledFollowUp = Boolean(lead.nextFollowUpAt)
+
+    if (
+      hasScheduledVisit ||
+      hasScheduledFollowUp ||
+      ['CONTACTED', 'QUALIFIED', 'NURTURE', 'IN_PROGRESS'].includes(lead.status)
+    ) {
+      return 'FOLLOW_UPS'
     }
 
-    // Default early leads
-    return 'NEW_LEADS'
+    // Default: Fresh raw enquiries
+    return 'ENQUIRIES'
   }
 
   /**
@@ -89,29 +97,34 @@ export class AdmissionsPipelineService {
   static determineApplicationPipelineStage(app: {
     status: string
     studentId?: string | null
+    classroomId?: string | null
     offers?: any[]
-  }): PipelineStageKey | 'EXCLUDED' {
+  }): CanonicalPipelineStageKey | 'EXCLUDED' {
     if (['REJECTED', 'WITHDRAWN'].includes(app.status)) {
       return 'EXCLUDED'
     }
 
-    if (app.status === 'ENROLLED' || Boolean(app.studentId)) {
-      return 'ENROLLED_PLACED'
+    // 5. Classroom Placements: when a classroom section is allocated
+    if (Boolean(app.classroomId)) {
+      return 'CLASSROOM_PLACEMENTS'
     }
 
-    const hasActiveOffer =
-      Array.isArray(app.offers) &&
-      app.offers.some((o) => ['ISSUED', 'ACCEPTED'].includes(o.status))
-
-    if (app.status === 'OFFER_SENT' || app.status === 'OFFER_ACCEPTED' || hasActiveOffer) {
-      return 'OFFER_PENDING_FEE'
+    // 4. Confirmed Admissions: Enrolled, Admitted, or Offer Accepted (ready for classroom placement)
+    if (
+      app.status === 'ENROLLED' ||
+      app.status === 'ADMITTED' ||
+      app.status === 'OFFER_ACCEPTED' ||
+      Boolean(app.studentId)
+    ) {
+      return 'CONFIRMED_ADMISSIONS'
     }
 
-    return 'APPLICATION_SHARED'
+    // 3. Applications: In review, submitted, approved, documents pending, or offer sent
+    return 'APPLICATIONS'
   }
 
   /**
-   * Fetch all pipeline data grouped into 5 stages with full metrics and filtering.
+   * Fetch all pipeline data grouped into the 5 core stages with full metrics and filtering.
    */
   static async getPipelineData(
     tenantId: string,
@@ -250,12 +263,19 @@ export class AdmissionsPipelineService {
       take: 250,
     })
 
-    // Fetch branches for name resolution
-    const branches = await db.branch.findMany({
-      where: { tenantId, deletedAt: null },
-      select: { id: true, name: true },
-    })
+    // Fetch branches and classrooms for name resolution
+    const [branches, classrooms] = await Promise.all([
+      db.branch.findMany({
+        where: { tenantId, deletedAt: null },
+        select: { id: true, name: true },
+      }),
+      db.classroom.findMany({
+        where: { tenantId, isActive: true },
+        select: { id: true, name: true },
+      }),
+    ])
     const branchNameMap = new Map<string, string>(branches.map((b) => [b.id, b.name]))
+    const classroomNameMap = new Map<string, string>(classrooms.map((c) => [c.id, c.name]))
 
     // 3. Assemble and map into canonical PipelineCardData
     const allCards: PipelineCardData[] = []
@@ -295,6 +315,8 @@ export class AdmissionsPipelineService {
         academicSessionName: null,
         programType: l.interestedProgram,
         programName: l.interestedProgram || null,
+        classroomId: null,
+        classroomName: null,
         createdAt: l.createdAt.toISOString(),
         updatedAt: l.updatedAt.toISOString(),
         nextFollowUpAt: l.nextFollowUpAt ? l.nextFollowUpAt.toISOString() : null,
@@ -313,6 +335,7 @@ export class AdmissionsPipelineService {
       const stage = this.determineApplicationPipelineStage({
         status: a.status,
         studentId: a.studentId,
+        classroomId: a.classroomId,
         offers: a.offers,
       })
 
@@ -343,6 +366,8 @@ export class AdmissionsPipelineService {
         academicSessionName: a.academicSession?.name || null,
         programType: a.programType,
         programName: a.program?.name || a.programType,
+        classroomId: a.classroomId || null,
+        classroomName: a.classroomId ? classroomNameMap.get(a.classroomId) || null : null,
         createdAt: a.createdAt.toISOString(),
         updatedAt: a.updatedAt.toISOString(),
         nextFollowUpAt: a.lead?.nextFollowUpAt ? a.lead.nextFollowUpAt.toISOString() : null,
@@ -365,17 +390,23 @@ export class AdmissionsPipelineService {
       })
     }
 
-    // 4. Compute Metrics before search filtering for authoritative pipeline health
+    // 4. Compute Metrics matching the 5 core modules + overdue & due today indicators
     const metrics: PipelineMetrics = {
       totalActive: allCards.length,
-      newLeads: allCards.filter((c) => c.stage === 'NEW_LEADS').length,
-      toursBooked: allCards.filter((c) => c.stage === 'TOUR_BOOKED').length,
-      applicationsShared: allCards.filter((c) => c.stage === 'APPLICATION_SHARED').length,
-      offersPendingFee: allCards.filter((c) => c.stage === 'OFFER_PENDING_FEE').length,
-      enrolledPlaced: allCards.filter((c) => c.stage === 'ENROLLED_PLACED').length,
+      enquiries: allCards.filter((c) => c.stage === 'ENQUIRIES').length,
+      followUps: allCards.filter((c) => c.stage === 'FOLLOW_UPS').length,
+      applications: allCards.filter((c) => c.stage === 'APPLICATIONS').length,
+      confirmedAdmissions: allCards.filter((c) => c.stage === 'CONFIRMED_ADMISSIONS').length,
+      classroomPlacements: allCards.filter((c) => c.stage === 'CLASSROOM_PLACEMENTS').length,
       followupsOverdue: allCards.filter((c) => c.isOverdue).length,
       followupsDueToday: allCards.filter((c) => c.isDueToday).length,
       upcomingTours: allCards.filter((c) => c.tourScheduledAt && new Date(c.tourScheduledAt) >= now).length,
+      // Backward compatibility fields
+      newLeads: allCards.filter((c) => c.stage === 'ENQUIRIES').length,
+      toursBooked: allCards.filter((c) => c.stage === 'FOLLOW_UPS').length,
+      applicationsShared: allCards.filter((c) => c.stage === 'APPLICATIONS').length,
+      offersPendingFee: allCards.filter((c) => c.stage === 'CONFIRMED_ADMISSIONS').length,
+      enrolledPlaced: allCards.filter((c) => c.stage === 'CLASSROOM_PLACEMENTS').length,
     }
 
     // 5. Apply in-memory search and secondary filters
@@ -394,7 +425,8 @@ export class AdmissionsPipelineService {
     }
 
     if (filters?.stageFilter && filters.stageFilter !== 'ALL') {
-      filteredCards = filteredCards.filter((c) => c.stage === filters.stageFilter)
+      const targetStage = normalizePipelineStageKey(filters.stageFilter)
+      filteredCards = filteredCards.filter((c) => c.stage === targetStage)
     }
 
     if (filters?.followUpFilter && filters.followUpFilter !== 'ALL') {
@@ -411,13 +443,13 @@ export class AdmissionsPipelineService {
       }
     }
 
-    // 6. Group cards into the 5 stages
-    const stages: Record<PipelineStageKey, PipelineCardData[]> = {
-      NEW_LEADS: [],
-      TOUR_BOOKED: [],
-      APPLICATION_SHARED: [],
-      OFFER_PENDING_FEE: [],
-      ENROLLED_PLACED: [],
+    // 6. Group cards into the 5 core stages
+    const stages: Record<CanonicalPipelineStageKey, PipelineCardData[]> = {
+      ENQUIRIES: [],
+      FOLLOW_UPS: [],
+      APPLICATIONS: [],
+      CONFIRMED_ADMISSIONS: [],
+      CLASSROOM_PLACEMENTS: [],
     }
 
     for (const card of filteredCards) {
@@ -452,6 +484,7 @@ export class AdmissionsPipelineService {
   ) {
     if (!ctx.tenantId) throw new Error('Tenant context required')
     const { cardId, targetStage, reason, followUp } = params
+    const canonicalTarget = normalizePipelineStageKey(targetStage)
 
     // 1. Locate either Lead or AdmissionApplication in this tenant
     const lead = await db.lead.findFirst({
@@ -482,30 +515,44 @@ export class AdmissionsPipelineService {
     }
 
     // 2. Strict Business Rules for Target Stages:
-    // RULE A: Direct drag to ENROLLED_PLACED is NEVER allowed to falsify enrollment.
-    if (targetStage === 'ENROLLED_PLACED') {
-      if (app && app.status === 'ENROLLED') {
-        // Already enrolled
-        return { success: true, message: 'Prospect is already fully enrolled.' }
-      }
-      return {
-        success: false,
-        code: 'ENROLLMENT_PREREQUISITE_REQUIRED',
-        requireAction: 'COMPLETE_ENROLLMENT',
-        message:
-          'Direct card movement to "Enrolled & Placed" is not permitted. School policy requires verifying required documents, issuing/accepting the offer, and confirming classroom placement through the Admission Review workspace.',
-      }
-    }
 
-    // RULE B: Target Stage OFFER_PENDING_FEE requires an actual admission application and offer.
-    if (targetStage === 'OFFER_PENDING_FEE') {
+    // RULE 1: CLASSROOM_PLACEMENTS (Section Allocation)
+    if (canonicalTarget === 'CLASSROOM_PLACEMENTS') {
       if (lead) {
         return {
           success: false,
-          code: 'APPLICATION_REQUIRED_FOR_OFFER',
+          code: 'APPLICATION_REQUIRED_FOR_PLACEMENT',
           requireAction: 'CREATE_APPLICATION',
           message:
-            'Cannot issue an offer directly to an enquiry. An admission application must be submitted and reviewed first.',
+            'Direct card movement to "Classroom Placements" is not permitted for an enquiry. The student must have an application, accepted admission offer, and enrollment confirmed first.',
+        }
+      }
+
+      if (app) {
+        if (app.classroomId) {
+          return { success: true, message: 'Prospect is already allocated to a classroom section.' }
+        }
+
+        // Requires selecting a classroom section in the Classroom Placements workspace
+        return {
+          success: false,
+          code: 'PLACEMENT_ACTION_REQUIRED',
+          requireAction: 'ALLOCATE_CLASSROOM',
+          message:
+            'Classroom placement requires selecting an available classroom and section. Please complete placement in the Classroom Placements workspace.',
+        }
+      }
+    }
+
+    // RULE 2: CONFIRMED_ADMISSIONS (Accepted Offer / Enrolled)
+    if (canonicalTarget === 'CONFIRMED_ADMISSIONS') {
+      if (lead) {
+        return {
+          success: false,
+          code: 'APPLICATION_REQUIRED_FOR_ADMISSION',
+          requireAction: 'CREATE_APPLICATION',
+          message:
+            'Cannot confirm admission directly for an enquiry. An admission application must be submitted and reviewed first.',
         }
       }
 
@@ -517,54 +564,104 @@ export class AdmissionsPipelineService {
             code: 'OFFER_GENERATION_REQUIRED',
             requireAction: 'GENERATE_OFFER',
             message:
-              'Cannot move to "Offer Sent / Pending Fee" without an offer. Please generate an official admission offer first.',
+              'Cannot confirm admission without an offer. Please generate or review an official admission offer first.',
           }
         }
 
-        // If offer is draft, issue it and advance application status to OFFER_SENT
-        const draftOffer = app.offers.find((o) => o.status === 'DRAFT')
-        if (draftOffer) {
+        // If offer is issued or draft, accept it and confirm admission
+        const latestOffer = app.offers[0]
+        if (latestOffer && latestOffer.status !== 'ACCEPTED') {
           await db.$transaction([
             db.admissionOffer.update({
-              where: { id: draftOffer.id },
-              data: { status: 'ISSUED', issuedAt: new Date() },
+              where: { id: latestOffer.id },
+              data: { status: 'ACCEPTED', acceptedAt: new Date() },
             }),
             db.admissionApplication.update({
               where: { id: app.id },
-              data: { status: 'OFFER_SENT' },
+              data: { status: 'OFFER_ACCEPTED' },
             }),
           ])
-        } else if (app.status !== 'OFFER_SENT' && app.status !== 'OFFER_ACCEPTED') {
+        } else if (app.status !== 'OFFER_ACCEPTED' && app.status !== 'ENROLLED' && app.status !== 'ADMITTED') {
           await db.admissionApplication.update({
             where: { id: app.id },
-            data: { status: 'OFFER_SENT' },
+            data: { status: 'OFFER_ACCEPTED' },
           })
         }
       }
     }
 
-    // RULE C: Handling Transitions for LEAD records
-    if (lead) {
-      const oldStatus = lead.status
-
-      if (targetStage === 'TOUR_BOOKED') {
-        const tourDate = followUp?.dueAt ? new Date(followUp.dueAt) : new Date(Date.now() + 48 * 60 * 60 * 1000)
-        await FollowUpVisitService.scheduleVisit(ctx, lead.id, {
-          scheduledAt: tourDate,
-          tourFocus: followUp?.tourFocus || 'Campus Tour & Facilities',
-          visitorCount: followUp?.visitorCount || 2,
-          notes: followUp?.note || reason || 'Tour booked via Visual Admission Pipeline',
-        })
-      } else if (targetStage === 'APPLICATION_SHARED') {
+    // RULE 3: APPLICATIONS (Application Shared / In Review)
+    if (canonicalTarget === 'APPLICATIONS') {
+      if (lead) {
         await db.lead.update({
           where: { id: lead.id },
           data: { status: 'APPLICATION_STARTED' },
         })
-      } else if (targetStage === 'NEW_LEADS') {
-        // Moving back to NEW_LEADS: cancel or resolve any open tour follow-up
+      } else if (app) {
+        if (app.status === 'OFFER_SENT' || app.status === 'OFFER_ACCEPTED') {
+          await db.admissionApplication.update({
+            where: { id: app.id },
+            data: { status: 'UNDER_REVIEW' },
+          })
+        }
+      }
+    }
+
+    // RULE 4: FOLLOW_UPS (Tours, Tasks, Scheduled Calls)
+    if (canonicalTarget === 'FOLLOW_UPS') {
+      if (lead) {
+        if (followUp?.tourFocus || followUp?.visitorCount) {
+          const tourDate = followUp?.dueAt ? new Date(followUp.dueAt) : new Date(Date.now() + 48 * 60 * 60 * 1000)
+          await FollowUpVisitService.scheduleVisit(ctx, lead.id, {
+            scheduledAt: tourDate,
+            tourFocus: followUp?.tourFocus || 'Campus Tour & Facilities',
+            visitorCount: followUp?.visitorCount || 2,
+            notes: followUp?.note || reason || 'Tour booked via Visual Admission Pipeline',
+          })
+        } else {
+          const followUpDate = followUp?.dueAt ? new Date(followUp.dueAt) : new Date(Date.now() + 24 * 60 * 60 * 1000)
+          await FollowUpVisitService.addFollowUp(ctx, lead.id, {
+            type: 'Pipeline Follow-up',
+            note: followUp?.note || reason || 'Follow-up scheduled from Visual Pipeline',
+            dueAt: followUpDate,
+            responsibleRole: followUp?.responsibleRole || 'PRINCIPAL',
+          })
+          await db.lead.update({
+            where: { id: lead.id },
+            data: {
+              status: lead.status === 'NEW' ? 'CONTACTED' : lead.status,
+              nextFollowUpAt: followUpDate,
+            },
+          })
+        }
+      } else if (app) {
+        // Schedule follow-up task on application
+        if (followUp && followUp.note) {
+          await raiseFollowUp({
+            tenantId: ctx.tenantId,
+            branchId: app.branchId,
+            academicSessionId: app.academicSessionId,
+            domain: 'ADMISSION',
+            severity: 'INFO',
+            title: `Application Follow-up: ${app.applicationNumber}`,
+            detail: followUp.note,
+            sourceType: 'AdmissionApplication',
+            sourceId: app.id,
+            dueAt: followUp.dueAt ? new Date(followUp.dueAt) : new Date(Date.now() + 48 * 60 * 60 * 1000),
+            responsibleRole: followUp.responsibleRole || 'PRINCIPAL',
+            actorId: ctx.actorId,
+            actorName: ctx.actorName,
+          })
+        }
+      }
+    }
+
+    // RULE 5: ENQUIRIES (Fresh Leads)
+    if (canonicalTarget === 'ENQUIRIES') {
+      if (lead) {
         await db.lead.update({
           where: { id: lead.id },
-          data: { status: 'NEW' },
+          data: { status: 'NEW', nextFollowUpAt: null },
         })
         await db.followUp.updateMany({
           where: {
@@ -575,96 +672,50 @@ export class AdmissionsPipelineService {
           },
           data: {
             status: 'CLOSED',
-            actionTaken: reason || 'Reverted to New Leads',
+            actionTaken: reason || 'Reverted to Enquiries stage',
             resolvedAt: new Date(),
           },
         })
-      }
-
-      // Schedule optional follow-up reminder if provided
-      if (followUp && followUp.note && targetStage !== 'TOUR_BOOKED') {
-        await FollowUpVisitService.addFollowUp(ctx, lead.id, {
-          type: 'Pipeline Follow-up',
-          note: followUp.note,
-          dueAt: followUp.dueAt || new Date(Date.now() + 24 * 60 * 60 * 1000),
-          responsibleRole: followUp.responsibleRole || 'PRINCIPAL',
-        })
-      }
-
-      // Audit transition
-      await audit({
-        tenantId: ctx.tenantId,
-        branchId: lead.branchId || undefined,
-        actorId: ctx.actorId || undefined,
-        actorRole: ctx.actorRole || 'ADMIN',
-        action: 'PIPELINE_STAGE_TRANSITION',
-        entity: 'Lead',
-        entityId: lead.id,
-        summary: `Pipeline move for ${lead.leadNumber} (${lead.childName || lead.parentName}) to ${targetStage}`,
-        oldValues: { status: oldStatus },
-        newValues: { status: targetStage },
-      })
-
-      return {
-        success: true,
-        message: `Successfully moved ${lead.leadNumber} to ${PIPELINE_STAGES[targetStage].label}.`,
-      }
-    }
-
-    // RULE D: Handling Transitions for APPLICATION records
-    if (app) {
-      const oldStatus = app.status
-
-      if (targetStage === 'APPLICATION_SHARED') {
-        // Reverting from offer or review stage to application shared
-        if (app.status === 'OFFER_SENT') {
-          await db.admissionApplication.update({
-            where: { id: app.id },
-            data: { status: 'UNDER_REVIEW' },
-          })
+      } else if (app) {
+        return {
+          success: false,
+          code: 'CANNOT_DEMOTE_APPLICATION',
+          message: 'An existing formal application cannot be reverted to a raw enquiry.',
         }
       }
-
-      // Schedule follow-up reminder if provided
-      if (followUp && followUp.note) {
-        await raiseFollowUp({
-          tenantId: ctx.tenantId,
-          branchId: app.branchId,
-          academicSessionId: app.academicSessionId,
-          domain: 'ADMISSION',
-          severity: 'INFO',
-          title: `Application Follow-up: ${app.applicationNumber}`,
-          detail: followUp.note,
-          sourceType: 'AdmissionApplication',
-          sourceId: app.id,
-          dueAt: followUp.dueAt ? new Date(followUp.dueAt) : new Date(Date.now() + 48 * 60 * 60 * 1000),
-          responsibleRole: followUp.responsibleRole || 'PRINCIPAL',
-          actorId: ctx.actorId,
-          actorName: ctx.actorName,
-        })
-      }
-
-      // Audit transition
-      await audit({
-        tenantId: ctx.tenantId,
-        branchId: app.branchId,
-        academicSessionId: app.academicSessionId,
-        actorId: ctx.actorId || undefined,
-        actorRole: ctx.actorRole || 'ADMIN',
-        action: 'PIPELINE_STAGE_TRANSITION',
-        entity: 'AdmissionApplication',
-        entityId: app.id,
-        summary: `Pipeline move for ${app.applicationNumber} (${app.childFirstName}) to ${targetStage}`,
-        oldValues: { status: oldStatus },
-        newValues: { status: targetStage },
-      })
-
-      return {
-        success: true,
-        message: `Successfully moved ${app.applicationNumber} to ${PIPELINE_STAGES[targetStage].label}.`,
-      }
     }
 
-    return { success: true }
+    // Schedule general reminder if provided and not handled above
+    if (lead && followUp && followUp.note && canonicalTarget !== 'FOLLOW_UPS') {
+      await FollowUpVisitService.addFollowUp(ctx, lead.id, {
+        type: 'Pipeline Follow-up',
+        note: followUp.note,
+        dueAt: followUp.dueAt || new Date(Date.now() + 24 * 60 * 60 * 1000),
+        responsibleRole: followUp.responsibleRole || 'PRINCIPAL',
+      })
+    }
+
+    // Audit transition
+    const entityType = lead ? 'Lead' : 'AdmissionApplication'
+    const entityId = lead ? lead.id : app!.id
+    const entityRef = lead ? lead.leadNumber : app!.applicationNumber
+    const entityName = lead ? (lead.childName || lead.parentName) : app!.childFirstName
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: recordBranchId || undefined,
+      actorId: ctx.actorId || undefined,
+      actorRole: ctx.actorRole || 'ADMIN',
+      action: 'PIPELINE_STAGE_TRANSITION',
+      entity: entityType,
+      entityId,
+      summary: `Pipeline move for ${entityRef} (${entityName}) to ${canonicalTarget}`,
+      newValues: { stage: canonicalTarget, reason },
+    })
+
+    return {
+      success: true,
+      message: `Successfully moved ${entityRef} to ${PIPELINE_STAGES[canonicalTarget].label}.`,
+    }
   }
 }

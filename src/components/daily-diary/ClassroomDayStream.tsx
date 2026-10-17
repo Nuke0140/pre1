@@ -25,10 +25,12 @@ import {
   Trash2,
   CalendarCheck,
   Users,
+  Copy,
 } from 'lucide-react'
 import { Avatar, EmptyState } from '@/components/preone'
 import { isoDate } from '@/lib/format'
 import { formatDateLocale, getGlobalLocale } from '@/lib/i18n'
+import { EndOfDayPublishCard } from './EndOfDayPublishCard'
 
 export interface StreamItem {
   id: string
@@ -124,6 +126,8 @@ interface ClassroomDayStreamProps {
   onOpenFastRollCall: () => void
   onOpenAttendanceRegister: () => void
   onOpenScheduleBuilder: () => void
+  onOpenCopyRoutine?: () => void
+  onOpenWeeklyTemplate?: () => void
   onStartActivity?: (activityId: string) => void
   onCompleteActivity?: (activityId: string) => void
   onDeleteActivity?: (activityId: string) => void
@@ -142,6 +146,8 @@ export function ClassroomDayStream({
   onOpenFastRollCall,
   onOpenAttendanceRegister,
   onOpenScheduleBuilder,
+  onOpenCopyRoutine,
+  onOpenWeeklyTemplate,
   onStartActivity,
   onCompleteActivity,
   onDeleteActivity,
@@ -366,6 +372,33 @@ export function ClassroomDayStream({
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
 
+            {/* Routine & Theme Reuse Actions */}
+            {onOpenCopyRoutine && (
+              <button
+                type="button"
+                onClick={onOpenCopyRoutine}
+                className="btn btn-sm btn-ghost border border-border/70 rounded-xl flex items-center gap-1.5 text-xs font-semibold hover:border-primary/50 text-foreground/90 shadow-2xs"
+                title="Copy routine from yesterday or last school day"
+              >
+                <Copy className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline">📋 Copy Yesterday</span>
+                <span className="sm:hidden">Copy</span>
+              </button>
+            )}
+
+            {onOpenWeeklyTemplate && (
+              <button
+                type="button"
+                onClick={onOpenWeeklyTemplate}
+                className="btn btn-sm btn-ghost border border-purple-500/30 rounded-xl flex items-center gap-1.5 text-xs font-semibold hover:border-purple-500/60 text-purple-700 dark:text-purple-300 shadow-2xs"
+                title="Load a weekly theme routine template"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-purple-500" />
+                <span className="hidden sm:inline">📚 Weekly Template</span>
+                <span className="sm:hidden">Theme</span>
+              </button>
+            )}
+
             {/* + Quick Log Trigger */}
             <button
               type="button"
@@ -469,11 +502,31 @@ export function ClassroomDayStream({
             <button
               type="button"
               onClick={() => onOpenQuickLog()}
-              className="btn btn-sm btn-primary rounded-xl flex items-center gap-1.5"
+              className="btn btn-sm btn-primary rounded-xl flex items-center gap-1.5 shadow-sm"
             >
               <Plus className="w-4 h-4" />
               <span>+ Quick Log First Event</span>
             </button>
+            {onOpenCopyRoutine && (
+              <button
+                type="button"
+                onClick={onOpenCopyRoutine}
+                className="btn btn-sm btn-ghost border border-border/80 rounded-xl flex items-center gap-1.5 font-semibold hover:border-primary/50 shadow-2xs"
+              >
+                <Copy className="w-4 h-4 text-primary" />
+                <span>📋 Copy Yesterday’s Routine</span>
+              </button>
+            )}
+            {onOpenWeeklyTemplate && (
+              <button
+                type="button"
+                onClick={onOpenWeeklyTemplate}
+                className="btn btn-sm btn-ghost border border-purple-500/40 rounded-xl flex items-center gap-1.5 font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/10 shadow-2xs"
+              >
+                <BookOpen className="w-4 h-4 text-purple-500" />
+                <span>📚 Load Weekly Theme Template</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onOpenScheduleBuilder}
@@ -711,6 +764,14 @@ export function ClassroomDayStream({
           })}
         </div>
       )}
+
+      {/* 3. END-OF-DAY SUMMARY CARD (1-Tap Parent Report Publishing) */}
+      <EndOfDayPublishCard
+        classroomId={selectedClassroomId || classroom?.id || ''}
+        classroomName={classroom?.name}
+        dateStr={selectedDate}
+        onRefreshDayStream={onRefresh}
+      />
 
       {/* Floating Action Button (FAB) for fast mobile/tablet logging */}
       <div className="fixed bottom-6 right-6 z-40 sm:hidden">

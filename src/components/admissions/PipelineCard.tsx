@@ -317,6 +317,13 @@ export function PipelineCard({
               </span>
             </div>
           )}
+
+          {card.classroomName && (
+            <div className="flex items-center gap-1 text-[10.5px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md border border-teal-200 dark:border-teal-900/60">
+              <Building size={11} className="shrink-0" />
+              <span>Classroom: {card.classroomName}</span>
+            </div>
+          )}
         </div>
 
         {/* ── 1-Click Zero-Retype Stage Progression Action ── */}

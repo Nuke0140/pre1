@@ -5,13 +5,14 @@
   "scripts": {
     "dev": "next dev --webpack -p 3000",
     "build": "next build --webpack",
+    "postinstall": "node scripts/db-env.js prisma generate",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "db:start": "powershell -ExecutionPolicy Bypass -File scripts/pg-start-win.ps1",
-    "db:push": "prisma db push --accept-data-loss",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset",
+    "db:push": "node scripts/db-env.js prisma db push --accept-data-loss",
+    "db:generate": "node scripts/db-env.js prisma generate",
+    "db:migrate": "node scripts/db-env.js prisma migrate dev",
+    "db:reset": "node scripts/db-env.js prisma migrate reset",
     "bootstrap:admin": "npx tsx scripts/bootstrap-preone-admin.ts",
     "test:e2e": "playwright test"
   },

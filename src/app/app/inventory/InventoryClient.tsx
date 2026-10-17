@@ -48,6 +48,15 @@ import { useToast } from '@/components/preone/Toast'
 import { inr, fmtDate, enumLabel } from '@/lib/format'
 import { Role } from '@/lib/auth'
 import { normalizeRole } from '@/lib/roles'
+import { TeacherSupplyStore, CartItem } from '@/components/inventory/TeacherSupplyStore'
+import { ClassroomRequestCartDrawer } from '@/components/inventory/ClassroomRequestCartDrawer'
+import { SupplyApprovalInbox, SupplyRequestApprovalItem } from '@/components/inventory/SupplyApprovalInbox'
+import { SupplyFulfilmentModal } from '@/components/inventory/SupplyFulfilmentModal'
+import { MySupplyRequestsList } from '@/components/inventory/MySupplyRequestsList'
+import { SupplyRequestDetailModal } from '@/components/inventory/SupplyRequestDetailModal'
+import { SupplyItemCatalogCard } from '@/lib/inventory/supply-cart-service'
+import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModal'
+import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
 
 interface SessionProps {
   uid: string
@@ -71,9 +80,13 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const canProcure = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(r))
   const canManageStock = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTS', 'PLATFORM_ADMIN'].includes(r))
 
-  // 8 Canonical Workspaces
-  type TabKey = 'OVERVIEW' | 'ITEMS' | 'DISTRIBUTION' | 'STORES' | 'PROCUREMENT' | 'RECEIVING' | 'VENDORS' | 'REPORTS'
-  const [activeTab, setActiveTab] = useState<TabKey>(isTeacher ? 'DISTRIBUTION' : 'OVERVIEW')
+  // Canonical Workspaces
+  type TabKey = 'STORE' | 'APPROVALS' | 'OVERVIEW' | 'ITEMS' | 'DISTRIBUTION' | 'STORES' | 'PROCUREMENT' | 'RECEIVING' | 'VENDORS' | 'REPORTS'
+  const [activeTab, setActiveTab] = useState<TabKey>(isTeacher ? 'STORE' : 'OVERVIEW')
+
+  // Classroom Supply Store sub-view (Catalog vs My Requests)
+  type StoreSubView = 'CATALOG' | 'MY_REQUESTS'
+  const [storeSubView, setStoreSubView] = useState<StoreSubView>('CATALOG')
 
   // Sub-segments for Workspace 3 (Requests & Distribution)
   type DistSubTab = 'ALL_DISTRIBUTIONS' | 'CLASSROOM_DIST' | 'STUDENT_DIST' | 'STAFF_DEPT_DIST' | 'REQUISITIONS'
@@ -122,6 +135,9 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const [grnModalOpen, setGrnModalOpen] = useState(false)
   const [classroomDistModalOpen, setClassroomDistModalOpen] = useState(false)
   const [studentDistModalOpen, setStudentDistModalOpen] = useState(false)
+  const [welcomeKitModalOpen, setWelcomeKitModalOpen] = useState(false)
+  const [handoverSlipModalOpen, setHandoverSlipModalOpen] = useState(false)
+  const [selectedKitId, setSelectedKitId] = useState<string | null>(null)
   const [deptDistModalOpen, setDeptDistModalOpen] = useState(false)
   const [returnModalOpen, setReturnModalOpen] = useState(false)
   const [adjustModalOpen, setAdjustModalOpen] = useState(false)
@@ -154,6 +170,51 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const [distLines, setDistLines] = useState<Array<{ itemId: string; quantity: number }>>([
     { itemId: '', quantity: 1 },
   ])
+
+  // Supply Store, Cart, & Approval Workflow States
+  const cartStorageKey = useMemo(() => {
+    return `preone_supply_cart_${session.tenantId || 'default'}_${session.uid}`
+  }, [session.tenantId, session.uid])
+
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [cartLoaded, setCartLoaded] = useState(false)
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
+  const [supplyCatalog, setSupplyCatalog] = useState<SupplyItemCatalogCard[]>([])
+  const [supplyCategories, setSupplyCategories] = useState<Array<{ id: string; name: string; code: string; count: number }>>([])
+  const [teacherClassroom, setTeacherClassroom] = useState<{ id: string; name: string; code: string } | null>(null)
+  const [supplyBranchName, setSupplyBranchName] = useState<string | null>(null)
+  const [catalogLoading, setCatalogLoading] = useState(false)
+  const [fulfilModalReq, setFulfilModalReq] = useState<SupplyRequestApprovalItem | null>(null)
+  const [detailModalReq, setDetailModalReq] = useState<SupplyRequestApprovalItem | null>(null)
+
+  // Load persistent cart from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(cartStorageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          setCart(parsed)
+        }
+      }
+    } catch {}
+    setCartLoaded(true)
+  }, [cartStorageKey])
+
+  // Sync cart changes to localStorage
+  useEffect(() => {
+    if (!cartLoaded) return
+    try {
+      localStorage.setItem(cartStorageKey, JSON.stringify(cart))
+    } catch {}
+  }, [cart, cartLoaded, cartStorageKey])
+
+  // Teacher's own requests
+  const myRequests = useMemo(() => {
+    return requests.filter(
+      (r) => r.requestedById === session.uid || r.requestedByName === session.name
+    )
+  }, [requests, session.uid, session.name])
 
   // Fetch functions
   const loadDashboard = useCallback(async () => {
@@ -247,6 +308,25 @@ export function InventoryClient({ session }: { session: SessionProps }) {
     } catch {}
   }, [])
 
+  const loadSupplyCatalog = useCallback(async () => {
+    setCatalogLoading(true)
+    try {
+      const res = await fetch('/api/v1/inventory/supply-store/catalog').then((r) => r.json())
+      if (res.success && res.data) {
+        setSupplyCatalog(res.data.items || [])
+        setSupplyCategories(res.data.categories || [])
+        if (res.data.classroom) {
+          setTeacherClassroom(res.data.classroom)
+          setSelectedClassroomId((prev) => prev || res.data.classroom.id)
+        }
+        if (res.data.branchName) {
+          setSupplyBranchName(res.data.branchName)
+        }
+      }
+    } catch {}
+    setCatalogLoading(false)
+  }, [])
+
   const reloadAll = useCallback(async () => {
     setLoading(true)
     await Promise.all([
@@ -258,13 +338,125 @@ export function InventoryClient({ session }: { session: SessionProps }) {
       loadMasters(),
       loadProcurement(),
       loadReportsAndAudit(),
+      loadSupplyCatalog(),
     ])
     setLoading(false)
-  }, [loadDashboard, loadItems, loadRequests, loadDistributions, loadStores, loadMasters, loadProcurement, loadReportsAndAudit])
+  }, [loadDashboard, loadItems, loadRequests, loadDistributions, loadStores, loadMasters, loadProcurement, loadReportsAndAudit, loadSupplyCatalog])
 
   useEffect(() => {
     reloadAll()
   }, [reloadAll])
+
+  // Cart & Approval Handlers
+  const handleAddToCart = useCallback((item: SupplyItemCatalogCard, quantity: number) => {
+    setCart((prev) => {
+      const existingIndex = prev.findIndex((ci) => ci.itemId === item.id)
+      if (existingIndex >= 0) {
+        const updated = [...prev]
+        const newQty = updated[existingIndex].quantity + quantity
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: item.availableStock > 0 ? Math.min(newQty, item.availableStock) : newQty,
+          availableStock: item.availableStock,
+        }
+        return updated
+      } else {
+        return [
+          ...prev,
+          {
+            itemId: item.id,
+            name: item.name,
+            sku: item.sku,
+            category: item.category?.name || 'Classroom Supplies',
+            unit: item.unit?.symbol || item.unit?.name || 'unit',
+            quantity,
+            availableStock: item.availableStock,
+            iconEmoji: item.iconEmoji,
+          },
+        ]
+      }
+    })
+    toast.success('Added to Cart', `${item.name} (${quantity}) added to classroom cart.`)
+  }, [toast])
+
+  const handleUpdateCartQuantity = useCallback((itemId: string, newQty: number) => {
+    if (newQty <= 0) {
+      setCart((prev) => prev.filter((ci) => ci.itemId !== itemId))
+      return
+    }
+    setCart((prev) =>
+      prev.map((ci) => (ci.itemId === itemId ? { ...ci, quantity: newQty } : ci))
+    )
+  }, [])
+
+  const handleRemoveFromCart = useCallback((itemId: string) => {
+    setCart((prev) => prev.filter((ci) => ci.itemId !== itemId))
+  }, [])
+
+  const handleClearCart = useCallback(() => {
+    setCart([])
+  }, [])
+
+  const handleCartSubmitSuccess = useCallback((requestNumber: string) => {
+    setCart([])
+    try {
+      localStorage.removeItem(cartStorageKey)
+    } catch {}
+    setCartDrawerOpen(false)
+    toast.success('Request Submitted', `Classroom Supply Request #${requestNumber} created and sent for approval.`)
+    loadRequests()
+    loadDashboard()
+    loadSupplyCatalog()
+    setStoreSubView('MY_REQUESTS')
+  }, [cartStorageKey, toast, loadRequests, loadDashboard, loadSupplyCatalog])
+
+  const handleApproveSupplyRequest = useCallback(async (id: string, notes?: string) => {
+    try {
+      const res = await fetch(`/api/v1/inventory/material-requests/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Approved', `Material request approved. Ready for fulfilment.`)
+        await loadRequests()
+        await loadDashboard()
+        setDetailModalReq((prev) => (prev && prev.id === id ? { ...prev, status: 'APPROVED', approvedByName: session.name } : prev))
+      } else {
+        toast.error('Approval Failed', json.error?.message || 'Could not approve request')
+      }
+    } catch (err: any) {
+      toast.error('Error', err.message)
+    }
+  }, [toast, loadRequests, loadDashboard, session.name])
+
+  const handleRejectSupplyRequest = useCallback(async (id: string, reason: string) => {
+    try {
+      const res = await fetch(`/api/v1/inventory/material-requests/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success('Rejected', `Material request rejected.`)
+        await loadRequests()
+        await loadDashboard()
+        setDetailModalReq((prev) => (prev && prev.id === id ? { ...prev, status: 'REJECTED', rejectionReason: reason, rejectedByName: session.name } : prev))
+      } else {
+        toast.error('Rejection Failed', json.error?.message || 'Could not reject request')
+      }
+    } catch (err: any) {
+      toast.error('Error', err.message)
+    }
+  }, [toast, loadRequests, loadDashboard, session.name])
+
+  const handleFulfilSupplyRequestSuccess = useCallback(async (result: any) => {
+    toast.success('Stock Issued', `Issue #${result.issueNumber} completed. Stock deducted.`)
+    setFulfilModalReq(null)
+    await Promise.all([loadRequests(), loadStores(), loadDashboard(), loadDistributions(), loadSupplyCatalog()])
+  }, [toast, loadRequests, loadStores, loadDashboard, loadDistributions, loadSupplyCatalog])
 
   // Drawer Opener
   const openDrawer = (type: 'REQUEST' | 'PO' | 'GRN' | 'ITEM' | 'STOCK' | 'DISTRIBUTION', data: any) => {
@@ -1073,6 +1265,32 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         }
         actions={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {activeTab === 'STORE' && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setCartDrawerOpen(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+              >
+                <ShoppingCart size={15} />
+                <span>Classroom Cart</span>
+                {cart.length > 0 && (
+                  <span
+                    style={{
+                      background: '#ffffff',
+                      color: 'var(--primary, #7c3aed)',
+                      borderRadius: '9999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      padding: '1px 6px',
+                      marginLeft: 2,
+                    }}
+                  >
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </button>
+            )}
             {activeTab === 'OVERVIEW' && (
               !isTeacher && canProcure ? (
                 <button className="btn btn-primary" onClick={() => setPoModalOpen(true)}>
@@ -1131,7 +1349,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         }
       />
 
-      {/* 8 CANONICAL WORKSPACE HORIZONTAL METRO NAVIGATION */}
+      {/* CANONICAL WORKSPACE HORIZONTAL METRO NAVIGATION */}
       <nav
         aria-label="Inventory Workspaces"
         style={{
@@ -1148,9 +1366,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         }}
       >
         {[
+          { key: 'STORE', label: 'Classroom Supply Store', icon: ShoppingCart },
+          { key: 'APPROVALS', label: 'Approvals Inbox', icon: ShieldCheck, badge: requests.filter((r) => r.status === 'PENDING').length || undefined, hide: !canApprove },
           { key: 'OVERVIEW', label: '1. Overview', icon: BarChart3, hide: isTeacher },
-          { key: 'ITEMS', label: '2. Items & Stock', icon: Package },
-          { key: 'DISTRIBUTION', label: '3. Requests & Distribution', icon: Sparkles, badge: requests.filter((r) => r.status === 'PENDING').length || undefined },
+          { key: 'ITEMS', label: '2. Items & Stock', icon: Package, hide: isTeacher },
+          { key: 'DISTRIBUTION', label: isTeacher ? 'Classroom Distributions' : '3. Requests & Distribution', icon: Sparkles, badge: isTeacher ? undefined : requests.filter((r) => r.status === 'PENDING').length || undefined },
           { key: 'STORES', label: '4. Stores & Transfers', icon: Warehouse, hide: isTeacher },
           { key: 'PROCUREMENT', label: '5. Procurement', icon: ShoppingCart, hide: isTeacher },
           { key: 'RECEIVING', label: '6. Receiving (GRN)', icon: Truck, hide: isTeacher },
@@ -1165,7 +1385,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               <button
                 key={tab.key}
                 type="button"
-                onClick={() => setActiveTab(tab.key as TabKey)}
+                onClick={() => {
+                  setActiveTab(tab.key as TabKey)
+                  if (tab.key === 'STORE') {
+                    loadSupplyCatalog()
+                  }
+                }}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1209,6 +1434,150 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             )
           })}
       </nav>
+
+      {/* ========================================================================= */}
+      {/* WORKSPACE: CLASSROOM SUPPLY STORE (AMAZON-STYLE TEACHER CART & REQUESTS)  */}
+      {/* ========================================================================= */}
+      {activeTab === 'STORE' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Top Sub-navigation & Fast Action Bar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 12,
+              background: 'var(--surface-card)',
+              padding: '12px 18px',
+              borderRadius: 'var(--radius-lg, 16px)',
+              border: '1px solid var(--border-default)',
+              boxShadow: 'var(--elevation-1)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setStoreSubView('CATALOG')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  borderRadius: '9999px',
+                  fontSize: '0.85rem',
+                  fontWeight: storeSubView === 'CATALOG' ? 700 : 500,
+                  background: storeSubView === 'CATALOG' ? 'var(--primary, #7c3aed)' : 'transparent',
+                  color: storeSubView === 'CATALOG' ? '#ffffff' : 'var(--text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>🖍️ Browse Supply Catalog</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStoreSubView('MY_REQUESTS')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  borderRadius: '9999px',
+                  fontSize: '0.85rem',
+                  fontWeight: storeSubView === 'MY_REQUESTS' ? 700 : 500,
+                  background: storeSubView === 'MY_REQUESTS' ? 'var(--primary, #7c3aed)' : 'transparent',
+                  color: storeSubView === 'MY_REQUESTS' ? '#ffffff' : 'var(--text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>📋 My Requests</span>
+                {myRequests.length > 0 && (
+                  <span
+                    style={{
+                      background: storeSubView === 'MY_REQUESTS' ? 'rgba(255,255,255,0.25)' : 'var(--bg-muted)',
+                      color: storeSubView === 'MY_REQUESTS' ? '#ffffff' : 'var(--text-muted)',
+                      padding: '1px 7px',
+                      borderRadius: '9999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {myRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setCartDrawerOpen(true)}
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: '9999px' }}
+              >
+                <ShoppingCart size={16} />
+                <span>View Cart</span>
+                <span
+                  style={{
+                    background: '#ffffff',
+                    color: 'var(--primary, #7c3aed)',
+                    borderRadius: '9999px',
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    padding: '2px 7px',
+                  }}
+                >
+                  {cart.reduce((s, c) => s + c.quantity, 0)}
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {storeSubView === 'CATALOG' ? (
+            <TeacherSupplyStore
+              items={supplyCatalog}
+              categories={supplyCategories}
+              cart={cart}
+              onAddToCart={handleAddToCart}
+              onUpdateCartQuantity={handleUpdateCartQuantity}
+              onOpenCart={() => setCartDrawerOpen(true)}
+              loading={catalogLoading}
+              assignedClassroom={teacherClassroom}
+              branchName={supplyBranchName}
+            />
+          ) : (
+            <MySupplyRequestsList
+              requests={myRequests}
+              onViewDetails={(req) => setDetailModalReq(req)}
+              onOpenStore={() => setStoreSubView('CATALOG')}
+              loading={loading}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* WORKSPACE: APPROVALS INBOX (PRINCIPAL / ADMIN SUPPLY REVIEW QUEUE)        */}
+      {/* ========================================================================= */}
+      {activeTab === 'APPROVALS' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <SupplyApprovalInbox
+            requests={requests}
+            onApprove={handleApproveSupplyRequest}
+            onReject={handleRejectSupplyRequest}
+            onOpenFulfillModal={(req) => setFulfilModalReq(req)}
+            onViewDetails={(req) => setDetailModalReq(req)}
+            loading={loading}
+            canApprove={canApprove}
+            canFulfill={canManageStock}
+          />
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* WORKSPACE 1: OVERVIEW (FLUENT METRO COMMAND CENTER)                       */}
@@ -1660,10 +2029,17 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {!isTeacher && canManageStock && (
                 <>
-                  <button className="btn btn-sm btn-primary" onClick={() => setClassroomDistModalOpen(true)}>
+                  <button
+                    className="btn btn-sm btn-primary"
+                    style={{ background: '#7c3aed', color: '#ffffff', border: 'none' }}
+                    onClick={() => setWelcomeKitModalOpen(true)}
+                  >
+                    <Package size={14} /> Issue Welcome Kit
+                  </button>
+                  <button className="btn btn-sm btn-outline" onClick={() => setClassroomDistModalOpen(true)}>
                     <GraduationCap size={14} /> Classroom Issue
                   </button>
-                  <button className="btn btn-sm btn-primary" onClick={() => setStudentDistModalOpen(true)}>
+                  <button className="btn btn-sm btn-outline" onClick={() => setStudentDistModalOpen(true)}>
                     <User size={14} /> Student Issue
                   </button>
                   <button className="btn btn-sm btn-outline" onClick={() => setDeptDistModalOpen(true)}>
@@ -1958,9 +2334,24 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <td style={{ padding: '12px 14px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{fmtDate(d.issueDate || d.createdAt)}</td>
                         <td style={{ padding: '12px 14px', fontSize: '0.85rem' }}>{d.notes || '—'}</td>
                         <td style={{ padding: '12px 14px' }}>
-                          <button className="btn btn-sm btn-ghost" onClick={() => openDrawer('DISTRIBUTION', d)} title="Inspect Distribution Record">
-                            <Eye size={14} />
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <button className="btn btn-sm btn-ghost" onClick={() => openDrawer('DISTRIBUTION', d)} title="Inspect Distribution Record">
+                              <Eye size={14} />
+                            </button>
+                            {d.destinationType === 'STUDENT' && (
+                              <button
+                                className="btn btn-sm btn-ghost"
+                                style={{ color: '#7c3aed' }}
+                                onClick={() => {
+                                  setSelectedKitId(d.id)
+                                  setHandoverSlipModalOpen(true)
+                                }}
+                                title="Print Handover Slip"
+                              >
+                                <FileText size={14} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -4574,6 +4965,74 @@ export function InventoryClient({ session }: { session: SessionProps }) {
           </div>
         </form>
       </Modal>
+
+      {/* CLASSROOM REQUEST CART DRAWER */}
+      <ClassroomRequestCartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+        cart={cart}
+        onUpdateQuantity={handleUpdateCartQuantity}
+        onRemoveItem={handleRemoveFromCart}
+        onClearCart={handleClearCart}
+        classrooms={classrooms}
+        selectedClassroomId={selectedClassroomId}
+        onSelectClassroom={setSelectedClassroomId}
+        onSubmitSuccess={handleCartSubmitSuccess}
+        teacherName={session.name || 'Teacher'}
+        branchName={supplyBranchName}
+      />
+
+      {/* SUPPLY FULFILMENT MODAL (PHYSICAL STOCK ISSUE) */}
+      <SupplyFulfilmentModal
+        open={Boolean(fulfilModalReq)}
+        onClose={() => setFulfilModalReq(null)}
+        request={fulfilModalReq}
+        locations={locations}
+        onFulfillSuccess={handleFulfilSupplyRequestSuccess}
+      />
+
+      {/* SUPPLY REQUEST DETAIL MODAL */}
+      <SupplyRequestDetailModal
+        open={Boolean(detailModalReq)}
+        onClose={() => setDetailModalReq(null)}
+        request={detailModalReq}
+        canApprove={canApprove}
+        canFulfill={canManageStock}
+        onApprove={(id) => handleApproveSupplyRequest(id)}
+        onReject={(req) => {
+          setDetailModalReq(null)
+          const reason = window.prompt('Enter reason for rejection:')
+          if (reason?.trim()) {
+            handleRejectSupplyRequest(req.id, reason.trim())
+          }
+        }}
+        onFulfill={(req) => {
+          setDetailModalReq(null)
+          setFulfilModalReq(req)
+        }}
+      />
+
+      {/* 1-CLICK STUDENT WELCOME KIT MODAL */}
+      <IssueWelcomeKitModal
+        open={welcomeKitModalOpen}
+        onClose={() => setWelcomeKitModalOpen(false)}
+        locations={locations}
+        onSuccess={(result) => {
+          toast.success('Welcome Kit Issued', `Kit ${result.kitNumber} successfully issued!`)
+          setSelectedKitId(result.kitIssuance?.id || result.kitNumber)
+          setHandoverSlipModalOpen(true)
+          loadDistributions()
+          loadStores()
+          loadDashboard()
+        }}
+      />
+
+      {/* PRINTABLE KIT HANDOVER SLIP MODAL */}
+      <KitHandoverSlipModal
+        open={handoverSlipModalOpen}
+        onClose={() => setHandoverSlipModalOpen(false)}
+        kitIssuanceId={selectedKitId}
+      />
     </>
   )
 }
