@@ -1,9 +1,10 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, Errors } from '@/lib/api'
+import { ok, fail, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { SettingsService } from '@/lib/settings/settings-service'
 import { ConfigDomain } from '@prisma/client'
+import { isPreOneError } from '@/lib/errors'
 
 /**
  * GET /api/v1/settings
@@ -18,6 +19,9 @@ async function _GET(req: NextRequest) {
     const settings = await SettingsService.getEffectiveSettings(session.tenantId)
     return ok(settings)
   } catch (e: any) {
+    if (isPreOneError(e) && e.isOperational()) {
+      return fail(e.code, e.userMessage, e.httpStatus, e.field, e.details)
+    }
     return Errors.system(e)
   }
 }
@@ -59,6 +63,9 @@ async function _PUT(req: NextRequest) {
 
     return Errors.validation('Either domain + data or profile object is required')
   } catch (e: any) {
+    if (isPreOneError(e) && e.isOperational()) {
+      return fail(e.code, e.userMessage, e.httpStatus, e.field, e.details)
+    }
     return Errors.system(e)
   }
 }

@@ -17,6 +17,8 @@ import bcrypt from 'bcryptjs'
 import type { ConfigDomain } from '@prisma/client'
 import { getDomainConfig } from '@/lib/config'
 import { SessionService } from '@/lib/users/session-service'
+import { errNotFound, errValidation } from '@/lib/errors'
+import { validateSchoolProfileInput, type SchoolProfileInput } from './settings-validation'
 
 export interface ScopeActor {
   id: string
@@ -159,44 +161,38 @@ export class SettingsService {
    */
   static async updateSchoolProfile(
     tenantId: string,
-    data: {
-      name?: string
-      email?: string
-      phone?: string
-      website?: string
-      address?: string
-      city?: string
-      state?: string
-      pincode?: string
-      timezone?: string
-      locale?: string
-      logoUrl?: string
-      academicYearStartMonth?: number
-      gstNumber?: string
-      panNumber?: string
-    },
+    data: SchoolProfileInput,
     actor?: ScopeActor
   ) {
     const existing = await db.tenant.findUnique({ where: { id: tenantId } })
-    if (!existing) throw new Error('Tenant not found')
+    if (!existing) throw errNotFound('School')
+
+    const validation = validateSchoolProfileInput(data)
+    if (!validation.valid) {
+      const firstField = Object.keys(validation.errors)[0]
+      const firstError = validation.errors[firstField]
+      throw errValidation(firstError, firstField, undefined, { fieldErrors: validation.errors })
+    }
+
+    const { normalized } = validation
 
     const updated = await db.tenant.update({
       where: { id: tenantId },
       data: {
-        name: data.name !== undefined ? data.name.trim() : undefined,
-        email: data.email !== undefined ? data.email.trim() : undefined,
-        phone: data.phone !== undefined ? data.phone.trim() : undefined,
-        website: data.website !== undefined ? data.website.trim() : undefined,
-        address: data.address !== undefined ? data.address.trim() : undefined,
-        city: data.city !== undefined ? data.city.trim() : undefined,
-        state: data.state !== undefined ? data.state.trim() : undefined,
-        pincode: data.pincode !== undefined ? data.pincode.trim() : undefined,
-        timezone: data.timezone,
-        locale: data.locale,
-        logoUrl: data.logoUrl,
-        academicYearStartMonth: data.academicYearStartMonth,
-        gstNumber: data.gstNumber !== undefined ? data.gstNumber.trim() : undefined,
-        panNumber: data.panNumber !== undefined ? data.panNumber.trim() : undefined,
+        ...(normalized.name !== undefined ? { name: normalized.name } : {}),
+        ...(normalized.email !== undefined ? { email: normalized.email } : {}),
+        ...(normalized.phone !== undefined ? { phone: normalized.phone } : {}),
+        ...(normalized.website !== undefined ? { website: normalized.website } : {}),
+        ...(normalized.address !== undefined ? { address: normalized.address } : {}),
+        ...(normalized.city !== undefined ? { city: normalized.city } : {}),
+        ...(normalized.state !== undefined ? { state: normalized.state } : {}),
+        ...(normalized.pincode !== undefined ? { pincode: normalized.pincode } : {}),
+        ...(normalized.timezone !== undefined ? { timezone: normalized.timezone } : {}),
+        ...(normalized.locale !== undefined ? { locale: normalized.locale } : {}),
+        ...(normalized.logoUrl !== undefined ? { logoUrl: normalized.logoUrl } : {}),
+        ...(normalized.academicYearStartMonth !== undefined ? { academicYearStartMonth: normalized.academicYearStartMonth } : {}),
+        ...(normalized.gstNumber !== undefined ? { gstNumber: normalized.gstNumber } : {}),
+        ...(normalized.panNumber !== undefined ? { panNumber: normalized.panNumber } : {}),
       },
     })
 
@@ -213,7 +209,7 @@ export class SettingsService {
       ipAddress: actor?.ipAddress,
       userAgent: actor?.userAgent,
       oldValues: { name: existing.name, email: existing.email, phone: existing.phone, timezone: existing.timezone },
-      newValues: data,
+      newValues: normalized,
     })
 
     return updated
