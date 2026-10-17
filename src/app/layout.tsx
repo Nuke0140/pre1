@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import PreHydration from "@/components/PreHydration";
 import "./globals.css";
+import "./typography.css";
 
 export const metadata: Metadata = {
   title: "PreOne — Preschool Operating System",
