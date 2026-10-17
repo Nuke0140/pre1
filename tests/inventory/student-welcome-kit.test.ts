@@ -8,6 +8,7 @@ import { GET as bundlesGet } from '@/app/api/v1/inventory/welcome-kits/bundles/r
 import { GET as eligibilityGet } from '@/app/api/v1/inventory/welcome-kits/eligibility/route'
 import { POST as issuePost } from '@/app/api/v1/inventory/welcome-kits/issue/route'
 import { GET as slipGet } from '@/app/api/v1/inventory/welcome-kits/slip/route'
+import { GET as studentsGet } from '@/app/api/v1/inventory/welcome-kits/students/route'
 
 describe('PreOne Inventory Module — Student Welcome Kit Bundles (1-Click Atomic Issuance)', () => {
   let tenantA: string
@@ -866,6 +867,28 @@ describe('PreOne Inventory Module — Student Welcome Kit Bundles (1-Click Atomi
       expect(json.success).toBe(true)
       expect(json.data.kitNumber).toBe(kitNum)
       expect(json.data.totalItemsQuantity).toBe(5)
+    })
+
+    it('GET /api/v1/inventory/welcome-kits/students returns eligible paginated students', async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/v1/inventory/welcome-kits/students?branchId=${branchA1}`,
+        {
+          method: 'GET',
+          headers: {
+            cookie: `${SESSION_COOKIE}=${principalCookieA}`,
+          },
+        }
+      )
+
+      const res = await studentsGet(req)
+      expect(res.status).toBe(200)
+      const json = await res.json()
+      expect(json.success).toBe(true)
+      expect(Array.isArray(json.data.students)).toBe(true)
+      expect(json.data.students.length).toBeGreaterThan(0)
+      expect(json.data.pagination).toBeDefined()
+      expect(json.data.pagination.total).toBeGreaterThan(0)
+      expect(json.data.students[0].status).toBe('ACTIVE')
     })
   })
 })
