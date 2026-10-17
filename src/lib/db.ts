@@ -40,9 +40,12 @@ function runtimeUrl(raw: string): string {
     url = `${url}${sep}sslmode=require`
   }
 
-  // Optimize connection limit to prevent connection pool exhaustion in serverless environments
+  // Optimize connection limit:
+  // Prisma interactive transactions ($transaction(async tx => ...)) require at least 2 connections
+  // to avoid pool deadlocks, and cloud poolers (PgBouncer/Neon) easily support 10 connections per container.
+  // Setting connection_limit=10 prevents transaction deadlocks and connection acquisition timeouts.
   const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NETLIFY)
-  const defaultLimit = isServerless ? (isPooler ? '1' : '3') : '20'
+  const defaultLimit = isServerless ? '10' : '20'
 
   if (!url.includes('connection_limit=')) {
     const sep = url.includes('?') ? '&' : '?'
@@ -52,12 +55,12 @@ function runtimeUrl(raw: string): string {
   // Connection timeouts for serverless cold-start resilience
   if (!url.includes('connect_timeout=')) {
     const sep = url.includes('?') ? '&' : '?'
-    url = `${url}${sep}connect_timeout=15`
+    url = `${url}${sep}connect_timeout=30`
   }
 
   if (!url.includes('pool_timeout=')) {
     const sep = url.includes('?') ? '&' : '?'
-    url = `${url}${sep}pool_timeout=15`
+    url = `${url}${sep}pool_timeout=30`
   }
 
   return url

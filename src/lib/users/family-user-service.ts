@@ -312,6 +312,9 @@ export class FamilyUserService {
           student: createdStudent,
           isNewStudent: true,
         }
+      }, {
+        maxWait: 10000,
+        timeout: 25000,
       })
     } else {
       // ─────────────────────────────────────────────────────────────
@@ -539,6 +542,9 @@ export class FamilyUserService {
           isNewStudent: false,
           isAlreadyLinked: Boolean(existingLink),
         }
+      }, {
+        maxWait: 10000,
+        timeout: 25000,
       })
     }
   }
@@ -670,6 +676,9 @@ export class FamilyUserService {
         studentGuardian: link,
         isAlreadyLinked: Boolean(existingLink),
       }
+    }, {
+      maxWait: 10000,
+      timeout: 25000,
     })
   }
 }

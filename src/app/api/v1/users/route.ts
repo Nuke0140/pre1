@@ -69,17 +69,28 @@ export const GET = withApi(async (req: NextRequest) => {
     opts: { skipRole?: boolean; skipStatus?: boolean; skipUserType?: boolean } = {}
   ) => {
     const { skipRole = false, skipStatus = false, skipUserType = false } = opts
+    const includeDeleted =
+      url.searchParams.get('includeDeleted') === 'true' ||
+      statusFilter?.toUpperCase() === 'INACTIVE' ||
+      statusFilter?.toUpperCase() === 'DEACTIVATED' ||
+      statusFilter?.toUpperCase() === 'ARCHIVED'
     const andConditions: any[] = [
       { tenantId: session.tenantId },
-      { deletedAt: null },
+      ...(includeDeleted ? [] : [{ deletedAt: null }]),
     ]
 
     if (!skipRole && roleFilter) {
       andConditions.push({ OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] })
     }
 
-    if (!skipStatus && statusFilter && ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING'].includes(statusFilter)) {
-      andConditions.push({ status: statusFilter })
+    if (
+      !skipStatus &&
+      statusFilter &&
+      ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING', 'LOCKED', 'DEACTIVATED', 'ARCHIVED'].includes(
+        statusFilter.toUpperCase()
+      )
+    ) {
+      andConditions.push({ status: statusFilter.toUpperCase() })
     }
 
     if (effectiveBranchId) {
@@ -1071,6 +1082,8 @@ export const POST = withApi(async (req: NextRequest) => {
     throw errValidation(firstErr, firstField)
   }
 
+  const passwordHash = await bcrypt.hash(effectivePassword, 10)
+
   // Run creation inside an atomic transaction
   const result = await db.$transaction(async (tx) => {
     let user = await tx.user.findUnique({ where: { email: emailNorm } })
@@ -1083,7 +1096,7 @@ export const POST = withApi(async (req: NextRequest) => {
           username: finalUsername || undefined,
           phone: phoneNorm,
           avatarUrl: avatarUrl?.trim() || null,
-          passwordHash: await bcrypt.hash(effectivePassword, 10),
+          passwordHash,
           mustChangePassword: mustChangePassword,
           status: initialStatus,
           locale: locale || 'en-IN',
@@ -1565,6 +1578,9 @@ export const POST = withApi(async (req: NextRequest) => {
       staffProfileRecord,
       assignedClassroom,
     }
+  }, {
+    maxWait: 10000,
+    timeout: 25000,
   })
 
   if (customRoleIds && Array.isArray(customRoleIds) && customRoleIds.length > 0) {

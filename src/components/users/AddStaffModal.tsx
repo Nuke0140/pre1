@@ -538,7 +538,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       if (!res.ok) {
         const errorMsg =
           typeof json.error === 'object'
-            ? json.error?.message
+            ? json.error?.details?.originalMessage || json.error?.message
             : typeof json.error === 'string'
             ? json.error
             : json.message || 'Failed to create staff account'

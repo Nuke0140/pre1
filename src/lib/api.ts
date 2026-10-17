@@ -84,7 +84,19 @@ export const Errors = {
       traceId: currentTrace,
     }, error)
 
-    return fail('SYSTEM_001', 'Something went wrong on our side', 500)
+    const rawMsg = (e as any)?.message || error.message || ''
+    const safeMsg =
+      rawMsg && !rawMsg.includes('password') && !rawMsg.includes('secret')
+        ? rawMsg
+        : undefined
+
+    return fail(
+      'SYSTEM_001',
+      'Something went wrong on our side. Please try again or contact support.',
+      500,
+      undefined,
+      safeMsg ? { originalMessage: safeMsg } : undefined
+    )
   },
 }
 
