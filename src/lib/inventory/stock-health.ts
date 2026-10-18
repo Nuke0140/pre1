@@ -57,7 +57,7 @@ export interface StockHealthItemInput {
   reorderLevel?: number | string | any
   maximumStock?: number | string | any | null
   unit?: { id?: string; name?: string; symbol?: string } | null
-  defaultVendor?: { id?: string; name?: string; code?: string } | null
+  defaultVendor?: { id?: string; name?: string; code?: string; phone?: string | null; contactPerson?: string | null } | null
   defaultVendorId?: string | null
   costPriceCents?: number | null
   stocks?: Array<{
@@ -257,7 +257,7 @@ export interface StockHealthRadarSummary {
     label: string
     severity: StockHealthSeverity
     suggestedReorderQuantity: number
-    defaultVendor: { id?: string; name?: string; code?: string } | null
+    defaultVendor: { id?: string; name?: string; code?: string; phone?: string | null; contactPerson?: string | null } | null
     costPriceCents?: number | null
     categoryName?: string
   }>
@@ -272,7 +272,7 @@ export interface StockHealthRadarSummary {
     label: string
     severity: StockHealthSeverity
     suggestedReorderQuantity: number
-    defaultVendor: { id?: string; name?: string; code?: string } | null
+    defaultVendor: { id?: string; name?: string; code?: string; phone?: string | null; contactPerson?: string | null } | null
     costPriceCents?: number | null
     categoryName?: string
   }>

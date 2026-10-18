@@ -849,7 +849,7 @@ export class InventoryService {
         include: {
           category: { select: { id: true, name: true, code: true } },
           unit: { select: { id: true, name: true, symbol: true } },
-          defaultVendor: { select: { id: true, name: true, code: true } },
+          defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
           stocks: params?.branchId ? { where: { branchId: params.branchId } } : true,
         },
         orderBy: { name: 'asc' },
@@ -3000,7 +3000,7 @@ export class InventoryService {
       include: {
         category: { select: { id: true, name: true, code: true } },
         unit: { select: { id: true, name: true, symbol: true } },
-        defaultVendor: { select: { id: true, name: true, code: true } },
+        defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
         stocks: branchId ? { where: { branchId } } : true,
       },
     })
@@ -3033,7 +3033,7 @@ export class InventoryService {
       include: {
         category: { select: { id: true, name: true, code: true } },
         unit: { select: { id: true, name: true, symbol: true } },
-        defaultVendor: { select: { id: true, name: true, code: true } },
+        defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
         stocks: branchId ? { where: { branchId } } : true,
       },
       orderBy: { name: 'asc' },

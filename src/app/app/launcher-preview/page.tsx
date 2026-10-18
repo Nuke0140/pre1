@@ -1,5 +1,4 @@
-import React from 'react';
-import LauncherButtonGallery from '@/components/preone/LauncherButtonGallery';
+import { LauncherButtonGallery } from '@/components/preone/LauncherButtonGallery';
 
 export const metadata = {
   title: 'PreOne Launcher Button — Fluent Metro Preview',

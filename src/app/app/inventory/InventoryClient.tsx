@@ -43,6 +43,7 @@ import {
   HeartPulse,
   AlertOctagon,
   HelpCircle,
+  MessageSquare,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getInventoryNavConfig } from '@/components/preone'
 import { Modal, Drawer } from '@/components/preone/Modal'
@@ -60,6 +61,7 @@ import { SupplyItemCatalogCard } from '@/lib/inventory/supply-cart-service'
 import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModal'
 import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
 import { StockHealthRadar } from '@/components/inventory/StockHealthRadar'
+import { WhatsAppReorderModal } from '@/components/inventory/WhatsAppReorderModal'
 import {
   buildStockHealthRadarSummary,
   StockHealthCategory,
@@ -155,6 +157,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const [vendorModalOpen, setVendorModalOpen] = useState(false)
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [unitModalOpen, setUnitModalOpen] = useState(false)
+
+  // WhatsApp Vendor Re-Ordering
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false)
+  const [whatsAppItems, setWhatsAppItems] = useState<any[]>([])
+  const [selectedCatalogItemIds, setSelectedCatalogItemIds] = useState<Set<string>>(new Set())
+  const [selectedLowStockItemIds, setSelectedLowStockItemIds] = useState<Set<string>>(new Set())
 
   // Selection states for distribution workflows
   const [selectedClassroomId, setSelectedClassroomId] = useState('')
@@ -1194,6 +1202,22 @@ export function InventoryClient({ session }: { session: SessionProps }) {
     setPoModalOpen(true)
   }, [canProcure, canManageStock])
 
+  const handleWhatsAppReorderSingle = useCallback((item: any) => {
+    if (!canProcure && !canManageStock) return
+    setWhatsAppItems([item])
+    setWhatsAppModalOpen(true)
+  }, [canProcure, canManageStock])
+
+  const handleWhatsAppReorderBulk = useCallback((itemsToReorder: any[]) => {
+    if (!canProcure && !canManageStock) return
+    if (!itemsToReorder || itemsToReorder.length === 0) {
+      toast.warning('No Items Selected', 'Please select at least one item to reorder.')
+      return
+    }
+    setWhatsAppItems(itemsToReorder)
+    setWhatsAppModalOpen(true)
+  }, [canProcure, canManageStock, toast])
+
   // Filtered Items
   const filteredItems = useMemo(() => {
     return items.filter((it) => {
@@ -1625,6 +1649,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               }
             }}
             onQuickReorder={handleQuickReorder}
+            onWhatsAppReorder={handleWhatsAppReorderSingle}
+            onBulkWhatsAppReorder={handleWhatsAppReorderBulk}
             canProcure={canProcure}
             canManageStock={canManageStock}
             branchName={session.branchId ? 'Current Branch' : undefined}
@@ -1835,6 +1861,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             selectedCategory={stockHealthFilter}
             onSelectCategory={(cat) => setStockHealthFilter(cat)}
             onQuickReorder={handleQuickReorder}
+            onWhatsAppReorder={handleWhatsAppReorderSingle}
+            onBulkWhatsAppReorder={handleWhatsAppReorderBulk}
             canProcure={canProcure}
             canManageStock={canManageStock}
             branchName={session.branchId ? 'Current Branch' : undefined}
@@ -1912,6 +1940,47 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
           </div>
 
+          {/* Bulk Selection Toolbar */}
+          {selectedCatalogItemIds.size > 0 && (
+            <div
+              style={{
+                padding: '10px 16px',
+                borderRadius: '10px',
+                backgroundColor: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 10,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#065f46', fontWeight: 600 }}>
+                <CheckCircle2 size={16} />
+                <span>{selectedCatalogItemIds.size} item(s) selected</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+                  onClick={() => {
+                    const selected = items.filter((i) => selectedCatalogItemIds.has(i.id))
+                    handleWhatsAppReorderBulk(selected)
+                  }}
+                >
+                  <MessageSquare size={14} /> WhatsApp Vendor Order ({selectedCatalogItemIds.size})
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-ghost text-xs text-slate-600"
+                  onClick={() => setSelectedCatalogItemIds(new Set())}
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Table Card */}
           <div
             className="card overflow-x-auto !p-0"
@@ -1919,6 +1988,21 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
+                  <th style={{ padding: '12px 14px', width: '36px' }}>
+                    <input
+                      type="checkbox"
+                      className="checkbox checkbox-sm"
+                      aria-label="Select all visible items"
+                      checked={filteredItems.length > 0 && filteredItems.every((it) => selectedCatalogItemIds.has(it.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCatalogItemIds(new Set(filteredItems.map((i) => i.id)))
+                        } else {
+                          setSelectedCatalogItemIds(new Set())
+                        }
+                      }}
+                    />
+                  </th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Code</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Category</th>
@@ -1933,7 +2017,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               <tbody>
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: '40px 20px', textAlign: 'center' }}>
+                    <td colSpan={10} style={{ padding: '40px 20px', textAlign: 'center' }}>
                       <div style={{ maxWidth: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <Package size={22} />
@@ -1963,6 +2047,20 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
                     return (
                       <tr key={it.id} className={status === 'OUT_OF_STOCK' ? 'bg-rose-50/20' : ''}>
+                        <td style={{ padding: '12px 14px' }}>
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm"
+                            aria-label={`Select ${it.name}`}
+                            checked={selectedCatalogItemIds.has(it.id)}
+                            onChange={(e) => {
+                              const next = new Set(selectedCatalogItemIds)
+                              if (e.target.checked) next.add(it.id)
+                              else next.delete(it.id)
+                              setSelectedCatalogItemIds(next)
+                            }}
+                          />
+                        </td>
                         <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{it.code || it.sku}</td>
                         <td style={{ padding: '12px 14px' }}>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{it.name}</div>
@@ -2020,13 +2118,22 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                               <Eye size={14} /> Stock Card
                             </button>
                             {(canProcure || canManageStock) && needsReorder && (
-                              <button
-                                className="btn btn-sm btn-outline text-rose-700 hover:bg-rose-50 border-rose-300 dark:text-rose-300 dark:border-rose-800"
-                                onClick={() => handleQuickReorder(it)}
-                                title={`Quick Re-Order (${suggestedReorder} suggested)`}
-                              >
-                                <ShoppingCart size={13} /> Re-Order
-                              </button>
+                              <>
+                                <button
+                                  className="btn btn-sm btn-outline text-emerald-700 hover:bg-emerald-50 border-emerald-300 dark:text-emerald-300 dark:border-emerald-800"
+                                  onClick={() => handleWhatsAppReorderSingle(it)}
+                                  title={`WhatsApp Vendor Re-Order (${suggestedReorder} suggested)`}
+                                >
+                                  <MessageSquare size={13} /> WhatsApp
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline text-rose-700 hover:bg-rose-50 border-rose-300 dark:text-rose-300 dark:border-rose-800"
+                                  onClick={() => handleQuickReorder(it)}
+                                  title={`Quick PO Re-Order (${suggestedReorder} suggested)`}
+                                >
+                                  <ShoppingCart size={13} /> PO
+                                </button>
+                              </>
                             )}
                           </div>
                         </td>
@@ -3255,69 +3362,176 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
           {/* SUB-VIEW 5: LOW STOCK WATCHLIST */}
           {reportSubTab === 'LOW_STOCK' && (
-            <div
-              className="card overflow-x-auto !p-0"
-            >
-              <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Code</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Available Qty</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Level</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Qty</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Shortfall</th>
-                    <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lowStockList.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Top Action Bar for Low Stock Watchlist */}
+              {lowStockList.length > 0 && (canProcure || canManageStock) && (
+                <div
+                  style={{
+                    padding: '10px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#065f46', fontWeight: 600 }}>
+                    <AlertTriangle size={16} className="text-amber-600" />
+                    <span>
+                      {selectedLowStockItemIds.size > 0
+                        ? `${selectedLowStockItemIds.size} of ${lowStockList.length} low-stock item(s) selected`
+                        : `${lowStockList.length} item(s) requiring replenishment`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {selectedLowStockItemIds.size > 0 ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm"
+                          onClick={() => {
+                            const selected = lowStockList.filter((i: any) => selectedLowStockItemIds.has(i.id))
+                            handleWhatsAppReorderBulk(selected)
+                          }}
+                        >
+                          <MessageSquare size={14} /> WhatsApp Selected ({selectedLowStockItemIds.size})
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-ghost text-xs text-slate-600"
+                          onClick={() => setSelectedLowStockItemIds(new Set())}
+                        >
+                          Clear Selection
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm"
+                        onClick={() => handleWhatsAppReorderBulk(lowStockList)}
+                        title="Reorder all low-stock items grouped by vendor"
+                      >
+                        <MessageSquare size={14} /> WhatsApp Re-Order All ({lowStockList.length})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div
+                className="card overflow-x-auto !p-0"
+              >
+                <table className="table" style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                  <thead>
                     <tr>
-                      <td colSpan={7} style={{ padding: '36px 20px', textAlign: 'center' }}>
-                        <div style={{ maxWidth: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                            <CheckCircle2 size={20} />
-                          </div>
-                          <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: 0 }}>
-                            All Stock Levels Healthy
-                          </div>
-                        </div>
-                      </td>
+                      <th style={{ padding: '12px 14px', width: '36px' }}>
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm"
+                          aria-label="Select all low stock items"
+                          checked={lowStockList.length > 0 && lowStockList.every((it: any) => selectedLowStockItemIds.has(it.id))}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLowStockItemIds(new Set(lowStockList.map((i: any) => i.id)))
+                            } else {
+                              setSelectedLowStockItemIds(new Set())
+                            }
+                          }}
+                        />
+                      </th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Code</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Available Qty</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Level</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Qty</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Shortfall</th>
+                      <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Actions</th>
                     </tr>
-                  ) : (
-                    lowStockList.map((item: any) => {
-                      const avail = item.availableQuantity ?? 0
-                      const reorder = item.reorderPoint ?? 10
-                      const shortfall = Math.max(0, reorder - avail)
-                      return (
-                        <tr key={item.id}>
-                          <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{item.code}</td>
-                          <td style={{ padding: '12px 14px', fontWeight: 500 }}>{item.name}</td>
-                          <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--danger, #ef4444)' }}>{avail} {item.unit?.symbol}</td>
-                          <td style={{ padding: '12px 14px' }}>{reorder} {item.unit?.symbol}</td>
-                          <td style={{ padding: '12px 14px' }}>{item.reorderQuantity || 20} {item.unit?.symbol}</td>
-                          <td style={{ padding: '12px 14px' }}>
-                            <span className="badge b-danger">-{shortfall} deficit</span>
-                          </td>
-                          <td style={{ padding: '12px 14px' }}>
-                            {canProcure && (
-                              <button
-                                className="btn btn-sm btn-primary"
-                                onClick={() => {
-                                  setPoLines([{ itemId: item.id, quantityOrdered: item.reorderQuantity || 20, unitPriceCents: item.costPriceCents || 1000, taxRatePercent: 0 }])
-                                  setPoModalOpen(true)
+                  </thead>
+                  <tbody>
+                    {lowStockList.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ padding: '36px 20px', textAlign: 'center' }}>
+                          <div style={{ maxWidth: 360, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(16, 185, 129, 0.12)', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                              <CheckCircle2 size={20} />
+                            </div>
+                            <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--text-primary)', marginBottom: 0 }}>
+                              All Stock Levels Healthy
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      lowStockList.map((item: any) => {
+                        const avail = item.availableQuantity ?? 0
+                        const reorder = item.reorderPoint ?? 10
+                        const shortfall = Math.max(0, reorder - avail)
+                        return (
+                          <tr key={item.id}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm"
+                                aria-label={`Select ${item.name}`}
+                                checked={selectedLowStockItemIds.has(item.id)}
+                                onChange={(e) => {
+                                  const next = new Set(selectedLowStockItemIds)
+                                  if (e.target.checked) next.add(item.id)
+                                  else next.delete(item.id)
+                                  setSelectedLowStockItemIds(next)
                                 }}
-                              >
-                                Create PO
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
+                              />
+                            </td>
+                            <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{item.code}</td>
+                            <td style={{ padding: '12px 14px', fontWeight: 500 }}>
+                              <div>{item.name}</div>
+                              {item.defaultVendor?.name && (
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                  Vendor: {item.defaultVendor.name}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--danger, #ef4444)' }}>{avail} {item.unit?.symbol}</td>
+                            <td style={{ padding: '12px 14px' }}>{reorder} {item.unit?.symbol}</td>
+                            <td style={{ padding: '12px 14px' }}>{item.reorderQuantity || 20} {item.unit?.symbol}</td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <span className="badge b-danger">-{shortfall} deficit</span>
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {(canProcure || canManageStock) && (
+                                  <button
+                                    className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shadow-sm"
+                                    onClick={() => handleWhatsAppReorderSingle(item)}
+                                    title={`WhatsApp Re-Order ${item.name}`}
+                                  >
+                                    <MessageSquare size={13} /> WhatsApp
+                                  </button>
+                                )}
+                                {canProcure && (
+                                  <button
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => {
+                                      setPoLines([{ itemId: item.id, quantityOrdered: item.reorderQuantity || 20, unitPriceCents: item.costPriceCents || 1000, taxRatePercent: 0 }])
+                                      setPoModalOpen(true)
+                                    }}
+                                  >
+                                    Create PO
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -5060,6 +5274,16 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         open={handoverSlipModalOpen}
         onClose={() => setHandoverSlipModalOpen(false)}
         kitIssuanceId={selectedKitId}
+      />
+
+      {/* 1-TAP WHATSAPP VENDOR RE-ORDERING MODAL */}
+      <WhatsAppReorderModal
+        open={whatsAppModalOpen}
+        onClose={() => setWhatsAppModalOpen(false)}
+        initialItems={whatsAppItems}
+        vendors={vendors}
+        schoolName="Sunshine Preschool"
+        branchName={supplyBranchName || (session.branchId ? 'Current Branch' : undefined)}
       />
     </>
   )

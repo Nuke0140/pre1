@@ -11,6 +11,7 @@ import {
   X,
   ChevronRight,
   Package,
+  MessageSquare,
 } from 'lucide-react'
 import type {
   StockHealthRadarSummary,
@@ -27,10 +28,12 @@ export interface StockHealthRadarProps {
     name: string
     sku?: string
     suggestedReorderQuantity?: number
-    defaultVendor?: { id?: string; name?: string; code?: string } | null
+    defaultVendor?: { id?: string; name?: string; code?: string; phone?: string | null; contactPerson?: string | null } | null
     defaultVendorId?: string | null
     costPriceCents?: number | null
   }) => void
+  onWhatsAppReorder?: (item: any) => void
+  onBulkWhatsAppReorder?: (items: any[]) => void
   canProcure?: boolean
   canManageStock?: boolean
   branchName?: string
@@ -42,6 +45,8 @@ export function StockHealthRadar({
   selectedCategory = 'ALL',
   onSelectCategory,
   onQuickReorder,
+  onWhatsAppReorder,
+  onBulkWhatsAppReorder,
   canProcure = false,
   canManageStock = false,
   branchName,
@@ -141,6 +146,18 @@ export function StockHealthRadar({
               Click any card to filter catalog
             </span>
           )}
+
+          {allowReorder && onBulkWhatsAppReorder && (counts.criticalOutOfStock + counts.lowStock) > 0 && (
+            <button
+              type="button"
+              onClick={() => onBulkWhatsAppReorder([...criticalItems, ...lowStockItems])}
+              className="btn btn-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0 font-semibold flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg shadow-sm transition-all"
+              title="Open WhatsApp Vendor Re-Order for all low-stock items"
+            >
+              <MessageSquare size={13} />
+              <span>WhatsApp Re-Order ({counts.criticalOutOfStock + counts.lowStock})</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -221,18 +238,35 @@ export function StockHealthRadar({
                     </div>
                   </div>
 
-                  {allowReorder && onQuickReorder && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onQuickReorder(item)
-                      }}
-                      className="btn btn-xs shrink-0 bg-rose-600 hover:bg-rose-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
-                      title={`Quick Re-Order ${item.name} (Suggested: ${item.suggestedReorderQuantity} ${item.unit})`}
-                    >
-                      <ShoppingCart size={11} /> Re-Order
-                    </button>
+                  {allowReorder && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onWhatsAppReorder && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onWhatsAppReorder(item)
+                          }}
+                          className="btn btn-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
+                          title={`WhatsApp Vendor Re-Order for ${item.name}`}
+                        >
+                          <MessageSquare size={11} /> WhatsApp
+                        </button>
+                      )}
+                      {onQuickReorder && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onQuickReorder(item)
+                          }}
+                          className="btn btn-xs shrink-0 bg-rose-600 hover:bg-rose-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
+                          title={`Quick Re-Order ${item.name} (Suggested: ${item.suggestedReorderQuantity} ${item.unit})`}
+                        >
+                          <ShoppingCart size={11} /> PO
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))
@@ -312,18 +346,35 @@ export function StockHealthRadar({
                     </div>
                   </div>
 
-                  {allowReorder && onQuickReorder && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onQuickReorder(item)
-                      }}
-                      className="btn btn-xs shrink-0 bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
-                      title={`Re-Order ${item.name} (Suggested: ${item.suggestedReorderQuantity} ${item.unit})`}
-                    >
-                      <ShoppingCart size={11} /> Re-Order
-                    </button>
+                  {allowReorder && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onWhatsAppReorder && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onWhatsAppReorder(item)
+                          }}
+                          className="btn btn-xs shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
+                          title={`WhatsApp Vendor Re-Order for ${item.name}`}
+                        >
+                          <MessageSquare size={11} /> WhatsApp
+                        </button>
+                      )}
+                      {onQuickReorder && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onQuickReorder(item)
+                          }}
+                          className="btn btn-xs shrink-0 bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-none px-2 py-0.5 text-[11px] font-semibold flex items-center gap-1"
+                          title={`Re-Order ${item.name} (Suggested: ${item.suggestedReorderQuantity} ${item.unit})`}
+                        >
+                          <ShoppingCart size={11} /> PO
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))
