@@ -26,8 +26,14 @@ export async function requireApi(
     }
   }
 
-  // Enforce mandatory password change (Phase 2)
-  if (session.mustChangePassword) {
+  // Enforce mandatory password change (Phase 2) — non-parent roles only
+  const isParentRole =
+    session.role === 'PARENT' ||
+    session.role === 'GUARDIAN' ||
+    session.roles?.includes('PARENT') ||
+    session.roles?.includes('GUARDIAN')
+
+  if (!isParentRole && session.mustChangePassword) {
     const path = req.nextUrl?.pathname || ''
     const allowedPaths = ['/api/v1/auth/password', '/api/v1/auth/logout', '/api/v1/auth/me']
     if (!allowedPaths.some((p) => path.startsWith(p))) {

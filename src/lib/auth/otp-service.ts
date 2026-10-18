@@ -931,6 +931,20 @@ export class OtpService {
     }
     const effectiveRoles = Array.from(new Set(allRoles.map((r) => normalizeRole(r)))) as Role[]
 
+    const isParentRole =
+      primaryRole === 'PARENT' ||
+      primaryRole === 'GUARDIAN' ||
+      effectiveRoles.includes('PARENT') ||
+      effectiveRoles.includes('GUARDIAN')
+
+    if (isParentRole && (user as any).mustChangePassword) {
+      try {
+        await db.user.update({ where: { id: user.id }, data: { mustChangePassword: false } })
+      } catch {}
+    }
+
+    const effectiveMustChangePassword = isParentRole ? false : Boolean((user as any).mustChangePassword)
+
     const token = await signSession({
       uid: user.id,
       email: user.email || '',
@@ -939,7 +953,7 @@ export class OtpService {
       branchId: branch?.id ?? null,
       role: primaryRole,
       roles: effectiveRoles,
-      mustChangePassword: Boolean((user as any).mustChangePassword),
+      mustChangePassword: effectiveMustChangePassword,
       tokenVersion,
       passwordChangedAt,
     })
@@ -988,11 +1002,11 @@ export class OtpService {
         roles: effectiveRoles,
         tenant: { id: membership.tenantId, name: membership.tenant?.name },
         branch: branch ? { id: branch.id, name: branch.name } : null,
-        mustChangePassword: Boolean((user as any).mustChangePassword),
+        mustChangePassword: effectiveMustChangePassword,
       },
       token,
       locale: userLocale,
-      mustChangePassword: Boolean((user as any).mustChangePassword),
+      mustChangePassword: effectiveMustChangePassword,
     }
   }
 }

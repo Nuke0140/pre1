@@ -15,6 +15,7 @@ export interface BaseIdentityOptions {
   usernameType: UsernameType
   avatarUrl?: string | null
   locale?: string
+  mustChangePassword?: boolean
 }
 
 export interface TenantMembershipOptions {
@@ -97,6 +98,7 @@ export class UserIdentityService {
     }
 
     // Determine password hash using CSPRNG when generated
+    const isParentRole = opts.usernameType === 'PARENT' || opts.usernameType === 'GUARDIAN'
     const isGeneratedPassword = !opts.password || opts.password.trim().length < 8
     let rawPassword = opts.password ? opts.password.trim() : ''
     if (isGeneratedPassword) {
@@ -107,6 +109,10 @@ export class UserIdentityService {
     }
     const passwordHash = await this.hashPassword(rawPassword)
 
+    const effectiveMustChangePassword = opts.mustChangePassword !== undefined
+      ? (isParentRole ? false : opts.mustChangePassword)
+      : (isParentRole ? false : isGeneratedPassword)
+
     if (!user) {
       user = await tx.user.create({
         data: {
@@ -116,7 +122,7 @@ export class UserIdentityService {
           fullName: opts.fullName.trim(),
           avatarUrl: opts.avatarUrl?.trim() || null,
           passwordHash,
-          mustChangePassword: isGeneratedPassword,
+          mustChangePassword: effectiveMustChangePassword,
           status: initialStatus,
           ...(opts.locale ? { locale: opts.locale } : {}),
         },
@@ -129,8 +135,9 @@ export class UserIdentityService {
       const needsUsernameUpdate = !user.username && username
       const needsAvatarUpdate = !user.avatarUrl && opts.avatarUrl?.trim()
       const needsLocaleUpdate = Boolean(opts.locale) && user.locale !== opts.locale
+      const needsPasswordFlagClear = isParentRole && user.mustChangePassword
 
-      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate || needsLocaleUpdate) {
+      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate || needsLocaleUpdate || needsPasswordFlagClear) {
         user = await tx.user.update({
           where: { id: user.id },
           data: {
@@ -139,6 +146,7 @@ export class UserIdentityService {
             ...(needsUsernameUpdate ? { username } : {}),
             ...(needsAvatarUpdate ? { avatarUrl: opts.avatarUrl!.trim() } : {}),
             ...(needsLocaleUpdate ? { locale: opts.locale } : {}),
+            ...(needsPasswordFlagClear ? { mustChangePassword: false } : {}),
           },
         })
       }

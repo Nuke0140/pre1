@@ -96,8 +96,23 @@ export async function middleware(req: NextRequest) {
     return applySecurityHeaders(redirectRes, traceId)
   }
 
-  // If user must change password, restrict browser page access to /app/change-password
-  if (session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/change-password')) {
+  const isParentRole =
+    session.role === 'PARENT' ||
+    session.role === 'GUARDIAN' ||
+    session.roles?.includes('PARENT') ||
+    session.roles?.includes('GUARDIAN')
+
+  // Parents are never forced to change password; if a parent lands on /app/change-password, forward them to /app/dashboard
+  if (isParentRole && pathname.startsWith('/app/change-password')) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/app/dashboard'
+    url.search = ''
+    const redirectRes = NextResponse.redirect(url)
+    return applySecurityHeaders(redirectRes, traceId)
+  }
+
+  // If user must change password (non-parent roles only), restrict browser page access to /app/change-password
+  if (!isParentRole && session.mustChangePassword && isProtectedPage && !pathname.startsWith('/app/change-password')) {
     const url = req.nextUrl.clone()
     url.pathname = '/app/change-password'
     url.search = ''
