@@ -63,12 +63,15 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
     const passwordHash = await bcrypt.hash(rawPassword, 10)
 
+    const isParentRole = member.role === 'PARENT' || member.role === 'GUARDIAN'
+    const effectiveMustChange = isParentRole ? false : (mustChangePassword !== false)
+
     // Update user password and set mustChangePassword flag
     await db.user.update({
       where: { id: member.userId },
       data: {
         passwordHash,
-        mustChangePassword: mustChangePassword !== false,
+        mustChangePassword: effectiveMustChange,
         updatedAt: new Date(),
       },
     })

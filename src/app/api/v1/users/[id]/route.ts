@@ -733,7 +733,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
             ...(password
               ? {
                   passwordHash: await bcrypt.hash(password, 10),
-                  mustChangePassword: true,
+                  mustChangePassword: member.role === 'PARENT' || member.role === 'GUARDIAN' ? false : true,
                 }
               : {}),
             ...(shouldUpdateUserStatus ? { status: lifecycleStatusToApply, updatedAt: new Date() } : {}),

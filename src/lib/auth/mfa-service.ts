@@ -255,6 +255,22 @@ export class MfaService {
     const tokenVersion = typeof userPrefs.tokenVersion === 'number' ? userPrefs.tokenVersion : 0
     const passwordChangedAt = typeof userPrefs.passwordChangedAt === 'number' ? userPrefs.passwordChangedAt : undefined
 
+    const primaryRole = normalizeRole(payload.role)
+    const effectiveRoles = (payload.roles || [primaryRole]).map((r) => normalizeRole(r)) as Role[]
+    const isParentRole =
+      primaryRole === 'PARENT' ||
+      primaryRole === 'GUARDIAN' ||
+      effectiveRoles.includes('PARENT') ||
+      effectiveRoles.includes('GUARDIAN')
+
+    if (isParentRole && (user as any).mustChangePassword) {
+      try {
+        await db.user.update({ where: { id: user.id }, data: { mustChangePassword: false } })
+      } catch {}
+    }
+
+    const effectiveMustChangePassword = isParentRole ? false : Boolean((user as any).mustChangePassword)
+
     // Sign session with mfaVerified: true
     const sessionToken = await signSession({
       uid: user.id,
@@ -264,7 +280,7 @@ export class MfaService {
       branchId: branch?.id ?? null,
       role: payload.role,
       roles: payload.roles,
-      mustChangePassword: Boolean((user as any).mustChangePassword),
+      mustChangePassword: effectiveMustChangePassword,
       mfaVerified: true,
       tokenVersion,
       passwordChangedAt,
@@ -314,12 +330,12 @@ export class MfaService {
         roles: payload.roles,
         tenant: membership?.tenant ? { id: membership.tenantId, name: membership.tenant.name } : null,
         branch: branch ? { id: branch.id, name: branch.name } : null,
-        mustChangePassword: Boolean((user as any).mustChangePassword),
+        mustChangePassword: effectiveMustChangePassword,
         mfaVerified: true,
       },
       token: sessionToken,
       locale: userLocale,
-      mustChangePassword: Boolean((user as any).mustChangePassword),
+      mustChangePassword: effectiveMustChangePassword,
     }
   }
 

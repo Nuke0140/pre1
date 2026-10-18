@@ -84,7 +84,12 @@ export function AppShell({
   const attnBtnRef = useRef<HTMLButtonElement>(null)
   const attnRef = useRef<HTMLDivElement>(null)
 
-  const isPendingPasswordChange = Boolean(user.mustChangePassword || pathname?.startsWith('/app/change-password'))
+  const isParentRole =
+    user.role === 'PARENT' ||
+    user.role === 'GUARDIAN' ||
+    user.roles?.includes('PARENT') ||
+    user.roles?.includes('GUARDIAN')
+  const isPendingPasswordChange = Boolean(!isParentRole && (user.mustChangePassword || pathname?.startsWith('/app/change-password')))
 
   const loadNotifications = useCallback(async () => {
     if (isPendingPasswordChange) return

@@ -67,7 +67,8 @@ export function ResetPasswordModal({
       setGeneratedPassword(generateSecurePassword())
       setCustomPassword('')
       setShowPassword(false)
-      setMustChangePassword(true)
+      const isParentRole = user?.role === 'PARENT' || user?.role === 'GUARDIAN'
+      setMustChangePassword(isParentRole ? false : true)
       setSendEmail(Boolean(user?.email))
       setReason('')
       setResetResult(null)
@@ -328,17 +329,19 @@ export function ResetPasswordModal({
 
             {/* Checkboxes */}
             <div className="space-y-2.5 pt-1 border-t border-gray-100 dark:border-gray-800">
-              <label className="flex items-center gap-2.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={mustChangePassword}
-                  onChange={(e) => setMustChangePassword(e.target.checked)}
-                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                />
-                <span className="font-medium">
-                  Require password change on next sign-in (recommended)
-                </span>
-              </label>
+              {!(user?.role === 'PARENT' || user?.role === 'GUARDIAN') && (
+                <label className="flex items-center gap-2.5 text-xs text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={mustChangePassword}
+                    onChange={(e) => setMustChangePassword(e.target.checked)}
+                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span className="font-medium">
+                    Require password change on next sign-in (recommended)
+                  </span>
+                </label>
+              )}
 
               <label className={`flex items-center gap-2.5 text-xs text-gray-700 dark:text-gray-300 select-none ${user.email ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
                 <input

@@ -1,6 +1,6 @@
 /**
  * PreOne seed — demo tenant "Sunshine Kids Preschool"
- * Users for all 8 roles, 3 classrooms, 24 students, attendance (7 days),
+ * Users for staff roles + platform admin (no seed family users), 3 classrooms, 24 students, attendance (7 days),
  * fee plans, invoices, payments+receipts, announcements, observations, timeline, leads, applications.
  * Password for ALL demo users: Preone@123
  */
@@ -304,32 +304,6 @@ async function main() {
     students.push({ id: s.id, firstName, classroom: roomCode, guardianPhone })
   }
 
-  // Parent portal user linked to 2 children via a single guardian record
-  const parentUser = await db.user.create({
-    data: {
-      email: 'parent@sunshine.demo',
-      username: sanitizeUsernameSlug('Priya Sharma'),
-      fullName: 'Priya Sharma',
-      passwordHash: hash,
-      status: 'ACTIVE',
-    },
-  })
-  await db.tenantUser.create({
-    data: { tenantId: tenant.id, userId: parentUser.id, role: 'PARENT' },
-  })
-  const parentGuardian = await db.guardian.create({
-    data: {
-      tenantId: tenant.id, fullName: 'Priya Sharma', relationship: 'MOTHER',
-      phone: '+919811111111', email: 'priya.sharma@example.in',
-      isPrimaryContact: true, userId: parentUser.id,
-    },
-  })
-  for (const s of students.slice(0, 2)) {
-    await db.studentGuardian.create({
-      data: { studentId: s.id, guardianId: parentGuardian.id, isPrimary: true, canPickup: true, isFeePayer: true },
-    })
-  }
-
   // ── Attendance: last 7 weekdays ──
   let attCount = 0
   for (let d = 0; d < 9; d++) {
@@ -579,7 +553,7 @@ async function main() {
 
   console.log('✅ Seed complete:')
   console.log('   · Tenant: Sunshine Kids Preschool (SUNSHINE)')
-  console.log('   · Users: 7 staff + 1 parent + 1 platform admin — password: Preone@123')
+  console.log('   · Users: 7 staff + 1 platform admin (no seed family users) — password: Preone@123')
   console.log(`   · ${students.length} students, ${attCount} attendance records`)
   console.log('   · 24 invoices (12 paid / 6 partial / 3 overdue), payments + receipts')
   console.log('   · 8 leads, 4 applications, 3 announcements, observations + timeline')

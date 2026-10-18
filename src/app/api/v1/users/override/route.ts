@@ -152,16 +152,19 @@ export const POST = withApi(async (req: NextRequest) => {
           throw errValidation('Password must be at least 8 characters', 'password')
         }
 
+        const isParentRole = targetMember.role === 'PARENT' || targetMember.role === 'GUARDIAN'
+        const effectiveMustChange = isParentRole ? false : true
+
         const passwordHash = await bcrypt.hash(password, 10)
         await tx.user.update({
           where: { id: targetMember.userId },
           data: {
             passwordHash,
-            mustChangePassword: true,
+            mustChangePassword: effectiveMustChange,
             updatedAt: new Date(),
           },
         })
-        newValues = { passwordReset: true, mustChangePassword: true }
+        newValues = { passwordReset: true, mustChangePassword: effectiveMustChange }
         break
       }
 
