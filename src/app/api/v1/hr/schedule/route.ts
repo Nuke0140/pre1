@@ -5,8 +5,9 @@ import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 
 /**
- * GET /api/v1/hr/schedule — Staff Schedule & Teacher-Classroom Allocations
- * Connects directly to Academic Classroom records & LeaveCoverages.
+ * GET /api/v1/hr/schedule — Staff Schedule & Teacher-Classroom Allocations.
+ * Uses the existing Classroom branchId and User→StaffProfile relationship
+ * without assuming Prisma relations that do not exist in the schema.
  */
 async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'hr:read')
@@ -16,10 +17,8 @@ async function _GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams
     const branchId = sp.get('branchId') || undefined
-
     const tenantId = session.tenantId
 
-    // 1. Fetch classrooms with assigned primary teacher, program, and active student allocations
     const classrooms = await db.classroom.findMany({
       where: {
         tenantId,
@@ -28,33 +27,15 @@ async function _GET(req: NextRequest) {
       },
       include: {
         primaryTeacher: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            phone: true,
-            staffProfile: {
-              select: {
-                id: true,
-                employeeCode: true,
-                designation: true,
-                department: true,
-                status: true,
-              },
-            },
-          },
+          select: { id: true, fullName: true, email: true, phone: true },
         },
-        branch: { select: { id: true, name: true, code: true } },
         program: { select: { id: true, name: true, code: true } },
         academicSession: { select: { id: true, name: true } },
-        _count: {
-          select: { students: true },
-        },
+        _count: { select: { students: true } },
       },
-      orderBy: [{ branch: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ name: 'asc' }],
     })
 
-    // 2. Fetch all active staff in this tenant/branch
     const activeStaff = await db.staffProfile.findMany({
       where: {
         tenantId,
@@ -69,13 +50,23 @@ async function _GET(req: NextRequest) {
       orderBy: { employeeCode: 'asc' },
     })
 
-    // 3. Today's leave coverages (substitute teacher allocations)
+    const classroomBranchIds = [...new Set(classrooms.map((c) => c.branchId))]
+    const branches = classroomBranchIds.length
+      ? await db.branch.findMany({
+          where: { tenantId, id: { in: classroomBranchIds } },
+          select: { id: true, name: true, code: true },
+        })
+      : []
+    const branchById = new Map(branches.map((b) => [b.id, b]))
+    const staffByUserId = new Map(activeStaff.map((s) => [s.userId, s]))
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const leaveCoverages = await db.leaveCoverage.findMany({
       where: {
         date: today,
         leaveRequest: { tenantId },
+        ...(branchId ? { classroom: { branchId } } : {}),
       },
       include: {
         classroom: { select: { id: true, name: true, code: true } },
@@ -89,13 +80,9 @@ async function _GET(req: NextRequest) {
       },
     })
 
-    // Collect assigned teacher user IDs
-    const assignedTeacherUserIds = new Set<string>()
-    for (const c of classrooms) {
-      if (c.primaryTeacherId) {
-        assignedTeacherUserIds.add(c.primaryTeacherId)
-      }
-    }
+    const assignedTeacherUserIds = new Set(
+      classrooms.map((c) => c.primaryTeacherId).filter((id): id is string => Boolean(id))
+    )
 
     const unassignedTeachers = activeStaff.filter(
       (s) =>
@@ -106,29 +93,33 @@ async function _GET(req: NextRequest) {
     )
 
     const scheduleData = {
-      classrooms: classrooms.map((c) => ({
-        id: c.id,
-        name: c.name,
-        code: c.code,
-        programType: c.programType,
-        programName: c.program?.name || null,
-        capacity: c.capacity,
-        enrolledCount: c._count.students,
-        branchId: c.branchId,
-        branchName: c.branch?.name || 'Main Campus',
-        primaryTeacher: c.primaryTeacher
-          ? {
-              id: c.primaryTeacher.id,
-              name: c.primaryTeacher.fullName,
-              email: c.primaryTeacher.email,
-              phone: c.primaryTeacher.phone,
-              employeeCode: c.primaryTeacher.staffProfile?.employeeCode || null,
-              designation: c.primaryTeacher.staffProfile?.designation || 'Teacher',
-            }
-          : null,
-        defaultShift: '08:30 AM – 03:30 PM',
-        workingHours: 7.0,
-      })),
+      classrooms: classrooms.map((c) => {
+        const teacherProfile = c.primaryTeacher ? staffByUserId.get(c.primaryTeacher.id) : undefined
+        const branch = branchById.get(c.branchId)
+        return {
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          programType: c.programType,
+          programName: c.program?.name || null,
+          capacity: c.capacity,
+          enrolledCount: c._count.students,
+          branchId: c.branchId,
+          branchName: branch?.name || 'Main Campus',
+          primaryTeacher: c.primaryTeacher
+            ? {
+                id: c.primaryTeacher.id,
+                name: c.primaryTeacher.fullName,
+                email: c.primaryTeacher.email,
+                phone: c.primaryTeacher.phone,
+                employeeCode: teacherProfile?.employeeCode || null,
+                designation: teacherProfile?.designation || 'Teacher',
+              }
+            : null,
+          defaultShift: '08:30 AM – 03:30 PM',
+          workingHours: 7.0,
+        }
+      }),
       unassignedTeachers: unassignedTeachers.map((t) => ({
         id: t.id,
         userId: t.userId,
