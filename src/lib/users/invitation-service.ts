@@ -112,7 +112,7 @@ export class InvitationService {
         email: email.trim().toLowerCase(),
         role,
         tokenHash,
-        rawToken,
+        rawToken: null, // Zero plaintext token storage in database
         status: 'PENDING',
         expiresAt,
         invitedById,
@@ -124,7 +124,7 @@ export class InvitationService {
       },
     })
 
-    const baseOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseOrigin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000'
     const inviteUrl = `${baseOrigin}/invite?token=${rawToken}`
 
     if (sendEmail) {
@@ -276,7 +276,7 @@ export class InvitationService {
       where: { id: invitation.id },
       data: {
         tokenHash,
-        rawToken,
+        rawToken: null, // Zero plaintext token storage in database
         status: 'PENDING',
         expiresAt: newExpiresAt,
         lastResentAt: new Date(),
@@ -296,7 +296,7 @@ export class InvitationService {
       }).catch(() => {})
     }
 
-    const baseOrigin = origin || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseOrigin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000'
     const inviteUrl = `${baseOrigin}/invite?token=${rawToken}`
 
     // 3. Dispatch refreshed invitation email

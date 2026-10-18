@@ -1,0 +1,261 @@
+/* ════════════════════════════════════════════════════════════════════
+   PREONE CLASSROOM FILTER PILLS (1-Tap Classroom Switching Rail)
+   Enterprise Design System: Single-line scrollable, tactile 3D pills,
+   Theme-adaptive, ARIA-accessible, edge-fade masks.
+   ════════════════════════════════════════════════════════════════════ */
+
+.cfp-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.cfp-scroll-track {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0.125rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  width: 100%;
+}
+
+.cfp-scroll-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Edge fade gradients for scroll indication */
+.cfp-has-left-overflow::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to right, var(--surface, #ffffff), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cfp-has-right-overflow::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to left, var(--surface, #ffffff), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+[data-theme="dark"] .cfp-has-left-overflow::before,
+.dark .cfp-has-left-overflow::before {
+  background: linear-gradient(to right, var(--surface-dark, #0f172a), transparent);
+}
+
+[data-theme="dark"] .cfp-has-right-overflow::after,
+.dark .cfp-has-right-overflow::after {
+  background: linear-gradient(to left, var(--surface-dark, #0f172a), transparent);
+}
+
+/* Base Classroom Pill */
+.cfp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill, 999px);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid var(--border-default, #e2e8f0);
+  background: var(--surface, #ffffff);
+  color: var(--text-secondary, #64748b);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all var(--duration-fast, 150ms) cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.cfp-pill:hover:not(:disabled) {
+  border-color: var(--border-strong, #cbd5e1);
+  background: var(--surface-hover, #f8fafc);
+  color: var(--text-primary, #0f172a);
+}
+
+.cfp-pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface, #ffffff), 0 0 0 4px var(--primary, #7c3aed);
+}
+
+.cfp-pill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Active / Selected Classroom Pill */
+.cfp-pill.is-active {
+  background: var(--primary, #7c3aed);
+  border-color: var(--primary, #7c3aed);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.cfp-pill.is-active:hover {
+  background: var(--primary-hover, #6d28d9);
+  border-color: var(--primary-hover, #6d28d9);
+  color: #ffffff;
+}
+
+/* Count Badge Inside Pill */
+.cfp-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.375rem;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-sunken, #f1f5f9);
+  color: var(--text-secondary, #64748b);
+  transition: all var(--duration-fast, 150ms) ease;
+}
+
+.cfp-pill:hover .cfp-pill-count {
+  background: var(--surface-sunken, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+}
+
+.cfp-pill.is-active .cfp-pill-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Program Type Taglet Inside Pill */
+.cfp-pill-tag {
+  font-size: 0.625rem;
+  padding: 0 0.25rem;
+  border-radius: 4px;
+  background: var(--surface-sunken, #f1f5f9);
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.cfp-pill.is-active .cfp-pill-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Compact Overflow Dropdown Trigger ("+N more") */
+.cfp-overflow-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 32px;
+  padding: 0 0.625rem;
+  border-radius: var(--radius-pill, 999px);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px dashed var(--border-default, #cbd5e1);
+  background: var(--surface-sunken, #f8fafc);
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--duration-fast, 150ms) ease;
+}
+
+.cfp-overflow-trigger:hover {
+  border-color: var(--primary, #7c3aed);
+  color: var(--primary, #7c3aed);
+  background: var(--surface, #ffffff);
+}
+
+.cfp-overflow-trigger.is-active {
+  border-style: solid;
+  border-color: var(--primary, #7c3aed);
+  background: var(--primary-light, #f5f3ff);
+  color: var(--primary, #7c3aed);
+  font-weight: 600;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .cfp-pill,
+.dark .cfp-pill {
+  background: var(--surface-dark, #1e293b);
+  border-color: var(--border-dark, #334155);
+  color: var(--text-secondary-dark, #94a3b8);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .cfp-pill:hover:not(:disabled),
+.dark .cfp-pill:hover:not(:disabled) {
+  background: var(--surface-hover-dark, #334155);
+  border-color: var(--border-hover-dark, #475569);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cfp-pill.is-active,
+.dark .cfp-pill.is-active {
+  background: var(--primary, #8b5cf6);
+  border-color: var(--primary, #8b5cf6);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .cfp-pill-count,
+.dark .cfp-pill-count {
+  background: var(--surface-sunken-dark, #0f172a);
+  color: var(--text-secondary-dark, #94a3b8);
+}
+
+[data-theme="dark"] .cfp-pill.is-active .cfp-pill-count,
+.dark .cfp-pill.is-active .cfp-pill-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .cfp-pill-tag,
+.dark .cfp-pill-tag {
+  background: var(--surface-sunken-dark, #0f172a);
+  color: var(--text-muted-dark, #64748b);
+}
+
+[data-theme="dark"] .cfp-overflow-trigger,
+.dark .cfp-overflow-trigger {
+  background: var(--surface-dark, #1e293b);
+  border-color: var(--border-dark, #334155);
+  color: var(--text-secondary-dark, #94a3b8);
+}
+
+/* Responsive Touch Target Adjustment on Mobile (< 768px) */
+@media (max-width: 768px) {
+  .cfp-pill {
+    height: 36px;
+    min-height: 36px;
+    padding: 0 0.875rem;
+    font-size: 0.8125rem;
+  }
+
+  .cfp-pill-count {
+    height: 20px;
+    min-width: 20px;
+    font-size: 0.75rem;
+  }
+}

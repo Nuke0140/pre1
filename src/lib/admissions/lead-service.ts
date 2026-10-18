@@ -1033,15 +1033,13 @@ export class LeadService {
       }
     }
 
-    // Submit Application using AdmissionService with zero data re-entry
-    let childFirstName = 'Child'
+    // Submit Application using AdmissionService with zero data re-entry (created as DRAFT)
+    let childFirstName = 'Applicant'
     let childLastName: string | null = null
     if (lead.childName?.trim()) {
       const parts = lead.childName.trim().split(/\s+/)
       childFirstName = parts[0]
       childLastName = parts.slice(1).join(' ') || null
-    } else if (lead.parentName?.trim()) {
-      childFirstName = lead.parentName.trim().split(/\s+/)[0]
     }
 
     const targetBranchId = extraData?.branchId || lead.branchId || scope.branchId
@@ -1083,13 +1081,14 @@ export class LeadService {
         programType: targetProgramType || 'NURSERY',
         childFirstName,
         childLastName,
-        childDob: lead.childDob || new Date(new Date().getFullYear() - 3, 0, 1),
+        childDob: lead.childDob ? new Date(lead.childDob) : null,
         childGender: extraData?.childGender || 'UNSPECIFIED',
         parentName: lead.parentName,
         parentPhone: lead.phone,
         parentEmail: lead.email,
         notes: `Converted from Enquiry ${lead.leadNumber}`,
         isDuplicateConfirmed: true,
+        isDraft: true,
       }
     )
 

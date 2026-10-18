@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
+import { ClassroomSeatSelector } from '@/components/admissions/ClassroomSeatSelector'
+import { SeatAvailabilityBadge } from '@/components/admissions/SeatAvailabilityBadge'
 import type { ProgressionEligibilityStatus, ProgressionExecutionResult } from '@/lib/admissions/progression-service'
 
 export interface PromoteStageButtonProps {
@@ -154,19 +156,33 @@ export function PromoteStageButton({
     try {
       const q = new URLSearchParams()
       if (bId) q.set('branchId', bId)
-      const res = await fetch(`/api/v1/classrooms?${q.toString()}`)
-      const json = await res.json()
-      if (json.success && Array.isArray(json.data)) {
+      if (programType) q.set('programType', programType)
+
+      const res = await fetch(`/api/v1/admissions/capacity?${q.toString()}`).catch(() => null)
+      const json = res ? await res.json().catch(() => null) : null
+      let list = json?.success && Array.isArray(json.data?.classrooms) ? json.data.classrooms : null
+
+      if (!list) {
+        const fallbackRes = await fetch(`/api/v1/classrooms?${q.toString()}`)
+        const fallbackJson = await fallbackRes.json()
+        if (fallbackJson.success && Array.isArray(fallbackJson.data)) {
+          list = fallbackJson.data
+        }
+      }
+
+      if (Array.isArray(list)) {
         const filtered = programType
-          ? json.data.filter((c: any) => c.programType === programType || !c.programType)
-          : json.data
-        setClassrooms(filtered.length > 0 ? filtered : json.data)
-        if (filtered[0]) {
-          setSelectedClassroomId(filtered[0].id)
+          ? list.filter((c: any) => c.programType === programType || !c.programType)
+          : list
+        const finalClassrooms = filtered.length > 0 ? filtered : list
+        setClassrooms(finalClassrooms)
+        const firstAvailable = finalClassrooms.find((c: any) => (c.availableSeats ?? 1) > 0) || finalClassrooms[0]
+        if (firstAvailable) {
+          setSelectedClassroomId(firstAvailable.id)
         }
       }
     } catch (e) {
-      console.error('Failed to load classrooms:', e)
+      console.error('Failed to load classrooms with capacity:', e)
     } finally {
       setLoadingClassrooms(false)
     }
@@ -480,7 +496,7 @@ export function PromoteStageButton({
             </div>
           </div>
 
-          {/* Classroom Selection */}
+          {/* Classroom Selection with Live Seat Availability & Urgency Badges */}
           <div>
             <label className="block font-semibold text-foreground mb-1">
               Select Classroom Section <span className="text-destructive">*</span>
@@ -488,31 +504,20 @@ export function PromoteStageButton({
             {loadingClassrooms ? (
               <div className="flex items-center gap-2 p-3 text-muted-foreground">
                 <Loader2 size={14} className="animate-spin" />
-                <span>Loading available classroom sections...</span>
+                <span>Loading live classroom seat availability...</span>
               </div>
             ) : classrooms.length === 0 ? (
-              <div className="p-3 rounded-xl bg-destructive/10 text-destructive border border-destructive/20">
+              <div className="p-3 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 text-xs">
                 No active classroom found for this program. Please configure a classroom in Setup first.
               </div>
             ) : (
-              <select
-                required
+              <ClassroomSeatSelector
+                classrooms={classrooms}
                 value={selectedClassroomId}
-                onChange={(e) => setSelectedClassroomId(e.target.value)}
-                className="input h-9 text-xs w-full rounded-xl bg-background"
-              >
-                {classrooms.map((cls) => {
-                  const enrolled = cls._count?.students || 0
-                  const capacity = cls.capacity || 20
-                  const available = Math.max(0, capacity - enrolled)
-                  return (
-                    <option key={cls.id} value={cls.id} disabled={available <= 0}>
-                      {cls.name} ({available} seats available / {capacity} capacity)
-                      {cls.primaryTeacher?.fullName ? ` — Teacher: ${cls.primaryTeacher.fullName}` : ''}
-                    </option>
-                  )
-                })}
-              </select>
+                onChange={setSelectedClassroomId}
+                required
+                placeholder="Choose section with open seats..."
+              />
             )}
           </div>
 

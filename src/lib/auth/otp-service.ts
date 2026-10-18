@@ -52,7 +52,16 @@ export const DEMO_OTP_CODES = ['0000', '000000', '1234']
  * but can be explicitly disabled by setting `ENABLE_DEMO_OTP === 'false'` or `ALLOW_DEMO_OTP === 'false'`.
  */
 export function isDemoOtpAllowed(): boolean {
-  // Unconditionally allow demo OTP codes ('0000', '1234') for all accounts during testing
+  // Production environment MUST strictly fail closed. Demo OTP is NEVER allowed in production.
+  if (process.env.NODE_ENV === 'production') {
+    return false
+  }
+
+  const explicitDisallow = process.env.ALLOW_DEMO_OTP === 'false' || process.env.ENABLE_DEMO_OTP === 'false'
+  if (explicitDisallow) {
+    return false
+  }
+
   return true
 }
 
@@ -395,10 +404,10 @@ export class OtpService {
     // Clear any previous lockout when issuing a fresh code
     lockedOtps.delete(cleanId)
 
-    // Generate verification code: '0000' for all accounts during testing (can be set to random with OTP_RANDOM_CODE=true)
+    // Generate verification code: random when demo OTP is not allowed or OTP_RANDOM_CODE=true
     const codeLength = Number(process.env.OTP_CODE_LENGTH) || 4
     const code =
-      process.env.OTP_RANDOM_CODE === 'true'
+      (!isDemoOtpAllowed() || process.env.OTP_RANDOM_CODE === 'true')
         ? Math.floor(Math.pow(10, codeLength - 1) + Math.random() * (Math.pow(10, codeLength) - Math.pow(10, codeLength - 1) + 1)).toString()
         : '0'.repeat(codeLength)
 
@@ -482,7 +491,7 @@ export class OtpService {
     req?: NextRequest
   }): Promise<{
     success: boolean
-    error?: { code: string; message: string; status: number }
+    error?: { code: string; message: string; status: number; remainingAttempts?: number }
     user?: any
     token?: string
     locale?: string

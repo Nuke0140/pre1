@@ -245,8 +245,8 @@ export class StudentService {
                 select: { id: true, fullName: true, phone: true, email: true, relationship: true, userId: true },
               },
             },
-            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-            take: 1,
+            orderBy: [{ isPrimary: 'desc' }, { emergencyPriority: 'asc' }, { createdAt: 'asc' }],
+            take: 4,
           },
           attendances: {
             where: {
@@ -287,6 +287,18 @@ export class StudentService {
         status: s.status,
         admissionDate: s.admissionDate,
         photoUrl: s.photoUrl,
+        bloodGroup: s.bloodGroup,
+        allergies: s.allergies || null,
+        medicalAlerts: s.medicalAlerts || null,
+        dietaryRestrictions: s.dietaryRestrictions || null,
+        emergencyMedicalInstructions: s.emergencyMedicalInstructions || null,
+        health: {
+          bloodGroup: s.bloodGroup,
+          allergies: s.allergies || null,
+          medicalAlerts: s.medicalAlerts || null,
+          dietaryRestrictions: s.dietaryRestrictions || null,
+          emergencyMedicalInstructions: s.emergencyMedicalInstructions || null,
+        },
         classroom: s.currentClassroom
           ? {
               id: s.currentClassroom.id,
@@ -296,17 +308,46 @@ export class StudentService {
               teacher: s.currentClassroom.primaryTeacher?.fullName || 'Unassigned',
             }
           : null,
-        primaryGuardian: s.guardians[0]?.guardian
-          ? {
-              id: s.guardians[0].guardian.id,
-              name: s.guardians[0].guardian.fullName,
-              phone: s.guardians[0].guardian.phone,
-              email: s.guardians[0].guardian.email,
-              relationship: s.guardians[0].relationship || s.guardians[0].guardian.relationship,
-              isPrimary: s.guardians[0].isPrimary,
-              hasPortalAccount: !!s.guardians[0].guardian.userId,
-            }
-          : null,
+        primaryGuardian: (() => {
+          const pg = s.guardians.find((g) => g.isPrimary) || s.guardians[0]
+          return pg?.guardian
+            ? {
+                id: pg.guardian.id,
+                name: pg.guardian.fullName,
+                phone: pg.guardian.phone,
+                email: pg.guardian.email,
+                relationship: pg.relationship || pg.guardian.relationship,
+                isPrimary: pg.isPrimary,
+                hasPortalAccount: !!pg.guardian.userId,
+              }
+            : null
+        })(),
+        emergencyContact: (() => {
+          const ec = s.guardians.find((g) => (g as any).isEmergencyContact) || s.guardians.find((g) => g.isPrimary) || s.guardians[0]
+          return ec?.guardian
+            ? {
+                id: ec.guardian.id,
+                name: ec.guardian.fullName,
+                phone: ec.guardian.phone,
+                email: ec.guardian.email,
+                relationship: ec.relationship || ec.guardian.relationship,
+                isPrimary: ec.isPrimary,
+                isEmergencyContact: (ec as any).isEmergencyContact ?? ec.isPrimary,
+                emergencyPriority: (ec as any).emergencyPriority ?? 1,
+              }
+            : null
+        })(),
+        guardians: s.guardians.map((g) => ({
+          id: g.guardian.id,
+          name: g.guardian.fullName,
+          phone: g.guardian.phone,
+          email: g.guardian.email,
+          relationship: g.relationship || g.guardian.relationship,
+          isPrimary: g.isPrimary,
+          isEmergencyContact: (g as any).isEmergencyContact ?? g.isPrimary,
+          emergencyPriority: (g as any).emergencyPriority ?? 1,
+          hasPortalAccount: !!g.guardian.userId,
+        })),
         finance: {
           totalBilledCents,
           totalPaidCents,
@@ -952,6 +993,277 @@ export class StudentService {
       },
       timeline: student.timelineEntries,
       audit: auditLogs,
+    }
+  }
+
+  /**
+   * High-speed Student 360 Drawer Summary
+   * Lightweight payload containing identity, health, primary guardian,
+   * today's attendance record, and fee balance.
+   */
+  static async getStudentSummary(ctx: ScopeContext, studentId: string) {
+    const scope = await this.verifyScope(ctx.tenantId, ctx.branchId, ctx.academicSessionId)
+
+    const student = await db.student.findFirst({
+      where: { id: studentId, tenantId: scope.tenantId, deletedAt: null },
+      select: {
+        id: true,
+        tenantId: true,
+        branchId: true,
+        admissionNo: true,
+        seatNumber: true,
+        firstName: true,
+        lastName: true,
+        dob: true,
+        gender: true,
+        status: true,
+        admissionDate: true,
+        photoUrl: true,
+        bloodGroup: true,
+        allergies: true,
+        medicalAlerts: true,
+        dietaryRestrictions: true,
+        emergencyMedicalInstructions: true,
+        currentClassroomId: true,
+        currentClassroom: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            programType: true,
+            capacity: true,
+            primaryTeacher: {
+              select: { id: true, fullName: true, email: true, phone: true },
+            },
+          },
+        },
+        guardians: {
+          select: {
+            id: true,
+            relationship: true,
+            isPrimary: true,
+            isEmergencyContact: true,
+            emergencyPriority: true,
+            canPickup: true,
+            pickupStatus: true,
+            guardian: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                email: true,
+                photoUrl: true,
+                relationship: true,
+                occupation: true,
+              },
+            },
+          },
+          orderBy: [
+            { isPrimary: 'desc' },
+            { emergencyPriority: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        },
+      },
+    })
+
+    if (!student) throw new Error('Student not found')
+
+    // Centralized tenant + branch boundary before object-level checks.
+    assertResourceScope(ctxToSession(ctx), {
+      tenantId: student.tenantId,
+      branchId: student.branchId,
+    })
+
+    // Parent permission check: Only allowed to view own ward
+    if (ctx.actorRole === 'PARENT') {
+      const isLinked = student.guardians.some((g) => (g.guardian as any).userId === ctx.actorId)
+      if (!isLinked) throw new Error('Unauthorized: You can only view your own child')
+    }
+
+    // Guardian permission check: Only allowed to view linked ward
+    if (ctx.actorRole === 'GUARDIAN') {
+      const isLinked = student.guardians.some((g) => (g.guardian as any).userId === ctx.actorId)
+      if (!isLinked) throw new Error('Unauthorized: You can only view your linked child')
+    }
+
+    // Teacher permission check: Only allowed to view students in assigned classrooms
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
+    const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
+    if (isTeacher && ctx.actorId) {
+      const isPrimary = student.currentClassroom?.primaryTeacher?.id === ctx.actorId
+      const isSpecialist = student.currentClassroomId
+        ? await db.classroomSubject.findFirst({
+            where: { classroomId: student.currentClassroomId, specialistTeacherId: ctx.actorId },
+          })
+        : null
+      if (!isPrimary && !isSpecialist) {
+        throw new Error('Unauthorized: You are only authorized to view students in your assigned classroom')
+      }
+    }
+
+    // Query today's attendance record (matching start and end of current calendar day)
+    const today = new Date()
+    const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0))
+    const endOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999))
+
+    // Query fee invoices and today's attendance in parallel for minimal latency
+    const [todayAttendance, invoices] = await Promise.all([
+      db.attendance.findFirst({
+        where: {
+          tenantId: scope.tenantId,
+          studentId: student.id,
+          date: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          markedAt: true,
+          notes: true,
+        },
+      }),
+      db.invoice.findMany({
+        where: {
+          tenantId: scope.tenantId,
+          studentId: student.id,
+          deletedAt: null,
+          invoiceType: 'STUDENT_FEE',
+        },
+        select: {
+          totalCents: true,
+          paidCents: true,
+          balanceCents: true,
+          status: true,
+          dueDate: true,
+        },
+      }),
+    ])
+
+    // Finance calculations & RBAC
+    const hasFinanceAccess = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'ACCOUNTS', 'PARENT'].includes(r)
+    )
+
+    let financeSummary: {
+      isRestricted: boolean
+      totalBilledCents: number
+      totalPaidCents: number
+      balanceCents: number
+      overdueCents: number
+      hasOutstanding: boolean
+    }
+
+    if (hasFinanceAccess) {
+      const totalBilledCents = invoices.reduce((acc, i) => acc + (i.totalCents || 0), 0)
+      const totalPaidCents = invoices.reduce((acc, i) => acc + (i.paidCents || 0), 0)
+      const balanceCents = invoices.reduce((acc, i) => acc + (i.balanceCents || 0), 0)
+      const overdueCents = invoices
+        .filter((i) => i.status === 'OVERDUE' || (i.balanceCents > 0 && new Date(i.dueDate) < new Date()))
+        .reduce((acc, i) => acc + (i.balanceCents || 0), 0)
+
+      financeSummary = {
+        isRestricted: false,
+        totalBilledCents,
+        totalPaidCents,
+        balanceCents,
+        overdueCents,
+        hasOutstanding: balanceCents > 0,
+      }
+    } else {
+      financeSummary = {
+        isRestricted: true,
+        totalBilledCents: 0,
+        totalPaidCents: 0,
+        balanceCents: 0,
+        overdueCents: 0,
+        hasOutstanding: false,
+      }
+    }
+
+    const primaryG = student.guardians.find((g) => g.isPrimary) || student.guardians[0]
+
+    return {
+      student: {
+        id: student.id,
+        admissionNo: student.admissionNo,
+        seatNumber: student.seatNumber,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        name: `${student.firstName} ${student.lastName || ''}`.trim(),
+        dob: student.dob,
+        gender: student.gender,
+        status: student.status,
+        admissionDate: student.admissionDate,
+        photoUrl: student.photoUrl,
+        classroom: student.currentClassroom
+          ? {
+              id: student.currentClassroom.id,
+              name: student.currentClassroom.name,
+              code: student.currentClassroom.code,
+              programType: student.currentClassroom.programType,
+              teacher: student.currentClassroom.primaryTeacher?.fullName || 'Unassigned',
+            }
+          : null,
+      },
+      health: {
+        bloodGroup: student.bloodGroup,
+        allergies: student.allergies || null,
+        medicalAlerts: student.medicalAlerts || null,
+        dietaryRestrictions: student.dietaryRestrictions || null,
+        emergencyMedicalInstructions: student.emergencyMedicalInstructions || null,
+      },
+      primaryGuardian: primaryG?.guardian
+        ? {
+            id: primaryG.guardian.id,
+            name: primaryG.guardian.fullName,
+            phone: primaryG.guardian.phone,
+            email: primaryG.guardian.email,
+            relationship: primaryG.relationship || primaryG.guardian.relationship,
+            isPrimary: primaryG.isPrimary,
+            isEmergencyContact: primaryG.isEmergencyContact ?? primaryG.isPrimary,
+            emergencyPriority: primaryG.emergencyPriority ?? 1,
+            canPickup: primaryG.canPickup,
+          }
+        : null,
+      emergencyContact: (() => {
+        const ec = student.guardians.find((g) => g.isEmergencyContact) || primaryG || student.guardians[0]
+        return ec?.guardian
+          ? {
+              id: ec.guardian.id,
+              name: ec.guardian.fullName,
+              phone: ec.guardian.phone,
+              email: ec.guardian.email,
+              relationship: ec.relationship || ec.guardian.relationship,
+              isPrimary: ec.isPrimary,
+              isEmergencyContact: ec.isEmergencyContact ?? ec.isPrimary,
+              emergencyPriority: ec.emergencyPriority ?? 1,
+              canPickup: ec.canPickup,
+            }
+          : null
+      })(),
+      guardians: student.guardians.map((g) => ({
+        id: g.guardian.id,
+        name: g.guardian.fullName,
+        phone: g.guardian.phone,
+        email: g.guardian.email,
+        relationship: g.relationship || g.guardian.relationship,
+        isPrimary: g.isPrimary,
+        isEmergencyContact: g.isEmergencyContact ?? g.isPrimary,
+        emergencyPriority: g.emergencyPriority ?? 1,
+        canPickup: g.canPickup,
+      })),
+      todayAttendance: todayAttendance
+        ? {
+            id: todayAttendance.id,
+            status: todayAttendance.status,
+            markedAt: todayAttendance.markedAt,
+            notes: todayAttendance.notes,
+          }
+        : null,
+      finance: financeSummary,
     }
   }
 

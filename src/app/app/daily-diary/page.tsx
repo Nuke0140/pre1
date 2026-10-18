@@ -32,7 +32,7 @@ import {
   Copy,
   Download,
 } from 'lucide-react'
-import { PageHead, Avatar, Breadcrumbs, EmptyState, Skeleton } from '@/components/preone'
+import { PageHead, Avatar, Breadcrumbs, EmptyState, Skeleton, ClassroomFilterPills } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
 import { FastRollCall } from '@/components/preone/FastRollCall'
 import { useToast } from '@/components/preone/Toast'
@@ -1637,19 +1637,35 @@ export default function DailyDiaryPage() {
         <div className="space-y-6">
           {/* Class Selector Header */}
           <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Classroom:</span>
-              <select
-                className="select select-sm text-xs font-bold min-w-[200px]"
-                value={selectedClassroomId}
-                onChange={(e) => setSelectedClassroomId(e.target.value)}
-              >
-                {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.teacherName})
-                  </option>
-                ))}
-              </select>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Classroom:</span>
+                {classrooms.find((c) => c.id === selectedClassroomId)?.teacherName && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Lead: {classrooms.find((c) => c.id === selectedClassroomId)?.teacherName}
+                  </span>
+                )}
+              </div>
+              <ClassroomFilterPills
+                classrooms={classrooms.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  programType: c.programType,
+                  branchId: c.branchId,
+                  academicSessionId: c.academicSessionId,
+                  students: c.studentCount,
+                }))}
+                selectedClassroomId={selectedClassroomId}
+                onSelectClassroom={(cid) => {
+                  if (cid === 'ALL' && classrooms.length > 0) {
+                    setSelectedClassroomId(classrooms[0].id)
+                  } else {
+                    setSelectedClassroomId(cid)
+                  }
+                }}
+                branchId={selectedBranchId || 'ALL'}
+                allLabel={classrooms.length > 0 ? classrooms[0].name : 'Classroom'}
+              />
             </div>
 
             {/* Unified View Navigation Switcher */}

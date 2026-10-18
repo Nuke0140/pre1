@@ -25,6 +25,7 @@ import { emit } from '@/lib/events'
 import { ConfigurationService } from '@/lib/setup/config-service'
 import { getDomainConfig } from '@/lib/config'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import type { ScopeContext } from './admission-service'
 import type {
   ProgramType,
@@ -517,6 +518,11 @@ export class ClassroomPlacementService {
 
       const availableSeats = Math.max(0, c.capacity - activeEnrollment)
       const hasTeacher = Boolean(c.primaryTeacherId && c.primaryTeacher)
+      const isFull = activeEnrollment >= c.capacity
+      const status = c.capacity <= 0 ? 'UNCONFIGURED' : isFull ? 'WAITLIST_ONLY' : availableSeats <= 3 ? 'LIMITED' : 'AVAILABLE'
+      const statusLabel = isFull ? 'Full · Waitlist only' : availableSeats === 1 ? '1 seat left' : `${availableSeats} seats left`
+      const occupancySummary = `${activeEnrollment}/${c.capacity} occupied`
+      const occupancyPercent = c.capacity > 0 ? Math.min(100, Math.round((activeEnrollment / c.capacity) * 100)) : 0
 
       results.push({
         id: c.id,
@@ -526,7 +532,11 @@ export class ClassroomPlacementService {
         capacity: c.capacity,
         enrolledCount: activeEnrollment,
         availableSeats,
-        isFull: activeEnrollment >= c.capacity,
+        isFull,
+        status,
+        statusLabel,
+        occupancySummary,
+        occupancyPercent,
         hasTeacher,
         teacherWarning: !hasTeacher ? '⚠️ Class Teacher Not Configured' : null,
         primaryTeacher: c.primaryTeacher
@@ -969,7 +979,7 @@ export class ClassroomPlacementService {
           username = `parent.${cleanName}.${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`
           uAttempt++
         }
-        const defaultPasswordHash = await bcrypt.hash('PreOneParent@2026', 10)
+        const lockedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
 
         parentUser = await tx.user.create({
           data: {
@@ -977,8 +987,31 @@ export class ClassroomPlacementService {
             phone: primaryPhone,
             username,
             fullName: primaryName,
-            passwordHash: defaultPasswordHash,
-            status: 'ACTIVE',
+            passwordHash: lockedPasswordHash,
+            mustChangePassword: true,
+            status: 'PENDING',
+          },
+        })
+
+        const rawInvToken = crypto.randomBytes(32).toString('hex')
+        const invTokenHash = crypto.createHash('sha256').update(rawInvToken).digest('hex')
+        let validInvitedById: string | null = null
+        if (ctx.actorId) {
+          const inviterExists = await tx.user.findUnique({ where: { id: ctx.actorId }, select: { id: true } })
+          if (inviterExists) validInvitedById = ctx.actorId
+        }
+
+        await tx.userInvitation.create({
+          data: {
+            tenantId: scope.tenantId,
+            userId: parentUser.id,
+            email: parentUser.email || `${parentUser.username}@preone.local`,
+            role: 'PARENT',
+            tokenHash: invTokenHash,
+            rawToken: null,
+            status: 'PENDING',
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            invitedById: validInvitedById,
           },
         })
 
@@ -1172,7 +1205,7 @@ export class ClassroomPlacementService {
             username = `guardian.${cleanName}.${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`
             gAttempt++
           }
-          const defaultPasswordHash = await bcrypt.hash('PreOneParent@2026', 10)
+          const lockedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
 
           extraUser = await tx.user.create({
             data: {
@@ -1180,8 +1213,31 @@ export class ClassroomPlacementService {
               phone: ag.phone.trim(),
               username,
               fullName: ag.fullName.trim(),
-              passwordHash: defaultPasswordHash,
-              status: 'ACTIVE',
+              passwordHash: lockedPasswordHash,
+              mustChangePassword: true,
+              status: 'PENDING',
+            },
+          })
+
+          const rawExtraToken = crypto.randomBytes(32).toString('hex')
+          const extraTokenHash = crypto.createHash('sha256').update(rawExtraToken).digest('hex')
+          let validExtraInvitedById: string | null = null
+          if (ctx.actorId) {
+            const inviterExists = await tx.user.findUnique({ where: { id: ctx.actorId }, select: { id: true } })
+            if (inviterExists) validExtraInvitedById = ctx.actorId
+          }
+
+          await tx.userInvitation.create({
+            data: {
+              tenantId: scope.tenantId,
+              userId: extraUser.id,
+              email: extraUser.email || `${extraUser.username}@preone.local`,
+              role: 'PARENT',
+              tokenHash: extraTokenHash,
+              rawToken: null,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              invitedById: validExtraInvitedById,
             },
           })
         }
@@ -1365,18 +1421,6 @@ export class ClassroomPlacementService {
         }).catch(() => {})
       }
 
-      // 11b. Waiting List Entry Update to CONVERTED (if candidate was on waiting list)
-      await tx.$executeRawUnsafe(`
-        UPDATE waiting_list_entries
-        SET status = 'CONVERTED',
-            student_id = $1,
-            converted_at = NOW(),
-            updated_at = NOW()
-        WHERE application_id = $2
-          AND tenant_id = $3
-          AND status IN ('ACTIVE', 'SEAT_AVAILABLE', 'OFFER_SENT', 'PARENT_ACCEPTED', 'READY_FOR_ADMISSION')
-      `, student.id, applicationId, scope.tenantId).catch(() => {})
-
       // 12. Parent Portal Welcome Milestone
       await tx.timelineEntry.create({
         data: {
@@ -1448,6 +1492,23 @@ export class ClassroomPlacementService {
         invoice,
       }
     })
+
+    // Waiting List Entry Update to CONVERTED (if candidate was on waiting list and table exists)
+    try {
+      const check = await db.$queryRawUnsafe<any[]>(`SELECT to_regclass('public.waiting_list_entries')::text as regclass`)
+      if (check?.[0]?.regclass) {
+        await db.$executeRawUnsafe(`
+          UPDATE waiting_list_entries
+          SET status = 'CONVERTED',
+              student_id = $1,
+              converted_at = NOW(),
+              updated_at = NOW()
+          WHERE application_id = $2
+            AND tenant_id = $3
+            AND status IN ('ACTIVE', 'SEAT_AVAILABLE', 'OFFER_SENT', 'PARENT_ACCEPTED', 'READY_FOR_ADMISSION')
+        `, result.student.id, applicationId, scope.tenantId)
+      }
+    } catch {}
 
     // Post-Commit Domain Events
     await emit({

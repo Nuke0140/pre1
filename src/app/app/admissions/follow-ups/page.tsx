@@ -10,6 +10,7 @@ import { AdmissionsShell } from '@/components/admissions/AdmissionsShell'
 import { MinimalEnquiryModal } from '@/components/admissions/MinimalEnquiryModal'
 import { SharePublicFormModal } from '@/components/admissions/SharePublicFormModal'
 import { LobbyQrStandeeModal } from '@/components/admissions/LobbyQrStandeeModal'
+import { StaffAdmissionFormModal } from '@/components/admissions/StaffAdmissionFormModal'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
@@ -22,6 +23,7 @@ export default function FollowUpsPage() {
   // Master contexts
   const [branches, setBranches] = useState<{ id: string; name: string; isMain?: boolean }[]>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>('')
+  const [sessions, setSessions] = useState<{ id: string; name: string; isCurrent?: boolean }[]>([])
   const [programs, setPrograms] = useState<any[]>([])
 
   // Queue filter: ALL_OPEN | DUE_TODAY | UPCOMING | OVERDUE | COMPLETED
@@ -39,6 +41,9 @@ export default function FollowUpsPage() {
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [lobbyQrModalOpen, setLobbyQrModalOpen] = useState(false)
+  const [staffFormModalOpen, setStaffFormModalOpen] = useState(false)
+  const [activeApplicationId, setActiveApplicationId] = useState<string | null>(null)
+  const [activeAppData, setActiveAppData] = useState<any | null>(null)
 
   // Follow-up quick action modal
   const [logModal, setLogModal] = useState<{ open: boolean; item: any | null }>({
@@ -62,8 +67,9 @@ export default function FollowUpsPage() {
   useEffect(() => {
     async function loadMasters() {
       try {
-        const [brRes, progRes, staffRes] = await Promise.all([
+        const [brRes, sessRes, progRes, staffRes] = await Promise.all([
           fetch('/api/v1/branches').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+          fetch('/api/v1/academic-sessions').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
           fetch('/api/v1/programs').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
           fetch('/api/v1/users?userType=STAFF&limit=100').then((r) => r.json()).catch(() => ({ success: false, data: [] })),
         ])
@@ -76,6 +82,9 @@ export default function FollowUpsPage() {
             setSelectedBranchId(main.id)
           }
         }
+        if (sessRes.success && Array.isArray(sessRes.data)) {
+          setSessions(sessRes.data)
+        }
         if (progRes.success && progRes.data) {
           setPrograms(progRes.data)
         }
@@ -86,7 +95,7 @@ export default function FollowUpsPage() {
           })))
         }
       } catch (e) {
-        console.error('Failed to load branches and staff:', e)
+        console.error('Failed to load branches, sessions and staff:', e)
       }
     }
     loadMasters()
@@ -185,6 +194,11 @@ export default function FollowUpsPage() {
           `Application ${res.data?.applicationNumber || ''} created with zero data re-entry!`,
           { type: 'success' }
         )
+        const appObj = res.data?.application || res.data
+        const appId = res.data?.applicationId || appObj?.id
+        setActiveApplicationId(appId)
+        setActiveAppData(appObj)
+        setStaffFormModalOpen(true)
         invalidateAdmissionsCounts()
         loadQueue()
       } else {
@@ -374,7 +388,7 @@ export default function FollowUpsPage() {
               : []),
           ]}
           refresh={{
-            onRefresh: loadWorkspace,
+            onRefresh: loadQueue,
             refreshing: busy,
             label: 'Refresh Follow-ups',
           }}
@@ -747,6 +761,28 @@ export default function FollowUpsPage() {
         onClose={() => setLobbyQrModalOpen(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+      />
+      <StaffAdmissionFormModal
+        open={staffFormModalOpen}
+        onClose={() => {
+          setStaffFormModalOpen(false)
+          setActiveApplicationId(null)
+          setActiveAppData(null)
+        }}
+        applicationId={activeApplicationId}
+        initialData={activeAppData}
+        branches={branches}
+        sessions={sessions}
+        programs={programs}
+        selectedBranchId={selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : (branches[0]?.id || '')}
+        selectedSessionId={sessions.find((s) => s.isCurrent)?.id || sessions[0]?.id || ''}
+        onSuccess={() => {
+          setStaffFormModalOpen(false)
+          setActiveApplicationId(null)
+          setActiveAppData(null)
+          invalidateAdmissionsCounts()
+          loadQueue()
+        }}
       />
     </AdmissionsShell>
   )

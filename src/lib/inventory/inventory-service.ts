@@ -4,6 +4,14 @@ import { nextNumber } from '../sequence'
 import { AuditService } from '../audit/audit-service'
 import { emit } from '../events'
 import { getDomainConfig, getInventoryConfig } from '../config'
+import {
+  classifyItemStockHealth,
+  buildStockHealthRadarSummary,
+  StockHealthCategory,
+  StockHealthStatus,
+  StockHealthItemEvaluation,
+  StockHealthRadarSummary,
+} from './stock-health'
 
 export interface ActorContext {
   id: string
@@ -808,6 +816,7 @@ export class InventoryService {
       itemType?: string
       search?: string
       lowStock?: boolean
+      stockHealthCategory?: StockHealthCategory | 'ALL'
       isActive?: boolean
       page?: number
       pageSize?: number
@@ -849,24 +858,34 @@ export class InventoryService {
       }),
     ])
 
-    // Calculate aggregated available stock per item
+    // Calculate aggregated available stock and authoritative stock health per item
     const formatted = items.map((item) => {
       const totalAvailable = item.stocks.reduce((acc, s) => acc + Number(s.availableQuantity), 0)
       const totalPhysical = item.stocks.reduce((acc, s) => acc + Number(s.quantity), 0)
       const totalReserved = item.stocks.reduce((acc, s) => acc + Number(s.reservedQuantity), 0)
-      const isLowStock = totalAvailable <= Number(item.reorderLevel)
-      const isOutOfStock = totalAvailable <= 0
+      const stockHealth = classifyItemStockHealth(item, totalAvailable)
+
       return {
         ...item,
+        code: item.sku,
         totalAvailable,
         totalPhysical,
         totalReserved,
-        isLowStock,
-        isOutOfStock,
+        availableQuantity: totalAvailable,
+        isLowStock: stockHealth.status === 'LOW_STOCK' || stockHealth.category === 'CRITICAL_OUT_OF_STOCK',
+        isOutOfStock: stockHealth.status === 'OUT_OF_STOCK',
+        isCritical: stockHealth.status === 'CRITICAL',
+        isHealthy: stockHealth.status === 'HEALTHY',
+        stockHealth,
       }
     })
 
-    const finalItems = params?.lowStock ? formatted.filter((i) => i.isLowStock) : formatted
+    let finalItems = formatted
+    if (params?.lowStock) {
+      finalItems = finalItems.filter((i) => i.isLowStock)
+    } else if (params?.stockHealthCategory && params.stockHealthCategory !== 'ALL') {
+      finalItems = finalItems.filter((i) => i.stockHealth.category === params.stockHealthCategory)
+    }
 
     return {
       items: finalItems,
@@ -907,13 +926,21 @@ export class InventoryService {
 
     const totalAvailable = item.stocks.reduce((acc, s) => acc + Number(s.availableQuantity), 0)
     const totalPhysical = item.stocks.reduce((acc, s) => acc + Number(s.quantity), 0)
+    const totalReserved = item.stocks.reduce((acc, s) => acc + Number(s.reservedQuantity), 0)
+    const stockHealth = classifyItemStockHealth(item, totalAvailable)
 
     return {
       ...item,
+      code: item.sku,
       totalAvailable,
       totalPhysical,
-      isLowStock: totalAvailable <= Number(item.reorderLevel),
-      isOutOfStock: totalAvailable <= 0,
+      totalReserved,
+      availableQuantity: totalAvailable,
+      isLowStock: stockHealth.status === 'LOW_STOCK' || stockHealth.category === 'CRITICAL_OUT_OF_STOCK',
+      isOutOfStock: stockHealth.status === 'OUT_OF_STOCK',
+      isCritical: stockHealth.status === 'CRITICAL',
+      isHealthy: stockHealth.status === 'HEALTHY',
+      stockHealth,
     }
   }
 
@@ -3000,6 +3027,21 @@ export class InventoryService {
       .filter((i) => i.isLowStock)
   }
 
+  static async getStockHealthRadar(tenantId: string, branchId?: string): Promise<StockHealthRadarSummary> {
+    const items = await db.inventoryItem.findMany({
+      where: { tenantId, isActive: true, trackStock: true },
+      include: {
+        category: { select: { id: true, name: true, code: true } },
+        unit: { select: { id: true, name: true, symbol: true } },
+        defaultVendor: { select: { id: true, name: true, code: true } },
+        stocks: branchId ? { where: { branchId } } : true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return buildStockHealthRadarSummary(items)
+  }
+
   static async getExpiringStock(tenantId: string, branchId?: string, daysThreshold?: number) {
     const cfg = getInventoryConfig(await getDomainConfig(tenantId, 'INVENTORY'))
     const days = daysThreshold ?? cfg.expiryWarningDays ?? 30
@@ -3069,6 +3111,7 @@ export class InventoryService {
       lowStockList,
       expiringList,
       recentMovements,
+      stockHealthRadar,
     ] = await Promise.all([
       db.inventoryItem.count({ where: { tenantId } }),
       db.inventoryItem.count({ where: { tenantId, isActive: true } }),
@@ -3107,6 +3150,7 @@ export class InventoryService {
           toLocation: { select: { name: true } },
         },
       }),
+      this.getStockHealthRadar(tenantId, branchId),
     ])
 
     // Total valuation
@@ -3137,8 +3181,12 @@ export class InventoryService {
       kpis: {
         totalMaterials,
         activeMaterials,
-        lowStockCount: lowStockList.length,
-        outOfStockCount: lowStockList.filter((i) => i.availableQuantity <= 0).length,
+        lowStockCount: stockHealthRadar.counts.lowStock,
+        criticalOutOfStockCount: stockHealthRadar.counts.criticalOutOfStock,
+        outOfStockCount: stockHealthRadar.counts.outOfStock,
+        criticalCount: stockHealthRadar.counts.critical,
+        healthyCount: stockHealthRadar.counts.healthy,
+        unratedCount: stockHealthRadar.counts.unrated,
         expiringSoonCount,
         expiredCount,
         pendingRequests,
@@ -3148,6 +3196,7 @@ export class InventoryService {
         monthlyProcurementValue: Number(monthlyProcurementValue.toFixed(2)),
         monthlyConsumptionValue: Number(monthlyConsumptionValue.toFixed(2)),
       },
+      stockHealthRadar,
       alerts: {
         lowStock: lowStockList.slice(0, 10),
         expiring: expiringList.slice(0, 10),

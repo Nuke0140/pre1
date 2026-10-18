@@ -406,7 +406,7 @@ export class AdmissionsPipelineService {
       toursBooked: allCards.filter((c) => c.stage === 'FOLLOW_UPS').length,
       applicationsShared: allCards.filter((c) => c.stage === 'APPLICATIONS').length,
       offersPendingFee: allCards.filter((c) => c.stage === 'CONFIRMED_ADMISSIONS').length,
-      enrolledPlaced: allCards.filter((c) => c.stage === 'CLASSROOM_PLACEMENTS').length,
+      enrolledPlaced: allCards.filter((c) => c.stage === 'CLASSROOM_PLACEMENTS' || c.domainStatus === 'ENROLLED' || c.domainStatus === 'ADMITTED').length,
     }
 
     // 5. Apply in-memory search and secondary filters
@@ -443,17 +443,34 @@ export class AdmissionsPipelineService {
       }
     }
 
-    // 6. Group cards into the 5 core stages
-    const stages: Record<CanonicalPipelineStageKey, PipelineCardData[]> = {
+    // 6. Group cards into the 5 core stages (including legacy aliases for backward compatibility)
+    const stages: Record<string, PipelineCardData[]> = {
       ENQUIRIES: [],
       FOLLOW_UPS: [],
       APPLICATIONS: [],
       CONFIRMED_ADMISSIONS: [],
       CLASSROOM_PLACEMENTS: [],
+      NEW_LEADS: [],
+      TOUR_BOOKED: [],
+      APPLICATION_SHARED: [],
+      OFFER_PENDING_FEE: [],
+      ENROLLED_PLACED: [],
     }
 
     for (const card of filteredCards) {
       stages[card.stage].push(card)
+      if (card.stage === 'ENQUIRIES') stages.NEW_LEADS.push(card)
+      else if (card.stage === 'FOLLOW_UPS') stages.TOUR_BOOKED.push(card)
+      else if (card.stage === 'APPLICATIONS') stages.APPLICATION_SHARED.push(card)
+      else if (card.stage === 'CONFIRMED_ADMISSIONS') {
+        if (card.domainStatus === 'ENROLLED' || card.domainStatus === 'ADMITTED') {
+          stages.ENROLLED_PLACED.push(card)
+        } else {
+          stages.OFFER_PENDING_FEE.push(card)
+        }
+      } else if (card.stage === 'CLASSROOM_PLACEMENTS') {
+        stages.ENROLLED_PLACED.push(card)
+      }
     }
 
     return {
@@ -534,12 +551,14 @@ export class AdmissionsPipelineService {
         }
 
         // Requires selecting a classroom section in the Classroom Placements workspace
+        const isLegacyEnrolledPlaced = (targetStage as string) === 'ENROLLED_PLACED'
         return {
           success: false,
           code: 'PLACEMENT_ACTION_REQUIRED',
-          requireAction: 'ALLOCATE_CLASSROOM',
-          message:
-            'Classroom placement requires selecting an available classroom and section. Please complete placement in the Classroom Placements workspace.',
+          requireAction: isLegacyEnrolledPlaced ? 'COMPLETE_ENROLLMENT' : 'ALLOCATE_CLASSROOM',
+          message: isLegacyEnrolledPlaced
+            ? 'Direct card movement to "Enrolled & Placed" is not permitted. Please complete enrollment and assign a classroom in the workflow.'
+            : 'Classroom placement requires selecting an available classroom and section. Please complete placement in the Classroom Placements workspace.',
         }
       }
     }
@@ -568,24 +587,45 @@ export class AdmissionsPipelineService {
           }
         }
 
-        // If offer is issued or draft, accept it and confirm admission
-        const latestOffer = app.offers[0]
-        if (latestOffer && latestOffer.status !== 'ACCEPTED') {
-          await db.$transaction([
-            db.admissionOffer.update({
-              where: { id: latestOffer.id },
-              data: { status: 'ACCEPTED', acceptedAt: new Date() },
-            }),
-            db.admissionApplication.update({
+        if ((targetStage as string) === 'OFFER_PENDING_FEE') {
+          const latestOffer = app.offers[0]
+          if (latestOffer && latestOffer.status === 'DRAFT') {
+            await db.$transaction([
+              db.admissionOffer.update({
+                where: { id: latestOffer.id },
+                data: { status: 'ISSUED', issuedAt: new Date() },
+              }),
+              db.admissionApplication.update({
+                where: { id: app.id },
+                data: { status: 'OFFER_SENT' },
+              }),
+            ])
+          } else if (app.status !== 'OFFER_SENT' && app.status !== 'OFFER_ACCEPTED') {
+            await db.admissionApplication.update({
+              where: { id: app.id },
+              data: { status: 'OFFER_SENT' },
+            })
+          }
+        } else {
+          // If offer is issued or draft, accept it and confirm admission
+          const latestOffer = app.offers[0]
+          if (latestOffer && latestOffer.status !== 'ACCEPTED') {
+            await db.$transaction([
+              db.admissionOffer.update({
+                where: { id: latestOffer.id },
+                data: { status: 'ACCEPTED', acceptedAt: new Date() },
+              }),
+              db.admissionApplication.update({
+                where: { id: app.id },
+                data: { status: 'OFFER_ACCEPTED' },
+              }),
+            ])
+          } else if (app.status !== 'OFFER_ACCEPTED' && app.status !== 'ENROLLED' && app.status !== 'ADMITTED') {
+            await db.admissionApplication.update({
               where: { id: app.id },
               data: { status: 'OFFER_ACCEPTED' },
-            }),
-          ])
-        } else if (app.status !== 'OFFER_ACCEPTED' && app.status !== 'ENROLLED' && app.status !== 'ADMITTED') {
-          await db.admissionApplication.update({
-            where: { id: app.id },
-            data: { status: 'OFFER_ACCEPTED' },
-          })
+            })
+          }
         }
       }
     }

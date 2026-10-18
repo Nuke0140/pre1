@@ -26,6 +26,7 @@ import { ConfigurationService } from '@/lib/setup/config-service'
 import { getDomainConfig, getAdmissionConfig } from '@/lib/config'
 import { assertActorResourceScope } from '@/lib/security/resource-scope'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { FollowUpVisitService } from './followup-visit-service'
 import type { ProgramType, Gender, LeadSource, LeadStatus, ApplicationStatus, DocumentType, OfferStatus, DocumentStatus } from '@prisma/client'
 import { ApplicationMetadataHelper, type AdditionalGuardianInput, type ApplicationDeclarations } from './application-metadata-helper'
@@ -824,7 +825,7 @@ export class AdmissionService {
           guardianId: guardian.id,
           childFirstName: firstName || 'Child',
           childLastName: lastName,
-          childDob: input.childDob ? new Date(input.childDob) : new Date(new Date().getFullYear() - 3, 0, 1),
+          childDob: input.childDob ? new Date(input.childDob) : null,
           childGender: (input.childGender as Gender) || 'UNSPECIFIED',
           parentName: input.parentName ? input.parentName.trim() : 'Parent',
           parentPhone: input.parentPhone ? input.parentPhone.trim() : '',
@@ -2211,7 +2212,7 @@ export class AdmissionService {
         const cleanName = app.parentName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
         const rand = Math.floor(100 + Math.random() * 900)
         const username = `parent.${cleanName}.${rand}`
-        const defaultPasswordHash = await bcrypt.hash('PreOneParent@2026', 10)
+        const lockedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
 
         parentUser = await tx.user.create({
           data: {
@@ -2219,8 +2220,31 @@ export class AdmissionService {
             phone: app.parentPhone.trim(),
             username,
             fullName: app.parentName.trim(),
-            passwordHash: defaultPasswordHash,
-            status: 'ACTIVE',
+            passwordHash: lockedPasswordHash,
+            mustChangePassword: true,
+            status: 'PENDING',
+          },
+        })
+
+        const rawInvToken = crypto.randomBytes(32).toString('hex')
+        const invTokenHash = crypto.createHash('sha256').update(rawInvToken).digest('hex')
+        let validInvitedById: string | null = null
+        if (ctx.actorId) {
+          const inviterExists = await tx.user.findUnique({ where: { id: ctx.actorId }, select: { id: true } })
+          if (inviterExists) validInvitedById = ctx.actorId
+        }
+
+        await tx.userInvitation.create({
+          data: {
+            tenantId: scope.tenantId,
+            userId: parentUser.id,
+            email: parentUser.email || `${parentUser.username}@preone.local`,
+            role: 'PARENT',
+            tokenHash: invTokenHash,
+            rawToken: null,
+            status: 'PENDING',
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            invitedById: validInvitedById,
           },
         })
       }
@@ -2329,7 +2353,7 @@ export class AdmissionService {
             const cleanName = ag.fullName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
             const rand = Math.floor(100 + Math.random() * 900)
             const username = `guardian.${cleanName}.${rand}`
-            const defaultPasswordHash = await bcrypt.hash('PreOneParent@2026', 10)
+            const lockedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
 
             extraUser = await tx.user.create({
               data: {
@@ -2337,8 +2361,31 @@ export class AdmissionService {
                 phone: ag.phone.trim(),
                 username,
                 fullName: ag.fullName.trim(),
-                passwordHash: defaultPasswordHash,
-                status: 'ACTIVE',
+                passwordHash: lockedPasswordHash,
+                mustChangePassword: true,
+                status: 'PENDING',
+              },
+            })
+
+            const rawExtraToken = crypto.randomBytes(32).toString('hex')
+            const extraTokenHash = crypto.createHash('sha256').update(rawExtraToken).digest('hex')
+            let validExtraInvitedById: string | null = null
+            if (ctx.actorId) {
+              const inviterExists = await tx.user.findUnique({ where: { id: ctx.actorId }, select: { id: true } })
+              if (inviterExists) validExtraInvitedById = ctx.actorId
+            }
+
+            await tx.userInvitation.create({
+              data: {
+                tenantId: scope.tenantId,
+                userId: extraUser.id,
+                email: extraUser.email || `${extraUser.username}@preone.local`,
+                role: requestedRole as UserRole,
+                tokenHash: extraTokenHash,
+                rawToken: null,
+                status: 'PENDING',
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                invitedById: validExtraInvitedById,
               },
             })
           }
@@ -3126,7 +3173,12 @@ export class AdmissionService {
     data: {
       docType: DocumentType
       fileName: string
+      fileUrl?: string
+      storageKey?: string
+      fileSize?: number
+      mimeType?: string
       remarks?: string
+      uploadedById?: string
     }
   ) {
     const app = await db.admissionApplication.findFirst({
@@ -3160,9 +3212,16 @@ export class AdmissionService {
         where: { id: existing.id },
         data: {
           fileName: data.fileName,
+          fileUrl: data.fileUrl || existing.fileUrl,
+          storageKey: data.storageKey || existing.storageKey,
+          fileSize: data.fileSize != null ? data.fileSize : existing.fileSize,
+          mimeType: data.mimeType || existing.mimeType,
+          uploadedById: data.uploadedById || ctx.actorId,
           status: 'UPLOADED',
           verified: false,
           verifiedAt: null,
+          verifiedById: null,
+          verifiedByName: null,
           rejectionReason: null,
           uploadedAt: new Date(),
           remarks: data.remarks || null,
@@ -3174,6 +3233,11 @@ export class AdmissionService {
           applicationId,
           docType: data.docType,
           fileName: data.fileName,
+          fileUrl: data.fileUrl || null,
+          storageKey: data.storageKey || null,
+          fileSize: data.fileSize || null,
+          mimeType: data.mimeType || null,
+          uploadedById: data.uploadedById || ctx.actorId,
           status: 'UPLOADED',
           verified: false,
           uploadedAt: new Date(),
@@ -3199,6 +3263,356 @@ export class AdmissionService {
   }
 
   /**
+   * Verify or reject an uploaded application document.
+   */
+  static async verifyDocument(
+    ctx: ScopeContext,
+    applicationId: string,
+    documentId: string,
+    action: 'VERIFY' | 'REJECT' | 'NEEDS_CORRECTION',
+    notes?: string
+  ) {
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
+      include: { documents: true },
+    })
+    if (!app) throw new Error('Application not found')
+
+    const doc = app.documents.find((d) => d.id === documentId)
+    if (!doc) throw new Error('Document not found')
+
+    if (doc.status === 'NOT_UPLOADED') {
+      throw new Error('Cannot verify or reject a document that has not been uploaded yet')
+    }
+
+    const isVerify = action === 'VERIFY'
+    const updated = await db.applicationDocument.update({
+      where: { id: documentId },
+      data: {
+        status: isVerify ? 'VERIFIED' : 'REJECTED',
+        verified: isVerify,
+        verifiedAt: isVerify ? new Date() : null,
+        verifiedById: isVerify ? ctx.actorId : null,
+        verifiedByName: isVerify ? ctx.actorName : null,
+        rejectionReason: !isVerify ? notes || 'Rejected by staff' : null,
+        remarks: notes || doc.remarks,
+      },
+    })
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: isVerify ? 'DOC_VERIFIED' : 'DOC_REJECTED',
+      entity: 'ApplicationDocument',
+      entityId: documentId,
+      summary: `Document ${doc.docType} ${isVerify ? 'verified' : 'rejected'} for application ${app.applicationNumber}${notes ? `: ${notes}` : ''}`,
+    })
+
+    return updated
+  }
+
+  /**
+   * Generates and returns a secure parent application completion invitation.
+   */
+  static async createApplicationInvitation(
+    ctx: ScopeContext,
+    applicationId: string,
+    email?: string,
+    origin?: string
+  ) {
+    const app = await db.admissionApplication.findFirst({
+      where: { id: applicationId, tenantId: ctx.tenantId, deletedAt: null },
+    })
+    if (!app) throw new Error('Application not found')
+
+    if (app.status === 'ENROLLED' || app.status === 'ADMITTED') {
+      throw new Error('Application is already admitted/enrolled')
+    }
+
+    const targetEmail = (email || app.parentEmail || '').trim().toLowerCase()
+    if (!targetEmail) {
+      throw new Error('Parent email is required to send application invitation')
+    }
+
+    // Invalidate existing pending invitations for this application
+    await db.applicationInvitation.updateMany({
+      where: { applicationId, tenantId: ctx.tenantId, status: 'PENDING' },
+      data: { status: 'REVOKED' },
+    })
+
+    const rawToken = `appinv_${crypto.randomBytes(32).toString('hex')}`
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+    const invitation = await db.applicationInvitation.create({
+      data: {
+        tenantId: ctx.tenantId,
+        applicationId,
+        email: targetEmail,
+        tokenHash,
+        rawToken: null, // Strictly avoid writing plaintext invitation tokens to the database
+        status: 'PENDING',
+        expiresAt,
+        invitedById: ctx.actorId,
+        lastSentAt: new Date(),
+        sendAttempts: 1,
+      },
+    })
+
+    const baseOrigin = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || origin || 'http://localhost:3000'
+    const inviteUrl = `${baseOrigin}/public/admissions/application?token=${rawToken}`
+
+    await audit({
+      tenantId: ctx.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'APPLICATION_INVITE_SENT',
+      entity: 'AdmissionApplication',
+      entityId: applicationId,
+      summary: `Application completion link generated for parent (${targetEmail}) for ${app.applicationNumber}`,
+    })
+
+    return {
+      invitation,
+      rawToken,
+      token: rawToken,
+      inviteUrl,
+      expiresAt,
+    }
+  }
+
+  /**
+   * Verifies an application invitation token for parent access.
+   */
+  static async verifyApplicationInvitation(token: string) {
+    if (!token || !token.trim()) {
+      throw new Error('Invitation token is required')
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex')
+    const invitation = await db.applicationInvitation.findUnique({
+      where: { tokenHash },
+      include: {
+        application: {
+          include: {
+            program: true,
+            documents: true,
+          },
+        },
+      },
+    })
+
+    if (!invitation) {
+      throw new Error('Invalid invitation link')
+    }
+
+    if (invitation.status !== 'PENDING') {
+      throw new Error(`Invitation is no longer active (status: ${invitation.status})`)
+    }
+
+    if (new Date() > invitation.expiresAt) {
+      await db.applicationInvitation.update({
+        where: { id: invitation.id },
+        data: { status: 'EXPIRED' },
+      })
+      throw new Error('Invitation link has expired. Please contact the school admissions office.')
+    }
+
+    const app = invitation.application
+    if (!app || app.deletedAt) {
+      throw new Error('Associated application is no longer available')
+    }
+
+    const branch = app.branchId
+      ? await db.branch.findUnique({ where: { id: app.branchId }, select: { id: true, name: true, code: true } })
+      : null
+    const academicSession = app.academicSessionId
+      ? await db.academicSession.findUnique({ where: { id: app.academicSessionId }, select: { id: true, name: true } })
+      : null
+
+    return {
+      invitationId: invitation.id,
+      email: invitation.email,
+      expiresAt: invitation.expiresAt,
+      application: {
+        id: app.id,
+        applicationNumber: app.applicationNumber,
+        status: app.status,
+        branchId: app.branchId,
+        branchName: branch?.name,
+        academicSessionId: app.academicSessionId,
+        academicSessionName: academicSession?.name,
+        programId: app.programId,
+        programType: app.programType,
+        childFirstName: app.childFirstName,
+        childLastName: app.childLastName,
+        childDob: app.childDob,
+        childGender: app.childGender,
+        parentName: app.parentName,
+        parentPhone: app.parentPhone,
+        parentEmail: app.parentEmail,
+        documents: app.documents.map((d) => ({
+          id: d.id,
+          docType: d.docType,
+          fileName: d.fileName,
+          fileUrl: d.fileUrl,
+          status: d.status,
+          verified: d.verified,
+        })),
+      },
+    }
+  }
+
+  /**
+   * Submits parent-completed application data using invitation token.
+   */
+  static async submitParentApplication(
+    token: string,
+    input: {
+      childFirstName: string
+      childLastName?: string | null
+      childDob: string | Date
+      childGender: string
+      bloodGroup?: string | null
+      address?: string | null
+      previousSchool?: string | null
+      medicalNotes?: string | null
+      emergencyContact?: string | null
+      parentName: string
+      parentPhone: string
+      alternatePhone?: string | null
+      declarations?: {
+        accuracyDeclared: boolean
+        parentConsent: boolean
+      }
+    }
+  ) {
+    if (!token || !token.trim()) {
+      throw new Error('Invitation token is required')
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token.trim()).digest('hex')
+    const invitation = await db.applicationInvitation.findUnique({
+      where: { tokenHash },
+      include: { application: true },
+    })
+
+    if (!invitation || invitation.status !== 'PENDING') {
+      throw new Error('Invalid or expired application invitation')
+    }
+
+    if (new Date() > invitation.expiresAt) {
+      await db.applicationInvitation.update({
+        where: { id: invitation.id },
+        data: { status: 'EXPIRED' },
+      })
+      throw new Error('Invitation link has expired')
+    }
+
+    const app = invitation.application
+    if (!app || app.deletedAt) {
+      throw new Error('Application not found')
+    }
+
+    // Validate mandatory fields
+    if (!input.childFirstName?.trim()) {
+      throw new Error('Child first name is required')
+    }
+    if (!input.childDob) {
+      throw new Error('Child date of birth is required')
+    }
+    if (!input.parentName?.trim() || !input.parentPhone?.trim()) {
+      throw new Error('Parent name and phone number are required')
+    }
+    if (!input.declarations?.accuracyDeclared || !input.declarations?.parentConsent) {
+      throw new Error('You must accept the accuracy and consent declarations to submit')
+    }
+
+    const childDob = new Date(input.childDob)
+    if (isNaN(childDob.getTime())) {
+      throw new Error('Invalid date of birth')
+    }
+
+    // Age validation using ConfigurationService
+    const ageCheck = await ConfigurationService.validateProgramAge(
+      invitation.tenantId,
+      app.programId || app.programType,
+      childDob,
+      app.branchId
+    )
+    if (!ageCheck.eligible) {
+      throw new Error(ageCheck.reason || 'Child does not satisfy age criteria for this program')
+    }
+
+    const metadata: Record<string, any> = ApplicationMetadataHelper.parse(app.notes)
+    if (input.bloodGroup) metadata.bloodGroup = input.bloodGroup
+    if (input.address) metadata.address = input.address
+    if (input.previousSchool) metadata.previousSchool = input.previousSchool
+    if (input.medicalNotes) metadata.medicalNotes = input.medicalNotes
+    if (input.emergencyContact) metadata.emergencyContact = input.emergencyContact
+    if (input.alternatePhone) metadata.alternatePhone = input.alternatePhone
+    metadata.declarations = {
+      ...input.declarations,
+      declaredByName: input.parentName.trim(),
+      declaredAt: new Date().toISOString(),
+      submittedVia: 'PARENT_PORTAL_LINK',
+    }
+    delete metadata.isDraft
+
+    const notesText = ApplicationMetadataHelper.merge(app.notes, metadata)
+
+    const updatedApp = await db.$transaction(async (tx) => {
+      const res = await tx.admissionApplication.update({
+        where: { id: app.id },
+        data: {
+          childFirstName: input.childFirstName.trim(),
+          childLastName: input.childLastName ? input.childLastName.trim() : null,
+          childDob,
+          childGender: (input.childGender as Gender) || app.childGender,
+          parentName: input.parentName.trim(),
+          parentPhone: input.parentPhone.trim(),
+          previousSchool: input.previousSchool?.trim() || app.previousSchool,
+          notes: notesText,
+          status: 'SUBMITTED',
+          submittedAt: new Date(),
+        },
+      })
+
+      await tx.applicationInvitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: 'ACCEPTED',
+          completedAt: new Date(),
+        },
+      })
+
+      return res
+    })
+
+    await audit({
+      tenantId: invitation.tenantId,
+      branchId: app.branchId,
+      academicSessionId: app.academicSessionId,
+      actorId: `parent:${invitation.email}`,
+      actorName: input.parentName.trim(),
+      actorRole: 'PARENT',
+      action: 'PARENT_SUBMITTED',
+      entity: 'AdmissionApplication',
+      entityId: app.id,
+      summary: `Application ${app.applicationNumber} completed and submitted by parent via secure invitation link`,
+    })
+
+    return updatedApp
+  }
+
+  /**
    * Remove or reset an uploaded document.
    */
   static async removeDocument(ctx: ScopeContext, applicationId: string, documentId: string) {
@@ -3220,9 +3634,16 @@ export class AdmissionService {
       where: { id: documentId },
       data: {
         fileName: `${doc.docType.toLowerCase().replace(/_/g, '-')}`,
+        fileUrl: null,
+        storageKey: null,
+        fileSize: null,
+        mimeType: null,
+        uploadedById: null,
         status: 'NOT_UPLOADED',
         verified: false,
         verifiedAt: null,
+        verifiedById: null,
+        verifiedByName: null,
         rejectionReason: null,
         remarks: null,
       },

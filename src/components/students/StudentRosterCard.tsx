@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { StatusBadge, StatusPill } from '@/components/preone'
 import { formatPreschoolAge, initials, avatarClass, enumLabel, fmtDate } from '@/lib/format'
+import { StudentGuardianQuickActions } from './StudentGuardianQuickActions'
+import { StudentSafetyBadges } from './StudentSafetyBadges'
 
 export interface StudentRosterRecord {
   id: string
@@ -27,6 +29,18 @@ export interface StudentRosterRecord {
   dob: string
   gender?: string
   status: string
+  bloodGroup?: string | null
+  allergies?: string | null
+  medicalAlerts?: string | null
+  dietaryRestrictions?: string | null
+  emergencyMedicalInstructions?: string | null
+  health?: {
+    bloodGroup?: string | null
+    allergies?: string | null
+    medicalAlerts?: string | null
+    dietaryRestrictions?: string | null
+    emergencyMedicalInstructions?: string | null
+  } | null
   classroom: { id: string; name: string; code?: string; programType?: string; teacher?: string } | null
   programType?: string | null
   primaryGuardian?: {
@@ -37,6 +51,26 @@ export interface StudentRosterRecord {
     relationship?: string
     isPrimary?: boolean
   } | null
+  emergencyContact?: {
+    id?: string
+    name: string
+    phone?: string
+    email?: string
+    relationship?: string
+    isPrimary?: boolean
+    isEmergencyContact?: boolean
+    emergencyPriority?: number | null
+  } | null
+  guardians?: Array<{
+    id?: string
+    name: string
+    phone?: string
+    email?: string
+    relationship?: string
+    isPrimary?: boolean
+    isEmergencyContact?: boolean
+    emergencyPriority?: number | null
+  }>
   attendance?: { rate: number; totalTracked: number }
 }
 
@@ -48,6 +82,7 @@ export interface StudentRosterCardProps {
   onInspect?: (student: StudentRosterRecord) => void
   onViewProfile?: (id: string) => void
   onAssignClass?: (id: string) => void
+  onOpenSafety?: (student: StudentRosterRecord) => void
   canWriteStudents?: boolean
 }
 
@@ -59,6 +94,7 @@ export function StudentRosterCard({
   onInspect,
   onViewProfile,
   onAssignClass,
+  onOpenSafety,
   canWriteStudents = false,
 }: StudentRosterCardProps) {
   const [imgError, setImgError] = useState(false)
@@ -194,6 +230,17 @@ export function StudentRosterCard({
               </span>
             )}
           </div>
+
+          {/* Life-Saving Safety & Allergy Badges */}
+          <div className="mt-2 flex justify-center w-full min-h-[20px]">
+            <StudentSafetyBadges
+              student={student}
+              maxVisible={2}
+              size="xs"
+              showBloodGroup
+              onOpenSafety={() => onOpenSafety?.(student)}
+            />
+          </div>
         </div>
 
         {/* ── Meta Chips: Classroom & Preschool Age ── */}
@@ -219,7 +266,7 @@ export function StudentRosterCard({
       {/* ── Primary Guardian / Parent Contact Section ── */}
       <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 text-xs">
         {student.primaryGuardian?.name ? (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-1 text-slate-700 dark:text-slate-300">
               <span
                 className="font-medium truncate flex items-center gap-1"
@@ -233,21 +280,15 @@ export function StudentRosterCard({
               </span>
             </div>
 
-            {student.primaryGuardian.phone ? (
-              <div className="flex items-center justify-between text-[11px] pt-0.5">
-                <a
-                  href={`tel:${student.primaryGuardian.phone}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="font-mono text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-1 transition-colors group/phone font-semibold"
-                  title={`Call primary contact: ${student.primaryGuardian.phone}`}
-                >
-                  <Phone size={11} className="text-purple-500 shrink-0 group-hover/phone:scale-110 transition-transform" />
-                  <span>{student.primaryGuardian.phone}</span>
-                </a>
-              </div>
-            ) : (
-              <span className="text-[11px] text-slate-400 italic">No phone on file</span>
-            )}
+            {/* Relationship-Aware 1-Click Call & WhatsApp Actions */}
+            <div className="pt-0.5">
+              <StudentGuardianQuickActions
+                guardian={student.primaryGuardian}
+                emergencyContact={student.emergencyContact}
+                childName={student.name}
+                variant="card"
+              />
+            </div>
           </div>
         ) : (
           <div className="text-slate-400 italic text-[11px] flex items-center justify-center gap-1.5 py-0.5">

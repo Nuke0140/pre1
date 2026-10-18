@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { UserPlus, AlertTriangle, ArrowRight, Check } from 'lucide-react'
+import { ProgramSeatSelector } from '@/components/admissions/ProgramSeatSelector'
 import { fmtDate } from '@/lib/format'
 
 export interface MinimalEnquiryModalProps {
@@ -396,27 +397,22 @@ export function MinimalEnquiryModal({
                   <span className="text-[10px] text-muted-foreground animate-pulse">Loading programs...</span>
                 )}
               </div>
-              <select
+              <ProgramSeatSelector
+                programs={branchPrograms}
                 value={interestedProgram}
-                onChange={(e) => setInterestedProgram(e.target.value)}
+                onChange={setInterestedProgram}
+                branchId={branchId}
                 disabled={programsLoading || !branchId || branchPrograms.length === 0}
-                className="input text-xs w-full h-8.5 rounded-xl bg-card disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <option value="">
-                  {!branchId
+                placeholder={
+                  !branchId
                     ? 'Select a branch first...'
                     : programsLoading
                     ? 'Loading campus programs...'
                     : branchPrograms.length === 0
                     ? 'No programs available for this campus'
-                    : 'Select Program...'}
-                </option>
-                {branchPrograms.map((p) => (
-                  <option key={p.id} value={p.programType || p.code}>
-                    {p.name} {p.ageMinMonths != null || p.ageMaxMonths != null ? `(${p.ageMinMonths ?? 0}–${p.ageMaxMonths ?? '∞'} mo)` : ''}
-                  </option>
-                ))}
-              </select>
+                    : 'Select Program...'
+                }
+              />
               {ageAdvisory && (
                 <div
                   className={`p-2 rounded-lg text-[11px] flex items-center gap-1.5 mt-1.5 ${

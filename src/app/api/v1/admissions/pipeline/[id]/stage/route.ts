@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { ok, fail, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { AdmissionsPipelineService, type PipelineStageKey } from '@/lib/admissions/pipeline-service'
+import { normalizePipelineStageKey, ORDERED_PIPELINE_STAGES } from '@/lib/admissions/pipeline-constants'
 
 /**
  * PATCH /api/v1/admissions/pipeline/[id]/stage
@@ -36,7 +37,7 @@ async function _PATCH(
     tenantId: session.tenantId,
     branchId: body.branchId || session.branchId,
     academicYearId: body.academicYearId,
-    actorId: session.id,
+    actorId: session.uid,
     actorName: (session as any).name || (session as any).email || 'Staff User',
     actorRole: session.role,
   }

@@ -41,6 +41,8 @@ import {
   Users,
   Utensils,
   HeartPulse,
+  AlertOctagon,
+  HelpCircle,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getInventoryNavConfig } from '@/components/preone'
 import { Modal, Drawer } from '@/components/preone/Modal'
@@ -57,6 +59,11 @@ import { SupplyRequestDetailModal } from '@/components/inventory/SupplyRequestDe
 import { SupplyItemCatalogCard } from '@/lib/inventory/supply-cart-service'
 import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModal'
 import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
+import { StockHealthRadar } from '@/components/inventory/StockHealthRadar'
+import {
+  buildStockHealthRadarSummary,
+  StockHealthCategory,
+} from '@/lib/inventory/stock-health'
 
 interface SessionProps {
   uid: string
@@ -120,6 +127,8 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
+  const [stockHealthFilter, setStockHealthFilter] = useState<StockHealthCategory | 'ALL'>('ALL')
+  const [poVendorId, setPoVendorId] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
   const [storeSearch, setStoreSearch] = useState('')
   const [poSearch, setPoSearch] = useState('')
@@ -1162,12 +1171,43 @@ export function InventoryClient({ session }: { session: SessionProps }) {
     window.open(`/api/v1/inventory/export?type=${type}`, '_blank')
   }
 
+  const stockHealthRadarSummary = useMemo(() => {
+    if (metrics?.stockHealthRadar) {
+      return metrics.stockHealthRadar
+    }
+    return buildStockHealthRadarSummary(items)
+  }, [metrics?.stockHealthRadar, items])
+
+  const handleQuickReorder = useCallback((item: any) => {
+    if (!canProcure && !canManageStock) return
+    const suggestedQty = item.suggestedReorderQuantity || item.stockHealth?.suggestedReorderQuantity || 10
+    const vendorId = item.defaultVendorId || item.defaultVendor?.id || ''
+    setPoVendorId(vendorId)
+    setPoLines([
+      {
+        itemId: item.id,
+        quantityOrdered: suggestedQty > 0 ? suggestedQty : 10,
+        unitPriceCents: item.costPriceCents || 1000,
+        taxRatePercent: 0,
+      },
+    ])
+    setPoModalOpen(true)
+  }, [canProcure, canManageStock])
+
   // Filtered Items
-  const filteredItems = items.filter((it) => {
-    const matchesSearch = !searchQuery || it.name.toLowerCase().includes(searchQuery.toLowerCase()) || it.code.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === 'ALL' || it.categoryId === categoryFilter
-    return matchesSearch && matchesCategory
-  })
+  const filteredItems = useMemo(() => {
+    return items.filter((it) => {
+      const code = it.code || it.sku || ''
+      const matchesSearch =
+        !searchQuery ||
+        it.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        code.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesCategory = categoryFilter === 'ALL' || it.categoryId === categoryFilter
+      const itemCategory = it.stockHealth?.category || (it.availableQuantity <= 0 ? 'CRITICAL_OUT_OF_STOCK' : it.isLowStock ? 'LOW_STOCK' : 'HEALTHY')
+      const matchesStockHealth = stockHealthFilter === 'ALL' || itemCategory === stockHealthFilter
+      return matchesSearch && matchesCategory && matchesStockHealth
+    })
+  }, [items, searchQuery, categoryFilter, stockHealthFilter])
 
   // Filtered Distributions
   const filteredDistributions = distributions.filter((d) => {
@@ -1536,16 +1576,20 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               tooltip="Click to view live store stock balances"
             />
             <GlobalKpiCard
-              label="Low Stock Alerts"
-              value={metrics?.lowStockItemsCount || 0}
-              supportingText={(metrics?.lowStockItemsCount || 0) > 0 ? 'Shortage attention required →' : 'All stock levels healthy'}
+              label="Stock Health & Shortages"
+              value={stockHealthRadarSummary.counts.criticalOutOfStock + stockHealthRadarSummary.counts.lowStock}
+              supportingText={
+                (stockHealthRadarSummary.counts.criticalOutOfStock + stockHealthRadarSummary.counts.lowStock) > 0
+                  ? `${stockHealthRadarSummary.counts.criticalOutOfStock} critical • ${stockHealthRadarSummary.counts.lowStock} low stock →`
+                  : 'All stock levels healthy'
+              }
               icon={<AlertTriangle size={16} />}
-              iconClass={(metrics?.lowStockItemsCount || 0) > 0 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'}
+              iconClass={(stockHealthRadarSummary.counts.criticalOutOfStock + stockHealthRadarSummary.counts.lowStock) > 0 ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'}
               onClick={() => {
-                setActiveTab('REPORTS')
-                setReportSubTab('LOW_STOCK')
+                setStockHealthFilter('CRITICAL_OUT_OF_STOCK')
+                setActiveTab('ITEMS')
               }}
-              tooltip="Click to view items requiring reorder"
+              tooltip="Click to inspect critical stock in Items directory"
             />
             <GlobalKpiCard
               label="Pending Requisitions"
@@ -1569,6 +1613,22 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               tooltip="Click to view open purchase orders"
             />
           </KpiGrid>
+
+          {/* STOCK HEALTH RADAR (TRAFFIC LIGHT REPLENISHMENT SYSTEM) */}
+          <StockHealthRadar
+            summary={stockHealthRadarSummary}
+            selectedCategory={stockHealthFilter}
+            onSelectCategory={(cat) => {
+              setStockHealthFilter(cat)
+              if (cat !== 'ALL') {
+                setActiveTab('ITEMS')
+              }
+            }}
+            onQuickReorder={handleQuickReorder}
+            canProcure={canProcure}
+            canManageStock={canManageStock}
+            branchName={session.branchId ? 'Current Branch' : undefined}
+          />
 
           {/* BALANCED 2-COLUMN OPERATIONAL DASHBOARD */}
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)] gap-4 w-full max-w-full min-w-0" style={{ alignItems: 'start' }}>
@@ -1769,6 +1829,17 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             </div>
           </div>
 
+          {/* STOCK HEALTH RADAR COMPONENT */}
+          <StockHealthRadar
+            summary={stockHealthRadarSummary}
+            selectedCategory={stockHealthFilter}
+            onSelectCategory={(cat) => setStockHealthFilter(cat)}
+            onQuickReorder={handleQuickReorder}
+            canProcure={canProcure}
+            canManageStock={canManageStock}
+            branchName={session.branchId ? 'Current Branch' : undefined}
+          />
+
           {/* Unified Filter Bar Surface */}
           <div
             className="card"
@@ -1782,7 +1853,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
             }}
           >
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
-              <div style={{ position: 'relative', width: 280 }}>
+              <div style={{ position: 'relative', width: 260 }}>
                 <Search size={15} style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-muted)' }} />
                 <input
                   type="text"
@@ -1796,7 +1867,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
 
               <select
                 className="input"
-                style={{ width: 190, height: 36, fontSize: '0.85rem' }}
+                style={{ width: 180, height: 36, fontSize: '0.85rem' }}
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
@@ -1805,6 +1876,35 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+
+              <select
+                className="input"
+                style={{ width: 220, height: 36, fontSize: '0.85rem' }}
+                value={stockHealthFilter}
+                onChange={(e) => setStockHealthFilter(e.target.value as any)}
+              >
+                <option value="ALL">All Stock Health ({items.length})</option>
+                <option value="CRITICAL_OUT_OF_STOCK">🔴 Critical / Out of Stock ({stockHealthRadarSummary.counts.criticalOutOfStock})</option>
+                <option value="LOW_STOCK">🟡 Low Stock ({stockHealthRadarSummary.counts.lowStock})</option>
+                <option value="HEALTHY">🟢 Healthy Stock ({stockHealthRadarSummary.counts.healthy})</option>
+                {stockHealthRadarSummary.counts.unrated > 0 && (
+                  <option value="UNRATED">⚪ Unrated ({stockHealthRadarSummary.counts.unrated})</option>
+                )}
+              </select>
+
+              {(stockHealthFilter !== 'ALL' || categoryFilter !== 'ALL' || searchQuery) && (
+                <button
+                  className="btn btn-sm btn-ghost text-xs flex items-center gap-1"
+                  onClick={() => {
+                    setStockHealthFilter('ALL')
+                    setCategoryFilter('ALL')
+                    setSearchQuery('')
+                  }}
+                  title="Reset all filters"
+                >
+                  <X size={12} /> Clear Filters
+                </button>
+              )}
             </div>
 
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -1822,11 +1922,11 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Code</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Item Name</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Category</th>
-                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Type</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Unit</th>
+                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Available</th>
+                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Lvl</th>
+                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Stock Health</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Cost Price</th>
-                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Reorder Level</th>
-                  <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Status</th>
                   <th style={{ padding: '12px 14px', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Actions</th>
                 </tr>
               </thead>
@@ -1838,12 +1938,12 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: 'var(--preone-primary-soft, #f3eeff)', color: 'var(--primary, #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                           <Package size={22} />
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: searchQuery || categoryFilter !== 'ALL' ? 4 : 14 }}>
-                          {searchQuery || categoryFilter !== 'ALL' ? 'No Matching Items' : 'No Inventory Items Yet'}
+                        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: searchQuery || categoryFilter !== 'ALL' || stockHealthFilter !== 'ALL' ? 4 : 14 }}>
+                          {searchQuery || categoryFilter !== 'ALL' || stockHealthFilter !== 'ALL' ? 'No Matching Items' : 'No Inventory Items Yet'}
                         </div>
-                        {(searchQuery || categoryFilter !== 'ALL') && (
+                        {(searchQuery || categoryFilter !== 'ALL' || stockHealthFilter !== 'ALL') && (
                           <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 16px 0' }}>
-                            Try adjusting your search terms or category filter.
+                            Try adjusting your search terms, category, or stock health filter.
                           </p>
                         )}
                         {canManageStock && (
@@ -1855,23 +1955,84 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                     </td>
                   </tr>
                 ) : (
-                  filteredItems.map((it) => (
-                    <tr key={it.id}>
-                      <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{it.code}</td>
-                      <td style={{ padding: '12px 14px', fontWeight: 500 }}>{it.name}</td>
-                      <td style={{ padding: '12px 14px' }}>{it.category?.name || 'Unassigned'}</td>
-                      <td style={{ padding: '12px 14px' }}><StatusBadge status={it.itemType} /></td>
-                      <td style={{ padding: '12px 14px' }}>{it.unit?.name} ({it.unit?.symbol})</td>
-                      <td style={{ padding: '12px 14px', fontWeight: 600 }}>{inr(it.costPriceCents || 0)}</td>
-                      <td style={{ padding: '12px 14px' }}>{it.reorderPoint}</td>
-                      <td style={{ padding: '12px 14px' }}><StatusBadge status={it.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
-                      <td style={{ padding: '12px 14px' }}>
-                        <button className="btn btn-sm btn-ghost" onClick={() => openDrawer('ITEM', it)} title="Inspect Item & Balances">
-                          <Eye size={14} /> Stock Card
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  filteredItems.map((it) => {
+                    const avail = it.availableQuantity !== undefined ? it.availableQuantity : (it.totalAvailable !== undefined ? it.totalAvailable : 0)
+                    const status = it.stockHealth?.status || (avail <= 0 ? 'OUT_OF_STOCK' : it.isLowStock ? 'LOW_STOCK' : 'HEALTHY')
+                    const needsReorder = it.stockHealth?.needsReorder !== undefined ? it.stockHealth.needsReorder : it.isLowStock || avail <= 0
+                    const suggestedReorder = it.stockHealth?.suggestedReorderQuantity || it.suggestedReorderQuantity || 10
+
+                    return (
+                      <tr key={it.id} className={status === 'OUT_OF_STOCK' ? 'bg-rose-50/20' : ''}>
+                        <td style={{ padding: '12px 14px', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>{it.code || it.sku}</td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{it.name}</div>
+                          {it.defaultVendor?.name && (
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Vendor: {it.defaultVendor.name}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>{it.category?.name || 'Unassigned'}</td>
+                        <td style={{ padding: '12px 14px' }}>{it.unit?.symbol || it.unit?.name || 'units'}</td>
+                        <td style={{ padding: '12px 14px', fontWeight: 700 }}>
+                          <span
+                            className={
+                              status === 'OUT_OF_STOCK'
+                                ? 'text-rose-600 dark:text-rose-400 font-bold'
+                                : status === 'CRITICAL'
+                                ? 'text-rose-600 dark:text-rose-400 font-bold'
+                                : status === 'LOW_STOCK'
+                                ? 'text-amber-600 dark:text-amber-400 font-semibold'
+                                : 'text-emerald-700 dark:text-emerald-400'
+                            }
+                          >
+                            {avail}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                          {Number(it.reorderLevel || it.reorderPoint || 0)}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {status === 'OUT_OF_STOCK' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
+                              <AlertOctagon size={12} /> Out of Stock
+                            </span>
+                          ) : status === 'CRITICAL' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
+                              <AlertOctagon size={12} /> Critical Stock
+                            </span>
+                          ) : status === 'LOW_STOCK' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                              <AlertTriangle size={12} /> Low Stock
+                            </span>
+                          ) : status === 'HEALTHY' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                              <CheckCircle2 size={12} /> Healthy
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              <HelpCircle size={12} /> Unrated
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontWeight: 600 }}>{inr(it.costPriceCents || 0)}</td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <button className="btn btn-sm btn-ghost" onClick={() => openDrawer('ITEM', it)} title="Inspect Item & Balances">
+                              <Eye size={14} /> Stock Card
+                            </button>
+                            {(canProcure || canManageStock) && needsReorder && (
+                              <button
+                                className="btn btn-sm btn-outline text-rose-700 hover:bg-rose-50 border-rose-300 dark:text-rose-300 dark:border-rose-800"
+                                onClick={() => handleQuickReorder(it)}
+                                title={`Quick Re-Order (${suggestedReorder} suggested)`}
+                              >
+                                <ShoppingCart size={13} /> Re-Order
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -4280,7 +4441,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         <form onSubmit={handleCreatePO} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Vendor" required>
-              <select name="vendorId" className="input" required>
+              <select name="vendorId" className="input" required value={poVendorId} onChange={(e) => setPoVendorId(e.target.value)}>
                 <option value="">-- Select Vendor --</option>
                 {vendors.map((v) => (
                   <option key={v.id} value={v.id}>{v.name} ({v.code})</option>

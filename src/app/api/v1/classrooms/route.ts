@@ -51,11 +51,37 @@ async function _GET(req: NextRequest) {
       orderBy: [{ programType: 'asc' }, { name: 'asc' }],
     })
 
+    const classroomIds = classrooms.map((c) => c.id)
+    const activeStudentsGroup = classroomIds.length > 0 ? await db.student.groupBy({
+      by: ['currentClassroomId'],
+      where: {
+        tenantId: branchScope.tenantId,
+        currentClassroomId: { in: classroomIds },
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      _count: { _all: true },
+    }) : []
+
+    const activeMap = new Map<string, number>()
+    for (const g of activeStudentsGroup) {
+      if (g.currentClassroomId) {
+        activeMap.set(g.currentClassroomId, g._count._all)
+      }
+    }
+
     const branchMap = new Map(branchScope.branches.map((b) => [b.id, b]))
 
     return ok(
       classrooms.map((c) => {
         const b = branchMap.get(c.branchId)
+        const activeCount = activeMap.get(c.id) || 0
+        const capacity = c.capacity || 20
+        const availableSeats = Math.max(0, capacity - activeCount)
+        const isFull = activeCount >= capacity
+        const status = capacity <= 0 ? 'UNCONFIGURED' : availableSeats === 0 ? 'WAITLIST_ONLY' : availableSeats <= 3 ? 'LIMITED' : 'AVAILABLE'
+        const statusLabel = availableSeats === 0 ? 'Full · Waitlist only' : availableSeats === 1 ? '1 seat left' : `${availableSeats} seats left`
+
         return {
           id: c.id,
           name: c.name,
@@ -68,9 +94,19 @@ async function _GET(req: NextRequest) {
           branchCode: b?.code,
           academicSessionId: c.academicSessionId,
           primaryTeacherId: c.primaryTeacherId,
-          capacity: c.capacity,
+          capacity,
           teacher: c.primaryTeacher?.fullName ?? null,
-          students: c._count.students,
+          students: activeCount,
+          activeEnrollment: activeCount,
+          enrolledCount: activeCount,
+          availableSeats,
+          isFull,
+          status,
+          statusLabel,
+          occupancySummary: `${activeCount}/${capacity} occupied`,
+          _count: {
+            students: activeCount,
+          },
         }
       })
     )

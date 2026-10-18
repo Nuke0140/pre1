@@ -21,6 +21,9 @@ async function _GET(req: NextRequest) {
     const today = isoDate()
     const todayDate = new Date(today)
 
+    const url = new URL(req.url)
+    const filterStudentId = url.searchParams.get('studentId')
+
     const guardians = await db.guardian.findMany({
       where: { userId: session.uid, tenantId, deletedAt: null },
       include: {
@@ -37,8 +40,20 @@ async function _GET(req: NextRequest) {
       },
     })
 
-    const childrenIds = guardians.flatMap((g) => g.studentLinks.map((l) => l.student.id))
-    if (childrenIds.length === 0) return ok({ children: [], today })
+    const allLinkedStudents = guardians.flatMap((g) => g.studentLinks.map((l) => l.student))
+    const linkedStudentIds = Array.from(new Set(allLinkedStudents.map((s) => s.id)))
+
+    if (linkedStudentIds.length === 0) return ok({ children: [], today })
+
+    // Strict security check: If a studentId is supplied, verify it belongs to this guardian
+    if (filterStudentId && !linkedStudentIds.includes(filterStudentId)) {
+      return Errors.forbidden('You are not authorized to view records for this student')
+    }
+
+    const childrenIds = filterStudentId ? [filterStudentId] : linkedStudentIds
+    const targetStudents = filterStudentId
+      ? allLinkedStudents.filter((s) => s.id === filterStudentId)
+      : allLinkedStudents
 
     const attendance = await db.attendance.findMany({
       where: { tenantId, date: todayDate, studentId: { in: childrenIds } },
@@ -102,7 +117,7 @@ async function _GET(req: NextRequest) {
 
     return ok({
       today,
-      children: guardians.flatMap((g) => g.studentLinks.map((l) => shapeChild(l.student))),
+      children: targetStudents.map((s) => shapeChild(s)),
     })
   } catch (e) {
     return Errors.system(e)

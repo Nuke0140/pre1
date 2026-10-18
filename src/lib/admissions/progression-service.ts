@@ -589,7 +589,7 @@ export class AdmissionProgressionService {
       if (!app) throw new Error('Application not found')
 
       // If application is not yet approved, approve it first if authorized
-      if (['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_REVIEW', 'VERIFIED'].includes(app.status)) {
+      if (['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_REVIEW', 'VERIFIED'].includes(app.status)) {
         await AdmissionService.approveApplication(ctx, recordId, options?.notes || '1-Click Progression Approval')
       }
 

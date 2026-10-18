@@ -20,6 +20,7 @@ import { BulkReportCardModal } from '@/components/academics/BulkReportCardModal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate, inr, timeAgo, enumLabel } from '@/lib/format'
 import { PickupSecurityPanel } from '@/components/students/PickupSecurityPanel'
+import { StudentGuardianQuickActions } from '@/components/students/StudentGuardianQuickActions'
 import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModal'
 import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
 
@@ -680,6 +681,9 @@ export function StudentDetailClient({ profile }: Props) {
   const feeBalance = finance?.balanceCents || 0
   const attendanceRate = attendance?.percentage || 0
 
+  const primaryG = (guardians || []).find((g: any) => g.isPrimary) || (guardians || [])[0] || null
+  const emergencyG = (guardians || []).find((g: any) => g.isEmergencyContact) || primaryG
+
   return (
     <div className="space-y-6 pb-20 max-w-7xl mx-auto">
       {/* ── BREADCRUMB / BACK NAVIGATION ── */}
@@ -815,6 +819,18 @@ export function StudentDetailClient({ profile }: Props) {
                 </>
               )}
             </div>
+
+            {/* 1-Click Quick Contact Strip */}
+            {primaryG && (
+              <div className="pt-2 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                <StudentGuardianQuickActions
+                  guardian={primaryG}
+                  emergencyContact={emergencyG}
+                  childName={student?.name || student?.fullName || student?.firstName}
+                  variant="card"
+                />
+              </div>
+            )}
           </div>
 
           {/* Quick Metrics & Actions */}

@@ -180,21 +180,23 @@ export function TeacherToday() {
                   <div key={st.id} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                     <Avatar name={name} />
                     <b style={{ fontSize: 13, flex: '1 1 120px' }}>{name}</b>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {CARE_ACTIONS.map((a) => (
                         <button
                           key={a.type}
-                          className="btn btn-ghost btn-sm"
+                          className="btn btn-ghost btn-sm min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-0 inline-flex items-center justify-center"
                           disabled={busy}
                           title={`Record ${a.label}`}
+                          aria-label={`Record ${a.label}`}
                           onClick={() => quickCare(st.id, a.type)}
                         >
                           {a.icon}
                         </button>
                       ))}
                       <button
-                        className="btn btn-outline btn-sm"
+                        className="btn btn-outline btn-sm min-h-[44px] sm:min-h-[32px] inline-flex items-center justify-center"
                         disabled={busy}
+                        aria-label="More care actions"
                         onClick={() => { setCareFor({ id: st.id, name }); setSection(s.id) }}
                       >
                         <Activity size={13} /> More

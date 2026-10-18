@@ -14,6 +14,7 @@ import {
   MilestoneProgress,
   type MilestoneItem,
 } from '@/components/preone'
+import { ProgramSeatSelector } from '@/components/admissions/ProgramSeatSelector'
 import { useAutosave } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
 
@@ -802,21 +803,18 @@ export function StaffAdmissionFormModal({
                   <label className="font-semibold text-foreground flex items-center gap-1">
                     Target Program Level <span className="text-destructive">*</span>
                   </label>
-                  <select
+                  <ProgramSeatSelector
+                    programs={programs}
                     value={programType}
-                    onChange={(e) => {
-                      setProgramType(e.target.value)
-                      const p = programs.find((x) => (x.programType || x.code) === e.target.value || x.id === e.target.value)
+                    onChange={(val) => {
+                      setProgramType(val)
+                      const p = programs.find((x) => (x.programType || x.code) === val || x.id === val)
                       if (p) setProgramId(p.id)
                     }}
-                    className="input h-9 text-xs w-full rounded-xl bg-card"
-                  >
-                    {programs.map((p) => (
-                      <option key={p.id} value={p.programType || p.code}>
-                        {p.name} {p.ageMinMonths != null ? `(${p.ageMinMonths}–${p.ageMaxMonths ?? '∞'} mo)` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    branchId={branchId}
+                    required
+                    placeholder="Select Program..."
+                  />
                 </div>
 
                 <div className="space-y-1">

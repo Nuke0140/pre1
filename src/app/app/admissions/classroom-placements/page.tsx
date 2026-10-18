@@ -13,6 +13,8 @@ import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { fmtDate } from '@/lib/format'
 import { EmptyState, StudentIdentityChip, FamilyIdentityChip, GlobalFilterToolbar } from '@/components/preone'
+import { ClassroomSeatSelector } from '@/components/admissions/ClassroomSeatSelector'
+import { SeatAvailabilityBadge } from '@/components/admissions/SeatAvailabilityBadge'
 import { invalidateAdmissionsCounts } from '@/lib/admissions/use-admissions-counts'
 
 export default function ClassroomPlacementsPage() {
@@ -91,9 +93,9 @@ export default function ClassroomPlacementsPage() {
       const clsParams = new URLSearchParams({
         ...(selectedBranchId ? { branchId: selectedBranchId } : {}),
       })
-      const [appRes, clsRes] = await Promise.all([
+      const [appRes, capRes] = await Promise.all([
         fetch(`/api/v1/applications?${qParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
-        fetch(`/api/v1/classrooms?${clsParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] })),
+        fetch(`/api/v1/admissions/capacity?${clsParams.toString()}`).then((r) => r.json()).catch(() => null),
       ])
       setBusy(false)
       if (appRes.success && appRes.data) {
@@ -102,8 +104,13 @@ export default function ClassroomPlacementsPage() {
         )
         setCandidates(waitingPlacement)
       }
-      if (clsRes.success && clsRes.data) {
-        setClassrooms(clsRes.data)
+      if (capRes?.success && Array.isArray(capRes.data?.classrooms)) {
+        setClassrooms(capRes.data.classrooms)
+      } else {
+        const clsRes = await fetch(`/api/v1/classrooms?${clsParams.toString()}`).then((r) => r.json()).catch(() => ({ success: false, data: [] }))
+        if (clsRes.success && clsRes.data) {
+          setClassrooms(clsRes.data)
+        }
       }
     } catch {
       setBusy(false)
@@ -357,9 +364,35 @@ export default function ClassroomPlacementsPage() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
-                          {cand.programType}
-                        </span>
+                        {(() => {
+                          const candBranch = cand.branchId || cand.branch?.id
+                          const matchingClassrooms = classrooms.filter((c) => {
+                            const matchProg = !cand.programType || c.programType === cand.programType
+                            const matchBranch = !candBranch || c.branchId === candBranch
+                            return matchProg && matchBranch
+                          })
+                          const totalAvailable = matchingClassrooms.reduce((s, c) => s + (c.availableSeats ?? 0), 0)
+                          const totalCapacity = matchingClassrooms.reduce((s, c) => s + (c.capacity ?? 0), 0)
+                          const totalEnrolled = matchingClassrooms.reduce((s, c) => s + (c.enrolledCount ?? c.students ?? 0), 0)
+                          const urgencyStatus = totalCapacity === 0 ? 'UNCONFIGURED' : totalAvailable === 0 ? 'WAITLIST_ONLY' : totalAvailable <= 3 ? 'LIMITED' : 'AVAILABLE'
+
+                          return (
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                {cand.programType}
+                              </span>
+                              {matchingClassrooms.length > 0 && (
+                                <SeatAvailabilityBadge
+                                  status={urgencyStatus}
+                                  availableSeats={totalAvailable}
+                                  capacity={totalCapacity}
+                                  enrolledCount={totalEnrolled}
+                                  size="xs"
+                                />
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700">
@@ -370,11 +403,17 @@ export default function ClassroomPlacementsPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            const match = classrooms.find((c) => c.programType === cand.programType)
+                            const candBranch = cand.branchId || cand.branch?.id
+                            const eligible = classrooms.filter((c) => {
+                              const matchProg = !cand.programType || c.programType === cand.programType
+                              const matchBranch = !candBranch || c.branchId === candBranch
+                              return matchProg && matchBranch
+                            })
+                            const firstAvailable = eligible.find((c) => (c.availableSeats ?? 1) > 0) || eligible[0]
                             setAllocateModal({
                               open: true,
                               candidate: cand,
-                              classroomId: match?.id || '',
+                              classroomId: firstAvailable?.id || '',
                             })
                           }}
                           className="btn btn-primary btn-sm h-7.5 px-3 text-xs rounded-lg font-bold gap-1"
@@ -414,31 +453,21 @@ export default function ClassroomPlacementsPage() {
       >
         <form onSubmit={handleConfirmPlacement} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-foreground">Select Classroom Section *</label>
-            <select
-              required
+            <label className="text-xs font-semibold text-foreground">
+              Select Classroom Section <span className="text-destructive">*</span>
+            </label>
+            <ClassroomSeatSelector
+              classrooms={classrooms.filter((c) => {
+                const matchProg = !allocateModal.candidate?.programType || c.programType === allocateModal.candidate.programType
+                const candBranch = allocateModal.candidate?.branchId || allocateModal.candidate?.branch?.id
+                const matchBranch = !candBranch || c.branchId === candBranch
+                return matchProg && matchBranch
+              })}
               value={allocateModal.classroomId}
-              onChange={(e) => setAllocateModal((prev) => ({ ...prev, classroomId: e.target.value }))}
-              className="input text-xs h-9 w-full rounded-xl"
-            >
-              <option value="">Select Section...</option>
-              {classrooms
-                .filter((c) => {
-                  const matchProg = !allocateModal.candidate?.programType || c.programType === allocateModal.candidate.programType
-                  const candBranch = allocateModal.candidate?.branchId || allocateModal.candidate?.branch?.id
-                  const matchBranch = !candBranch || c.branchId === candBranch
-                  return matchProg && matchBranch
-                })
-                .map((cls) => {
-                  const enrolled = cls._count?.students || 0
-                  const available = Math.max(0, cls.capacity - enrolled)
-                  return (
-                    <option key={cls.id} value={cls.id}>
-                      {cls.name} {cls.branch?.name ? `(${cls.branch.name})` : ''} - {available} available / {cls.capacity} capacity
-                    </option>
-                  )
-                })}
-            </select>
+              onChange={(val) => setAllocateModal((prev) => ({ ...prev, classroomId: val }))}
+              required
+              placeholder="Select Section with open capacity..."
+            />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/70">

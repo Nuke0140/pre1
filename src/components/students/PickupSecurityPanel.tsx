@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ManagePickupAuthModal, PickupGuardianData } from './ManagePickupAuthModal'
+import { StudentGuardianQuickActions } from './StudentGuardianQuickActions'
 
 export interface AlternatePickupPerson {
   id: string
@@ -240,21 +241,26 @@ export function PickupSecurityPanel({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      {g.phone && (
-                        <button
-                          type="button"
-                          onClick={() => handleCallContact(g.name, g.phone)}
-                          className="p-2 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-xl transition-colors"
-                          title={`Call ${g.name} (${g.phone})`}
-                        >
-                          <PhoneCall size={16} />
-                        </button>
-                      )}
+                    <div className="flex items-center gap-1.5">
+                      <StudentGuardianQuickActions
+                        guardian={{
+                          id: g.id,
+                          name: g.name,
+                          phone: g.phone,
+                          relationship: g.relationship,
+                          isPrimary: g.isPrimary,
+                          isEmergencyContact: g.isEmergencyContact,
+                          emergencyPriority: g.emergencyPriority,
+                        }}
+                        childName={studentName}
+                        variant="card"
+                        showEmergency={false}
+                        compactLabel={true}
+                      />
                       <button
                         type="button"
                         onClick={() => onEditGuardian(g)}
-                        className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+                        className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
                         title="Edit guardian details"
                       >
                         <Edit3 size={15} />
@@ -262,7 +268,7 @@ export function PickupSecurityPanel({
                       <button
                         type="button"
                         onClick={() => onUnlinkGuardian({ id: g.id, name: g.name })}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors shrink-0"
                         title="Unlink guardian"
                       >
                         <Trash2 size={15} />

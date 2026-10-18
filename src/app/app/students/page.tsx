@@ -9,7 +9,7 @@ import {
   SlidersHorizontal, Sparkles, Filter, Phone, Eye, ArrowRight,
   LayoutGrid, Table
 } from 'lucide-react'
-import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, GlobalFilterToolbar, SearchFilterBar, BookPageLoader, SaveStatusIndicator } from '@/components/preone'
+import { PageHead, StatusBadge, StatusPill, Avatar, Segmented, Field, Skeleton, EmptyState, Breadcrumbs, GlobalFilterToolbar, SearchFilterBar, BookPageLoader, SaveStatusIndicator, ClassroomFilterPills, StudentSafetyBadges, StudentSafetyModal } from '@/components/preone'
 import { DataTable, Column } from '@/components/preone/DataTable'
 import { Modal } from '@/components/preone/Modal'
 import { RecordInspector } from '@/components/preone/RecordInspector'
@@ -19,6 +19,8 @@ import { useToast } from '@/components/preone/Toast'
 import { fmtDate, enumLabel, formatPreschoolAge } from '@/lib/format'
 import { useI18n } from '@/lib/i18n/context'
 import { StudentRosterCardGrid } from '@/components/students/StudentRosterCardGrid'
+import { Student360Drawer } from '@/components/students/Student360Drawer'
+import { StudentGuardianQuickActions } from '@/components/students/StudentGuardianQuickActions'
 
 interface StudentRow {
   id: string
@@ -31,11 +33,25 @@ interface StudentRow {
   dob: string
   gender: string
   status: string
+  bloodGroup?: string | null
+  allergies?: string | null
+  medicalAlerts?: string | null
+  dietaryRestrictions?: string | null
+  emergencyMedicalInstructions?: string | null
+  health?: {
+    bloodGroup?: string | null
+    allergies?: string | null
+    medicalAlerts?: string | null
+    dietaryRestrictions?: string | null
+    emergencyMedicalInstructions?: string | null
+  } | null
   classroom: { id: string; name: string; code?: string; programType?: string; teacher?: string } | null
   programType: string | null
   branchName?: string | null
   academicSessionName?: string | null
   primaryGuardian: { name: string; phone?: string; relationship?: string; isPrimary?: boolean } | null
+  emergencyContact?: { name: string; phone?: string; relationship?: string; isPrimary?: boolean; isEmergencyContact?: boolean; emergencyPriority?: number | null } | null
+  guardians?: Array<{ name: string; phone?: string; relationship?: string; isPrimary?: boolean; isEmergencyContact?: boolean; emergencyPriority?: number | null }>
   attendance?: { rate: number; totalTracked: number }
 }
 
@@ -45,6 +61,14 @@ interface Classroom {
   programType: string
   capacity?: number
   programId?: string
+  branchId?: string
+  academicSessionId?: string
+  students?: number
+  activeEnrollment?: number
+  enrolledCount?: number
+  _count?: {
+    students?: number
+  }
 }
 
 interface DashboardStats {
@@ -133,6 +157,7 @@ export default function StudentsPage() {
   const [enrollClassroomId, setEnrollClassroomId] = useState('')
   const [inspectingStudent, setInspectingStudent] = useState<StudentRow | null>(null)
   const [selectedTabletStudent, setSelectedTabletStudent] = useState<StudentRow | null>(null)
+  const [safetyModalStudent, setSafetyModalStudent] = useState<StudentRow | null>(null)
 
   // Enroll form enhancements (date picker, mask, draft autosave)
   const formRef = useRef<HTMLFormElement>(null)
@@ -480,23 +505,51 @@ export default function StudentsPage() {
       ),
     },
     {
+      key: 'safety',
+      header: 'Safety & Allergies',
+      export: (s) => {
+        const parts = [
+          s.allergies ? `Allergies: ${s.allergies}` : null,
+          s.medicalAlerts ? `Medical: ${s.medicalAlerts}` : null,
+          s.dietaryRestrictions ? `Dietary: ${s.dietaryRestrictions}` : null,
+          s.bloodGroup ? `Blood: ${s.bloodGroup}` : null,
+        ].filter(Boolean)
+        return parts.length > 0 ? parts.join('; ') : 'None'
+      },
+      render: (s) => (
+        <div className="flex items-center min-w-[130px]" onClick={(e) => e.stopPropagation()}>
+          <StudentSafetyBadges
+            student={s}
+            maxVisible={2}
+            size="xs"
+            showBloodGroup
+            showSafeState
+            onOpenSafety={() => setSafetyModalStudent(s)}
+          />
+        </div>
+      ),
+    },
+    {
       key: 'primaryGuardian',
       header: t('students.primaryGuardian'),
       export: (s) => (s.primaryGuardian ? `${s.primaryGuardian.name} (${s.primaryGuardian.relationship}) ${s.primaryGuardian.phone}` : t('common.none')),
       render: (s) =>
         s.primaryGuardian ? (
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-slate-900 dark:text-white">
-              {s.primaryGuardian.name}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              {enumLabel(s.primaryGuardian.relationship)}
-            </span>
-            {s.primaryGuardian.phone && (
-              <span className="text-[11px] font-mono text-slate-400 mt-0.5">
-                {s.primaryGuardian.phone}
+          <div className="flex flex-col gap-1 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[130px]">
+                {s.primaryGuardian.name}
               </span>
-            )}
+              <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                {enumLabel(s.primaryGuardian.relationship)}
+              </span>
+            </div>
+            <StudentGuardianQuickActions
+              guardian={s.primaryGuardian}
+              emergencyContact={s.emergencyContact}
+              childName={s.name}
+              variant="inline"
+            />
           </div>
         ) : (
           <span className="text-slate-400 text-sm">—</span>
@@ -861,35 +914,18 @@ export default function StudentsPage() {
         }}
       />
 
-      {/* Classroom Quick-Switch Rail */}
-      <div className="pt-1 pb-2 overflow-x-auto scrollbar-none flex items-center gap-1.5 touch-pan-x rail-edge-fade">
-        <button
-          onClick={() => setClassFilter('ALL')}
-          className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-all ${
-            classFilter === 'ALL'
-              ? 'bg-purple-600 text-white font-semibold shadow-xs'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
-          }`}
-        >
-          All Classrooms
-        </button>
-        {classrooms.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setClassFilter(c.id)}
-            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap flex items-center gap-1.5 transition-all ${
-              classFilter === c.id
-                ? 'bg-purple-600 text-white font-semibold shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium'
-            }`}
-          >
-            <span>{c.name}</span>
-            <span className={`text-[10px] px-1 rounded ${classFilter === c.id ? 'bg-purple-700 text-purple-100' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
-              {enumLabel(c.programType)}
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* ── 3.1. 1-TAP CLASSROOM SWITCHING RAIL (ClassroomFilterPills) ── */}
+      <ClassroomFilterPills
+        classrooms={classrooms}
+        selectedClassroomId={classFilter}
+        onSelectClassroom={setClassFilter}
+        totalCount={stats?.totalStudents ?? (rows ? rows.length : null)}
+        loading={loading}
+        branchId={branchFilter}
+        academicSessionId={sessionFilter}
+        programId={programFilter}
+        allLabel="All Classrooms"
+      />
 
       {/* ── 4. CONTEXTUAL BULK ACTIONS TOOLBAR ── */}
       {selected.length > 0 && canWriteStudents && (
@@ -1020,6 +1056,7 @@ export default function StudentsPage() {
               onInspect={(s) => setInspectingStudent(s)}
               onViewProfile={(id) => router.push(`/app/students/${id}`)}
               onAssignClass={(id) => openBulkClass([id])}
+              onOpenSafety={(s) => setSafetyModalStudent(s as any)}
               canWriteStudents={canWriteStudents}
               activeFiltersCount={activeFiltersCount}
               onClearFilters={clearAllFilters}
@@ -1148,6 +1185,21 @@ export default function StudentsPage() {
                         </div>
                       </div>
 
+                      {/* Safety & Medical Alert Directives */}
+                      <div className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          Safety &amp; Allergies
+                        </span>
+                        <StudentSafetyBadges
+                          student={s}
+                          maxVisible={3}
+                          size="xs"
+                          showBloodGroup
+                          showSafeState
+                          onOpenSafety={() => setSafetyModalStudent(s)}
+                        />
+                      </div>
+
                       {/* Guardian & Emergency Contact Card */}
                       <div className="p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs space-y-2.5">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -1170,6 +1222,15 @@ export default function StudentsPage() {
                               {s.primaryGuardian?.phone || (s as any).guardian?.phone || '—'}
                             </span>
                           </div>
+                        </div>
+                        {/* 1-Click Call & WhatsApp Quick Actions */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60" onClick={(e) => e.stopPropagation()}>
+                          <StudentGuardianQuickActions
+                            guardian={s.primaryGuardian}
+                            emergencyContact={s.emergencyContact}
+                            childName={s.name}
+                            variant="card"
+                          />
                         </div>
                       </div>
 
@@ -1314,6 +1375,17 @@ export default function StudentsPage() {
                         <StatusBadge status={s.status} size="sm" />
                       </div>
 
+                      {/* Safety Alert & Allergy Badges */}
+                      <div onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                        <StudentSafetyBadges
+                          student={s}
+                          maxVisible={2}
+                          size="xs"
+                          showBloodGroup
+                          onOpenSafety={() => setSafetyModalStudent(s)}
+                        />
+                      </div>
+
                       {/* Classroom & Teacher */}
                       <div className="text-xs space-y-0.5">
                         <div className="font-bold text-slate-800 dark:text-slate-200">
@@ -1325,16 +1397,21 @@ export default function StudentsPage() {
                       </div>
 
                       {/* Guardian */}
-                      <div className="text-xs space-y-0.5">
+                      <div className="text-xs space-y-1">
                         <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                           Guardian
                         </div>
                         <div className="font-medium text-slate-800 dark:text-slate-200">
                           {s.primaryGuardian ? `${s.primaryGuardian.name} · ${enumLabel(s.primaryGuardian.relationship)}` : 'No guardian recorded'}
                         </div>
-                        {s.primaryGuardian?.phone && (
-                          <div className="text-slate-500 font-mono text-[11px]">
-                            {s.primaryGuardian.phone}
+                        {s.primaryGuardian && (
+                          <div className="pt-1" onClick={(e) => e.stopPropagation()}>
+                            <StudentGuardianQuickActions
+                              guardian={s.primaryGuardian}
+                              emergencyContact={s.emergencyContact}
+                              childName={s.name}
+                              variant="card"
+                            />
                           </div>
                         )}
                       </div>
@@ -1738,17 +1815,20 @@ export default function StudentsPage() {
         </form>
       </Modal>
 
-      {/* Side-Peek Inspector Drawer */}
-      <RecordInspector
+      {/* Student 360 Slide-Over Drawer */}
+      <Student360Drawer
         open={Boolean(inspectingStudent)}
         onClose={() => setInspectingStudent(null)}
-        type="student"
-        recordId={inspectingStudent?.id}
+        studentId={inspectingStudent?.id}
         initialData={inspectingStudent}
-        onEdit={(s) => {
-          setInspectingStudent(null)
-          router.push(`/app/students/${s.id}?edit=true`)
-        }}
+      />
+
+      {/* Student Safety & Emergency Medical Modal */}
+      <StudentSafetyModal
+        open={Boolean(safetyModalStudent)}
+        onClose={() => setSafetyModalStudent(null)}
+        student={safetyModalStudent}
+        onViewProfile={(id) => router.push(`/app/students/${id}`)}
       />
     </div>
   )

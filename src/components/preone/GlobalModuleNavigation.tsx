@@ -137,16 +137,33 @@ export function GlobalModuleNavigation({
   }
 
   const renderItemContent = (item: ModuleNavigationItem, isActive: boolean) => {
-    const IconComponent = item.icon
+    const rawIcon = item.icon
+    let renderedIcon: React.ReactNode = null
+
+    if (rawIcon) {
+      if (React.isValidElement(rawIcon)) {
+        renderedIcon = rawIcon
+      } else if (typeof rawIcon === 'function' || (typeof rawIcon === 'object' && rawIcon !== null)) {
+        // Handle React.ComponentType, React.forwardRef (Lucide icons), and custom component functions
+        const IconComponent = rawIcon as React.ComponentType<{ size?: number; className?: string }>
+        renderedIcon = (
+          <IconComponent
+            size={15}
+            className={`transition-colors ${
+              isActive
+                ? 'text-primary'
+                : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+            }`}
+          />
+        )
+      }
+    }
+
     return (
       <>
-        {IconComponent && (
+        {renderedIcon && (
           <span className="relative flex shrink-0 items-center justify-center">
-            {typeof IconComponent === 'function' ? (
-              <IconComponent size={15} className={`transition-colors ${isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`} />
-            ) : (
-              IconComponent
-            )}
+            {renderedIcon}
             {/* Mobile-only badge anchored to icon */}
             <span className="sm:hidden">{renderBadge(item, true)}</span>
           </span>
@@ -265,6 +282,16 @@ export function GlobalModuleNavigation({
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`
 
+                    let overflowIconNode: React.ReactNode = null
+                    if (IconComponent) {
+                      if (React.isValidElement(IconComponent)) {
+                        overflowIconNode = IconComponent
+                      } else if (typeof IconComponent === 'function' || (typeof IconComponent === 'object' && IconComponent !== null)) {
+                        const Comp = IconComponent as React.ComponentType<{ size?: number; className?: string }>
+                        overflowIconNode = <Comp size={14} className={isActive ? 'text-primary' : 'text-slate-400'} />
+                      }
+                    }
+
                     if (item.href && !onSelect) {
                       return (
                         <Link
@@ -275,11 +302,7 @@ export function GlobalModuleNavigation({
                           className={itemClasses}
                         >
                           <div className="flex items-center gap-2 truncate">
-                            {IconComponent && typeof IconComponent === 'function' ? (
-                              <IconComponent size={14} className={isActive ? 'text-primary' : 'text-slate-400'} />
-                            ) : (
-                              IconComponent
-                            )}
+                            {overflowIconNode}
                             <span className="truncate">{item.label}</span>
                           </div>
                           {renderBadge(item, false)}
@@ -300,11 +323,7 @@ export function GlobalModuleNavigation({
                         className={itemClasses}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          {IconComponent && typeof IconComponent === 'function' ? (
-                            <IconComponent size={14} className={isActive ? 'text-primary' : 'text-slate-400'} />
-                          ) : (
-                            IconComponent
-                          )}
+                          {overflowIconNode}
                           <span className="truncate">{item.label}</span>
                         </div>
                         {renderBadge(item, false)}

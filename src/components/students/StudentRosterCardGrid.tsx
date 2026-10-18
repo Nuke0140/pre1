@@ -24,6 +24,7 @@ export interface StudentRosterCardGridProps {
   onViewProfile?: (id: string) => void
   onAssignClass?: (id: string) => void
   canWriteStudents?: boolean
+  onOpenSafety?: (student: StudentRosterRecord) => void
   activeFiltersCount?: number
   onClearFilters?: () => void
   onEnrollChild?: () => void
@@ -40,6 +41,7 @@ export function StudentRosterCardGrid({
   onInspect,
   onViewProfile,
   onAssignClass,
+  onOpenSafety,
   canWriteStudents = false,
   activeFiltersCount = 0,
   onClearFilters,
@@ -201,6 +203,7 @@ export function StudentRosterCardGrid({
             onInspect={onInspect}
             onViewProfile={onViewProfile}
             onAssignClass={onAssignClass}
+            onOpenSafety={onOpenSafety}
             canWriteStudents={canWriteStudents}
           />
         ))}

@@ -12,17 +12,23 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
+    const branchId = searchParams.get('branchId') || session.branchId || undefined
     const categoryId = searchParams.get('categoryId') || undefined
     const itemType = searchParams.get('itemType') as any || undefined
     const search = searchParams.get('search') || undefined
+    const lowStock = searchParams.get('lowStock') === 'true'
+    const stockHealthCategory = (searchParams.get('stockHealthCategory') || undefined) as any
     const isActive = searchParams.get('isActive') !== null ? searchParams.get('isActive') === 'true' : undefined
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : undefined
     const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : undefined
 
     const result = await InventoryService.listItems(session.tenantId, {
+      branchId,
       categoryId,
       itemType,
       search,
+      lowStock: lowStock ? true : undefined,
+      stockHealthCategory,
       isActive,
       page,
       pageSize,

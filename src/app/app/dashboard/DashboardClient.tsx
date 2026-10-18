@@ -8,10 +8,13 @@ import {
 import { PageHead, KpiTile, KpiMetricCard } from '@/components/preone/ui'
 import { LineChart, BarChart } from '@/components/preone/Chart'
 import { inr, timeAgo, enumLabel } from '@/lib/format'
+import { SetupIncompleteBanner } from '@/components/dashboard/SetupIncompleteBanner'
 
 interface Props {
   role: string
-  perms: { students: boolean; admissions: boolean; finance: boolean; attendance: boolean }
+  perms: { students: boolean; admissions: boolean; finance: boolean; attendance: boolean; audit?: boolean }
+  setup?: { status: string } | null
+  sessionName?: string
   data: {
     activeStudents: number
     presentToday: number
@@ -28,11 +31,16 @@ interface Props {
   }
 }
 
-export function DashboardClient({ role, perms, data }: Props) {
+export function DashboardClient({ role, perms, setup, sessionName, data }: Props) {
   const maxTrend = Math.max(...data.trend.map((t) => t.pct), 100)
 
   return (
     <div className="premium-enter" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Setup Incomplete Non-Blocking Banner (OWNER/PRINCIPAL) ── */}
+      {setup && setup.status !== 'LIVE' && (
+        <SetupIncompleteBanner status={setup.status} />
+      )}
+
       {/* ── 1. Operational Command Center Hero ── */}
       <div className="operational-hero">
         <div className="operational-hero-head">
@@ -46,7 +54,9 @@ export function DashboardClient({ role, perms, data }: Props) {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="badge b-primary b-dot">Active Academic Session</span>
+            <span className="badge b-primary b-dot">
+              {sessionName ? `Session: ${sessionName}` : 'Active Academic Session'}
+            </span>
           </div>
         </div>
 
@@ -250,34 +260,36 @@ export function DashboardClient({ role, perms, data }: Props) {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <div className="card-title">Recent Operational Activity</div>
-              <div className="card-sub">Real-time immutable audit trail</div>
-            </div>
-            <Activity size={18} style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div className="timeline">
-            {data.recentActivity.map((a, i) => (
-              <div className="tl-item" key={i}>
-                <span className="tl-dot" />
-                <div className="tl-body">
-                  <div className="tl-head">
-                    <b style={{ fontSize: 13 }}>{a.summary}</b>
-                  </div>
-                  <p style={{ fontSize: 12 }}>
-                    {a.actor || 'System'} · {timeAgo(a.at)}
-                  </p>
-                </div>
+        {/* Recent Activity — Strictly authorized */}
+        {perms.audit && (
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <div className="card-title">Recent Operational Activity</div>
+                <div className="card-sub">Real-time immutable audit trail</div>
               </div>
-            ))}
-            {data.recentActivity.length === 0 && (
-              <p className="t-body" style={{ color: 'var(--text-muted)' }}>No recent activity recorded.</p>
-            )}
+              <Activity size={18} style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <div className="timeline">
+              {data.recentActivity.map((a, i) => (
+                <div className="tl-item" key={i}>
+                  <span className="tl-dot" />
+                  <div className="tl-body">
+                    <div className="tl-head">
+                      <b style={{ fontSize: 13 }}>{a.summary}</b>
+                    </div>
+                    <p style={{ fontSize: 12 }}>
+                      {a.actor || 'System'} · {timeAgo(a.at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {data.recentActivity.length === 0 && (
+                <p className="t-body" style={{ color: 'var(--text-muted)' }}>No recent activity recorded.</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

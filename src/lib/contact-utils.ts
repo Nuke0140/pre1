@@ -53,3 +53,40 @@ export function buildWhatsAppChatUrl(
   }
   return `https://wa.me/${normalized}`
 }
+
+/**
+ * Authoritatively formats relationship-aware call action labels.
+ * If relationship is MOTHER -> "Call Mom · Priya"
+ * If relationship is FATHER -> "Call Dad · David"
+ * Otherwise -> "Call Primary Guardian · Sarah" or "Call Guardian"
+ * Supports optional emergency badge context.
+ */
+export function formatGuardianCallLabel(
+  guardian?: { name?: string | null; relationship?: string | null } | null,
+  options?: { isEmergency?: boolean; compact?: boolean }
+): string {
+  if (!guardian?.name) {
+    return options?.isEmergency ? 'Call Emergency Contact' : 'Call Guardian'
+  }
+
+  const rel = (guardian.relationship || '').trim().toUpperCase()
+  let relLabel = 'Primary Guardian'
+  if (rel === 'MOTHER') relLabel = 'Mom'
+  else if (rel === 'FATHER') relLabel = 'Dad'
+  else if (rel === 'GRANDPARENT') relLabel = 'Grandparent'
+  else if (rel === 'SIBLING') relLabel = 'Sibling'
+  else if (rel === 'LEGAL_GUARDIAN') relLabel = 'Guardian'
+  else if (rel === 'OTHER') relLabel = 'Contact'
+
+  if (options?.isEmergency && relLabel === 'Primary Guardian') {
+    relLabel = 'Emergency'
+  }
+
+  const firstName = guardian.name.trim().split(/\s+/)[0] || guardian.name.trim()
+
+  if (options?.compact) {
+    return `Call ${relLabel}`
+  }
+
+  return `Call ${relLabel} · ${firstName}`
+}

@@ -38,6 +38,7 @@ model Tenant {
   deletedAt              DateTime?
   academicSessions       AcademicSession[]
   applications           AdmissionApplication[]
+  applicationInvitations ApplicationInvitation[]
   announcements          Announcement[]
   attendance             Attendance[]
   auditLogs              AuditLog[]
@@ -543,7 +544,7 @@ model AdmissionApplication {
   programType              ProgramType
   childFirstName           String
   childLastName            String?
-  childDob                 DateTime
+  childDob                 DateTime?
   childGender              Gender
   parentName               String
   parentPhone              String
@@ -572,6 +573,7 @@ model AdmissionApplication {
   documents                ApplicationDocument[]
   offers                   AdmissionOffer[]
   communications           AdmissionCommunication[]
+  invitations              ApplicationInvitation[]
 
   @@unique([tenantId, applicationNumber])
   @@index([tenantId, status])
@@ -615,17 +617,51 @@ model ApplicationDocument {
   applicationId    String
   docType          DocumentType
   fileName         String
+  fileUrl          String?
+  storageKey       String?
+  fileSize         Int?
+  mimeType         String?
   status           DocumentStatus       @default(UPLOADED)
   verified         Boolean              @default(false)
   uploadedAt       DateTime             @default(now())
+  uploadedById     String?
   verifiedAt       DateTime?
+  verifiedById     String?
+  verifiedByName   String?
   remarks          String?
   rejectionReason  String?
   createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @default(now()) @updatedAt
   application      AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@index([applicationId])
   @@map("application_documents")
+}
+
+model ApplicationInvitation {
+  id            String               @id @default(uuid())
+  tenantId      String
+  applicationId String
+  email         String
+  tokenHash     String               @unique
+  rawToken      String?
+  status        InvitationStatus     @default(PENDING)
+  expiresAt     DateTime
+  completedAt   DateTime?
+  lastSentAt    DateTime?
+  sendAttempts  Int                  @default(1)
+  lastError     String?
+  invitedById   String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([applicationId])
+  @@index([tokenHash])
+  @@map("application_invitations")
 }
 
 model AdmissionCommunication {

@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import crypto from 'crypto'
@@ -43,8 +44,10 @@ export interface UploadResult {
 
 const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const ALLOWED_BRANDING_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml']
+const ALLOWED_DOCUMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024 // 5MB
 const MAX_BRANDING_BYTES = 4 * 1024 * 1024 // 4MB
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024 // 10MB
 
 const EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -52,6 +55,7 @@ const EXTENSION_MAP: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/svg+xml': 'svg',
+  'application/pdf': 'pdf',
 }
 
 // In-memory mock store for unit tests or environments without AWS credentials
@@ -131,7 +135,7 @@ export class S3StorageService {
       ext = EXTENSION_MAP[mimeType.toLowerCase()]
     } else if (filename) {
       const parsedExt = path.extname(filename).replace('.', '').toLowerCase()
-      if (['jpg', 'jpeg', 'png', 'webp', 'svg'].includes(parsedExt)) {
+      if (['jpg', 'jpeg', 'png', 'webp', 'svg', 'pdf'].includes(parsedExt)) {
         ext = parsedExt === 'jpeg' ? 'jpg' : parsedExt
       }
     }
@@ -161,17 +165,110 @@ export class S3StorageService {
     sizeBytes: number
   }) {
     const normMime = params.mimeType.toLowerCase().trim()
+    const isDocuments = params.category === 'documents'
     const isBranding = params.category === 'branding'
-    const allowed = isBranding ? ALLOWED_BRANDING_TYPES : ALLOWED_PHOTO_TYPES
-    const maxSize = isBranding ? MAX_BRANDING_BYTES : MAX_PHOTO_BYTES
+    const allowed = isDocuments
+      ? ALLOWED_DOCUMENT_TYPES
+      : isBranding
+      ? ALLOWED_BRANDING_TYPES
+      : ALLOWED_PHOTO_TYPES
+    const maxSize = isDocuments
+      ? MAX_DOCUMENT_BYTES
+      : isBranding
+      ? MAX_BRANDING_BYTES
+      : MAX_PHOTO_BYTES
 
     if (!allowed.includes(normMime)) {
-      throw new Error(`Unsupported image format: ${params.mimeType}. Allowed: ${allowed.join(', ')}`)
+      throw new Error(`Unsupported format: ${params.mimeType}. Allowed: ${allowed.join(', ')}`)
     }
 
     if (params.sizeBytes > maxSize) {
       const maxMb = Math.round(maxSize / (1024 * 1024))
       throw new Error(`File size exceeds maximum allowed size of ${maxMb}MB.`)
+    }
+  }
+
+  /**
+   * Validates binary file headers (magic bytes) to prevent executable or malicious file spoofing.
+   */
+  static validateBufferMagicBytes(buffer: Buffer, declaredMimeType: string): void {
+    if (!buffer || buffer.length < 4) {
+      throw new Error('Invalid file buffer: file is empty or corrupted')
+    }
+
+    const norm = declaredMimeType.toLowerCase().trim()
+
+    // PDF: %PDF- (0x25 0x50 0x44 0x46 0x2D)
+    if (norm === 'application/pdf') {
+      const isPdf =
+        buffer.length >= 5 &&
+        buffer[0] === 0x25 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x44 &&
+        buffer[3] === 0x46 &&
+        buffer[4] === 0x2d
+      if (!isPdf) {
+        throw new Error('File signature mismatch: expected valid PDF document (%PDF- header)')
+      }
+      return
+    }
+
+    // PNG: \x89PNG\r\n\x1a\n (0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A)
+    if (norm === 'image/png') {
+      const isPng =
+        buffer.length >= 8 &&
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+      if (!isPng) {
+        throw new Error('File signature mismatch: expected valid PNG image')
+      }
+      return
+    }
+
+    // JPEG: 0xFF 0xD8 0xFF
+    if (norm === 'image/jpeg' || norm === 'image/jpg') {
+      const isJpeg =
+        buffer.length >= 3 &&
+        buffer[0] === 0xff &&
+        buffer[1] === 0xd8 &&
+        buffer[2] === 0xff
+      if (!isJpeg) {
+        throw new Error('File signature mismatch: expected valid JPEG image')
+      }
+      return
+    }
+
+    // WebP: RIFF....WEBP (0x52 0x49 0x46 0x46 at 0, 0x57 0x45 0x42 0x50 at 8)
+    if (norm === 'image/webp') {
+      const isWebp =
+        buffer.length >= 12 &&
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      if (!isWebp) {
+        throw new Error('File signature mismatch: expected valid WebP image')
+      }
+      return
+    }
+
+    // SVG: Check for <svg or <?xml
+    if (norm === 'image/svg+xml') {
+      const header = buffer.subarray(0, 100).toString('utf8').trim()
+      if (!header.startsWith('<svg') && !header.startsWith('<?xml')) {
+        throw new Error('File signature mismatch: expected valid SVG xml')
+      }
+      return
     }
   }
 
@@ -237,6 +334,7 @@ export class S3StorageService {
       mimeType: params.mimeType,
       sizeBytes: params.buffer.length,
     })
+    this.validateBufferMagicBytes(params.buffer, params.mimeType)
 
     const key = this.generateObjectKey(
       params.tenantId,
@@ -380,5 +478,44 @@ export class S3StorageService {
    */
   static _getMockObject(key: string) {
     return mockS3Store.get(key)
+  }
+
+  /**
+   * Generates a signed download / viewing URL for an S3 object, or returns the file URL.
+   */
+  static async getSignedDownloadUrl(key: string, expiresIn = 300): Promise<string> {
+    if (!this.isS3Configured()) {
+      return this.resolvePublicUrl(key)
+    }
+    const s3 = this.getS3Client()
+    const bucket = this.getBucketName()
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    })
+    return await getSignedUrl(s3, command, { expiresIn })
+  }
+
+  /**
+   * Retrieves object binary buffer from S3 or local mock store.
+   */
+  static async getObjectBuffer(key: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+    if (!this.isS3Configured()) {
+      const item = mockS3Store.get(key)
+      return item || null
+    }
+    const s3 = this.getS3Client()
+    const bucket = this.getBucketName()
+    try {
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+      if (!res.Body) return null
+      const bytes = await res.Body.transformToByteArray()
+      return {
+        buffer: Buffer.from(bytes),
+        mimeType: res.ContentType || 'application/octet-stream',
+      }
+    } catch {
+      return null
+    }
   }
 }

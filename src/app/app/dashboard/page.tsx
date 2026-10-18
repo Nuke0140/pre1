@@ -1,85 +1,271 @@
 import { can } from '@/lib/auth'
 import { getSession } from '@/lib/auth-server'
 import { db } from '@/lib/db'
+import { normalizeRole } from '@/lib/roles'
 import { redirect } from 'next/navigation'
 import { DashboardClient } from './DashboardClient'
 import { TeacherToday } from './TeacherToday'
 import { ParentToday } from './ParentToday'
+import { StaffDashboardView } from './StaffDashboardView'
+import { FinanceDashboardView } from './FinanceDashboardView'
+import { calculateDashboardFeeMetrics } from '@/lib/fees/dashboard-fees'
+import { currentSession } from '@/lib/academic'
 
+/**
+ * Enterprise Dashboard Controller — /app/dashboard
+ * Role-aware, tenant-scoped, server-authorized dashboard orchestrator.
+ */
 export default async function DashboardPage() {
   const session = await getSession()
-  if (!session?.tenantId) return null
 
-  const tenantId = session.tenantId
-
-  // M00 — first-login handoff: incomplete setup takes priority over the dashboard
-  if (session.role === 'OWNER' || session.role === 'PRINCIPAL') {
-    const setup = await db.schoolSetup.findUnique({ where: { tenantId }, select: { status: true } })
-    if (setup && setup.status !== 'LIVE') redirect('/app/setup')
+  // 1. Unauthenticated or missing tenant context
+  if (!session) {
+    redirect('/auth/login')
   }
 
-  // M01 — role-specific action boards consume the dedicated read-model APIs
-  // (teacher sees actions not config tables §11; parent is child-centric §21/§41)
-  if (session.role === 'TEACHER') return <TeacherToday />
-  if (session.role === 'PARENT' || session.role === 'GUARDIAN') return <ParentToday />
+  // 2. Platform Admin guard: Platform admins belong in system tenant operations
+  if (session.role === 'PLATFORM_ADMIN') {
+    redirect('/onboard')
+  }
+
+  if (!session.tenantId) {
+    redirect('/auth/login')
+  }
+
+  const tenantId = session.tenantId
+  const canonicalRole = normalizeRole(session.role)
+
+  // 3. School Setup Status Query for Leadership
+  let setup: { status: string } | null = null
+  if (canonicalRole === 'OWNER' || canonicalRole === 'PRINCIPAL') {
+    setup = await db.schoolSetup.findUnique({ where: { tenantId }, select: { status: true } })
+  }
+
+  // 4. Academic Operations Persona (TEACHER, COORDINATOR)
+  if (canonicalRole === 'TEACHER' || canonicalRole === 'COORDINATOR') {
+    return <TeacherToday />
+  }
+
+  // 5. Family Persona (PARENT, GUARDIAN) — Scoped strictly to linked children
+  if (canonicalRole === 'PARENT' || canonicalRole === 'GUARDIAN') {
+    return <ParentToday />
+  }
+
+  // 6. Operational Support & Restricted Staff Roles (STAFF, ATTENDANT, DRIVER, RECEPTIONIST)
+  // Non-leadership, non-finance operational personnel get the safe restricted duty workspace
+  if (
+    canonicalRole === 'STAFF' ||
+    canonicalRole === 'ATTENDANT' ||
+    canonicalRole === 'DRIVER' ||
+    canonicalRole === 'RECEPTIONIST'
+  ) {
+    return (
+      <StaffDashboardView
+        role={canonicalRole}
+        name={session.name || 'Staff Member'}
+      />
+    )
+  }
+
+  // 7. Finance Persona (ACCOUNTS, and legacy alias ACCOUNTANT)
+  // Dedicated financial command center with hardened fee metrics, draft work queues, and receivables
+  if (canonicalRole === 'ACCOUNTS') {
+    const canReadFinance = can(session.role, 'finance:read')
+    if (!canReadFinance) {
+      redirect('/app/home')
+    }
+
+    const activeSession = await currentSession(tenantId)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const [invoices, recentInvoicesRaw, recentPaymentsRaw] = await Promise.all([
+      db.invoice.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+          ...(activeSession?.id ? { academicSessionId: activeSession.id } : {}),
+        },
+        select: {
+          totalCents: true,
+          paidCents: true,
+          balanceCents: true,
+          status: true,
+          dueDate: true,
+        },
+      }),
+      db.invoice.findMany({
+        where: {
+          tenantId,
+          deletedAt: null,
+          ...(activeSession?.id ? { academicSessionId: activeSession.id } : {}),
+        },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          totalCents: true,
+          paidCents: true,
+          balanceCents: true,
+          status: true,
+          dueDate: true,
+          student: {
+            select: { firstName: true, lastName: true },
+          },
+        },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        take: 8,
+      }),
+      db.payment.findMany({
+        where: {
+          tenantId,
+          ...(activeSession?.id ? { invoice: { academicSessionId: activeSession.id } } : {}),
+        },
+        select: {
+          id: true,
+          paymentNumber: true,
+          amountCents: true,
+          method: true,
+          status: true,
+          paymentDate: true,
+          student: {
+            select: { firstName: true, lastName: true },
+          },
+        },
+        orderBy: { paymentDate: 'desc' },
+        take: 8,
+      }),
+    ])
+
+    const feeMetrics = calculateDashboardFeeMetrics(invoices, today)
+
+    return (
+      <FinanceDashboardView
+        role={session.role}
+        sessionName={activeSession?.name}
+        metrics={feeMetrics}
+        recentInvoices={recentInvoicesRaw.map((inv) => ({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          studentName: inv.student
+            ? `${inv.student.firstName} ${inv.student.lastName || ''}`.trim()
+            : 'Unassigned',
+          totalCents: inv.totalCents,
+          paidCents: inv.paidCents,
+          balanceCents: inv.balanceCents,
+          status: inv.status,
+          dueDate: inv.dueDate.toISOString(),
+        }))}
+        recentPayments={recentPaymentsRaw.map((pmt) => ({
+          id: pmt.id,
+          paymentNumber: pmt.paymentNumber,
+          studentName: pmt.student
+            ? `${pmt.student.firstName} ${pmt.student.lastName || ''}`.trim()
+            : 'Unassigned',
+          amountCents: pmt.amountCents,
+          method: pmt.method,
+          status: pmt.status,
+          paymentDate: pmt.paymentDate.toISOString(),
+        }))}
+      />
+    )
+  }
+
+  // 8. Leadership Executive Dashboard (OWNER, PRINCIPAL)
+  // Explicitly check for authorized roles before proceeding with institutional data aggregation
+  const isAuthorizedExecutive = canonicalRole === 'OWNER' || canonicalRole === 'PRINCIPAL'
+
+  if (!isAuthorizedExecutive) {
+    // Unknown or unsupported role receives explicit safe rejection to home launchpad
+    redirect('/app/home')
+  }
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  // Strict server-side permission checks
+  const canReadFinance = can(session.role, 'finance:read')
+  const canReadStudents = can(session.role, 'students:read')
+  const canReadAdmissions = can(session.role, 'admissions:read')
+  const canReadAttendance = can(session.role, 'attendance:read')
+  const canReadAudit = can(session.role, 'audit:read')
+
+  // Fetch only strictly authorized data alongside active academic session
+  const activeAcademicSession = await currentSession(tenantId)
+
   const [activeStudents, presentToday, invoices, pendingApps, newLeads, classrooms, recentAudit] =
     await Promise.all([
-      db.student.count({ where: { tenantId, status: 'ACTIVE', deletedAt: null } }),
-      db.attendance.count({
-        where: { tenantId, date: today, status: { in: ['PRESENT', 'LATE', 'HALF_DAY'] } },
-      }),
-      db.invoice.findMany({
-        where: { tenantId, deletedAt: null },
-        select: { totalCents: true, paidCents: true, balanceCents: true, status: true, dueDate: true },
-      }),
-      db.admissionApplication.count({
-        where: { tenantId, status: { in: ['SUBMITTED', 'DOCUMENT_PENDING', 'VERIFIED', 'UNDER_REVIEW'] } },
-      }),
-      db.lead.count({ where: { tenantId, status: { in: ['NEW', 'CONTACTED'] }, deletedAt: null } }),
-      db.classroom.findMany({
-        where: { tenantId, isActive: true },
-        include: { _count: { select: { students: true } } },
-        orderBy: { name: 'asc' },
-      }),
-      db.auditLog.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' }, take: 8 }),
+      canReadStudents
+        ? db.student.count({ where: { tenantId, status: 'ACTIVE', deletedAt: null } })
+        : 0,
+      canReadAttendance
+        ? db.attendance.count({
+            where: { tenantId, date: today, status: { in: ['PRESENT', 'LATE', 'HALF_DAY'] } },
+          })
+        : 0,
+      canReadFinance
+        ? db.invoice.findMany({
+            where: {
+              tenantId,
+              deletedAt: null,
+              ...(activeAcademicSession?.id ? { academicSessionId: activeAcademicSession.id } : {}),
+            },
+            select: { totalCents: true, paidCents: true, balanceCents: true, status: true, dueDate: true },
+          })
+        : [],
+      canReadAdmissions
+        ? db.admissionApplication.count({
+            where: { tenantId, status: { in: ['SUBMITTED', 'DOCUMENT_PENDING', 'VERIFIED', 'UNDER_REVIEW'] } },
+          })
+        : 0,
+      canReadAdmissions
+        ? db.lead.count({ where: { tenantId, status: { in: ['NEW', 'CONTACTED'] }, deletedAt: null } })
+        : 0,
+      canReadStudents
+        ? db.classroom.findMany({
+            where: { tenantId, isActive: true },
+            include: { _count: { select: { students: true } } },
+            orderBy: { name: 'asc' },
+          })
+        : [],
+      canReadAudit
+        ? db.auditLog.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' }, take: 8 })
+        : [],
     ])
 
-  const billed = invoices.reduce((s, i) => s + i.totalCents, 0)
-  const collected = invoices.reduce((s, i) => s + i.paidCents, 0)
-  const overdue = invoices
-    .filter((i) => i.status === 'OVERDUE' || (i.status === 'ISSUED' && i.dueDate < new Date()))
-    .reduce((s, i) => s + i.balanceCents, 0)
+  // Calculate standardized fee metrics (strictly excludes DRAFT, CANCELLED, and WRITTEN_OFF)
+  const { billed, collected, overdue, collectRate } = calculateDashboardFeeMetrics(invoices, today)
 
   // 7-day attendance trend
-  const trend = await Promise.all(
-    Array.from({ length: 7 }).map(async (_, i) => {
-      const d = new Date(today)
-      d.setDate(d.getDate() - (6 - i))
-      const [present, total] = await Promise.all([
-        db.attendance.count({
-          where: { tenantId, date: d, status: { in: ['PRESENT', 'LATE', 'HALF_DAY'] } },
-        }),
-        db.attendance.count({ where: { tenantId, date: d } }),
-      ])
-      return {
-        label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
-        pct: total > 0 ? Math.round((present / total) * 100) : 0,
-      }
-    })
-  )
+  const trend = canReadAttendance
+    ? await Promise.all(
+        Array.from({ length: 7 }).map(async (_, i) => {
+          const d = new Date(today)
+          d.setDate(d.getDate() - (6 - i))
+          const [present, total] = await Promise.all([
+            db.attendance.count({
+              where: { tenantId, date: d, status: { in: ['PRESENT', 'LATE', 'HALF_DAY'] } },
+            }),
+            db.attendance.count({ where: { tenantId, date: d } }),
+          ])
+          return {
+            label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+            pct: total > 0 ? Math.round((present / total) * 100) : 0,
+          }
+        })
+      )
+    : []
 
   return (
     <DashboardClient
       role={session.role}
+      setup={setup}
+      sessionName={activeAcademicSession?.name}
       perms={{
-        students: can(session.role, 'students:read'),
-        admissions: can(session.role, 'admissions:read'),
-        finance: can(session.role, 'finance:read'),
-        attendance: can(session.role, 'attendance:read'),
+        students: canReadStudents,
+        admissions: canReadAdmissions,
+        finance: canReadFinance,
+        attendance: canReadAttendance,
+        audit: canReadAudit,
       }}
       data={{
         activeStudents,
