@@ -77,7 +77,19 @@ export class OtpService {
    * Checks whether demo OTP bypass codes are currently allowed based on environment flags.
    */
   static isDemoOtpAllowed(): boolean {
-    return isDemoOtpAllowed()
+    const isProduction = process.env.NODE_ENV === 'production'
+    const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
+    const explicitDisallow = process.env.ALLOW_DEMO_OTP === 'false' || process.env.ENABLE_DEMO_OTP === 'false'
+
+    if (isProduction) {
+      return explicitAllow
+    }
+
+    if (explicitDisallow) {
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -557,7 +569,7 @@ export class OtpService {
     const cleanSchoolCode = schoolCode?.trim().toUpperCase()
 
     let user: any = null
-    const isDemoCode = isDemoOtpAllowed() && DEMO_OTP_CODES.includes(cleanCode)
+    const isDemoCode = OtpService.isDemoOtpAllowed() && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {
       // Demo/Development bypass supported for '0000' and '1234'

@@ -2111,6 +2111,28 @@ export class AdmissionService {
     // ATOMIC TRANSACTION: Student + Guardian + Allocation + Fee Invoice
     // =========================================================================
     const result = await db.$transaction(async (tx) => {
+      // 0. Row-level lock on the application being enrolled to serialize concurrent duplicate attempts
+      const [lockedApp] = await tx.$queryRaw<Array<{ id: string; status: string; studentId: string | null }>>`
+        SELECT id, status, "studentId"
+        FROM admission_applications
+        WHERE id = ${applicationId} AND "tenantId" = ${scope.tenantId}
+        FOR UPDATE
+      `
+      if (lockedApp && (lockedApp.status === 'ENROLLED' || lockedApp.status === 'ADMITTED') && lockedApp.studentId) {
+        const existingStudent = await tx.student.findUnique({
+          where: { id: lockedApp.studentId },
+          include: { currentClassroom: true },
+        })
+        if (existingStudent) {
+          return {
+            student: existingStudent,
+            admissionNo: existingStudent.admissionNo,
+            classroomName: existingStudent.currentClassroom?.name || 'Assigned',
+            isAlreadyEnrolled: true,
+          }
+        }
+      }
+
       // 1. PostgreSQL-compatible classroom row lock (Concurrency Guard)
       const [lockedClassroom] = await tx.$queryRaw<Array<{ id: string; capacity: number; name: string }>>`
         SELECT id, capacity, name
@@ -2255,8 +2277,8 @@ export class AdmissionService {
       if (!parentUser) {
         // Provision new Parent portal user in M01
         const cleanName = app.parentName.toLowerCase().replace(/[^a-z0-9]/g, '.').replace(/\.+/g, '.')
-        const rand = Math.floor(100 + Math.random() * 900)
-        const username = `parent.${cleanName}.${rand}`
+        const rand = Math.floor(1000 + Math.random() * 9000)
+        const username = `parent.${cleanName}.${Date.now().toString().slice(-4)}${rand}`
         const lockedPasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
 
         parentUser = await tx.user.create({

@@ -7,7 +7,7 @@ import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
   ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera,
-  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network, DoorOpen
+  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network, DoorOpen, Trash2
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
