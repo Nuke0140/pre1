@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { PasswordResetService } from '@/lib/auth/password-reset-service'
 import { MockEmailProvider, emailService } from '@/lib/email/email-service'
 import bcrypt from 'bcryptjs'
+import { NextRequest } from 'next/server'
+import { POST as resetPasswordRoute } from '@/app/api/v1/auth/reset-password/route'
 
 describe('B3 — Password Reset & Staff Onboarding Test Suite', () => {
   const ts = Date.now().toString()
@@ -103,7 +105,7 @@ describe('B3 — Password Reset & Staff Onboarding Test Suite', () => {
 
   it('B3-05: Password reset endpoint /api/v1/auth/reset-password handles request, verify, and complete actions', async () => {
     // 1. Request via API
-    const reqRes = await fetch('http://localhost:3000/api/v1/auth/reset-password', {
+    const req = new NextRequest('http://localhost:3000/api/v1/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -111,10 +113,11 @@ describe('B3 — Password Reset & Staff Onboarding Test Suite', () => {
         identifier: testUser.email,
       }),
     })
+    const reqRes = await resetPasswordRoute(req)
     expect(reqRes.status).toBe(200)
 
     // 2. Complete via API with invalid token should return 400
-    const failRes = await fetch('http://localhost:3000/api/v1/auth/reset-password', {
+    const failReq = new NextRequest('http://localhost:3000/api/v1/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -123,6 +126,7 @@ describe('B3 — Password Reset & Staff Onboarding Test Suite', () => {
         newPassword: 'Short',
       }),
     })
+    const failRes = await resetPasswordRoute(failReq)
     expect(failRes.status).toBe(400)
     const json = await failRes.json()
     expect(json.success).toBe(false)
