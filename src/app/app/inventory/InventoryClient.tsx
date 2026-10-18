@@ -44,6 +44,7 @@ import {
   AlertOctagon,
   HelpCircle,
   MessageSquare,
+  Zap,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Skeleton, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getInventoryNavConfig } from '@/components/preone'
 import { Modal, Drawer } from '@/components/preone/Modal'
@@ -62,6 +63,7 @@ import { IssueWelcomeKitModal } from '@/components/inventory/IssueWelcomeKitModa
 import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModal'
 import { StockHealthRadar } from '@/components/inventory/StockHealthRadar'
 import { WhatsAppReorderModal } from '@/components/inventory/WhatsAppReorderModal'
+import { FastStockReceivingModal } from '@/components/inventory/FastStockReceivingModal'
 import {
   buildStockHealthRadarSummary,
   StockHealthCategory,
@@ -163,6 +165,9 @@ export function InventoryClient({ session }: { session: SessionProps }) {
   const [whatsAppItems, setWhatsAppItems] = useState<any[]>([])
   const [selectedCatalogItemIds, setSelectedCatalogItemIds] = useState<Set<string>>(new Set())
   const [selectedLowStockItemIds, setSelectedLowStockItemIds] = useState<Set<string>>(new Set())
+
+  // Fast Stock Receiving (Barcode / Camera Intake)
+  const [fastReceiveModalOpen, setFastReceiveModalOpen] = useState(false)
 
   // Selection states for distribution workflows
   const [selectedClassroomId, setSelectedClassroomId] = useState('')
@@ -1329,6 +1334,26 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         }
         actions={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {(canManageStock || canProcure) && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setFastReceiveModalOpen(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  borderColor: '#10B981',
+                  color: '#059669',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  fontWeight: 600,
+                }}
+                title="Scan barcode or capture box photo to quickly add stock"
+              >
+                <Zap size={14} style={{ color: '#10B981' }} />
+                <span>Fast Stock Receiving</span>
+              </button>
+            )}
             {activeTab === 'STORE' && (
               <button
                 type="button"
@@ -2810,8 +2835,28 @@ export function InventoryClient({ session }: { session: SessionProps }) {
                 Goods Receiving (GRN)
               </h2>
             </div>
-            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              Total Receipts: <strong>{grns.length}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {(canManageStock || canProcure) && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setFastReceiveModalOpen(true)}
+                  style={{
+                    background: '#10B981',
+                    borderColor: '#10B981',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Zap size={15} /> Fast Stock Receiving
+                </button>
+              )}
+              <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                Total Receipts: <strong>{grns.length}</strong>
+              </div>
             </div>
           </div>
 
@@ -5284,6 +5329,20 @@ export function InventoryClient({ session }: { session: SessionProps }) {
         vendors={vendors}
         schoolName="Sunshine Preschool"
         branchName={supplyBranchName || (session.branchId ? 'Current Branch' : undefined)}
+      />
+
+      {/* MOBILE BARCODE / CAMERA FAST STOCK RECEIVING MODAL */}
+      <FastStockReceivingModal
+        open={fastReceiveModalOpen}
+        onClose={() => setFastReceiveModalOpen(false)}
+        branchId={session.branchId}
+        branchName={supplyBranchName || (session.branchId ? 'Current Branch' : undefined)}
+        onReceiptSuccess={(result) => {
+          loadStores()
+          loadProcurement()
+          loadDashboard()
+          loadReportsAndAudit()
+        }}
       />
     </>
   )
