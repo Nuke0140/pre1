@@ -38,6 +38,9 @@ async function _POST(
 
     return ok(result)
   } catch (e: any) {
+    if (e.code === 'CLASSROOM_FULL') {
+      return Errors.business('CLASSROOM_FULL', e.message || 'Classroom is at full capacity', 409)
+    }
     return Errors.business('ADMISSION_ENROLL_FAILED', e.message || 'Could not complete final admission', 422)
   }
 }

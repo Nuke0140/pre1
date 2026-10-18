@@ -62,6 +62,9 @@ async function _POST(
     const approvedApp = await AdmissionService.approveApplication(ctx, id, body.notes)
     return ok(approvedApp)
   } catch (e: any) {
+    if (e.code === 'CLASSROOM_FULL') {
+      return Errors.business('CLASSROOM_FULL', e.message || 'Classroom is at full capacity', 409)
+    }
     return Errors.business('ADMISSION_APPROVE_FAILED', e.message || 'Could not approve application', 422)
   }
 }

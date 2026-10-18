@@ -2111,12 +2111,57 @@ export class AdmissionService {
     // ATOMIC TRANSACTION: Student + Guardian + Allocation + Fee Invoice
     // =========================================================================
     const result = await db.$transaction(async (tx) => {
-      // 1. Re-check classroom capacity inside transaction
+      // 1. PostgreSQL-compatible classroom row lock (Concurrency Guard)
+      const [lockedClassroom] = await tx.$queryRaw<Array<{ id: string; capacity: number; name: string }>>`
+        SELECT id, capacity, name
+        FROM classrooms
+        WHERE id = ${classroom.id} AND "tenantId" = ${scope.tenantId}
+        FOR UPDATE
+      `
+      if (!lockedClassroom) {
+        const err: any = new Error(`Classroom ${classroom.name} not found or inaccessible`)
+        err.code = 'CLASSROOM_NOT_FOUND'
+        throw err
+      }
+
+      // 2. In-Transaction Idempotency Check (Concurrent duplicate request guard)
+      const inTxApp = await tx.admissionApplication.findUnique({
+        where: { id: applicationId },
+        select: { id: true, status: true, studentId: true },
+      })
+      if (inTxApp?.status === 'ENROLLED' && inTxApp.studentId) {
+        const existingStudent = await tx.student.findUnique({
+          where: { id: inTxApp.studentId },
+          include: { currentClassroom: true },
+        })
+        if (existingStudent) {
+          return {
+            student: existingStudent,
+            admissionNo: existingStudent.admissionNo,
+            classroomName: existingStudent.currentClassroom?.name || 'Assigned',
+            isAlreadyEnrolled: true,
+          }
+        }
+      }
+
+      // 3. Re-check classroom capacity inside transaction: active students + genuine pending reservations
       const inTxCount = await tx.student.count({
         where: { currentClassroomId: classroom.id, tenantId: scope.tenantId, status: 'ACTIVE', deletedAt: null },
       })
-      if (inTxCount >= classroom.capacity) {
-        const err: any = new Error(`Section ${classroom.name} is at full capacity (${inTxCount}/${classroom.capacity}).`)
+      const otherPendingCount = await tx.admissionApplication.count({
+        where: {
+          tenantId: scope.tenantId,
+          classroomId: classroom.id,
+          studentId: null,
+          id: { not: applicationId },
+          status: { in: ['OFFER_ACCEPTED', 'APPROVED', 'OFFER_SENT'] },
+        },
+      })
+      const totalOccupied = inTxCount + otherPendingCount
+      if (totalOccupied >= lockedClassroom.capacity) {
+        const err: any = new Error(
+          `Section ${lockedClassroom.name} is at full capacity (${totalOccupied}/${lockedClassroom.capacity}) including active reservations.`
+        )
         err.code = 'CLASSROOM_FULL'
         throw err
       }
@@ -2549,6 +2594,10 @@ export class AdmissionService {
 
       return { student, guardian, classroom, invoice, parentUser, feePlan }
     })
+
+    if ((result as any).isAlreadyEnrolled) {
+      return result
+    }
 
     // Emit domain events for downstream integrations
     await emit({

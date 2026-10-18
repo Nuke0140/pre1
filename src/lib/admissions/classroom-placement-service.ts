@@ -862,7 +862,11 @@ export class ClassroomPlacementService {
       seatNumber: input.seatNumber,
     })
     if (!validation.isValid) {
-      throw new Error(`Placement validation failed: ${validation.errors.join('; ')}`)
+      const err: any = new Error(`Placement validation failed: ${validation.errors.join('; ')}`)
+      if (validation.errors.some((e) => e.includes('maximum capacity'))) {
+        err.code = 'CLASSROOM_FULL'
+      }
+      throw err
     }
 
     const classroom = await db.classroom.findFirst({
@@ -898,7 +902,68 @@ export class ClassroomPlacementService {
     // ATOMIC TRANSACTION: ALL-OR-NOTHING COMMIT
     // =========================================================================
     const result = await db.$transaction(async (tx) => {
-      // 1. In-Transaction Capacity Re-Check (Concurrency Guard)
+      // 1. PostgreSQL-compatible classroom row lock (Concurrency Guard)
+      const [lockedClassroom] = await tx.$queryRaw<Array<{ id: string; capacity: number; name: string }>>`
+        SELECT id, capacity, name
+        FROM classrooms
+        WHERE id = ${classroom.id} AND "tenantId" = ${scope.tenantId}
+        FOR UPDATE
+      `
+      if (!lockedClassroom) {
+        const err: any = new Error(`Classroom ${classroom.name} not found or inaccessible`)
+        err.code = 'CLASSROOM_NOT_FOUND'
+        throw err
+      }
+
+      // 2. In-Transaction Idempotency Check (Concurrent duplicate request guard)
+      const inTxApp = await tx.admissionApplication.findUnique({
+        where: { id: applicationId },
+        select: { id: true, applicationNumber: true, status: true, studentId: true, classroomId: true },
+      })
+      if (inTxApp?.status === 'ENROLLED' && inTxApp.studentId) {
+        const existingStudent = await tx.student.findUnique({
+          where: { id: inTxApp.studentId },
+          include: {
+            currentClassroom: {
+              include: { primaryTeacher: true },
+            },
+          },
+        })
+        if (existingStudent) {
+          return {
+            success: true,
+            applicationId: inTxApp.id,
+            applicationNumber: inTxApp.applicationNumber,
+            status: 'PLACEMENT_COMPLETED',
+            isAlreadyEnrolled: true,
+            student: {
+              id: existingStudent.id,
+              admissionNo: existingStudent.admissionNo,
+              fullName: `${existingStudent.firstName} ${existingStudent.lastName || ''}`.trim(),
+              dob: existingStudent.dob,
+              gender: existingStudent.gender,
+            },
+            classroom: {
+              id: existingStudent.currentClassroom?.id || inTxApp.classroomId,
+              name: existingStudent.currentClassroom?.name || 'Assigned',
+              code: existingStudent.currentClassroom?.code || '',
+              capacity: existingStudent.currentClassroom?.capacity || 20,
+            },
+            seatNumber: existingStudent.seatNumber || input.seatNumber,
+            classTeacher: existingStudent.currentClassroom?.primaryTeacher
+              ? {
+                  id: existingStudent.currentClassroom.primaryTeacher.id,
+                  name: existingStudent.currentClassroom.primaryTeacher.fullName,
+                  email: existingStudent.currentClassroom.primaryTeacher.email,
+                }
+              : null,
+            parentPortalReady: true,
+            message: 'Admission already completed for this candidate.',
+          }
+        }
+      }
+
+      // 3. In-Transaction Capacity Re-Check: active students + genuine pending reservations
       const inTxEnrollment = await tx.student.count({
         where: {
           tenantId: scope.tenantId,
@@ -907,9 +972,19 @@ export class ClassroomPlacementService {
           deletedAt: null,
         },
       })
-      if (inTxEnrollment >= classroom.capacity) {
+      const otherPendingCount = await tx.admissionApplication.count({
+        where: {
+          tenantId: scope.tenantId,
+          classroomId: classroom.id,
+          studentId: null,
+          id: { not: applicationId },
+          status: { in: ['OFFER_ACCEPTED', 'APPROVED', 'OFFER_SENT'] },
+        },
+      })
+      const totalOccupied = inTxEnrollment + otherPendingCount
+      if (totalOccupied >= lockedClassroom.capacity) {
         const err: any = new Error(
-          `Classroom ${classroom.name} reached maximum capacity (${inTxEnrollment}/${classroom.capacity}) while placing.`
+          `Classroom ${lockedClassroom.name} reached maximum capacity (${totalOccupied}/${lockedClassroom.capacity}) including active reservations.`
         )
         err.code = 'CLASSROOM_FULL'
         throw err
@@ -1492,6 +1567,10 @@ export class ClassroomPlacementService {
         invoice,
       }
     })
+
+    if ((result as any).isAlreadyEnrolled) {
+      return result
+    }
 
     // Waiting List Entry Update to CONVERTED (if candidate was on waiting list and table exists)
     try {
