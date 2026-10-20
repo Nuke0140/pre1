@@ -341,7 +341,7 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
     })
 
     it('uploads buffer to S3 storage service without local disk writes', async () => {
-      const fakeBuffer = Buffer.from('FAKE_IMAGE_DATA_FOR_AVATAR')
+      const fakeBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52])
       const result = await S3StorageService.uploadBufferToS3({
         tenantId: tenant.id,
         category: 'avatars',
@@ -388,12 +388,13 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
       expect(presignJson.data?.key).toBeDefined()
 
       // 2. Simulate client direct PUT upload to uploadUrl
+      const validJpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01])
       const putReq = new NextRequest(`http://localhost:3000${presignJson.data.uploadUrl}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'image/jpeg',
         },
-        body: Buffer.from('TEST_DIRECT_PUT_BYTES'),
+        body: validJpegBuffer,
       })
 
       const putRes = await mockS3Put(putReq)
@@ -406,7 +407,8 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
 
     it('uploads multipart avatar photo through /api/v1/users/photo route and updates S3 reference', async () => {
       const formData = new FormData()
-      const blob = new Blob(['PNG_TEST_CONTENT'], { type: 'image/png' })
+      const validPngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d])
+      const blob = new Blob([validPngBytes], { type: 'image/png' })
       formData.append('file', blob, 'my-test-photo.png')
 
       const req = new NextRequest('http://localhost:3000/api/v1/users/photo', {
@@ -443,7 +445,7 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
     })
 
     it('saves and deletes school branding logo using S3 storage without disk writes', async () => {
-      const logoBuffer = Buffer.from('FAKE_BRANDING_LOGO_SVG_OR_PNG')
+      const logoBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d])
       const saved = await saveBrandingAsset({
         tenantId: tenant.id,
         type: 'logo',
@@ -477,7 +479,7 @@ describe('QA Blockers: Family Account, Staff/Teacher Onboarding & S3 Centralized
         },
       })
 
-      const photoBuffer = Buffer.from('USER_AVATAR_PHOTO_PAYLOAD')
+      const photoBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01])
       const photoResult = await UserPhotoService.saveSingleUserPhoto({
         userId: testUser.id,
         tenantId: tenant.id,

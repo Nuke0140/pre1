@@ -151,8 +151,8 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
-      // Resolve targeted school membership if schoolCode was specified
-      let membership = user.memberships[0]
+      // Resolve targeted school membership if schoolCode was specified, otherwise prefer active membership
+      let membership = user.memberships.find((m) => m.status === 'ACTIVE') || user.memberships[0]
       if (cleanSchoolCode) {
         const matchingMembership = user.memberships.find(
           (m) => m.tenant?.code?.toUpperCase() === cleanSchoolCode

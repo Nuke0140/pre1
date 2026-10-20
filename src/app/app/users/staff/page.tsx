@@ -587,16 +587,16 @@ export default function StaffUsersPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode('import')}
+                onClick={() => setViewMode(viewMode === 'import' ? 'directory' : 'import')}
                 className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
                   viewMode === 'import'
                     ? 'bg-card text-purple-600 dark:text-purple-400 font-semibold shadow-xs'
                     : 'text-gray-500 hover:text-foreground'
                 }`}
-                title="Import via Spreadsheet"
+                title="Spreadsheet Tools (Import & Export)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span className="hidden sm:inline">Import via Spreadsheet</span>
+                <span className="hidden sm:inline">Spreadsheet Tools</span>
               </button>
             </div>
 
@@ -616,21 +616,12 @@ export default function StaffUsersPage() {
                   onClick: () => setRolesModalOpen(true),
                 },
                 {
-                  id: 'import-csv',
-                  label: t('users.importStaffCsv') || `${t('common.import')} CSV`,
+                  id: 'spreadsheet-workspace',
+                  label: t('users.spreadsheetTools') || 'Spreadsheet Tools (Import / Export)',
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
-                  onClick: () => setCsvModalOpen(true),
-                },
-                {
-                  id: 'export-csv',
-                  label: t('users.exportStaffCsv') || `${t('common.export')} CSV`,
-                  icon: <Download />,
-                  category: 'export',
-                  groupId: 'data',
-                  href: `/api/v1/users/export?userType=STAFF${selectedRole !== 'ALL' ? `&role=${selectedRole}` : ''}${selectedBranch !== 'ALL' ? `&branchId=${selectedBranch}` : ''}${selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : ''}${search.trim() ? `&q=${encodeURIComponent(search.trim())}` : ''}`,
-                  download: 'staff-directory.csv',
+                  onClick: () => setViewMode('import'),
                 },
                 {
                   id: 'individual-edit',
@@ -696,9 +687,16 @@ export default function StaffUsersPage() {
         <div className="pt-2">
           <SpreadsheetImportWorkspace
             module="STAFF"
+            onCancel={() => setViewMode('directory')}
             onSuccess={() => {
               fetchStaff()
               setViewMode('directory')
+            }}
+            exportContext={{
+              branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,
+              role: selectedRole !== 'ALL' ? selectedRole : undefined,
+              status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+              search: search.trim() || undefined,
             }}
           />
         </div>

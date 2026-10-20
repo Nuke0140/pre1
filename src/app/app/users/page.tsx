@@ -61,11 +61,12 @@ export default function UsersLauncherPage() {
       if (res.ok) {
         const json = await res.json()
         const tabs = json.meta?.tabs || {}
+        const familyKpis = json.meta?.familyKpis
         setStats({
           staffTotal: tabs.STAFF || 0,
           staffActive: tabs.STAFF_ACTIVE ?? json.meta?.kpis?.active ?? tabs.STAFF ?? 0,
-          parentsTotal: tabs.PARENT || 0,
-          guardiansTotal: tabs.GUARDIAN || 0,
+          parentsTotal: familyKpis?.totalParents ?? tabs.PARENT ?? 0,
+          guardiansTotal: familyKpis?.totalGuardians ?? tabs.GUARDIAN ?? 0,
           loading: false,
         })
       }

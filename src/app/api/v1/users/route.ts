@@ -179,57 +179,255 @@ export const GET = withApi(async (req: NextRequest) => {
   let members: any[] = []
   let countsGrouped: any[] = []
   let tenantBranches: any[] = []
+  let familyKpis = {
+    totalParents: 0,
+    linkedStudents: 0,
+    multiChildParents: 0,
+    totalGuardians: 0,
+    authorizedPickupTotal: 0,
+    pinSetTotal: 0,
+  }
+
+  const isGuardianQuery = roleFilter === 'GUARDIAN' || userTypeFilter === 'GUARDIAN'
 
   try {
-    const res = await Promise.all([
-      db.tenantUser.count({ where }),
-      db.tenantUser.findMany({
-        where,
-        include: {
-          staffProfile: {
-            include: {
-              reportingManager: {
-                include: {
-                  user: {
-                    select: { id: true, fullName: true, avatarUrl: true, email: true },
+    if (isGuardianQuery) {
+      const guardianBaseWhere: any = {
+        tenantId: session.tenantId,
+        deletedAt: null,
+        NOT: {
+          user: {
+            memberships: {
+              some: {
+                tenantId: session.tenantId,
+                deletedAt: null,
+                OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }],
+              },
+            },
+          },
+        },
+        relationship: { notIn: ['FATHER', 'MOTHER'] },
+        OR: [
+          {
+            user: {
+              memberships: {
+                some: {
+                  tenantId: session.tenantId,
+                  deletedAt: null,
+                  OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }],
+                },
+              },
+            },
+          },
+          {
+            studentLinks: {
+              some: {
+                canPickup: true,
+                student: {
+                  tenantId: session.tenantId,
+                  deletedAt: null,
+                  ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+                },
+              },
+            },
+          },
+          {
+            pickupPin: { not: null },
+            studentLinks: {
+              some: {
+                student: {
+                  tenantId: session.tenantId,
+                  deletedAt: null,
+                  ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+                },
+              },
+            },
+          },
+        ],
+      }
+
+      if (effectiveBranchId) {
+        guardianBaseWhere.studentLinks = {
+          some: {
+            student: {
+              tenantId: session.tenantId,
+              branchId: effectiveBranchId,
+              deletedAt: null,
+            },
+          },
+        }
+      }
+
+      if (query) {
+        guardianBaseWhere.AND = [
+          {
+            OR: [
+              { fullName: { contains: query, mode: 'insensitive' } },
+              { email: { contains: query, mode: 'insensitive' } },
+              { phone: { contains: query } },
+              { user: { username: { contains: query, mode: 'insensitive' } } },
+              {
+                studentLinks: {
+                  some: {
+                    student: {
+                      OR: [
+                        { firstName: { contains: query, mode: 'insensitive' } },
+                        { lastName: { contains: query, mode: 'insensitive' } },
+                        { admissionNo: { contains: query, mode: 'insensitive' } },
+                      ],
+                    },
                   },
                 },
               },
-              directReports: {
-                select: { id: true, userId: true },
+            ],
+          },
+        ]
+      }
+
+      const [guardianCount, rawGuardians, countsRes, branchesRes, kpiRes] = await Promise.all([
+        db.guardian.count({ where: guardianBaseWhere }),
+        db.guardian.findMany({
+          where: guardianBaseWhere,
+          include: {
+            user: {
+              include: {
+                taughtClasses: {
+                  select: { id: true, name: true, programType: true },
+                },
+              },
+            },
+            studentLinks: {
+              where: {
+                student: {
+                  tenantId: session.tenantId,
+                  deletedAt: null,
+                  ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+                },
+              },
+              include: {
+                student: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    admissionNo: true,
+                    branchId: true,
+                    dob: true,
+                    gender: true,
+                    status: true,
+                    photoUrl: true,
+                    seatNumber: true,
+                    currentClassroom: {
+                      select: { id: true, name: true, branchId: true },
+                    },
+                  },
+                },
               },
             },
           },
-          assignedBranches: {
-            include: {
-              branch: {
-                select: { id: true, name: true, code: true, isMain: true },
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        db.tenantUser.groupBy({
+          by: ['role', 'status'],
+          where: baseWhere,
+          _count: { _all: true },
+        }),
+        db.branch.findMany({
+          where: { tenantId: session.tenantId, deletedAt: null },
+          select: { id: true, name: true, code: true, isMain: true },
+        }),
+        FamilyUserService.getFamilyKpis(session.tenantId, { branchId: effectiveBranchId }),
+      ])
+
+      total = guardianCount
+      countsGrouped = countsRes
+      tenantBranches = branchesRes
+      familyKpis = kpiRes
+
+      members = rawGuardians.map((g) => ({
+        id: g.id,
+        role: 'GUARDIAN' as UserRole,
+        roles: ['GUARDIAN' as UserRole],
+        status: (g.user?.status || 'ACTIVE') as UserStatus,
+        branchId: g.studentLinks[0]?.student?.branchId || null,
+        createdAt: g.createdAt,
+        user: {
+          id: g.user?.id || g.id,
+          fullName: g.fullName,
+          username: g.user?.username || null,
+          email: g.email || g.user?.email || null,
+          phone: g.phone || g.user?.phone || null,
+          avatarUrl: g.photoUrl || g.user?.avatarUrl || null,
+          passwordHash: g.user?.passwordHash || '',
+          mustChangePassword: g.user?.mustChangePassword || false,
+          lastLoginAt: g.user?.lastLoginAt || null,
+          locale: g.user?.locale || 'en-IN',
+          taughtClasses: g.user?.taughtClasses || [],
+          guardianProfile: {
+            id: g.id,
+            relationship: g.relationship,
+            occupation: g.occupation,
+            isPrimaryContact: g.isPrimaryContact,
+            pickupPin: g.pickupPin || null,
+            studentLinks: g.studentLinks,
+          },
+        },
+        staffProfile: null,
+        assignedBranches: [],
+      }))
+    } else {
+      const res = await Promise.all([
+        db.tenantUser.count({ where }),
+        db.tenantUser.findMany({
+          where,
+          include: {
+            staffProfile: {
+              include: {
+                reportingManager: {
+                  include: {
+                    user: {
+                      select: { id: true, fullName: true, avatarUrl: true, email: true },
+                    },
+                  },
+                },
+                directReports: {
+                  select: { id: true, userId: true },
+                },
               },
             },
-          },
-          user: {
-            include: {
-              taughtClasses: {
-                select: { id: true, name: true, programType: true },
+            assignedBranches: {
+              include: {
+                branch: {
+                  select: { id: true, name: true, code: true, isMain: true },
+                },
               },
-              guardianProfile: {
-                include: {
-                  studentLinks: {
-                    include: {
-                      student: {
-                        select: {
-                          id: true,
-                          firstName: true,
-                          lastName: true,
-                          admissionNo: true,
-                          branchId: true,
-                          dob: true,
-                          gender: true,
-                          status: true,
-                          photoUrl: true,
-                          seatNumber: true,
-                          currentClassroom: {
-                            select: { id: true, name: true, branchId: true },
+            },
+            user: {
+              include: {
+                taughtClasses: {
+                  select: { id: true, name: true, programType: true },
+                },
+                guardianProfile: {
+                  include: {
+                    studentLinks: {
+                      include: {
+                        student: {
+                          select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            admissionNo: true,
+                            branchId: true,
+                            dob: true,
+                            gender: true,
+                            status: true,
+                            photoUrl: true,
+                            seatNumber: true,
+                            currentClassroom: {
+                              select: { id: true, name: true, branchId: true },
+                            },
                           },
                         },
                       },
@@ -239,25 +437,27 @@ export const GET = withApi(async (req: NextRequest) => {
               },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      db.tenantUser.groupBy({
-        by: ['role', 'status'],
-        where: baseWhere,
-        _count: { _all: true },
-      }),
-    ])
-    total = res[0]
-    members = res[1]
-    countsGrouped = res[2]
-
-    tenantBranches = await db.branch.findMany({
-      where: { tenantId: session.tenantId, deletedAt: null },
-      select: { id: true, name: true, code: true, isMain: true },
-    })
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        db.tenantUser.groupBy({
+          by: ['role', 'status'],
+          where: baseWhere,
+          _count: { _all: true },
+        }),
+        db.branch.findMany({
+          where: { tenantId: session.tenantId, deletedAt: null },
+          select: { id: true, name: true, code: true, isMain: true },
+        }),
+        FamilyUserService.getFamilyKpis(session.tenantId, { branchId: effectiveBranchId }),
+      ])
+      total = res[0]
+      members = res[1]
+      countsGrouped = res[2]
+      tenantBranches = res[3]
+      familyKpis = res[4]
+    }
   } catch (err) {
     console.warn('[GET /api/v1/users] DB query failed, returning fallback mock staff:', err)
     const mockStaff = [
@@ -630,15 +830,16 @@ export const GET = withApi(async (req: NextRequest) => {
         suspended: suspendedCount,
         inactive: inactiveCount,
       },
+      familyKpis,
       tabs: {
         ALL: tabAll,
         STAFF: tabStaff,
         STAFF_ACTIVE: tabStaffActive,
-        FAMILY: tabFamily,
-        FAMILY_ACTIVE: tabFamilyActive,
+        FAMILY: (familyKpis?.totalParents ?? 0) + (familyKpis?.totalGuardians ?? 0) || tabFamily,
+        FAMILY_ACTIVE: (familyKpis?.totalParents ?? 0) + (familyKpis?.totalGuardians ?? 0) || tabFamilyActive,
         TEACHER: roleCounts['TEACHER'] || 0,
-        PARENT: roleCounts['PARENT'] || 0,
-        GUARDIAN: roleCounts['GUARDIAN'] || 0,
+        PARENT: familyKpis?.totalParents ?? roleCounts['PARENT'] ?? 0,
+        GUARDIAN: familyKpis?.totalGuardians ?? roleCounts['GUARDIAN'] ?? 0,
         PRINCIPAL: roleCounts['PRINCIPAL'] || 0,
         COORDINATOR: roleCounts['COORDINATOR'] || 0,
         ACCOUNTS: roleCounts['ACCOUNTS'] || 0,
@@ -1103,16 +1304,31 @@ export const POST = withApi(async (req: NextRequest) => {
         },
       })
     } else {
-      // Update user name/phone/username if provided
+      // Determine if the existing global user is already established/active
+      const isEstablishedUser =
+        user.status === 'ACTIVE' ||
+        (await tx.tenantUser.count({
+          where: {
+            userId: user.id,
+            status: 'ACTIVE',
+            deletedAt: null,
+          },
+        })) > 0
+
+      // Security (REM-USR-01): An invitation or secondary tenant must NOT downgrade
+      // an active global user to PENDING, nor overwrite an established user's global full name.
+      const shouldUpdateGlobalStatus = user.status === 'PENDING' && initialStatus === 'ACTIVE'
+      const shouldUpdateFullName = (!isEstablishedUser || !user.fullName) && Boolean(fullName?.trim())
+
       await tx.user.update({
         where: { id: user.id },
         data: {
-          fullName: fullName.trim(),
-          ...(phoneNorm ? { phone: phoneNorm } : {}),
-          ...(finalUsername ? { username: finalUsername } : {}),
-          ...(avatarUrl ? { avatarUrl: avatarUrl.trim() } : {}),
-          ...(locale ? { locale } : {}),
-          status: initialStatus,
+          ...(shouldUpdateFullName ? { fullName: fullName.trim() } : {}),
+          ...(phoneNorm && !user.phone ? { phone: phoneNorm } : {}),
+          ...(finalUsername && !user.username ? { username: finalUsername } : {}),
+          ...(avatarUrl && !user.avatarUrl ? { avatarUrl: avatarUrl.trim() } : {}),
+          ...(locale && !user.locale ? { locale } : {}),
+          ...(shouldUpdateGlobalStatus ? { status: 'ACTIVE' } : {}),
         },
       })
     }

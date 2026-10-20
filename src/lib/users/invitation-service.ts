@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { emailService } from '@/lib/email/email-service'
 import { PASSWORD_POLICY } from '@/lib/auth'
-import { errBusiness, errNotFound, errValidation } from '@/lib/errors'
+import { errBusiness, errNotFound, errValidation, errConflict } from '@/lib/errors'
 import { UserRole } from '@prisma/client'
 
 export const INVITATION_TTL_DAYS = 7
@@ -535,7 +535,30 @@ export class InvitationService {
     const passwordHash = await bcrypt.hash(password, 10)
 
     await db.$transaction(async (tx) => {
-      // 1. Update user
+      // 1. Security (REM-USR-03): Atomically claim the invitation inside transaction.
+      // Must be PENDING and unexpired. If racing concurrent requests arrive, exactly ONE
+      // claims the row and count is 1. The losing request gets count === 0 and aborts.
+      const now = new Date()
+      const claimResult = await tx.userInvitation.updateMany({
+        where: {
+          id: invitation.id,
+          status: 'PENDING',
+          expiresAt: { gt: now },
+        },
+        data: {
+          status: 'ACCEPTED',
+          acceptedAt: now,
+        },
+      })
+
+      if (claimResult.count === 0) {
+        throw errConflict(
+          'Invitation has already been accepted, revoked, or has expired',
+          'INVITATION_ALREADY_ACCEPTED'
+        )
+      }
+
+      // 2. Update user credentials & global status
       await tx.user.update({
         where: { id: invitation.userId },
         data: {
@@ -546,7 +569,7 @@ export class InvitationService {
         },
       })
 
-      // 2. Activate membership
+      // 3. Activate tenant membership
       if (invitation.tenantUserId) {
         await tx.tenantUser.update({
           where: { id: invitation.tenantUserId },
@@ -558,15 +581,6 @@ export class InvitationService {
           data: { status: 'ACTIVE' },
         })
       }
-
-      // 3. Mark invitation accepted
-      await tx.userInvitation.update({
-        where: { id: invitation.id },
-        data: {
-          status: 'ACCEPTED',
-          acceptedAt: new Date(),
-        },
-      })
     })
 
     const meta = getRequestMeta(req)

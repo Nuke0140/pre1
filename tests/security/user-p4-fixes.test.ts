@@ -90,7 +90,7 @@ describe('PreOne P4 Production Hardening & Bug Fixes (N-7, N-8, N-9, N-10, Doc 5
 
     it('removes misleading hardcoded 9 count in roles directory subtitle', () => {
       expect(enIN.users.rolesDirectorySub).not.toContain('9 RBAC roles')
-      expect(enIN.users.rolesDirectorySub).toContain('Canonical RBAC roles')
+      expect(enIN.users.rolesDirectorySub).toContain('Understand what each staff role can access')
     })
   })
 

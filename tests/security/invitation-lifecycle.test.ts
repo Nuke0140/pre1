@@ -17,6 +17,7 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
   let ownerB: any
   let cookieOwnerA: string
   let cookieOwnerB: string
+  let createdRawToken: string
 
   const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || 'preone-dev-jwt-secret-2f8b7c9d4e6a1f3b5c8d0e'
@@ -136,6 +137,7 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
       })
 
       createdInvitation = result.invitation
+      createdRawToken = result.rawToken
       expect(result.rawToken).toMatch(/^inv_[a-f0-9]{64}$/)
       expect(result.inviteUrl).toContain('/invite?token=inv_')
       expect(createdInvitation.status).toBe('PENDING')
@@ -153,9 +155,11 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
         where: { userId: pendingUser.id },
       })
       expect(inv).not.toBeNull()
-      expect(inv?.rawToken).toBeTruthy()
+      // Security: rawToken is never persisted in plaintext; tokenHash is verified
+      expect(inv?.tokenHash).toBeTruthy()
+      expect(inv?.rawToken).toBeNull()
 
-      const req = new NextRequest(`http://localhost:3000/api/v1/auth/invitation?token=${inv?.rawToken}`)
+      const req = new NextRequest(`http://localhost:3000/api/v1/auth/invitation?token=${createdRawToken}`)
       const res = await invitationAuthGet(req)
       expect(res.status).toBe(200)
 
@@ -221,7 +225,7 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
       const inv = await db.userInvitation.findFirst({
         where: { tenantId: tenantA.id, status: 'PENDING' },
       })
-      const oldToken = inv?.rawToken
+      const oldToken = createdRawToken
       const oldTokenHash = inv?.tokenHash
 
       const req = new NextRequest('http://localhost:3000/api/v1/users/invitations', {
@@ -244,12 +248,12 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
       expect(json.data.resendCount).toBe(1)
       expect(json.data.inviteUrl).toContain('/invite?token=inv_')
 
-      // Verify database updated with fresh token
+      // Verify database updated with fresh tokenHash and rawToken is null
       const updatedInv = await db.userInvitation.findUnique({
         where: { id: inv?.id },
       })
       expect(updatedInv?.resendCount).toBe(1)
-      expect(updatedInv?.rawToken).not.toBe(oldToken)
+      expect(updatedInv?.rawToken).toBeNull()
       expect(updatedInv?.tokenHash).not.toBe(oldTokenHash)
       expect(updatedInv?.lastResentAt).not.toBeNull()
 
@@ -261,7 +265,8 @@ describe('Invitation Lifecycle UI & Token Model (Doc 1.3 / P3 Sprint)', () => {
       }
 
       // New token must verify successfully
-      const newVerifyReq = new NextRequest(`http://localhost:3000/api/v1/auth/invitation?token=${updatedInv?.rawToken}`)
+      const newToken = json.data.rawToken || json.data.inviteUrl?.split('token=')[1]
+      const newVerifyReq = new NextRequest(`http://localhost:3000/api/v1/auth/invitation?token=${newToken}`)
       const newVerifyRes = await invitationAuthGet(newVerifyReq)
       expect(newVerifyRes.status).toBe(200)
     })

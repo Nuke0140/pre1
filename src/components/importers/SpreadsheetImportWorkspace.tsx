@@ -10,7 +10,7 @@ import { useToast } from '@/components/preone/Toast'
 import { SpreadsheetQuickGrid, GridColumn } from './SpreadsheetQuickGrid'
 import { parseTabularContent } from '@/lib/importers/spreadsheet-parser'
 
-export type ImportModule = 'CLASSROOMS' | 'STAFF' | 'FEES'
+export type ImportModule = 'CLASSROOMS' | 'STAFF' | 'FEES' | 'FAMILY'
 export type DuplicatePolicy = 'SKIP' | 'UPDATE' | 'ERROR'
 
 export interface SpreadsheetImportWorkspaceProps {
@@ -18,6 +18,14 @@ export interface SpreadsheetImportWorkspaceProps {
   onSuccess?: () => void
   onCancel?: () => void
   embedded?: boolean
+  initialOperation?: 'IMPORT' | 'EXPORT'
+  exportContext?: {
+    branchId?: string
+    role?: string
+    status?: string
+    search?: string
+    userType?: string
+  }
 }
 
 const MODULE_CONFIG: Record<
@@ -141,6 +149,47 @@ const MODULE_CONFIG: Record<
       { key: 'description', label: 'Description', placeholder: 'Quarterly billing', width: '180px' },
     ],
   },
+  FAMILY: {
+    title: 'Family & Guardians Bulk Spreadsheet Import',
+    subtitle: 'Upload a CSV or paste rows to batch register parents, guardians, and student associations.',
+    templateUrl: '/api/v1/users/csv?template=family',
+    templateFilename: 'preone_family_template.csv',
+    apiEndpoint: '/api/v1/users/csv',
+    entityLabel: 'Family Member',
+    columns: [
+      { key: 'fullName', label: 'Full Name', required: true, placeholder: 'e.g. Rajesh Kumar', width: '180px' },
+      { key: 'email', label: 'Email Address', required: true, placeholder: 'rajesh@example.com', width: '180px' },
+      { key: 'phone', label: 'Phone Number', required: true, placeholder: '+919876543210', width: '140px' },
+      {
+        key: 'role',
+        label: 'Role',
+        required: true,
+        width: '130px',
+        options: ['PARENT', 'GUARDIAN'],
+      },
+      {
+        key: 'relationship',
+        label: 'Relationship',
+        width: '140px',
+        options: ['FATHER', 'MOTHER', 'GUARDIAN', 'GRANDPARENT', 'SIBLING', 'OTHER'],
+      },
+      { key: 'studentAdmissionNo', label: 'Student Admission No', placeholder: 'e.g. PRE-2026-001', width: '160px' },
+      {
+        key: 'canPickup',
+        label: 'Authorized Pickup',
+        width: '130px',
+        options: ['YES', 'NO'],
+      },
+      {
+        key: 'isPrimaryContact',
+        label: 'Primary Contact',
+        width: '130px',
+        options: ['YES', 'NO'],
+      },
+      { key: 'occupation', label: 'Occupation', placeholder: 'e.g. Software Engineer', width: '160px' },
+      { key: 'pickupPin', label: 'Pickup Gate PIN', placeholder: 'e.g. 1234', width: '120px' },
+    ],
+  },
 }
 
 export function SpreadsheetImportWorkspace({
@@ -148,10 +197,14 @@ export function SpreadsheetImportWorkspace({
   onSuccess,
   onCancel,
   embedded = false,
+  initialOperation = 'IMPORT',
+  exportContext,
 }: SpreadsheetImportWorkspaceProps) {
   const toast = useToast()
   const cfg = MODULE_CONFIG[module]
 
+  const [operation, setOperation] = useState<'IMPORT' | 'EXPORT'>(initialOperation)
+  const [exporting, setExporting] = useState(false)
   const [step, setStep] = useState<'INPUT' | 'PREVIEW' | 'RESULT'>('INPUT')
   const [inputMode, setInputMode] = useState<'FILE' | 'GRID'>('GRID')
   const [duplicatePolicy, setDuplicatePolicy] = useState<DuplicatePolicy>('SKIP')
@@ -228,7 +281,7 @@ export function SpreadsheetImportWorkspace({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'preview',
-          type: module === 'STAFF' ? 'STAFF' : undefined,
+          type: module === 'FAMILY' ? 'FAMILY' : module === 'STAFF' ? 'STAFF' : undefined,
           csv: payloadCsv,
           rows: payloadRows.length > 0 ? payloadRows : undefined,
           duplicatePolicy,
@@ -260,7 +313,7 @@ export function SpreadsheetImportWorkspace({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'execute',
-          type: module === 'STAFF' ? 'STAFF' : undefined,
+          type: module === 'FAMILY' ? 'FAMILY' : module === 'STAFF' ? 'STAFF' : undefined,
           previewRows: previewData.rows,
           duplicatePolicy,
           atomic: atomicAllOrNothing,
@@ -316,36 +369,212 @@ export function SpreadsheetImportWorkspace({
     setFilterTab('ALL')
   }
 
+  const handleTriggerExport = () => {
+    setExporting(true)
+    const userType = module === 'FAMILY' ? (exportContext?.userType || 'PARENT') : 'STAFF'
+    const params = new URLSearchParams()
+    params.set('userType', userType)
+    if (exportContext?.role && exportContext.role !== 'ALL') params.set('role', exportContext.role)
+    if (exportContext?.branchId && exportContext.branchId !== 'ALL') params.set('branchId', exportContext.branchId)
+    if (exportContext?.status && exportContext.status !== 'ALL') params.set('status', exportContext.status)
+    if (exportContext?.search && exportContext.search.trim()) params.set('q', exportContext.search.trim())
+
+    const url = `/api/v1/users/export?${params.toString()}`
+    const filename = `${module.toLowerCase()}_directory_export.csv`
+
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+
+    setTimeout(() => {
+      setExporting(false)
+      toast.success('Export Complete', 'Directory export CSV downloaded successfully.')
+    }, 800)
+  }
+
   return (
     <div className={`space-y-4 ${embedded ? '' : 'p-4 sm:p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card shadow-xs'}`}>
-      {/* Workspace Header */}
-      <div className="flex items-start justify-between gap-4 pb-4 border-b border-gray-100 dark:border-gray-800/80 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-600 flex items-center justify-center shrink-0">
-              <FileSpreadsheet className="w-4 h-4" />
-            </div>
-            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-              {cfg.title}
-            </h2>
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
-            {cfg.subtitle}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      {/* Top Workspace Bar: Segmented Operation Control (Import vs Export) */}
+      <div className="flex items-center justify-between gap-4 pb-3 border-b border-gray-100 dark:border-gray-800 flex-wrap">
+        <div className="inline-flex items-center rounded-xl bg-gray-100 dark:bg-gray-800/80 p-1 border border-gray-200/50 dark:border-gray-700/50">
           <button
             type="button"
-            onClick={handleDownloadTemplate}
-            className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
-            title="Download clean CSV template with headers and example rows"
+            onClick={() => setOperation('IMPORT')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              operation === 'IMPORT'
+                ? 'bg-white dark:bg-gray-900 text-purple-700 dark:text-purple-300 shadow-xs'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
           >
-            <Download className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-            <span>Download Template (CSV)</span>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Import Data</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setOperation('EXPORT')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              operation === 'EXPORT'
+                ? 'bg-white dark:bg-gray-900 text-blue-700 dark:text-blue-300 shadow-xs'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Data</span>
           </button>
         </div>
+
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-xs text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Close Workspace</span>
+          </button>
+        )}
       </div>
+
+      {/* EXPORT WORKSPACE VIEW */}
+      {operation === 'EXPORT' && (
+        <div className="space-y-5 p-2 sm:p-4">
+          <div className="flex items-start justify-between gap-4 flex-wrap pb-4 border-b border-gray-100 dark:border-gray-800">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>
+                  {module === 'FAMILY'
+                    ? 'Family & Guardians Directory Export'
+                    : module === 'STAFF'
+                    ? 'Staff & Personnel Directory Export'
+                    : `${cfg.title} Export`}
+                </span>
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Download a clean, structured CSV spreadsheet reflecting your current directory filters and RBAC permissions.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-500" />
+                <span>Applied Directory Scope</span>
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-gray-200/60 dark:border-gray-800">
+                  <span className="text-gray-500">Target Persona:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {module === 'FAMILY' ? 'Family & Guardians' : module === 'STAFF' ? 'Staff Workforce' : module}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-gray-200/60 dark:border-gray-800">
+                  <span className="text-gray-500">Campus Branch:</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {exportContext?.branchId ? exportContext.branchId : 'All Campuses (Institution-wide)'}
+                  </span>
+                </div>
+                {exportContext?.role && (
+                  <div className="flex justify-between py-1 border-b border-gray-200/60 dark:border-gray-800">
+                    <span className="text-gray-500">Role Filter:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{exportContext.role}</span>
+                  </div>
+                )}
+                {exportContext?.status && (
+                  <div className="flex justify-between py-1 border-b border-gray-200/60 dark:border-gray-800">
+                    <span className="text-gray-500">Status Filter:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{exportContext.status}</span>
+                  </div>
+                )}
+                {exportContext?.search && (
+                  <div className="flex justify-between py-1 border-b border-gray-200/60 dark:border-gray-800">
+                    <span className="text-gray-500">Search Query:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">"{exportContext.search}"</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30 space-y-3">
+              <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Security & Privacy Controls</span>
+              </h4>
+              <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-2">
+                <li className="flex items-start gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <span><strong>Spreadsheet Formula Injection Defense:</strong> Cells beginning with <code className="text-[11px] bg-gray-200 dark:bg-gray-800 px-1 py-0.5 rounded">= + - @ \t \r</code> are escaped with single quotes.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <span><strong>Data Minimization:</strong> Passwords, password hashes, pickup PINs, and sensitive auth tokens are strictly excluded.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <span><strong>Audit Trail:</strong> Export requests are authorized and recorded in the audit ledger.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="pt-2 flex items-center gap-3">
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={handleTriggerExport}
+              className="btn btn-primary text-xs py-2 px-5 flex items-center gap-2 font-semibold shadow-xs"
+            >
+              {exporting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Generating Export...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Directory CSV</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT WORKSPACE VIEW */}
+      {operation === 'IMPORT' && (
+        <>
+          {/* Workspace Header */}
+          <div className="flex items-start justify-between gap-4 pb-4 border-b border-gray-100 dark:border-gray-800/80 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-600 flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="w-4 h-4" />
+                </div>
+                <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                  {cfg.title}
+                </h2>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
+                {cfg.subtitle}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
+                title="Download clean CSV template with headers and example rows"
+              >
+                <Download className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                <span>Download Template (CSV)</span>
+              </button>
+            </div>
+          </div>
 
       {/* ========================================================================= */}
       {/* STEP 1: INPUT WORKSPACE                                                   */}
@@ -840,6 +1069,8 @@ export function SpreadsheetImportWorkspace({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

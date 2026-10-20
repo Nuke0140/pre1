@@ -537,7 +537,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           },
         })
         if (ownerCount === 0) {
-          return forbidden('Cannot remove the sole active Owner of the school')
+          return forbidden('Cannot remove the sole active Owner of the school', 'SOLE_OWNER_PROTECTION')
         }
       }
 
@@ -552,7 +552,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           },
         })
         if (principalCount === 0) {
-          return forbidden('Cannot downgrade the sole active Principal of the school')
+          return forbidden('Cannot downgrade the sole active Principal of the school', 'LAST_ADMIN_PROTECTION')
         }
       }
     }
@@ -576,11 +576,11 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
           return forbidden('Cannot suspend or deactivate the sole active Owner of the school')
         }
       }
-      if (['OWNER', 'ADMIN'].includes(member.role)) {
+      if (['OWNER', 'PRINCIPAL'].includes(member.role)) {
         const adminCount = await db.tenantUser.count({
           where: {
             tenantId: session.tenantId,
-            role: { in: ['OWNER', 'ADMIN'] },
+            role: { in: ['OWNER', 'PRINCIPAL'] },
             status: 'ACTIVE',
             deletedAt: null,
             id: { not: member.id },
@@ -605,6 +605,27 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
                 ? (normalizeRole(role) as UserRole)
                 : targetRoles[0]))
         : (role ? (normalizeRole(role) as UserRole) : primaryRole ? (normalizeRole(primaryRole) as UserRole) : undefined)
+
+    // Security (REM-USR-02): Prevent role downgrade of the sole active administrator
+    if (finalPrimaryRole && ['OWNER', 'PRINCIPAL'].includes(member.role)) {
+      const willRetainAdmin =
+        ['OWNER', 'PRINCIPAL'].includes(finalPrimaryRole) ||
+        (targetRoles && targetRoles.some((r) => ['OWNER', 'PRINCIPAL'].includes(r)))
+      if (!willRetainAdmin) {
+        const remainingAdmins = await db.tenantUser.count({
+          where: {
+            tenantId: session.tenantId,
+            role: { in: ['OWNER', 'PRINCIPAL'] },
+            status: 'ACTIVE',
+            deletedAt: null,
+            id: { not: member.id },
+          },
+        })
+        if (remainingAdmins === 0) {
+          return forbidden('Cannot change the role of the last active administrator or owner of the school', 'LAST_ADMIN_PROTECTION')
+        }
+      }
+    }
 
     const isPlatformAdmin = session.role === 'PLATFORM_ADMIN'
     let isGlobalStatusUpdate = false
@@ -1292,11 +1313,11 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
       return forbidden('Cannot delete school owner account')
     }
 
-    if (['OWNER', 'ADMIN'].includes(member.role)) {
+    if (['OWNER', 'PRINCIPAL'].includes(member.role)) {
       const activeAdmins = await db.tenantUser.count({
         where: {
           tenantId: session.tenantId,
-          role: { in: ['OWNER', 'ADMIN'] },
+          role: { in: ['OWNER', 'PRINCIPAL'] },
           status: 'ACTIVE',
           deletedAt: null,
           id: { not: member.id },

@@ -102,7 +102,8 @@ export const Errors = {
 
 export const bad = (message: string, code = 'BAD_REQUEST', field?: string) =>
   fail(code, message, 400, field)
-export const forbidden = (message = 'Forbidden') => Errors.forbidden(message)
+export const forbidden = (message = 'Forbidden', code = 'PERMISSION_001') =>
+  fail(code, message, 403)
 export const notFound = (message = 'Resource not found') => {
   const raw = (message || 'Resource').trim()
   const msg = /not\s*found\.?$/i.test(raw)

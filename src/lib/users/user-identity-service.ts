@@ -129,15 +129,38 @@ export class UserIdentityService {
       })
       return { user, isNewUser: true }
     } else {
-      // Update phone if previously unset
-      const needsNameUpdate = Boolean(opts.fullName?.trim()) && user.fullName !== opts.fullName.trim()
+      // Determine if the existing global user is already established/active
+      const isEstablishedUser =
+        user.status === 'ACTIVE' ||
+        (await tx.tenantUser.count({
+          where: {
+            userId: user.id,
+            status: 'ACTIVE',
+            deletedAt: null,
+          },
+        })) > 0
+
+      // Security (REM-USR-01): Do not overwrite an established user's global full name across other tenants
+      const needsNameUpdate =
+        (!isEstablishedUser || !user.fullName) &&
+        Boolean(opts.fullName?.trim()) &&
+        user.fullName !== opts.fullName.trim()
       const needsPhoneUpdate = !user.phone && phoneNorm
       const needsUsernameUpdate = !user.username && username
       const needsAvatarUpdate = !user.avatarUrl && opts.avatarUrl?.trim()
       const needsLocaleUpdate = Boolean(opts.locale) && user.locale !== opts.locale
       const needsPasswordFlagClear = isParentRole && user.mustChangePassword
+      const shouldUpdateGlobalStatus = user.status === 'PENDING' && initialStatus === 'ACTIVE'
 
-      if (needsNameUpdate || needsPhoneUpdate || needsUsernameUpdate || needsAvatarUpdate || needsLocaleUpdate || needsPasswordFlagClear) {
+      if (
+        needsNameUpdate ||
+        needsPhoneUpdate ||
+        needsUsernameUpdate ||
+        needsAvatarUpdate ||
+        needsLocaleUpdate ||
+        needsPasswordFlagClear ||
+        shouldUpdateGlobalStatus
+      ) {
         user = await tx.user.update({
           where: { id: user.id },
           data: {
@@ -147,6 +170,7 @@ export class UserIdentityService {
             ...(needsAvatarUpdate ? { avatarUrl: opts.avatarUrl!.trim() } : {}),
             ...(needsLocaleUpdate ? { locale: opts.locale } : {}),
             ...(needsPasswordFlagClear ? { mustChangePassword: false } : {}),
+            ...(shouldUpdateGlobalStatus ? { status: 'ACTIVE' } : {}),
           },
         })
       }

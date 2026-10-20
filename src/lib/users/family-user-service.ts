@@ -18,6 +18,19 @@ export interface FamilyContext {
   }
 }
 
+export interface FamilyKpiAggregates {
+  totalParents: number
+  linkedStudents: number
+  multiChildParents: number
+  totalGuardians: number
+  authorizedPickupTotal: number
+  pinSetTotal: number
+}
+
+export interface FamilyKpiOptions {
+  branchId?: string | null
+}
+
 export function normalizeRelationship(rel?: string): Relationship {
   if (!rel) return 'GUARDIAN'
   const upper = rel.toUpperCase().trim()
@@ -72,6 +85,263 @@ export class FamilyUserService {
     })
 
     return activeParents.length
+  }
+
+  /**
+   * Authoritative KPI Aggregates for Family Users Directory & Home Dashboard
+   * Evaluated across the full database matching the school and branch scope,
+   * completely independent of client-side pagination or page size limits.
+   */
+  static async getFamilyKpis(
+    tenantId: string,
+    options?: FamilyKpiOptions
+  ): Promise<FamilyKpiAggregates> {
+    if (!tenantId) {
+      return {
+        totalParents: 0,
+        linkedStudents: 0,
+        multiChildParents: 0,
+        totalGuardians: 0,
+        authorizedPickupTotal: 0,
+        pinSetTotal: 0,
+      }
+    }
+
+    const branchId =
+      options?.branchId &&
+      options.branchId !== 'ALL' &&
+      options.branchId !== 'undefined' &&
+      options.branchId !== 'null'
+        ? options.branchId
+        : undefined
+
+    // 1. Total Parents: authoritative parent login accounts in tenant
+    const parentWhere: any = {
+      tenantId,
+      deletedAt: null,
+      OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }],
+    }
+    if (branchId) {
+      parentWhere.AND = [
+        {
+          OR: [
+            { branchId },
+            { assignedBranches: { some: { branchId } } },
+            {
+              user: {
+                guardianProfile: {
+                  studentLinks: {
+                    some: { student: { branchId, deletedAt: null } },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      ]
+    }
+    const totalParentsPromise = db.tenantUser.count({ where: parentWhere })
+
+    // 2. Linked Students: distinct students linked to at least one parent (guaranteed no double-counting)
+    const linkedStudentsPromise = db.student.count({
+      where: {
+        tenantId,
+        deletedAt: null,
+        ...(branchId ? { branchId } : {}),
+        guardians: {
+          some: {
+            guardian: {
+              deletedAt: null,
+              OR: [
+                {
+                  user: {
+                    memberships: {
+                      some: {
+                        tenantId,
+                        deletedAt: null,
+                        OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }],
+                      },
+                    },
+                  },
+                },
+                {
+                  relationship: { in: ['FATHER', 'MOTHER'] },
+                },
+              ],
+            },
+          },
+        },
+      },
+    })
+
+    // 3. Multi-child parents: parent identities linked to > 1 distinct active students
+    const parentLinksPromise = db.studentGuardian.groupBy({
+      by: ['guardianId'],
+      where: {
+        student: {
+          tenantId,
+          deletedAt: null,
+          ...(branchId ? { branchId } : {}),
+        },
+        guardian: {
+          tenantId,
+          deletedAt: null,
+          OR: [
+            {
+              user: {
+                memberships: {
+                  some: {
+                    tenantId,
+                    deletedAt: null,
+                    OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }],
+                  },
+                },
+              },
+            },
+            {
+              relationship: { in: ['FATHER', 'MOTHER'] },
+            },
+          ],
+        },
+      },
+      _count: {
+        studentId: true,
+      },
+    })
+
+    // 4. Guardians: non-parent guardians/escorts (including non-login pickup escorts)
+    // Distinguishes between emergency contacts who lack pickup authorization and true pickup guardians
+    const guardianBaseWhere: any = {
+      tenantId,
+      deletedAt: null,
+      NOT: {
+        user: {
+          memberships: {
+            some: {
+              tenantId,
+              deletedAt: null,
+              OR: [{ role: 'PARENT' }, { roles: { has: 'PARENT' } }],
+            },
+          },
+        },
+      },
+      relationship: { notIn: ['FATHER', 'MOTHER'] },
+      OR: [
+        {
+          user: {
+            memberships: {
+              some: {
+                tenantId,
+                deletedAt: null,
+                OR: [{ role: 'GUARDIAN' }, { roles: { has: 'GUARDIAN' } }],
+              },
+            },
+          },
+        },
+        {
+          studentLinks: {
+            some: {
+              canPickup: true,
+              student: {
+                tenantId,
+                deletedAt: null,
+                ...(branchId ? { branchId } : {}),
+              },
+            },
+          },
+        },
+        {
+          pickupPin: { not: null },
+          studentLinks: {
+            some: {
+              student: {
+                tenantId,
+                deletedAt: null,
+                ...(branchId ? { branchId } : {}),
+              },
+            },
+          },
+        },
+      ],
+    }
+
+    if (branchId) {
+      guardianBaseWhere.studentLinks = {
+        some: {
+          student: {
+            tenantId,
+            branchId,
+            deletedAt: null,
+          },
+        },
+      }
+    }
+
+    const totalGuardiansPromise = db.guardian.count({ where: guardianBaseWhere })
+
+    // 5. Authorized pickup total (Gate Clearance)
+    const authorizedPickupWhere: any = {
+      ...guardianBaseWhere,
+      studentLinks: {
+        some: {
+          canPickup: true,
+          student: {
+            tenantId,
+            deletedAt: null,
+            ...(branchId ? { branchId } : {}),
+          },
+        },
+      },
+    }
+    const authorizedPickupPromise = db.guardian.count({ where: authorizedPickupWhere })
+
+    // 6. Gate PIN set total
+    const pinSetWhere: any = {
+      ...guardianBaseWhere,
+      OR: [
+        { pickupPin: { not: null } },
+        {
+          studentLinks: {
+            some: {
+              pickupPin: { not: null },
+              student: {
+                tenantId,
+                deletedAt: null,
+                ...(branchId ? { branchId } : {}),
+              },
+            },
+          },
+        },
+      ],
+    }
+    const pinSetPromise = db.guardian.count({ where: pinSetWhere })
+
+    const [
+      totalParents,
+      linkedStudents,
+      parentLinks,
+      totalGuardians,
+      authorizedPickupTotal,
+      pinSetTotal,
+    ] = await Promise.all([
+      totalParentsPromise,
+      linkedStudentsPromise,
+      parentLinksPromise,
+      totalGuardiansPromise,
+      authorizedPickupPromise,
+      pinSetPromise,
+    ])
+
+    const multiChildParents = parentLinks.filter((l) => l._count.studentId > 1).length
+
+    return {
+      totalParents,
+      linkedStudents,
+      multiChildParents,
+      totalGuardians,
+      authorizedPickupTotal,
+      pinSetTotal,
+    }
   }
 
   /**

@@ -20,6 +20,7 @@ import { CsvImportModal } from '@/components/users/CsvImportModal'
 import { BulkPhotoUploadModal } from '@/components/users/BulkPhotoUploadModal'
 import { BulkUpdateFieldModal } from '@/components/users/BulkUpdateFieldModal'
 import { User360Drawer } from '@/components/users/User360Drawer'
+import { SpreadsheetImportWorkspace } from '@/components/importers/SpreadsheetImportWorkspace'
 import { EditUserModal } from '@/components/users/EditUserModal'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { BulkActionModal } from '@/components/users/BulkActionModal'
@@ -49,8 +50,8 @@ export default function FamilyUsersPage() {
   const toast = useToast()
   const { t } = useI18n()
 
-  // View Switcher: TABLE vs HOUSEHOLDS
-  const [viewMode, setViewMode] = useState<'TABLE' | 'HOUSEHOLDS'>('TABLE')
+  // View Switcher: TABLE vs HOUSEHOLDS vs SPREADSHEET
+  const [viewMode, setViewMode] = useState<'TABLE' | 'HOUSEHOLDS' | 'SPREADSHEET'>('TABLE')
   const [crossCampusOnly, setCrossCampusOnly] = useState(false)
   const [households, setHouseholds] = useState<FamilyHousehold[]>([])
   const [loadingHouseholds, setLoadingHouseholds] = useState(false)
@@ -79,6 +80,14 @@ export default function FamilyUsersPage() {
   // Overall counts for tabs
   const [parentCount, setParentCount] = useState(0)
   const [guardianCount, setGuardianCount] = useState(0)
+  const [serverKpis, setServerKpis] = useState<{
+    totalParents: number
+    linkedStudents: number
+    multiChildParents: number
+    totalGuardians: number
+    authorizedPickupTotal: number
+    pinSetTotal: number
+  } | null>(null)
 
   // Selection
   const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
@@ -180,7 +189,11 @@ export default function FamilyUsersPage() {
         const json = await res.json()
         setUsers(json.data || [])
         setTotal(json.meta?.total || 0)
-        if (json.meta?.tabs) {
+        if (json.meta?.familyKpis) {
+          setServerKpis(json.meta.familyKpis)
+          setParentCount(json.meta.familyKpis.totalParents)
+          setGuardianCount(json.meta.familyKpis.totalGuardians)
+        } else if (json.meta?.tabs) {
           setParentCount(json.meta.tabs.PARENT || 0)
           setGuardianCount(json.meta.tabs.GUARDIAN || 0)
         }
@@ -282,6 +295,17 @@ export default function FamilyUsersPage() {
       multiChildCount,
     }
   }, [users])
+
+  const kpiValues = useMemo(() => {
+    return {
+      totalParents: serverKpis ? serverKpis.totalParents : parentCount,
+      linkedStudents: serverKpis ? serverKpis.linkedStudents : kpis.linkedChildrenTotal,
+      multiChildParents: serverKpis ? serverKpis.multiChildParents : kpis.multiChildCount,
+      totalGuardians: serverKpis ? serverKpis.totalGuardians : guardianCount,
+      authorizedPickupTotal: serverKpis ? serverKpis.authorizedPickupTotal : kpis.authorizedPickupTotal,
+      pinSetTotal: serverKpis ? serverKpis.pinSetTotal : kpis.pinSetTotal,
+    }
+  }, [serverKpis, parentCount, guardianCount, kpis])
 
   // Columns for PARENTS Tab
   const parentColumns: Column<UserRecord>[] = [
@@ -822,21 +846,12 @@ export default function FamilyUsersPage() {
                   onClick: () => setRolesModalOpen(true),
                 },
                 {
-                  id: 'import-csv',
-                  label: t('users.importFamilyCsv'),
+                  id: 'spreadsheet-workspace',
+                  label: t('users.spreadsheetTools') || 'Spreadsheet Tools (Import / Export)',
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
-                  onClick: () => setCsvModalOpen(true),
-                },
-                {
-                  id: 'export-csv',
-                  label: t('users.exportFamilyCsv') || `${t('common.export')} CSV`,
-                  icon: <Download />,
-                  category: 'export',
-                  groupId: 'data',
-                  href: `/api/v1/users/export?userType=${activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN'}${selectedBranch !== 'ALL' ? `&branchId=${selectedBranch}` : ''}${selectedStatus !== 'ALL' ? `&status=${selectedStatus}` : ''}${search.trim() ? `&q=${encodeURIComponent(search.trim())}` : ''}`,
-                  download: `${activeTab.toLowerCase()}-directory.csv`,
+                  onClick: () => setViewMode('SPREADSHEET'),
                 },
                 {
                   id: 'individual-edit',
@@ -980,11 +995,38 @@ export default function FamilyUsersPage() {
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Family Groups (Households)</span>
             </button>
+            <button
+              type="button"
+              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+                viewMode === 'SPREADSHEET' ? 'bg-white dark:bg-gray-900 text-purple-600 dark:text-purple-400 font-semibold shadow-xs' : 'text-gray-500 hover:text-gray-900'
+              }`}
+              onClick={() => setViewMode('SPREADSHEET')}
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span className="hidden sm:inline">Spreadsheet Tools</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {viewMode === 'TABLE' ? (
+      {viewMode === 'SPREADSHEET' ? (
+        <div className="pt-2">
+          <SpreadsheetImportWorkspace
+            module="FAMILY"
+            onCancel={() => setViewMode('TABLE')}
+            onSuccess={() => {
+              fetchFamilyUsers()
+              setViewMode('TABLE')
+            }}
+            exportContext={{
+              branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,
+              status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+              search: search.trim() || undefined,
+              userType: activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN',
+            }}
+          />
+        </div>
+      ) : viewMode === 'TABLE' ? (
         <>
           {/* Clarifying Context for Parent Accounts Directory */}
           <div className="p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/40 flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-400">
@@ -1015,14 +1057,14 @@ export default function FamilyUsersPage() {
                 />
                 <KpiTile
                   label={t('users.totalParents')}
-                  value={parentCount}
+                  value={kpiValues.totalParents}
                   icon={<User />}
                   iconClass="ic-blue"
                   variant="compact"
                 />
                 <KpiTile
                   label={t('users.linkedStudents')}
-                  value={kpis.linkedChildrenTotal}
+                  value={kpiValues.linkedStudents}
                   icon={<Baby />}
                   iconClass="ic-green"
                   variant="compact"
@@ -1036,7 +1078,7 @@ export default function FamilyUsersPage() {
                 />
                 <KpiTile
                   label={t('users.multiChildParents')}
-                  value={kpis.multiChildCount}
+                  value={kpiValues.multiChildParents}
                   icon={<Users />}
                   iconClass="ic-teal"
                   variant="compact"
@@ -1054,7 +1096,7 @@ export default function FamilyUsersPage() {
                 />
                 <KpiTile
                   label={t('users.totalGuardians')}
-                  value={guardianCount}
+                  value={kpiValues.totalGuardians}
                   meta={t('users.authorizedPickupEscorts')}
                   icon={<Shield />}
                   iconClass="ic-orange"
@@ -1062,7 +1104,7 @@ export default function FamilyUsersPage() {
                 />
                 <KpiTile
                   label={t('users.gateClearance')}
-                  value={kpis.authorizedPickupTotal}
+                  value={kpiValues.authorizedPickupTotal}
                   meta={t('users.authorizedForPickup')}
                   icon={<CheckCircle2 />}
                   iconClass="ic-green"
@@ -1070,7 +1112,7 @@ export default function FamilyUsersPage() {
                 />
                 <KpiTile
                   label={t('users.gatePinSet')}
-                  value={kpis.pinSetTotal}
+                  value={kpiValues.pinSetTotal}
                   meta={t('users.cryptographicPinSet')}
                   icon={<KeyRound />}
                   iconClass="ic-purple"
