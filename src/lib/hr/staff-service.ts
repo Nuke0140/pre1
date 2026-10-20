@@ -3,6 +3,9 @@ import bcrypt from 'bcryptjs'
 import { AuditService } from '@/lib/audit/audit-service'
 import { emit } from '@/lib/events'
 import type { Prisma, UserRole, EmploymentType, Gender, BloodGroup, VerificationStatus, StaffDocumentType } from '@prisma/client'
+import { EncryptionService } from '@/lib/security/encryption-service'
+import { validatePan, validateAadhaar, validateUan, validateEsi } from '@/lib/users/statutory-validation'
+import { recordAudit } from '@/lib/audit'
 
 export interface CreateStaffInput {
   tenantId: string
@@ -141,6 +144,47 @@ export class StaffService {
         }
       }
 
+      // Validate statutory IDs if provided
+      if (panNumber) {
+        const panRes = validatePan(panNumber)
+        if (!panRes.valid) throw new Error(panRes.error || 'Invalid PAN format')
+      }
+      if (aadhaarNumber) {
+        const aadhaarRes = validateAadhaar(aadhaarNumber)
+        if (!aadhaarRes.valid) throw new Error(aadhaarRes.error || 'Invalid Aadhaar format')
+      }
+      if (uanNumber) {
+        const uanRes = validateUan(uanNumber)
+        if (!uanRes.valid) throw new Error(uanRes.error || 'Invalid UAN format')
+      }
+      if (esiNumber) {
+        const esiRes = validateEsi(esiNumber)
+        if (!esiRes.valid) throw new Error(esiRes.error || 'Invalid ESI format')
+      }
+
+      let resolvedBloodGroup = bloodGroup
+      if (bloodGroup) {
+        const bgMap: Record<string, BloodGroup> = {
+          A_POS: 'A_POSITIVE' as BloodGroup,
+          'A+': 'A_POSITIVE' as BloodGroup,
+          A_NEG: 'A_NEGATIVE' as BloodGroup,
+          'A-': 'A_NEGATIVE' as BloodGroup,
+          B_POS: 'B_POSITIVE' as BloodGroup,
+          'B+': 'B_POSITIVE' as BloodGroup,
+          B_NEG: 'B_NEGATIVE' as BloodGroup,
+          'B-': 'B_NEGATIVE' as BloodGroup,
+          AB_POS: 'AB_POSITIVE' as BloodGroup,
+          'AB+': 'AB_POSITIVE' as BloodGroup,
+          AB_NEG: 'AB_NEGATIVE' as BloodGroup,
+          'AB-': 'AB_NEGATIVE' as BloodGroup,
+          O_POS: 'O_POSITIVE' as BloodGroup,
+          'O+': 'O_POSITIVE' as BloodGroup,
+          O_NEG: 'O_NEGATIVE' as BloodGroup,
+          'O-': 'O_NEGATIVE' as BloodGroup,
+        }
+        resolvedBloodGroup = bgMap[bloodGroup as string] || bloodGroup
+      }
+
       // Create canonical StaffProfile
       const staffProfile = await tx.staffProfile.create({
         data: {
@@ -158,13 +202,13 @@ export class StaffService {
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           gender: gender || null,
           maritalStatus: maritalStatus || null,
-          bloodGroup: bloodGroup || null,
-          currentAddress: currentAddress || null,
-          permanentAddress: permanentAddress || null,
-          panNumber: panNumber || null,
-          aadhaarNumber: aadhaarNumber || null,
-          uanNumber: uanNumber || null,
-          esiNumber: esiNumber || null,
+          bloodGroup: resolvedBloodGroup || null,
+          currentAddress: currentAddress ? EncryptionService.encrypt(currentAddress.trim(), tenantId) : null,
+          permanentAddress: permanentAddress ? EncryptionService.encrypt(permanentAddress.trim(), tenantId) : null,
+          panNumber: panNumber ? EncryptionService.encrypt(panNumber.trim().toUpperCase(), tenantId) : null,
+          aadhaarNumber: aadhaarNumber ? EncryptionService.encrypt(aadhaarNumber.trim(), tenantId) : null,
+          uanNumber: uanNumber ? EncryptionService.encrypt(uanNumber.trim(), tenantId) : null,
+          esiNumber: esiNumber ? EncryptionService.encrypt(esiNumber.trim(), tenantId) : null,
           probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
           confirmationDate: confirmationDate ? new Date(confirmationDate) : null,
           noticePeriodDays,
@@ -279,8 +323,23 @@ export class StaffService {
       take: 12,
     })
 
+    const safeDecrypt = (val: string | null | undefined): string | null => {
+      if (!val) return null
+      try {
+        return EncryptionService.decrypt(val, tenantId)
+      } catch {
+        return null
+      }
+    }
+
     return {
       ...profile,
+      panNumber: safeDecrypt(profile.panNumber),
+      aadhaarNumber: safeDecrypt(profile.aadhaarNumber),
+      uanNumber: safeDecrypt(profile.uanNumber),
+      esiNumber: safeDecrypt(profile.esiNumber),
+      currentAddress: safeDecrypt(profile.currentAddress),
+      permanentAddress: safeDecrypt(profile.permanentAddress),
       membershipRoles: membership?.roles || (membership?.role ? [membership.role] : []),
       primaryRole: membership?.role || null,
       classrooms,
@@ -445,6 +504,18 @@ export class StaffService {
     if (!profile) throw new Error('Staff profile not found')
 
     return await db.$transaction(async (tx) => {
+      // Branch boundary check for branch-scoped actors
+      const isGlobalRole = ['OWNER', 'DIRECTOR', 'SUPER_ADMIN'].includes(actor.role)
+      const actorBranchId = (actor as any).branchId
+      if (!isGlobalRole && actorBranchId) {
+        if (profile.branchId && profile.branchId !== actorBranchId) {
+          throw new Error('Forbidden: Cannot modify staff profile assigned to another campus branch')
+        }
+        if (input.branchId && input.branchId !== actorBranchId) {
+          throw new Error('Forbidden: Cannot transfer staff to a campus branch outside your scope')
+        }
+      }
+
       // 1. Update User name/phone if provided
       if (input.fullName || input.phone) {
         await tx.user.update({
@@ -476,13 +547,77 @@ export class StaffService {
       if (input.emergencyContactPhone !== undefined) staffUpdateData.emergencyContactPhone = input.emergencyContactPhone
       if (input.gender !== undefined) staffUpdateData.gender = input.gender
       if (input.maritalStatus !== undefined) staffUpdateData.maritalStatus = input.maritalStatus
-      if (input.bloodGroup !== undefined) staffUpdateData.bloodGroup = input.bloodGroup
-      if (input.currentAddress !== undefined) staffUpdateData.currentAddress = input.currentAddress
-      if (input.permanentAddress !== undefined) staffUpdateData.permanentAddress = input.permanentAddress
-      if (input.panNumber !== undefined) staffUpdateData.panNumber = input.panNumber
-      if (input.aadhaarNumber !== undefined) staffUpdateData.aadhaarNumber = input.aadhaarNumber
-      if (input.uanNumber !== undefined) staffUpdateData.uanNumber = input.uanNumber
-      if (input.esiNumber !== undefined) staffUpdateData.esiNumber = input.esiNumber
+      if (input.bloodGroup !== undefined) {
+        if (!input.bloodGroup) {
+          staffUpdateData.bloodGroup = null
+        } else {
+          const bgMap: Record<string, BloodGroup> = {
+            A_POS: 'A_POSITIVE' as BloodGroup,
+            'A+': 'A_POSITIVE' as BloodGroup,
+            A_NEG: 'A_NEGATIVE' as BloodGroup,
+            'A-': 'A_NEGATIVE' as BloodGroup,
+            B_POS: 'B_POSITIVE' as BloodGroup,
+            'B+': 'B_POSITIVE' as BloodGroup,
+            B_NEG: 'B_NEGATIVE' as BloodGroup,
+            'B-': 'B_NEGATIVE' as BloodGroup,
+            AB_POS: 'AB_POSITIVE' as BloodGroup,
+            'AB+': 'AB_POSITIVE' as BloodGroup,
+            AB_NEG: 'AB_NEGATIVE' as BloodGroup,
+            'AB-': 'AB_NEGATIVE' as BloodGroup,
+            O_POS: 'O_POSITIVE' as BloodGroup,
+            'O+': 'O_POSITIVE' as BloodGroup,
+            O_NEG: 'O_NEGATIVE' as BloodGroup,
+            'O-': 'O_NEGATIVE' as BloodGroup,
+          }
+          staffUpdateData.bloodGroup = bgMap[input.bloodGroup as string] || input.bloodGroup
+        }
+      }
+      if (input.currentAddress !== undefined) {
+        staffUpdateData.currentAddress = input.currentAddress && !input.currentAddress.includes('•')
+          ? EncryptionService.encrypt(input.currentAddress.trim(), tenantId)
+          : input.currentAddress === null || input.currentAddress === '' ? null : undefined
+      }
+      if (input.permanentAddress !== undefined) {
+        staffUpdateData.permanentAddress = input.permanentAddress && !input.permanentAddress.includes('•')
+          ? EncryptionService.encrypt(input.permanentAddress.trim(), tenantId)
+          : input.permanentAddress === null || input.permanentAddress === '' ? null : undefined
+      }
+      if (input.panNumber !== undefined) {
+        if (input.panNumber && !input.panNumber.includes('•')) {
+          const panRes = validatePan(input.panNumber)
+          if (!panRes.valid) throw new Error(panRes.error || 'Invalid PAN format')
+          staffUpdateData.panNumber = EncryptionService.encrypt(input.panNumber.trim().toUpperCase(), tenantId)
+        } else if (input.panNumber === null || input.panNumber === '') {
+          staffUpdateData.panNumber = null
+        }
+      }
+      if (input.aadhaarNumber !== undefined) {
+        if (input.aadhaarNumber && !input.aadhaarNumber.includes('•')) {
+          const aadhaarRes = validateAadhaar(input.aadhaarNumber)
+          if (!aadhaarRes.valid) throw new Error(aadhaarRes.error || 'Invalid Aadhaar format')
+          staffUpdateData.aadhaarNumber = EncryptionService.encrypt(input.aadhaarNumber.trim(), tenantId)
+        } else if (input.aadhaarNumber === null || input.aadhaarNumber === '') {
+          staffUpdateData.aadhaarNumber = null
+        }
+      }
+      if (input.uanNumber !== undefined) {
+        if (input.uanNumber && !input.uanNumber.includes('•')) {
+          const uanRes = validateUan(input.uanNumber)
+          if (!uanRes.valid) throw new Error(uanRes.error || 'Invalid UAN format')
+          staffUpdateData.uanNumber = EncryptionService.encrypt(input.uanNumber.trim(), tenantId)
+        } else if (input.uanNumber === null || input.uanNumber === '') {
+          staffUpdateData.uanNumber = null
+        }
+      }
+      if (input.esiNumber !== undefined) {
+        if (input.esiNumber && !input.esiNumber.includes('•')) {
+          const esiRes = validateEsi(input.esiNumber)
+          if (!esiRes.valid) throw new Error(esiRes.error || 'Invalid ESI format')
+          staffUpdateData.esiNumber = EncryptionService.encrypt(input.esiNumber.trim(), tenantId)
+        } else if (input.esiNumber === null || input.esiNumber === '') {
+          staffUpdateData.esiNumber = null
+        }
+      }
       if (input.noticePeriodDays !== undefined) staffUpdateData.noticePeriodDays = input.noticePeriodDays
       if (input.joiningDate !== undefined) staffUpdateData.joiningDate = input.joiningDate ? new Date(input.joiningDate) : null
       if (input.probationEndDate !== undefined) staffUpdateData.probationEndDate = input.probationEndDate ? new Date(input.probationEndDate) : null
@@ -577,5 +712,73 @@ export class StaffService {
 
       return updatedProfile
     })
+  }
+
+  /**
+   * Bulk update staff profiles (e.g., from HR bulk updates or spreadsheets)
+   */
+  static async bulkUpdateStaffProfiles(
+    tenantId: string,
+    updates: Array<{ id?: string; staffProfileId?: string; employeeCode?: string; [key: string]: any }>,
+    actor: { id: string; name: string; role: string }
+  ) {
+    const results: Array<{ id?: string; employeeCode?: string; success: boolean; error?: string }> = []
+    let updatedCount = 0
+
+    for (const update of updates) {
+      let profileId = update.id || update.staffProfileId
+      const empCode = update.employeeCode
+
+      if (!profileId && empCode) {
+        const matches = await db.staffProfile.findMany({
+          where: { tenantId, employeeCode: empCode, deletedAt: null },
+          select: { id: true, branchId: true },
+        })
+        if (matches.length > 1) {
+          results.push({
+            id: undefined,
+            employeeCode: empCode,
+            success: false,
+            error: `Ambiguous employee code "${empCode}": multiple active records match this code`,
+          })
+          continue
+        } else if (matches.length === 1) {
+          profileId = matches[0].id
+        }
+      }
+
+      if (!profileId) {
+        results.push({
+          id: profileId,
+          employeeCode: empCode,
+          success: false,
+          error: empCode
+            ? `Staff profile not found for employee code "${empCode}"`
+            : 'Staff profile ID or valid employee code is required',
+        })
+        continue
+      }
+
+      const { id, staffProfileId, employeeCode, ...data } = update
+      try {
+        await StaffService.updateStaffProfile(tenantId, profileId, data, actor)
+        results.push({ id: profileId, employeeCode: empCode, success: true })
+        updatedCount++
+      } catch (err: any) {
+        results.push({
+          id: profileId,
+          employeeCode: empCode,
+          success: false,
+          error: err.message || 'Update failed',
+        })
+      }
+    }
+
+    return {
+      total: updates.length,
+      updatedCount,
+      failedCount: updates.length - updatedCount,
+      results,
+    }
   }
 }

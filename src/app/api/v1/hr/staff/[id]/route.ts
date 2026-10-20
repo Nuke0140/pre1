@@ -34,6 +34,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       id: session.uid,
       name: session.name,
       role: session.role,
+      branchId: session.branchId,
     }
 
     let result

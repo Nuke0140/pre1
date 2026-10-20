@@ -3,15 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import {
   Briefcase, Building, Mail, Phone, User, Shield, Check, Key,
-  Calendar, GraduationCap, Sparkles, RefreshCw, Layers, Award,
-  Clock, DoorOpen, UserCheck, AlertCircle, AlertTriangle, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2
+  Sparkles, RefreshCw, Layers, Award,
+  Clock, DoorOpen, UserCheck, AlertCircle, AlertTriangle, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle2,
+  Info
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, BLOOD_GROUPS, MARITAL_STATUSES, LOCALES } from './types'
+import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, LOCALES } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 import { Input } from '@/components/ui/input'
-import { validatePan, validateAadhaar, validateUan, validateEsi } from '@/lib/users/statutory-validation'
 import { validateFullName } from '@/lib/users/user-validation'
 
 interface AddStaffModalProps {
@@ -28,44 +28,25 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Step 1: Basic Information
+  // Step 1: Basic Information (Identity)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [dateOfBirth, setDateOfBirth] = useState('')
-  const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER' | ''>('')
-  const [maritalStatus, setMaritalStatus] = useState('')
-  const [bloodGroup, setBloodGroup] = useState('')
-  const [emergencyContactName, setEmergencyContactName] = useState('')
-  const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
-  const [currentAddress, setCurrentAddress] = useState('')
-  const [permanentAddress, setPermanentAddress] = useState('')
   const [locale, setLocale] = useState('en-IN')
 
-  // Step 2: Work & Assignment
+  // Step 2: Work & Assignment (Access & Organization)
   const [primaryRole, setPrimaryRole] = useState<Role>('TEACHER')
   const [additionalRoles, setAdditionalRoles] = useState<Role[]>([])
   const [branchId, setBranchId] = useState(branches[0]?.id || '')
   const [assignedBranchIds, setAssignedBranchIds] = useState<string[]>(branches[0]?.id ? [branches[0].id] : [])
   const [employeeCode, setEmployeeCode] = useState('')
-  const [designation, setDesignation] = useState('')
-  const [department, setDepartment] = useState('Academics')
-  const [qualification, setQualification] = useState('')
-  const [employmentType, setEmploymentType] = useState('FULL_TIME')
-  const [joiningDate, setJoiningDate] = useState('')
-  const [reportingManagerId, setReportingManagerId] = useState('')
   const [classroomId, setClassroomId] = useState('')
   const [reassignClassroom, setReassignClassroom] = useState(false)
   const [classroomLoading, setClassroomLoading] = useState(false)
   const [fetchedClassrooms, setFetchedClassrooms] = useState<ClassroomOption[]>([])
-  const [panNumber, setPanNumber] = useState('')
-  const [aadhaarNumber, setAadhaarNumber] = useState('')
-  const [uanNumber, setUanNumber] = useState('')
-  const [esiNumber, setEsiNumber] = useState('')
-  const [noticePeriodDays, setNoticePeriodDays] = useState('')
 
-  // Step 3: Account & Access
+  // Step 3: Account & Access (Auth & Login)
   const [credentialSetupMode, setCredentialSetupMode] = useState<'MANUAL' | 'INVITE'>('MANUAL')
   const [username, setUsername] = useState('')
   const [isUsernameCustom, setIsUsernameCustom] = useState(false)
@@ -79,12 +60,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [duplicateHint, setDuplicateHint] = useState<string | null>(null)
   const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
-  // Potential Reporting Managers
-  const [availableManagers, setAvailableManagers] = useState<
-    Array<{ id: string; userId: string; name: string; designation?: string | null; role?: string }>
-  >([])
-
-  // Auto-generate employee code on open if blank & fetch available managers
+  // Auto-generate employee code on open if blank
   useEffect(() => {
     if (open) {
       if (!employeeCode) generateEmployeeCode()
@@ -92,22 +68,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
         setBranchId(branches[0].id)
         setAssignedBranchIds([branches[0].id])
       }
-      fetch('/api/v1/users?userType=STAFF&status=ACTIVE&pageSize=100')
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.success && Array.isArray(json.data?.users)) {
-            setAvailableManagers(
-              json.data.users.map((u: any) => ({
-                id: u.staffProfile?.id || u.userId || u.id,
-                userId: u.userId || u.id,
-                name: u.fullName || u.name,
-                designation: u.staffProfile?.designation || u.designation,
-                role: u.role,
-              }))
-            )
-          }
-        })
-        .catch(() => {})
     }
   }, [open, branches])
 
@@ -297,14 +257,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setFullName('')
     setEmail('')
     setPhone('')
-    setDateOfBirth('')
-    setGender('')
-    setMaritalStatus('')
-    setBloodGroup('')
-    setEmergencyContactName('')
-    setEmergencyContactPhone('')
-    setCurrentAddress('')
-    setPermanentAddress('')
     setLocale('en-IN')
     setCredentialSetupMode('MANUAL')
     setUsername('')
@@ -322,20 +274,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setAssignedBranchIds(branches[0]?.id ? [branches[0].id] : [])
     setStatus('ACTIVE')
     setEmployeeCode('')
-    setDesignation('')
-    setDepartment('Academics')
-    setEmploymentType('FULL_TIME')
-    setQualification('')
-    setJoiningDate('')
-    setReportingManagerId('')
     setClassroomId('')
     setReassignClassroom(false)
     setFetchedClassrooms([])
-    setPanNumber('')
-    setAadhaarNumber('')
-    setUanNumber('')
-    setEsiNumber('')
-    setNoticePeriodDays('')
   }
 
   const validateStep1 = () => {
@@ -360,10 +301,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
       toast.error('Validation Error', 'Employee Code is required')
       return false
     }
-    if (!designation.trim()) {
-      toast.error('Validation Error', 'Job Designation is required')
-      return false
-    }
 
     if (isTeacher && classroomId && hasTeacherConflict && !reassignClassroom) {
       toast.error(
@@ -371,38 +308,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
         `Classroom "${selectedClassroom?.name}" already has a primary teacher assigned (${selectedClassroom?.teacher || 'Another teacher'}). Please confirm reassignment or choose another classroom.`
       )
       return false
-    }
-
-    if (panNumber.trim()) {
-      const panRes = validatePan(panNumber)
-      if (!panRes.valid) {
-        toast.error('Validation Error', panRes.error || 'Invalid PAN format')
-        return false
-      }
-    }
-
-    if (aadhaarNumber.trim()) {
-      const aadhaarRes = validateAadhaar(aadhaarNumber)
-      if (!aadhaarRes.valid) {
-        toast.error('Validation Error', aadhaarRes.error || 'Invalid Aadhaar format')
-        return false
-      }
-    }
-
-    if (uanNumber.trim()) {
-      const uanRes = validateUan(uanNumber)
-      if (!uanRes.valid) {
-        toast.error('Validation Error', uanRes.error || 'Invalid UAN format')
-        return false
-      }
-    }
-
-    if (esiNumber.trim()) {
-      const esiRes = validateEsi(esiNumber)
-      if (!esiRes.valid) {
-        toast.error('Validation Error', esiRes.error || 'Invalid ESI format')
-        return false
-      }
     }
 
     return true
@@ -500,14 +405,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           email: email.trim().toLowerCase(),
           phone: phone.trim() || undefined,
           avatarUrl: avatarUrl.trim() || undefined,
-          dateOfBirth: dateOfBirth || undefined,
-          gender: gender || undefined,
-          maritalStatus: maritalStatus || undefined,
-          bloodGroup: bloodGroup || undefined,
-          emergencyContactName: emergencyContactName.trim() || undefined,
-          emergencyContactPhone: emergencyContactPhone.trim() || undefined,
-          currentAddress: currentAddress.trim() || undefined,
-          permanentAddress: permanentAddress.trim() || undefined,
           locale: locale || 'en-IN',
           username: username.trim().toLowerCase() || undefined,
           password: !isInvite ? password : undefined,
@@ -518,19 +415,8 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           branchId,
           branchIds: assignedBranchIds,
           employeeCode: employeeCode.trim(),
-          designation: designation.trim(),
-          department: department.trim() || undefined,
-          employmentType,
-          qualification: qualification.trim() || undefined,
-          joiningDate: joiningDate || undefined,
-          reportingManagerId: reportingManagerId || undefined,
           classroomId: isClassroomStaff && classroomId ? classroomId : undefined,
           reassignClassroom: isTeacher && classroomId && reassignClassroom ? true : undefined,
-          panNumber: panNumber.trim().toUpperCase() || undefined,
-          aadhaarNumber: aadhaarNumber.trim() || undefined,
-          uanNumber: uanNumber.trim() || undefined,
-          esiNumber: esiNumber.trim() || undefined,
-          noticePeriodDays: noticePeriodDays ? Number(noticePeriodDays) : undefined,
         }),
       })
 
@@ -809,73 +695,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     hint="Upload photo from device (JPG, PNG, WebP up to 5MB). Stored securely."
                   />
 
-                  {/* Date of Birth */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Date of Birth
-                    </label>
-                    <div className="mt-1">
-                      <Input
-                        leadingIcon={<Calendar className="w-4 h-4" />}
-                        type="date"
-                        value={dateOfBirth}
-                        onChange={(e) => setDateOfBirth(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Gender */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Gender
-                    </label>
-                    <select
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value as any)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="FEMALE">Female</option>
-                      <option value="MALE">Male</option>
-                      <option value="OTHER">Other</option>
-                    </select>
-                  </div>
-
-                  {/* Marital Status */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Marital Status
-                    </label>
-                    <select
-                      value={maritalStatus}
-                      onChange={(e) => setMaritalStatus(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="">Select Status</option>
-                      {MARITAL_STATUSES.map((ms) => (
-                        <option key={ms} value={ms}>{ms}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Blood Group */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Blood Group
-                    </label>
-                    <select
-                      value={bloodGroup}
-                      onChange={(e) => setBloodGroup(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="">Select Blood Group</option>
-                      {BLOOD_GROUPS.map((bg) => (
-                        <option key={bg} value={bg}>{bg}</option>
-                      ))}
-                    </select>
-                  </div>
-
                   {/* Preferred Language / Locale */}
                   <div className="field">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -892,46 +711,12 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     </select>
                   </div>
 
-                  {/* Emergency Contact Name */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Emergency Contact Person
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Next of kin name"
-                      value={emergencyContactName}
-                      onChange={(e) => setEmergencyContactName(e.target.value)}
-                      className="input w-full text-xs mt-1"
-                    />
-                  </div>
-
-                  {/* Emergency Contact Phone */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Emergency Contact Phone
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="+91 98765 00000"
-                      value={emergencyContactPhone}
-                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                      className="input w-full text-xs mt-1"
-                    />
-                  </div>
-
-                  {/* Current Address */}
-                  <div className="field sm:col-span-2">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Current Residential Address
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Street, locality, city and postal pin code"
-                      value={currentAddress}
-                      onChange={(e) => setCurrentAddress(e.target.value)}
-                      className="input w-full text-xs mt-1"
-                    />
+                  {/* Advisory Notice for HR Module delegation */}
+                  <div className="sm:col-span-2 flex items-center gap-2.5 p-3 rounded-lg bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 text-xs text-purple-800 dark:text-purple-300">
+                    <Info className="w-4 h-4 shrink-0 text-purple-600" />
+                    <span>
+                      Personal, emergency contact, and statutory details (PAN, Aadhaar, PF) are maintained in the HR Module after onboarding.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -994,6 +779,31 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                       </select>
                     </div>
                   </div>
+
+                  {/* Employee Code */}
+                  <div className="field sm:col-span-2">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      Employee Code / Staff ID <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        type="text"
+                        required
+                        placeholder="EMP-2026-001"
+                        value={employeeCode}
+                        onChange={(e) => setEmployeeCode(e.target.value)}
+                        className="input flex-1 text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={generateEmployeeCode}
+                        className="btn btn-secondary text-xs px-2.5 py-1"
+                        title="Regenerate code"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Multi-Branch Campus Assignment (Doc 2.2 P2 Audit) */}
@@ -1032,197 +842,12 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                  {/* Employee Code */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Employee Code <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        type="text"
-                        required
-                        placeholder="EMP-2026-001"
-                        value={employeeCode}
-                        onChange={(e) => setEmployeeCode(e.target.value)}
-                        className="input flex-1 text-xs font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={generateEmployeeCode}
-                        className="btn btn-secondary text-xs px-2.5 py-1"
-                        title="Regenerate code"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Job Designation */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Job Designation <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1">
-                      <Input
-                        leadingIcon={<Award className="w-4 h-4" />}
-                        type="text"
-                        required
-                        placeholder="e.g. Lead Teacher / Accounts Officer"
-                        value={designation}
-                        onChange={(e) => setDesignation(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Department */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Department
-                    </label>
-                    <select
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="Academics">Academics &amp; Early Years</option>
-                      <option value="Administration">Administration</option>
-                      <option value="Accounts">Accounts &amp; Finance</option>
-                      <option value="Operations">Operations &amp; Support</option>
-                      <option value="Transport">Transport &amp; Logistics</option>
-                    </select>
-                  </div>
-
-                  {/* Employment Type */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Employment Type
-                    </label>
-                    <select
-                      value={employmentType}
-                      onChange={(e) => setEmploymentType(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="FULL_TIME">Full Time</option>
-                      <option value="PART_TIME">Part Time</option>
-                      <option value="CONTRACT">Contract</option>
-                      <option value="PROBATION">Probation</option>
-                    </select>
-                  </div>
-
-                  {/* Reporting Manager */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Reporting Manager
-                    </label>
-                    <select
-                      value={reportingManagerId}
-                      onChange={(e) => setReportingManagerId(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      <option value="">None (Top-level / Self-managed)</option>
-                      {availableManagers.map((mgr) => (
-                        <option key={mgr.id} value={mgr.id}>
-                          {mgr.name} ({mgr.designation || mgr.role || 'Staff'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Joining Date */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Joining Date
-                    </label>
-                    <div className="mt-1">
-                      <Input
-                        leadingIcon={<Calendar className="w-4 h-4" />}
-                        type="date"
-                        value={joiningDate}
-                        onChange={(e) => setJoiningDate(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Qualification */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Qualification
-                    </label>
-                    <div className="mt-1">
-                      <Input
-                        leadingIcon={<GraduationCap className="w-4 h-4" />}
-                        type="text"
-                        placeholder="e.g. B.Ed, ECCEd, NTT"
-                        value={qualification}
-                        onChange={(e) => setQualification(e.target.value)}
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  {/* PAN Number */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      PAN Number (Tax ID)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={10}
-                      placeholder="ABCDE1234F"
-                      value={panNumber}
-                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                      className="input w-full text-xs mt-1 uppercase font-mono"
-                    />
-                  </div>
-
-                  {/* Aadhaar Number */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Aadhaar Number (12 Digits)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={12}
-                      placeholder="123456789012"
-                      value={aadhaarNumber}
-                      onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, ''))}
-                      className="input w-full text-xs mt-1 font-mono"
-                    />
-                  </div>
-
-                  {/* UAN & ESI */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      UAN (PF Universal Account)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="100000000000"
-                      value={uanNumber}
-                      onChange={(e) => setUanNumber(e.target.value)}
-                      className="input w-full text-xs mt-1 font-mono"
-                    />
-                  </div>
-
-                  {/* Notice Period (Days) */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Notice Period (Days)
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={365}
-                      placeholder="30"
-                      value={noticePeriodDays}
-                      onChange={(e) => setNoticePeriodDays(e.target.value)}
-                      className="input w-full text-xs mt-1 font-mono"
-                    />
-                  </div>
+                {/* Advisory Notice for HR Module delegation */}
+                <div className="flex items-center gap-2.5 p-3 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs text-blue-800 dark:text-blue-300">
+                  <Info className="w-4 h-4 shrink-0 text-blue-600" />
+                  <span>
+                    Job title, department, employment contract, and salary structure are configured and managed directly in the HR Module.
+                  </span>
                 </div>
 
                 {/* Optional Secondary Roles */}

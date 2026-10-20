@@ -183,8 +183,37 @@ export function Staff360Drawer({ open, onClose, staff, loading }: Staff360Drawer
                   </div>
                 </div>
                 <div>
+                  <span className="text-muted-foreground">Gender:</span>
+                  <div className="font-semibold text-foreground">{staff.gender || '—'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Marital Status:</span>
+                  <div className="font-semibold text-foreground">{staff.maritalStatus || '—'}</div>
+                </div>
+                <div>
                   <span className="text-muted-foreground">Blood Group:</span>
                   <div className="font-semibold text-foreground">{staff.bloodGroup || '—'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Emergency Contact:</span>
+                  <div className="font-semibold text-foreground">
+                    {staff.emergencyContactName ? (
+                      <>
+                        {staff.emergencyContactName}{' '}
+                        {staff.emergencyContactPhone ? `(${staff.emergencyContactPhone})` : ''}
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Current Address:</span>
+                  <div className="text-foreground">{staff.currentAddress || '—'}</div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Permanent Address:</span>
+                  <div className="text-foreground">{staff.permanentAddress || '—'}</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">PAN Number:</span>

@@ -36,7 +36,7 @@ export interface CanonicalFieldDefinition {
 }
 
 export const CANONICAL_STAFF_FIELDS: CanonicalFieldDefinition[] = [
-  // ── 1. Basic Information ──
+  // ── 1. Basic Identity & Placement Information ──
   {
     key: 'fullName',
     label: 'Full Name',
@@ -134,228 +134,18 @@ export const CANONICAL_STAFF_FIELDS: CanonicalFieldDefinition[] = [
     aliases: ['employeecode', 'employee_code', 'empcode', 'emp_code', 'staffid', 'staff_id', 'badge_id'],
   },
   {
-    key: 'designation',
-    label: 'Designation',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'Lead Montessori Teacher',
-    width: '150px',
-    aliases: ['designation', 'title', 'jobtitle', 'job_title', 'position'],
-  },
-  {
-    key: 'department',
-    label: 'Department',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'Academics',
-    width: '130px',
-    aliases: ['department', 'dept', 'division', 'functional_area'],
-  },
-  {
-    key: 'qualification',
-    label: 'Qualification',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'B.Ed, Early Childhood Dip.',
-    width: '160px',
-    aliases: ['qualification', 'education', 'highest_qualification', 'degree', 'credentials'],
-  },
-  {
-    key: 'employmentType',
-    label: 'Employment Type',
-    dataType: 'enum',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    width: '130px',
-    options: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'PROBATION'],
-    aliases: ['employmenttype', 'employment_type', 'contracttype', 'contract_type', 'job_type'],
-  },
-  {
-    key: 'joiningDate',
-    label: 'Date of Joining',
-    dataType: 'date',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'YYYY-MM-DD',
-    width: '120px',
-    aliases: ['joiningdate', 'joining_date', 'dateofjoining', 'date_of_joining', 'doj', 'hiredate', 'hire_date', 'startdate', 'start_date'],
-  },
-  {
-    key: 'dateOfBirth',
-    label: 'Date of Birth',
-    dataType: 'date',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'YYYY-MM-DD',
-    width: '120px',
-    aliases: ['dateofbirth', 'date_of_birth', 'dob', 'birthdate', 'birth_date'],
-  },
-  {
-    key: 'gender',
-    label: 'Gender',
-    dataType: 'enum',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    width: '110px',
-    options: ['FEMALE', 'MALE', 'OTHER'],
-    aliases: ['gender', 'sex'],
-  },
-  {
-    key: 'maritalStatus',
-    label: 'Marital Status',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'Single / Married',
-    width: '120px',
-    aliases: ['maritalstatus', 'marital_status', 'marriage_status'],
-  },
-  {
-    key: 'bloodGroup',
-    label: 'Blood Group',
-    dataType: 'enum',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    width: '110px',
-    options: ['A_POSITIVE', 'A_NEGATIVE', 'B_POSITIVE', 'B_NEGATIVE', 'AB_POSITIVE', 'AB_NEGATIVE', 'O_POSITIVE', 'O_NEGATIVE'],
-    aliases: ['bloodgroup', 'blood_group', 'bloodtype', 'blood_type'],
-  },
-  {
-    key: 'emergencyContactName',
-    label: 'Emergency Contact Name',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'e.g. Ramesh Sharma',
-    width: '160px',
-    aliases: ['emergencycontactname', 'emergency_contact_name', 'emergencyname', 'emergency_name', 'kin_name'],
-  },
-  {
-    key: 'emergencyContactPhone',
-    label: 'Emergency Contact Phone',
-    dataType: 'phone',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: '+919876543219',
-    width: '150px',
-    aliases: ['emergencycontactphone', 'emergency_contact_phone', 'emergencyphone', 'emergency_phone', 'kin_phone', 'emergency_mobile'],
-  },
-  {
-    key: 'currentAddress',
-    label: 'Current Address',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'e.g. Flat 402, Sunshine Heights, Pune',
-    width: '200px',
-    aliases: ['currentaddress', 'current_address', 'address', 'residentialaddress', 'residential_address', 'street_address'],
-  },
-  {
-    key: 'permanentAddress',
-    label: 'Permanent Address',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: 'e.g. 12 Heritage Way, Nagpur',
-    width: '200px',
-    aliases: ['permanentaddress', 'permanent_address', 'hometown_address'],
-  },
-  {
-    key: 'panNumber',
-    label: 'PAN Number',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: false, // Sensitive financial ID: masked/excluded on export
-    sensitive: true,
-    securityRule: 'Masked on export; encrypted at rest (AES-GCM)',
-    placeholder: 'ABCDE1234F',
-    width: '130px',
-    aliases: ['pannumber', 'pan_number', 'pan', 'pancard', 'pan_card'],
-  },
-  {
-    key: 'aadhaarNumber',
-    label: 'Aadhaar Number',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: false, // UIDAI standard: restricted from open CSV export
-    sensitive: true,
-    securityRule: 'UIDAI standard: excluded on export; encrypted at rest',
-    placeholder: '12-digit UIDAI number',
-    width: '140px',
-    aliases: ['aadhaarnumber', 'aadhaar_number', 'aadhaar', 'adhar', 'uidai'],
-  },
-  {
-    key: 'uanNumber',
-    label: 'UAN Number',
+    key: 'password',
+    label: 'Initial Password',
     dataType: 'string',
     userType: 'STAFF',
     required: false,
     importable: true,
     exportable: false,
     sensitive: true,
-    securityRule: 'Excluded on export; encrypted at rest',
-    placeholder: '12-digit EPF UAN',
-    width: '130px',
-    aliases: ['uannumber', 'uan_number', 'uan', 'epf_uan'],
-  },
-  {
-    key: 'esiNumber',
-    label: 'ESI Number',
-    dataType: 'string',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: false,
-    sensitive: true,
-    securityRule: 'Excluded on export; encrypted at rest',
-    placeholder: '17-digit ESIC IP number',
-    width: '130px',
-    aliases: ['esinumber', 'esi_number', 'esi', 'esic'],
-  },
-  {
-    key: 'noticePeriodDays',
-    label: 'Notice Period (Days)',
-    dataType: 'number',
-    userType: 'STAFF',
-    required: false,
-    importable: true,
-    exportable: true,
-    placeholder: '60',
-    width: '110px',
-    aliases: ['noticeperioddays', 'notice_period_days', 'noticeperiod', 'notice_period'],
+    securityRule: 'Initial account password; validated, encrypted, and hashed server-side, strictly excluded from export',
+    placeholder: 'Min 8 chars, 1 upper, 1 number',
+    width: '160px',
+    aliases: ['password', 'initialpassword', 'initial_password', 'staffpassword', 'staff_password', 'temp_password', 'pass', 'pwd'],
   },
   {
     key: 'status',
@@ -732,4 +522,53 @@ export function parseBooleanCell(val: any, defaultVal = false): boolean {
   if (['true', 'yes', '1', 'y'].includes(s)) return true
   if (['false', 'no', '0', 'n'].includes(s)) return false
   return defaultVal
+}
+
+/**
+ * Authoritative set of HR and employment-specific fields
+ * that are governed and maintained exclusively within the HR Module.
+ */
+export const HR_FIELD_ALIASES: Record<string, string[]> = {
+  designation: ['designation', 'title', 'jobtitle', 'job_title', 'position'],
+  department: ['department', 'dept', 'division', 'functional_area'],
+  qualification: ['qualification', 'education', 'highest_qualification', 'degree', 'credentials'],
+  employmentType: ['employmenttype', 'employment_type', 'contracttype', 'contract_type', 'job_type'],
+  noticePeriodDays: ['noticeperioddays', 'notice_period_days', 'noticeperiod', 'notice_period'],
+  joiningDate: ['joiningdate', 'joining_date', 'dateofjoining', 'date_of_joining', 'doj', 'hiredate', 'hire_date', 'startdate', 'start_date'],
+  dateOfBirth: ['dateofbirth', 'date_of_birth', 'dob', 'birthdate', 'birth_date'],
+  gender: ['gender', 'sex'],
+  maritalStatus: ['maritalstatus', 'marital_status', 'marriage_status'],
+  bloodGroup: ['bloodgroup', 'blood_group', 'bloodtype', 'blood_type'],
+  emergencyContactName: ['emergencycontactname', 'emergency_contact_name', 'emergencyname', 'emergency_name', 'kin_name'],
+  emergencyContactPhone: ['emergencycontactphone', 'emergency_contact_phone', 'emergencyphone', 'emergency_phone', 'kin_phone', 'emergency_mobile'],
+  currentAddress: ['currentaddress', 'current_address', 'address', 'residentialaddress', 'residential_address', 'street_address'],
+  permanentAddress: ['permanentaddress', 'permanent_address', 'hometown_address'],
+  panNumber: ['pannumber', 'pan_number', 'pan', 'pancard', 'pan_card'],
+  aadhaarNumber: ['aadhaarnumber', 'aadhaar_number', 'aadhaar', 'adhar', 'uidai'],
+  uanNumber: ['uannumber', 'uan_number', 'uan', 'epf_uan'],
+  esiNumber: ['esinumber', 'esi_number', 'esi', 'esic'],
+  salary: ['salary', 'basicsalary', 'basic_salary', 'ctc', 'gross_salary', 'pay'],
+}
+
+/**
+ * Detects whether a header corresponds to an HR-managed field.
+ */
+export function isHrFieldHeader(header: string): { isHr: boolean; fieldName?: string } {
+  if (!header || typeof header !== 'string') return { isHr: false }
+  const cleaned = header
+    .replace(/^["']|["']$/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s\-_]+/g, '')
+
+  for (const [key, aliases] of Object.entries(HR_FIELD_ALIASES)) {
+    if (key.toLowerCase() === cleaned) {
+      return { isHr: true, fieldName: key }
+    }
+    if (aliases.some((a) => a.replace(/[\s\-_]+/g, '').toLowerCase() === cleaned)) {
+      return { isHr: true, fieldName: key }
+    }
+  }
+
+  return { isHr: false }
 }

@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { db } from '@/lib/db'
 import { StaffUserService } from './staff-user-service'
 import { FamilyUserService, normalizeRelationship } from './family-user-service'
@@ -5,7 +6,31 @@ import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType
 import { normalizeRole, type CanonicalRole, LEGACY_ROLE_MAP } from '@/lib/roles'
 import { validatePan, validateAadhaar, validateUan, validateEsi } from './statutory-validation'
 import { recordAudit } from '@/lib/audit'
-import { resolveRowWithAliases, CANONICAL_STAFF_FIELDS, CANONICAL_FAMILY_FIELDS, parseBooleanCell } from './canonical-fields'
+import { resolveRowWithAliases, CANONICAL_STAFF_FIELDS, CANONICAL_FAMILY_FIELDS, parseBooleanCell, isHrFieldHeader } from './canonical-fields'
+import { EncryptionService } from '@/lib/security/encryption-service'
+
+/**
+ * Validates password against PreOne password complexity policy:
+ * - Minimum 8 characters
+ * - At least 1 uppercase letter
+ * - At least 1 lowercase letter
+ * - At least 1 number
+ */
+export function validatePasswordComplexity(password: string): { valid: boolean; error?: string } {
+  if (!password || password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long' }
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least 1 uppercase letter' }
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least 1 lowercase letter' }
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least 1 number' }
+  }
+  return { valid: true }
+}
 
 /**
  * Sanitizes a cell against spreadsheet formula injection (=, +, -, @, \t, \r)
@@ -129,31 +154,14 @@ export class UserCsvEngine {
       'branchCode',
       'classroomCode',
       'employeeCode',
-      'designation',
-      'department',
-      'qualification',
-      'employmentType',
-      'joiningDate',
-      'dateOfBirth',
-      'gender',
-      'maritalStatus',
-      'bloodGroup',
-      'emergencyContactName',
-      'emergencyContactPhone',
-      'currentAddress',
-      'permanentAddress',
-      'panNumber',
-      'aadhaarNumber',
-      'uanNumber',
-      'esiNumber',
-      'noticePeriodDays',
+      'password',
     ]
 
     const sampleRows = [
-      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'NUR-A', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'FULL_TIME', '2026-06-01', '1992-05-14', 'FEMALE', 'Married', 'B_POSITIVE', 'Ramesh Sharma', '+919876543219', 'Flat 402 Sunshine Pune', '12 Heritage Way Nagpur', '', '', '', '', '60'],
-      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', '', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'FULL_TIME', '2026-05-15', '1988-11-20', 'MALE', 'Single', 'O_POSITIVE', 'Suresh Nair', '+919876543220', '32 Deccan Gymkhana Pune', '32 Deccan Gymkhana Pune', '', '', '', '', '60'],
-      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'PG-STAR', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE', 'Single', 'A_POSITIVE', 'Sunita Patil', '+919876543221', 'Aundh Pune', 'Aundh Pune', '', '', '', '', '30'],
-      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', '', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'FULL_TIME', '2026-05-01', '1985-08-09', 'MALE', 'Married', 'AB_POSITIVE', 'Geeta Verma', '+919876543222', 'Kothrud Pune', 'Kothrud Pune', '', '', '', '', '30'],
+      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'NUR-A', 'EMP-2026-01', 'PreOne@2026'],
+      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', '', 'EMP-2026-02', 'PreOne@2026'],
+      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'PG-STAR', 'EMP-2026-03', 'PreOne@2026'],
+      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', '', 'EMP-2026-04', 'PreOne@2026'],
     ]
 
     return [
@@ -316,12 +324,28 @@ export class UserCsvEngine {
       const errors: string[] = []
       const warnings: string[] = []
 
-      // Surface unmapped/unknown columns to prevent silent dropping
+      // Separate unmapped columns into HR-managed fields vs unknown/misspelled columns
       const unmappedKeys = Object.keys(unmapped).filter(
         (k) => k.trim() && !['id', 'createdat', 'updatedat'].includes(k.trim().toLowerCase())
       )
-      if (unmappedKeys.length > 0) {
-        warnings.push(`Unmapped column(s): "${unmappedKeys.join('", "')}". Verify column spelling.`)
+      const hrFieldsFound: string[] = []
+      const trulyUnmapped: string[] = []
+
+      for (const k of unmappedKeys) {
+        const hrCheck = isHrFieldHeader(k)
+        if (hrCheck.isHr) {
+          hrFieldsFound.push(k)
+        } else {
+          trulyUnmapped.push(k)
+        }
+      }
+
+      for (const hrKey of hrFieldsFound) {
+        warnings.push(`Column '${hrKey}' is an HR field managed in the HR Module and was ignored for identity creation.`)
+      }
+
+      if (trulyUnmapped.length > 0) {
+        warnings.push(`Unmapped column(s): "${trulyUnmapped.join('", "')}". Verify column spelling.`)
       }
 
       const username = r.username?.trim().toLowerCase() || ''
@@ -423,26 +447,41 @@ export class UserCsvEngine {
         errors.push(`Invalid staff role "${rawRole}". Allowed: ${CANONICAL_STAFF_ROLES.join(', ')}.`)
       }
 
-      // Validate statutory IDs if present in CSV
-      const pan = (r.panNumber || r.pan)?.trim()
-      if (pan) {
-        const panRes = validatePan(pan)
-        if (!panRes.valid) errors.push(panRes.error!)
+      // ── Password Provisioning & Policy Validation ──
+      // Check for prohibited pre-hashed passwords from client
+      const rawPasswordHash = (r as any).passwordHash || (rows[i] as any)?.passwordHash || (rows[i] as any)?.password_hash
+      if (rawPasswordHash) {
+        errors.push("Pre-hashed passwords ('passwordHash') are not accepted. Provide plaintext passwords adhering to security policy for server-side hashing.")
       }
-      const aadhaar = (r.aadhaarNumber || r.aadhaar)?.trim()
-      if (aadhaar) {
-        const aadhaarRes = validateAadhaar(aadhaar)
-        if (!aadhaarRes.valid) errors.push(aadhaarRes.error!)
-      }
-      const uan = (r.uanNumber || r.uan)?.trim()
-      if (uan) {
-        const uanRes = validateUan(uan)
-        if (!uanRes.valid) errors.push(uanRes.error!)
-      }
-      const esi = (r.esiNumber || r.esi)?.trim()
-      if (esi) {
-        const esiRes = validateEsi(esi)
-        if (!esiRes.valid) errors.push(esiRes.error!)
+
+      const rawPassword = r.password !== undefined && r.password !== null ? String(r.password).trim() : ''
+      let encryptedPasswordToken: string | undefined = undefined
+
+      if (rawPassword) {
+        if (rawPassword.startsWith('$2a$') || rawPassword.startsWith('$2b$') || rawPassword.startsWith('$2y$')) {
+          errors.push("Pre-hashed passwords ('passwordHash') are not accepted. Provide plaintext passwords adhering to security policy for server-side hashing.")
+        } else {
+          const pwdPolicy = validatePasswordComplexity(rawPassword)
+          if (!pwdPolicy.valid) {
+            errors.push(pwdPolicy.error!)
+          } else {
+            // Valid plaintext password: encrypt structured, authenticated, short-lived token using tenant context and mask in preview
+            try {
+              const tokenPayload = JSON.stringify({
+                p: rawPassword,
+                t: tenantId,
+                e: (email || username || '').toLowerCase(),
+                exp: Date.now() + 2 * 60 * 60 * 1000, // 2-hour lifetime
+                n: crypto.randomBytes(8).toString('hex'),
+              })
+              const enc = EncryptionService.encrypt(tokenPayload, tenantId)
+              if (!enc) throw new Error('Encryption failed')
+              encryptedPasswordToken = enc
+            } catch (err: any) {
+              errors.push('Failed to securely process initial password: fail closed')
+            }
+          }
+        }
       }
 
       const isBlocked = errors.length > 0
@@ -450,13 +489,6 @@ export class UserCsvEngine {
         (() => {
           const status = isBlocked ? 'BLOCKED' : warnings.length > 0 ? 'WARNING' : 'VALID'
           const action = isBlocked ? 'BLOCK' : (options?.mode as string) === 'DELETE' ? 'DELETE' : isExisting ? 'LINK' : 'CREATE'
-          const rawEmpType = r.employmentType?.toUpperCase()
-          const empType: EmploymentType =
-            rawEmpType === 'REGULAR' || rawEmpType === 'FULL_TIME'
-              ? 'FULL_TIME'
-              : rawEmpType === 'INTERN' || rawEmpType === 'PROBATION'
-              ? 'PROBATION'
-              : (rawEmpType as EmploymentType) || 'FULL_TIME'
 
           return {
             rowNumber: rowNum,
@@ -468,6 +500,7 @@ export class UserCsvEngine {
             details: `Branch: ${branchId || 'Main'}, EmpCode: ${r.employeeCode || 'Auto'}${classroomName ? `, Class: ${classroomName}` : ''}`,
             errors,
             warnings,
+            encryptedPassword: encryptedPasswordToken,
             data: {
               username: username || undefined,
               fullName: effectiveFullName,
@@ -476,25 +509,9 @@ export class UserCsvEngine {
               role: r.role ? roleStr : undefined,
               branchId,
               classroomId: classroomId || undefined,
-              designation: r.designation || null,
-              department: r.department || null,
               employeeCode: r.employeeCode || null,
-              qualification: r.qualification || null,
-              employmentType: empType,
-              joiningDate: r.joiningDate || null,
-              dateOfBirth: r.dateOfBirth || null,
-              gender: (r.gender?.toUpperCase() as Gender) || null,
-              maritalStatus: r.maritalStatus || null,
-              bloodGroup: r.bloodGroup || null,
-              emergencyContactName: r.emergencyContactName || null,
-              emergencyContactPhone: r.emergencyContactPhone || null,
-              currentAddress: r.currentAddress || null,
-              permanentAddress: r.permanentAddress || null,
-              panNumber: r.panNumber || null,
-              aadhaarNumber: r.aadhaarNumber || null,
-              uanNumber: r.uanNumber || null,
-              esiNumber: r.esiNumber || null,
-              noticePeriodDays: r.noticePeriodDays ? Number(r.noticePeriodDays) : undefined,
+              password: encryptedPasswordToken ? '••••••••' : undefined,
+              encryptedPassword: encryptedPasswordToken,
               status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
             },
           }
@@ -504,7 +521,7 @@ export class UserCsvEngine {
 
     const blockedCount = previewRows.filter((r) => r.status === 'BLOCKED').length
     const warningCount = previewRows.filter((r) => r.status === 'WARNING').length
-    const validCount = previewRows.filter((r) => r.status === 'VALID').length
+    const validCount = previewRows.filter((r) => r.status !== 'BLOCKED').length
     const newUsers = previewRows.filter((r) => r.action === 'CREATE').length
     const existingUsers = previewRows.filter((r) => r.action === 'LINK').length
 
@@ -838,7 +855,7 @@ export class UserCsvEngine {
 
     const blockedCount = previewRows.filter((r) => r.status === 'BLOCKED').length
     const warningCount = previewRows.filter((r) => r.status === 'WARNING').length
-    const validCount = previewRows.filter((r) => r.status === 'VALID').length
+    const validCount = previewRows.filter((r) => r.status !== 'BLOCKED').length
 
     return {
       templateType: 'FAMILY',
@@ -941,6 +958,82 @@ export class UserCsvEngine {
       }
     }
 
+    const prepareStaffRowData = (row: CsvPreviewRow) => {
+      const rowData = { ...row.data }
+      let resolvedPassword: string | undefined = undefined
+
+      if (rowData.encryptedPassword) {
+        try {
+          const decrypted = EncryptionService.decrypt(rowData.encryptedPassword, ctx.tenantId)
+          if (!decrypted) {
+            throw new Error('Password decryption produced empty string')
+          }
+          let candidatePwd = decrypted
+          try {
+            const parsed = JSON.parse(decrypted)
+            if (parsed && typeof parsed === 'object' && parsed.p) {
+              if (parsed.t && parsed.t !== ctx.tenantId) {
+                throw new Error('Tenant mismatch: Encrypted password token belongs to another tenant')
+              }
+              if (parsed.exp && typeof parsed.exp === 'number' && parsed.exp < Date.now()) {
+                throw new Error('Expired password provisioning token. Please re-preview the import file.')
+              }
+              const rowEmail = (row.data?.email || row.identifier || '').trim().toLowerCase()
+              if (parsed.e && rowEmail && parsed.e !== rowEmail) {
+                throw new Error('Identifier mismatch: Encrypted password token cannot be replayed for another user')
+              }
+              candidatePwd = parsed.p
+            }
+          } catch (jsonErr: any) {
+            if (
+              jsonErr.message &&
+              (jsonErr.message.includes('Tenant mismatch') ||
+                jsonErr.message.includes('Expired') ||
+                jsonErr.message.includes('Identifier mismatch'))
+            ) {
+              throw jsonErr
+            }
+            // Fallback for legacy raw string encrypted values
+          }
+          const pwdPolicy = validatePasswordComplexity(candidatePwd)
+          if (!pwdPolicy.valid) {
+            throw new Error(`Row ${row.rowNumber}: ${pwdPolicy.error}`)
+          }
+          resolvedPassword = candidatePwd
+        } catch (decErr: any) {
+          throw new Error(`Security fail-closed: Could not decrypt or authenticate credentials for row ${row.rowNumber}: ${decErr.message}`)
+        }
+      } else if (rowData.password && rowData.password !== '••••••••') {
+        if (
+          rowData.password.startsWith('$2a$') ||
+          rowData.password.startsWith('$2b$') ||
+          rowData.password.startsWith('$2y$')
+        ) {
+          throw new Error(
+            `Row ${row.rowNumber}: Pre-hashed passwords are not accepted. Provide plaintext passwords adhering to policy for server-side hashing.`
+          )
+        }
+        const pwdPolicy = validatePasswordComplexity(rowData.password)
+        if (!pwdPolicy.valid) {
+          throw new Error(`Row ${row.rowNumber}: ${pwdPolicy.error}`)
+        }
+        resolvedPassword = rowData.password
+      }
+
+      delete rowData.encryptedPassword
+
+      // If updating existing staff and no password provided, preserve existing credentials
+      if (row.action === 'LINK' && !resolvedPassword) {
+        delete rowData.password
+      } else if (resolvedPassword) {
+        rowData.password = resolvedPassword
+      } else {
+        delete rowData.password
+      }
+
+      return rowData
+    }
+
     if (options?.atomicAllOrNothing) {
       try {
         await db.$transaction(async (tx) => {
@@ -952,6 +1045,7 @@ export class UserCsvEngine {
               skippedCount++
               continue
             }
+            const rowData = prepareStaffRowData(row)
             await StaffUserService.createStaff(
               {
                 tenantId: ctx.tenantId,
@@ -959,7 +1053,7 @@ export class UserCsvEngine {
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
               },
-              row.data as any,
+              rowData as any,
               tx
             )
             if (row.action === 'CREATE') createdCount++
@@ -1022,6 +1116,7 @@ export class UserCsvEngine {
         }
 
         try {
+          const rowData = prepareStaffRowData(row)
           await StaffUserService.createStaff(
             {
               tenantId: ctx.tenantId,
@@ -1029,7 +1124,7 @@ export class UserCsvEngine {
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
             },
-            row.data as any
+            rowData as any
           )
           if (row.action === 'CREATE') createdCount++
           else updatedCount++

@@ -5,7 +5,7 @@ import {
   User, Phone, Building, Briefcase, Shield, Key, Camera, Trash2,
   Mail, Calendar, Award, HeartHandshake, FileText, Lock, Globe,
   CheckCircle2, AlertCircle, Baby, Users, MapPin, UserCheck,
-  RefreshCw, Eye, EyeOff
+  RefreshCw, Eye, EyeOff, Info
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { Avatar } from '@/components/preone/ui'
@@ -307,40 +307,6 @@ export function EditUserModal({
       return
     }
 
-    if (isStaff) {
-      if (panNumber.trim() && !panNumber.includes('•')) {
-        const panRes = validatePan(panNumber)
-        if (!panRes.valid) {
-          toast.error('Invalid PAN', panRes.error || 'Invalid PAN format')
-          return
-        }
-      }
-
-      if (aadhaarNumber.trim() && !aadhaarNumber.includes('•')) {
-        const aadhaarRes = validateAadhaar(aadhaarNumber)
-        if (!aadhaarRes.valid) {
-          toast.error('Invalid Aadhaar', aadhaarRes.error || 'Invalid Aadhaar format')
-          return
-        }
-      }
-
-      if (uanNumber.trim() && !uanNumber.includes('•')) {
-        const uanRes = validateUan(uanNumber)
-        if (!uanRes.valid) {
-          toast.error('Invalid UAN', uanRes.error || 'Invalid UAN format')
-          return
-        }
-      }
-
-      if (esiNumber.trim() && !esiNumber.includes('•')) {
-        const esiRes = validateEsi(esiNumber)
-        if (!esiRes.valid) {
-          toast.error('Invalid ESI', esiRes.error || 'Invalid ESI format')
-          return
-        }
-      }
-    }
-
     setSubmitting(true)
     try {
       const allRoles: Role[] = [...new Set([role, ...additionalRoles])]
@@ -365,42 +331,7 @@ export function EditUserModal({
 
       if (isStaff) {
         payload.employeeCode = employeeCode.trim() || null
-        payload.designation = designation.trim() || null
-        payload.department = department.trim() || null
-        payload.qualification = qualification.trim() || null
-        payload.employmentType = employmentType || 'FULL_TIME'
-        payload.joiningDate = joiningDate || null
-        if (!dateOfBirth.includes('•')) {
-          payload.dateOfBirth = dateOfBirth || null
-        }
-        payload.gender = gender || null
-        payload.maritalStatus = maritalStatus || null
-        payload.bloodGroup = bloodGroup || null
-        payload.emergencyContactName = emergencyContactName.trim() || null
-        payload.emergencyContactPhone = emergencyContactPhone.trim() || null
-        if (!currentAddress.includes('•')) {
-          payload.currentAddress = currentAddress.trim() || null
-        }
-        if (!permanentAddress.includes('•')) {
-          payload.permanentAddress = permanentAddress.trim() || null
-        }
-        if (!panNumber.includes('•')) {
-          payload.panNumber = panNumber.trim().toUpperCase() || null
-        }
-        if (!aadhaarNumber.includes('•')) {
-          payload.aadhaarNumber = aadhaarNumber.trim() || null
-        }
-        if (!uanNumber.includes('•')) {
-          payload.uanNumber = uanNumber.trim() || null
-        }
-        if (!esiNumber.includes('•')) {
-          payload.esiNumber = esiNumber.trim() || null
-        }
-        payload.probationEndDate = probationEndDate || null
-        payload.confirmationDate = confirmationDate || null
-        payload.noticePeriodDays = noticePeriodDays ? Number(noticePeriodDays) : null
         payload.classroomId = classroomId || null
-        payload.reportingManagerId = reportingManagerId || null
       }
 
       if (isFamily) {
@@ -553,31 +484,7 @@ export function EditUserModal({
                 }`}
               >
                 <Briefcase className="w-3.5 h-3.5" />
-                <span>Work & Role</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('personal')}
-                className={`pb-2 px-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  activeTab === 'personal'
-                    ? 'border-b-2 border-primary text-primary font-bold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <HeartHandshake className="w-3.5 h-3.5" />
-                <span>Personal & Emergency</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('statutory')}
-                className={`pb-2 px-1 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
-                  activeTab === 'statutory'
-                    ? 'border-b-2 border-primary text-primary font-bold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Statutory & HR</span>
+                <span>Role & Placement</span>
               </button>
               <button
                 type="button"
@@ -837,10 +744,10 @@ export function EditUserModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-medium text-foreground mb-1">
-                  Employee Code
+                  Employee Code / Staff ID
                 </label>
                 <input
                   type="text"
@@ -848,63 +755,6 @@ export function EditUserModal({
                   onChange={(e) => setEmployeeCode(e.target.value)}
                   className="input w-full text-sm font-mono"
                   placeholder="EMP-2026-101"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Job Designation / Title
-                </label>
-                <input
-                  type="text"
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  className="input w-full text-sm"
-                  placeholder="e.g. Head Teacher"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Department
-                </label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="input w-full text-sm"
-                  placeholder="e.g. Academics"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Employment Type
-                </label>
-                <select
-                  value={employmentType}
-                  onChange={(e) => setEmploymentType(e.target.value)}
-                  className="select w-full text-sm"
-                >
-                  {EMPLOYMENT_TYPES.map((et) => (
-                    <option key={et} value={et}>
-                      {et.replace('_', ' ')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Joining Date
-                </label>
-                <input
-                  type="date"
-                  value={joiningDate}
-                  onChange={(e) => setJoiningDate(e.target.value)}
-                  className="input w-full text-sm"
                 />
               </div>
 
@@ -927,274 +777,12 @@ export function EditUserModal({
               </div>
             </div>
 
-            <div>
-              <label className="block font-medium text-foreground mb-1">
-                Reporting Manager
-              </label>
-              <select
-                value={reportingManagerId}
-                onChange={(e) => setReportingManagerId(e.target.value)}
-                className="select w-full text-sm"
-              >
-                <option value="">None (Top-level / Self-managed)</option>
-                {availableManagers
-                  .filter((m) => m.userId !== (user.userId || user.id))
-                  .map((mgr) => (
-                    <option key={mgr.id} value={mgr.id}>
-                      {mgr.name} ({mgr.designation || mgr.role || 'Staff'})
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* ────────────────────────────────────────────────────────── */}
-        {/* TAB 3 (STAFF): PERSONAL & EMERGENCY */}
-        {/* ────────────────────────────────────────────────────────── */}
-        {isStaff && activeTab === 'personal' && (
-          <div className="space-y-3.5 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Date of Birth
-                </label>
-                <input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  className="input w-full text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Gender
-                </label>
-                <select
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  className="select w-full text-sm"
-                >
-                  <option value="">Unspecified</option>
-                  {GENDERS.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Marital Status
-                </label>
-                <select
-                  value={maritalStatus}
-                  onChange={(e) => setMaritalStatus(e.target.value)}
-                  className="select w-full text-sm"
-                >
-                  <option value="">Unspecified</option>
-                  {MARITAL_STATUSES.map((ms) => (
-                    <option key={ms} value={ms}>{ms}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Blood Group
-                </label>
-                <select
-                  value={bloodGroup}
-                  onChange={(e) => setBloodGroup(e.target.value)}
-                  className="select w-full text-sm"
-                >
-                  <option value="">Unspecified</option>
-                  {BLOOD_GROUPS.map((bg) => (
-                    <option key={bg} value={bg}>{bg}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border border-border bg-muted/20">
-              <div className="sm:col-span-2">
-                <span className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
-                  <Phone className="w-3.5 h-3.5 text-primary" /> Emergency Contact Details
-                </span>
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Contact Person Name
-                </label>
-                <input
-                  type="text"
-                  value={emergencyContactName}
-                  onChange={(e) => setEmergencyContactName(e.target.value)}
-                  className="input w-full text-sm"
-                  placeholder="e.g. Spouse / Relative Name"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Contact Mobile Phone
-                </label>
-                <input
-                  type="tel"
-                  value={emergencyContactPhone}
-                  onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                  className="input w-full text-sm font-mono"
-                  placeholder="+91 98765 00000"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Current Residential Address
-                </label>
-                <textarea
-                  rows={2}
-                  value={currentAddress}
-                  onChange={(e) => setCurrentAddress(e.target.value)}
-                  className="input w-full text-sm resize-none"
-                  placeholder="House, Street, Area, City & PIN code"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Permanent Address
-                </label>
-                <textarea
-                  rows={2}
-                  value={permanentAddress}
-                  onChange={(e) => setPermanentAddress(e.target.value)}
-                  className="input w-full text-sm resize-none"
-                  placeholder="Permanent / Native home address"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ────────────────────────────────────────────────────────── */}
-        {/* TAB 4 (STAFF): STATUTORY & HR */}
-        {/* ────────────────────────────────────────────────────────── */}
-        {isStaff && activeTab === 'statutory' && (
-          <div className="space-y-3.5 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  PAN Number (Statutory Tax ID)
-                </label>
-                <input
-                  type="text"
-                  maxLength={10}
-                  value={panNumber}
-                  onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                  className="input w-full text-sm font-mono uppercase"
-                  placeholder="ABCDE1234F"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Aadhaar Number (12 Digits)
-                </label>
-                <input
-                  type="text"
-                  maxLength={12}
-                  value={aadhaarNumber}
-                  onChange={(e) => setAadhaarNumber(e.target.value.replace(/\D/g, ''))}
-                  className="input w-full text-sm font-mono"
-                  placeholder="123456789012"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  UAN (Universal Account No. / PF)
-                </label>
-                <input
-                  type="text"
-                  value={uanNumber}
-                  onChange={(e) => setUanNumber(e.target.value)}
-                  className="input w-full text-sm font-mono"
-                  placeholder="100000000000"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  ESI Number (State Insurance)
-                </label>
-                <input
-                  type="text"
-                  value={esiNumber}
-                  onChange={(e) => setEsiNumber(e.target.value)}
-                  className="input w-full text-sm font-mono"
-                  placeholder="31000000000000000"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-medium text-foreground mb-1">
-                Educational & Professional Qualifications
-              </label>
-              <input
-                type="text"
-                value={qualification}
-                onChange={(e) => setQualification(e.target.value)}
-                className="input w-full text-sm"
-                placeholder="e.g. M.Ed, Montessori Certified, B.A. English"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Probation End Date
-                </label>
-                <input
-                  type="date"
-                  value={probationEndDate}
-                  onChange={(e) => setProbationEndDate(e.target.value)}
-                  className="input w-full text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Confirmation Date
-                </label>
-                <input
-                  type="date"
-                  value={confirmationDate}
-                  onChange={(e) => setConfirmationDate(e.target.value)}
-                  className="input w-full text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block font-medium text-foreground mb-1">
-                  Notice Period (Days)
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={365}
-                  value={noticePeriodDays}
-                  onChange={(e) => setNoticePeriodDays(e.target.value)}
-                  className="input w-full text-sm font-mono"
-                  placeholder="30"
-                />
-              </div>
+            {/* Advisory Notice for HR Module delegation */}
+            <div className="flex items-center gap-2.5 p-3 rounded-lg bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs text-blue-800 dark:text-blue-300">
+              <Info className="w-4 h-4 shrink-0 text-blue-600" />
+              <span>
+                Job title, department, employment contract, salary, and statutory/personal details are maintained in the HR Module.
+              </span>
             </div>
           </div>
         )}

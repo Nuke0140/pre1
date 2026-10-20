@@ -246,6 +246,22 @@ function HRPageContent() {
           qualification: formData.qualification,
           employmentType: formData.employmentType,
           branchId: formData.branchId || null,
+          joiningDate: formData.joiningDate || null,
+          noticePeriodDays: formData.noticePeriodDays !== undefined ? Number(formData.noticePeriodDays) : undefined,
+          probationEndDate: formData.probationEndDate || null,
+          confirmationDate: formData.confirmationDate || null,
+          dateOfBirth: formData.dateOfBirth || null,
+          gender: formData.gender || null,
+          maritalStatus: formData.maritalStatus || null,
+          bloodGroup: formData.bloodGroup || null,
+          emergencyContactName: formData.emergencyContactName || null,
+          emergencyContactPhone: formData.emergencyContactPhone || null,
+          currentAddress: formData.currentAddress || null,
+          permanentAddress: formData.permanentAddress || null,
+          panNumber: formData.panNumber || null,
+          aadhaarNumber: formData.aadhaarNumber || null,
+          uanNumber: formData.uanNumber || null,
+          esiNumber: formData.esiNumber || null,
           salary: {
             basicSalary: parseFloat(formData.basicSalary) || 0,
             hra: parseFloat(formData.hra) || 0,
@@ -434,9 +450,17 @@ function HRPageContent() {
             searchQuery={searchQuery}
             onSearchQueryChange={setSearchQuery}
             onViewStaff={handleOpenStaff360}
-            onEditStaff={(s) => {
+            onEditStaff={async (s) => {
               setEditStaffData(s)
               setIsEditStaffOpen(true)
+              try {
+                const res = await fetch(`/api/v1/hr/staff/${s.id}`).then((r) => r.json())
+                if (res?.data) {
+                  setEditStaffData(res.data)
+                }
+              } catch {
+                // Keep s fallback
+              }
             }}
             onOpenOnboard={() => setIsOnboardOpen(true)}
             canWrite={canWrite}

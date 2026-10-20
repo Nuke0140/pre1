@@ -21,7 +21,7 @@ import { FamilyUserService } from '@/lib/users/family-user-service'
 import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { normalizeRole } from '@/lib/roles'
 import { normalizeUsername, isValidUsername, sanitizeUsernameSlug } from '@/lib/users/username-service'
-import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY, can } from '@/lib/auth'
 import { EncryptionService } from '@/lib/security/encryption-service'
 import { CustomRoleService } from '@/lib/auth/rbac-engine'
 
@@ -1006,6 +1006,41 @@ export const POST = withApi(async (req: NextRequest) => {
 
   if (!effectiveFullName || !effectiveEmail || assignedRoles.length === 0) {
     throw errValidation('fullName, email, and at least one role are required', 'fullName')
+  }
+
+  // Authorization check: Reject unauthorized HR-field supply through Users API
+  const HR_MANAGED_FIELDS = [
+    'designation',
+    'department',
+    'qualification',
+    'employmentType',
+    'joiningDate',
+    'dateOfBirth',
+    'gender',
+    'maritalStatus',
+    'bloodGroup',
+    'currentAddress',
+    'permanentAddress',
+    'emergencyContactName',
+    'emergencyContactPhone',
+    'panNumber',
+    'aadhaarNumber',
+    'uanNumber',
+    'esiNumber',
+    'probationEndDate',
+    'confirmationDate',
+    'noticePeriodDays',
+  ]
+
+  const attemptedHrFields = HR_MANAGED_FIELDS.filter((f) => (body as any)[f] !== undefined)
+  if (attemptedHrFields.length > 0) {
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const hasHrWrite = can(effectiveRoles, 'hr:write')
+    if (!hasHrWrite) {
+      throw errPermission(
+        `Unauthorized to provide HR fields (${attemptedHrFields.join(', ')}) through Users API. Maintain HR details in the HR Module (requires 'hr:write').`
+      )
+    }
   }
 
   // Determine credential setup mode and invitation status

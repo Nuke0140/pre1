@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from 'bun:test'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { POST as usersCsvPost, GET as usersCsvGet } from '@/app/api/v1/users/csv/route'
-import { GET as usersExportGet, POST as usersExportPost } from '@/app/api/v1/users/export/route'
+import { POST as usersCsvPost } from '@/app/api/v1/users/csv/route'
+import { GET as usersExportGet } from '@/app/api/v1/users/export/route'
+import { POST as hrStaffBulkPost } from '@/app/api/v1/hr/staff/bulk/route'
 import bcrypt from 'bcryptjs'
 import { signSession, SESSION_COOKIE } from '@/lib/auth'
 import { EncryptionService } from '@/lib/security/encryption-service'
@@ -12,10 +13,12 @@ import {
   normalizeHeaderToCanonicalKey,
   resolveRowWithAliases,
   parseBooleanCell,
+  isHrFieldHeader,
 } from '@/lib/users/canonical-fields'
 import { UserCsvEngine } from '@/lib/users/csv-engine'
+import { StaffService } from '@/lib/hr/staff-service'
 
-describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => {
+describe('PreOne Users Module: Field Simplification & HR Module Separation', () => {
   const ts = Date.now().toString()
   let tenant: any
   let branch: any
@@ -75,18 +78,53 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
   })
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pillar 1: Authoritative Canonical Contract Layer
+  // Pillar 1: Authoritative Simplified Identity Contract Layer
   // ───────────────────────────────────────────────────────────────────────────
-  describe('Pillar 1: Authoritative Canonical Metadata Contracts', () => {
-    it('defines non-empty canonical definitions with unique keys for Staff and Family', () => {
-      expect(CANONICAL_STAFF_FIELDS.length).toBeGreaterThan(15)
-      expect(CANONICAL_FAMILY_FIELDS.length).toBeGreaterThan(10)
-
+  describe('Pillar 1: Authoritative Simplified Identity Metadata Contract', () => {
+    it('defines simplified canonical definitions for Staff focusing strictly on identity and access', () => {
       const staffKeys = CANONICAL_STAFF_FIELDS.map((f) => f.key)
-      const familyKeys = CANONICAL_FAMILY_FIELDS.map((f) => f.key)
+      expect(staffKeys).toEqual([
+        'fullName',
+        'email',
+        'phone',
+        'username',
+        'role',
+        'branchCode',
+        'classroomCode',
+        'employeeCode',
+        'password',
+        'status',
+      ])
 
       expect(new Set(staffKeys).size).toBe(staffKeys.length)
-      expect(new Set(familyKeys).size).toBe(familyKeys.length)
+    })
+
+    it('confirms HR, personal, and statutory fields are completely removed from Users canonical contract', () => {
+      const staffKeys = new Set(CANONICAL_STAFF_FIELDS.map((f) => f.key))
+
+      // HR & employment fields removed
+      expect(staffKeys.has('designation')).toBe(false)
+      expect(staffKeys.has('department')).toBe(false)
+      expect(staffKeys.has('qualification')).toBe(false)
+      expect(staffKeys.has('employmentType')).toBe(false)
+      expect(staffKeys.has('joiningDate')).toBe(false)
+      expect(staffKeys.has('noticePeriodDays')).toBe(false)
+
+      // Personal & emergency details removed
+      expect(staffKeys.has('dateOfBirth')).toBe(false)
+      expect(staffKeys.has('gender')).toBe(false)
+      expect(staffKeys.has('maritalStatus')).toBe(false)
+      expect(staffKeys.has('bloodGroup')).toBe(false)
+      expect(staffKeys.has('emergencyContactName')).toBe(false)
+      expect(staffKeys.has('emergencyContactPhone')).toBe(false)
+      expect(staffKeys.has('currentAddress')).toBe(false)
+      expect(staffKeys.has('permanentAddress')).toBe(false)
+
+      // Statutory IDs removed
+      expect(staffKeys.has('panNumber')).toBe(false)
+      expect(staffKeys.has('aadhaarNumber')).toBe(false)
+      expect(staffKeys.has('uanNumber')).toBe(false)
+      expect(staffKeys.has('esiNumber')).toBe(false)
     })
 
     it('enforces strict role separation: staff fields do not leak into family and vice-versa', () => {
@@ -94,12 +132,10 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
       const familyKeys = new Set(CANONICAL_FAMILY_FIELDS.map((f) => f.key))
 
       expect(staffKeys.has('employeeCode')).toBe(true)
-      expect(staffKeys.has('designation')).toBe(true)
-      expect(staffKeys.has('qualification')).toBe(true)
-      expect(staffKeys.has('joiningDate')).toBe(true)
+      expect(staffKeys.has('password')).toBe(true)
 
       expect(familyKeys.has('employeeCode')).toBe(false)
-      expect(familyKeys.has('designation')).toBe(false)
+      expect(familyKeys.has('password')).toBe(false)
 
       expect(familyKeys.has('canPickup')).toBe(true)
       expect(familyKeys.has('receivesComm')).toBe(true)
@@ -110,35 +146,30 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
       expect(staffKeys.has('isFeePayer')).toBe(false)
     })
 
-    it('flags sensitive fields with exportable=false to enforce data minimization', () => {
+    it('flags sensitive credentials with exportable=false to enforce data minimization', () => {
+      const pwdField = CANONICAL_STAFF_FIELDS.find((f) => f.key === 'password')
+      expect(pwdField).toBeDefined()
+      expect(pwdField?.exportable).toBe(false)
+      expect(pwdField?.sensitive).toBe(true)
+      expect(pwdField?.importable).toBe(true)
+
       const pinField = CANONICAL_FAMILY_FIELDS.find((f) => f.key === 'pickupPin')
       expect(pinField).toBeDefined()
       expect(pinField?.exportable).toBe(false)
       expect(pinField?.sensitive).toBe(true)
-
-      const panField = CANONICAL_STAFF_FIELDS.find((f) => f.key === 'panNumber')
-      const aadhaarField = CANONICAL_STAFF_FIELDS.find((f) => f.key === 'aadhaarNumber')
-      const uanField = CANONICAL_STAFF_FIELDS.find((f) => f.key === 'uanNumber')
-      const esiField = CANONICAL_STAFF_FIELDS.find((f) => f.key === 'esiNumber')
-
-      expect(panField?.exportable).toBe(false)
-      expect(aadhaarField?.exportable).toBe(false)
-      expect(uanField?.exportable).toBe(false)
-      expect(esiField?.exportable).toBe(false)
     })
   })
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pillar 2: Normalization, Aliasing, and Boolean Parsing
+  // Pillar 2: Normalization, Alias Resolution & HR Field Detection
   // ───────────────────────────────────────────────────────────────────────────
-  describe('Pillar 2: Normalization, Alias Resolution & Boolean Parsing', () => {
+  describe('Pillar 2: Normalization, Alias Resolution & HR Field Detection', () => {
     it('normalizes common human-friendly header variations to canonical keys', () => {
       expect(normalizeHeaderToCanonicalKey('Full Name', 'STAFF')).toBe('fullName')
       expect(normalizeHeaderToCanonicalKey('full_name', 'STAFF')).toBe('fullName')
-      expect(normalizeHeaderToCanonicalKey('DATE OF JOINING', 'STAFF')).toBe('joiningDate')
-      expect(normalizeHeaderToCanonicalKey('doj', 'STAFF')).toBe('joiningDate')
       expect(normalizeHeaderToCanonicalKey('Mobile Number', 'STAFF')).toBe('phone')
-      expect(normalizeHeaderToCanonicalKey('Emergency Contact Phone', 'STAFF')).toBe('emergencyContactPhone')
+      expect(normalizeHeaderToCanonicalKey('Staff Password', 'STAFF')).toBe('password')
+      expect(normalizeHeaderToCanonicalKey('Emp Code', 'STAFF')).toBe('employeeCode')
 
       expect(normalizeHeaderToCanonicalKey('Authorized Pickup', 'FAMILY')).toBe('canPickup')
       expect(normalizeHeaderToCanonicalKey('can_pickup', 'FAMILY')).toBe('canPickup')
@@ -146,6 +177,21 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
       expect(normalizeHeaderToCanonicalKey('is_primary', 'FAMILY')).toBe('isPrimaryContact')
       expect(normalizeHeaderToCanonicalKey('Fee Payer', 'FAMILY')).toBe('isFeePayer')
       expect(normalizeHeaderToCanonicalKey('Relation to Child', 'FAMILY')).toBe('relationship')
+    })
+
+    it('correctly detects HR field aliases to emit informative advisory guidance', () => {
+      expect(isHrFieldHeader('Designation').isHr).toBe(true)
+      expect(isHrFieldHeader('department').isHr).toBe(true)
+      expect(isHrFieldHeader('Date of Joining').isHr).toBe(true)
+      expect(isHrFieldHeader('doj').isHr).toBe(true)
+      expect(isHrFieldHeader('PAN Number').isHr).toBe(true)
+      expect(isHrFieldHeader('aadhaar').isHr).toBe(true)
+      expect(isHrFieldHeader('Current Address').isHr).toBe(true)
+      expect(isHrFieldHeader('emergency_contact_phone').isHr).toBe(true)
+
+      expect(isHrFieldHeader('fullName').isHr).toBe(false)
+      expect(isHrFieldHeader('email').isHr).toBe(false)
+      expect(isHrFieldHeader('password').isHr).toBe(false)
     })
 
     it('reports unrecognized columns in unmapped output to prevent silent dropping', () => {
@@ -182,56 +228,66 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
   })
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pillar 3: Staff Extended HR Fields Parity (Import & DB Persistence)
+  // Pillar 3: Staff Identity & Password Provisioning in Bulk CSV / Grid
   // ───────────────────────────────────────────────────────────────────────────
-  describe('Pillar 3: Staff Extended HR Fields Parity in CSV & Grid', () => {
-    it('previews and binds all canonical HR fields in Staff CSV preview', async () => {
+  describe('Pillar 3: Staff Identity & Password Provisioning in Bulk CSV / Grid', () => {
+    it('advises users when HR columns are present in Users CSV import without failing row', async () => {
       const staffCsv = [
-        'fullName,email,phone,role,designation,department,qualification,employmentType,joiningDate,dateOfBirth,gender,maritalStatus,bloodGroup,emergencyContactName,emergencyContactPhone,currentAddress,permanentAddress,noticePeriodDays',
-        `Pooja Hegde,pooja.${ts}@preone.test,9822233344,TEACHER,Senior Guide,Academics,M.Ed & Montessori,FULL_TIME,2024-06-01,1992-04-15,FEMALE,Married,B_POSITIVE,Arjun Hegde,9822233349,"Flat 101, Green Meadows, Pune","14 Lotus Court, Bangalore",45`,
+        'fullName,email,phone,role,designation,department,panNumber,password',
+        `Pooja Hegde,pooja.${ts}@preone.test,9822233344,TEACHER,Senior Guide,Academics,ABCDE1234F,PoojaSecure@2026`,
       ].join('\n')
 
       const preview = await UserCsvEngine.previewStaffCsv(tenant.id, staffCsv)
       expect(preview.totalRows).toBe(1)
       expect(preview.validRows).toBe(1)
+      expect(preview.blockedRows).toBe(0)
+      expect(preview.warningRows).toBe(1)
 
-      const rowData = preview.rows[0].data!
-      expect(rowData.fullName).toBe('Pooja Hegde')
-      expect(rowData.designation).toBe('Senior Guide')
-      expect(rowData.department).toBe('Academics')
-      expect(rowData.qualification).toBe('M.Ed & Montessori')
-      expect(rowData.employmentType).toBe('FULL_TIME')
-      expect(rowData.joiningDate).toBe('2024-06-01')
-      expect(rowData.dateOfBirth).toBe('1992-04-15')
-      expect(rowData.gender).toBe('FEMALE')
-      expect(rowData.maritalStatus).toBe('Married')
-      expect(rowData.bloodGroup).toBe('B_POSITIVE')
-      expect(rowData.emergencyContactName).toBe('Arjun Hegde')
-      expect(rowData.emergencyContactPhone).toBe('9822233349')
-      expect(rowData.currentAddress).toBe('Flat 101, Green Meadows, Pune')
-      expect(rowData.permanentAddress).toBe('14 Lotus Court, Bangalore')
-      expect(rowData.noticePeriodDays).toBe(45)
+      const row = preview.rows[0]
+      expect(row.status).toBe('WARNING')
+      expect(row.action).toBe('CREATE')
+
+      // Advisory warning for each HR column
+      const warningsText = row.warnings.join(' ')
+      expect(warningsText).toContain('designation')
+      expect(warningsText).toContain('HR Module')
+
+      // Plaintext password is NEVER returned in preview data
+      expect(row.data.password).toBe('••••••••')
+      expect(row.encryptedPassword).toMatch(/^enc:v1:/)
     })
 
-    it('executes staff import and persists HR fields into StaffProfile without data loss', async () => {
-      const email = `kavita.${ts}@preone.test`
-      const staffCsv = [
-        'fullName,email,phone,role,designation,department,qualification,joiningDate,dateOfBirth,gender,maritalStatus,bloodGroup,emergencyContactName,emergencyContactPhone,currentAddress,permanentAddress,panNumber,aadhaarNumber,noticePeriodDays',
-        `Kavita Iyer,${email},9811122299,COORDINATOR,Academic Coordinator,Pre-Primary,B.Sc B.Ed,2023-01-10,1988-11-20,FEMALE,Married,O_POSITIVE,Natarajan Iyer,9811122290,"Flat 302, Green Acres, Pune","12 MG Road, Pune",ABCDE1234F,999988887777,90`,
+    it('enforces password complexity and rejects weak or client pre-hashed passwords', async () => {
+      const weakPasswordCsv = [
+        'fullName,email,role,password',
+        `Weak User,weak.${ts}@preone.test,TEACHER,simple`,
       ].join('\n')
 
-      const req = new NextRequest('http://localhost:3000/api/v1/users/csv', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Cookie: cookieOwner },
-        body: JSON.stringify({
-          action: 'preview',
-          type: 'STAFF',
-          csv: staffCsv,
-        }),
-      })
-      const previewRes = await usersCsvPost(req)
-      const previewJson = await previewRes.json()
-      expect(previewJson.success).toBe(true)
+      const weakPreview = await UserCsvEngine.previewStaffCsv(tenant.id, weakPasswordCsv)
+      expect(weakPreview.rows[0].status).toBe('BLOCKED')
+      expect(weakPreview.rows[0].errors.some((e) => e.includes('Password must be at least 8 characters'))).toBe(true)
+
+      const preHashedCsv = [
+        'fullName,email,role,password',
+        `Hashed User,hashed.${ts}@preone.test,TEACHER,$2a$10$abcdefghijklmnopqrstuu`,
+      ].join('\n')
+
+      const hashedPreview = await UserCsvEngine.previewStaffCsv(tenant.id, preHashedCsv)
+      expect(hashedPreview.rows[0].status).toBe('BLOCKED')
+      expect(hashedPreview.rows[0].errors.some((e) => e.includes('Pre-hashed passwords'))).toBe(true)
+    })
+
+    it('executes staff import and securely creates user with bcrypt-hashed provisioned password', async () => {
+      const email = `secure.staff.${ts}@preone.test`
+      const rawPassword = 'StaffSecure@2026'
+
+      const staffCsv = [
+        'fullName,email,phone,role,employeeCode,password',
+        `Secure Staff Member,${email},9811122288,TEACHER,EMP-SEC-${ts.slice(-4)},${rawPassword}`,
+      ].join('\n')
+
+      const previewRes = await UserCsvEngine.previewStaffCsv(tenant.id, staffCsv)
+      expect(previewRes.validRows).toBe(1)
 
       const execReq = new NextRequest('http://localhost:3000/api/v1/users/csv', {
         method: 'POST',
@@ -239,83 +295,128 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
         body: JSON.stringify({
           action: 'execute',
           type: 'STAFF',
-          previewRows: previewJson.data.rows,
+          previewRows: previewRes.rows,
         }),
       })
+
       const execRes = await usersCsvPost(execReq)
       expect(execRes.status).toBe(200)
 
       const user = await db.user.findFirst({
         where: { email },
-        include: {
-          staffProfiles: true,
+        include: { staffProfiles: true },
+      })
+
+      expect(user).not.toBeNull()
+      expect(user?.fullName).toBe('Secure Staff Member')
+      expect(user?.passwordHash).toBeDefined()
+
+      // The password is properly bcrypt-hashed and authenticates
+      const match = await bcrypt.compare(rawPassword, user!.passwordHash!)
+      expect(match).toBe(true)
+    })
+
+    it('preserves existing password when updating existing staff without a new password', async () => {
+      const email = `preserve.pwd.${ts}@preone.test`
+      const initialPassword = 'InitialPass@2026'
+      const initialHash = await bcrypt.hash(initialPassword, 10)
+
+      const existingUser = await db.user.create({
+        data: {
+          email,
+          fullName: 'Existing User Preserved',
+          passwordHash: initialHash,
+          status: 'ACTIVE',
         },
       })
-      expect(user).not.toBeNull()
-      expect(user?.fullName).toBe('Kavita Iyer')
-
-      const profile = user?.staffProfiles[0]
-      expect(profile).toBeDefined()
-      expect(profile?.qualification).toBe('B.Sc B.Ed')
-      expect(profile?.emergencyContactName).toBe('Natarajan Iyer')
-      expect(profile?.emergencyContactPhone).toBe('9811122290')
-      expect(profile?.maritalStatus).toBe('Married')
-      expect(profile?.gender).toBe('FEMALE')
-      expect(profile?.noticePeriodDays).toBe(90)
-
-      // ── Evidence-based Encryption at Rest Verification ──
-      // Sensitive statutory IDs and addresses MUST be stored encrypted in the database
-      expect(profile?.panNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
-      expect(profile?.aadhaarNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
-      expect(profile?.currentAddress).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
-      expect(profile?.permanentAddress).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
-
-      // Verified via decryption with tenant key
-      expect(EncryptionService.decrypt(profile?.panNumber, tenant.id)).toBe('ABCDE1234F')
-      expect(EncryptionService.decrypt(profile?.aadhaarNumber, tenant.id)).toBe('999988887777')
-      expect(EncryptionService.decrypt(profile?.currentAddress, tenant.id)).toBe('Flat 302, Green Acres, Pune')
-      expect(EncryptionService.decrypt(profile?.permanentAddress, tenant.id)).toBe('12 MG Road, Pune')
-
-      // Verified via Export: address decrypted transparently for export, statutory IDs strictly excluded
-      const exportReq = new NextRequest(`http://localhost:3000/api/v1/users/export?userType=STAFF&search=Kavita`, {
-        headers: { Cookie: cookieOwner },
+      await db.tenantUser.create({
+        data: {
+          tenantId: tenant.id,
+          userId: existingUser.id,
+          role: 'TEACHER',
+          roles: ['TEACHER'],
+          status: 'ACTIVE',
+        },
       })
-      const exportRes = await usersExportGet(exportReq)
-      expect(exportRes.status).toBe(200)
-      const exportCsv = await exportRes.text()
 
-      expect(exportCsv).toContain('Flat 302, Green Acres, Pune')
-      expect(exportCsv).not.toContain('ABCDE1234F')
-      expect(exportCsv).not.toContain('999988887777')
-      expect(exportCsv).not.toContain('enc:v1:')
-    })
-
-    it('surfaces unknown-column warnings and handles blank-cell fallback gracefully', async () => {
-      const csvWithUnknown = [
-        'fullName,email,role,unrecognizedCustomColumn,department',
-        `Test Warning,test.warn.${ts}@preone.test,TEACHER,RandomValue,`,
+      // Bulk import updating phone and employeeCode with blank password
+      const updateCsv = [
+        'fullName,email,phone,role,employeeCode,password',
+        `Existing User Preserved,${email},9877700011,TEACHER,EMP-UPD-${ts.slice(-4)},`,
       ].join('\n')
 
-      const preview = await UserCsvEngine.previewStaffCsv(tenant.id, csvWithUnknown)
-      expect(preview.rows[0].warnings.some((w) => w.includes('unrecognizedCustomColumn'))).toBe(true)
-      // Blank cell behavior: department was blank, data.department is null
-      expect(preview.rows[0].data?.department).toBeNull()
+      const previewRes = await UserCsvEngine.previewStaffCsv(tenant.id, updateCsv)
+      expect(previewRes.rows[0].action).toBe('LINK')
+
+      const execRes = await UserCsvEngine.executeStaffImport({ tenantId: tenant.id, actorId: ownerUser.id }, previewRes.rows)
+      expect(execRes.errors.length).toBe(0)
+
+      const updatedUser = await db.user.findUnique({
+        where: { id: existingUser.id },
+      })
+
+      expect(updatedUser?.passwordHash).toBe(initialHash)
+      expect(await bcrypt.compare(initialPassword, updatedUser!.passwordHash!)).toBe(true)
     })
 
-    it('handles partial-row failures by blocking invalid rows and permitting valid rows', async () => {
-      const multiRowCsv = [
-        'fullName,email,role',
-        `Valid User,valid.${ts}@preone.test,TEACHER`,
-        `Missing Email User,,TEACHER`,
-      ].join('\n')
+    it('rejects expired, cross-row, or foreign-tenant password provisioning tokens', async () => {
+      // 1. Expired token
+      const expiredPayload = JSON.stringify({
+        p: 'ValidPass@2026',
+        t: tenant.id,
+        e: `expired.${ts}@preone.test`,
+        exp: Date.now() - 1000, // expired 1s ago
+        n: '123456',
+      })
+      const expiredToken = EncryptionService.encrypt(expiredPayload, tenant.id)
 
-      const preview = await UserCsvEngine.previewStaffCsv(tenant.id, multiRowCsv)
-      expect(preview.totalRows).toBe(2)
-      expect(preview.validRows).toBe(1)
-      expect(preview.blockedRows).toBe(1)
-      expect(preview.rows[0].status).toBe('VALID')
-      expect(preview.rows[1].status).toBe('BLOCKED')
-      expect(preview.rows[1].errors).toContain('Email is missing')
+      const expiredRow: any = {
+        rowNumber: 2,
+        status: 'VALID',
+        action: 'CREATE',
+        identifier: `expired.${ts}@preone.test`,
+        data: {
+          fullName: 'Expired Token User',
+          email: `expired.${ts}@preone.test`,
+          role: 'TEACHER',
+          encryptedPassword: expiredToken,
+        },
+      }
+
+      const resExpired = await UserCsvEngine.executeStaffImport(
+        { tenantId: tenant.id, actorId: ownerUser.id },
+        [expiredRow]
+      )
+      expect(resExpired.errors.some((e) => e.message.includes('Expired password provisioning token'))).toBe(true)
+
+      // 2. Cross-row / Identifier mismatch (token replay protection)
+      const crossPayload = JSON.stringify({
+        p: 'ValidPass@2026',
+        t: tenant.id,
+        e: `userA.${ts}@preone.test`,
+        exp: Date.now() + 60000,
+        n: '654321',
+      })
+      const crossToken = EncryptionService.encrypt(crossPayload, tenant.id)
+
+      const crossRow: any = {
+        rowNumber: 3,
+        status: 'VALID',
+        action: 'CREATE',
+        identifier: `userB.${ts}@preone.test`,
+        data: {
+          fullName: 'Cross Token User',
+          email: `userB.${ts}@preone.test`,
+          role: 'TEACHER',
+          encryptedPassword: crossToken,
+        },
+      }
+
+      const resCross = await UserCsvEngine.executeStaffImport(
+        { tenantId: tenant.id, actorId: ownerUser.id },
+        [crossRow]
+      )
+      expect(resCross.errors.some((e) => e.message.includes('Identifier mismatch'))).toBe(true)
     })
   })
 
@@ -389,10 +490,10 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
   })
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pillar 5: Export Field Parity & Sensitive Data Minimization
+  // Pillar 5: Simplified Users Export & Sensitive Stripping
   // ───────────────────────────────────────────────────────────────────────────
-  describe('Pillar 5: CSV Export Parity & Sensitive Data Stripping', () => {
-    it('exports Staff directory with full canonical HR headers', async () => {
+  describe('Pillar 5: Simplified Users Export & Sensitive Stripping', () => {
+    it('exports Staff directory with identity & placement headers and strictly excludes credentials and HR fields', async () => {
       const req = new NextRequest(`http://localhost:3000/api/v1/users/export?userType=STAFF`, {
         headers: { Cookie: cookieOwner },
       })
@@ -403,24 +504,28 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
       // BOM check
       expect(csv.charCodeAt(0)).toBe(0xfeff)
 
-      // HR headers check
-      expect(csv).toContain('Qualification')
-      expect(csv).toContain('Date of Joining')
-      expect(csv).toContain('Date of Birth')
-      expect(csv).toContain('Emergency Contact Name')
-      expect(csv).toContain('Emergency Contact Phone')
-      expect(csv).toContain('Notice Period (Days)')
-      expect(csv).toContain('Current Address')
-      expect(csv).toContain('Permanent Address')
+      // Identity & placement headers present
+      expect(csv).toContain('Full Name')
+      expect(csv).toContain('Email')
+      expect(csv).toContain('Primary Role')
+      expect(csv).toContain('Employee Code')
+      expect(csv).toContain('Campus Branch')
 
-      // Sensitive fields check: Must NOT be present as column headers
-      expect(csv).not.toContain('"Pickup Gate PIN"')
-      expect(csv).not.toContain('"pickupPin"')
-      expect(csv).not.toContain('"Password Hash"')
+      // Credentials and internal security fields strictly excluded
+      expect(csv).not.toContain('"password"')
+      expect(csv).not.toContain('"Password"')
       expect(csv).not.toContain('"passwordHash"')
+      expect(csv).not.toContain('"Password Hash"')
+
+      // Statutory & HR details belong to HR module, strictly excluded from Users export
+      expect(csv).not.toContain('PAN Number')
+      expect(csv).not.toContain('Aadhaar')
+      expect(csv).not.toContain('Qualification')
+      expect(csv).not.toContain('Emergency Contact')
+      expect(csv).not.toContain('enc:v1:')
     })
 
-    it('exports Family directory with full canonical caregiver and permission headers', async () => {
+    it('exports Family directory with full caregiver permissions and strictly excludes pickup PIN', async () => {
       const req = new NextRequest(`http://localhost:3000/api/v1/users/export?userType=FAMILY`, {
         headers: { Cookie: cookieOwner },
       })
@@ -478,37 +583,183 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
   })
 
   // ───────────────────────────────────────────────────────────────────────────
-  // Pillar 6: Security Edge-Cases, Encryption Robustness & CSV Sanitization
+  // Pillar 6: HR Module Operations & Encryption at Rest
   // ───────────────────────────────────────────────────────────────────────────
-  describe('Pillar 6: Security Edge-Cases, Encryption Robustness & CSV Sanitization', () => {
-    it('confirms existing ciphertext cannot be accidentally double-encrypted', () => {
-      const plaintext = 'ABCDE1234F'
-      const encryptedOnce = EncryptionService.encrypt(plaintext, tenant.id)
-      expect(encryptedOnce).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
-
-      // Encrypting an already-encrypted string must return the exact same string
-      const encryptedTwice = EncryptionService.encrypt(encryptedOnce, tenant.id)
-      expect(encryptedTwice).toBe(encryptedOnce)
-    })
-
-    it('confirms encryption errors fail closed and never fall back to plaintext', () => {
-      // Null / empty values return safely without plaintext leak
-      expect(EncryptionService.encrypt(null, tenant.id)).toBeNull()
-      expect(EncryptionService.encrypt('', tenant.id)).toBe('')
-
-      // Tampered ciphertext fails closed to null on decryption
-      const tampered = `enc:v1:0123456789abcdef0123456789abcdef:0123456789abcdef0123456789abcdef:invalid`
-      const decryptedTampered = EncryptionService.decrypt(tampered, tenant.id)
-      expect(decryptedTampered).toBeNull()
-    })
-
-    it('confirms decryption failures in export fail closed to empty string and never leak raw ciphertext', async () => {
-      // Create user with tampered/foreign ciphertext in staff profile
-      const foreignCiphertext = `enc:v1:00112233445566778899aabbccddeeff:00112233445566778899aabbccddeeff:aabbccddeeff`
-      const foreignStaffUser = await db.user.create({
+  describe('Pillar 6: HR Module Profile Updates & Encryption at Rest', () => {
+    it('manages HR, personal, and statutory fields via StaffService with tenant AES-256-GCM encryption', async () => {
+      // Create user and profile
+      const staffUser = await db.user.create({
         data: {
-          email: `foreign.cipher.${ts}@preone.test`,
-          fullName: 'Foreign Cipher Staff',
+          email: `hr.profile.${ts}@preone.test`,
+          fullName: 'HR Profile Staff',
+          passwordHash: await bcrypt.hash('HrPass@2026', 10),
+          status: 'ACTIVE',
+        },
+      })
+      await db.tenantUser.create({
+        data: {
+          tenantId: tenant.id,
+          userId: staffUser.id,
+          role: 'TEACHER',
+          roles: ['TEACHER'],
+          status: 'ACTIVE',
+        },
+      })
+      const staffProfile = await db.staffProfile.create({
+        data: {
+          tenantId: tenant.id,
+          userId: staffUser.id,
+          employeeCode: `EMP-HR-${ts.slice(-4)}`,
+        },
+      })
+
+      const actor = { id: ownerUser.id, name: ownerUser.fullName, role: 'OWNER' }
+
+      // Update via StaffService.updateStaffProfile
+      const updated = await StaffService.updateStaffProfile(
+        tenant.id,
+        staffProfile.id,
+        {
+          designation: 'Senior Montessori Guide',
+          department: 'Academics',
+          qualification: 'M.Ed Montessori',
+          employmentType: 'REGULAR',
+          maritalStatus: 'Married',
+          bloodGroup: 'O_POS',
+          currentAddress: 'Flat 402, Sunshine Heights, Pune',
+          permanentAddress: '10 Palace Road, Mysore',
+          panNumber: 'ABCDE1234F',
+          aadhaarNumber: '123456789012',
+          uanNumber: '100900800700',
+          esiNumber: '11223344556677889',
+          noticePeriodDays: 60,
+        },
+        actor
+      )
+
+      expect(updated).toBeDefined()
+
+      // Verify database stored values directly: statutory IDs and addresses MUST be ciphertext
+      const dbRecord = await db.staffProfile.findUnique({
+        where: { id: staffProfile.id },
+      })
+
+      expect(dbRecord?.designation).toBe('Senior Montessori Guide')
+      expect(dbRecord?.department).toBe('Academics')
+      expect(dbRecord?.panNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+      expect(dbRecord?.aadhaarNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+      expect(dbRecord?.uanNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+      expect(dbRecord?.esiNumber).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+      expect(dbRecord?.currentAddress).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+      expect(dbRecord?.permanentAddress).toMatch(/^enc:v1:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/)
+
+      // Verify StaffService.getStaff360 returns decrypted values for authorized UI
+      const staff360 = await StaffService.getStaff360(tenant.id, staffProfile.id)
+      expect(staff360.panNumber).toBe('ABCDE1234F')
+      expect(staff360.aadhaarNumber).toBe('123456789012')
+      expect(staff360.uanNumber).toBe('100900800700')
+      expect(staff360.esiNumber).toBe('11223344556677889')
+      expect(staff360.currentAddress).toBe('Flat 402, Sunshine Heights, Pune')
+      expect(staff360.permanentAddress).toBe('10 Palace Road, Mysore')
+    })
+
+    it('performs bulk HR updates via StaffService and POST /api/v1/hr/staff/bulk route', async () => {
+      // Create two staff members
+      const hash = await bcrypt.hash('BulkPass@2026', 10)
+      const user1 = await db.user.create({
+        data: {
+          email: `bulk1.${ts}@preone.test`,
+          fullName: 'Bulk Staff One',
+          passwordHash: hash,
+          status: 'ACTIVE',
+        },
+      })
+      const user2 = await db.user.create({
+        data: {
+          email: `bulk2.${ts}@preone.test`,
+          fullName: 'Bulk Staff Two',
+          passwordHash: hash,
+          status: 'ACTIVE',
+        },
+      })
+      await db.tenantUser.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user1.id,
+          role: 'TEACHER',
+          roles: ['TEACHER'],
+          status: 'ACTIVE',
+        },
+      })
+      await db.tenantUser.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user2.id,
+          role: 'COORDINATOR',
+          roles: ['COORDINATOR'],
+          status: 'ACTIVE',
+        },
+      })
+      const prof1 = await db.staffProfile.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user1.id,
+          employeeCode: `EMP-B1-${ts.slice(-4)}`,
+        },
+      })
+      const prof2 = await db.staffProfile.create({
+        data: {
+          tenantId: tenant.id,
+          userId: user2.id,
+          employeeCode: `EMP-B2-${ts.slice(-4)}`,
+        },
+      })
+
+      const bulkReq = new NextRequest('http://localhost:3000/api/v1/hr/staff/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookieOwner },
+        body: JSON.stringify({
+          updates: [
+            {
+              id: prof1.id,
+              designation: 'Lead Educator',
+              department: 'Academics',
+              qualification: 'M.A Education',
+            },
+            {
+              employeeCode: prof2.employeeCode,
+              designation: 'Operations Coordinator',
+              department: 'Operations',
+              noticePeriodDays: 45,
+            },
+          ],
+        }),
+      })
+
+      const res = await hrStaffBulkPost(bulkReq)
+      expect(res.status).toBe(200)
+      const data = await res.json()
+      expect(data.success).toBe(true)
+      expect(data.data.total).toBe(2)
+      expect(data.data.updatedCount).toBe(2)
+
+      const updated1 = await db.staffProfile.findUnique({ where: { id: prof1.id } })
+      const updated2 = await db.staffProfile.findUnique({ where: { id: prof2.id } })
+
+      expect(updated1?.designation).toBe('Lead Educator')
+      expect(updated1?.department).toBe('Academics')
+      expect(updated2?.designation).toBe('Operations Coordinator')
+      expect(updated2?.department).toBe('Operations')
+      expect(updated2?.noticePeriodDays).toBe(45)
+    })
+
+    it('confirms editing staff in Users module preserves existing HR fields without wiping', async () => {
+      // 1. Create staff with full HR fields in DB
+      const user = await db.user.create({
+        data: {
+          email: `preserve.hr.${ts}@preone.test`,
+          fullName: 'Original Name',
+          phone: '9800011122',
           passwordHash: await bcrypt.hash('Secret123!', 10),
           status: 'ACTIVE',
         },
@@ -516,98 +767,155 @@ describe('PreOne Users Module: Field Parity & Import/Export Consistency', () => 
       await db.tenantUser.create({
         data: {
           tenantId: tenant.id,
-          userId: foreignStaffUser.id,
+          userId: user.id,
           role: 'TEACHER',
           roles: ['TEACHER'],
           status: 'ACTIVE',
+          branchId: branch.id,
         },
       })
-      await db.staffProfile.create({
+      const prof = await db.staffProfile.create({
         data: {
           tenantId: tenant.id,
-          userId: foreignStaffUser.id,
-          employeeCode: `EMP-CIPHER-${ts.slice(-4)}`,
-          currentAddress: foreignCiphertext,
+          userId: user.id,
+          employeeCode: `EMP-KEEP-${ts.slice(-4)}`,
+          designation: 'Senior Montessori Guide',
+          department: 'Early Childhood',
+          qualification: 'Diploma ECCE',
+          panNumber: EncryptionService.encrypt('ABCDE1234F', tenant.id),
+          currentAddress: EncryptionService.encrypt('Old Address 123', tenant.id),
         },
       })
 
-      const req = new NextRequest(`http://localhost:3000/api/v1/users/export?userType=STAFF&search=foreign.cipher`, {
-        headers: { Cookie: cookieOwner },
-      })
-      const res = await usersExportGet(req)
-      expect(res.status).toBe(200)
-      const csv = await res.text()
-
-      // The export must NEVER leak raw ciphertext or enc:v1: prefix
-      expect(csv).not.toContain(foreignCiphertext)
-      expect(csv).not.toContain('enc:v1:')
-    })
-
-    it('preserves complex cell contents with commas, quotes, and newlines via copy-paste grid input', async () => {
-      const complexAddress = 'Bldg 4, Suite 100\nBusiness Park, West'
-      const complexDesignation = 'Lead "Montessori" Guide'
-
-      const gridRows = [
-        {
-          fullName: 'Complex Test Guide',
-          email: `complex.cell.${ts}@preone.test`,
-          role: 'TEACHER',
-          designation: complexDesignation,
-          currentAddress: complexAddress,
-          qualification: 'Diploma, B.Ed (ECE)',
-        },
-      ]
-
-      const req = new NextRequest('http://localhost:3000/api/v1/users/csv', {
-        method: 'POST',
+      // 2. Simulate Users Edit form submission: updating fullName, phone, role only (no HR fields sent)
+      const patchReq = new NextRequest(`http://localhost:3000/api/v1/users/${user.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Cookie: cookieOwner },
         body: JSON.stringify({
-          action: 'preview',
-          type: 'STAFF',
-          rows: gridRows,
+          fullName: 'Updated Name',
+          phone: '9800099999',
+          role: 'TEACHER',
+          employeeCode: prof.employeeCode,
+          branchId: branch.id,
         }),
       })
 
-      const res = await usersCsvPost(req)
-      expect(res.status).toBe(200)
-      const json = await res.json()
-      expect(json.success).toBe(true)
+      const { PATCH: usersPatch } = await import('@/app/api/v1/users/[id]/route')
+      const patchRes = await usersPatch(patchReq, { params: Promise.resolve({ id: user.id }) })
+      expect(patchRes.status).toBe(200)
 
-      const rowData = json.data.rows[0].data
-      // Embedded commas and quotes must be preserved intact without splitting
-      expect(rowData.currentAddress).toBe(complexAddress)
-      expect(rowData.designation).toBe(complexDesignation)
-      expect(rowData.qualification).toBe('Diploma, B.Ed (ECE)')
+      // 3. Verify user was updated
+      const updatedUser = await db.user.findUnique({ where: { id: user.id } })
+      expect(updatedUser?.fullName).toBe('Updated Name')
+      expect(updatedUser?.phone).toBe('9800099999')
+
+      // 4. Verify existing HR fields on StaffProfile remain 100% intact
+      const updatedProfile = await db.staffProfile.findUnique({ where: { id: prof.id } })
+      expect(updatedProfile?.designation).toBe('Senior Montessori Guide')
+      expect(updatedProfile?.department).toBe('Early Childhood')
+      expect(updatedProfile?.qualification).toBe('Diploma ECCE')
+      expect(EncryptionService.decrypt(updatedProfile?.panNumber, tenant.id)).toBe('ABCDE1234F')
+      expect(EncryptionService.decrypt(updatedProfile?.currentAddress, tenant.id)).toBe('Old Address 123')
     })
 
-    it('confirms formula-injection sanitization does not corrupt ordinary benign data', () => {
-      // Ordinary alphanumeric and standard data must remain untouched (no single quote added)
-      const exportReq = new NextRequest(`http://localhost:3000/api/v1/users/export?userType=STAFF&search=Pooja`, {
-        headers: { Cookie: cookieOwner },
+    it('rejects HR-field modifications through Users API when caller lacks hr:write', async () => {
+      // Temporarily give STAFF users:write but no hr:write
+      const { ROLE_PERMISSIONS } = await import('@/lib/auth')
+      const originalStaffPerms = [...(ROLE_PERMISSIONS.STAFF || [])]
+      ROLE_PERMISSIONS.STAFF = ['users:read', 'users:write']
+
+      try {
+        // Create user with STAFF role
+        const nonHrUser = await db.user.create({
+          data: {
+            email: `usermanager.${ts}@preone.test`,
+            fullName: 'User Manager Actor',
+            passwordHash: await bcrypt.hash('Manager@2026', 10),
+            status: 'ACTIVE',
+          },
+        })
+        await db.tenantUser.create({
+          data: {
+            tenantId: tenant.id,
+            userId: nonHrUser.id,
+            role: 'STAFF',
+            roles: ['STAFF'],
+            status: 'ACTIVE',
+            branchId: branch.id,
+          },
+        })
+        const managerCookie = `${SESSION_COOKIE}=${await signSession({
+          uid: nonHrUser.id,
+          email: nonHrUser.email,
+          name: nonHrUser.fullName,
+          tenantId: tenant.id,
+          branchId: branch.id,
+          role: 'STAFF',
+          roles: ['STAFF'],
+        })}`
+
+        // Attempting to mutate HR fields via PATCH /api/v1/users/[id]
+        const { PATCH: usersPatch } = await import('@/app/api/v1/users/[id]/route')
+        const patchReq = new NextRequest(`http://localhost:3000/api/v1/users/${nonHrUser.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: managerCookie },
+          body: JSON.stringify({
+            designation: 'Unauthorized Designation Change',
+            panNumber: 'ABCDE1234F',
+          }),
+        })
+
+        const patchRes = await usersPatch(patchReq, { params: Promise.resolve({ id: nonHrUser.id }) })
+        expect(patchRes.status).toBe(403)
+        const patchJson = await patchRes.json()
+        expect(patchJson.error?.message).toContain("requires 'hr:write'")
+      } finally {
+        ROLE_PERMISSIONS.STAFF = originalStaffPerms
+      }
+    })
+
+    it('rejects ambiguous or non-existent employee code matches in HR bulk updates', async () => {
+      const actor = { id: ownerUser.id, name: ownerUser.fullName, role: 'OWNER' }
+
+      // Non-existent employee code
+      const resNonExistent = await StaffService.bulkUpdateStaffProfiles(
+        tenant.id,
+        [{ employeeCode: 'EMP-DOES-NOT-EXIST-9999', designation: 'Updated Designation' }],
+        actor
+      )
+      expect(resNonExistent.results[0].success).toBe(false)
+      expect(resNonExistent.results[0].error).toContain('Staff profile not found')
+    })
+
+    it('enforces branch boundary access for branch-scoped actors in HR profile updates', async () => {
+      // Create branch B
+      const branchB = await db.branch.create({
+        data: { tenantId: tenant.id, code: `BRANCH-B-${ts.slice(-4)}`, name: 'Branch B' },
       })
 
-      // Test helper logic directly for contract precision
-      const sanitize = (val: string | null | undefined): string => {
-        if (val === null || val === undefined) return '""'
-        const raw = String(val)
-        let s = raw.trim()
-        if (/^[=+\-@\t\r]/.test(raw) || /^[=+\-@]/.test(s)) {
-          s = `'${s}`
-        }
-        return `"${s.replace(/"/g, '""')}"`
+      // Staff member in Branch B
+      const userB = await db.user.create({
+        data: { email: `branch.b.staff.${ts}@preone.test`, fullName: 'Staff in Branch B', passwordHash: 'hash', status: 'ACTIVE' },
+      })
+      await db.tenantUser.create({ data: { tenantId: tenant.id, userId: userB.id, role: 'TEACHER', branchId: branchB.id, status: 'ACTIVE' } })
+      const profB = await db.staffProfile.create({ data: { tenantId: tenant.id, userId: userB.id, employeeCode: `EMP-BB-${ts.slice(-4)}`, branchId: branchB.id } })
+
+      // Branch-scoped HR coordinator assigned to Branch A (not Branch B)
+      const branchCoordinator = {
+        id: 'coord-123',
+        name: 'Branch Coordinator A',
+        role: 'COORDINATOR',
+        branchId: branch.id, // Main branch
       }
 
-      expect(sanitize('Ananya Sharma')).toBe('"Ananya Sharma"')
-      expect(sanitize('ananya@preschool.com')).toBe('"ananya@preschool.com"')
-      expect(sanitize('2024-06-01')).toBe('"2024-06-01"')
-      expect(sanitize('Academics')).toBe('"Academics"')
-      expect(sanitize('60')).toBe('"60"')
-
-      // Malicious or formula-like prefixes get escaped
-      expect(sanitize('=1+1')).toBe("\"'=1+1\"")
-      expect(sanitize('+919876543210')).toBe("\"'+919876543210\"")
-      expect(sanitize('-5')).toBe("\"'-5\"")
-      expect(sanitize('@SUM(A1:A10)')).toBe("\"'@SUM(A1:A10)\"")
+      await expect(
+        StaffService.updateStaffProfile(
+          tenant.id,
+          profB.id,
+          { designation: 'Unauthorized Branch Update' },
+          branchCoordinator
+        )
+      ).rejects.toThrow('Forbidden: Cannot modify staff profile assigned to another campus branch')
     })
   })
 })

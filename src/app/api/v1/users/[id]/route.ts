@@ -21,7 +21,7 @@ import { UsernameService } from '@/lib/users/username-service'
 import { normalizeRelationship } from '@/lib/users/family-user-service'
 import { normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
 import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
-import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY } from '@/lib/auth'
+import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY, can } from '@/lib/auth'
 import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
 import { EncryptionService } from '@/lib/security/encryption-service'
 import { CustomRoleService } from '@/lib/auth/rbac-engine'
@@ -414,6 +414,41 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     }
 
     const branchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
+
+    // Authorization check: Reject unauthorized HR-field modifications through Users API
+    const HR_MANAGED_FIELDS = [
+      'designation',
+      'department',
+      'qualification',
+      'employmentType',
+      'joiningDate',
+      'dateOfBirth',
+      'gender',
+      'maritalStatus',
+      'bloodGroup',
+      'currentAddress',
+      'permanentAddress',
+      'emergencyContactName',
+      'emergencyContactPhone',
+      'panNumber',
+      'aadhaarNumber',
+      'uanNumber',
+      'esiNumber',
+      'probationEndDate',
+      'confirmationDate',
+      'noticePeriodDays',
+    ]
+
+    const attemptedHrFields = HR_MANAGED_FIELDS.filter((f) => (body as any)[f] !== undefined)
+    if (attemptedHrFields.length > 0) {
+      const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+      const hasHrWrite = can(effectiveRoles, 'hr:write')
+      if (!hasHrWrite) {
+        return forbidden(
+          `Unauthorized to modify HR fields (${attemptedHrFields.join(', ')}) through Users API. Use the HR Module (requires 'hr:write').`
+        )
+      }
+    }
 
     // Validate email format and uniqueness if provided
     let cleanEmail: string | undefined = undefined
