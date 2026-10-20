@@ -201,10 +201,17 @@ export function AddFamilyModal({
         const res = await fetch(`/api/v1/students/${selectedStudent.id}`)
         if (res.ok) {
           const json = await res.json()
-          const guardians: any[] = json.data?.guardians || []
+          const studentData = json.data || json
+          const guardians: any[] = studentData.guardians || []
           const parents = guardians.filter((g) => {
-            const r = (g.relationship || '').toUpperCase()
-            return r === 'FATHER' || r === 'MOTHER' || g.isParentAccount
+            const rel = (g.relationship || g.guardian?.relationship || '').toUpperCase()
+            const isFatherOrMother = rel === 'FATHER' || rel === 'MOTHER'
+            const userRoles = g.guardian?.user?.roles || (g.guardian?.user?.role ? [g.guardian.user.role] : [])
+            const hasParentMembership =
+              userRoles.includes('PARENT') ||
+              (g.guardian?.user?.memberships &&
+                g.guardian.user.memberships.some((m: any) => m.role === 'PARENT' || (m.roles && m.roles.includes('PARENT'))))
+            return isFatherOrMother || hasParentMembership
           })
           setExistingParentCount(parents.length)
         }
@@ -689,22 +696,6 @@ export function AddFamilyModal({
                       onChange={(e) => setOccupation(e.target.value)}
                       className="input w-full text-xs mt-1"
                     />
-                  </div>
-
-                  {/* Preferred Language / Locale */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Preferred Language
-                    </label>
-                    <select
-                      value={locale}
-                      onChange={(e) => setLocale(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      {LOCALES.map((l) => (
-                        <option key={l.value} value={l.value}>{l.label}</option>
-                      ))}
-                    </select>
                   </div>
 
                   {/* Primary Emergency Contact Toggle */}

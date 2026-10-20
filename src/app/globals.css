@@ -1729,15 +1729,37 @@ body.dark {
   box-shadow:var(--focus-ring), inset 0 1px 1px rgba(0, 0, 0, 0.02);
 }
 .select{
-  appearance:none;cursor:pointer;padding-right:36px;
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  cursor:pointer;
+  padding-block:0;
+  padding-inline-start:14px;
+  padding-inline-end:40px;
+  padding-right:40px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center;
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  max-width:100%;
+  min-width:0;
+  text-overflow:ellipsis;
+  overflow:hidden;
+  white-space:nowrap;
+}
+[dir="rtl"] .select,
+.rtl .select {
+  background-position:left 12px center;
+  padding-inline-start:14px;
+  padding-inline-end:40px;
+  padding-left:40px;
+  padding-right:14px;
 }
 /* Constrain native selects inside flex-wrap filter bars to prevent long option text overflow (BUG-025) */
 .flex-wrap select,
 .filter-bar select,
 [class*="flex-wrap"] select,
-.select-constrained {
+.select-constrained,
+select.input {
   max-width: 100%;
   min-width: 0;
   text-overflow: ellipsis;
@@ -3612,8 +3634,8 @@ tr:focus-within .dt-row-actions .kebab {
 /* ── Date picker ──────────────────────────────────────────────────── */
 .dp-root{position:relative;width:100%}
 .dp-input{position:relative;display:flex;align-items:center}
-.dp-input svg{position:absolute;left:12px;width:15px;height:15px;color:var(--foreground-muted);pointer-events:none}
-.dp-input input{width:100%;height:40px;padding:0 14px;padding-left:36px;border-radius:var(--radius-12);background:var(--input-background);border:1px solid var(--input-border);font-family:var(--font-sans);font-size:14px;color:var(--foreground);cursor:pointer;transition:all var(--motion-fast) var(--ease-standard)}
+.dp-input svg{position:absolute;left:12px;inset-inline-start:12px;width:15px;height:15px;color:var(--foreground-muted);pointer-events:none}
+.dp-input input{width:100%;height:40px;padding:0 14px;padding-left:40px;padding-inline-start:40px;border-radius:var(--radius-12);background:var(--input-background);border:1px solid var(--input-border);font-family:var(--font-sans);font-size:14px;color:var(--foreground);cursor:pointer;transition:all var(--motion-fast) var(--ease-standard)}
 .dp-input input:focus{outline:none;border-color:var(--focus-ring-color);box-shadow:var(--focus-ring)}
 .dp-cal{
   position:absolute;top:calc(100% + 6px);left:0;z-index:90;width:264px;
@@ -3912,9 +3934,11 @@ tr:focus-within .dt-row-actions .kebab {
 .input-icon-wrap > .input-icon,
 .input-wrapper > svg:first-child,
 .relative.input-wrapper > svg:first-child,
-.relative.input-icon-wrap > svg:first-child {
+.relative.input-icon-wrap > svg:first-child,
+.relative.input-icon-wrap > span.absolute:first-child {
   position: absolute;
   left: 14px;
+  inset-inline-start: 14px;
   top: 50%;
   transform: translateY(-50%);
   width: 18px;
@@ -3923,6 +3947,18 @@ tr:focus-within .dt-row-actions .kebab {
   pointer-events: none;
   flex-shrink: 0;
   z-index: 2;
+}
+
+[dir="rtl"] .input-wrapper__icon,
+[dir="rtl"] .input-icon-wrap > svg,
+[dir="rtl"] .input-icon-wrap > .input-icon,
+[dir="rtl"] .input-wrapper > svg:first-child,
+[dir="rtl"] .relative.input-wrapper > svg:first-child,
+[dir="rtl"] .relative.input-icon-wrap > svg:first-child,
+[dir="rtl"] .relative.input-icon-wrap > span.absolute:first-child {
+  left: auto;
+  right: 14px;
+  inset-inline-start: 14px;
 }
 
 .input-wrapper__field {
@@ -3936,25 +3972,158 @@ tr:focus-within .dt-row-actions .kebab {
 /* Leading Icon Left Padding Reservation: 44px reserves icon (14px + 18px = 32px) + 12px gap */
 .input-wrapper--leading .input-wrapper__field,
 .input-wrapper--leading .input,
-.input-wrapper--leading input,
+.input-wrapper--leading input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.input-wrapper--leading .select,
+.input-wrapper--leading select,
 .input-icon-wrap .input,
-.input-icon-wrap input,
+.input-icon-wrap input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.input-icon-wrap .select,
+.input-icon-wrap select,
 .input[data-leading-icon="true"],
 input[data-leading-icon="true"],
-.relative:has(> svg:first-child) > .input.pl-9,
-.relative:has(> svg:first-child) > .input.pl-10,
-.relative:has(> svg:first-child) > input.pl-9,
-.relative:has(> svg:first-child) > input.pl-10 {
+.select[data-leading-icon="true"],
+select[data-leading-icon="true"],
+.relative:has(> svg:first-child) > .input,
+.relative:has(> svg:first-child) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> svg:first-child) > .select,
+.relative:has(> svg:first-child) > select,
+.relative:has(> svg[class*="left-"]) > .input,
+.relative:has(> svg[class*="left-"]) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> svg[class*="left-"]) > .select,
+.relative:has(> svg[class*="left-"]) > select,
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > .input,
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > .select,
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > select,
+.relative:has(> [class*="absolute"][class*="start-"]:not(button):not(input)) > .input,
+.relative:has(> [class*="absolute"][class*="start-"]:not(button):not(input)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> [class*="absolute"][class*="start-"]:not(button):not(input)) > .select,
+.relative:has(> [class*="absolute"][class*="start-"]:not(button):not(input)) > select,
+.relative:has(> .input-wrapper__icon) > .input,
+.relative:has(> .input-wrapper__icon) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> .input-wrapper__icon) > .select,
+.relative:has(> .input-wrapper__icon) > select {
   padding-left: 44px !important;
+  padding-inline-start: 44px !important;
 }
 
 /* Trailing Action Right Padding Reservation: 44px reserves space for trailing controls */
 .input-wrapper--trailing .input-wrapper__field,
 .input-wrapper--trailing .input,
-.input-wrapper--trailing input,
+.input-wrapper--trailing input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
 .input[data-trailing-action="true"],
-input[data-trailing-action="true"] {
+input[data-trailing-action="true"],
+.relative:has(> button.absolute) > .input,
+.relative:has(> button.absolute) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> button[class*="absolute"]) > .input,
+.relative:has(> button[class*="absolute"]) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> [class*="absolute"][class*="right-"]:not(.input-wrapper__icon)) > .input,
+.relative:has(> [class*="absolute"][class*="right-"]:not(.input-wrapper__icon)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> [class*="absolute"][class*="end-"]:not(.input-wrapper__icon)) > .input,
+.relative:has(> [class*="absolute"][class*="end-"]:not(.input-wrapper__icon)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+.relative:has(> .input-wrapper__trailing) > .input,
+.relative:has(> .input-wrapper__trailing) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]) {
   padding-right: 44px !important;
+  padding-inline-end: 44px !important;
+}
+
+/* RTL Mode: invert physical left and right paddings to align with inline start/end */
+[dir="rtl"] .input-wrapper--leading .input-wrapper__field,
+[dir="rtl"] .input-wrapper--leading .input,
+[dir="rtl"] .input-wrapper--leading input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .input-wrapper--leading .select,
+[dir="rtl"] .input-wrapper--leading select,
+[dir="rtl"] .input-icon-wrap .input,
+[dir="rtl"] .input-icon-wrap input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .input-icon-wrap .select,
+[dir="rtl"] .input-icon-wrap select,
+[dir="rtl"] .input[data-leading-icon="true"],
+[dir="rtl"] input[data-leading-icon="true"],
+[dir="rtl"] .select[data-leading-icon="true"],
+[dir="rtl"] select[data-leading-icon="true"],
+[dir="rtl"] .relative:has(> svg:first-child) > .input,
+[dir="rtl"] .relative:has(> svg:first-child) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> svg:first-child) > .select,
+[dir="rtl"] .relative:has(> svg:first-child) > select,
+[dir="rtl"] .relative:has(> svg[class*="left-"]) > .input,
+[dir="rtl"] .relative:has(> svg[class*="left-"]) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> svg[class*="left-"]) > .select,
+[dir="rtl"] .relative:has(> svg[class*="left-"]) > select,
+[dir="rtl"] .relative:has(> .input-wrapper__icon) > .input,
+[dir="rtl"] .relative:has(> .input-wrapper__icon) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> .input-wrapper__icon) > .select,
+[dir="rtl"] .relative:has(> .input-wrapper__icon) > select {
+  padding-left: 14px !important;
+  padding-right: 44px !important;
+  padding-inline-start: 44px !important;
+  padding-inline-end: 14px !important;
+}
+
+[dir="rtl"] .input-wrapper--trailing .input-wrapper__field,
+[dir="rtl"] .input-wrapper--trailing .input,
+[dir="rtl"] .input-wrapper--trailing input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .input[data-trailing-action="true"],
+[dir="rtl"] input[data-trailing-action="true"],
+[dir="rtl"] .relative:has(> button.absolute) > .input,
+[dir="rtl"] .relative:has(> button.absolute) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> button[class*="absolute"]) > .input,
+[dir="rtl"] .relative:has(> button[class*="absolute"]) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> [class*="absolute"][class*="right-"]:not(.input-wrapper__icon)) > .input,
+[dir="rtl"] .relative:has(> [class*="absolute"][class*="right-"]:not(.input-wrapper__icon)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> [class*="absolute"][class*="end-"]:not(.input-wrapper__icon)) > .input,
+[dir="rtl"] .relative:has(> [class*="absolute"][class*="end-"]:not(.input-wrapper__icon)) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] .relative:has(> .input-wrapper__trailing) > .input,
+[dir="rtl"] .relative:has(> .input-wrapper__trailing) > input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]) {
+  padding-right: 14px !important;
+  padding-left: 44px !important;
+  padding-inline-end: 44px !important;
+  padding-inline-start: 14px !important;
+}
+
+[dir="rtl"] .input-wrapper--leading.input-wrapper--trailing .input-wrapper__field,
+[dir="rtl"] .input-wrapper--leading.input-wrapper--trailing .input,
+[dir="rtl"] .input-wrapper--leading.input-wrapper--trailing input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+[dir="rtl"] input[data-leading-icon="true"][data-trailing-action="true"],
+[dir="rtl"] .input[data-leading-icon="true"][data-trailing-action="true"] {
+  padding-left: 44px !important;
+  padding-right: 44px !important;
+  padding-inline-start: 44px !important;
+  padding-inline-end: 44px !important;
+}
+
+/* Date and Time Inputs Indicator Spacing */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  padding-inline-end: 36px;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity var(--duration-fast, 150ms) ease;
+  margin-inline-start: 8px;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Pointer Events Safety: leading icons must not block input focus / select dropdown opening */
+.relative > svg.absolute:not(button svg),
+.relative > [class*="absolute"][class*="left-"]:not(button):not(input):not(.input-wrapper__trailing),
+.relative > [class*="absolute"][class*="start-"]:not(button):not(input):not(.input-wrapper__trailing) {
+  pointer-events: none;
+}
+.input-wrapper__trailing,
+.input-wrapper__trailing *,
+.relative > .input-wrapper__trailing,
+.relative > button.absolute,
+.relative > button[class*="absolute"] {
+  pointer-events: auto !important;
+  cursor: pointer;
 }
 
 /* Browser Autofill Protection: strictly preserve icon padding under WebKit autofill */
@@ -3964,15 +4133,48 @@ input[data-trailing-action="true"] {
 .input-icon-wrap .input:-webkit-autofill,
 input[data-leading-icon="true"]:-webkit-autofill,
 .input[data-leading-icon="true"]:-webkit-autofill,
-.relative:has(> svg:first-child) > input:-webkit-autofill {
+.relative:has(> svg:first-child) > input:-webkit-autofill,
+.relative:has(> svg:first-child) > .input:-webkit-autofill,
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > input:-webkit-autofill,
+.relative:has(> [class*="absolute"][class*="left-"]:not(button):not(input)) > .input:-webkit-autofill {
   padding-left: 44px !important;
+  padding-inline-start: 44px !important;
 }
 
 .input-wrapper--trailing input:-webkit-autofill,
 .input-wrapper--trailing .input:-webkit-autofill,
 input[data-trailing-action="true"]:-webkit-autofill,
-.input[data-trailing-action="true"]:-webkit-autofill {
+.input[data-trailing-action="true"]:-webkit-autofill,
+.relative:has(> button.absolute) > input:-webkit-autofill,
+.relative:has(> button.absolute) > .input:-webkit-autofill,
+.relative:has(> [class*="absolute"][class*="right-"]) > input:-webkit-autofill,
+.relative:has(> [class*="absolute"][class*="right-"]) > .input:-webkit-autofill {
   padding-right: 44px !important;
+  padding-inline-end: 44px !important;
+}
+
+[dir="rtl"] .input-wrapper--leading input:-webkit-autofill,
+[dir="rtl"] .input-wrapper--leading .input:-webkit-autofill,
+[dir="rtl"] input[data-leading-icon="true"]:-webkit-autofill,
+[dir="rtl"] .input[data-leading-icon="true"]:-webkit-autofill,
+[dir="rtl"] .relative:has(> svg:first-child) > input:-webkit-autofill,
+[dir="rtl"] .relative:has(> svg:first-child) > .input:-webkit-autofill {
+  padding-left: 14px !important;
+  padding-right: 44px !important;
+  padding-inline-start: 44px !important;
+  padding-inline-end: 14px !important;
+}
+
+[dir="rtl"] .input-wrapper--trailing input:-webkit-autofill,
+[dir="rtl"] .input-wrapper--trailing .input:-webkit-autofill,
+[dir="rtl"] input[data-trailing-action="true"]:-webkit-autofill,
+[dir="rtl"] .input[data-trailing-action="true"]:-webkit-autofill,
+[dir="rtl"] .relative:has(> button.absolute) > input:-webkit-autofill,
+[dir="rtl"] .relative:has(> button.absolute) > .input:-webkit-autofill {
+  padding-right: 14px !important;
+  padding-left: 44px !important;
+  padding-inline-end: 44px !important;
+  padding-inline-start: 14px !important;
 }
 
 /* ── Right-side Drawer (slides in from right edge) ── */

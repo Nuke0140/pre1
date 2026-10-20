@@ -94,7 +94,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <PreHydration />
         <GlobalScrollbar />
         {children}

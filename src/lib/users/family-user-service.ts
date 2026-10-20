@@ -33,12 +33,13 @@ export interface FamilyKpiOptions {
 
 export function normalizeRelationship(rel?: string): Relationship {
   if (!rel) return 'GUARDIAN'
-  const upper = rel.toUpperCase().trim()
-  if (upper === 'FATHER') return 'FATHER'
-  if (upper === 'MOTHER') return 'MOTHER'
+  const upper = rel.toUpperCase().trim().replace(/[\s\-_]+/g, '_')
+  if (upper === 'FATHER' || upper === 'DAD') return 'FATHER'
+  if (upper === 'MOTHER' || upper === 'MOM') return 'MOTHER'
   if (upper === 'SIBLING' || upper === 'BROTHER' || upper === 'SISTER') return 'SIBLING'
-  if (upper === 'GRANDPARENT' || upper.includes('GRAND')) return 'GRANDPARENT'
-  if (upper === 'LEGAL_GUARDIAN' || upper === 'GUARDIAN') return 'GUARDIAN'
+  if (upper.includes('GRAND') || upper === 'NANA' || upper === 'NANI' || upper === 'DADA' || upper === 'DADI') return 'GRANDPARENT'
+  if (upper === 'LEGAL_GUARDIAN') return 'LEGAL_GUARDIAN'
+  if (upper === 'GUARDIAN') return 'GUARDIAN'
   return 'OTHER'
 }
 
@@ -530,7 +531,9 @@ export class FamilyUserService {
           createdGuardian = existingUserGuardian
         } else if (existingUserGuardian) {
           createdGuardian = existingUserGuardian
-        } else if (createdGuardian) {
+        }
+
+        if (createdGuardian) {
           createdGuardian = await tx.guardian.update({
             where: { id: createdGuardian.id },
             data: {

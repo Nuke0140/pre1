@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Baby, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Phone, Mail, Edit3, Shield, Eye, Lock,
@@ -44,14 +45,52 @@ import {
 import { UserRecord, BranchOption, ClassroomOption, FamilyHousehold, HouseholdGuardian } from '@/components/users/types'
 import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
-import { Image, Layers, MoreHorizontal } from 'lucide-react'
+import { Image as ImageIcon, Layers, MoreHorizontal } from 'lucide-react'
 
 export default function FamilyUsersPage() {
   const toast = useToast()
   const { t } = useI18n()
 
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   // View Switcher: TABLE vs HOUSEHOLDS vs SPREADSHEET
-  const [viewMode, setViewMode] = useState<'TABLE' | 'HOUSEHOLDS' | 'SPREADSHEET'>('TABLE')
+  const [viewMode, setViewMode] = useState<'TABLE' | 'HOUSEHOLDS' | 'SPREADSHEET'>(() => {
+    if (searchParams?.get('tab') === 'import') return 'SPREADSHEET'
+    if (searchParams?.get('view') === 'households') return 'HOUSEHOLDS'
+    return 'TABLE'
+  })
+
+  // Synchronize viewMode with searchParams
+  useEffect(() => {
+    const tab = searchParams?.get('tab')
+    const view = searchParams?.get('view')
+    if (tab === 'import') {
+      setViewMode('SPREADSHEET')
+    } else if (view === 'households') {
+      setViewMode('HOUSEHOLDS')
+    } else if (!tab && !view && viewMode !== 'TABLE') {
+      setViewMode('TABLE')
+    }
+  }, [searchParams])
+
+  const handleSetViewMode = useCallback((newMode: 'TABLE' | 'HOUSEHOLDS' | 'SPREADSHEET') => {
+    setViewMode(newMode)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (newMode === 'SPREADSHEET') {
+        url.searchParams.set('tab', 'import')
+        url.searchParams.delete('view')
+      } else if (newMode === 'HOUSEHOLDS') {
+        url.searchParams.set('view', 'households')
+        url.searchParams.delete('tab')
+      } else {
+        url.searchParams.delete('tab')
+        url.searchParams.delete('view')
+      }
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
   const [crossCampusOnly, setCrossCampusOnly] = useState(false)
   const [households, setHouseholds] = useState<FamilyHousehold[]>([])
   const [loadingHouseholds, setLoadingHouseholds] = useState(false)
@@ -835,7 +874,6 @@ export default function FamilyUsersPage() {
               className="font-semibold shadow-xs"
               groups={[
                 { id: 'primary', label: 'Primary Actions' },
-                { id: 'data', label: 'Data & Spreadsheet' },
                 { id: 'management', label: 'Management & Batch' },
               ]}
               actions={[
@@ -852,29 +890,57 @@ export default function FamilyUsersPage() {
                   },
                 },
                 {
+                  id: 'organization-setup',
+                  label: 'Organization / Role Setup',
+                  helperText: 'Roles, capabilities dictionary & hierarchy',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'primary',
+                  href: '/app/users/organization',
+                },
+                {
                   id: 'spreadsheet-workspace',
                   label: 'User Spreadsheet Tool',
                   helperText: 'Bulk import and export family via spreadsheet',
                   icon: <FileSpreadsheet />,
                   category: 'import',
-                  groupId: 'data',
-                  onClick: () => setViewMode('SPREADSHEET'),
+                  groupId: 'primary',
+                  onClick: () => handleSetViewMode('SPREADSHEET'),
                 },
                 {
-                  id: 'dictionary',
-                  label: 'Dictionary',
-                  helperText: 'Roles, permissions & capabilities dictionary',
-                  icon: <Shield />,
-                  category: 'settings',
+                  id: 'family-updates',
+                  label: 'Family Updates',
+                  helperText: 'Individual family profile edits & bulk field updates',
+                  icon: <Layers />,
+                  category: 'edit',
                   groupId: 'management',
-                  onClick: () => setRolesModalOpen(true),
+                  onClick: () => {
+                    if (selectedKeys.length > 0) {
+                      setBulkFieldUpdateOpen(true)
+                    } else if (users.length > 0) {
+                      setEditingUser(users[0])
+                    } else {
+                      toast.info('No Family User', 'No family user available to edit')
+                    }
+                  },
                 },
+                {
+                  id: 'photo-management',
+                  label: 'Photo Management',
+                  helperText: 'Individual portraits & bulk ZIP photo archives',
+                  icon: <Camera />,
+                  category: 'import',
+                  groupId: 'management',
+                  onClick: () => setZipPhotoModalOpen(true),
+                },
+                // Hidden secondary action items for compatibility
                 {
                   id: 'individual-edit',
                   label: t('users.individualEdit') || 'Individual Edit',
                   icon: <Edit3 />,
                   category: 'edit',
                   groupId: 'management',
+                  visible: false,
                   onClick: () => {
                     if (selectedKeys.length === 1) {
                       const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
@@ -885,8 +951,6 @@ export default function FamilyUsersPage() {
                     }
                     if (users.length > 0) {
                       setEditingUser(users[0])
-                    } else {
-                      toast.info('Selection Needed', 'No family user available to edit')
                     }
                   },
                 },
@@ -896,6 +960,7 @@ export default function FamilyUsersPage() {
                   icon: <Layers />,
                   category: 'edit',
                   groupId: 'management',
+                  visible: false,
                   onClick: () => setBulkFieldUpdateOpen(true),
                 },
                 {
@@ -904,15 +969,27 @@ export default function FamilyUsersPage() {
                   icon: <Camera />,
                   category: 'import',
                   groupId: 'management',
+                  visible: false,
                   onClick: () => setBulkPhotosOpen(true),
                 },
                 {
                   id: 'zip-photos',
                   label: t('users.bulkPhotoUpload') || 'Bulk Profile Photo Upload',
-                  icon: <Image />,
+                  icon: <ImageIcon />,
                   category: 'import',
                   groupId: 'management',
+                  visible: false,
                   onClick: () => setZipPhotoModalOpen(true),
+                },
+                {
+                  id: 'dictionary',
+                  label: 'Dictionary',
+                  helperText: 'Roles, permissions & capabilities dictionary',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'management',
+                  visible: false,
+                  onClick: () => setRolesModalOpen(true),
                 },
               ]}
             />
@@ -984,7 +1061,7 @@ export default function FamilyUsersPage() {
               className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'TABLE' ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs' : 'text-gray-500 hover:text-gray-900'
               }`}
-              onClick={() => setViewMode('TABLE')}
+              onClick={() => handleSetViewMode('TABLE')}
             >
               <Table className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Parent Accounts</span>
@@ -994,7 +1071,7 @@ export default function FamilyUsersPage() {
               className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                 viewMode === 'HOUSEHOLDS' ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-xs' : 'text-gray-500 hover:text-gray-900'
               }`}
-              onClick={() => setViewMode('HOUSEHOLDS')}
+              onClick={() => handleSetViewMode('HOUSEHOLDS')}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Family Groups (Households)</span>
@@ -1007,10 +1084,10 @@ export default function FamilyUsersPage() {
         <div className="pt-2">
           <SpreadsheetImportWorkspace
             module="FAMILY"
-            onCancel={() => setViewMode('TABLE')}
+            onCancel={() => handleSetViewMode('TABLE')}
             onSuccess={() => {
               fetchFamilyUsers()
-              setViewMode('TABLE')
+              handleSetViewMode('TABLE')
             }}
             exportContext={{
               branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,
@@ -1032,7 +1109,7 @@ export default function FamilyUsersPage() {
             </div>
             <button
               type="button"
-              onClick={() => setViewMode('HOUSEHOLDS')}
+              onClick={() => handleSetViewMode('HOUSEHOLDS')}
               className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold hover:underline shrink-0"
             >
               Switch to Family Groups &rarr;
@@ -1462,7 +1539,9 @@ export default function FamilyUsersPage() {
                                 <div className="flex items-center gap-1.5">
                                   <span>{g.fullName}</span>
                                   {g.isPrimaryContact && (
-                                    <Star className="w-3 h-3 fill-amber-500 text-amber-500 shrink-0" title="Primary Contact" />
+                                    <span title="Primary Contact">
+                                      <Star className="w-3 h-3 fill-amber-500 text-amber-500 shrink-0" />
+                                    </span>
                                   )}
                                   <span className="text-[10px] text-gray-400 capitalize">
                                     ({g.relationship?.toLowerCase() || 'guardian'})
@@ -1579,12 +1658,6 @@ export default function FamilyUsersPage() {
         onClose={() => setRolesModalOpen(false)}
       />
 
-      <BulkPhotoUploadModal
-        open={bulkPhotosOpen}
-        onClose={() => setBulkPhotosOpen(false)}
-        onSuccess={fetchFamilyUsers}
-      />
-
       <ZipPhotoUploadModal
         open={zipPhotoModalOpen}
         onClose={() => setZipPhotoModalOpen(false)}
@@ -1647,9 +1720,15 @@ export default function FamilyUsersPage() {
           pickupPinUser
             ? {
                 id: pickupPinUser.userId || pickupPinUser.id,
-                fullName: pickupPinUser.name || pickupPinUser.fullName,
+                fullName: pickupPinUser.name || pickupPinUser.fullName || 'Guardian',
                 role: pickupPinUser.role,
-                students: pickupPinUser.guardianProfile?.students || [],
+                students: (pickupPinUser.guardianProfile?.students || []).map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  admissionNo: s.admissionNo,
+                  hasPin: Boolean(s.pickupPin),
+                  canPickup: s.canPickup,
+                })),
               }
             : null
         }

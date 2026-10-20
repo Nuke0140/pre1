@@ -8,6 +8,7 @@ import { validatePan, validateAadhaar, validateUan, validateEsi } from './statut
 import { recordAudit } from '@/lib/audit'
 import { resolveRowWithAliases, CANONICAL_STAFF_FIELDS, CANONICAL_FAMILY_FIELDS, parseBooleanCell, isHrFieldHeader } from './canonical-fields'
 import { EncryptionService } from '@/lib/security/encryption-service'
+import { validateFullName } from './user-validation'
 
 /**
  * Validates password against PreOne password complexity policy:
@@ -175,26 +176,30 @@ export class UserCsvEngine {
    */
   static getParentTemplate(): string {
     const headers = [
-      'username',
       'fullName',
-      'email',
-      'phone',
       'role',
-      'branchCode',
-      'studentAdmissionNo',
       'relationship',
+      'phone',
+      'email',
       'occupation',
       'isPrimaryContact',
+      'studentAdmissionNo',
+      'studentName',
+      'studentDateOfBirth',
+      'studentGender',
+      'studentBranch',
+      'studentClass',
       'canPickup',
-      'receivesComm',
-      'isFeePayer',
       'pickupPin',
+      'receivesComm',
+      'username',
+      'status',
     ]
 
     const sampleRows = [
-      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1024', 'FATHER', 'Engineer', 'true', 'true', 'true', 'true', '1234'],
-      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1031', 'FATHER', 'Engineer', 'true', 'true', 'true', 'true', '1234'],
-      ['priya01', 'Priya Sharma', 'priya@example.com', '+919876543211', 'PARENT', 'MAIN', 'PRE-1024', 'MOTHER', 'Doctor', 'false', 'true', 'true', 'false', '5678'],
+      ['Rahul Sharma', 'PARENT', 'FATHER', '+919876543210', 'rahul.sharma@example.com', 'Software Engineer', 'YES', 'PRE-2026-0042', '', '', '', '', '', 'YES', '', 'YES', 'rahul.sharma', 'ACTIVE'],
+      ['Priya Sharma', 'PARENT', 'MOTHER', '+919876543211', 'priya.sharma@example.com', 'Architect', 'NO', 'PRE-2026-0042', '', '', '', '', '', 'YES', '', 'YES', 'priya.sharma', 'ACTIVE'],
+      ['Vikram Joshi', 'PARENT', 'FATHER', '+919876543213', 'vikram.joshi@example.com', 'Financial Analyst', 'YES', '', 'Aarav Joshi', '2022-03-15', 'MALE', 'MAIN', 'NUR-A', 'YES', '', 'YES', 'vikram.joshi', 'ACTIVE'],
     ]
 
     return [
@@ -208,25 +213,29 @@ export class UserCsvEngine {
    */
   static getGuardianTemplate(): string {
     const headers = [
-      'username',
       'fullName',
-      'email',
-      'phone',
       'role',
-      'branchCode',
-      'studentAdmissionNo',
       'relationship',
+      'phone',
+      'email',
       'occupation',
       'isPrimaryContact',
+      'studentAdmissionNo',
+      'studentName',
+      'studentDateOfBirth',
+      'studentGender',
+      'studentBranch',
+      'studentClass',
       'canPickup',
-      'receivesComm',
-      'isFeePayer',
       'pickupPin',
+      'receivesComm',
+      'username',
+      'status',
     ]
 
     const sampleRows = [
-      ['sunita01', 'Sunita Sharma', 'sunita@example.com', '+919876543212', 'GUARDIAN', 'MAIN', 'PRE-1024', 'GRANDMOTHER', 'Retired', 'false', 'true', 'true', 'false', '4321'],
-      ['ramesh.uncle', 'Ramesh Uncle', 'ramesh@example.com', '+919876543213', 'GUARDIAN', 'MAIN', 'PRE-1024', 'OTHER', 'Business', 'false', 'true', 'false', 'false', '9988'],
+      ['Sunita Sharma', 'GUARDIAN', 'GRANDPARENT', '+919876543212', 'sunita.sharma@example.com', 'Retired Professor', 'NO', 'PRE-2026-0042', '', '', '', '', '', 'YES', '4821', 'NO', 'sunita.sharma', 'ACTIVE'],
+      ['Ramesh Uncle', 'GUARDIAN', 'UNCLE_AUNT', '+919876543214', 'ramesh.uncle@example.com', 'Business Owner', 'NO', 'PRE-2026-0042', '', '', '', '', '', 'YES', '9988', 'NO', 'ramesh.uncle', 'ACTIVE'],
     ]
 
     return [
@@ -236,38 +245,35 @@ export class UserCsvEngine {
   }
 
   /**
-   * Generates downloadable Canonical 21-column Family CSV template (PARENT & GUARDIAN)
+   * Generates downloadable Canonical Family CSV template (PARENT & GUARDIAN) matching Add Family Member form
    */
   static getFamilyTemplate(): string {
     const headers = [
-      'photo',
-      'username',
-      'name',
-      'gender',
-      'email',
-      'phone',
+      'fullName',
       'role',
       'relationship',
+      'phone',
+      'email',
+      'occupation',
+      'isPrimaryContact',
       'studentAdmissionNo',
-      'studentUsername',
       'studentName',
       'studentDateOfBirth',
       'studentGender',
-      'studentBloodGroup',
       'studentBranch',
       'studentClass',
-      'studentSeatNumber',
-      'studentAdmissionYear',
+      'canPickup',
       'pickupPin',
-      'feePayer',
+      'receivesComm',
+      'username',
       'status',
     ]
 
     const sampleRows = [
-      ['', 'rahul.patil', 'Rahul Patil', 'MALE', 'rahul.patil@example.com', '+919876543210', 'PARENT', 'FATHER', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '1234', 'true', 'ACTIVE'],
-      ['', 'priya.patil', 'Priya Patil', 'FEMALE', 'priya.patil@example.com', '+919876543211', 'PARENT', 'MOTHER', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '5678', 'false', 'ACTIVE'],
-      ['', 'sunita.patil', 'Sunita Patil', 'FEMALE', 'sunita.patil@example.com', '+919876543212', 'GUARDIAN', 'GRANDPARENT', 'ADM-2026-00123', 'aarav.patil', 'Aarav Patil', '2021-04-12', 'MALE', 'B_POSITIVE', 'MAIN', 'NURSERY-A', 'SEAT-01', '2026-27', '4321', 'false', 'ACTIVE'],
-      ['', 'vikram.joshi', 'Vikram Joshi', 'MALE', 'vikram.joshi@example.com', '+919876543213', 'PARENT', 'FATHER', 'ADM-2026-00124', 'ananya.joshi', 'Ananya Joshi', '2022-01-15', 'FEMALE', 'O_POSITIVE', 'MAIN', 'PLAYGROUP-A', '', '2026-27', '9876', 'true', 'ACTIVE'],
+      ['Rahul Sharma', 'PARENT', 'FATHER', '+919876543210', 'rahul.sharma@example.com', 'Software Engineer', 'YES', 'PRE-2026-0042', '', '', '', '', '', 'YES', '', 'YES', 'rahul.sharma', 'ACTIVE'],
+      ['Priya Sharma', 'PARENT', 'MOTHER', '+919876543211', 'priya.sharma@example.com', 'Architect', 'NO', 'PRE-2026-0042', '', '', '', '', '', 'YES', '', 'YES', 'priya.sharma', 'ACTIVE'],
+      ['Sunita Sharma', 'GUARDIAN', 'GRANDPARENT', '+919876543212', 'sunita.sharma@example.com', 'Retired Professor', 'NO', 'PRE-2026-0042', '', '', '', '', '', 'YES', '4821', 'NO', 'sunita.sharma', 'ACTIVE'],
+      ['Vikram Joshi', 'PARENT', 'FATHER', '+919876543213', 'vikram.joshi@example.com', 'Financial Analyst', 'YES', '', 'Aarav Joshi', '2022-03-15', 'MALE', 'MAIN', 'NUR-A', 'YES', '', 'YES', 'vikram.joshi', 'ACTIVE'],
     ]
 
     return [
@@ -632,13 +638,26 @@ export class UserCsvEngine {
       if (role !== 'PARENT' && role !== 'GUARDIAN') {
         errors.push(`Invalid role "${role}". Allowed: PARENT or GUARDIAN only.`)
       }
-      if (!fullName) errors.push('Caregiver full name is missing')
+      if (!fullName) {
+        errors.push('Caregiver full name is missing')
+      } else {
+        const nameRes = validateFullName(fullName)
+        if (!nameRes.valid) {
+          errors.push(nameRes.error!)
+        }
+      }
       if (!email) {
         errors.push('Caregiver email is missing')
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errors.push('Invalid email format')
       }
       if (!phone) errors.push('Caregiver mobile phone is missing')
+      if (!r.relationship && !r.relationToChild && !r.relation) {
+        errors.push('Relationship to child is required')
+      }
+      if (pickupPin && !/^\d{4,6}$/.test(pickupPin)) {
+        errors.push('Pickup PIN must be 4 to 6 numeric digits')
+      }
 
       const userKey = email || username
 
@@ -755,6 +774,8 @@ export class UserCsvEngine {
 
         if (!studentDateOfBirth) {
           errors.push('New student date of birth is required (YYYY-MM-DD)')
+        } else if (isNaN(Date.parse(studentDateOfBirth))) {
+          errors.push('Invalid student date of birth format (must be YYYY-MM-DD)')
         }
 
         if (branchInput && !branchMap.has(branchInput)) {

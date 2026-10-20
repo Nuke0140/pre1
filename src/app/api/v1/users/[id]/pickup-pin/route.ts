@@ -16,11 +16,13 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember } = manageCheck
+  const { targetMember, targetGuardian } = manageCheck
 
   try {
     const status = await PickupPinService.getPinStatus({
-      userId: targetMember.userId,
+      userId: targetMember?.userId,
+      guardianId: targetGuardian?.id,
+      targetId: id,
       tenantId: session.tenantId,
     })
 
@@ -30,7 +32,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
     return ok(status)
   } catch (err: any) {
-    return serverError(err.message)
+    return serverError(err)
   }
 }
 
@@ -46,7 +48,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember } = manageCheck
+  const { targetMember, targetGuardian } = manageCheck
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -75,11 +77,17 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
       )
     }
 
+    const targetIdentity = {
+      userId: targetMember?.userId,
+      guardianId: targetGuardian?.id,
+      targetId: id,
+      tenantId: session.tenantId,
+    }
+
     switch (action) {
       case 'regenerate': {
         const result = await PickupPinService.regeneratePin({
-          userId: targetMember.userId,
-          tenantId: session.tenantId,
+          ...targetIdentity,
           actorSession: session,
           studentId,
           syncToAllStudents,
@@ -105,8 +113,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
           return bad('PIN is required for reset action', 'PIN_REQUIRED')
         }
         const result = await PickupPinService.resetPin({
-          userId: targetMember.userId,
-          tenantId: session.tenantId,
+          ...targetIdentity,
           actorSession: session,
           pin,
           clear: false,
@@ -129,8 +136,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
       case 'clear': {
         const result = await PickupPinService.resetPin({
-          userId: targetMember.userId,
-          tenantId: session.tenantId,
+          ...targetIdentity,
           actorSession: session,
           clear: true,
           studentId,
@@ -153,8 +159,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
       case 'auto-provision': {
         const result = await PickupPinService.autoProvisionPins({
-          userId: targetMember.userId,
-          tenantId: session.tenantId,
+          ...targetIdentity,
           actorSession: session,
           overwriteExisting,
           req,

@@ -216,10 +216,6 @@ describe('PreOne UI Bug — Input Icon and Text Clearance Test Suite', () => {
       expect(modalFile).toContain('leadingIcon={<Phone className="w-4 h-4" />}')
       expect(modalFile).toContain('value={phone}')
 
-      // Date of Birth uses Input with leading Calendar icon
-      expect(modalFile).toContain('leadingIcon={<Calendar className="w-4 h-4" />}')
-      expect(modalFile).toContain('value={dateOfBirth}')
-
       // Initial Password uses Input with leading Key icon and trailing Eye toggle
       expect(modalFile).toContain('leadingIcon={<Key className="w-4 h-4" />}')
       expect(modalFile).toContain('trailingAction=')
@@ -238,6 +234,108 @@ describe('PreOne UI Bug — Input Icon and Text Clearance Test Suite', () => {
       expect(familyModal).toContain('leadingIcon={<User className="w-4 h-4" />}')
       expect(familyModal).toContain('leadingIcon={<Phone className="w-4 h-4" />}')
       expect(familyModal).toContain('leadingIcon={<Mail className="w-4 h-4" />}')
+    })
+  })
+
+  describe('5. Cross-Module Form Controls, Select & Trailing Action Clearance', () => {
+    it('verifies globals.css defines native select indicator clearance and truncation', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      // Select right padding reserves space for chevron indicator (40px)
+      expect(css).toContain('padding-inline-end:40px;')
+      expect(css).toContain('padding-right:40px;')
+
+      // Truncation prevents long option labels from overlapping chevron
+      expect(css).toContain('text-overflow:ellipsis;')
+      expect(css).toContain('overflow:hidden;')
+      expect(css).toContain('white-space:nowrap;')
+
+      // RTL chevron repositioning
+      expect(css).toContain('[dir="rtl"] .select')
+      expect(css).toContain('background-position:left 12px center;')
+    })
+
+    it('verifies globals.css enforces leading icon clearance across selects and inputs in all modules', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      // Leading clearance applies to both inputs and selects
+      expect(css).toContain('.input-icon-wrap .select')
+      expect(css).toContain('.input-icon-wrap select')
+      expect(css).toContain('.relative:has(> svg:first-child) > .select')
+      expect(css).toContain('.relative:has(> svg:first-child) > select')
+
+      // Applies logical properties for LTR and RTL
+      expect(css).toContain('padding-inline-start: 44px !important;')
+      expect(css).toContain('padding-inline-end: 44px !important;')
+    })
+
+    it('verifies trailing action buttons and clear triggers reserve 44px right clearance', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      expect(css).toContain('.relative:has(> button.absolute) > .input')
+      expect(css).toContain('.relative:has(> button.absolute) > input')
+      expect(css).toContain('padding-inline-end: 44px !important;')
+    })
+
+    it('verifies date and time input controls reserve spacing for calendar/clock picker indicators', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      expect(css).toContain('input[type="date"]')
+      expect(css).toContain('padding-inline-end: 36px;')
+      expect(css).toContain('::-webkit-calendar-picker-indicator')
+    })
+
+    it('verifies pointer-events safety ensures icons do not block clicks and buttons remain interactive', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      expect(css).toContain('.relative > svg.absolute:not(button svg)')
+      expect(css).toContain('pointer-events: none;')
+      expect(css).toContain('.relative > button.absolute')
+      expect(css).toContain('pointer-events: auto;')
+    })
+
+    it('verifies trailing icons do not get leading clearance and svg:last-child is not in leading rules', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      // svg:last-child must NOT be used for leading clearance as it shrinks inputs with trailing icons
+      expect(css).not.toContain('.relative:has(> svg:last-child) > .input')
+      expect(css).not.toContain('.relative:has(> svg:last-child) > select')
+    })
+
+    it('verifies checkboxes, radios, range, color, and file inputs are guarded and retain dimensions', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      expect(css).toContain(':not([type="checkbox"])')
+      expect(css).toContain(':not([type="radio"])')
+      expect(css).toContain(':not([type="range"])')
+      expect(css).toContain(':not([type="color"])')
+      expect(css).toContain(':not([type="file"])')
+    })
+
+    it('verifies globals.css and shared Input define consistent RTL clearance for leading and trailing controls', async () => {
+      const css = await Bun.file('src/app/globals.css').text()
+
+      // RTL leading rules invert to right padding 44px and left padding 14px
+      expect(css).toContain('[dir="rtl"] .input-wrapper--leading')
+      expect(css).toContain('padding-right: 44px !important;')
+      expect(css).toContain('padding-left: 14px !important;')
+
+      // RTL trailing rules invert to left padding 44px and right padding 14px
+      expect(css).toContain('[dir="rtl"] .input-wrapper--trailing')
+
+      // Shared Input component includes RTL responsive classes
+      const html = renderToString(
+        <Input
+          leadingIcon={<User className="w-4 h-4" />}
+          trailingAction={<button type="button">Action</button>}
+          value="Test"
+          onChange={() => {}}
+        />
+      )
+      expect(html).toContain('rtl:pr-[44px]')
+      expect(html).toContain('rtl:pl-[44px]')
+      expect(html).toContain('rtl:left-auto')
+      expect(html).toContain('rtl:right-[14px]')
     })
   })
 })

@@ -21,22 +21,23 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember } = manageCheck
+  const { targetMember, targetGuardian } = manageCheck
 
   try {
     // 1. Resolve guardian profile for this user
-    let guardian = await db.guardian.findFirst({
+    let guardian = targetGuardian || (targetMember ? await db.guardian.findFirst({
       where: {
         userId: targetMember.userId,
         tenantId: session.tenantId,
         deletedAt: null,
       },
       include: {
+        user: true,
         studentLinks: {
           select: { studentId: true },
         },
       },
-    })
+    }) : null)
 
     if (!guardian) {
       guardian = await db.guardian.findFirst({
@@ -46,6 +47,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
           deletedAt: null,
         },
         include: {
+          user: true,
           studentLinks: {
             select: { studentId: true },
           },
@@ -79,8 +81,8 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
             isPrimaryContact: guardian.isPrimaryContact,
             canPickup: true,
             pickupPin: guardian.pickupPin ? '••••' : null,
-            role: targetMember.role,
-            status: targetMember.status,
+            role: targetMember?.role || 'GUARDIAN',
+            status: targetMember?.status || (guardian.user?.status as any) || 'ACTIVE',
           },
         ],
         students: [],
@@ -154,7 +156,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
           receivesComm: link.receivesComm,
           pickupPin: link.pickupPin ? '••••' : null,
           relationship: link.relationship || guardian.relationship,
-          classroom: link.student.currentClassroom?.name || null,
+          classroom: link.student.currentClassroom?.name || undefined,
           branchId: link.student.branchId,
           branchName: b?.name || 'Main Campus',
           branchCode: b?.code || '',
@@ -245,7 +247,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember } = manageCheck
+  const { targetMember, targetGuardian } = manageCheck
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -261,13 +263,13 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     }
 
     // Resolve guardian profile
-    let guardian = await db.guardian.findFirst({
+    let guardian = targetGuardian || (targetMember ? await db.guardian.findFirst({
       where: {
         userId: targetMember.userId,
         tenantId: session.tenantId,
         deletedAt: null,
       },
-    })
+    }) : null)
 
     if (!guardian) {
       guardian = await db.guardian.findFirst({
@@ -286,7 +288,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     const result = await FamilyUserService.linkStudentToGuardian(
       {
         tenantId: session.tenantId,
-        actorId: session.userId,
+        actorId: (session as any).userId || session.uid,
         actorName: session.name,
         actorRole: session.role,
         actorBranchId: session.branchId,
@@ -296,7 +298,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
         },
       },
       {
-        userId: targetMember.userId,
+        userId: targetMember?.userId || targetGuardian?.userId || undefined,
         guardianId: guardian.id,
         studentId: studentId?.trim() || undefined,
         studentAdmissionNo: studentAdmissionNo?.trim() || undefined,

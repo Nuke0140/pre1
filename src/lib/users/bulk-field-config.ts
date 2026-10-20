@@ -248,10 +248,15 @@ export function normalizeFieldKey(key: string): string {
 }
 
 /**
- * Returns all whitelisted bulk-editable field configurations.
+ * Returns all whitelisted bulk-editable field configurations for the given userType.
  */
-export function getBulkEditableFields(): BulkFieldConfig[] {
-  return Object.values(BULK_FIELD_CONFIGS).filter((f) => f.bulkEditable)
+export function getBulkEditableFields(userType: 'STAFF' | 'FAMILY' | 'ALL' = 'STAFF'): BulkFieldConfig[] {
+  const fields = Object.values(BULK_FIELD_CONFIGS).filter((f) => f.bulkEditable)
+  if (userType === 'FAMILY') {
+    const STAFF_ONLY_KEYS = ['designation', 'department', 'employmentType']
+    return fields.filter((f) => !STAFF_ONLY_KEYS.includes(f.key))
+  }
+  return fields
 }
 
 /**

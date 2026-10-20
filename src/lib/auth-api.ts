@@ -168,39 +168,95 @@ export async function requireCanManageUser(
     },
   })
 
-  if (!targetMember) {
+  if (targetMember) {
+    const isActorOwnerOrPlatform =
+      session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+
+    // Non-owners cannot modify OWNER users
+    if (targetMember.role === 'OWNER' && !isActorOwnerOrPlatform) {
+      return forbidden('Only owners can modify owner accounts')
+    }
+
+    // Non-owners/principals cannot modify PRINCIPAL accounts
+    if (
+      targetMember.role === 'PRINCIPAL' &&
+      !isActorOwnerOrPlatform &&
+      session.role !== 'PRINCIPAL'
+    ) {
+      return forbidden('You do not have permission to modify principal accounts')
+    }
+
+    // Branch boundary check
+    if (
+      session.branchId &&
+      targetMember.branchId &&
+      session.branchId !== targetMember.branchId &&
+      !isActorOwnerOrPlatform &&
+      session.role !== 'PRINCIPAL'
+    ) {
+      return forbidden('Cannot manage users belonging to another campus branch')
+    }
+
+    return { targetMember, targetGuardian: null }
+  }
+
+  // If no TenantUser found, resolve whether targetUserId corresponds to a Guardian in this tenant
+  const targetGuardian = await db.guardian.findFirst({
+    where: {
+      tenantId: session.tenantId,
+      deletedAt: null,
+      OR: [{ id: targetUserId }, { userId: targetUserId }],
+    },
+    include: {
+      user: true,
+      studentLinks: {
+        where: {
+          student: {
+            tenantId: session.tenantId,
+            deletedAt: null,
+          },
+        },
+        include: {
+          student: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              admissionNo: true,
+              branchId: true,
+              dob: true,
+              gender: true,
+              status: true,
+              photoUrl: true,
+              seatNumber: true,
+              currentClassroom: {
+                select: { id: true, name: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!targetGuardian) {
     return notFound('User not found in this school')
   }
 
+  // Branch boundary check for guardian (check if any linked student belongs to actor's branch)
   const isActorOwnerOrPlatform =
     session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
 
-  // Non-owners cannot modify OWNER users
-  if (targetMember.role === 'OWNER' && !isActorOwnerOrPlatform) {
-    return forbidden('Only owners can modify owner accounts')
+  if (session.branchId && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+    const hasBranchAccess = targetGuardian.studentLinks.some(
+      (sl) => sl.student.branchId === session.branchId
+    )
+    if (!hasBranchAccess && targetGuardian.studentLinks.length > 0) {
+      return forbidden('Cannot manage guardians belonging to another campus branch')
+    }
   }
 
-  // Non-owners/principals cannot modify PRINCIPAL accounts
-  if (
-    targetMember.role === 'PRINCIPAL' &&
-    !isActorOwnerOrPlatform &&
-    session.role !== 'PRINCIPAL'
-  ) {
-    return forbidden('You do not have permission to modify principal accounts')
-  }
-
-  // Branch boundary check
-  if (
-    session.branchId &&
-    targetMember.branchId &&
-    session.branchId !== targetMember.branchId &&
-    !isActorOwnerOrPlatform &&
-    session.role !== 'PRINCIPAL'
-  ) {
-    return forbidden('Cannot manage users belonging to another campus branch')
-  }
-
-  return { targetMember }
+  return { targetMember: null, targetGuardian }
 }
 
 /**

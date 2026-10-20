@@ -258,6 +258,46 @@ export const GET = withApi(async (req: NextRequest) => {
         }
       }
 
+      if (statusFilter && statusFilter !== 'ALL') {
+        const upperStatus = statusFilter.toUpperCase().trim()
+        const SUPPORTED_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING', 'LOCKED', 'DEACTIVATED', 'ARCHIVED']
+        if (SUPPORTED_STATUSES.includes(upperStatus)) {
+          if (upperStatus === 'ACTIVE') {
+            guardianBaseWhere.AND = [
+              ...(guardianBaseWhere.AND || []),
+              {
+                OR: [
+                  { user: { status: 'ACTIVE' } },
+                  { user: null },
+                ],
+              },
+            ]
+          } else if (upperStatus === 'SUSPENDED' || upperStatus === 'LOCKED' || upperStatus === 'PENDING') {
+            guardianBaseWhere.AND = [
+              ...(guardianBaseWhere.AND || []),
+              {
+                user: { status: upperStatus },
+              },
+            ]
+          } else if (upperStatus === 'DEACTIVATED' || upperStatus === 'ARCHIVED' || upperStatus === 'INACTIVE') {
+            guardianBaseWhere.AND = [
+              ...(guardianBaseWhere.AND || []),
+              {
+                OR: [
+                  { user: { status: upperStatus } },
+                  ...(upperStatus === 'INACTIVE' ? [{ user: { status: 'DEACTIVATED' } }] : []),
+                ],
+              },
+            ]
+          }
+        } else {
+          guardianBaseWhere.AND = [
+            ...(guardianBaseWhere.AND || []),
+            { id: '__NO_MATCH_INVALID_STATUS__' },
+          ]
+        }
+      }
+
       if (query) {
         guardianBaseWhere.AND = [
           {

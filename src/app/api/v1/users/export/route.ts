@@ -163,6 +163,57 @@ async function executeExport(req: NextRequest, params: ExportParams) {
       cleanUserType === 'GUARDIAN' ||
       (!cleanUserType && ['PARENT', 'GUARDIAN'].includes(cleanRole || ''))
 
+    let nonLoginGuardians: any[] = []
+    if (isFamilyExport) {
+      const guardianWhere: any = {
+        tenantId,
+        deletedAt: null,
+        userId: null,
+        ...(effectiveBranchId
+          ? {
+              studentLinks: {
+                some: {
+                  student: {
+                    tenantId,
+                    branchId: effectiveBranchId,
+                    deletedAt: null,
+                  },
+                },
+              },
+            }
+          : {}),
+        ...(userIds && userIds.length > 0 ? { id: { in: userIds } } : {}),
+      }
+      if (search && search.trim()) {
+        const q = search.trim()
+        guardianWhere.OR = [
+          { fullName: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q } },
+        ]
+      }
+      if (cleanRole === 'PARENT') {
+        guardianWhere.relationship = { in: ['FATHER', 'MOTHER', 'STEP_PARENT'] }
+      } else if (cleanRole === 'GUARDIAN') {
+        guardianWhere.relationship = { notIn: ['FATHER', 'MOTHER', 'STEP_PARENT'] }
+      }
+
+      nonLoginGuardians = await db.guardian.findMany({
+        where: guardianWhere,
+        include: {
+          studentLinks: {
+            include: {
+              student: {
+                select: { firstName: true, lastName: true, admissionNo: true, branchId: true },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5000,
+      })
+    }
+
     let headers: string[]
     let rows: string[]
 
@@ -228,7 +279,7 @@ async function executeExport(req: NextRequest, params: ExportParams) {
         'Last Login',
       ]
 
-      rows = members.map((m) => {
+      const memberRows = members.map((m) => {
         const assignedRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
         const linkedStudents =
           m.user.guardianProfile?.studentLinks
@@ -263,6 +314,43 @@ async function executeExport(req: NextRequest, params: ExportParams) {
           sanitizeCsvCell(m.user.lastLoginAt ? m.user.lastLoginAt.toISOString() : ''),
         ].join(',')
       })
+
+      const guardianRows = nonLoginGuardians.map((g) => {
+        const role = ['FATHER', 'MOTHER', 'STEP_PARENT'].includes(g.relationship) ? 'PARENT' : 'GUARDIAN'
+        const linkedStudents =
+          g.studentLinks
+            ?.map((sl: any) => `${sl.student.firstName} ${sl.student.lastName || ''} (${sl.student.admissionNo})`.trim())
+            .join('; ') || ''
+        const firstBranchId = g.studentLinks?.[0]?.student?.branchId
+        const branchDisplay = (firstBranchId && branchMap.get(firstBranchId)) || firstBranchId || 'All Campuses'
+        const isPrimary = g.isPrimaryContact ? 'YES' : 'NO'
+        const canPickup = g.studentLinks?.some((sl: any) => sl.canPickup) ? 'YES' : 'NO'
+        const receivesComm = g.studentLinks?.some((sl: any) => sl.receivesComm) ? 'YES' : 'NO'
+        const isFeePayer = g.studentLinks?.some((sl: any) => sl.isFeePayer) ? 'YES' : 'NO'
+
+        return [
+          sanitizeCsvCell(g.id),
+          sanitizeCsvCell(g.fullName),
+          sanitizeCsvCell(''),
+          sanitizeCsvCell(g.email),
+          sanitizeCsvCell(g.phone),
+          sanitizeCsvCell(role),
+          sanitizeCsvCell(role),
+          sanitizeCsvCell('ACTIVE'),
+          sanitizeCsvCell(branchDisplay),
+          sanitizeCsvCell(g.relationship),
+          sanitizeCsvCell(g.occupation),
+          sanitizeCsvCell(isPrimary),
+          sanitizeCsvCell(canPickup),
+          sanitizeCsvCell(receivesComm),
+          sanitizeCsvCell(isFeePayer),
+          sanitizeCsvCell(linkedStudents),
+          sanitizeCsvCell(g.createdAt.toISOString()),
+          sanitizeCsvCell(''),
+        ].join(',')
+      })
+
+      rows = [...memberRows, ...guardianRows]
     } else {
       headers = [
         'User ID',
@@ -344,6 +432,7 @@ async function executeExport(req: NextRequest, params: ExportParams) {
     const filename = `${filePrefix}_${dateStr}.csv`
 
     const meta = getRequestMeta(req)
+    const exportCount = rows.length
     await recordAudit({
       tenantId,
       actorId: session.uid,
@@ -353,10 +442,10 @@ async function executeExport(req: NextRequest, params: ExportParams) {
       entity: 'User',
       module: 'Users',
       severity: 'INFO',
-      summary: `Exported ${members.length} user records to CSV (${filename})`,
+      summary: `Exported ${exportCount} user records to CSV (${filename})`,
       ipAddress: meta.ipAddress,
       userAgent: meta.userAgent,
-      newValues: { count: members.length, filename, userType: cleanUserType, role: cleanRole },
+      newValues: { count: exportCount, filename, userType: cleanUserType, role: cleanRole },
     })
 
     return new NextResponse(csvContent, {

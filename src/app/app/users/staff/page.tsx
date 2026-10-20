@@ -2,12 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Briefcase, Search, UserPlus, FileSpreadsheet, Download, RefreshCw,
   Building, Phone, Mail, MoreHorizontal, Edit3, Shield, Eye, Lock,
   ChevronLeft, AlertCircle, ArrowUpDown, GraduationCap, Users, X, Camera,
-  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network, DoorOpen, Trash2
+  KeyRound, Unlock, UserX, UserCheck, Send, Layers, Image, Network, DoorOpen, Trash2,
+  ArrowRight
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -106,11 +107,25 @@ export default function StaffUsersPage() {
   const [suspendModalUser, setSuspendModalUser] = useState<UserRecord | null>(null)
   const [deleteModalUser, setDeleteModalUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const router = useRouter()
   const [viewMode, setViewMode] = useState<'directory' | 'hierarchy' | 'import'>(() => {
     if (searchParams?.get('tab') === 'import') return 'import'
     if (searchParams?.get('view') === 'hierarchy') return 'hierarchy'
     return 'directory'
   })
+
+  // Synchronize viewMode with URL searchParams (e.g. ?tab=import)
+  useEffect(() => {
+    const tab = searchParams?.get('tab')
+    const view = searchParams?.get('view')
+    if (tab === 'import') {
+      setViewMode('import')
+    } else if (view === 'hierarchy') {
+      setViewMode('hierarchy')
+    } else if (!tab && !view) {
+      setViewMode('directory')
+    }
+  }, [searchParams])
 
   const handleSelectUserFromHierarchy = async (userId: string) => {
     const existing = users.find((u) => (u.userId || u.id) === userId)
@@ -578,14 +593,13 @@ export default function StaffUsersPage() {
                   onClick: () => setAddStaffOpen(true),
                 },
                 {
-                  id: 'organize-hierarchy',
-                  label: 'Organize Hierarchy',
-                  helperText: 'Visual reporting structure & org chart',
+                  id: 'organization-setup',
+                  label: 'Organization Setup',
+                  helperText: 'Reporting hierarchy & roles dictionary',
                   icon: <Network />,
                   category: 'view',
                   groupId: 'primary',
-                  visible: viewMode !== 'hierarchy',
-                  onClick: () => setViewMode('hierarchy'),
+                  href: '/app/users/organization',
                 },
                 {
                   id: 'view-directory',
@@ -594,8 +608,12 @@ export default function StaffUsersPage() {
                   icon: <Users />,
                   category: 'view',
                   groupId: 'primary',
-                  visible: viewMode === 'hierarchy',
-                  onClick: () => setViewMode('directory'),
+                  visible: viewMode === 'hierarchy' || viewMode === 'import',
+                  href: '/app/users/staff',
+                  onClick: () => {
+                    setViewMode('directory')
+                    router.push('/app/users/staff')
+                  },
                 },
                 {
                   id: 'spreadsheet-workspace',
@@ -603,8 +621,41 @@ export default function StaffUsersPage() {
                   helperText: 'Bulk import and export staff via spreadsheet',
                   icon: <FileSpreadsheet />,
                   category: 'import',
-                  groupId: 'data',
-                  onClick: () => setViewMode('import'),
+                  groupId: 'primary',
+                  href: '/app/users/staff?tab=import',
+                  onClick: () => {
+                    setViewMode('import')
+                    router.push('/app/users/staff?tab=import')
+                  },
+                },
+                {
+                  id: 'staff-updates',
+                  label: 'Staff Updates',
+                  helperText: 'Individual staff edits & bulk field updates',
+                  icon: <Layers />,
+                  category: 'edit',
+                  groupId: 'management',
+                  href: '/app/users/updates',
+                },
+                {
+                  id: 'photo-management',
+                  label: 'Photo Management',
+                  helperText: 'Individual portrait & ZIP bulk photo upload',
+                  icon: <Camera />,
+                  category: 'import',
+                  groupId: 'management',
+                  href: '/app/users/photos',
+                },
+                // Legacy compatibility action items
+                {
+                  id: 'organize-hierarchy',
+                  label: 'Organize Hierarchy',
+                  helperText: 'Visual reporting structure & org chart',
+                  icon: <Network />,
+                  category: 'view',
+                  groupId: 'management',
+                  visible: false,
+                  onClick: () => setViewMode('hierarchy'),
                 },
                 {
                   id: 'dictionary',
@@ -613,52 +664,8 @@ export default function StaffUsersPage() {
                   icon: <Shield />,
                   category: 'settings',
                   groupId: 'management',
+                  visible: false,
                   onClick: () => setRolesModalOpen(true),
-                },
-                {
-                  id: 'individual-edit',
-                  label: t('users.individualEdit') || 'Individual Edit',
-                  icon: <Edit3 />,
-                  category: 'edit',
-                  groupId: 'management',
-                  onClick: () => {
-                    if (selectedKeys.length === 1) {
-                      const u = users.find((x) => String(x.userId || x.id) === String(selectedKeys[0]))
-                      if (u) {
-                        setEditingUser(u)
-                        return
-                      }
-                    }
-                    if (users.length > 0) {
-                      setEditingUser(users[0])
-                    } else {
-                      toast.info('Selection Needed', 'No staff member available to edit')
-                    }
-                  },
-                },
-                {
-                  id: 'bulk-update',
-                  label: t('users.bulkFieldUpdate') || 'Bulk Field Update',
-                  icon: <Layers />,
-                  category: 'edit',
-                  groupId: 'management',
-                  onClick: () => setBulkFieldUpdateOpen(true),
-                },
-                {
-                  id: 'upload-photos',
-                  label: t('users.uploadPhotos') || 'Upload Photos',
-                  icon: <Camera />,
-                  category: 'import',
-                  groupId: 'management',
-                  onClick: () => setBulkPhotosOpen(true),
-                },
-                {
-                  id: 'zip-photos',
-                  label: t('users.bulkPhotoUpload') || 'Bulk Profile Photo Upload',
-                  icon: <Image />,
-                  category: 'import',
-                  groupId: 'management',
-                  onClick: () => setZipPhotoModalOpen(true),
                 },
               ]}
             />
@@ -670,10 +677,14 @@ export default function StaffUsersPage() {
         <div className="pt-2">
           <SpreadsheetImportWorkspace
             module="STAFF"
-            onCancel={() => setViewMode('directory')}
+            onCancel={() => {
+              setViewMode('directory')
+              router.push('/app/users/staff')
+            }}
             onSuccess={() => {
               fetchStaff()
               setViewMode('directory')
+              router.push('/app/users/staff')
             }}
             exportContext={{
               branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,

@@ -71,9 +71,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             : inputSize === "lg"
             ? "h-11 min-h-[44px] text-[15px] rounded-lg px-3.5 py-1.5"
             : "h-11 min-h-[44px] text-sm sm:text-[15px] rounded-lg px-3.5 py-2",
-          // Reserved Paddings for Icons: 44px ensures >=8px (12px) separation after 14px + 18px icon
-          leadingIcon ? "pl-[44px] !pl-[44px]" : "pl-3.5",
-          trailingAction ? "pr-[44px] !pr-[44px]" : "pr-3.5",
+          // Reserved Paddings for Icons: 44px ensures >=8px (12px) separation after 14px + 18px icon (supporting LTR & RTL)
+          leadingIcon && trailingAction
+            ? "pl-[44px] !pl-[44px] pr-[44px] !pr-[44px] ps-[44px] !ps-[44px] pe-[44px] !pe-[44px] rtl:pl-[44px] rtl:!pl-[44px] rtl:pr-[44px] rtl:!pr-[44px]"
+            : leadingIcon
+            ? "pl-[44px] !pl-[44px] ps-[44px] !ps-[44px] pr-3.5 pe-3.5 rtl:pl-3.5 rtl:!pl-3.5 rtl:pr-[44px] rtl:!pr-[44px]"
+            : trailingAction
+            ? "pr-[44px] !pr-[44px] pe-[44px] !pe-[44px] pl-3.5 ps-3.5 rtl:pr-3.5 rtl:!pr-3.5 rtl:pl-[44px] rtl:!pl-[44px]"
+            : "pl-3.5 pr-3.5 ps-3.5 pe-3.5",
           // Surface Colors & Borders
           isAuthOrXl
             ? cn(
@@ -108,7 +113,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {leadingIcon && (
             <div
               className={cn(
-                "input-wrapper__icon pointer-events-none absolute left-[14px] top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 dark:text-slate-500 group-focus-within:text-purple-600 dark:group-focus-within:text-purple-400 transition-colors flex-shrink-0 z-10 w-[18px] h-[18px]",
+                "input-wrapper__icon pointer-events-none absolute left-[14px] inset-inline-start-[14px] rtl:left-auto rtl:right-[14px] top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 dark:text-slate-500 group-focus-within:text-purple-600 dark:group-focus-within:text-purple-400 transition-colors flex-shrink-0 z-10 w-[18px] h-[18px]",
                 iconClassName
               )}
               aria-hidden="true"
@@ -120,7 +125,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {trailingAction && (
             <div
               className={cn(
-                "input-wrapper__trailing absolute right-[14px] top-1/2 -translate-y-1/2 flex items-center justify-center z-10 text-slate-400 dark:text-slate-500"
+                "input-wrapper__trailing absolute right-[14px] inset-inline-end-[14px] rtl:right-auto rtl:left-[14px] top-1/2 -translate-y-1/2 flex items-center justify-center z-20 pointer-events-auto text-slate-400 dark:text-slate-500"
               )}
             >
               {trailingAction}

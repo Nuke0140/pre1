@@ -88,23 +88,37 @@ export class PickupPinService {
   }
 
   /**
-   * Retrieves current pickup PIN status, masking secret PIN data.
+   * Helper: Resolves Guardian profile by userId, guardianId, or targetId in current tenant.
    */
-  static async getPinStatus(params: {
-    userId: string
-    tenantId: string
-  }): Promise<PickupPinStatus | null> {
-    const { userId, tenantId } = params
+  static async resolveGuardian(
+    tenantId: string,
+    params: { userId?: string; guardianId?: string; targetId?: string },
+    options: { canPickupOnly?: boolean } = {}
+  ) {
+    const { userId, guardianId, targetId } = params
+    const orConditions: any[] = []
+    if (guardianId) orConditions.push({ id: guardianId })
+    if (userId) orConditions.push({ userId })
+    if (targetId) orConditions.push({ id: targetId }, { userId: targetId })
 
-    const guardian = await db.guardian.findFirst({
+    if (orConditions.length === 0) return null
+
+    return await db.guardian.findFirst({
       where: {
-        userId,
         tenantId,
         deletedAt: null,
+        OR: orConditions,
       },
       include: {
         user: true,
         studentLinks: {
+          where: {
+            student: {
+              tenantId,
+              deletedAt: null,
+            },
+            ...(options.canPickupOnly ? { canPickup: true } : {}),
+          },
           include: {
             student: {
               include: {
@@ -115,6 +129,19 @@ export class PickupPinService {
         },
       },
     })
+  }
+
+  /**
+   * Retrieves current pickup PIN status, masking secret PIN data.
+   */
+  static async getPinStatus(params: {
+    userId?: string
+    guardianId?: string
+    targetId?: string
+    tenantId: string
+  }): Promise<PickupPinStatus | null> {
+    const { tenantId, userId } = params
+    const guardian = await this.resolveGuardian(tenantId, params)
 
     if (!guardian) {
       return null
@@ -144,7 +171,7 @@ export class PickupPinService {
 
     return {
       guardianId: guardian.id,
-      userId: guardian.userId || userId,
+      userId: guardian.userId || userId || guardian.id,
       fullName: guardian.fullName,
       phone: guardian.phone,
       relationship: guardian.relationship,
@@ -164,7 +191,9 @@ export class PickupPinService {
    * Regenerates a cryptographically random pickup PIN.
    */
   static async regeneratePin(params: {
-    userId: string
+    userId?: string
+    guardianId?: string
+    targetId?: string
     tenantId: string
     actorSession: SessionPayload
     studentId?: string
@@ -181,6 +210,8 @@ export class PickupPinService {
   }> {
     const {
       userId,
+      guardianId,
+      targetId,
       tenantId,
       actorSession,
       studentId,
@@ -190,10 +221,7 @@ export class PickupPinService {
       req,
     } = params
 
-    const guardian = await db.guardian.findFirst({
-      where: { userId, tenantId, deletedAt: null },
-      include: { studentLinks: true },
-    })
+    const guardian = await this.resolveGuardian(tenantId, { userId, guardianId, targetId })
 
     if (!guardian) {
       throw new Error('Guardian profile not found for this user in current school')
@@ -285,7 +313,9 @@ export class PickupPinService {
    * Resets or sets a custom pickup PIN, or clears existing PINs.
    */
   static async resetPin(params: {
-    userId: string
+    userId?: string
+    guardianId?: string
+    targetId?: string
     tenantId: string
     actorSession: SessionPayload
     pin?: string | null
@@ -303,6 +333,8 @@ export class PickupPinService {
   }> {
     const {
       userId,
+      guardianId,
+      targetId,
       tenantId,
       actorSession,
       pin,
@@ -313,10 +345,7 @@ export class PickupPinService {
       req,
     } = params
 
-    const guardian = await db.guardian.findFirst({
-      where: { userId, tenantId, deletedAt: null },
-      include: { studentLinks: true },
-    })
+    const guardian = await this.resolveGuardian(tenantId, { userId, guardianId, targetId })
 
     if (!guardian) {
       throw new Error('Guardian profile not found for this user in current school')
@@ -421,7 +450,9 @@ export class PickupPinService {
    * Auto-provisions missing pickup PINs for guardian and all linked students authorized for pickup.
    */
   static async autoProvisionPins(params: {
-    userId: string
+    userId?: string
+    guardianId?: string
+    targetId?: string
     tenantId: string
     actorSession: SessionPayload
     overwriteExisting?: boolean
@@ -433,16 +464,9 @@ export class PickupPinService {
     alreadyConfigured: boolean
     message: string
   }> {
-    const { userId, tenantId, actorSession, overwriteExisting = false, req } = params
+    const { userId, guardianId, targetId, tenantId, actorSession, overwriteExisting = false, req } = params
 
-    const guardian = await db.guardian.findFirst({
-      where: { userId, tenantId, deletedAt: null },
-      include: {
-        studentLinks: {
-          where: { canPickup: true },
-        },
-      },
-    })
+    const guardian = await this.resolveGuardian(tenantId, { userId, guardianId, targetId }, { canPickupOnly: true })
 
     if (!guardian) {
       throw new Error('Guardian profile not found for this user in current school')

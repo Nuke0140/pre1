@@ -5,7 +5,7 @@ import { mrIN } from '@/lib/i18n/locales/mr-IN'
 import { validateFullName, validateStaffInput, validateFamilyInput } from '@/lib/users/user-validation'
 import { CANONICAL_STAFF_ROLES, CANONICAL_FAMILY_ROLES } from '@/components/users/types'
 import { CANONICAL_ROLES, ROLE_META } from '@/lib/roles'
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 
 describe('PreOne P4 Production Hardening & Bug Fixes (N-7, N-8, N-9, N-10, Doc 5.4)', () => {
@@ -204,7 +204,10 @@ describe('PreOne P4 Production Hardening & Bug Fixes (N-7, N-8, N-9, N-10, Doc 5
   // ─────────────────────────────────────────────────────────────────────────────
   describe('Doc 5.4 / N-10: ZIP Photo Mismatch Resolver', () => {
     it('verifies ZipPhotoUploadModal renders interactive mismatch resolver selector', () => {
-      const zipModalCode = readFileSync(join(process.cwd(), 'src/components/users/ZipPhotoUploadModal.tsx'), 'utf-8')
+      const filePath = existsSync(join(process.cwd(), 'src/components/users/ZipPhotoUploadView.tsx'))
+        ? join(process.cwd(), 'src/components/users/ZipPhotoUploadView.tsx')
+        : join(process.cwd(), 'src/components/users/ZipPhotoUploadModal.tsx')
+      const zipModalCode = readFileSync(filePath, 'utf-8')
 
       expect(zipModalCode).toContain('candidateUsers')
       expect(zipModalCode).toContain('handleAssignUser')

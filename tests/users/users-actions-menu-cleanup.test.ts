@@ -64,20 +64,22 @@ describe('PreOne Users Dashboard — Actions Menu Consolidation & Duplicate Clea
   })
 
   describe('3. Users Launcher Hub Action Consolidation', () => {
-    it('consolidates launcher actions into one central GlobalActionMenu', () => {
-      expect(usersLauncherContent).toContain('<GlobalActionMenu')
-      expect(usersLauncherContent).toContain("id: 'add-staff'")
-      expect(usersLauncherContent).toContain("id: 'add-family'")
-      expect(usersLauncherContent).toContain("id: 'spreadsheet-workspace'")
-      expect(usersLauncherContent).toContain("id: 'dictionary'")
-      expect(usersLauncherContent).toContain("id: 'organize-hierarchy'")
+    it('maintains a clean launcher hub for user directories without scattered action grids', () => {
+      // Launcher hub contains directory cards
+      expect(usersLauncherContent).toContain('Staff Directory')
+      expect(usersLauncherContent).toContain('Family Directory')
+      expect(usersLauncherContent).toContain('href="/app/users/staff"')
+      expect(usersLauncherContent).toContain('href="/app/users/family"')
     })
 
-    it('ensures separate redundant buttons are removed from the launcher header', () => {
+    it('ensures separate redundant buttons and old individual actions are removed from the launcher', () => {
       // Standalone Roles Directory button removed
       expect(usersLauncherContent).not.toMatch(/<button[^>]*onClick=\{[^}]*setRolesModalOpen\(true\)[^}]*\}[\s\S]*?\{t\('users\.rolesDirectory'\)\}/)
       // Standalone + Add dropdown removed
       expect(usersLauncherContent).not.toContain('users-act-add')
+      // No duplicate individual action buttons
+      expect(usersLauncherContent).not.toContain('id="action-dictionary"')
+      expect(usersLauncherContent).not.toContain('id="action-organize-hierarchy"')
     })
   })
 })

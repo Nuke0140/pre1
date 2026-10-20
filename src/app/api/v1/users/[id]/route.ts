@@ -36,8 +36,89 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
+  const { targetMember, targetGuardian } = manageCheck
 
   try {
+    if (!targetMember && targetGuardian) {
+      const g = targetGuardian
+      const branches = await db.branch.findMany({
+        where: { tenantId: session.tenantId, deletedAt: null },
+        select: { id: true, name: true, code: true, isMain: true },
+      })
+      const branchMap = new Map(branches.map((b) => [b.id, b]))
+
+      const students = g.studentLinks.map((sl: any) => {
+        const b = branchMap.get(sl.student?.branchId)
+        return {
+          id: sl.student?.id || sl.studentId,
+          name: sl.student ? `${sl.student.firstName} ${sl.student.lastName || ''}`.trim() : 'Student',
+          admissionNo: sl.student?.admissionNo || '',
+          canPickup: sl.canPickup,
+          receivesComm: sl.receivesComm,
+          pickupPin: sl.pickupPin ? '••••' : null,
+          relationship: sl.relationship || g.relationship,
+          classroom: sl.student?.currentClassroom?.name || null,
+          branchId: sl.student?.branchId || null,
+          branchName: b?.name || null,
+          branchCode: b?.code || null,
+          dob: sl.student?.dob ? sl.student.dob.toISOString() : null,
+          gender: sl.student?.gender || null,
+          status: sl.student?.status || 'ACTIVE',
+          photoUrl: sl.student?.photoUrl || null,
+          seatNumber: sl.student?.seatNumber || null,
+        }
+      })
+
+      const uniqueBranchIds = Array.from(new Set(students.map((s: any) => s.branchId).filter(Boolean))) as string[]
+      const campuses = uniqueBranchIds.map((bId) => {
+        const b = branchMap.get(bId)
+        return {
+          id: bId,
+          name: b?.name || 'Unknown Campus',
+          code: b?.code || '',
+          studentCount: students.filter((s: any) => s.branchId === bId).length,
+        }
+      })
+
+      return ok({
+        id: g.id,
+        userId: g.userId || g.id,
+        username: g.user?.username || null,
+        avatarUrl: g.photoUrl || g.user?.avatarUrl || null,
+        name: g.fullName,
+        fullName: g.fullName,
+        email: g.email || g.user?.email || null,
+        phone: g.phone || g.user?.phone || null,
+        role: 'GUARDIAN' as UserRole,
+        roles: ['GUARDIAN' as UserRole],
+        status: (g.user?.status || 'ACTIVE') as UserStatus,
+        hasPassword: false,
+        passwordStatus: 'NOT_SET',
+        maskedPassword: null,
+        branchId: g.studentLinks[0]?.student?.branchId || null,
+        assignedBranches: [],
+        assignedBranchIds: [],
+        lastLoginAt: g.user?.lastLoginAt || null,
+        createdAt: g.createdAt,
+        locale: g.user?.locale || 'en-IN',
+        staffProfile: null,
+        reportingManagerId: null,
+        reportingManager: null,
+        taughtClasses: [],
+        guardianProfile: {
+          id: g.id,
+          relationship: g.relationship,
+          occupation: g.occupation,
+          isPrimaryContact: g.isPrimaryContact,
+          pickupPin: g.pickupPin ? '••••' : null,
+          isCrossCampus: uniqueBranchIds.length > 1,
+          campusesCount: uniqueBranchIds.length,
+          campuses,
+          students,
+        },
+      })
+    }
+
     const member = await db.tenantUser.findFirst({
       where: {
         tenantId: session.tenantId,
@@ -315,7 +396,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
 
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember: member } = manageCheck
+  const { targetMember: member, targetGuardian } = manageCheck
 
   try {
     const body = await req.json()
@@ -411,6 +492,67 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       pickupPin?: string | null
       canPickup?: boolean
       receivesComm?: boolean
+    }
+
+    if (!member && targetGuardian) {
+      const g = targetGuardian
+      const updatedGuardian = await db.$transaction(async (tx) => {
+        const updated = await tx.guardian.update({
+          where: { id: g.id },
+          data: {
+            ...(fullName?.trim() ? { fullName: fullName.trim() } : {}),
+            ...(email !== undefined ? { email: email?.trim().toLowerCase() || null } : {}),
+            ...(phone !== undefined ? { phone: phone?.trim() || '' } : {}),
+            ...(avatarUrl !== undefined ? { photoUrl: avatarUrl?.trim() || null } : {}),
+            ...(relationship !== undefined ? { relationship: normalizeRelationship(relationship) } : {}),
+            ...(occupation !== undefined ? { occupation: occupation?.trim() || null } : {}),
+            ...(isPrimaryContact !== undefined ? { isPrimaryContact: Boolean(isPrimaryContact) } : {}),
+            ...(pickupPin !== undefined ? { pickupPin: pickupPin?.trim() || null } : {}),
+          },
+        })
+
+        if (canPickup !== undefined || receivesComm !== undefined || pickupPin !== undefined) {
+          await tx.studentGuardian.updateMany({
+            where: { guardianId: g.id },
+            data: {
+              ...(canPickup !== undefined ? { canPickup: Boolean(canPickup) } : {}),
+              ...(receivesComm !== undefined ? { receivesComm: Boolean(receivesComm) } : {}),
+              ...(pickupPin !== undefined ? { pickupPin: pickupPin?.trim() || null } : {}),
+            },
+          })
+        }
+
+        return updated
+      })
+
+      await recordAudit({
+        tenantId: session.tenantId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'USER_UPDATED',
+        entity: 'Guardian',
+        entityId: g.id,
+        module: 'Users',
+        summary: `Updated non-login guardian profile for ${updatedGuardian.fullName}`,
+        ipAddress: req.headers.get('x-forwarded-for') || undefined,
+        userAgent: req.headers.get('user-agent') || undefined,
+        newValues: {
+          fullName: updatedGuardian.fullName,
+          phone: updatedGuardian.phone,
+          email: updatedGuardian.email,
+          relationship: updatedGuardian.relationship,
+        },
+      })
+
+      return ok({
+        id: updatedGuardian.id,
+        userId: updatedGuardian.userId || updatedGuardian.id,
+        fullName: updatedGuardian.fullName,
+        role: 'GUARDIAN',
+        status: 'ACTIVE',
+        message: 'Guardian profile updated successfully',
+      })
     }
 
     const branchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
@@ -1335,11 +1477,36 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
   const { id } = await params
   const session = await requireApi(req, 'users:write')
   if (isResponse(session)) return session
+  if (!session.tenantId) return bad('Tenant required', 'TENANT_REQUIRED')
+
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
-  const { targetMember: member } = manageCheck
+  const { targetMember: member, targetGuardian } = manageCheck
 
   try {
+    if (!member && targetGuardian) {
+      await db.guardian.update({
+        where: { id: targetGuardian.id },
+        data: { deletedAt: new Date() },
+      })
+      await recordAudit({
+        tenantId: session.tenantId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+        action: 'USER_DELETED',
+        entity: 'Guardian',
+        entityId: targetGuardian.id,
+        module: 'Users',
+        summary: `Deactivated non-login guardian profile for ${targetGuardian.fullName}`,
+      })
+      return ok({ message: 'Guardian profile deleted successfully', id: targetGuardian.id })
+    }
+
+    if (!member) {
+      return notFound('User not found in this school')
+    }
+
     if (member.userId === session.uid) {
       return bad('Cannot delete your own account', 'CANNOT_DELETE_SELF')
     }

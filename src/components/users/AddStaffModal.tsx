@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
-import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE, LOCALES } from './types'
+import { Role, BranchOption, ClassroomOption, CANONICAL_STAFF_ROLES, ROLE_BADGE } from './types'
 import { UserPhotoUpload } from './UserPhotoUpload'
 import { Input } from '@/components/ui/input'
 import { validateFullName } from '@/lib/users/user-validation'
@@ -33,7 +33,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [locale, setLocale] = useState('en-IN')
+  const locale = 'en-IN'
 
   // Step 2: Work & Assignment (Access & Organization)
   const [primaryRole, setPrimaryRole] = useState<Role>('TEACHER')
@@ -257,7 +257,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setFullName('')
     setEmail('')
     setPhone('')
-    setLocale('en-IN')
     setCredentialSetupMode('MANUAL')
     setUsername('')
     setIsUsernameCustom(false)
@@ -694,30 +693,6 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
                     label="Staff Profile Photo"
                     hint="Upload photo from device (JPG, PNG, WebP up to 5MB). Stored securely."
                   />
-
-                  {/* Preferred Language / Locale */}
-                  <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      Preferred Language
-                    </label>
-                    <select
-                      value={locale}
-                      onChange={(e) => setLocale(e.target.value)}
-                      className="select w-full text-xs mt-1"
-                    >
-                      {LOCALES.map((l) => (
-                        <option key={l.value} value={l.value}>{l.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Advisory Notice for HR Module delegation */}
-                  <div className="sm:col-span-2 flex items-center gap-2.5 p-3 rounded-lg bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 text-xs text-purple-800 dark:text-purple-300">
-                    <Info className="w-4 h-4 shrink-0 text-purple-600" />
-                    <span>
-                      Personal, emergency contact, and statutory details (PAN, Aadhaar, PF) are maintained in the HR Module after onboarding.
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
