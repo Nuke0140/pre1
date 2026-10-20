@@ -260,6 +260,7 @@ export default async function DashboardPage() {
       role={session.role}
       setup={setup}
       sessionName={activeAcademicSession?.name}
+      userName={session.name || undefined}
       perms={{
         students: canReadStudents,
         admissions: canReadAdmissions,

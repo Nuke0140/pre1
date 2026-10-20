@@ -1625,7 +1625,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
               tooltip="Click to view live store stock balances"
             />
             <GlobalKpiCard
-              label="Stock Health & Shortages"
+              label="Low Stock Alerts"
               value={stockHealthRadarSummary.counts.criticalOutOfStock + stockHealthRadarSummary.counts.lowStock}
               supportingText={
                 (stockHealthRadarSummary.counts.criticalOutOfStock + stockHealthRadarSummary.counts.lowStock) > 0
