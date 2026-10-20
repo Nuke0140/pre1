@@ -2,20 +2,14 @@
 
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ShieldCheck, ArrowRight, UserPlus, ChevronDown, Briefcase, Users, FileSpreadsheet } from 'lucide-react'
+import { ShieldCheck, ArrowRight, Briefcase, Users, FileSpreadsheet, Network } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
 import { PageHead, Card } from '@/components/preone/ui'
 import { StaffUsersIllustration, FamilyUsersIllustration } from '@/components/preone/illustrations'
 import { RolesDirectoryModal } from '@/components/users/RolesDirectoryModal'
 import { AddStaffModal } from '@/components/users/AddStaffModal'
 import { AddFamilyModal } from '@/components/users/AddFamilyModal'
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu'
+import { GlobalActionMenu } from '@/components/ui/action-menu'
 import { BranchOption, ClassroomOption } from '@/components/users/types'
 import { useI18n } from '@/lib/i18n'
 
@@ -90,59 +84,61 @@ export default function UsersLauncherPage() {
         title={t('users.title')}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setRolesModalOpen(true)}
-              className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-2.5 sm:py-2 sm:px-3"
-            >
-              <ShieldCheck className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              <span>{t('users.rolesDirectory')}</span>
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-1.5 px-3 sm:py-2 sm:px-3.5 shadow-sm font-semibold users-act-add"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>+ {t('common.add') || 'Add'}</span>
-                  <ChevronDown className="w-3.5 h-3.5 opacity-80 ml-0.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-1.5 shadow-lg border border-gray-100 dark:border-gray-800 rounded-xl bg-card z-50">
-                <DropdownMenuItem
-                  onClick={() => setAddStaffOpen(true)}
-                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-950/40 text-xs font-medium transition-colors"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addStaff') || 'Add Staff Member'}</div>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setAddFamilyOpen(true)}
-                  className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-medium transition-colors"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
-                    <Users className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="font-semibold text-gray-900 dark:text-gray-100">{t('users.addFamily') || 'Add Family / Parent'}</div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/app/users/staff?tab=import"
-                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-xs font-medium transition-colors"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center shrink-0">
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div className="font-semibold text-gray-900 dark:text-gray-100">Import via Spreadsheet</div>
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <GlobalActionMenu
+              label={t('common.actions') || 'Actions'}
+              className="font-semibold shadow-xs"
+              groups={[
+                { id: 'primary', label: 'Primary Actions' },
+                { id: 'management', label: 'Management & Reference' },
+              ]}
+              actions={[
+                {
+                  id: 'add-staff',
+                  label: t('users.addStaff') || 'Add Staff Member',
+                  helperText: 'Onboard a new staff member or educator',
+                  icon: <Briefcase />,
+                  category: 'create',
+                  groupId: 'primary',
+                  onClick: () => setAddStaffOpen(true),
+                },
+                {
+                  id: 'add-family',
+                  label: t('users.addFamily') || 'Add Family / Parent',
+                  helperText: 'Register parent or guardian account',
+                  icon: <Users />,
+                  category: 'create',
+                  groupId: 'primary',
+                  onClick: () => setAddFamilyOpen(true),
+                },
+                {
+                  id: 'spreadsheet-workspace',
+                  label: 'User Spreadsheet Tool',
+                  helperText: 'Import or export via spreadsheet workspace',
+                  icon: <FileSpreadsheet />,
+                  category: 'import',
+                  groupId: 'primary',
+                  href: '/app/users/staff?tab=import',
+                },
+                {
+                  id: 'dictionary',
+                  label: 'Dictionary',
+                  helperText: 'Roles, permissions & capabilities directory',
+                  icon: <ShieldCheck />,
+                  category: 'settings',
+                  groupId: 'management',
+                  onClick: () => setRolesModalOpen(true),
+                },
+                {
+                  id: 'organize-hierarchy',
+                  label: 'Organize Hierarchy',
+                  helperText: 'Reporting structure & organizational chart',
+                  icon: <Network />,
+                  category: 'view',
+                  groupId: 'management',
+                  href: '/app/users/staff?view=hierarchy',
+                },
+              ]}
+            />
           </div>
         }
       />

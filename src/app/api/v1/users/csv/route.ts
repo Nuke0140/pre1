@@ -58,6 +58,22 @@ async function _GET(req: NextRequest) {
   })
 }
 
+function rowsToCsv(rows: Record<string, any>[]): string {
+  if (!rows || rows.length === 0) return ''
+  const headers = Object.keys(rows[0])
+  const escapeVal = (v: any) => {
+    const s = String(v ?? '')
+    if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+      return `"${s.replace(/"/g, '""')}"`
+    }
+    return s
+  }
+  return [
+    headers.map(escapeVal).join(','),
+    ...rows.map((r) => headers.map((h) => escapeVal(r[h])).join(',')),
+  ].join('\n')
+}
+
 /**
  * POST /api/v1/users/csv — Two-stage CSV preview and execution for Staff and Family
  */
@@ -88,12 +104,7 @@ async function _POST(req: NextRequest) {
     if (action === 'preview' || action === 'validate') {
       let rawCsv = typeof csv === 'string' ? csv : ''
       if (!rawCsv && Array.isArray(body.rows) && body.rows.length > 0) {
-        const headers = Object.keys(body.rows[0])
-        const csvLines = [
-          headers.join(','),
-          ...body.rows.map((r: any) => headers.map((h) => String(r[h] ?? '')).join(',')),
-        ]
-        rawCsv = csvLines.join('\n')
+        rawCsv = rowsToCsv(body.rows)
       }
 
       if (!rawCsv) {
@@ -124,12 +135,7 @@ async function _POST(req: NextRequest) {
       }
 
       if (!rowsToExecute && Array.isArray(body.rows) && body.rows.length > 0) {
-        const headers = Object.keys(body.rows[0])
-        const csvLines = [
-          headers.join(','),
-          ...body.rows.map((r: any) => headers.map((h) => String(r[h] ?? '')).join(',')),
-        ]
-        const rawCsv = csvLines.join('\n')
+        const rawCsv = rowsToCsv(body.rows)
         const preview =
           templateType === 'FAMILY'
             ? await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv)

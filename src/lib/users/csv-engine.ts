@@ -5,6 +5,7 @@ import { UserRole, Relationship, UserStatus, EmploymentType, Gender, ProgramType
 import { normalizeRole, type CanonicalRole, LEGACY_ROLE_MAP } from '@/lib/roles'
 import { validatePan, validateAadhaar, validateUan, validateEsi } from './statutory-validation'
 import { recordAudit } from '@/lib/audit'
+import { resolveRowWithAliases, CANONICAL_STAFF_FIELDS, CANONICAL_FAMILY_FIELDS, parseBooleanCell } from './canonical-fields'
 
 /**
  * Sanitizes a cell against spreadsheet formula injection (=, +, -, @, \t, \r)
@@ -29,48 +30,61 @@ export function sanitizeInputCellValue(val: string): string {
 }
 
 export function parseCsvString(csvContent: string): { headers: string[]; rows: Record<string, string>[] } {
-  const lines = csvContent
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
+  if (!csvContent || !csvContent.trim()) return { headers: [], rows: [] }
 
-  if (lines.length === 0) return { headers: [], rows: [] }
+  const records: string[][] = []
+  let currentRecord: string[] = []
+  let currentField = ''
+  let insideQuotes = false
 
-  const parseLine = (line: string): string[] => {
-    const values: string[] = []
-    let current = ''
-    let insideQuotes = false
+  const len = csvContent.length
+  for (let i = 0; i < len; i++) {
+    const char = csvContent[i]
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i]
-      if (char === '"') {
-        if (insideQuotes && line[i + 1] === '"') {
-          current += '"'
-          i++
-        } else {
-          insideQuotes = !insideQuotes
-        }
-      } else if (char === ',' && !insideQuotes) {
-        values.push(current.trim())
-        current = ''
+    if (char === '"') {
+      if (insideQuotes && csvContent[i + 1] === '"') {
+        currentField += '"'
+        i++ // Skip escaped quote
       } else {
-        current += char
+        insideQuotes = !insideQuotes
       }
+    } else if (char === ',' && !insideQuotes) {
+      currentRecord.push(sanitizeInputCellValue(currentField))
+      currentField = ''
+    } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && csvContent[i + 1] === '\n') {
+        i++ // Skip \n in \r\n
+      }
+      currentRecord.push(sanitizeInputCellValue(currentField))
+      currentField = ''
+      if (currentRecord.some((f) => f.length > 0)) {
+        records.push(currentRecord)
+      }
+      currentRecord = []
+    } else {
+      currentField += char
     }
-    values.push(current.trim())
-    return values
   }
 
-  const rawHeaders = parseLine(lines[0])
+  if (currentField.length > 0 || currentRecord.length > 0) {
+    currentRecord.push(sanitizeInputCellValue(currentField))
+    if (currentRecord.some((f) => f.length > 0)) {
+      records.push(currentRecord)
+    }
+  }
+
+  if (records.length === 0) return { headers: [], rows: [] }
+
+  const rawHeaders = records[0]
   const headers = rawHeaders.map((h) => h.replace(/^["']|["']$/g, '').trim())
 
   const rows: Record<string, string>[] = []
-  for (let i = 1; i < lines.length; i++) {
-    const rawValues = parseLine(lines[i])
+  for (let r = 1; r < records.length; r++) {
+    const rawValues = records[r]
     const rowObj: Record<string, string> = {}
     for (let j = 0; j < headers.length; j++) {
       const h = headers[j]
-      const val = rawValues[j] !== undefined ? sanitizeInputCellValue(rawValues[j]) : ''
+      const val = rawValues[j] !== undefined ? rawValues[j] : ''
       rowObj[h] = val
     }
     rows.push(rowObj)
@@ -122,13 +136,24 @@ export class UserCsvEngine {
       'joiningDate',
       'dateOfBirth',
       'gender',
+      'maritalStatus',
+      'bloodGroup',
+      'emergencyContactName',
+      'emergencyContactPhone',
+      'currentAddress',
+      'permanentAddress',
+      'panNumber',
+      'aadhaarNumber',
+      'uanNumber',
+      'esiNumber',
+      'noticePeriodDays',
     ]
 
     const sampleRows = [
-      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'NUR-A', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'FULL_TIME', '2026-06-01', '1992-05-14', 'FEMALE'],
-      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', '', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'FULL_TIME', '2026-05-15', '1988-11-20', 'MALE'],
-      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'PG-STAR', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE'],
-      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', '', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'FULL_TIME', '2026-05-01', '1985-08-09', 'MALE'],
+      ['ananya.sharma', 'Ananya Sharma', 'ananya.sharma@preschool.com', '+919876543210', 'TEACHER', 'MAIN', 'NUR-A', 'EMP-2026-01', 'Lead Montessori Teacher', 'Academics', 'B.Ed, Early Childhood Dip.', 'FULL_TIME', '2026-06-01', '1992-05-14', 'FEMALE', 'Married', 'B_POSITIVE', 'Ramesh Sharma', '+919876543219', 'Flat 402 Sunshine Pune', '12 Heritage Way Nagpur', '', '', '', '', '60'],
+      ['vikas.nair', 'Vikas Nair', 'vikas.nair@preschool.com', '+919876543211', 'ACCOUNTS', 'MAIN', '', 'EMP-2026-02', 'Senior Accounts Officer', 'Finance', 'M.Com, Tally Pro', 'FULL_TIME', '2026-05-15', '1988-11-20', 'MALE', 'Single', 'O_POSITIVE', 'Suresh Nair', '+919876543220', '32 Deccan Gymkhana Pune', '32 Deccan Gymkhana Pune', '', '', '', '', '60'],
+      ['kavita.patil', 'Kavita Patil', 'kavita.patil@preschool.com', '+919876543212', 'STAFF', 'MAIN', 'PG-STAR', 'EMP-2026-03', 'Classroom Assistant', 'Operations', 'High School', 'CONTRACT', '2026-06-10', '1995-02-18', 'FEMALE', 'Single', 'A_POSITIVE', 'Sunita Patil', '+919876543221', 'Aundh Pune', 'Aundh Pune', '', '', '', '', '30'],
+      ['sunil.verma', 'Sunil Verma', 'sunil.verma@preschool.com', '+919876543213', 'DRIVER', 'MAIN', '', 'EMP-2026-04', 'School Bus Driver', 'Transport', 'Heavy Vehicle License', 'FULL_TIME', '2026-05-01', '1985-08-09', 'MALE', 'Married', 'AB_POSITIVE', 'Geeta Verma', '+919876543222', 'Kothrud Pune', 'Kothrud Pune', '', '', '', '', '30'],
     ]
 
     return [
@@ -150,15 +175,18 @@ export class UserCsvEngine {
       'branchCode',
       'studentAdmissionNo',
       'relationship',
+      'occupation',
+      'isPrimaryContact',
       'canPickup',
       'receivesComm',
+      'isFeePayer',
       'pickupPin',
     ]
 
     const sampleRows = [
-      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1024', 'FATHER', 'true', 'true', '1234'],
-      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1031', 'FATHER', 'true', 'true', '1234'],
-      ['priya01', 'Priya Sharma', 'priya@example.com', '+919876543211', 'PARENT', 'MAIN', 'PRE-1024', 'MOTHER', 'true', 'true', '5678'],
+      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1024', 'FATHER', 'Engineer', 'true', 'true', 'true', 'true', '1234'],
+      ['rahul01', 'Rahul Sharma', 'rahul@example.com', '+919876543210', 'PARENT', 'MAIN', 'PRE-1031', 'FATHER', 'Engineer', 'true', 'true', 'true', 'true', '1234'],
+      ['priya01', 'Priya Sharma', 'priya@example.com', '+919876543211', 'PARENT', 'MAIN', 'PRE-1024', 'MOTHER', 'Doctor', 'false', 'true', 'true', 'false', '5678'],
     ]
 
     return [
@@ -180,14 +208,17 @@ export class UserCsvEngine {
       'branchCode',
       'studentAdmissionNo',
       'relationship',
+      'occupation',
+      'isPrimaryContact',
       'canPickup',
       'receivesComm',
+      'isFeePayer',
       'pickupPin',
     ]
 
     const sampleRows = [
-      ['sunita01', 'Sunita Sharma', 'sunita@example.com', '+919876543212', 'GUARDIAN', 'MAIN', 'PRE-1024', 'GRANDMOTHER', 'true', 'true', '4321'],
-      ['ramesh.uncle', 'Ramesh Uncle', 'ramesh@example.com', '+919876543213', 'GUARDIAN', 'MAIN', 'PRE-1024', 'OTHER', 'true', 'false', '9988'],
+      ['sunita01', 'Sunita Sharma', 'sunita@example.com', '+919876543212', 'GUARDIAN', 'MAIN', 'PRE-1024', 'GRANDMOTHER', 'Retired', 'false', 'true', 'true', 'false', '4321'],
+      ['ramesh.uncle', 'Ramesh Uncle', 'ramesh@example.com', '+919876543213', 'GUARDIAN', 'MAIN', 'PRE-1024', 'OTHER', 'Business', 'false', 'true', 'false', 'false', '9988'],
     ]
 
     return [
@@ -280,10 +311,18 @@ export class UserCsvEngine {
     const classroomNameMap = new Map(classrooms.map((c) => [c.name.toLowerCase(), c]))
 
     for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
+      const { canonical: r, unmapped } = resolveRowWithAliases(rows[i], 'STAFF')
       const rowNum = i + 2
       const errors: string[] = []
       const warnings: string[] = []
+
+      // Surface unmapped/unknown columns to prevent silent dropping
+      const unmappedKeys = Object.keys(unmapped).filter(
+        (k) => k.trim() && !['id', 'createdat', 'updatedat'].includes(k.trim().toLowerCase())
+      )
+      if (unmappedKeys.length > 0) {
+        warnings.push(`Unmapped column(s): "${unmappedKeys.join('", "')}". Verify column spelling.`)
+      }
 
       const username = r.username?.trim().toLowerCase() || ''
       const fullName = r.fullName?.trim() || ''
@@ -445,6 +484,17 @@ export class UserCsvEngine {
               joiningDate: r.joiningDate || null,
               dateOfBirth: r.dateOfBirth || null,
               gender: (r.gender?.toUpperCase() as Gender) || null,
+              maritalStatus: r.maritalStatus || null,
+              bloodGroup: r.bloodGroup || null,
+              emergencyContactName: r.emergencyContactName || null,
+              emergencyContactPhone: r.emergencyContactPhone || null,
+              currentAddress: r.currentAddress || null,
+              permanentAddress: r.permanentAddress || null,
+              panNumber: r.panNumber || null,
+              aadhaarNumber: r.aadhaarNumber || null,
+              uanNumber: r.uanNumber || null,
+              esiNumber: r.esiNumber || null,
+              noticePeriodDays: r.noticePeriodDays ? Number(r.noticePeriodDays) : undefined,
               status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
             },
           }
@@ -524,10 +574,18 @@ export class UserCsvEngine {
     }
 
     for (let i = 0; i < rows.length; i++) {
-      const r = rows[i]
+      const { canonical: r, unmapped } = resolveRowWithAliases(rows[i], 'FAMILY')
       const rowNum = i + 2
       const errors: string[] = []
       const warnings: string[] = []
+
+      // Surface unmapped/unknown columns to prevent silent dropping
+      const unmappedKeys = Object.keys(unmapped).filter(
+        (k) => k.trim() && !['id', 'createdat', 'updatedat'].includes(k.trim().toLowerCase())
+      )
+      if (unmappedKeys.length > 0) {
+        warnings.push(`Unmapped column(s): "${unmappedKeys.join('", "')}". Verify column spelling.`)
+      }
 
       const photo = r.photo || r.avatarUrl || ''
       const username = r.username?.trim().toLowerCase() || ''
@@ -723,9 +781,10 @@ export class UserCsvEngine {
       const childFirstName = nameParts[0] || 'Child'
       const childLastName = nameParts.slice(1).join(' ') || undefined
 
-      const canPickup = r.canPickup?.toLowerCase() !== 'false'
-      const receivesComm = r.receivesComm?.toLowerCase() !== 'false' && r.receivesCommunication?.toLowerCase() !== 'false'
-      const isFeePayer = role === 'PARENT' ? true : feePayerInput?.toLowerCase() === 'true'
+      const canPickup = parseBooleanCell(r.canPickup, true)
+      const receivesComm = parseBooleanCell(r.receivesComm ?? r.receivesCommunication, true)
+      const isFeePayer = role === 'PARENT' ? true : parseBooleanCell(feePayerInput ?? r.isFeePayer, false)
+      const isPrimaryContact = parseBooleanCell(r.isPrimaryContact, false)
 
       previewRows.push({
         rowNumber: rowNum,
@@ -747,8 +806,9 @@ export class UserCsvEngine {
           phone,
           role,
           relationship,
+          occupation: r.occupation?.trim() || null,
           status,
-          isPrimaryContact: r.isPrimaryContact?.toLowerCase() === 'true',
+          isPrimaryContact,
           childMode: isExistingChild ? 'EXISTING' : 'CREATE',
           existingChild: isExistingChild ? { admissionNo: targetStudent.admissionNo, studentId: targetStudent.id } : undefined,
           newChild: !isExistingChild

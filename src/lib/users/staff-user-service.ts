@@ -5,6 +5,7 @@ import { UserIdentityService } from './user-identity-service'
 import { recordAudit } from '@/lib/audit'
 import { nextNumber } from '@/lib/sequence'
 import { normalizeRole } from '@/lib/roles'
+import { EncryptionService } from '@/lib/security/encryption-service'
 
 export interface StaffContext {
   tenantId: string
@@ -187,12 +188,12 @@ export class StaffUserService {
             ...(input.emergencyContactPhone !== undefined ? { emergencyContactPhone: input.emergencyContactPhone?.trim() || null } : {}),
             ...(input.maritalStatus !== undefined ? { maritalStatus: input.maritalStatus?.trim() || null } : {}),
             ...(input.bloodGroup !== undefined ? { bloodGroup: normalizeBloodGroup(input.bloodGroup) } : {}),
-            ...(input.currentAddress !== undefined ? { currentAddress: input.currentAddress?.trim() || null } : {}),
-            ...(input.permanentAddress !== undefined ? { permanentAddress: input.permanentAddress?.trim() || null } : {}),
-            ...(input.panNumber !== undefined ? { panNumber: input.panNumber?.trim() || null } : {}),
-            ...(input.aadhaarNumber !== undefined ? { aadhaarNumber: input.aadhaarNumber?.trim() || null } : {}),
-            ...(input.uanNumber !== undefined ? { uanNumber: input.uanNumber?.trim() || null } : {}),
-            ...(input.esiNumber !== undefined ? { esiNumber: input.esiNumber?.trim() || null } : {}),
+            ...(input.currentAddress !== undefined ? { currentAddress: input.currentAddress?.trim() ? EncryptionService.encrypt(input.currentAddress.trim(), ctx.tenantId) : null } : {}),
+            ...(input.permanentAddress !== undefined ? { permanentAddress: input.permanentAddress?.trim() ? EncryptionService.encrypt(input.permanentAddress.trim(), ctx.tenantId) : null } : {}),
+            ...(input.panNumber !== undefined ? { panNumber: input.panNumber?.trim() ? EncryptionService.encrypt(input.panNumber.trim().toUpperCase(), ctx.tenantId) : null } : {}),
+            ...(input.aadhaarNumber !== undefined ? { aadhaarNumber: input.aadhaarNumber?.trim() ? EncryptionService.encrypt(input.aadhaarNumber.trim(), ctx.tenantId) : null } : {}),
+            ...(input.uanNumber !== undefined ? { uanNumber: input.uanNumber?.trim() ? EncryptionService.encrypt(input.uanNumber.trim(), ctx.tenantId) : null } : {}),
+            ...(input.esiNumber !== undefined ? { esiNumber: input.esiNumber?.trim() ? EncryptionService.encrypt(input.esiNumber.trim(), ctx.tenantId) : null } : {}),
             ...(parsedProbation ? { probationEndDate: parsedProbation } : {}),
             ...(parsedConfirmation ? { confirmationDate: parsedConfirmation } : {}),
             ...(noticePeriod !== undefined ? { noticePeriodDays: noticePeriod } : {}),
@@ -215,12 +216,12 @@ export class StaffUserService {
           emergencyContactPhone: input.emergencyContactPhone?.trim() || null,
           maritalStatus: input.maritalStatus?.trim() || null,
           bloodGroup: normalizeBloodGroup(input.bloodGroup),
-          currentAddress: input.currentAddress?.trim() || null,
-          permanentAddress: input.permanentAddress?.trim() || null,
-          panNumber: input.panNumber?.trim() || null,
-          aadhaarNumber: input.aadhaarNumber?.trim() || null,
-          uanNumber: input.uanNumber?.trim() || null,
-          esiNumber: input.esiNumber?.trim() || null,
+          currentAddress: input.currentAddress?.trim() ? EncryptionService.encrypt(input.currentAddress.trim(), ctx.tenantId) : null,
+          permanentAddress: input.permanentAddress?.trim() ? EncryptionService.encrypt(input.permanentAddress.trim(), ctx.tenantId) : null,
+          panNumber: input.panNumber?.trim() ? EncryptionService.encrypt(input.panNumber.trim().toUpperCase(), ctx.tenantId) : null,
+          aadhaarNumber: input.aadhaarNumber?.trim() ? EncryptionService.encrypt(input.aadhaarNumber.trim(), ctx.tenantId) : null,
+          uanNumber: input.uanNumber?.trim() ? EncryptionService.encrypt(input.uanNumber.trim(), ctx.tenantId) : null,
+          esiNumber: input.esiNumber?.trim() ? EncryptionService.encrypt(input.esiNumber.trim(), ctx.tenantId) : null,
           probationEndDate: parsedProbation || null,
           confirmationDate: parsedConfirmation || null,
           noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,

@@ -832,26 +832,42 @@ export default function FamilyUsersPage() {
 
             <GlobalActionMenu
               label={t('common.actions') || 'Actions'}
+              className="font-semibold shadow-xs"
               groups={[
-                { id: 'data', label: t('users.dataOperations') || 'Data Operations' },
-                { id: 'management', label: t('users.management') || 'Management' },
+                { id: 'primary', label: 'Primary Actions' },
+                { id: 'data', label: 'Data & Spreadsheet' },
+                { id: 'management', label: 'Management & Batch' },
               ]}
               actions={[
                 {
-                  id: 'roles',
-                  label: t('users.rolesDirectory'),
-                  icon: <Shield />,
-                  category: 'settings',
-                  groupId: 'management',
-                  onClick: () => setRolesModalOpen(true),
+                  id: 'add-family',
+                  label: t('users.addFamily') || 'Add Family Member',
+                  helperText: 'Register a new parent or pickup guardian',
+                  icon: <UserPlus />,
+                  category: 'create',
+                  groupId: 'primary',
+                  onClick: () => {
+                    setAddFamilyRole(activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN')
+                    setAddFamilyOpen(true)
+                  },
                 },
                 {
                   id: 'spreadsheet-workspace',
-                  label: t('users.spreadsheetTools') || 'Spreadsheet Tools (Import / Export)',
+                  label: 'User Spreadsheet Tool',
+                  helperText: 'Bulk import and export family via spreadsheet',
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
                   onClick: () => setViewMode('SPREADSHEET'),
+                },
+                {
+                  id: 'dictionary',
+                  label: 'Dictionary',
+                  helperText: 'Roles, permissions & capabilities dictionary',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'management',
+                  onClick: () => setRolesModalOpen(true),
                 },
                 {
                   id: 'individual-edit',
@@ -900,18 +916,6 @@ export default function FamilyUsersPage() {
                 },
               ]}
             />
-
-            <button
-              type="button"
-              onClick={() => {
-                setAddFamilyRole(activeTab === 'PARENTS' ? 'PARENT' : 'GUARDIAN')
-                setAddFamilyOpen(true)
-              }}
-              className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ {t('users.addFamily')}</span>
-            </button>
           </div>
         }
       />
@@ -994,16 +998,6 @@ export default function FamilyUsersPage() {
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Family Groups (Households)</span>
-            </button>
-            <button
-              type="button"
-              className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                viewMode === 'SPREADSHEET' ? 'bg-white dark:bg-gray-900 text-purple-600 dark:text-purple-400 font-semibold shadow-xs' : 'text-gray-500 hover:text-gray-900'
-              }`}
-              onClick={() => setViewMode('SPREADSHEET')}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span className="hidden sm:inline">Spreadsheet Tools</span>
             </button>
           </div>
         </div>

@@ -107,7 +107,9 @@ export default function StaffUsersPage() {
   const [deleteModalUser, setDeleteModalUser] = useState<UserRecord | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<'directory' | 'hierarchy' | 'import'>(() => {
-    return searchParams?.get('tab') === 'import' ? 'import' : 'directory'
+    if (searchParams?.get('tab') === 'import') return 'import'
+    if (searchParams?.get('view') === 'hierarchy') return 'hierarchy'
+    return 'directory'
   })
 
   const handleSelectUserFromHierarchy = async (userId: string) => {
@@ -557,71 +559,61 @@ export default function StaffUsersPage() {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600' : ''}`} />
             </button>
 
-            {/* View Mode Toggle: Directory vs Org Hierarchy vs Import */}
-            <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-800 p-0.5 bg-gray-50 dark:bg-gray-900/50 text-xs">
-              <button
-                type="button"
-                onClick={() => setViewMode('directory')}
-                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'directory'
-                    ? 'bg-card text-foreground font-semibold shadow-xs'
-                    : 'text-gray-500 hover:text-foreground'
-                }`}
-                title="Directory Table View"
-              >
-                <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span className="hidden sm:inline">Directory</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('hierarchy')}
-                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'hierarchy'
-                    ? 'bg-card text-foreground font-semibold shadow-xs'
-                    : 'text-gray-500 hover:text-foreground'
-                }`}
-                title="Org Hierarchy View"
-              >
-                <Network className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span className="hidden sm:inline">Org Hierarchy</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode(viewMode === 'import' ? 'directory' : 'import')}
-                className={`px-2.5 py-1.5 rounded-md font-medium flex items-center gap-1.5 transition-colors ${
-                  viewMode === 'import'
-                    ? 'bg-card text-purple-600 dark:text-purple-400 font-semibold shadow-xs'
-                    : 'text-gray-500 hover:text-foreground'
-                }`}
-                title="Spreadsheet Tools (Import & Export)"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span className="hidden sm:inline">Spreadsheet Tools</span>
-              </button>
-            </div>
-
             <GlobalActionMenu
               label={t('common.actions') || 'Actions'}
+              className="font-semibold shadow-xs"
               groups={[
-                { id: 'data', label: t('users.dataOperations') || 'Data Operations' },
-                { id: 'management', label: t('users.management') || 'Management' },
+                { id: 'primary', label: 'Primary Actions' },
+                { id: 'data', label: 'Data & Spreadsheet' },
+                { id: 'management', label: 'Management & Batch' },
               ]}
               actions={[
                 {
-                  id: 'roles',
-                  label: t('users.rolesDirectory'),
-                  icon: <Shield />,
-                  category: 'settings',
-                  groupId: 'management',
-                  onClick: () => setRolesModalOpen(true),
+                  id: 'add-staff',
+                  label: t('users.addStaff') || 'Add Staff Member',
+                  helperText: 'Onboard a new educator or staff member',
+                  icon: <UserPlus />,
+                  category: 'create',
+                  groupId: 'primary',
+                  onClick: () => setAddStaffOpen(true),
+                },
+                {
+                  id: 'organize-hierarchy',
+                  label: 'Organize Hierarchy',
+                  helperText: 'Visual reporting structure & org chart',
+                  icon: <Network />,
+                  category: 'view',
+                  groupId: 'primary',
+                  visible: viewMode !== 'hierarchy',
+                  onClick: () => setViewMode('hierarchy'),
+                },
+                {
+                  id: 'view-directory',
+                  label: 'Directory Table',
+                  helperText: 'Return to staff directory table',
+                  icon: <Users />,
+                  category: 'view',
+                  groupId: 'primary',
+                  visible: viewMode === 'hierarchy',
+                  onClick: () => setViewMode('directory'),
                 },
                 {
                   id: 'spreadsheet-workspace',
-                  label: t('users.spreadsheetTools') || 'Spreadsheet Tools (Import / Export)',
+                  label: 'User Spreadsheet Tool',
+                  helperText: 'Bulk import and export staff via spreadsheet',
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'data',
                   onClick: () => setViewMode('import'),
+                },
+                {
+                  id: 'dictionary',
+                  label: 'Dictionary',
+                  helperText: 'Roles, permissions & capabilities dictionary',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'management',
+                  onClick: () => setRolesModalOpen(true),
                 },
                 {
                   id: 'individual-edit',
@@ -670,15 +662,6 @@ export default function StaffUsersPage() {
                 },
               ]}
             />
-
-            <button
-              type="button"
-              onClick={() => setAddStaffOpen(true)}
-              className="btn btn-primary text-xs flex items-center justify-center gap-1.5 py-2 px-3.5 shadow-sm font-semibold users-act-add"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ {t('users.addStaff')}</span>
-            </button>
           </div>
         }
       />
@@ -701,10 +684,31 @@ export default function StaffUsersPage() {
           />
         </div>
       ) : viewMode === 'hierarchy' ? (
-        <OrgHierarchyView
-          branches={branches}
-          onSelectUser={handleSelectUserFromHierarchy}
-        />
+        <div className="space-y-4 pt-2">
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-card shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                <Network className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-gray-900 dark:text-white">Reporting Hierarchy & Org Chart</h3>
+                <p className="text-[11px] text-gray-500">Visual staff reporting hierarchy across departments</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setViewMode('directory')}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 py-1.5 px-3"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Back to Directory</span>
+            </button>
+          </div>
+          <OrgHierarchyView
+            branches={branches}
+            onSelectUser={handleSelectUserFromHierarchy}
+          />
+        </div>
       ) : (
         <>
           {/* 4-Box KPI Strip (Single cohesive line on desktop & laptops) */}

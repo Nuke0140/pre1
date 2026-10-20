@@ -5,6 +5,7 @@ import { bad, serverError } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
+import { EncryptionService } from '@/lib/security/encryption-service'
 
 /** Sanitize cell against spreadsheet formula injection (=, +, -, @, \t, \r) */
 function sanitizeCsvCell(val: string | null | undefined): string {
@@ -15,6 +16,20 @@ function sanitizeCsvCell(val: string | null | undefined): string {
     s = `'${s}`
   }
   return `"${s.replace(/"/g, '""')}"`
+}
+
+/** Safely decrypt sensitive values for export; if decryption fails or returns ciphertext, fail closed to empty string */
+function safeExportDecrypt(val: string | null | undefined, tenantId: string): string {
+  if (!val) return ''
+  try {
+    const decrypted = EncryptionService.decrypt(val, tenantId)
+    if (!decrypted || EncryptionService.isEncrypted(decrypted)) {
+      return ''
+    }
+    return decrypted
+  } catch {
+    return ''
+  }
 }
 
 interface ExportParams {
@@ -141,57 +156,220 @@ async function executeExport(req: NextRequest, params: ExportParams) {
 
     const branchMap = new Map(branches.map((b) => [b.id, `${b.name} (${b.code})`]))
 
-    const headers = [
-      'User ID',
-      'Full Name',
-      'Username',
-      'Email',
-      'Phone',
-      'Primary Role',
-      'All Roles',
-      'Status',
-      'Campus Branch',
-      'Branch ID',
-      'Employee Code',
-      'Designation',
-      'Department',
-      'Employment Type',
-      'Assigned Classrooms',
-      'Linked Students',
-      'Created At',
-      'Last Login',
-    ]
+    const isStaffExport = cleanUserType === 'STAFF' || (!cleanUserType && cleanRole && !['PARENT', 'GUARDIAN'].includes(cleanRole))
+    const isFamilyExport =
+      cleanUserType === 'FAMILY' ||
+      cleanUserType === 'PARENT' ||
+      cleanUserType === 'GUARDIAN' ||
+      (!cleanUserType && ['PARENT', 'GUARDIAN'].includes(cleanRole || ''))
 
-    const rows = members.map((m) => {
-      const assignedRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
-      const taughtClasses = m.user.taughtClasses?.map((c) => c.name).join('; ') || ''
-      const linkedStudents =
-        m.user.guardianProfile?.studentLinks
-          ?.map((sl) => `${sl.student.firstName} ${sl.student.lastName || ''} (${sl.student.admissionNo})`.trim())
-          .join('; ') || ''
-      const branchDisplay = (m.branchId && branchMap.get(m.branchId)) || m.branchId || 'All Campuses'
+    let headers: string[]
+    let rows: string[]
 
-      return [
-        sanitizeCsvCell(m.userId),
-        sanitizeCsvCell(m.user.fullName),
-        sanitizeCsvCell(m.user.username),
-        sanitizeCsvCell(m.user.email),
-        sanitizeCsvCell(m.user.phone),
-        sanitizeCsvCell(m.role),
-        sanitizeCsvCell(assignedRoles.join(', ')),
-        sanitizeCsvCell(m.status),
-        sanitizeCsvCell(branchDisplay),
-        sanitizeCsvCell(m.branchId),
-        sanitizeCsvCell(m.staffProfile?.employeeCode),
-        sanitizeCsvCell(m.staffProfile?.designation),
-        sanitizeCsvCell(m.staffProfile?.department),
-        sanitizeCsvCell(m.staffProfile?.employmentType),
-        sanitizeCsvCell(taughtClasses),
-        sanitizeCsvCell(linkedStudents),
-        sanitizeCsvCell(m.createdAt.toISOString()),
-        sanitizeCsvCell(m.user.lastLoginAt ? m.user.lastLoginAt.toISOString() : ''),
-      ].join(',')
-    })
+    if (isStaffExport) {
+      headers = [
+        'User ID',
+        'Full Name',
+        'Username',
+        'Email',
+        'Phone',
+        'Primary Role',
+        'All Roles',
+        'Status',
+        'Campus Branch',
+        'Branch ID',
+        'Employee Code',
+        'Designation',
+        'Department',
+        'Qualification',
+        'Employment Type',
+        'Date of Joining',
+        'Date of Birth',
+        'Gender',
+        'Marital Status',
+        'Blood Group',
+        'Emergency Contact Name',
+        'Emergency Contact Phone',
+        'Current Address',
+        'Permanent Address',
+        'Notice Period (Days)',
+        'Assigned Classrooms',
+        'Created At',
+        'Last Login',
+      ]
+
+      rows = members.map((m) => {
+        const assignedRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+        const taughtClasses = m.user.taughtClasses?.map((c) => c.name).join('; ') || ''
+        const branchDisplay = (m.branchId && branchMap.get(m.branchId)) || m.branchId || 'All Campuses'
+
+        return [
+          sanitizeCsvCell(m.userId),
+          sanitizeCsvCell(m.user.fullName),
+          sanitizeCsvCell(m.user.username),
+          sanitizeCsvCell(m.user.email),
+          sanitizeCsvCell(m.user.phone),
+          sanitizeCsvCell(m.role),
+          sanitizeCsvCell(assignedRoles.join(', ')),
+          sanitizeCsvCell(m.status),
+          sanitizeCsvCell(branchDisplay),
+          sanitizeCsvCell(m.branchId),
+          sanitizeCsvCell(m.staffProfile?.employeeCode),
+          sanitizeCsvCell(m.staffProfile?.designation),
+          sanitizeCsvCell(m.staffProfile?.department),
+          sanitizeCsvCell(m.staffProfile?.qualification),
+          sanitizeCsvCell(m.staffProfile?.employmentType),
+          sanitizeCsvCell(m.staffProfile?.joiningDate ? m.staffProfile.joiningDate.toISOString().slice(0, 10) : ''),
+          sanitizeCsvCell(m.staffProfile?.dateOfBirth ? m.staffProfile.dateOfBirth.toISOString().slice(0, 10) : ''),
+          sanitizeCsvCell(m.staffProfile?.gender),
+          sanitizeCsvCell(m.staffProfile?.maritalStatus),
+          sanitizeCsvCell(m.staffProfile?.bloodGroup),
+          sanitizeCsvCell(m.staffProfile?.emergencyContactName),
+          sanitizeCsvCell(m.staffProfile?.emergencyContactPhone),
+          sanitizeCsvCell(safeExportDecrypt(m.staffProfile?.currentAddress, tenantId)),
+          sanitizeCsvCell(safeExportDecrypt(m.staffProfile?.permanentAddress, tenantId)),
+          sanitizeCsvCell(m.staffProfile?.noticePeriodDays !== undefined && m.staffProfile?.noticePeriodDays !== null ? String(m.staffProfile.noticePeriodDays) : ''),
+          sanitizeCsvCell(taughtClasses),
+          sanitizeCsvCell(m.createdAt.toISOString()),
+          sanitizeCsvCell(m.user.lastLoginAt ? m.user.lastLoginAt.toISOString() : ''),
+        ].join(',')
+      })
+    } else if (isFamilyExport) {
+      headers = [
+        'User ID',
+        'Full Name',
+        'Username',
+        'Email',
+        'Phone',
+        'Primary Role',
+        'All Roles',
+        'Status',
+        'Campus Branch',
+        'Relationship to Child',
+        'Occupation',
+        'Primary Contact',
+        'Authorized for Pickup',
+        'Receives Communications',
+        'Fee Payer',
+        'Linked Students',
+        'Created At',
+        'Last Login',
+      ]
+
+      rows = members.map((m) => {
+        const assignedRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+        const linkedStudents =
+          m.user.guardianProfile?.studentLinks
+            ?.map((sl) => `${sl.student.firstName} ${sl.student.lastName || ''} (${sl.student.admissionNo})`.trim())
+            .join('; ') || ''
+        const branchDisplay = (m.branchId && branchMap.get(m.branchId)) || m.branchId || 'All Campuses'
+        const rel = m.user.guardianProfile?.relationship || m.user.guardianProfile?.studentLinks?.[0]?.relationship || ''
+        const occupation = m.user.guardianProfile?.occupation || ''
+        const isPrimary = m.user.guardianProfile?.isPrimaryContact ? 'YES' : 'NO'
+        const canPickup = m.user.guardianProfile?.studentLinks?.some((sl) => sl.canPickup) ? 'YES' : 'NO'
+        const receivesComm = m.user.guardianProfile?.studentLinks?.some((sl) => sl.receivesComm) ? 'YES' : 'NO'
+        const isFeePayer = m.user.guardianProfile?.studentLinks?.some((sl) => sl.isFeePayer) ? 'YES' : 'NO'
+
+        return [
+          sanitizeCsvCell(m.userId),
+          sanitizeCsvCell(m.user.fullName),
+          sanitizeCsvCell(m.user.username),
+          sanitizeCsvCell(m.user.email),
+          sanitizeCsvCell(m.user.phone),
+          sanitizeCsvCell(m.role),
+          sanitizeCsvCell(assignedRoles.join(', ')),
+          sanitizeCsvCell(m.status),
+          sanitizeCsvCell(branchDisplay),
+          sanitizeCsvCell(rel),
+          sanitizeCsvCell(occupation),
+          sanitizeCsvCell(isPrimary),
+          sanitizeCsvCell(canPickup),
+          sanitizeCsvCell(receivesComm),
+          sanitizeCsvCell(isFeePayer),
+          sanitizeCsvCell(linkedStudents),
+          sanitizeCsvCell(m.createdAt.toISOString()),
+          sanitizeCsvCell(m.user.lastLoginAt ? m.user.lastLoginAt.toISOString() : ''),
+        ].join(',')
+      })
+    } else {
+      headers = [
+        'User ID',
+        'Full Name',
+        'Username',
+        'Email',
+        'Phone',
+        'Primary Role',
+        'All Roles',
+        'Status',
+        'Campus Branch',
+        'Branch ID',
+        'Employee Code',
+        'Designation',
+        'Department',
+        'Qualification',
+        'Employment Type',
+        'Date of Joining',
+        'Date of Birth',
+        'Gender',
+        'Relationship to Child',
+        'Occupation',
+        'Primary Contact',
+        'Authorized for Pickup',
+        'Receives Communications',
+        'Fee Payer',
+        'Assigned Classrooms',
+        'Linked Students',
+        'Created At',
+        'Last Login',
+      ]
+
+      rows = members.map((m) => {
+        const assignedRoles = m.roles && m.roles.length > 0 ? m.roles : [m.role]
+        const taughtClasses = m.user.taughtClasses?.map((c) => c.name).join('; ') || ''
+        const linkedStudents =
+          m.user.guardianProfile?.studentLinks
+            ?.map((sl) => `${sl.student.firstName} ${sl.student.lastName || ''} (${sl.student.admissionNo})`.trim())
+            .join('; ') || ''
+        const branchDisplay = (m.branchId && branchMap.get(m.branchId)) || m.branchId || 'All Campuses'
+        const rel = m.user.guardianProfile?.relationship || m.user.guardianProfile?.studentLinks?.[0]?.relationship || ''
+        const occupation = m.user.guardianProfile?.occupation || ''
+        const isPrimary = m.user.guardianProfile?.isPrimaryContact ? 'YES' : 'NO'
+        const canPickup = m.user.guardianProfile?.studentLinks?.some((sl) => sl.canPickup) ? 'YES' : 'NO'
+        const receivesComm = m.user.guardianProfile?.studentLinks?.some((sl) => sl.receivesComm) ? 'YES' : 'NO'
+        const isFeePayer = m.user.guardianProfile?.studentLinks?.some((sl) => sl.isFeePayer) ? 'YES' : 'NO'
+
+        return [
+          sanitizeCsvCell(m.userId),
+          sanitizeCsvCell(m.user.fullName),
+          sanitizeCsvCell(m.user.username),
+          sanitizeCsvCell(m.user.email),
+          sanitizeCsvCell(m.user.phone),
+          sanitizeCsvCell(m.role),
+          sanitizeCsvCell(assignedRoles.join(', ')),
+          sanitizeCsvCell(m.status),
+          sanitizeCsvCell(branchDisplay),
+          sanitizeCsvCell(m.branchId),
+          sanitizeCsvCell(m.staffProfile?.employeeCode),
+          sanitizeCsvCell(m.staffProfile?.designation),
+          sanitizeCsvCell(m.staffProfile?.department),
+          sanitizeCsvCell(m.staffProfile?.qualification),
+          sanitizeCsvCell(m.staffProfile?.employmentType),
+          sanitizeCsvCell(m.staffProfile?.joiningDate ? m.staffProfile.joiningDate.toISOString().slice(0, 10) : ''),
+          sanitizeCsvCell(m.staffProfile?.dateOfBirth ? m.staffProfile.dateOfBirth.toISOString().slice(0, 10) : ''),
+          sanitizeCsvCell(m.staffProfile?.gender),
+          sanitizeCsvCell(rel),
+          sanitizeCsvCell(occupation),
+          sanitizeCsvCell(isPrimary),
+          sanitizeCsvCell(canPickup),
+          sanitizeCsvCell(receivesComm),
+          sanitizeCsvCell(isFeePayer),
+          sanitizeCsvCell(taughtClasses),
+          sanitizeCsvCell(linkedStudents),
+          sanitizeCsvCell(m.createdAt.toISOString()),
+          sanitizeCsvCell(m.user.lastLoginAt ? m.user.lastLoginAt.toISOString() : ''),
+        ].join(',')
+      })
+    }
 
     // Prepend UTF-8 BOM (\uFEFF) for universal spreadsheet compatibility (Excel, Sheets, Numbers)
     const csvContent = '\uFEFF' + [headers.map((h) => `"${h}"`).join(','), ...rows].join('\r\n')
