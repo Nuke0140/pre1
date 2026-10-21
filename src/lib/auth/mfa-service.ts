@@ -222,15 +222,35 @@ export class MfaService {
     }
 
     // Fetch user and verify active status
-    const user = await db.user.findUnique({
-      where: { id: payload.uid },
-      include: {
-        memberships: {
-          include: { tenant: true },
-          where: { deletedAt: null },
+    let user: any = null
+    try {
+      user = await db.user.findUnique({
+        where: { id: payload.uid },
+        include: {
+          memberships: {
+            include: { tenant: true },
+            where: { deletedAt: null },
+          },
         },
-      },
-    })
+      })
+    } catch {}
+
+    if (!user && payload.email) {
+      try {
+        user = await db.user.findFirst({
+          where: {
+            email: { equals: payload.email, mode: 'insensitive' },
+            deletedAt: null,
+          },
+          include: {
+            memberships: {
+              include: { tenant: true },
+              where: { deletedAt: null },
+            },
+          },
+        })
+      } catch {}
+    }
 
     if (!user || user.deletedAt || user.status !== 'ACTIVE') {
       return {
