@@ -2,21 +2,36 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { TransportSecurityService } from '@/lib/transport/transport-security'
-import { TransportService } from '@/lib/transport/transport-service'
+import {
+  TransportSecurityService,
+  checkScanRateLimit,
+  recordFailedScanAttempt,
+  resetScanRateLimit,
+} from '@/lib/transport/transport-security'
 import { db } from '@/lib/db'
 
 /**
  * POST /api/v1/transport/scan — Universal Transport QR Scanner API
+ *
+ * Enforces Cryptographically Signed, Expiring QR Tokens (JWT / HMAC HS256)
+ * Strictly eliminates all unsigned fallback paths (no raw IDs, no raw JSON, no unsigned base64).
  */
 async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'transport:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
+  // 1. Rate Limiting Check (Abuse & Brute Force Protection)
+  const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown'
+  const rateLimitKey = `scan:${session.tenantId}:${session.uid}:${clientIp}`
+  const rateLimit = checkScanRateLimit(rateLimitKey)
+  if (!rateLimit.allowed) {
+    return Errors.rateLimit(rateLimit.retryAfterSeconds)
+  }
+
   try {
     const body = await req.json().catch(() => ({}))
-    const { qrPayload, pin, studentId: explicitStudentId, tripId, action } = body
+    const { qrPayload } = body
 
     if (!qrPayload || typeof qrPayload !== 'string') {
       return Errors.validation('qrPayload string is required')
@@ -30,176 +45,106 @@ async function _POST(req: NextRequest) {
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
+      ipAddress: clientIp,
+      userAgent: req.headers.get('user-agent'),
     }
 
-    // 0. Handle TRPQR_ Secure Driver Transport QR Token
-    if (qrPayload.trim().startsWith('TRPQR_')) {
-      try {
-        const encoded = qrPayload.trim().substring(6)
-        const decoded = Buffer.from(encoded, 'base64').toString('utf8')
-        const [tokenTenantId, routeId, vehicleId, driverId, timestampStr] = decoded.split(':')
+    // 2. Cryptographic Signature, Expiry, Purpose & Multi-Tenant Validation
+    const verifyResult = await TransportSecurityService.verifyTransportQrToken(qrPayload, {
+      expectedTenantId: tenantId,
+      expectedBranchId: session.branchId || undefined,
+    })
 
-        if (tokenTenantId !== tenantId) {
-          await TransportSecurityService.logSecurityEvent(context, {
-            eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
-            action: 'QR_SCAN',
-            result: 'BLOCKED',
-            reason: `Cross-tenant QR scan attempt (Token Tenant: ${tokenTenantId}, User Tenant: ${tenantId})`,
-          })
-          return ok({
-            valid: false,
-            scanType: 'TRANSPORT_QR',
-            status: 'TENANT_MISMATCH',
-            message: 'Cross-tenant QR scan blocked',
-          })
-        }
+    if (!verifyResult.valid) {
+      recordFailedScanAttempt(rateLimitKey)
 
-        const route = await db.transportRoute.findFirst({
-          where: { id: routeId, tenantId, deletedAt: null },
-          include: {
-            vehicle: true,
-            driverProfile: { include: { user: { select: { fullName: true, phone: true } } } },
-            stops: { orderBy: { sequence: 'asc' } },
-          },
-        })
-
-        if (!route) {
-          return ok({
-            valid: false,
-            scanType: 'TRANSPORT_QR',
-            status: 'INVALID_ROUTE',
-            message: 'Route not found or inactive',
-          })
-        }
-
-        await TransportSecurityService.logSecurityEvent(context, {
-          eventType: 'QR_SCAN',
-          routeId: route.id,
-          vehicleId: route.vehicleId ?? undefined,
-          action: 'Driver Transport QR Scanned',
-          result: 'SUCCESS',
-          reason: `Driver QR scanned successfully for route ${route.name}`,
-        })
-
-        return ok({
-          valid: true,
-          scanType: 'TRANSPORT_QR',
-          status: 'VERIFIED',
-          route: {
-            id: route.id,
-            name: route.name,
-            code: route.code,
-            stops: route.stops,
-          },
-          vehicle: route.vehicle,
-          driver: route.driverProfile?.user,
-          availableActions: [
-            { key: 'REGISTERED_GUARDIAN', label: '1. Parent / Registered Guardian' },
-            { key: 'UNKNOWN_PERSON', label: '2. Unknown / Unregistered Person' },
-          ],
-          message: 'Transport QR scanned successfully. Please select your identity workflow.',
-        })
-      } catch (err: any) {
-        return ok({
-          valid: false,
-          scanType: 'TRANSPORT_QR',
-          status: 'MALFORMED',
-          message: 'Malformed transport QR token',
-        })
-      }
-    }
-
-    // Parse payload: could be string like "STUDENT:cm123", "GUARDIAN:cm456", "DRIVER:cm789", "AUTH:cm111" or JSON string
-    let parsedType = ''
-    let parsedId = ''
-
-    try {
-      if (qrPayload.trim().startsWith('{')) {
-        const json = JSON.parse(qrPayload)
-        parsedType = json.type?.toUpperCase() || ''
-        parsedId = json.id || json.studentId || json.guardianId || json.driverId || ''
-      } else if (qrPayload.includes(':')) {
-        const parts = qrPayload.trim().split(':')
-        parsedType = parts[0].toUpperCase()
-        parsedId = parts[1]
-      } else {
-        // Default assuming raw ID or Student ID
-        parsedType = 'STUDENT'
-        parsedId = qrPayload.trim()
-      }
-    } catch {
-      parsedType = 'UNKNOWN'
-      parsedId = qrPayload.trim()
-    }
-
-    // 1. Handle Driver QR Scan & PIN Verification
-    if (parsedType === 'DRIVER') {
-      const driverObj = await db.user.findFirst({
-        where: { id: parsedId, memberships: { some: { tenantId } } },
-        select: { id: true, fullName: true },
+      await TransportSecurityService.logSecurityEvent(context, {
+        eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+        action: 'QR_SCAN',
+        result: 'BLOCKED',
+        reason: `Scan verification rejected: [${verifyResult.code}] ${verifyResult.message}`,
       })
 
-      if (!driverObj) {
-        await TransportSecurityService.logSecurityEvent(context, {
-          eventType: 'DRIVER_MISMATCH',
-          action: 'DRIVER_SCAN',
-          driverProfileId: parsedId,
-          result: 'FAILED',
-          reason: 'Driver not found in tenant',
-        })
+      return ok({
+        valid: false,
+        scanType: 'UNKNOWN',
+        status: verifyResult.code,
+        message: verifyResult.message,
+      })
+    }
+
+    // Reset rate limiter on valid QR token format & signature
+    resetScanRateLimit(rateLimitKey)
+    const payload = verifyResult.payload!
+
+    // 3. Workflow Routing Based on Signed Purpose
+
+    // ── Workflow A: TRANSPORT_DRIVER ──
+    if (payload.purpose === 'TRANSPORT_DRIVER') {
+      const routeId = payload.routeId || payload.sub
+      const route = await db.transportRoute.findFirst({
+        where: { id: routeId, tenantId, deletedAt: null },
+        include: {
+          vehicle: true,
+          driverProfile: { include: { user: { select: { fullName: true, phone: true } } } },
+          stops: { orderBy: { sequence: 'asc' } },
+        },
+      })
+
+      if (!route) {
         return ok({
           valid: false,
-          scanType: 'DRIVER',
-          status: 'INVALID_DRIVER',
-          message: 'Driver not found in system or tenant mismatch',
+          scanType: 'TRANSPORT_DRIVER',
+          status: 'INVALID_ROUTE',
+          message: 'Route not found or inactive',
         })
       }
 
-      if (pin) {
-        const pinCheck = await TransportSecurityService.verifyDriverPin(context, driverObj.id, pin)
-        if (!pinCheck.valid) {
-          return ok({
-            valid: false,
-            scanType: 'DRIVER',
-            status: 'INVALID_PIN',
-            message: pinCheck.message,
-          })
-        }
+      if (payload.vehicleId && route.vehicleId && route.vehicleId !== payload.vehicleId) {
+        return ok({
+          valid: false,
+          scanType: 'TRANSPORT_DRIVER',
+          status: 'VEHICLE_MISMATCH',
+          message: 'Vehicle assignment does not match route record',
+        })
       }
 
-      // Fetch driver vehicle and route assignment
-      const driverVehicle = await db.vehicle.findFirst({
-        where: {
-          tenantId,
-          status: 'ACTIVE',
-          deletedAt: null,
-          routes: {
-            some: {
-              status: 'ACTIVE',
-              deletedAt: null,
-              driverProfile: { userId: driverObj.id },
-            },
-          },
-        },
-        include: { routes: { where: { status: 'ACTIVE', deletedAt: null } } },
+      await TransportSecurityService.logSecurityEvent(context, {
+        eventType: 'QR_SCAN',
+        routeId: route.id,
+        vehicleId: route.vehicleId ?? undefined,
+        action: 'Driver Transport QR Scanned',
+        result: 'SUCCESS',
+        reason: `Driver QR scanned successfully for route ${route.name}`,
       })
 
       return ok({
         valid: true,
-        scanType: 'DRIVER',
+        scanType: 'TRANSPORT_DRIVER',
         status: 'VERIFIED',
-        driver: driverObj,
-        assignedVehicle: driverVehicle || null,
-        message: 'Driver verified successfully',
+        route: {
+          id: route.id,
+          name: route.name,
+          code: route.code,
+          stops: route.stops,
+        },
+        vehicle: route.vehicle,
+        driver: route.driverProfile?.user,
+        availableActions: [
+          { key: 'REGISTERED_GUARDIAN', label: '1. Parent / Registered Guardian' },
+          { key: 'UNKNOWN_PERSON', label: '2. Unknown / Unregistered Person' },
+        ],
+        message: 'Driver Transport QR verified successfully. Please select your identity workflow.',
       })
     }
 
-    // 2. Handle Temporary Authorization QR Scan
-    if (parsedType === 'AUTH' || parsedType === 'AUTHORIZATION') {
+    // ── Workflow B: TRANSPORT_PICKUP_AUTH (Temporary Pickup Person) ──
+    if (payload.purpose === 'TRANSPORT_PICKUP_AUTH') {
+      const authId = payload.authId || payload.sub
       const auth = await db.transportPickupAuthorization.findFirst({
-        where: { id: parsedId, tenantId },
+        where: { id: authId, tenantId },
         include: {
-          student: { select: { id: true, firstName: true, lastName: true, admissionNo: true, photoUrl: true } },
+          student: { select: { id: true, firstName: true, lastName: true, admissionNo: true, photoUrl: true, branchId: true } },
           guardian: { select: { id: true, fullName: true, phone: true } },
         },
       })
@@ -209,7 +154,7 @@ async function _POST(req: NextRequest) {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
           action: 'AUTH_SCAN',
           result: 'FAILED',
-          reason: 'Authorization record not found',
+          reason: 'Authorization record not found in tenant',
         })
         return ok({
           valid: false,
@@ -219,14 +164,33 @@ async function _POST(req: NextRequest) {
         })
       }
 
-      const now = new Date()
+      // Replay Protection: Check if already consumed
+      if (auth.status === 'USED') {
+        await TransportSecurityService.logSecurityEvent(context, {
+          eventType: 'DUPLICATE_PICKUP_ATTEMPT',
+          studentId: auth.studentId,
+          authorizationId: auth.id,
+          action: 'AUTH_SCAN',
+          result: 'BLOCKED',
+          reason: 'Replay attempt: One-time pickup authorization has already been used',
+        })
+        return ok({
+          valid: false,
+          scanType: 'AUTHORIZATION',
+          status: 'ALREADY_USED',
+          authorization: auth,
+          message: 'This pickup authorization QR code has already been used and cannot be replayed.',
+        })
+      }
+
+      // Check approval status
       if (auth.status !== 'APPROVED') {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
           action: 'AUTH_SCAN',
           studentId: auth.studentId,
           result: 'BLOCKED',
-          reason: `Authorization status is ${auth.status}`,
+          reason: `Authorization status is ${auth.status} (Approval required)`,
         })
         return ok({
           valid: false,
@@ -237,6 +201,8 @@ async function _POST(req: NextRequest) {
         })
       }
 
+      // Check time window
+      const now = new Date()
       if (now < auth.validFrom || now > auth.validUntil) {
         await TransportSecurityService.logSecurityEvent(context, {
           eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
@@ -254,6 +220,25 @@ async function _POST(req: NextRequest) {
         })
       }
 
+      // Check branch scoping if session is branch-scoped
+      if (session.branchId && auth.student.branchId && auth.student.branchId !== session.branchId) {
+        return ok({
+          valid: false,
+          scanType: 'AUTHORIZATION',
+          status: 'BRANCH_MISMATCH',
+          message: 'Student belongs to a different school branch',
+        })
+      }
+
+      await TransportSecurityService.logSecurityEvent(context, {
+        eventType: 'QR_SCAN',
+        studentId: auth.studentId,
+        authorizationId: auth.id,
+        action: 'Temporary Pickup Authorization QR Scanned',
+        result: 'SUCCESS',
+        reason: `Authorized person ${auth.personName} verified for student ${auth.student.firstName}`,
+      })
+
       return ok({
         valid: true,
         scanType: 'AUTHORIZATION',
@@ -267,16 +252,17 @@ async function _POST(req: NextRequest) {
       })
     }
 
-    // 3. Handle Parent/Guardian QR Scan
-    if (parsedType === 'GUARDIAN' || parsedType === 'PARENT') {
+    // ── Workflow C: TRANSPORT_GUARDIAN (Parent / Guardian Badge) ──
+    if (payload.purpose === 'TRANSPORT_GUARDIAN') {
+      const guardianId = payload.guardianId || payload.sub
       const guardian = await db.guardian.findFirst({
-        where: { id: parsedId, tenantId, deletedAt: null },
+        where: { id: guardianId, tenantId, deletedAt: null },
         include: {
           user: { select: { fullName: true, phone: true, email: true } },
           studentLinks: {
             include: {
               student: {
-                select: { id: true, firstName: true, lastName: true, admissionNo: true, photoUrl: true },
+                select: { id: true, firstName: true, lastName: true, admissionNo: true, photoUrl: true, branchId: true },
               },
             },
           },
@@ -300,6 +286,13 @@ async function _POST(req: NextRequest) {
 
       const linkedStudents = guardian.studentLinks.map((s) => s.student)
 
+      await TransportSecurityService.logSecurityEvent(context, {
+        eventType: 'QR_SCAN',
+        action: 'Guardian QR Scanned',
+        result: 'SUCCESS',
+        reason: `Guardian ${guardian.fullName} verified with ${linkedStudents.length} linked student(s)`,
+      })
+
       return ok({
         valid: true,
         scanType: 'GUARDIAN',
@@ -315,82 +308,108 @@ async function _POST(req: NextRequest) {
       })
     }
 
-    // 4. Handle Student QR Scan
-    const studentIdToVerify = parsedType === 'STUDENT' ? parsedId : explicitStudentId || parsedId
-    const student = await db.student.findFirst({
-      where: { id: studentIdToVerify, tenantId, deletedAt: null },
-      include: {
-        guardians: {
-          include: {
-            guardian: { select: { id: true, fullName: true, phone: true, relationship: true } },
+    // ── Workflow D: TRANSPORT_STUDENT (Student ID / Badge) ──
+    if (payload.purpose === 'TRANSPORT_STUDENT') {
+      const studentId = payload.studentId || payload.sub
+      const student = await db.student.findFirst({
+        where: { id: studentId, tenantId, deletedAt: null },
+        include: {
+          guardians: {
+            include: {
+              guardian: { select: { id: true, fullName: true, phone: true, relationship: true } },
+            },
+          },
+          transportAssignments: {
+            where: { status: 'ACTIVE', deletedAt: null },
+            include: { route: true, pickupStop: true, dropStop: true },
           },
         },
-        transportAssignments: {
-          where: { status: 'ACTIVE', deletedAt: null },
-          include: { route: true, pickupStop: true, dropStop: true },
-        },
-      },
-    })
+      })
 
-    if (!student) {
+      if (!student) {
+        await TransportSecurityService.logSecurityEvent(context, {
+          eventType: 'QR_SCAN',
+          action: 'STUDENT_QR_SCAN',
+          studentId,
+          result: 'FAILED',
+          reason: 'Student not found in tenant',
+        })
+        return ok({
+          valid: false,
+          scanType: 'STUDENT',
+          status: 'INVALID_STUDENT',
+          message: 'Student record not found or tenant mismatch',
+        })
+      }
+
+      // Branch scoping check
+      if (session.branchId && student.branchId && student.branchId !== session.branchId) {
+        return ok({
+          valid: false,
+          scanType: 'STUDENT',
+          status: 'BRANCH_MISMATCH',
+          message: 'Student is enrolled in a different school branch',
+        })
+      }
+
+      const transportAssigned = student.transportAssignments.length > 0
+      const activeAssignment = student.transportAssignments[0] || null
+
+      const activeAuth = await db.transportPickupAuthorization.findFirst({
+        where: {
+          tenantId,
+          studentId: student.id,
+          status: 'APPROVED',
+          validFrom: { lte: new Date() },
+          validUntil: { gte: new Date() },
+        },
+      })
+
       await TransportSecurityService.logSecurityEvent(context, {
         eventType: 'QR_SCAN',
-        action: 'STUDENT_QR_SCAN',
-        studentId: studentIdToVerify,
-        result: 'FAILED',
-        reason: 'Student not found in tenant',
+        action: 'Student QR Scanned',
+        studentId: student.id,
+        result: 'SUCCESS',
+        reason: `Student ${student.firstName} verified for transport`,
       })
+
       return ok({
-        valid: false,
+        valid: true,
         scanType: 'STUDENT',
-        status: 'INVALID_STUDENT',
-        message: 'Student record not found or tenant mismatch',
+        status: 'VERIFIED',
+        student: {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          admissionNo: student.admissionNo,
+          photoUrl: student.photoUrl,
+        },
+        transportAssigned,
+        assignment: activeAssignment,
+        guardians: student.guardians.map((g) => ({
+          id: g.guardian.id,
+          name: g.guardian.fullName,
+          phone: g.guardian.phone,
+          relationship: g.guardian.relationship,
+        })),
+        activeTemporaryAuthorization: activeAuth
+          ? {
+              ...activeAuth,
+              authorizedPersonName: activeAuth.personName,
+              authorizedPersonPhone: activeAuth.phone,
+            }
+          : null,
+        message: transportAssigned
+          ? `Student ${student.firstName} ${student.lastName || ''} is assigned to Route: ${activeAssignment.route.name}`
+          : `Student ${student.firstName} ${student.lastName || ''} has no active transport assignment`,
       })
     }
 
-    const transportAssigned = student.transportAssignments.length > 0
-    const activeAssignment = student.transportAssignments[0] || null
-
-    // Check for today's active pickup authorization for this student
-    const activeAuth = await db.transportPickupAuthorization.findFirst({
-      where: {
-        tenantId,
-        studentId: student.id,
-        status: 'APPROVED',
-        validFrom: { lte: new Date() },
-        validUntil: { gte: new Date() },
-      },
-    })
-
     return ok({
-      valid: true,
-      scanType: 'STUDENT',
-      status: 'VERIFIED',
-      student: {
-        id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        admissionNo: student.admissionNo,
-        photoUrl: student.photoUrl,
-      },
-      transportAssigned,
-      assignment: activeAssignment,
-      guardians: student.guardians.map((g) => ({
-        id: g.guardian.id,
-        name: g.guardian.fullName,
-        phone: g.guardian.phone,
-        relationship: g.guardian.relationship,
-      })),
-      activeTemporaryAuthorization: activeAuth
-        ? {
-            ...activeAuth,
-            authorizedPersonName: activeAuth.personName,
-            authorizedPersonPhone: activeAuth.phone,
-          }
-        : null,
-      message: transportAssigned
-        ? `Student ${student.firstName} ${student.lastName || ''} is assigned to Route: ${activeAssignment.route.name}`
-        : `Student ${student.firstName} ${student.lastName || ''} has no active transport assignment`,
+      valid: false,
+      scanType: 'UNKNOWN',
+      status: 'UNSUPPORTED_PURPOSE',
+      message: `Unsupported QR token purpose: ${payload.purpose}`,
     })
   } catch (e: any) {
     return Errors.system(e)

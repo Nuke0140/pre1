@@ -22,6 +22,7 @@ import { recordChildEvent } from '@/lib/notify'
 import { raiseFollowUp } from '@/lib/followups'
 import { OperationPolicies } from '@/lib/operations/operation-policies'
 import { FeeService } from '@/lib/fees/fee-service'
+import { TransportSecurityService } from '@/lib/transport/transport-security'
 import {
   VehicleStatus,
   RouteStatus,
@@ -1065,6 +1066,14 @@ export class TransportService {
       return manifestItem
     }
 
+    // Tenant & Branch Context Scoping Guard
+    if (ctx.tenantId && manifestItem.trip.tenantId !== ctx.tenantId) {
+      throw new Error('UNAUTHORIZED_PICKUP: Tenant mismatch. Cannot drop student from different organization.')
+    }
+    if (ctx.branchId && manifestItem.trip.branchId && manifestItem.trip.branchId !== ctx.branchId) {
+      throw new Error('UNAUTHORIZED_PICKUP: Branch mismatch. Cannot drop student from different campus branch.')
+    }
+
     // 1. Verify Guardian Authorization & PIN via canonical OperationPolicies
     const authCheck = await OperationPolicies.verifyPickupPerson(
       manifestItem.trip.tenantId,
@@ -1107,10 +1116,10 @@ export class TransportService {
       throw new Error(`UNAUTHORIZED_PICKUP: ${authCheck.reason}`)
     }
 
-    // 2. Drop Approved: Update manifest and timeline
+    // 2. Drop Approved: Update manifest and timeline atomically to prevent duplicate pickup races
     const now = new Date()
-    const updated = await db.tripManifestItem.update({
-      where: { id: manifestItem.id },
+    const updateResult = await db.tripManifestItem.updateMany({
+      where: { id: manifestItem.id, status: { not: 'DROPPED' } },
       data: {
         status: 'DROPPED',
         droppedAt: now,
@@ -1119,6 +1128,14 @@ export class TransportService {
         actionByName: ctx.actorName || 'Attendant',
         notes: notes?.trim() || null,
       },
+    })
+
+    if (updateResult.count === 0) {
+      throw new Error('DUPLICATE_PICKUP: Child has already been dropped/handed over.')
+    }
+
+    const updated = await db.tripManifestItem.findUniqueOrThrow({
+      where: { id: manifestItem.id },
       include: { student: true, stop: true },
     })
 
@@ -2028,22 +2045,34 @@ export class TransportService {
   }
 
   /**
-   * Generate Secure Driver Transport QR Token
+   * Generate Secure Driver Transport QR Token (Signed JWT)
    */
   static async generateDriverQRToken(ctx: ScopeContext, params: { routeId: string; vehicleId: string }) {
-    const crypto = await import('crypto')
-    const timestamp = Date.now()
-    const nonce = crypto.randomBytes(8).toString('hex')
-    const rawPayload = `${ctx.tenantId}:${params.routeId}:${params.vehicleId}:${ctx.actorId}:${timestamp}:${nonce}`
-    const token = `TRPQR_${Buffer.from(rawPayload).toString('base64')}`
+    const route = await db.transportRoute.findFirst({
+      where: { id: params.routeId, tenantId: ctx.tenantId, deletedAt: null },
+      select: { id: true, branchId: true },
+    })
+
+    const tokenData = await TransportSecurityService.generateTransportQrToken({
+      tenantId: ctx.tenantId,
+      branchId: ctx.branchId ?? route?.branchId ?? null,
+      purpose: 'TRANSPORT_DRIVER',
+      sub: params.routeId,
+      routeId: params.routeId,
+      vehicleId: params.vehicleId,
+      driverId: ctx.actorId,
+      expiresIn: '12h',
+    })
 
     return {
-      token,
-      qrPayload: token,
+      token: tokenData.token,
+      qrPayload: tokenData.qrPayload,
       tenantId: ctx.tenantId,
       routeId: params.routeId,
       vehicleId: params.vehicleId,
-      timestamp,
+      driverId: ctx.actorId,
+      expiresAt: tokenData.expiresAt,
+      timestamp: Date.now(),
     }
   }
 
@@ -2051,6 +2080,9 @@ export class TransportService {
    * Seed Transport Demo Master & Test Data
    */
   static async seedTransportDemoData(ctx: ScopeContext) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DEMO_SEEDING_DISABLED: Demo data seeding is strictly disabled in production environments.')
+    }
     const tenantId = ctx.tenantId
 
     // 1. Branch & Session
@@ -2226,7 +2258,7 @@ export class TransportService {
           phone: '+91 9988776655',
           email: 'rahul.patil@preone.demo',
           relationship: 'FATHER',
-          pickupPin: '1234',
+          pickupPin: '8492',
         },
       })
     }

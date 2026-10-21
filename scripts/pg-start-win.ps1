@@ -1,7 +1,7 @@
 # pg-start-win.ps1 — Start embedded PostgreSQL for Windows
 $ErrorActionPreference = "Stop"
 $rootDir = Resolve-Path (Join-Path $PSScriptRoot "..")
-$pgData = Join-Path $rootDir "db\pgdata_win"
+$pgData = if (Test-Path (Join-Path $rootDir "db\pgdata_win")) { Join-Path $rootDir "db\pgdata_win" } else { Join-Path $rootDir "db\pgdata" }
 $pgBin = Join-Path $rootDir "node_modules\@embedded-postgres\windows-x64\native\bin\postgres.exe"
 $pidFile = Join-Path $pgData "postmaster.pid"
 

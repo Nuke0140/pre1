@@ -8,6 +8,10 @@ import { TransportService } from '@/lib/transport/transport-service'
  * POST /api/v1/transport/seed — Seed Transport Master & Demo Test Data
  */
 async function _POST(req: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return Errors.forbidden('Transport demo seeding is strictly prohibited in production')
+  }
+
   const session = await requireApi(req, 'transport:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')

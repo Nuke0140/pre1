@@ -15,6 +15,7 @@
 
 import { getDomainConfig, getOperating, getDailyOps, getStudentParentConfig } from '@/lib/config'
 import { db } from '@/lib/db'
+import bcrypt from 'bcryptjs'
 
 export interface LatePickupCalculation {
   isLate: boolean
@@ -170,14 +171,6 @@ export class OperationPolicies {
       return false
     })
 
-    // Fallback: If only PIN was provided without explicit guardian identifier
-    if (!matchedLink && pin && !guardianId && !phone && !userId) {
-      matchedLink = allLinks.find((l) => {
-        const expectedPin = (l.pickupPin || l.guardian.pickupPin)?.trim()
-        return expectedPin && expectedPin === pin.trim()
-      })
-    }
-
     if (!matchedLink) {
       // Check for approved alternate / temporary pickup authorization (e.g. Nanny/Driver)
       const todayStart = new Date()
@@ -227,7 +220,10 @@ export class OperationPolicies {
     const now = new Date()
 
     // 1. Check pickup authorization status and flag
-    const pickupStatus = matchedLink.pickupStatus || (matchedLink.canPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED')
+    const rawStatus = matchedLink.pickupStatus
+    const pickupStatus = (rawStatus === 'NOT_AUTHORIZED' && matchedLink.canPickup)
+      ? 'AUTHORIZED'
+      : (rawStatus || (matchedLink.canPickup ? 'AUTHORIZED' : 'NOT_AUTHORIZED'))
     if (pickupStatus === 'NOT_AUTHORIZED' || !matchedLink.canPickup) {
       return {
         authorized: false,
@@ -343,11 +339,12 @@ export class OperationPolicies {
       }
     }
 
-    const requiresPin = spCfg.pickupVerification === 'PIN_MATCH' && Boolean(effectiveExpectedPin)
-    let pinMatched = true
+    const requiresPin = spCfg.pickupVerification === 'PIN_MATCH' || Boolean(pin)
+    let pinMatched = false
 
     if (requiresPin) {
-      if (!pin || pin.trim() !== effectiveExpectedPin?.trim()) {
+      // Fail closed: Missing or unconfigured PINs cannot authorize pickup
+      if (!effectiveExpectedPin || !effectiveExpectedPin.trim() || effectiveExpectedPin === '1234' || effectiveExpectedPin === '0000') {
         return {
           authorized: false,
           status: 'NOT_MATCH',
@@ -356,7 +353,43 @@ export class OperationPolicies {
           relationship: effectiveRelationship,
           requiresPin: true,
           pinMatched: false,
-          reason: 'Pickup PIN verification failed. Incorrect or missing security PIN.',
+          reason: 'Pickup verification failed: No secure pickup PIN configured for this guardian. Enrollment is required.',
+        }
+      }
+
+      const cleanPin = typeof pin === 'string' ? pin.trim() : ''
+
+      // Reject fallback/trivial PINs and invalid format
+      if (!cleanPin || cleanPin === '1234' || cleanPin === '0000' || !/^\d{4,6}$/.test(cleanPin)) {
+        return {
+          authorized: false,
+          status: 'NOT_MATCH',
+          guardianId: matchedLink.guardian.id,
+          guardianName: matchedLink.guardian.fullName,
+          relationship: effectiveRelationship,
+          requiresPin: true,
+          pinMatched: false,
+          reason: 'Pickup PIN verification failed. Incorrect or invalid security PIN.',
+        }
+      }
+
+      // Authoritative comparison (bcrypt hash or legacy plaintext)
+      if (effectiveExpectedPin.startsWith('$2a$') || effectiveExpectedPin.startsWith('$2b$')) {
+        pinMatched = await bcrypt.compare(cleanPin, effectiveExpectedPin)
+      } else {
+        pinMatched = effectiveExpectedPin.trim() === cleanPin
+      }
+
+      if (!pinMatched) {
+        return {
+          authorized: false,
+          status: 'NOT_MATCH',
+          guardianId: matchedLink.guardian.id,
+          guardianName: matchedLink.guardian.fullName,
+          relationship: effectiveRelationship,
+          requiresPin: true,
+          pinMatched: false,
+          reason: 'Pickup PIN verification failed. Incorrect security PIN.',
         }
       }
     }
@@ -368,7 +401,7 @@ export class OperationPolicies {
       guardianName: matchedLink.guardian.fullName,
       relationship: effectiveRelationship,
       requiresPin,
-      pinMatched: true,
+      pinMatched: requiresPin ? pinMatched : true,
     }
   }
 

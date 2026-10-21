@@ -231,6 +231,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [scanPersonPhone, setScanPersonPhone] = useState('')
   const [scanPersonRelation, setScanPersonRelation] = useState('Relative')
   const [scanGateNotes, setScanGateNotes] = useState('')
+  const [scanGateGuardianId, setScanGateGuardianId] = useState('')
+  const [scanGatePin, setScanGatePin] = useState('')
   const [scanSubmitting, setScanSubmitting] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -591,17 +593,32 @@ export function TransportClient({ session }: { session: SessionProps }) {
   }
 
   const handleConfirmRegisteredPickup = async (studentId: string) => {
+    if (!scanGateGuardianId) {
+      toast.error('Please select the registered guardian present')
+      return
+    }
+    if (!scanGatePin || scanGatePin.trim().length < 4) {
+      toast.error('Please enter the guardian\'s 4-digit security PIN')
+      return
+    }
     setScanSubmitting(true)
     try {
       const res = await fetch('/api/v1/transport/registered-guardian/pickup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId, notes: scanGateNotes || 'Verified Registered Guardian Handover at School Gate' }),
+        body: JSON.stringify({
+          studentId,
+          guardianId: scanGateGuardianId,
+          pin: scanGatePin.trim(),
+          notes: scanGateNotes || 'Verified Registered Guardian Handover at School Gate',
+        }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success(json.data?.message || 'Registered Guardian Pickup Logged Successfully! ✅')
         setScanActionMode('NONE')
+        setScanGatePin('')
+        setScanGateGuardianId('')
         loadAuthorizations()
         loadSecurityLogs()
       } else {
@@ -3399,10 +3416,23 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 {availableStudents.length > 0 && (
                   <button
                     className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      const payload = `STUDENT:${availableStudents[0].id}`
-                      setScanInput(payload)
-                      handlePerformScan(payload)
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/v1/transport/qr/generate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ purpose: 'TRANSPORT_STUDENT', studentId: availableStudents[0].id }),
+                        })
+                        const json = await res.json()
+                        if (json.success && json.data?.token) {
+                          setScanInput(json.data.token)
+                          handlePerformScan(json.data.token)
+                        } else {
+                          toast.error('Failed to generate signed student QR token', json.error?.message)
+                        }
+                      } catch (err: any) {
+                        toast.error('Failed to generate student QR token', err.message)
+                      }
                     }}
                   >
                     Scan Student ({availableStudents[0].firstName})
@@ -3411,10 +3441,23 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 {authorizations.length > 0 && (
                   <button
                     className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      const payload = `AUTH:${authorizations[0].id}`
-                      setScanInput(payload)
-                      handlePerformScan(payload)
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/v1/transport/qr/generate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ purpose: 'TRANSPORT_PICKUP_AUTH', authId: authorizations[0].id }),
+                        })
+                        const json = await res.json()
+                        if (json.success && json.data?.token) {
+                          setScanInput(json.data.token)
+                          handlePerformScan(json.data.token)
+                        } else {
+                          toast.error('Failed to generate signed authorization QR token', json.error?.message)
+                        }
+                      } catch (err: any) {
+                        toast.error('Failed to generate authorization QR token', err.message)
+                      }
                     }}
                   >
                     Scan Temp Auth ({authorizations[0].authorizedPersonName})
@@ -3532,21 +3575,57 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
                     {scanActionMode === 'REGISTERED_PICKUP' && (
                       <div style={{ padding: 12, background: 'var(--c-surface)', borderRadius: 8, marginTop: 8 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Confirm Handover to Registered Guardian</div>
-                        <input
-                          type="text"
-                          className="input"
-                          placeholder="Gate / Handover notes (optional)..."
-                          value={scanGateNotes}
-                          onChange={(e) => setScanGateNotes(e.target.value)}
-                          style={{ fontSize: 13, marginBottom: 10 }}
-                        />
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Confirm Handover to Registered Guardian</div>
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 11, opacity: 0.8, display: 'block', marginBottom: 4 }}>
+                            Collecting Guardian Present *
+                          </label>
+                          <select
+                            className="input"
+                            value={scanGateGuardianId}
+                            onChange={(e) => setScanGateGuardianId(e.target.value)}
+                            required
+                          >
+                            <option value="">-- Select Registered Guardian --</option>
+                            {(scanResult.guardians || scanResult.student?.guardians || []).map((g: any) => (
+                              <option key={g.id || g.guardian?.id} value={g.id || g.guardian?.id}>
+                                {g.name || g.guardian?.fullName || g.fullName} ({g.relationship || g.guardian?.relationship || 'Guardian'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 11, opacity: 0.8, display: 'block', marginBottom: 4 }}>
+                            Guardian Security PIN *
+                          </label>
+                          <input
+                            type="password"
+                            className="input"
+                            placeholder="Enter 4 to 6-digit PIN"
+                            value={scanGatePin}
+                            onChange={(e) => setScanGatePin(e.target.value)}
+                            maxLength={6}
+                            required
+                          />
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 11, opacity: 0.8, display: 'block', marginBottom: 4 }}>
+                            Gate / Handover Notes (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            className="input"
+                            placeholder="Gate / Handover notes (optional)..."
+                            value={scanGateNotes}
+                            onChange={(e) => setScanGateNotes(e.target.value)}
+                          />
+                        </div>
                         <button
                           className="btn btn-success btn-sm"
                           onClick={() => handleConfirmRegisteredPickup(scanResult.student.id)}
                           disabled={scanSubmitting}
                         >
-                          {scanSubmitting ? 'Logging Pickup...' : 'Complete & Log Registered Guardian Pickup ✅'}
+                          {scanSubmitting ? 'Verifying PIN & Logging Pickup...' : 'Verify PIN & Complete Registered Pickup ✅'}
                         </button>
                       </div>
                     )}

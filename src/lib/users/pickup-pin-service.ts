@@ -531,4 +531,93 @@ export class PickupPinService {
         : `Guardian and all linked students already have active pickup PINs`,
     }
   }
+
+  /**
+   * Identifies and purges insecure fallback PINs (e.g. '1234', '0000', '1111') from existing
+   * Guardian and StudentGuardian records across a tenant, transitioning them to require explicit re-enrollment.
+   */
+  static async auditAndMigrateInsecurePins(params: {
+    tenantId: string
+    actorSession?: SessionPayload
+  }): Promise<{
+    scannedGuardians: number
+    scannedLinks: number
+    purgedGuardians: number
+    purgedLinks: number
+    affectedGuardianIds: string[]
+  }> {
+    const { tenantId, actorSession } = params
+    const INSECURE_PIN_VALUES = ['1234', '0000', '1111', '000000', '123456']
+
+    const guardians = await db.guardian.findMany({
+      where: {
+        tenantId,
+        pickupPin: { in: INSECURE_PIN_VALUES },
+      },
+      select: { id: true, fullName: true, pickupPin: true },
+    })
+
+    const links = await db.studentGuardian.findMany({
+      where: {
+        student: { tenantId },
+        pickupPin: { in: INSECURE_PIN_VALUES },
+      },
+      select: { id: true, studentId: true, guardianId: true, pickupPin: true },
+    })
+
+    const affectedGuardianIds = Array.from(new Set([
+      ...guardians.map((g) => g.id),
+      ...links.map((l) => l.guardianId),
+    ]))
+
+    // Nullify insecure fallback PINs so they fail closed and require explicit re-enrollment
+    if (guardians.length > 0) {
+      await db.guardian.updateMany({
+        where: {
+          id: { in: guardians.map((g) => g.id) },
+        },
+        data: { pickupPin: null },
+      })
+    }
+
+    if (links.length > 0) {
+      await db.studentGuardian.updateMany({
+        where: {
+          id: { in: links.map((l) => l.id) },
+        },
+        data: {
+          pickupPin: null,
+          pickupStatus: 'PENDING',
+        },
+      })
+    }
+
+    if (actorSession && (guardians.length > 0 || links.length > 0)) {
+      await recordAudit({
+        tenantId,
+        actorId: actorSession.uid,
+        actorName: actorSession.name,
+        actorRole: actorSession.role,
+        action: 'INSECURE_PINS_PURGED',
+        entity: 'Tenant',
+        entityId: tenantId,
+        module: 'SECURITY',
+        severity: 'CRITICAL',
+        summary: `Purged ${guardians.length} insecure guardian PIN(s) and ${links.length} student link PIN(s) requiring explicit re-enrollment.`,
+        newValues: {
+          purgedGuardians: guardians.length,
+          purgedLinks: links.length,
+          affectedGuardianIds,
+        },
+      })
+    }
+
+    return {
+      scannedGuardians: guardians.length,
+      scannedLinks: links.length,
+      purgedGuardians: guardians.length,
+      purgedLinks: links.length,
+      affectedGuardianIds,
+    }
+  }
 }

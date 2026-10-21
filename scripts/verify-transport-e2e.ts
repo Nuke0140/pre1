@@ -168,13 +168,21 @@ async function run() {
   })
   assert(attendantProfile.id != null, '5. Attendant StaffProfile created and active')
 
-  // 2.3 Inactive/Terminated Staff Member (to verify eligibility rejection)
   const inactiveStaffUser = await db.user.create({
     data: {
       email: `inactive.${timestamp}@preone.test`,
       fullName: 'Terminated Driver',
       status: 'INACTIVE',
       passwordHash: 'dummy-hash',
+    },
+  })
+  await db.tenantUser.create({
+    data: {
+      tenantId: tenant.id,
+      userId: inactiveStaffUser.id,
+      role: 'TEACHER',
+      roles: ['TEACHER'],
+      status: 'INACTIVE',
     },
   })
   const inactiveDriverProfile = await db.staffProfile.create({
@@ -350,7 +358,7 @@ async function run() {
       relationship: 'MOTHER',
       isPrimary: true,
       canPickup: true,
-      pickupPin: '1234',
+      pickupPin: '4829',
     },
   })
 
@@ -369,7 +377,7 @@ async function run() {
       relationship: 'FATHER',
       isPrimary: false,
       canPickup: true,
-      pickupPin: '5678',
+      pickupPin: '7391',
     },
   })
 
@@ -569,9 +577,9 @@ async function run() {
     tripId: eveningTrip.id,
     studentId: student1.id,
     guardianId: motherGuardian.id,
-    pin: '1234',
+    pin: '4829',
   })
-  assert(dropMother.status === 'DROPPED', '34. Mother pickup verified with correct PIN (1234) -> DROPPED')
+  assert(dropMother.status === 'DROPPED', '34. Mother pickup verified with correct PIN (4829) -> DROPPED')
   assert(dropMother.verifiedGuardianId === motherGuardian.id, '35. Verified guardian ID recorded as Mother')
 
   // Reset Student 1 status for next verification scenario test
@@ -585,9 +593,9 @@ async function run() {
     tripId: eveningTrip.id,
     studentId: student1.id,
     phone: fatherGuardian.phone!,
-    pin: '5678',
+    pin: '7391',
   })
-  assert(dropFather.status === 'DROPPED', '36. Father pickup verified with phone + PIN (5678) -> DROPPED')
+  assert(dropFather.status === 'DROPPED', '36. Father pickup verified with phone + PIN (7391) -> DROPPED')
   assert(dropFather.verifiedGuardianId === fatherGuardian.id, '37. Verified guardian ID recorded as Father')
 
   // Reset Student 1 status for security rejection tests
@@ -596,20 +604,20 @@ async function run() {
     data: { status: 'EXPECTED', droppedAt: null, verifiedGuardianId: null },
   })
 
-  // 9.3 Rejection: Wrong PIN by Mother
+  // 9.3 Rejection: Insecure Fallback PIN (0000 or 1234) Rejected
   let wrongPinFailed = false
   try {
     await TransportService.recordDrop(ctx, {
       tripId: eveningTrip.id,
       studentId: student1.id,
       guardianId: motherGuardian.id,
-      pin: '0000', // Incorrect PIN
+      pin: '1234', // Insecure fallback PIN must fail
     })
   } catch (err: any) {
     wrongPinFailed = true
-    assert(err.message.includes('UNAUTHORIZED_PICKUP'), '38. Incorrect PIN throws UNAUTHORIZED_PICKUP error')
+    assert(err.message.includes('UNAUTHORIZED_PICKUP'), '38. Insecure fallback PIN (1234) throws UNAUTHORIZED_PICKUP error')
   }
-  assert(wrongPinFailed, '39. Incorrect PIN blocked at bus stop')
+  assert(wrongPinFailed, '39. Insecure fallback PIN strictly blocked at bus stop')
 
   // 9.4 Rejection: Grandfather has canPickup = false (Revoked authorization)
   let unauthorizedGrandpaFailed = false
@@ -618,6 +626,7 @@ async function run() {
       tripId: eveningTrip.id,
       studentId: student1.id,
       guardianId: unauthorizedGrandpa.id,
+      pin: '4829',
     })
   } catch (err: any) {
     unauthorizedGrandpaFailed = true
@@ -642,7 +651,7 @@ async function run() {
     tripId: eveningTrip.id,
     studentId: student1.id,
     guardianId: motherGuardian.id,
-    pin: '1234',
+    pin: '4829',
   })
 
   // -----------------------------------------------------------------
@@ -690,6 +699,15 @@ async function run() {
       fullName: 'Ganesh Patil',
       phone: `98300${timestamp.toString().slice(-5)}`,
       passwordHash: 'dummy-hash',
+      status: 'ACTIVE',
+    },
+  })
+  await db.tenantUser.create({
+    data: {
+      tenantId: tenant.id,
+      userId: standbyDriverUser.id,
+      role: 'TEACHER',
+      roles: ['TEACHER'],
       status: 'ACTIVE',
     },
   })

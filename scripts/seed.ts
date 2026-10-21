@@ -163,13 +163,13 @@ async function main() {
 
   // ── Staff users ──
   const staffSpecs = [
-    { email: 'owner@sunshine.demo', name: 'Meera Iyer', role: 'OWNER' },
-    { email: 'principal@sunshine.demo', name: 'Rajni Malhotra', role: 'PRINCIPAL' },
-    { email: 'teacher@sunshine.demo', name: 'Anita Sharma', role: 'TEACHER' },
-    { email: 'teacher2@sunshine.demo', name: 'Sana Sheikh', role: 'TEACHER' },
-    { email: 'teacher3@sunshine.demo', name: 'Kavya Reddy', role: 'TEACHER' },
-    { email: 'accounts@sunshine.demo', name: 'Vikram Rao', role: 'ACCOUNTS' },
-    { email: 'reception@sunshine.demo', name: 'Divya Nair', role: 'RECEPTIONIST' },
+    { email: 'owner@sunshine.demo', username: 'owner.sunshine', name: 'Meera Iyer', role: 'OWNER' },
+    { email: 'principal@sunshine.demo', username: 'principal.sunshine', name: 'Rajni Malhotra', role: 'PRINCIPAL' },
+    { email: 'teacher@sunshine.demo', username: 'teacher.sunshine', name: 'Anita Sharma', role: 'TEACHER' },
+    { email: 'teacher2@sunshine.demo', username: 'teacher2.sunshine', name: 'Sana Sheikh', role: 'TEACHER' },
+    { email: 'teacher3@sunshine.demo', username: 'teacher3.sunshine', name: 'Kavya Reddy', role: 'TEACHER' },
+    { email: 'accounts@sunshine.demo', username: 'accounts.sunshine', name: 'Vikram Rao', role: 'ACCOUNTS' },
+    { email: 'reception@sunshine.demo', username: 'reception.sunshine', name: 'Divya Nair', role: 'RECEPTIONIST' },
   ] as const
 
   const staff: Record<string, string> = {}
@@ -177,7 +177,7 @@ async function main() {
     const u = await db.user.create({
       data: {
         email: s.email,
-        username: sanitizeUsernameSlug(s.name),
+        username: (s as any).username || sanitizeUsernameSlug(s.name),
         fullName: s.name,
         passwordHash: hash,
         status: 'ACTIVE',

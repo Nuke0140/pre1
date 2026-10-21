@@ -3,10 +3,99 @@ import { recordAudit } from '@/lib/audit'
 import { recordChildEvent } from '@/lib/notify'
 import { raiseFollowUp } from '@/lib/followups'
 import bcrypt from 'bcryptjs'
+import { SignJWT, jwtVerify } from 'jose'
 import {
   PickupAuthorizationStatus,
   TransportSecurityEventType,
 } from '@prisma/client'
+
+export const TRANSPORT_QR_ISSUER = 'preone-transport'
+export const TRANSPORT_QR_AUDIENCE = 'preone-gate'
+export const TRANSPORT_QR_PREFIX = 'TPQR_'
+
+export const TRANSPORT_QR_SECRET = new TextEncoder().encode(
+  process.env.TRANSPORT_QR_SECRET || process.env.JWT_SECRET || 'preone-dev-jwt-secret-2f8b7c9d4e6a1f3b5c8d0e'
+)
+
+export type TransportQrPurpose =
+  | 'TRANSPORT_DRIVER'
+  | 'TRANSPORT_PICKUP_AUTH'
+  | 'TRANSPORT_STUDENT'
+  | 'TRANSPORT_GUARDIAN'
+
+export interface TransportQrTokenPayload {
+  iss: 'preone-transport'
+  aud: 'preone-gate'
+  sub: string
+  tenantId: string
+  branchId?: string | null
+  purpose: TransportQrPurpose
+  routeId?: string
+  vehicleId?: string
+  driverId?: string
+  studentId?: string
+  guardianId?: string
+  authId?: string
+  jti: string
+  iat: number
+  exp: number
+}
+
+interface ScanRateLimitRecord {
+  attempts: number
+  lockedUntil: number
+  firstAttemptAt: number
+}
+
+// In-memory sliding window rate-limiter for QR scanning (per tenant:ip/actor)
+const scanRateLimitStore = new Map<string, ScanRateLimitRecord>()
+const SCAN_MAX_ATTEMPTS = 30 // 30 scans per minute
+const SCAN_WINDOW_MS = 60 * 1000 // 1 minute window
+const SCAN_LOCKOUT_MS = 60 * 1000 // 1 minute lockout
+
+export function checkScanRateLimit(key: string): { allowed: boolean; retryAfterSeconds: number; remainingAttempts: number } {
+  const now = Date.now()
+  const record = scanRateLimitStore.get(key)
+  if (!record) {
+    return { allowed: true, retryAfterSeconds: 0, remainingAttempts: SCAN_MAX_ATTEMPTS }
+  }
+
+  if (record.lockedUntil > now) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((record.lockedUntil - now) / 1000))
+    return { allowed: false, retryAfterSeconds, remainingAttempts: 0 }
+  }
+
+  if (now - record.firstAttemptAt > SCAN_WINDOW_MS) {
+    scanRateLimitStore.delete(key)
+    return { allowed: true, retryAfterSeconds: 0, remainingAttempts: SCAN_MAX_ATTEMPTS }
+  }
+
+  const remaining = Math.max(0, SCAN_MAX_ATTEMPTS - record.attempts)
+  return { allowed: remaining > 0, retryAfterSeconds: 0, remainingAttempts: remaining }
+}
+
+export function recordFailedScanAttempt(key: string): { locked: boolean; retryAfterSeconds: number } {
+  const now = Date.now()
+  let record = scanRateLimitStore.get(key)
+  if (!record || now - record.firstAttemptAt > SCAN_WINDOW_MS) {
+    record = { attempts: 1, lockedUntil: 0, firstAttemptAt: now }
+    scanRateLimitStore.set(key, record)
+    return { locked: false, retryAfterSeconds: 0 }
+  }
+
+  record.attempts++
+  if (record.attempts >= SCAN_MAX_ATTEMPTS) {
+    record.lockedUntil = now + SCAN_LOCKOUT_MS
+    const retryAfterSeconds = Math.ceil(SCAN_LOCKOUT_MS / 1000)
+    return { locked: true, retryAfterSeconds }
+  }
+
+  return { locked: false, retryAfterSeconds: 0 }
+}
+
+export function resetScanRateLimit(key: string): void {
+  scanRateLimitStore.delete(key)
+}
 
 export interface TransportSecurityContext {
   tenantId: string
@@ -38,6 +127,64 @@ export interface VerifyPinInput {
   userId?: string
   pin: string
   studentId?: string
+}
+
+interface PinRateLimitRecord {
+  attempts: number
+  lockedUntil: number
+  firstAttemptAt: number
+}
+
+// In-memory sliding window rate-limiter for PIN verification (per tenant:target)
+const pinRateLimitStore = new Map<string, PinRateLimitRecord>()
+const PIN_MAX_ATTEMPTS = 5
+const PIN_WINDOW_MS = 15 * 60 * 1000 // 15 minutes window
+const PIN_LOCKOUT_MS = 5 * 60 * 1000 // 5 minutes lockout
+
+export function checkPinRateLimit(key: string): { allowed: boolean; retryAfterSeconds: number; remainingAttempts: number } {
+  const now = Date.now()
+  const record = pinRateLimitStore.get(key)
+  if (!record) {
+    return { allowed: true, retryAfterSeconds: 0, remainingAttempts: PIN_MAX_ATTEMPTS }
+  }
+
+  // Check if actively locked out
+  if (record.lockedUntil > now) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((record.lockedUntil - now) / 1000))
+    return { allowed: false, retryAfterSeconds, remainingAttempts: 0 }
+  }
+
+  // Check if window has expired
+  if (now - record.firstAttemptAt > PIN_WINDOW_MS) {
+    pinRateLimitStore.delete(key)
+    return { allowed: true, retryAfterSeconds: 0, remainingAttempts: PIN_MAX_ATTEMPTS }
+  }
+
+  const remaining = Math.max(0, PIN_MAX_ATTEMPTS - record.attempts)
+  return { allowed: remaining > 0, retryAfterSeconds: 0, remainingAttempts: remaining }
+}
+
+export function recordFailedPinAttempt(key: string): { locked: boolean; retryAfterSeconds: number } {
+  const now = Date.now()
+  let record = pinRateLimitStore.get(key)
+  if (!record || now - record.firstAttemptAt > PIN_WINDOW_MS) {
+    record = { attempts: 1, lockedUntil: 0, firstAttemptAt: now }
+    pinRateLimitStore.set(key, record)
+    return { locked: false, retryAfterSeconds: 0 }
+  }
+
+  record.attempts++
+  if (record.attempts >= PIN_MAX_ATTEMPTS) {
+    record.lockedUntil = now + PIN_LOCKOUT_MS
+    const retryAfterSeconds = Math.ceil(PIN_LOCKOUT_MS / 1000)
+    return { locked: true, retryAfterSeconds }
+  }
+
+  return { locked: false, retryAfterSeconds: 0 }
+}
+
+export function resetPinRateLimit(key: string): void {
+  pinRateLimitStore.delete(key)
 }
 
 export class TransportSecurityService {
@@ -122,9 +269,7 @@ export class TransportSecurityService {
    */
   static async validateStudentAccess(ctx: TransportSecurityContext, targetStudentId: string): Promise<boolean> {
     const scope = await this.getRoleScopingFilter(ctx)
-    if (scope.isAdmin) return true
-
-    if (scope.allowedStudentIds !== null && !scope.allowedStudentIds.includes(targetStudentId)) {
+    if (!scope.isAdmin && scope.allowedStudentIds !== null && !scope.allowedStudentIds.includes(targetStudentId)) {
       await this.logSecurityEvent(ctx, {
         eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
         studentId: targetStudentId,
@@ -132,6 +277,16 @@ export class TransportSecurityService {
         result: 'BLOCKED',
         reason: `Actor ${ctx.actorName} (${ctx.actorRole}) attempted unauthorized access to student ${targetStudentId}`,
       })
+      return false
+    }
+
+    // Verify student exists in tenant and branch (if branch context is provided)
+    const student = await db.student.findFirst({
+      where: { id: targetStudentId, tenantId: ctx.tenantId, deletedAt: null },
+      select: { id: true, branchId: true, status: true },
+    })
+    if (!student) return false
+    if (ctx.branchId && student.branchId && student.branchId !== ctx.branchId) {
       return false
     }
 
@@ -168,9 +323,9 @@ export class TransportSecurityService {
           routeId: params.routeId ?? undefined,
           tripId: params.tripId ?? undefined,
           authorizationId: params.authorizationId ?? undefined,
-          actorId: ctx.actorId,
-          actorName: ctx.actorName,
-          actorRole: ctx.actorRole,
+          actorId: ctx.actorId || 'system',
+          actorName: ctx.actorName || 'System',
+          actorRole: ctx.actorRole || 'SYSTEM',
           action: params.action,
           result: params.result ?? 'SUCCESS',
           reason: params.reason ?? undefined,
@@ -180,7 +335,7 @@ export class TransportSecurityService {
         },
       })
 
-      // Record high-level audit entry for security monitoring
+      // Record high-level audit entry for security monitoring (never logs PIN plaintext or hashes)
       await recordAudit({
         tenantId: ctx.tenantId,
         actorId: ctx.actorId,
@@ -201,81 +356,221 @@ export class TransportSecurityService {
   }
 
   /**
-   * Verify Guardian/User PIN securely with rate-limiting & logging
+   * Cryptographically hash a PIN using bcrypt with work factor 10.
+   */
+  static async hashPin(pin: string): Promise<string> {
+    if (!pin || !/^\d{4,6}$/.test(pin.trim())) {
+      throw new Error('PIN must be 4 to 6 numeric digits')
+    }
+    return bcrypt.hash(pin.trim(), 10)
+  }
+
+  /**
+   * Verify a submitted PIN against a stored verifier (bcrypt hash or legacy plaintext).
+   * Insecure fallback PINs (1234, 0000) always fail.
+   */
+  static async verifyPinHash(pin: string, storedVerifier?: string | null): Promise<boolean> {
+    if (!pin || !storedVerifier) return false
+    const cleanPin = pin.trim()
+    const cleanVerifier = storedVerifier.trim()
+    if (!cleanPin || !cleanVerifier) return false
+    if (cleanPin === '1234' || cleanPin === '0000') return false
+    if (cleanVerifier === '1234' || cleanVerifier === '0000') return false
+
+    if (cleanVerifier.startsWith('$2a$') || cleanVerifier.startsWith('$2b$')) {
+      return bcrypt.compare(cleanPin, cleanVerifier)
+    }
+    return cleanVerifier === cleanPin
+  }
+
+  /**
+   * Reset rate limit state for a key (used in tests or administrative resets).
+   */
+  static resetPinRateLimit(key: string): void {
+    resetPinRateLimit(key)
+  }
+
+  /**
+   * Verify Guardian/User PIN securely with rate-limiting, child authorization checks & logging.
+   * Hardcoded fallback PINs (1234, 0000) and password fallbacks are strictly eliminated.
    */
   static async verifyPin(
     ctx: TransportSecurityContext,
     input: VerifyPinInput
-  ): Promise<{ valid: boolean; message: string; guardian?: any }> {
+  ): Promise<{ valid: boolean; message: string; code?: string; guardian?: any }> {
     const { guardianId, userId, pin, studentId } = input
+    const cleanPin = typeof pin === 'string' ? pin.trim() : ''
 
-    if (!pin || pin.trim().length < 4) {
+    // 1. Rate limiting & progressive abuse prevention
+    const rateLimitTarget = guardianId || userId || studentId || ctx.ipAddress || ctx.actorId
+    const rateLimitKey = `pin:${ctx.tenantId}:${rateLimitTarget}`
+    const rateCheck = checkPinRateLimit(rateLimitKey)
+    if (!rateCheck.allowed) {
       await this.logSecurityEvent(ctx, {
         eventType: 'PIN_VERIFICATION_FAILED',
-        studentId,
+        studentId: studentId ?? undefined,
         action: 'PIN Verification',
-        result: 'FAILED',
-        reason: 'Invalid PIN format provided',
+        result: 'BLOCKED',
+        reason: 'Rate limit exceeded: Temporary lockout due to repeated failed PIN attempts.',
       })
-      return { valid: false, message: 'Invalid PIN length (minimum 4 digits)' }
+      return {
+        valid: false,
+        message: `Too many failed PIN attempts. Temporary lockout active for ${rateCheck.retryAfterSeconds}s.`,
+        code: 'RATE_LIMIT_EXCEEDED',
+      }
     }
 
-    let guardian: any = null
+    // 2. Strict format validation: 4 to 6 numeric digits
+    if (!cleanPin || !/^\d{4,6}$/.test(cleanPin)) {
+      await this.logSecurityEvent(ctx, {
+        eventType: 'PIN_VERIFICATION_FAILED',
+        studentId: studentId ?? undefined,
+        action: 'PIN Verification',
+        result: 'FAILED',
+        reason: 'Invalid PIN format provided (must be 4-6 numeric digits)',
+      })
+      return {
+        valid: false,
+        message: 'Invalid PIN format. PIN must be 4 to 6 numeric digits.',
+        code: 'INVALID_PIN_FORMAT',
+      }
+    }
 
+    // 3. Reject hardcoded insecure fallback PINs unconditionally
+    if (cleanPin === '1234' || cleanPin === '0000') {
+      recordFailedPinAttempt(rateLimitKey)
+      await this.logSecurityEvent(ctx, {
+        eventType: 'PIN_VERIFICATION_FAILED',
+        studentId: studentId ?? undefined,
+        action: 'PIN Verification',
+        result: 'FAILED',
+        reason: 'Attempted verification using rejected fallback PIN',
+      })
+      return {
+        valid: false,
+        message: 'Verification failed. Insecure or invalid PIN provided.',
+        code: 'INVALID_CREDENTIALS',
+      }
+    }
+
+    // 4. Resolve Guardian Profile
+    let guardian: any = null
     if (guardianId) {
       guardian = await db.guardian.findFirst({
         where: { id: guardianId, tenantId: ctx.tenantId, deletedAt: null },
-        include: { user: true },
+        include: { user: true, studentLinks: true },
       })
     } else if (userId) {
       guardian = await db.guardian.findFirst({
         where: { userId, tenantId: ctx.tenantId, deletedAt: null },
-        include: { user: true },
+        include: { user: true, studentLinks: true },
       })
     }
 
     if (!guardian) {
+      recordFailedPinAttempt(rateLimitKey)
       await this.logSecurityEvent(ctx, {
         eventType: 'PIN_VERIFICATION_FAILED',
-        studentId,
+        studentId: studentId ?? undefined,
         action: 'PIN Verification',
         result: 'FAILED',
         reason: 'Guardian record not found for tenant',
       })
-      return { valid: false, message: 'Guardian profile not found' }
+      return { valid: false, message: 'Verification failed: Guardian not found.', code: 'GUARDIAN_NOT_FOUND' }
     }
 
-    // Check PIN against Guardian.pickupPin or User.passwordHash / fallback PIN
-    const storedPin = guardian.pickupPin
-    let isMatch = false
+    // 5. If studentId is provided, enforce child pickup authorization & safety rules
+    let effectiveStoredPin = guardian.pickupPin
+    if (studentId) {
+      const studentLink = await db.studentGuardian.findFirst({
+        where: { studentId, guardianId: guardian.id },
+        include: { student: true },
+      })
 
-    if (storedPin) {
-      if (storedPin.startsWith('$2a$') || storedPin.startsWith('$2b$')) {
-        isMatch = await bcrypt.compare(pin.trim(), storedPin)
-      } else {
-        isMatch = storedPin.trim() === pin.trim()
+      if (!studentLink) {
+        recordFailedPinAttempt(rateLimitKey)
+        await this.logSecurityEvent(ctx, {
+          eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          studentId,
+          action: 'PIN Verification',
+          result: 'BLOCKED',
+          reason: `Guardian ${guardian.fullName} has no relationship to student ${studentId}`,
+        })
+        return { valid: false, message: 'Guardian is not authorized for this student.', code: 'NOT_AUTHORIZED' }
       }
-    } else if (guardian.user?.passwordHash) {
-      // Allow fallback to account password or default demo PIN '1234' / '0000'
-      isMatch =
-        (await bcrypt.compare(pin.trim(), guardian.user.passwordHash)) ||
-        pin.trim() === '1234' ||
-        pin.trim() === '0000'
+
+      // Multi-branch / Cross-tenant scoping check
+      if (studentLink.student.tenantId !== ctx.tenantId) {
+        return { valid: false, message: 'Student belongs to a different school tenant.', code: 'TENANT_MISMATCH' }
+      }
+      if (ctx.branchId && studentLink.student.branchId && studentLink.student.branchId !== ctx.branchId) {
+        return { valid: false, message: 'Student belongs to a different school branch.', code: 'BRANCH_MISMATCH' }
+      }
+
+      // Check pickup authorization flag & status
+      const effectivePickupStatus = studentLink.pickupStatus === 'NOT_AUTHORIZED' && studentLink.canPickup
+        ? 'AUTHORIZED'
+        : studentLink.pickupStatus
+      if (!studentLink.canPickup || effectivePickupStatus === 'NOT_AUTHORIZED') {
+        await this.logSecurityEvent(ctx, {
+          eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          studentId,
+          action: 'PIN Verification',
+          result: 'BLOCKED',
+          reason: `Guardian ${guardian.fullName} pickup authorization revoked for student ${studentId}`,
+        })
+        return { valid: false, message: 'Pickup authorization is revoked or not authorized for this child.', code: 'NOT_AUTHORIZED' }
+      }
+
+      const now = new Date()
+      if (studentLink.pickupStatus === 'EXPIRED' || (studentLink.authExpiresAt && new Date(studentLink.authExpiresAt) < now)) {
+        return { valid: false, message: 'Pickup authorization for this guardian has expired.', code: 'AUTHORIZATION_EXPIRED' }
+      }
+      if (studentLink.authStartDate && new Date(studentLink.authStartDate) > now) {
+        return { valid: false, message: 'Pickup authorization is not yet active.', code: 'AUTHORIZATION_NOT_ACTIVE' }
+      }
+
+      // Student-specific PIN override takes precedence
+      if (studentLink.pickupPin && studentLink.pickupPin.trim()) {
+        effectiveStoredPin = studentLink.pickupPin.trim()
+      }
+    }
+
+    // 6. Fail Closed: Unconfigured, empty, or legacy fallback PINs fail closed
+    if (!effectiveStoredPin || !effectiveStoredPin.trim() || effectiveStoredPin === '1234' || effectiveStoredPin === '0000') {
+      await this.logSecurityEvent(ctx, {
+        eventType: 'PIN_VERIFICATION_FAILED',
+        studentId: studentId ?? undefined,
+        action: 'PIN Verification',
+        result: 'FAILED',
+        reason: `No secure pickup PIN configured for guardian ${guardian.fullName}`,
+      })
+      return {
+        valid: false,
+        message: 'No secure pickup PIN configured for this guardian. Please set up a PIN before completing pickup.',
+        code: 'PIN_NOT_CONFIGURED',
+      }
+    }
+
+    // 7. Server-authoritative PIN comparison (bcrypt or legacy plaintext)
+    let isMatch = false
+    if (effectiveStoredPin.startsWith('$2a$') || effectiveStoredPin.startsWith('$2b$')) {
+      isMatch = await bcrypt.compare(cleanPin, effectiveStoredPin)
     } else {
-      // Default demo fallback PIN '1234'
-      isMatch = pin.trim() === '1234' || pin.trim() === '0000'
+      isMatch = effectiveStoredPin.trim() === cleanPin
     }
 
     if (!isMatch) {
+      const failState = recordFailedPinAttempt(rateLimitKey)
       await this.logSecurityEvent(ctx, {
         eventType: 'PIN_VERIFICATION_FAILED',
-        studentId,
+        studentId: studentId ?? undefined,
         action: 'PIN Verification',
         result: 'FAILED',
-        reason: `Incorrect PIN entered for guardian ${guardian.fullName}`,
+        reason: `Incorrect PIN entered for guardian ${guardian.fullName}${failState.locked ? ' (Triggered lockout)' : ''}`,
       })
 
-      // Raise FollowUp security alert if repeated failure
+      // Raise FollowUp security alert if failed
       await raiseFollowUp({
         tenantId: ctx.tenantId,
         branchId: ctx.branchId,
@@ -289,12 +584,21 @@ export class TransportSecurityService {
         responsibleRole: 'TEACHER',
       })
 
-      return { valid: false, message: 'Incorrect PIN' }
+      return {
+        valid: false,
+        message: failState.locked
+          ? `Incorrect PIN. Maximum attempts exceeded. Locked out for ${failState.retryAfterSeconds}s.`
+          : 'Incorrect PIN provided.',
+        code: 'PIN_MISMATCH',
+      }
     }
+
+    // Reset rate limit on successful verification
+    resetPinRateLimit(rateLimitKey)
 
     await this.logSecurityEvent(ctx, {
       eventType: 'PIN_VERIFICATION_SUCCESS',
-      studentId,
+      studentId: studentId ?? undefined,
       action: 'PIN Verification',
       result: 'SUCCESS',
       reason: `PIN verified successfully for guardian ${guardian.fullName}`,
@@ -666,5 +970,316 @@ export class TransportSecurityService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
+  }
+
+  /**
+   * Generate Cryptographically Signed, Expiring Transport QR Token
+   */
+  static async generateTransportQrToken(params: {
+    tenantId: string
+    branchId?: string | null
+    purpose: TransportQrPurpose
+    sub: string
+    routeId?: string
+    vehicleId?: string
+    driverId?: string
+    studentId?: string
+    guardianId?: string
+    authId?: string
+    expiresIn?: string | number
+    customSecret?: Uint8Array
+  }): Promise<{ token: string; qrPayload: string; expiresAt: Date; jti: string }> {
+    const jti = crypto.randomUUID()
+    const expDuration = params.expiresIn ?? (
+      params.purpose === 'TRANSPORT_DRIVER' ? '12h' :
+      params.purpose === 'TRANSPORT_PICKUP_AUTH' ? '24h' : '24h'
+    )
+
+    const signer = new SignJWT({
+      tenantId: params.tenantId,
+      branchId: params.branchId ?? null,
+      purpose: params.purpose,
+      routeId: params.routeId,
+      vehicleId: params.vehicleId,
+      driverId: params.driverId,
+      studentId: params.studentId,
+      guardianId: params.guardianId,
+      authId: params.authId,
+    })
+      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+      .setIssuer(TRANSPORT_QR_ISSUER)
+      .setAudience(TRANSPORT_QR_AUDIENCE)
+      .setSubject(params.sub)
+      .setJti(jti)
+      .setIssuedAt()
+
+    if (typeof expDuration === 'number') {
+      signer.setExpirationTime(expDuration)
+    } else {
+      signer.setExpirationTime(expDuration)
+    }
+
+    const secret = params.customSecret || TRANSPORT_QR_SECRET
+    const jwt = await signer.sign(secret)
+    const token = `${TRANSPORT_QR_PREFIX}${jwt}`
+
+    let expSeconds: number
+    if (typeof expDuration === 'number') {
+      expSeconds = expDuration
+    } else if (typeof expDuration === 'string') {
+      const match = expDuration.match(/^(\d+)([smhd])$/)
+      if (match) {
+        const val = parseInt(match[1], 10)
+        const unit = match[2]
+        const multiplier = unit === 's' ? 1 : unit === 'm' ? 60 : unit === 'h' ? 3600 : 86400
+        expSeconds = Math.floor(Date.now() / 1000) + val * multiplier
+      } else {
+        expSeconds = Math.floor(Date.now() / 1000) + 86400
+      }
+    } else {
+      expSeconds = Math.floor(Date.now() / 1000) + 86400
+    }
+    const expiresAt = new Date(expSeconds * 1000)
+
+    return {
+      token,
+      qrPayload: token,
+      expiresAt,
+      jti,
+    }
+  }
+
+  /**
+   * Authoritatively Validate Transport QR Token Cryptographic Signature, Expiry, Purpose & Scoping
+   */
+  static async verifyTransportQrToken(
+    tokenString: string,
+    options?: {
+      expectedTenantId?: string
+      expectedBranchId?: string | null
+      expectedPurpose?: TransportQrPurpose
+      customSecret?: Uint8Array
+    }
+  ): Promise<{
+    valid: boolean
+    code: 'VERIFIED' | 'INVALID_TOKEN' | 'UNSIGNED_TOKEN_REJECTED' | 'MALFORMED' | 'SIGNATURE_INVALID' | 'EXPIRED' | 'TENANT_MISMATCH' | 'BRANCH_MISMATCH' | 'PURPOSE_MISMATCH' | 'INVALID_CLAIMS'
+    message: string
+    payload?: TransportQrTokenPayload
+  }> {
+    if (!tokenString || typeof tokenString !== 'string') {
+      return { valid: false, code: 'INVALID_TOKEN', message: 'QR payload is empty or invalid' }
+    }
+
+    const trimmed = tokenString.trim()
+
+    // Immediate fail-closed rejection for legacy or raw unauthenticated formats
+    if (
+      trimmed.startsWith('TRPQR_') ||
+      trimmed.startsWith('STUDENT:') ||
+      trimmed.startsWith('GUARDIAN:') ||
+      trimmed.startsWith('PARENT:') ||
+      trimmed.startsWith('AUTH:') ||
+      trimmed.startsWith('DRIVER:') ||
+      trimmed.startsWith('{')
+    ) {
+      return {
+        valid: false,
+        code: 'UNSIGNED_TOKEN_REJECTED',
+        message: 'Unsigned legacy QR format or raw ID is not permitted. All transport QR codes must be cryptographically signed by the server.',
+      }
+    }
+
+    let jwtString = trimmed
+    if (trimmed.startsWith(TRANSPORT_QR_PREFIX)) {
+      jwtString = trimmed.substring(TRANSPORT_QR_PREFIX.length)
+    }
+
+    // Must be a valid JWT with 3 parts
+    const parts = jwtString.split('.')
+    if (parts.length !== 3 || parts.some((p) => p.length === 0)) {
+      return {
+        valid: false,
+        code: 'MALFORMED',
+        message: 'Malformed QR token format. Expected signed JWT token.',
+      }
+    }
+
+    try {
+      const secret = options?.customSecret || TRANSPORT_QR_SECRET
+      const { payload } = await jwtVerify(jwtString, secret, {
+        issuer: TRANSPORT_QR_ISSUER,
+        audience: TRANSPORT_QR_AUDIENCE,
+        algorithms: ['HS256'], // Explicit whitelist preventing algorithm confusion
+      })
+
+      const typedPayload = payload as unknown as TransportQrTokenPayload
+
+      // Verify mandatory claims
+      if (!typedPayload.tenantId || !typedPayload.purpose || !typedPayload.sub) {
+        return {
+          valid: false,
+          code: 'INVALID_CLAIMS',
+          message: 'Token is missing mandatory claims (tenantId, purpose, sub)',
+        }
+      }
+
+      // Enforce Tenant multi-tenant isolation
+      if (options?.expectedTenantId && typedPayload.tenantId !== options.expectedTenantId) {
+        return {
+          valid: false,
+          code: 'TENANT_MISMATCH',
+          message: 'QR token belongs to a different school/tenant',
+          payload: typedPayload,
+        }
+      }
+
+      // Enforce Branch isolation if context specifies branch
+      if (
+        options?.expectedBranchId &&
+        typedPayload.branchId &&
+        typedPayload.branchId !== options.expectedBranchId
+      ) {
+        return {
+          valid: false,
+          code: 'BRANCH_MISMATCH',
+          message: 'QR token is not valid for this branch',
+          payload: typedPayload,
+        }
+      }
+
+      // Enforce Purpose binding
+      if (options?.expectedPurpose && typedPayload.purpose !== options.expectedPurpose) {
+        return {
+          valid: false,
+          code: 'PURPOSE_MISMATCH',
+          message: `QR token purpose mismatch. Expected ${options.expectedPurpose}, received ${typedPayload.purpose}`,
+          payload: typedPayload,
+        }
+      }
+
+      return {
+        valid: true,
+        code: 'VERIFIED',
+        message: 'QR token verified successfully',
+        payload: typedPayload,
+      }
+    } catch (err: any) {
+      if (err?.code === 'ERR_JWT_EXPIRED') {
+        return {
+          valid: false,
+          code: 'EXPIRED',
+          message: 'Transport QR code has expired. Please present a fresh QR code.',
+        }
+      }
+      if (err?.code === 'ERR_JWT_CLAIM_VALIDATION_FAILED') {
+        return {
+          valid: false,
+          code: 'INVALID_CLAIMS',
+          message: 'QR token claim validation failed (issuer/audience mismatch).',
+        }
+      }
+      return {
+        valid: false,
+        code: 'SIGNATURE_INVALID',
+        message: 'QR code signature verification failed or token has been tampered with.',
+      }
+    }
+  }
+
+  /**
+   * Authoritatively Complete Pickup Handover with Atomic Single-Use Consumption (Replay Protected)
+   */
+  static async completePickupAuthorization(
+    ctx: TransportSecurityContext,
+    authId: string
+  ): Promise<{ success: boolean; authorization: any; message: string }> {
+    const now = new Date()
+
+    // Atomic conditional update prevents race conditions & duplicate consumption
+    const updateResult = await db.transportPickupAuthorization.updateMany({
+      where: {
+        id: authId,
+        tenantId: ctx.tenantId,
+        status: 'APPROVED',
+        validFrom: { lte: now },
+        validUntil: { gte: now },
+      },
+      data: {
+        status: 'USED',
+        usedAt: now,
+        usedById: ctx.actorId,
+        usedByName: ctx.actorName,
+      },
+    })
+
+    if (updateResult.count === 0) {
+      // Investigate why update failed to provide precise, secure feedback
+      const existing = await db.transportPickupAuthorization.findFirst({
+        where: { id: authId, tenantId: ctx.tenantId },
+        include: { student: true },
+      })
+
+      if (!existing) {
+        throw new Error('NOT_FOUND: Authorization request not found')
+      }
+
+      if (existing.status === 'USED') {
+        await this.logSecurityEvent(ctx, {
+          eventType: 'DUPLICATE_PICKUP_ATTEMPT',
+          studentId: existing.studentId,
+          authorizationId: existing.id,
+          action: 'Complete Handover',
+          result: 'BLOCKED',
+          reason: 'Replay attempt: One-time pickup authorization has already been consumed',
+        })
+        throw new Error('ALREADY_USED: This one-time pickup authorization has already been used and cannot be replayed')
+      }
+
+      if (existing.status !== 'APPROVED') {
+        await this.logSecurityEvent(ctx, {
+          eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          studentId: existing.studentId,
+          authorizationId: existing.id,
+          action: 'Complete Handover',
+          result: 'BLOCKED',
+          reason: `Handover blocked: Authorization status is ${existing.status}`,
+        })
+        throw new Error(`NOT_APPROVED: Authorization is not approved (Current status: ${existing.status})`)
+      }
+
+      if (now < existing.validFrom || now > existing.validUntil) {
+        await this.logSecurityEvent(ctx, {
+          eventType: 'UNAUTHORIZED_PICKUP_ATTEMPT',
+          studentId: existing.studentId,
+          authorizationId: existing.id,
+          action: 'Complete Handover',
+          result: 'BLOCKED',
+          reason: 'Handover blocked: Authorization date has expired or is outside valid window',
+        })
+        throw new Error('EXPIRED: Pickup authorization date has expired or is outside valid window')
+      }
+
+      throw new Error('INVALID_STATE: Pickup authorization cannot be completed')
+    }
+
+    const updated = await db.transportPickupAuthorization.findUnique({
+      where: { id: authId },
+      include: { student: true },
+    })
+
+    await this.logSecurityEvent(ctx, {
+      eventType: 'AUTHORIZATION_APPROVED',
+      studentId: updated?.studentId,
+      authorizationId: authId,
+      action: `Handover Completed (${updated?.actionType || 'PICKUP'})`,
+      result: 'SUCCESS',
+      reason: `Handover completed for student ${updated?.student?.firstName} to ${updated?.personName} (${updated?.relationship})`,
+    })
+
+    return {
+      success: true,
+      authorization: updated,
+      message: `${updated?.actionType || 'PICKUP'} handover completed successfully for ${updated?.student?.firstName}`,
+    }
   }
 }

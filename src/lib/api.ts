@@ -74,6 +74,8 @@ export const Errors = {
     fail('VALIDATION_001', message, 400, field, details),
   badRequest: (message: string, field?: string) => fail('BAD_REQUEST', message, 400, field),
   conflict: (message: string, field?: string) => fail('CONFLICT_001', message, 409, field),
+  rateLimit: (retryAfterSeconds = 60, msg = 'Too many requests. Please try again later.') =>
+    fail('RATE_LIMIT_EXCEEDED', msg, 429, undefined, { retryAfterSeconds }),
   business: (code: string, message: string, status = 422, details?: unknown) =>
     fail(code, message, status, undefined, details),
   system: (e: unknown) => {
