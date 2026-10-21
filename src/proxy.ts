@@ -43,7 +43,7 @@ function applySecurityHeaders<T extends NextResponse>(res: T, traceId: string): 
   return res
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const traceId = resolveTraceId(req)
 
@@ -127,3 +127,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/app/:path*', '/onboard/:path*', '/api/v1/:path*'],
 }
+
+export { proxy as middleware }
+export default proxy
+
