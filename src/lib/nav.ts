@@ -2,7 +2,7 @@ import {
   Home, LayoutDashboard, Users, ClipboardList, IndianRupee,
   Sparkles, Megaphone, Settings, ScrollText, Building2, Rocket,
   UserCheck, CalendarCheck, Package, Bus, BarChart3,
-  GraduationCap, LayoutGrid,
+  GraduationCap, LayoutGrid, Bot,
 } from 'lucide-react'
 import type { Role } from './auth'
 import { can } from './auth'
@@ -20,6 +20,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: 'Home', href: '/app/home', icon: Home, grad: 'g-blue' },
   { key: 'dashboard', label: 'Dashboard', href: '/app/dashboard', icon: LayoutDashboard, grad: 'g-blue' },
+  { key: 'ask', label: 'PreO AI', href: '/app/ask', icon: Bot, grad: 'g-purple', perm: 'reports:read' },
   { key: 'daily-diary', label: 'Daily Diary', href: '/app/daily-diary', icon: CalendarCheck, grad: 'g-emerald', perm: 'attendance:read' },
   { key: 'users', label: 'Users', href: '/app/users', icon: UserCheck, grad: 'g-violet', perm: 'users:read' },
   { key: 'hr', label: 'HR & Workforce', href: '/app/hr', icon: Users, grad: 'g-indigo', perm: 'users:read' },

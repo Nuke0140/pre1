@@ -217,6 +217,12 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     animation: '/animations/home/fees.json',
     quickActions: [{ label: 'Create invoice', href: '/app/finance', perm: 'finance:write' }],
   },
+  ask: {
+    description: 'Ask anything about your school',
+    tileSize: 'lg',
+    semanticTheme: 'purple',
+    quickActions: [{ label: "Last year's batch report", href: '/app/ask', perm: 'reports:read' }],
+  },
   reports: {
     description: 'Data-driven insights',
     tileSize: 'lg',
