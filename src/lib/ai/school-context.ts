@@ -60,6 +60,10 @@ async function build({ tenantId, branchId, roles }: AiScope) {
     select: { id: true, name: true, startDate: true, endDate: true, status: true, isCurrent: true },
     orderBy: { startDate: 'asc' },
   })
+  const programs = await db.program.findMany({
+    where: { tenantId, deletedAt: null, isActive: true },
+    select: { name: true, programType: true, ageMinMonths: true, ageMaxMonths: true, capacity: true },
+  })
   const tz = tenant?.timezone || 'Asia/Kolkata'
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date())
 
@@ -393,6 +397,7 @@ async function build({ tenantId, branchId, roles }: AiScope) {
     scope: branchId ? `Branch: ${branches[0]?.name ?? branchId}` : `All branches (${branches.length})`,
     branches: branches.map((b) => b.name),
     academicSessions: sessions.map((s) => ({ name: s.name, status: s.status, isCurrent: s.isCurrent })),
+    programs: programs.map((p) => ({ program: p.programType, name: p.name, ageBandMonths: p.ageMinMonths != null ? `${p.ageMinMonths}-${p.ageMaxMonths}` : null, capacityPerSection: p.capacity })),
     visibleDomains: Object.entries(perms).filter(([, v]) => v).map(([k]) => k),
     sessionTotals,
     bySessionBranchProgram: cube,

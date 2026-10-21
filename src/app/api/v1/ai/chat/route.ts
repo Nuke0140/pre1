@@ -67,6 +67,15 @@ export async function POST(req: NextRequest) {
             system: SYSTEM_PROMPT,
             prompt: buildPrompt(ctx, history, question, session.name ?? 'there', session.role),
             signal: req.signal,
+            tools: ['WebSearch', 'WebFetch'],
+            onTool: (name, input) => {
+              if (name === 'WebSearch') send('status', { label: 'Searching the web', detail: String(input?.query ?? '').slice(0, 140), kind: 'web' })
+              else if (name === 'WebFetch') {
+                let host = String(input?.url ?? '')
+                try { host = new URL(host).hostname } catch {}
+                send('status', { label: 'Reading source', detail: host, kind: 'web' })
+              }
+            },
             onDelta: (text) => {
               gotText = true
               send('delta', { text })

@@ -5,23 +5,23 @@ import ReactMarkdown from 'react-markdown'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowUp, Square, Plus, MessageSquare, Trash2, Copy, Check, RotateCcw, ThumbsUp, ThumbsDown,
-  Sparkles, ShieldCheck, Building2, IndianRupee, GraduationCap, Users, TrendingUp, CalendarCheck, PanelLeftClose, PanelLeft, Loader2,
+  Sparkles, ShieldCheck, Building2, Globe, IndianRupee, GraduationCap, Users, TrendingUp, CalendarCheck, PanelLeftClose, PanelLeft, Loader2,
 } from 'lucide-react'
-import { ActionsBlock, ChartBlock, FollowupsBlock, InsightsBlock, KpiBlock, PendingBlock, TableBlock } from './blocks'
+import { ActionBlock, ActionsBlock, ChartBlock, FollowupsBlock, InsightsBlock, KpiBlock, PendingBlock, TableBlock } from './blocks'
 import './ask.css'
 
-type Step = { label: string; detail?: string; at: number }
+type Step = { label: string; detail?: string; at: number; kind?: string }
 type Msg = { id: string; role: 'user' | 'assistant'; content: string; steps?: Step[]; status?: 'streaming' | 'done' | 'error'; startedAt?: number; endedAt?: number; fallback?: boolean; error?: string; vote?: 1 | -1 }
 type Chat = { id: string; title: string; messages: Msg[]; updatedAt: number; branchId: string }
 
 const STORE = 'preo-ai-chats-v1'
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
-const BLOCKS = ['kpis', 'chart', 'table', 'insights', 'actions', 'followups'] as const
+const BLOCKS = ['kpis', 'chart', 'table', 'insights', 'actions', 'action', 'followups'] as const
 
 /** Split streamed text into markdown and rich-block segments (tolerates unfinished fences). */
 function parseSegments(text: string) {
   const out: { kind: 'md' | (typeof BLOCKS)[number]; body: string; done: boolean }[] = []
-  const re = /```(kpis|chart|table|insights|actions|followups)[^\n]*\n([\s\S]*?)(```|$)/g
+  const re = /```(kpis|chart|table|insights|actions|action|followups)[^\n]*\n([\s\S]*?)(```|$)/g
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(text))) {
@@ -41,12 +41,12 @@ function tryJson(s: string) {
   try { return JSON.parse(s) } catch { return null }
 }
 
-function Segments({ text, streaming, onAsk }: { text: string; streaming: boolean; onAsk?: (q: string) => void }) {
+function Segments({ text, streaming, onAsk, scopeKey }: { text: string; streaming: boolean; onAsk?: (q: string) => void; scopeKey: string }) {
   const segs = useMemo(() => parseSegments(text), [text])
   return (
     <>
       {segs.map((s, i) => {
-        if (s.kind === 'md') return s.body.trim() ? <div key={i} className="ai-md"><ReactMarkdown>{s.body}</ReactMarkdown></div> : null
+        if (s.kind === 'md') return s.body.trim() ? <div key={i} className="ai-md"><ReactMarkdown components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="ai-link">{children}</a> }}>{s.body}</ReactMarkdown></div> : null
         const spec = s.done ? tryJson(s.body.trim()) : null
         if (!spec) return streaming || !s.done ? <PendingBlock key={i} kind={s.kind} /> : null
         switch (s.kind) {
@@ -55,6 +55,7 @@ function Segments({ text, streaming, onAsk }: { text: string; streaming: boolean
           case 'table': return <TableBlock key={i} spec={spec} />
           case 'insights': return <InsightsBlock key={i} spec={spec} />
           case 'actions': return <ActionsBlock key={i} spec={spec} />
+          case 'action': return streaming ? <PendingBlock key={i} kind="action" /> : <ActionBlock key={i} spec={spec} scopeKey={`${scopeKey}:${i}`} />
           case 'followups': return <FollowupsBlock key={i} spec={spec} onAsk={onAsk} />
         }
       })}
@@ -84,7 +85,7 @@ function Thinking({ steps, live, startedAt, endedAt }: { steps: Step[]; live: bo
           <motion.ol initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
             {steps.map((s, i) => (
               <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}>
-                {live && i === steps.length - 1 ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
+                {live && i === steps.length - 1 ? <Loader2 size={13} className="spin" /> : (s as any).kind === 'web' ? <Globe size={13} /> : <Check size={13} />}
                 <span><b>{s.label}</b>{s.detail ? <em> — {s.detail}</em> : null}</span>
               </motion.li>
             ))}
@@ -294,7 +295,7 @@ export default function AskClient({ userName, schoolName, branches, canPickBranc
                   <div className="ai-avatar"><Sparkles size={16} /></div>
                   <div className="ai-bot-body">
                     {!!m.steps?.length && <Thinking steps={m.steps} live={m.status === 'streaming' && !m.content} startedAt={m.startedAt} endedAt={m.endedAt} />}
-                    <Segments text={m.content} streaming={m.status === 'streaming'} onAsk={m.id === lastAssistantId && !busy ? ask : undefined} />
+                    <Segments text={m.content} streaming={m.status === 'streaming'} onAsk={m.id === lastAssistantId && !busy ? ask : undefined} scopeKey={m.id} />
                     {m.status === 'streaming' && m.content && <span className="ai-caret" />}
                     {m.status === 'error' && <div className="ai-error">{m.error} <button onClick={() => { const q = messages[messages.indexOf(m) - 1]?.content; if (q) ask(q, { replaceFrom: messages[messages.indexOf(m) - 1].id }) }}>Retry</button></div>}
                     {m.status === 'done' && (

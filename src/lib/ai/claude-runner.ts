@@ -1,6 +1,6 @@
 /**
  * Runs the local Claude Code CLI headlessly as the LLM behind PreO AI and
- * streams text deltas. No tools, no MCP, no settings: pure text generation.
+ * streams text deltas. Only the tools passed in (e.g. WebSearch) are enabled; no MCP, no settings.
  */
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -19,17 +19,21 @@ export interface RunOptions {
   model?: string
   signal?: AbortSignal
   timeoutMs?: number
+  /** Claude Code built-in tools to enable (e.g. WebSearch, WebFetch). Empty = pure text. */
+  tools?: string[]
   onDelta: (text: string) => void
+  onTool?: (name: string, input: any) => void
 }
 
-export function runClaude({ system, prompt, model, signal, timeoutMs = 150_000, onDelta }: RunOptions): Promise<{ text: string }> {
+export function runClaude({ system, prompt, model, signal, timeoutMs = 180_000, tools = [], onDelta, onTool }: RunOptions): Promise<{ text: string }> {
   return new Promise((resolve, reject) => {
     const args = [
       '-p',
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--verbose',
-      '--tools', '',
+      '--tools', tools.length ? tools.join(',') : '',
+      ...(tools.length ? ['--allowedTools', ...tools] : []),
       '--no-session-persistence',
       '--setting-sources', '',
       '--strict-mcp-config',
@@ -71,6 +75,13 @@ export function runClaude({ system, prompt, model, signal, timeoutMs = 150_000, 
         if (evt.type === 'stream_event' && evt.event?.type === 'content_block_delta' && evt.event.delta?.type === 'text_delta') {
           text += evt.event.delta.text
           onDelta(evt.event.delta.text)
+        } else if (evt.type === 'assistant' && Array.isArray(evt.message?.content)) {
+          for (const c of evt.message.content) if (c?.type === 'tool_use') onTool?.(c.name, c.input)
+          // separate tool-interleaved text turns so markdown doesn't run together
+          if (text && !text.endsWith('\n\n') && evt.message.content.some((c: any) => c?.type === 'tool_use')) {
+            text += '\n\n'
+            onDelta('\n\n')
+          }
         } else if (evt.type === 'result') {
           if (evt.is_error) return finish(new Error(String(evt.result || 'Claude returned an error')))
           if (!text && typeof evt.result === 'string') {

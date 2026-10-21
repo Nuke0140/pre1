@@ -11,6 +11,7 @@ import {
 import {
   BarChart3, LineChart as LineIcon, AreaChart as AreaIcon, PieChart as PieIcon, Table2, Download,
   TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, XCircle, Info, ArrowUpRight, Sparkles,
+  CalendarCheck, Receipt, Megaphone,
 } from 'lucide-react'
 
 export type Fmt = 'number' | 'inr' | 'percent' | undefined
@@ -341,11 +342,116 @@ export function FollowupsBlock({ spec, onAsk }: { spec: any; onAsk?: (q: string)
 }
 
 export function PendingBlock({ kind }: { kind: string }) {
-  const label: Record<string, string> = { chart: 'Drawing chart', kpis: 'Computing KPIs', table: 'Building table', insights: 'Finding insights', actions: 'Linking modules', followups: 'Thinking of next questions' }
+  const label: Record<string, string> = { action: 'Preparing action preview', chart: 'Drawing chart', kpis: 'Computing KPIs', table: 'Building table', insights: 'Finding insights', actions: 'Linking modules', followups: 'Thinking of next questions' }
   return (
     <div className={`ai-pending kind-${kind}`}>
       <div className="ai-shimmer" />
       <span><Sparkles size={14} /> {label[kind] ?? 'Rendering'}…</span>
     </div>
+  )
+}
+
+/* ───────────────────────── Action card (human-approved writes) ───────────────────────── */
+
+type ActionState =
+  | { phase: 'loading' }
+  | { phase: 'preview'; preview: any }
+  | { phase: 'running'; preview: any }
+  | { phase: 'done'; preview: any; result: any }
+  | { phase: 'cancelled'; preview: any }
+  | { phase: 'failed'; preview: any; error: string }
+
+const ACTION_STORE = 'preo-ai-actions-v1'
+const readStore = (): Record<string, any> => { try { return JSON.parse(localStorage.getItem(ACTION_STORE) || '{}') } catch { return {} } }
+const writeStore = (k: string, v: any) => { try { const s = readStore(); s[k] = v; localStorage.setItem(ACTION_STORE, JSON.stringify(s)) } catch {} }
+
+function hashKey(s: string) {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  return 'a' + (h >>> 0).toString(36) + s.length.toString(36)
+}
+
+const ACTION_ICON: Record<string, React.ReactNode> = {
+  mark_attendance: <CalendarCheck size={18} />,
+  record_payment: <Receipt size={18} />,
+  draft_announcement: <Megaphone size={18} />,
+}
+
+export function ActionBlock({ spec, scopeKey }: { spec: any; scopeKey: string }) {
+  const key = useMemo(() => hashKey(scopeKey + JSON.stringify(spec)), [scopeKey, spec])
+  const [st, setSt] = useState<ActionState>({ phase: 'loading' })
+
+  useEffect(() => {
+    const saved = readStore()[key]
+    if (saved?.phase === 'done' || saved?.phase === 'cancelled') { setSt(saved); return }
+    let alive = true
+    fetch('/api/v1/ai/actions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'preview', action: spec }) })
+      .then((r) => r.json())
+      .then((j) => { if (alive) setSt({ phase: 'preview', preview: j.data ?? { ok: false, error: j.error?.message ?? 'Could not prepare action', lines: [], warnings: [] } }) })
+      .catch(() => alive && setSt({ phase: 'preview', preview: { ok: false, error: 'Network error', lines: [], warnings: [] } }))
+    return () => { alive = false }
+  }, [key, spec])
+
+  const approve = async () => {
+    if (st.phase !== 'preview') return
+    const preview = st.preview
+    setSt({ phase: 'running', preview })
+    try {
+      const j = await (await fetch('/api/v1/ai/actions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'execute', action: spec, key: key.replace(/[^a-z0-9]/gi, '').padEnd(8, '0') }) })).json()
+      const result = j.data
+      if (result?.ok) { const next = { phase: 'done' as const, preview, result }; setSt(next); writeStore(key, next) }
+      else setSt({ phase: 'failed', preview, error: result?.error ?? j.error?.message ?? 'Action failed' })
+    } catch { setSt({ phase: 'failed', preview, error: 'Network error' }) }
+  }
+  const cancel = () => { if (st.phase === 'preview' || st.phase === 'failed') { const next = { phase: 'cancelled' as const, preview: st.preview }; setSt(next); writeStore(key, next) } }
+
+  if (st.phase === 'loading') return <PendingBlock kind="action" />
+  const p = st.preview
+  const done = st.phase === 'done'
+  return (
+    <motion.div className={`ai-card ai-action-card phase-${st.phase} ${p.ok ? '' : 'invalid'}`} initial={{ opacity: 0, y: 12, scale: 0.99 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.4 }}>
+      <div className="ai-action-head">
+        <span className="ai-action-icon">{done ? <CheckCircle2 size={18} /> : ACTION_ICON[spec?.type] ?? <Sparkles size={18} />}</span>
+        <div>
+          <div className="ai-action-kicker">{done ? 'Completed' : st.phase === 'cancelled' ? 'Cancelled' : p.ok ? 'Needs your approval' : 'Cannot run'}</div>
+          <div className="ai-card-title">{done ? st.result.title : p.title}</div>
+          {!done && p.description && <div className="ai-card-sub">{p.description}</div>}
+        </div>
+      </div>
+      {!p.ok && <div className="ai-action-error"><XCircle size={15} /> {p.error}</div>}
+      {(done ? st.result.lines : p.lines)?.length > 0 && (
+        <div className="ai-action-lines">
+          {(done ? st.result.lines : p.lines).map((l: any, i: number) => (
+            <div key={i}><span>{l.label}</span><b>{l.value}</b></div>
+          ))}
+        </div>
+      )}
+      {!done && Array.isArray(p.rows) && p.rows.length > 0 && (
+        <div className="ai-action-rows">
+          {p.rows.map((r: any, i: number) => (
+            <span key={i} className={`tone-${r.tone ?? 'none'}`} title={r.detail}>
+              <i />{r.name}<em>{r.detail}</em>
+            </span>
+          ))}
+        </div>
+      )}
+      {!done && p.warnings?.map((w: string, i: number) => <div key={i} className="ai-action-warn"><AlertTriangle size={14} /> {w}</div>)}
+      {st.phase === 'failed' && <div className="ai-action-error"><XCircle size={15} /> {st.error}</div>}
+      <div className="ai-action-foot">
+        {done ? (
+          st.result.link ? <Link href={st.result.link.href} className="ai-action">{st.result.link.label} <ArrowUpRight size={14} /></Link> : null
+        ) : st.phase === 'cancelled' ? (
+          <span className="ai-action-muted">No changes were made.</span>
+        ) : p.ok ? (
+          <>
+            <button className="ai-approve" onClick={approve} disabled={st.phase === 'running'}>
+              {st.phase === 'running' ? <span className="ai-orb-mini" /> : <CheckCircle2 size={15} />} {st.phase === 'running' ? 'Saving…' : p.confirmLabel || 'Approve'}
+            </button>
+            <button className="ai-ghost" onClick={cancel} disabled={st.phase === 'running'}>Cancel</button>
+            <span className="ai-action-muted">Nothing changes until you approve.</span>
+          </>
+        ) : null}
+      </div>
+    </motion.div>
   )
 }
