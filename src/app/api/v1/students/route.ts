@@ -19,7 +19,28 @@ export const GET = withApi(async (req: NextRequest) => {
   const pageSize = Math.min(100, Math.max(1, parseInt(sp.get('pageSize') || '20', 10)))
   const search = sp.get('q') || sp.get('search') || undefined
   const classroomId = sp.get('classroomId') || undefined
-  const branchId = sp.get('branchId') || session.branchId || undefined
+  const rawBranchId = sp.get('branchId')
+  const isAllBranches =
+    !rawBranchId ||
+    rawBranchId === 'ALL' ||
+    rawBranchId === '__ALL_BRANCHES__' ||
+    rawBranchId.toLowerCase() === 'all'
+
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)
+  )
+
+  let branchId: string | undefined = undefined
+  if (!isInstitutionWide && session.branchId) {
+    if (!isAllBranches && rawBranchId !== session.branchId) {
+      throw errPermission('Access denied: branch scope restricted')
+    }
+    branchId = session.branchId
+  } else if (!isAllBranches) {
+    branchId = rawBranchId
+  }
+
   const academicSessionId = sp.get('academicSessionId') || undefined
   const programType = (sp.get('programType') as ProgramType) || undefined
   const status = (sp.get('status') as StudentStatus) || undefined

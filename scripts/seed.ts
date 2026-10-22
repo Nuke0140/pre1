@@ -251,7 +251,13 @@ async function main() {
     plans[p.programType] = { admission: 500000, tuition: p.tuition, activity: 250000 }
   }
 
-  // ── Students + guardians ──
+  // ── Students + guardians (Strictly opt-in via ALLOW_DEMO_SEED) ──
+  type Seeded = { id: string; firstName: string; classroom: string; guardianPhone: string }
+  const students: Seeded[] = []
+
+  if (process.env.ALLOW_DEMO_SEED !== 'true') {
+    console.log('ℹ️ Skipping dummy student and parent account seeding (production-safe default).')
+  } else {
   const firstNames = [
     'Aarav', 'Anaya', 'Vivaan', 'Diya', 'Aditya', 'Myra', 'Kabir', 'Ishita', 'Reyansh', 'Anika',
     'Arjun', 'Kiara', 'Vihaan', 'Sara', 'Ayaan', 'Zara', 'Dhruv', 'Meher', 'Rudra', 'Aisha',
@@ -259,9 +265,6 @@ async function main() {
   ]
   const lastNames = ['Sharma', 'Patel', 'Reddy', 'Nair', 'Gupta', 'Singh', 'Khan', 'Rao', 'Iyer', 'Mehta']
   const guardiansFirst = ['Priya', 'Rahul', 'Sneha', 'Amit', 'Kavita', 'Rohan', 'Neha', 'Sanjay', 'Pooja', 'Arvind']
-
-  type Seeded = { id: string; firstName: string; classroom: string; guardianPhone: string }
-  const students: Seeded[] = []
 
   for (let i = 0; i < 24; i++) {
     const roomCode = i < 8 ? 'PLA-A' : i < 16 ? 'NUR-A' : 'LKG-A'
@@ -402,6 +405,7 @@ async function main() {
         status: paid >= inv.totalCents ? 'PAID' : 'PARTIALLY_PAID',
       },
     })
+  }
   }
 
   // ── Leads (pipeline) ──

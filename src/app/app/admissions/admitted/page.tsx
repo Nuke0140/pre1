@@ -96,8 +96,8 @@ export default function ConfirmedAdmissionsPage() {
       setBusy(false)
       if (res.success && res.data) {
         const all = res.data
-        const enrolled = all.filter((a: any) => ['ENROLLED', 'ADMITTED'].includes(a.status))
-        const ready = all.filter((a: any) => a.status === 'OFFER_ACCEPTED')
+        const enrolled = all.filter((a: any) => ['ENROLLED', 'ADMITTED'].includes(a.status) || Boolean(a.studentId))
+        const ready = all.filter((a: any) => !['ENROLLED', 'ADMITTED'].includes(a.status) && !a.studentId && ['OFFER_ACCEPTED', 'SUBMITTED', 'APPROVED'].includes(a.status))
         setAdmittedStudents(enrolled)
         setReadyForEnrollment(ready)
       }
@@ -287,7 +287,14 @@ export default function ConfirmedAdmissionsPage() {
                   filteredStudents.map((app) => (
                     <tr key={app.id} className="table-frosted-row">
                       <td className="px-4 py-3 font-mono font-bold text-primary">
-                        {app.applicationNumber}
+                        <div>
+                          <span>{app.applicationNumber}</span>
+                          {app.admissionNo && (
+                            <div className="text-[10px] text-muted-foreground font-semibold font-mono tracking-tight mt-0.5">
+                              #{app.admissionNo}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       {selectedBranchId === '__ALL_BRANCHES__' && (
                         <td className="px-4 py-3">
@@ -299,7 +306,11 @@ export default function ConfirmedAdmissionsPage() {
                       <td className="px-4 py-3">
                         <StudentIdentityChip
                           name={`${app.childFirstName} ${app.childLastName || ''}`}
-                          subtext={app.childGender}
+                          subtext={
+                            app.classroomName
+                              ? `${app.childGender || ''} • Room: ${app.classroomName}`.replace(/^ • /, '')
+                              : app.childGender
+                          }
                           size="sm"
                         />
                       </td>
@@ -310,9 +321,16 @@ export default function ConfirmedAdmissionsPage() {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20">
-                          {app.programType}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-500/20 w-fit">
+                            {app.programType}
+                          </span>
+                          {app.classroomName && (
+                            <span className="text-[10px] font-semibold text-muted-foreground">
+                              {app.classroomName}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 text-[10.5px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
@@ -326,20 +344,20 @@ export default function ConfirmedAdmissionsPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
-                            href="/app/students"
-                            className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1"
-                            title="Open Student 360"
+                            href={`/app/students?q=${encodeURIComponent(app.childFirstName)}`}
+                            className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1 text-primary border-primary/30"
+                            title="Open Student in Student Master"
                           >
                             <GraduationCap size={11} />
                             <span>Student</span>
                           </Link>
                           <Link
-                            href="/app/finance"
-                            className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1"
-                            title="Open Finance"
+                            href="/app/users/family"
+                            className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                            title="Open Parent in Family Directory"
                           >
-                            <DollarSign size={11} />
-                            <span>Fees</span>
+                            <Users size={11} />
+                            <span>Family</span>
                           </Link>
                         </div>
                       </td>
