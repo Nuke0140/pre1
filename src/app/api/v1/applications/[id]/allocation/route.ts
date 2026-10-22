@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 import { db } from '@/lib/db'
 

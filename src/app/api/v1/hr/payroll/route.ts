@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { PayrollService } from '@/lib/hr/payroll-service'
 
 async function _GET(req: NextRequest) {
@@ -55,6 +55,22 @@ async function _POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { action = 'CALCULATE', month, year, branchId, cycleId, paymentReference } = body
+
+    if (cycleId) {
+      const cycle = await db.payrollCycle.findFirst({
+        where: { id: cycleId, tenantId: session.tenantId },
+        select: { branchId: true },
+      })
+      if (!cycle) return Errors.notFound('Payroll cycle')
+      if (cycle.branchId) {
+        const branchCheck = await requireBranchAccess(session, cycle.branchId)
+        if (branchCheck) return branchCheck
+      }
+    }
+    if (branchId) {
+      const branchCheck = await requireBranchAccess(session, branchId)
+      if (branchCheck) return branchCheck
+    }
 
     if (action === 'EXPORT_BANK_FILE') {
       if (!cycleId) return Errors.validation('cycleId is required for bank export')

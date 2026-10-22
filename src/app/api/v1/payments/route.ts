@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { FeeService } from '@/lib/fees/fee-service'
 
 async function _GET(req: NextRequest) {
@@ -76,6 +76,19 @@ async function _POST(req: NextRequest) {
     const cents = amountCents ? Math.round(amountCents) : amountRupees ? Math.round(amountRupees * 100) : 0
     if (!cents || cents <= 0 || !method) {
       return Errors.validation('Valid positive amount and payment method are required')
+    }
+
+    if (studentId) {
+      const st = await db.student.findFirst({ where: { id: studentId, tenantId: session.tenantId }, select: { branchId: true } })
+      if (!st) return Errors.notFound('Student')
+      const branchCheck = await requireBranchAccess(session, st.branchId)
+      if (branchCheck) return branchCheck
+    }
+    if (invoiceId) {
+      const inv = await db.invoice.findFirst({ where: { id: invoiceId, tenantId: session.tenantId }, select: { branchId: true } })
+      if (!inv) return Errors.notFound('Invoice')
+      const branchCheck = await requireBranchAccess(session, inv.branchId)
+      if (branchCheck) return branchCheck
     }
 
     if (feeScheduleId && studentId) {

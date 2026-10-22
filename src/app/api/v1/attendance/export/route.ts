@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { bad, serverError, forbidden } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { AttendanceStatus } from '@prisma/client'
 import { isoDate } from '@/lib/format'
@@ -36,21 +36,26 @@ async function _GET(req: NextRequest) {
 
     const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
     const isInstitutionWide = effectiveRoles.some((r) =>
-      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+      ['OWNER', 'PLATFORM_ADMIN'].includes(r)
     )
     const isTeacher =
       effectiveRoles.includes('TEACHER') && !isInstitutionWide
 
-    // Branch scoping
-    let effectiveBranchId: string | undefined = undefined
-    if (!isInstitutionWide && session.branchId) {
-      if (requestedBranchId && requestedBranchId !== 'ALL' && requestedBranchId !== session.branchId) {
-        return forbidden('Access denied: branch scope restricted')
-      }
-      effectiveBranchId = session.branchId
-    } else if (requestedBranchId && requestedBranchId !== 'ALL') {
-      effectiveBranchId = requestedBranchId
+    if (requestedBranchId && requestedBranchId !== 'ALL') {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
     }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return forbidden('Access denied: branch scope restricted')
+    }
+
+    const branchFilter = (requestedBranchId && requestedBranchId !== 'ALL')
+      ? { branchId: requestedBranchId }
+      : authorizedBranches === 'ALL'
+      ? {}
+      : { branchId: { in: authorizedBranches } }
 
     // Teacher classroom scoping
     let teacherClassroomIds: string[] | undefined = undefined
@@ -100,7 +105,7 @@ async function _GET(req: NextRequest) {
     // Build Prisma where clause
     const where: any = {
       tenantId,
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+      ...branchFilter,
       ...(statusParam && statusParam !== 'ALL' ? { status: statusParam as AttendanceStatus } : {}),
     }
 

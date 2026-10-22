@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 
 /**

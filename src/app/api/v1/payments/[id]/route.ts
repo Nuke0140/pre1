@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 
 async function _GET(req: NextRequest, ctx: { params?: Promise<{ id: string }> | { id: string } }) {
   const session = await requireApi(req, 'finance:read')

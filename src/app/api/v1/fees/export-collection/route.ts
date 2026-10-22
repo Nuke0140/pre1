@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 
 /**
  * Escapes CSV field value according to RFC-4180 and protects against spreadsheet formula injection.
@@ -32,13 +32,23 @@ async function _GET(req: NextRequest) {
 
   try {
     const sp = req.nextUrl.searchParams
-    const branchId = sp.get('branchId') || undefined
+    const requestedBranchId = sp.get('branchId') || undefined
     const academicSessionId = sp.get('academicSessionId') || undefined
     const programId = sp.get('programId') || undefined
     const classroomId = sp.get('classroomId') || undefined
     const startDate = sp.get('startDate') || undefined
     const endDate = sp.get('endDate') || undefined
     const format = sp.get('format') || 'csv'
+
+    if (requestedBranchId && requestedBranchId !== 'ALL') {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return Errors.forbidden('Access denied: branch scope restricted')
+    }
 
     const dateFilter: Record<string, Date> = {}
     if (startDate) {
@@ -120,7 +130,10 @@ async function _GET(req: NextRequest) {
     // Filter in-memory by branch, academicSession, program, and classroom if specified
     const filtered = payments.filter((p) => {
       const studentBranchId = p.student?.branchId || p.student?.currentClassroom?.branchId || p.invoice?.branchId || p.feeSchedule?.feeStructure?.branchId
-      if (branchId && branchId !== 'ALL' && studentBranchId !== branchId) {
+      if (authorizedBranches !== 'ALL') {
+        if (!studentBranchId || !authorizedBranches.includes(studentBranchId)) return false
+      }
+      if (requestedBranchId && requestedBranchId !== 'ALL' && studentBranchId !== requestedBranchId) {
         return false
       }
 

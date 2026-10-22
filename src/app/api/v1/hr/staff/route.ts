@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, withApi, errPermission } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { StaffService } from '@/lib/hr/staff-service'
 
 /**

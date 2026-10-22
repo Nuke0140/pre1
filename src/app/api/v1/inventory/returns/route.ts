@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -12,13 +12,21 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const targetBranchId = body.branchId || session.branchId
+    if (!targetBranchId) {
+      return Errors.badRequest('Branch context is required')
+    }
+
+    const branchCheck = await requireBranchAccess(session, targetBranchId)
+    if (branchCheck) return branchCheck
+
     const meta = getRequestMeta(req)
 
     const ret = await InventoryService.returnStock(
       session.tenantId,
       {
         ...body,
-        branchId: body.branchId || session.branchId,
+        branchId: targetBranchId,
       },
       {
         id: session.uid,

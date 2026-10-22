@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { AuditService } from '@/lib/audit/audit-service'
 
 async function _GET(req: NextRequest) {
@@ -13,7 +13,23 @@ async function _GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams
     const dateStr = sp.get('date') || new Date().toISOString().split('T')[0]
-    const branchId = sp.get('branchId') || undefined
+    const requestedBranchId = sp.get('branchId') || undefined
+
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok([])
+    }
+
+    const branchFilter = requestedBranchId
+      ? { branchId: requestedBranchId }
+      : authorizedBranches === 'ALL'
+      ? {}
+      : { branchId: { in: authorizedBranches } }
 
     const date = new Date(dateStr)
 
@@ -21,7 +37,7 @@ async function _GET(req: NextRequest) {
     const staffList = await db.staffProfile.findMany({
       where: {
         tenantId: session.tenantId,
-        ...(branchId ? { branchId } : {}),
+        ...branchFilter,
         status: 'ACTIVE',
         deletedAt: null,
       },

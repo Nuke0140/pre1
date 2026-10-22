@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, withApi, errPermission, errValidation, errNotFound, errBusiness } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { isoDate } from '@/lib/format'
 import { dayStatus } from '@/lib/calendar'
 import { resolveSessionId } from '@/lib/academic'
@@ -34,6 +34,9 @@ export const GET = withApi(async (req: NextRequest) => {
   if (!classroom) {
     throw errNotFound('Classroom')
   }
+
+  const branchCheck = await requireBranchAccess(session, classroom.branchId)
+  if (branchCheck) return branchCheck
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
@@ -224,6 +227,9 @@ export const POST = withApi(async (req: NextRequest) => {
   if (!classroom) {
     throw errNotFound('Classroom')
   }
+
+  const branchCheck = await requireBranchAccess(session, classroom.branchId)
+  if (branchCheck) return branchCheck
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))

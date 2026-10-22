@@ -1,9 +1,9 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { FeeService } from '@/lib/fees/fee-service'
-import type { ProgramType, FeeHeadCategory } from '@prisma/client'
+import type { ProgramType } from '@prisma/client'
 
 async function _GET(req: NextRequest) {
   const session = await requireApi(req, 'finance:read')
@@ -13,12 +13,17 @@ async function _GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams
     const feePlanId = sp.get('feePlanId') || undefined
-    const branchId = sp.get('branchId') || undefined
+    const requestedBranchId = sp.get('branchId') || session.branchId || undefined
     const classroomId = sp.get('classroomId') || undefined
     const academicSessionId = sp.get('academicSessionId') || undefined
     const programType = (sp.get('programType') as ProgramType) || undefined
     const customTitle = sp.get('title') || 'Term Fee'
     const dueDate = sp.get('dueDate') || new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10)
+
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
 
     const preview = await FeeService.previewBulkInvoices(
       {
@@ -29,7 +34,7 @@ async function _GET(req: NextRequest) {
       },
       {
         feePlanId,
-        branchId,
+        branchId: requestedBranchId,
         classroomId,
         academicSessionId,
         programType,
@@ -57,6 +62,12 @@ async function _POST(req: NextRequest) {
       return Errors.validation('dueDate is required')
     }
 
+    const targetBranchId = branchId || session.branchId
+    if (targetBranchId) {
+      const branchCheck = await requireBranchAccess(session, targetBranchId)
+      if (branchCheck) return branchCheck
+    }
+
     const result = await FeeService.createBulkInvoices(
       {
         tenantId: session.tenantId,
@@ -66,7 +77,7 @@ async function _POST(req: NextRequest) {
       },
       {
         feePlanId,
-        branchId,
+        branchId: targetBranchId,
         classroomId,
         academicSessionId,
         programType,

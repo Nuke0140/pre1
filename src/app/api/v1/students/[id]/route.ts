@@ -1,9 +1,10 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { can } from '@/lib/auth'
 import { StudentService } from '@/lib/students/student-service'
+import { db } from '@/lib/db'
 
 /**
  * GET /api/v1/students/[id] — 360° Comprehensive Student Profile
@@ -62,6 +63,15 @@ async function _PATCH(
   const { id } = await params
 
   try {
+    const existing = await db.student.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
+      select: { branchId: true },
+    })
+    if (!existing) return Errors.notFound('Student')
+
+    const branchCheck = await requireBranchAccess(session, existing.branchId)
+    if (branchCheck) return branchCheck
+
     const body = await req.json()
     const {
       firstName,

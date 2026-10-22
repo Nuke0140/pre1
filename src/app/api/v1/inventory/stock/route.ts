@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 
 async function _GET(req: NextRequest) {
@@ -11,14 +11,30 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
     const locationId = searchParams.get('locationId') || undefined
     const itemId = searchParams.get('itemId') || undefined
+
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok([])
+    }
+
+    const branchFilter = requestedBranchId
+      ? { branchId: requestedBranchId }
+      : authorizedBranches === 'ALL'
+      ? {}
+      : { branchId: { in: authorizedBranches } }
 
     const stocks = await db.inventoryStock.findMany({
       where: {
         tenantId: session.tenantId,
-        ...(branchId ? { branchId } : {}),
+        ...branchFilter,
         ...(locationId ? { locationId } : {}),
         ...(itemId ? { itemId } : {}),
       },

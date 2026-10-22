@@ -331,17 +331,17 @@ export class BulkUpdateService {
       }
 
       // Security: Branch Scope Isolation
-      if (
-        actor.actorBranchId &&
-        member.branchId &&
-        actor.actorBranchId !== member.branchId &&
-        !isActorOwnerOrPlatform &&
-        actor.actorRole !== 'PRINCIPAL'
-      ) {
-        rowValidation.status = 'FAILED'
-        rowValidation.error = `Cross-branch modification forbidden for '${rowValidation.userName}'.`
-        validatedRows.push(rowValidation)
-        continue
+      if (!isActorOwnerOrPlatform) {
+        if (
+          actor.actorBranchId &&
+          member.branchId &&
+          actor.actorBranchId !== member.branchId
+        ) {
+          rowValidation.status = 'FAILED'
+          rowValidation.error = `Cross-branch modification forbidden for '${rowValidation.userName}'.`
+          validatedRows.push(rowValidation)
+          continue
+        }
       }
 
       // Evaluate field values for this user
@@ -676,6 +676,7 @@ export class BulkUpdateService {
     actorName: string
     actorRole: string
     actorBranchId?: string | null
+    authorizedBranches?: string[]
     userIds: string[]
     fieldKey: string
     value: any
@@ -688,6 +689,8 @@ export class BulkUpdateService {
       actorId,
       actorName,
       actorRole,
+      actorBranchId,
+      authorizedBranches,
       userIds,
       fieldKey,
       value,
@@ -707,6 +710,9 @@ export class BulkUpdateService {
     }
     const cleanValue = valResult.cleanValue
 
+    const isActorOwnerOrPlatform = actorRole === 'OWNER' || actorRole === 'PLATFORM_ADMIN'
+    const allowedBranches = authorizedBranches || (actorBranchId ? [actorBranchId] : [])
+
     // Fetch tenant users
     const memberships = await db.tenantUser.findMany({
       where: {
@@ -716,11 +722,20 @@ export class BulkUpdateService {
       },
       include: {
         user: true,
+        assignedBranches: true,
       },
     })
 
-    const foundUserIds = new Set(memberships.map((m) => m.userId))
-    const validUsers = memberships.map((m) => m.user)
+    const scopedMemberships = isActorOwnerOrPlatform
+      ? memberships
+      : memberships.filter((m) => {
+          if (m.branchId && allowedBranches.includes(m.branchId)) return true
+          if (m.assignedBranches?.some((ab) => allowedBranches.includes(ab.branchId))) return true
+          return false
+        })
+
+    const foundUserIds = new Set(scopedMemberships.map((m) => m.userId))
+    const validUsers = scopedMemberships.map((m) => m.user)
 
     if (mode === 'PREVIEW') {
       return {

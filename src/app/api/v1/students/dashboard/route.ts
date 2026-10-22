@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { StudentService } from '@/lib/students/student-service'
 
 /**
@@ -14,18 +14,43 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
     const academicSessionId = searchParams.get('academicSessionId') || undefined
+
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok({
+        totalEnrolled: 0,
+        activeStudents: 0,
+        unassignedStudents: 0,
+        withdrawnStudents: 0,
+        programBreakdown: {},
+        genderDistribution: {},
+      })
+    }
+
+    const branchIds = requestedBranchId
+      ? undefined
+      : authorizedBranches === 'ALL'
+      ? undefined
+      : authorizedBranches
 
     const stats = await StudentService.getStudentDashboardStats(
       {
         tenantId: session.tenantId,
         branchId: session.branchId,
+        academicSessionId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
+        assignedBranchIds: authorizedBranches === 'ALL' ? undefined : authorizedBranches,
       },
-      { branchId, academicSessionId }
+      { branchId: requestedBranchId, branchIds, academicSessionId }
     )
 
     return ok(stats)

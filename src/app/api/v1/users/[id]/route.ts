@@ -8,6 +8,7 @@ import {
   requireCanManageUser,
   requireBranchAccess,
   requireCanAssignRole,
+  getAuthorizedBranchIds,
 } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
@@ -39,15 +40,27 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
   const { targetMember, targetGuardian } = manageCheck
 
   try {
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const isInstitutionWide = authorizedBranches === 'ALL'
+
     if (!targetMember && targetGuardian) {
       const g = targetGuardian
+      const isSelf = session.uid === g.userId || session.uid === g.id
+      const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
+      if (!isInstitutionWide && !isSelf) {
+        branchWhere.id = { in: authorizedBranches }
+      }
       const branches = await db.branch.findMany({
-        where: { tenantId: session.tenantId, deletedAt: null },
+        where: branchWhere,
         select: { id: true, name: true, code: true, isMain: true },
       })
       const branchMap = new Map(branches.map((b) => [b.id, b]))
 
-      const students = g.studentLinks.map((sl: any) => {
+      const visibleLinks = isSelf || isInstitutionWide
+        ? g.studentLinks
+        : g.studentLinks.filter((sl: any) => sl.student?.branchId && authorizedBranches.includes(sl.student.branchId))
+
+      const students = visibleLinks.map((sl: any) => {
         const b = branchMap.get(sl.student?.branchId)
         return {
           id: sl.student?.id || sl.studentId,
@@ -254,8 +267,13 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
     let guardianProfilePayload: any = null
     if (member.user.guardianProfile) {
       const gp = member.user.guardianProfile
+      const isSelf = session.uid === member.userId
+      const visibleLinks = isSelf || isInstitutionWide
+        ? gp.studentLinks
+        : gp.studentLinks.filter((sl: any) => sl.student?.branchId && authorizedBranches.includes(sl.student.branchId))
+
       const branchIds = Array.from(
-        new Set(gp.studentLinks.map((sl: any) => sl.student.branchId).filter(Boolean))
+        new Set(visibleLinks.map((sl: any) => sl.student.branchId).filter(Boolean))
       ) as string[]
       const branches =
         branchIds.length > 0
@@ -266,7 +284,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
           : []
       const branchMap = new Map(branches.map((b) => [b.id, b]))
 
-      const students = gp.studentLinks.map((sl: any) => {
+      const students = visibleLinks.map((sl: any) => {
         const b = branchMap.get(sl.student.branchId)
         return {
           id: sl.student.id,
@@ -769,9 +787,23 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
       }
     }
 
-    if (branchId) {
-      const branchErr = requireBranchAccess(session, branchId)
-      if (branchErr) return branchErr
+    if (branchId !== undefined) {
+      if (branchId) {
+        const branchErr = await requireBranchAccess(session, branchId)
+        if (branchErr) return branchErr
+      } else {
+        const isOwnerOrPlatform = session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+        if (!isOwnerOrPlatform) {
+          return forbidden('Access denied: cannot unassign branch without owner privileges')
+        }
+      }
+    }
+
+    if (branchIds !== undefined && Array.isArray(branchIds)) {
+      for (const bId of branchIds) {
+        const bErr = await requireBranchAccess(session, bId)
+        if (bErr) return bErr
+      }
     }
 
     const finalPrimaryRole: UserRole | undefined =

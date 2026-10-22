@@ -331,6 +331,9 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     if (err.message?.includes('not found')) {
       return notFound(err.message)
     }
+    if (err.message?.includes('Unauthorized') || err.message?.includes('Cannot link student') || err.message?.includes('campus branch')) {
+      return forbidden(err.message)
+    }
     return serverError(err.message)
   }
 }

@@ -139,15 +139,30 @@ export class PickupPinService {
     guardianId?: string
     targetId?: string
     tenantId: string
+    actorSession?: SessionPayload
   }): Promise<PickupPinStatus | null> {
-    const { tenantId, userId } = params
+    const { tenantId, userId, actorSession } = params
     const guardian = await this.resolveGuardian(tenantId, params)
 
     if (!guardian) {
       return null
     }
 
-    const students = guardian.studentLinks.map((sl) => {
+    const effectiveRoles =
+      actorSession?.roles && actorSession.roles.length > 0
+        ? actorSession.roles
+        : actorSession?.role
+        ? [actorSession.role]
+        : []
+    const isOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+    const isSelf = actorSession?.uid === guardian.userId || actorSession?.uid === guardian.id
+
+    const visibleLinks =
+      isOwnerOrPlatform || isSelf || !actorSession?.branchId
+        ? guardian.studentLinks
+        : guardian.studentLinks.filter((sl) => sl.student.branchId === actorSession.branchId)
+
+    const students = visibleLinks.map((sl) => {
       const hasDirectPin = Boolean(sl.pickupPin && sl.pickupPin.trim().length > 0)
       const hasGuardianPin = Boolean(guardian.pickupPin && guardian.pickupPin.trim().length > 0)
       const effectiveHasPin = hasDirectPin || hasGuardianPin
@@ -230,10 +245,22 @@ export class PickupPinService {
     const newPin = this.generateSecurePin(pinLength)
     const meta = getRequestMeta(req)
 
+    const effectiveRoles =
+      actorSession.roles && actorSession.roles.length > 0
+        ? actorSession.roles
+        : actorSession.role
+        ? [actorSession.role]
+        : []
+    const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+
     if (studentId) {
       const link = guardian.studentLinks.find((l) => l.studentId === studentId)
       if (!link) {
         throw new Error('Specified student is not linked to this guardian profile')
+      }
+
+      if (!isActorOwnerOrPlatform && actorSession.branchId && link.student.branchId !== actorSession.branchId) {
+        throw new Error('Unauthorized: Cannot modify pickup PIN for student belonging to another campus branch')
       }
 
       await db.studentGuardian.update({
@@ -275,8 +302,12 @@ export class PickupPinService {
       })
 
       if (syncToAllStudents) {
+        const studentWhere: any = { guardianId: guardian.id }
+        if (!isActorOwnerOrPlatform && actorSession.branchId) {
+          studentWhere.student = { branchId: actorSession.branchId }
+        }
         await tx.studentGuardian.updateMany({
-          where: { guardianId: guardian.id },
+          where: studentWhere,
           data: { pickupPin: newPin },
         })
       }
@@ -367,10 +398,22 @@ export class PickupPinService {
     const meta = getRequestMeta(req)
     const auditAction = isClear ? 'PICKUP_PIN_CLEARED' : 'PICKUP_PIN_RESET'
 
+    const effectiveRoles =
+      actorSession.roles && actorSession.roles.length > 0
+        ? actorSession.roles
+        : actorSession.role
+        ? [actorSession.role]
+        : []
+    const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+
     if (studentId) {
       const link = guardian.studentLinks.find((l) => l.studentId === studentId)
       if (!link) {
         throw new Error('Specified student is not linked to this guardian profile')
+      }
+
+      if (!isActorOwnerOrPlatform && actorSession.branchId && link.student.branchId !== actorSession.branchId) {
+        throw new Error('Unauthorized: Cannot modify pickup PIN for student belonging to another campus branch')
       }
 
       await db.studentGuardian.update({
@@ -412,8 +455,12 @@ export class PickupPinService {
       })
 
       if (syncToAllStudents) {
+        const studentWhere: any = { guardianId: guardian.id }
+        if (!isActorOwnerOrPlatform && actorSession.branchId) {
+          studentWhere.student = { branchId: actorSession.branchId }
+        }
         await tx.studentGuardian.updateMany({
-          where: { guardianId: guardian.id },
+          where: studentWhere,
           data: { pickupPin: targetPin },
         })
       }

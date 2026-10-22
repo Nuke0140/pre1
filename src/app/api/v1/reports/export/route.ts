@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { withApi } from '@/lib/with-api'
 import { errValidation, errAuth } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { ReportService } from '@/lib/reports/report-service'
 import { ExportFormat, ScopeContext } from '@/lib/reports/report-types'
 
@@ -19,9 +19,15 @@ export const POST = withApi(async (req: NextRequest, ctx) => {
     throw errValidation('reportId is required', 'reportId')
   }
 
+  const targetBranchId = options.branchId || session.branchId
+  if (targetBranchId) {
+    const branchCheck = await requireBranchAccess(session, targetBranchId)
+    if (branchCheck) return branchCheck
+  }
+
   const scopeCtx: ScopeContext = {
     tenantId: session.tenantId,
-    branchId: options.branchId || session.branchId,
+    branchId: targetBranchId,
     actorId: session.uid,
     actorName: session.name || 'User',
     actorRole: session.role,

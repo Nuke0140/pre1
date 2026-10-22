@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { db } from '@/lib/db'
 import { ok, bad, forbidden, errValidation, errAuth } from '@/lib/api'
 import { withApi } from '@/lib/with-api'
-import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
 import { SessionService } from '@/lib/users/session-service'
@@ -30,7 +30,6 @@ interface BulkRequest {
   action: BulkAction
   userIds: string[]
   mode?: 'PREVIEW' | 'EXECUTE'
-  field?: string
   value?: any
   role?: UserRole
   roles?: UserRole[]
@@ -98,12 +97,14 @@ export const POST = withApi(async (req: NextRequest) => {
     if (!field || typeof field !== 'string') {
       return bad('Field parameter is required for BULK_UPDATE_FIELD', 'FIELD_REQUIRED')
     }
+    const authorizedBranches = await getAuthorizedBranchIds(session)
     const res = await BulkUpdateService.processBulkFieldUpdate({
       tenantId: session.tenantId,
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
       actorBranchId: session.branchId,
+      authorizedBranches: authorizedBranches === 'ALL' ? undefined : authorizedBranches,
       userIds,
       fieldKey: field,
       value,
@@ -149,10 +150,12 @@ export const POST = withApi(async (req: NextRequest) => {
       }
     }
 
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+
     // Validate target branch if provided
     const targetBranchId = action === 'UPDATE_PROFILE' ? effectiveBranchId : (action === 'CHANGE_BRANCH' ? branchId : undefined)
     if (targetBranchId) {
-      const branchErr = requireBranchAccess(session, targetBranchId)
+      const branchErr = await requireBranchAccess(session, targetBranchId)
       if (branchErr) return branchErr
 
       const branch = await db.branch.findFirst({
@@ -180,6 +183,7 @@ export const POST = withApi(async (req: NextRequest) => {
       include: {
         staffProfile: true,
         user: true,
+        assignedBranches: true,
       },
     })
 
@@ -203,21 +207,32 @@ export const POST = withApi(async (req: NextRequest) => {
       }
 
       // Principal accounts protected from staff other than Owner/Principal
-      if (m.role === 'PRINCIPAL' && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+      if (m.role === 'PRINCIPAL' && !isActorOwnerOrPlatform) {
         blocked.push({ userId: uid, reason: 'CANNOT_MODIFY_PRINCIPAL' })
         continue
       }
 
       // Branch boundary check for branch-scoped operators
-      if (
-        session.branchId &&
-        m.branchId &&
-        session.branchId !== m.branchId &&
-        !isActorOwnerOrPlatform &&
-        session.role !== 'PRINCIPAL'
-      ) {
-        blocked.push({ userId: uid, reason: 'CROSS_BRANCH_FORBIDDEN' })
-        continue
+      if (!isActorOwnerOrPlatform) {
+        if (authorizedBranches === 'ALL') {
+          // Allowed
+        } else if (authorizedBranches.length === 0) {
+          blocked.push({ userId: uid, reason: 'CROSS_BRANCH_FORBIDDEN' })
+          continue
+        } else {
+          const targetBranchIds = new Set<string>()
+          if (m.branchId) targetBranchIds.add(m.branchId)
+          if ((m as any).assignedBranches) {
+            for (const ab of (m as any).assignedBranches) {
+              if (ab.branchId) targetBranchIds.add(ab.branchId)
+            }
+          }
+          const hasOverlap = Array.from(targetBranchIds).some((bId) => authorizedBranches.includes(bId))
+          if (!hasOverlap) {
+            blocked.push({ userId: uid, reason: 'CROSS_BRANCH_FORBIDDEN' })
+            continue
+          }
+        }
       }
 
       // Action-specific validations

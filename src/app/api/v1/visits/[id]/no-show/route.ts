@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
+import { db } from '@/lib/db'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
@@ -18,6 +19,17 @@ async function _POST(
   const { id } = await params
 
   try {
+    const visit = await db.followUp.findFirst({
+      where: { id, tenantId: session.tenantId },
+      include: { lead: { select: { branchId: true } } },
+    })
+    if (!visit) return Errors.notFound('Visit not found')
+    const targetBranchId = visit.branchId || visit.lead?.branchId
+    if (targetBranchId) {
+      const branchCheck = await requireBranchAccess(session, targetBranchId)
+      if (branchCheck) return branchCheck
+    }
+
     const body = await req.json().catch(() => ({}))
     const { notes, recoveryCallDueAt, branchId, academicYearId } = body
 

@@ -1,9 +1,10 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
+import { db } from '@/lib/db'
 
 async function _POST(
   req: NextRequest,
@@ -15,6 +16,16 @@ async function _POST(
 
   try {
     const { id } = await params
+
+    const order = await db.purchaseOrder.findFirst({
+      where: { id, tenantId: session.tenantId },
+      select: { branchId: true },
+    })
+    if (!order) return Errors.notFound('Purchase order not found')
+
+    const branchCheck = await requireBranchAccess(session, order.branchId)
+    if (branchCheck) return branchCheck
+
     const meta = getRequestMeta(req)
 
     const approved = await InventoryService.approvePurchaseOrder(

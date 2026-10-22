@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, fail, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
+import { db } from '@/lib/db'
 import { AdmissionsPipelineService, type PipelineStageKey } from '@/lib/admissions/pipeline-service'
 import { normalizePipelineStageKey, ORDERED_PIPELINE_STAGES } from '@/lib/admissions/pipeline-constants'
 

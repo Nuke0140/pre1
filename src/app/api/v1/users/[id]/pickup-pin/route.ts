@@ -24,6 +24,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       guardianId: targetGuardian?.id,
       targetId: id,
       tenantId: session.tenantId,
+      actorSession: session,
     })
 
     if (!status) {

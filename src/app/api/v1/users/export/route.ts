@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { bad, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole } from '@prisma/client'
 import { EncryptionService } from '@/lib/security/encryption-service'
@@ -51,14 +51,30 @@ async function executeExport(req: NextRequest, params: ExportParams) {
   try {
     const { userIds, role, branchId, status, userType, search } = params
 
-    // Enforce branch scope if session user is restricted to a specific branch
-    const isInstitutionWide = ['OWNER', 'PLATFORM_ADMIN'].includes(session.role)
+    const effectiveRoles =
+      session.roles && session.roles.length > 0
+        ? session.roles
+        : session.role
+        ? [session.role]
+        : []
+    const isParentOrGuardian = effectiveRoles.every(
+      (r) => r === 'PARENT' || r === 'GUARDIAN'
+    )
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const isInstitutionWide = authorizedBranches === 'ALL'
     let effectiveBranchId: string | undefined = undefined
-    if (!isInstitutionWide && session.branchId) {
-      if (branchId && branchId !== session.branchId) {
-        return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
+    let effectiveBranchIds: string[] | undefined = undefined
+
+    if (!isInstitutionWide) {
+      if (branchId && branchId !== 'ALL') {
+        if (!authorizedBranches.includes(branchId)) {
+          return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
+        }
+        effectiveBranchId = branchId
+      } else {
+        effectiveBranchIds = authorizedBranches
       }
-      effectiveBranchId = session.branchId
     } else if (branchId && branchId !== 'ALL') {
       effectiveBranchId = branchId
     }
@@ -68,12 +84,29 @@ async function executeExport(req: NextRequest, params: ExportParams) {
     const cleanStatus = status && status !== 'ALL' ? status.toUpperCase() : undefined
 
     // Build Prisma query
+    const effectiveUserIds = isParentOrGuardian ? [session.uid] : userIds
+
     const where: any = {
       tenantId,
       deletedAt: null,
-      ...(userIds && userIds.length > 0 ? { userId: { in: userIds } } : {}),
+      ...(effectiveUserIds && effectiveUserIds.length > 0 ? { userId: { in: effectiveUserIds } } : {}),
       ...(cleanStatus ? { status: cleanStatus } : {}),
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+    }
+
+    if (effectiveBranchId) {
+      where.OR = [
+        { branchId: effectiveBranchId },
+        { assignedBranches: { some: { branchId: effectiveBranchId } } },
+      ]
+    } else if (effectiveBranchIds) {
+      if (effectiveBranchIds.length === 0) {
+        where.id = '__NO_AUTHORIZED_BRANCHES__'
+      } else {
+        where.OR = [
+          { branchId: { in: effectiveBranchIds } },
+          { assignedBranches: { some: { branchId: { in: effectiveBranchIds } } } },
+        ]
+      }
     }
 
     // Role and userType scoping

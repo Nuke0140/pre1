@@ -30,10 +30,12 @@ export interface ScopeContext {
   actorName?: string | null
   actorRole?: string | null
   actorRoles?: string[] | null
+  assignedBranchIds?: string[]
 }
 
 export interface StudentFilterOptions {
   branchId?: string
+  branchIds?: string[]
   academicSessionId?: string
   programType?: ProgramType
   classroomId?: string
@@ -56,6 +58,7 @@ function ctxToSession(ctx: ScopeContext) {
     branchId: ctx.branchId,
     role: (roles[0] || ctx.actorRole || 'OWNER') as any,
     roles: roles as any,
+    assignedBranchIds: ctx.assignedBranchIds || [],
   }
 }
 
@@ -149,12 +152,30 @@ export class StudentService {
     const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20))
     const search = filters.search?.trim()
 
+    const branchFilter = filters.branchId
+      ? { branchId: filters.branchId }
+      : filters.branchIds && filters.branchIds.length > 0
+      ? { branchId: { in: filters.branchIds } }
+      : {}
+
     const where: any = {
       tenantId: scope.tenantId,
       deletedAt: null,
-      ...(filters.branchId ? { branchId: filters.branchId } : {}),
+      ...branchFilter,
       ...(filters.classroomId ? { currentClassroomId: filters.classroomId } : {}),
       ...(filters.status ? { status: filters.status } : {}),
+    }
+
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
+    const isParentOrGuardian = effectiveRoles.some((r) => ['PARENT', 'GUARDIAN'].includes(r))
+    if (isParentOrGuardian && ctx.actorId) {
+      where.guardians = {
+        some: {
+          guardian: {
+            userId: ctx.actorId,
+          },
+        },
+      }
     }
 
     if (filters.programType) {
@@ -190,7 +211,6 @@ export class StudentService {
     }
 
     // If teacher role, scope strictly to their assigned classrooms
-    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
     const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
     if (isTeacher && ctx.actorId) {
       const assignedRooms = await db.classroom.findMany({
@@ -2489,13 +2509,19 @@ export class StudentService {
   /**
    * Real-time non-hardcoded operational dashboard metrics for Students module
    */
-  static async getStudentDashboardStats(ctx: ScopeContext, filters?: { branchId?: string; academicSessionId?: string }) {
+  static async getStudentDashboardStats(ctx: ScopeContext, filters?: { branchId?: string; branchIds?: string[]; academicSessionId?: string }) {
     const scope = await this.verifyScope(ctx.tenantId, filters?.branchId || ctx.branchId, filters?.academicSessionId || ctx.academicSessionId, { requireSession: false })
+
+    const branchFilter = filters?.branchId
+      ? { branchId: filters.branchId }
+      : filters?.branchIds && filters.branchIds.length > 0
+      ? { branchId: { in: filters.branchIds } }
+      : {}
 
     const baseWhere: any = {
       tenantId: scope.tenantId,
       deletedAt: null,
-      ...(filters?.branchId ? { branchId: filters.branchId } : {}),
+      ...branchFilter,
     }
 
     if (filters?.academicSessionId) {

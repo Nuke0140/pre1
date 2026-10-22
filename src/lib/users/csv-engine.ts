@@ -288,7 +288,13 @@ export class UserCsvEngine {
   static async previewStaffCsv(
     tenantId: string,
     csvContent: string,
-    options?: { mode?: 'CREATE' | 'UPDATE'; overwrite?: boolean }
+    options?: {
+      mode?: 'CREATE' | 'UPDATE'
+      overwrite?: boolean
+      actorRole?: string
+      actorBranchId?: string
+      authorizedBranchIds?: string[]
+    }
   ): Promise<CsvPreviewResult & { invalidRows?: number; newUsers?: number; existingUsers?: number; errors?: any[] }> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
@@ -428,6 +434,16 @@ export class UserCsvEngine {
         }
       }
 
+      const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
+      const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
+      if (!isOwnerOrPlatform && allowedBranches.length > 0) {
+        if (branchId && !allowedBranches.includes(branchId)) {
+          errors.push(`Unauthorized: Cannot assign staff to branch "${branchCode}" outside your authorized campus`)
+        } else if (!branchId && options?.actorBranchId) {
+          branchId = options.actorBranchId
+        }
+      }
+
       // Check classroom assignment
       const rawClassroom = (r.classroomCode || r.classroom || r.assignedClassroom || '')?.trim()
       let classroomId: string | null = null
@@ -562,7 +578,15 @@ export class UserCsvEngine {
    * Preview & Validation for Parent / Guardian CSV
    * Supports Multi-Child linking, authoritative student resolution, and enforces strict Max 2 Parents rule
    */
-  static async previewFamilyCsv(tenantId: string, csvContent: string): Promise<CsvPreviewResult> {
+  static async previewFamilyCsv(
+    tenantId: string,
+    csvContent: string,
+    options?: {
+      actorRole?: string
+      actorBranchId?: string
+      authorizedBranchIds?: string[]
+    }
+  ): Promise<CsvPreviewResult> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
 
@@ -732,6 +756,15 @@ export class UserCsvEngine {
           }
         }
 
+        // Check branch boundary for existing student
+        const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
+        const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
+        if (!isOwnerOrPlatform && allowedBranches.length > 0) {
+          if (targetStudent.branchId && !allowedBranches.includes(targetStudent.branchId)) {
+            errors.push(`Unauthorized: Student "${targetStudent.firstName}" belongs to another campus branch`)
+          }
+        }
+
         // Check if caregiver is already linked to this student
         if (userInDb) {
           const existingLink = await db.studentGuardian.findFirst({
@@ -783,6 +816,15 @@ export class UserCsvEngine {
         }
         if (classInput && !classroomMap.has(classInput)) {
           errors.push(`Student class "${classInput}" not found in this school`)
+        }
+
+        const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
+        const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
+        const resolvedBranchId = branchInput ? branchMap.get(branchInput) || null : (options?.actorBranchId || null)
+        if (!isOwnerOrPlatform && allowedBranches.length > 0) {
+          if (resolvedBranchId && !allowedBranches.includes(resolvedBranchId)) {
+            errors.push(`Unauthorized: Cannot enroll student in branch "${branchInput}" outside your authorized campus`)
+          }
         }
       }
 
@@ -896,7 +938,14 @@ export class UserCsvEngine {
    * Supports atomic rollback option for strict enterprise migrations and async progress reporting.
    */
   static async executeStaffImport(
-    ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
+    ctx: {
+      tenantId: string
+      actorId?: string
+      actorName?: string
+      actorRole?: string
+      actorBranchId?: string
+      authorizedBranchIds?: string[]
+    },
     rows: CsvPreviewRow[],
     options?: {
       atomicAllOrNothing?: boolean
@@ -1073,6 +1122,7 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorBranchId: ctx.actorBranchId,
               },
               rowData as any,
               tx
@@ -1144,6 +1194,7 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorBranchId: ctx.actorBranchId,
             },
             rowData as any
           )
@@ -1195,7 +1246,14 @@ export class UserCsvEngine {
    * Executes validated Family CSV rows in safe transactional chunks.
    */
   static async executeFamilyImport(
-    ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
+    ctx: {
+      tenantId: string
+      actorId?: string
+      actorName?: string
+      actorRole?: string
+      actorBranchId?: string
+      authorizedBranchIds?: string[]
+    },
     rows: CsvPreviewRow[],
     options?: {
       atomicAllOrNothing?: boolean
@@ -1227,6 +1285,7 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorBranchId: ctx.actorBranchId,
               },
               row.data as any
             )
@@ -1285,6 +1344,7 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorBranchId: ctx.actorBranchId,
             },
             row.data as any
           )

@@ -1,8 +1,9 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { StudentService } from '@/lib/students/student-service'
+import { db } from '@/lib/db'
 
 /**
  * POST /api/v1/students/[id]/transfer — Inter-branch student transfer
@@ -18,12 +19,24 @@ async function _POST(
   const { id } = await params
 
   try {
+    const student = await db.student.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
+      select: { branchId: true },
+    })
+    if (!student) return Errors.notFound('Student')
+
+    const sourceBranchCheck = await requireBranchAccess(session, student.branchId)
+    if (sourceBranchCheck) return sourceBranchCheck
+
     const body = await req.json()
     const { destinationBranchId, destinationClassroomId, reason } = body
 
     if (!destinationBranchId || !destinationClassroomId) {
       return Errors.validation('destinationBranchId and destinationClassroomId are required')
     }
+
+    const destBranchCheck = await requireBranchAccess(session, destinationBranchId)
+    if (destBranchCheck) return destBranchCheck
 
     const updated = await StudentService.transferBranch(
       {

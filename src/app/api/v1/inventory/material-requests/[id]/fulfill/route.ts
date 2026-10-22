@@ -1,9 +1,10 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { SupplyCartService } from '@/lib/inventory/supply-cart-service'
+import { db } from '@/lib/db'
 
 /**
  * POST /api/v1/inventory/material-requests/[id]/fulfill
@@ -21,6 +22,16 @@ async function _POST(
 
   try {
     const { id } = await params
+
+    const existing = await db.materialRequest.findFirst({
+      where: { id, tenantId: session.tenantId },
+      select: { branchId: true },
+    })
+    if (!existing) return Errors.notFound('Supply request not found')
+
+    const branchCheck = await requireBranchAccess(session, existing.branchId)
+    if (branchCheck) return branchCheck
+
     const body = await req.json().catch(() => ({}))
     const meta = getRequestMeta(req)
 

@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 import { GuardianChild, HouseholdGuardian, HouseholdCampus, FamilyHousehold } from '@/components/users/types'
 
@@ -49,18 +49,57 @@ async function _GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '24', 10)))
 
-    // If session is branch-scoped and not owner/principal, enforce branchFilter
-    const effectiveBranchFilter =
-      session.role === 'OWNER' || session.role === 'PRINCIPAL' || session.role === 'PLATFORM_ADMIN'
-        ? branchFilter
-        : session.branchId || branchFilter
+    const effectiveRoles =
+      session.roles && session.roles.length > 0
+        ? session.roles
+        : session.role
+        ? [session.role]
+        : []
 
-    // 1. Fetch all student-guardian links
+    const isParentOrGuardian = effectiveRoles.every(
+      (r) => r === 'PARENT' || r === 'GUARDIAN'
+    )
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const isInstitutionWide = authorizedBranches === 'ALL'
+
+    if (!isInstitutionWide && branchFilter) {
+      if (!authorizedBranches.includes(branchFilter)) {
+        return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
+      }
+    }
+
+    const effectiveBranchFilter =
+      isInstitutionWide
+        ? branchFilter
+        : branchFilter || (authorizedBranches.length === 1 ? authorizedBranches[0] : undefined)
+
+    // 1. Fetch student-guardian links within scope
+    const linksWhere: any = {
+      student: { tenantId: session.tenantId, deletedAt: null },
+      guardian: { tenantId: session.tenantId, deletedAt: null },
+    }
+
+    if (isParentOrGuardian) {
+      linksWhere.guardian.OR = [{ userId: session.uid }, { id: session.uid }]
+    } else if (!isInstitutionWide) {
+      if (authorizedBranches.length === 0) {
+        return ok({
+          success: true,
+          households: [],
+          total: 0,
+          crossCampusCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          campuses: [],
+        })
+      }
+      linksWhere.student.branchId = { in: authorizedBranches }
+    }
+
     const allLinks = await db.studentGuardian.findMany({
-      where: {
-        student: { tenantId: session.tenantId, deletedAt: null },
-        guardian: { tenantId: session.tenantId, deletedAt: null },
-      },
+      where: linksWhere,
       include: {
         student: {
           include: {
@@ -88,9 +127,14 @@ async function _GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     })
 
-    // 2. Fetch tenant branches
+    // 2. Fetch authorized tenant branches
+    const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
+    if (!isInstitutionWide && !isParentOrGuardian) {
+      branchWhere.id = { in: authorizedBranches }
+    }
+
     const branches = await db.branch.findMany({
-      where: { tenantId: session.tenantId, deletedAt: null },
+      where: branchWhere,
       select: { id: true, name: true, code: true, isMain: true },
     })
     const branchMap = new Map(branches.map((b) => [b.id, b]))
@@ -127,7 +171,7 @@ async function _GET(req: NextRequest) {
           receivesComm: link.receivesComm,
           pickupPin: link.pickupPin ? '••••' : null,
           relationship: link.relationship || link.guardian.relationship,
-          classroom: link.student.currentClassroom?.name || null,
+          classroom: link.student.currentClassroom?.name || undefined,
           branchId: link.student.branchId,
           branchName: b?.name || 'Main Campus',
           branchCode: b?.code || '',

@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 import { normalizeRole } from '@/lib/roles'
 import { can } from '@/lib/auth'
@@ -30,15 +30,30 @@ async function _GET(req: NextRequest) {
     const isParentOnly = roles.length > 0 && roles.every((r) => r === 'PARENT' || r === 'GUARDIAN')
     const canBroadcast = can(roles, 'communication:broadcast') || can(roles, 'communication:write')
 
+    const requestedBranchId = url.searchParams.get('branchId')?.trim() || undefined
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok({ data: [], pagination: { total: 0, page, limit, totalPages: 0 } })
+    }
+
     // Base conditions
     const whereConditions: Prisma.AnnouncementWhereInput[] = [
       { tenantId: session.tenantId },
     ]
 
     // Branch scoping
-    if (session.branchId) {
+    if (requestedBranchId) {
       whereConditions.push({
-        OR: [{ branchId: null }, { branchId: session.branchId }],
+        OR: [{ branchId: null }, { branchId: requestedBranchId }],
+      })
+    } else if (authorizedBranches !== 'ALL') {
+      whereConditions.push({
+        OR: [{ branchId: null }, { branchId: { in: authorizedBranches } }],
       })
     }
 
@@ -231,6 +246,8 @@ async function _POST(req: NextRequest) {
 
     // Conditional Classroom Validation
     let validatedClassroomId: string | null = null
+    let validatedBranchId: string | null = null
+
     if (announcementAudience === 'CLASS_PARENTS') {
       if (!classroomId) {
         return Errors.validation('Classroom is required when targeting class parents')
@@ -241,19 +258,28 @@ async function _POST(req: NextRequest) {
       if (!classroom) {
         return Errors.validation('Selected classroom does not exist or is inactive')
       }
-      validatedClassroomId = classroom.id
-    }
+      const branchCheck = await requireBranchAccess(session, classroom.branchId)
+      if (branchCheck) return branchCheck
 
-    // Branch targeting
-    let validatedBranchId: string | null = null
-    const targetBranch = branchId || session.branchId
-    if (announcementAudience === 'BRANCH_PARENTS') {
-      if (targetBranch) {
-        const branch = await db.branch.findFirst({
-          where: { id: targetBranch, tenantId: session.tenantId, isActive: true },
-        })
-        if (branch) validatedBranchId = branch.id
+      validatedClassroomId = classroom.id
+      validatedBranchId = classroom.branchId
+    } else if (announcementAudience === 'BRANCH_PARENTS') {
+      const targetBranch = branchId || session.branchId
+      if (!targetBranch) {
+        return Errors.validation('Branch is required when targeting branch parents')
       }
+      const branchCheck = await requireBranchAccess(session, targetBranch)
+      if (branchCheck) return branchCheck
+
+      const branch = await db.branch.findFirst({
+        where: { id: targetBranch, tenantId: session.tenantId, isActive: true },
+      })
+      if (!branch) return Errors.validation('Selected branch does not exist or is inactive')
+      validatedBranchId = branch.id
+    } else if (branchId) {
+      const branchCheck = await requireBranchAccess(session, branchId)
+      if (branchCheck) return branchCheck
+      validatedBranchId = branchId
     } else if (session.branchId) {
       validatedBranchId = session.branchId
     }

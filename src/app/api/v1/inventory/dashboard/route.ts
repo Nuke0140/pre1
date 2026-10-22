@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
 async function _GET(req: NextRequest) {
@@ -11,9 +11,21 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
 
-    const metrics = await InventoryService.getDashboardMetrics(session.tenantId, branchId)
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const branchScope = requestedBranchId
+      ? requestedBranchId
+      : authorizedBranches === 'ALL'
+      ? undefined
+      : authorizedBranches
+
+    const metrics = await InventoryService.getDashboardMetrics(session.tenantId, branchScope)
     return ok(metrics)
   } catch (err: any) {
     return bad(err.message, 'DASHBOARD_FETCH_FAILED')

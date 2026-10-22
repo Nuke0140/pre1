@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 import { getDomainConfig, getAdmissionConfig } from '@/lib/config'
@@ -21,12 +21,24 @@ async function _GET(
 
   const { id } = await params
 
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
+
   try {
     const app = await db.admissionApplication.findFirst({
       where: { id, tenantId: session.tenantId, deletedAt: null },
       include: { documents: true },
     })
     if (!app) return Errors.notFound('Application')
+
+    const branchErr = await requireBranchAccess(session, app.branchId)
+    if (branchErr) return branchErr
 
     const admCfg = getAdmissionConfig(await getDomainConfig(session.tenantId, 'ADMISSION'))
     const requiredDocTypes: string[] = admCfg.requiredDocuments || ['BIRTH_CERTIFICATE', 'PHOTO']
@@ -66,6 +78,15 @@ async function _POST(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
+
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
 
   try {
     const contentType = req.headers.get('content-type') || ''
@@ -166,6 +187,15 @@ async function _PATCH(
 
   const { id } = await params
 
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
+
   try {
     const body = await req.json()
     const { documentId, action, notes } = body
@@ -210,6 +240,15 @@ async function _DELETE(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
+
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
 
   try {
     const sp = req.nextUrl.searchParams

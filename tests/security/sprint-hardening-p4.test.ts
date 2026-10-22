@@ -107,6 +107,7 @@ describe('Sprint Hardening: Admin Actions, Teacher Scope & Attendance Export', (
         userId: adminUser.id,
         role: 'PRINCIPAL',
         roles: ['PRINCIPAL'],
+        branchId: branchA.id,
         status: 'ACTIVE',
       },
     })
@@ -117,6 +118,7 @@ describe('Sprint Hardening: Admin Actions, Teacher Scope & Attendance Export', (
       role: 'PRINCIPAL',
       roles: ['PRINCIPAL'],
       tenantId: tenant.id,
+      branchId: branchA.id,
     })
 
     // 5. Setup Teacher A (assigned to Classroom A and Branch A)

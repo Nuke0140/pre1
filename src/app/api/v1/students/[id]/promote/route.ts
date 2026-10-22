@@ -1,8 +1,9 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { StudentService } from '@/lib/students/student-service'
+import { db } from '@/lib/db'
 
 /**
  * POST /api/v1/students/[id]/promote — Promote student to next academic session
@@ -18,6 +19,15 @@ async function _POST(
   const { id } = await params
 
   try {
+    const student = await db.student.findFirst({
+      where: { id, tenantId: session.tenantId, deletedAt: null },
+      select: { branchId: true },
+    })
+    if (!student) return Errors.notFound('Student')
+
+    const branchCheck = await requireBranchAccess(session, student.branchId)
+    if (branchCheck) return branchCheck
+
     const body = await req.json()
     const { nextAcademicSessionId, nextProgramId, nextClassroomId, reason } = body
 

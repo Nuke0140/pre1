@@ -396,8 +396,7 @@ export class FamilyUserService {
         ctx.actorBranchId &&
         targetStudent.branchId !== ctx.actorBranchId &&
         ctx.actorRole !== 'OWNER' &&
-        ctx.actorRole !== 'PLATFORM_ADMIN' &&
-        ctx.actorRole !== 'PRINCIPAL'
+        ctx.actorRole !== 'PLATFORM_ADMIN'
       ) {
         throw new Error('Unauthorized: Selected student belongs to another campus branch')
       }
@@ -421,6 +420,16 @@ export class FamilyUserService {
       // Branch A: CREATE NEW CHILD via StudentService
       // ─────────────────────────────────────────────────────────────
       const childData = input.newChild!
+
+      const isOwnerOrPlatform = ctx.actorRole === 'OWNER' || ctx.actorRole === 'PLATFORM_ADMIN'
+      if (!isOwnerOrPlatform) {
+        if (ctx.actorBranchId && childData.branchId && childData.branchId !== ctx.actorBranchId) {
+          throw new Error('Unauthorized: Cannot create student in another campus branch')
+        }
+        if (!childData.branchId && ctx.actorBranchId) {
+          childData.branchId = ctx.actorBranchId
+        }
+      }
 
       // Generate child username
       const childUsername = await UsernameService.generateUniqueUsername({
@@ -734,6 +743,16 @@ export class FamilyUserService {
             })
             if (!extraStudent) continue
 
+            // Branch check for additional children
+            if (
+              ctx.actorBranchId &&
+              extraStudent.branchId !== ctx.actorBranchId &&
+              ctx.actorRole !== 'OWNER' &&
+              ctx.actorRole !== 'PLATFORM_ADMIN'
+            ) {
+              throw new Error(`Unauthorized: Additional child ${extraStudent.firstName} belongs to another campus branch`)
+            }
+
             await tx.$queryRaw`SELECT id FROM students WHERE id = ${extraStudent.id} FOR UPDATE`
             if (assignedRole === 'PARENT') {
               const inTxExtraParents = await this.countActiveParentsForStudent(ctx.tenantId, extraStudent.id, user.id, tx)
@@ -863,6 +882,16 @@ export class FamilyUserService {
         },
       })
       if (!student) throw new Error('Student not found in this school')
+
+      // Branch boundary check for non-owners
+      if (
+        ctx.actorBranchId &&
+        student.branchId !== ctx.actorBranchId &&
+        ctx.actorRole !== 'OWNER' &&
+        ctx.actorRole !== 'PLATFORM_ADMIN'
+      ) {
+        throw new Error('Unauthorized: Cannot link student belonging to another campus branch')
+      }
 
       await tx.$queryRaw`SELECT id FROM students WHERE id = ${student.id} FOR UPDATE`
 

@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, notFound, bad, forbidden, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 
 async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -11,6 +11,7 @@
 import { db } from '@/lib/db'
 import type { SessionPayload, Role } from '@/lib/auth'
 import { isInstitutionWide } from '@/lib/security/resource-scope'
+import { getAuthorizedBranchIds } from '@/lib/auth-api'
 
 export const ALL_BRANCHES_ID = '__ALL_BRANCHES__'
 
@@ -72,40 +73,10 @@ export async function resolveAuthorizedBranchScope(
 
   // Derive user's authorized branch list
   let authorizedBranches = allTenantBranches
-  if (!canAccessAll) {
-    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : (session.role ? [session.role] : [])
-    const isTeacher = effectiveRoles.includes('TEACHER')
-    let userBranchId = session.branchId
-
-    if (!userBranchId) {
-      // Fallback: If session.branchId is not specified, resolve from user's assigned classroom
-      if (session.uid) {
-        const assignedClassroom = await db.classroom.findFirst({
-          where: {
-            tenantId,
-            isActive: true,
-            OR: [
-              { primaryTeacherId: session.uid },
-              { subjectMappings: { some: { specialistTeacherId: session.uid } } },
-            ],
-          },
-          select: { branchId: true },
-        })
-        if (assignedClassroom?.branchId) {
-          userBranchId = assignedClassroom.branchId
-        }
-      }
-
-      // Non-teachers can fallback to main branch, but teachers strictly require explicit branch or classroom assignment
-      if (!userBranchId && !isTeacher) {
-        const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
-        if (defaultBranch) {
-          userBranchId = defaultBranch.id
-        }
-      }
-    }
-
-    if (!userBranchId) {
+  const authBranchIds = await getAuthorizedBranchIds(session)
+  if (authBranchIds !== 'ALL') {
+    authorizedBranches = allTenantBranches.filter((b) => authBranchIds.includes(b.id))
+    if (authorizedBranches.length === 0) {
       return {
         tenantId,
         mode: 'NO_BRANCH_ACCESS',
@@ -115,37 +86,10 @@ export async function resolveAuthorizedBranchScope(
         isMultiBranchAuthorized: false,
       }
     }
-
-    authorizedBranches = allTenantBranches.filter((b) => b.id === userBranchId)
-    if (authorizedBranches.length === 0) {
-      if (isTeacher) {
-        return {
-          tenantId,
-          mode: 'NO_BRANCH_ACCESS',
-          selectedBranchId: null,
-          authorizedBranchIds: [],
-          branches: [],
-          isMultiBranchAuthorized: false,
-        }
-      }
-      const defaultBranch = allTenantBranches.find((b) => b.isMain) || allTenantBranches[0]
-      if (defaultBranch) {
-        authorizedBranches = [defaultBranch]
-      } else {
-        return {
-          tenantId,
-          mode: 'NO_BRANCH_ACCESS',
-          selectedBranchId: null,
-          authorizedBranchIds: [],
-          branches: [],
-          isMultiBranchAuthorized: false,
-        }
-      }
-    }
   }
 
   const authorizedBranchIds = authorizedBranches.map((b) => b.id)
-  const isMultiBranchAuthorized = canAccessAll && authorizedBranches.length > 1
+  const isMultiBranchAuthorized = (authBranchIds === 'ALL' || authorizedBranches.length > 1) && authorizedBranches.length > 1
 
   // Handle branch selection
   const cleanReq = requestedBranchId?.trim()

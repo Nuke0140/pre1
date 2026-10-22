@@ -5,6 +5,7 @@ import { SubjectService } from '@/lib/academics/subject-service'
 import { AttendanceStatus, ActivityStatus, ObservationConcern } from '@prisma/client'
 import { isoDate } from '@/lib/format'
 import { NotificationEngine } from '@/lib/notifications/notification-engine'
+import { getAuthorizedBranchIds, isBranchAuthorized } from '@/lib/auth-api'
 
 export interface DailyDiaryScope {
   tenantId: string
@@ -54,20 +55,25 @@ function timeToMinutes(timeStr: string): number {
   return hours * 60 + minutes
 }
 
-/** Helper: Assert that a teacher only accesses their assigned classroom */
+/** Helper: Assert that a user has authorized branch and classroom access */
 async function assertClassroomAccess(session: SessionPayload, classroomId: string) {
   const tenantId = session.tenantId!
-  const scope = getScopeFromSession(session)
-  if (scope.isAdmin) return
-
   const classroom = await db.classroom.findFirst({
     where: { id: classroomId, tenantId },
-    select: { primaryTeacherId: true },
+    select: { primaryTeacherId: true, branchId: true },
   })
 
   if (!classroom) {
     throw new Error('Classroom not found')
   }
+
+  const isBranchOk = await isBranchAuthorized(session, classroom.branchId)
+  if (!isBranchOk) {
+    throw new Error('FORBIDDEN_BRANCH_ACCESS: You are not authorized to access this branch')
+  }
+
+  const scope = getScopeFromSession(session)
+  if (scope.isAdmin) return
 
   if (classroom.primaryTeacherId === session.uid) {
     return
@@ -105,6 +111,11 @@ export class DailyDiaryService {
       orderBy: { isMain: 'desc' },
     })
 
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const branches = authorizedBranches === 'ALL'
+      ? allBranches
+      : allBranches.filter((b) => authorizedBranches.includes(b.id))
+
     // 3. Resolve assigned classrooms
     let classroomsWhere: any = { tenantId, isActive: true }
     if (scope.isTeacher) {
@@ -117,9 +128,8 @@ export class DailyDiaryService {
           { subjectMappings: { some: { specialistTeacherId: session.uid } } },
         ],
       }
-    } else if (scope.branchId) {
-      // Admin scoped by branch if branchId present
-      classroomsWhere.branchId = scope.branchId
+    } else if (authorizedBranches !== 'ALL') {
+      classroomsWhere.branchId = { in: authorizedBranches }
     }
 
     const classrooms = await db.classroom.findMany({

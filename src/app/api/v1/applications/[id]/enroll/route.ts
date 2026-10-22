@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
@@ -17,6 +18,15 @@ async function _POST(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
+
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application not found')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
 
   try {
     const body = await req.json().catch(() => ({}))

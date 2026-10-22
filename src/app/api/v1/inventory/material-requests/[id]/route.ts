@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { SupplyCartService } from '@/lib/inventory/supply-cart-service'
 
 /**
@@ -23,6 +23,9 @@ async function _GET(
     if (!request) {
       return Errors.notFound('Supply request not found')
     }
+
+    const branchCheck = await requireBranchAccess(session, request.branchId)
+    if (branchCheck) return branchCheck
 
     // Role scoping: If user is only TEACHER/STAFF, verify they are the requester or assigned teacher
     const isElevated = [session.role, ...(session.roles || [])].some((r) =>

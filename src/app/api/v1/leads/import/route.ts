@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
@@ -15,6 +15,10 @@ async function _POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { action = 'execute', rows = [], mapping = {}, branchId, academicYearId, duplicateAction = 'SKIP' } = body
+
+    const targetBranchId = branchId || session.branchId
+    const branchErr = await requireBranchAccess(session, targetBranchId)
+    if (branchErr) return branchErr
 
     const ctx = {
       tenantId: session.tenantId,

@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { AdmissionService } from '@/lib/admissions/admission-service'
 
 /**
@@ -17,12 +17,22 @@ async function _GET(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
+
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application not found')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
+
   const sp = req.nextUrl.searchParams
   const rawBranchId = sp.get('branchId')
   const branchId =
     rawBranchId && rawBranchId !== '__ALL_BRANCHES__' && rawBranchId.toLowerCase() !== 'all'
       ? rawBranchId
-      : (session.branchId || '')
+      : (app.branchId || session.branchId || '')
   const rawAcademicYearId = sp.get('academicYearId')
   const academicYearId =
     rawAcademicYearId && rawAcademicYearId !== '__ALL_SESSIONS__' && rawAcademicYearId.toLowerCase() !== 'all'
@@ -63,8 +73,21 @@ async function _PATCH(
 
   const { id } = await params
 
+  const app = await db.admissionApplication.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!app) return Errors.notFound('Application not found')
+
+  const branchErr = await requireBranchAccess(session, app.branchId)
+  if (branchErr) return branchErr
+
   try {
     const body = await req.json()
+    if (body.branchId) {
+      const targetBranchErr = await requireBranchAccess(session, body.branchId)
+      if (targetBranchErr) return targetBranchErr
+    }
     const app = await db.admissionApplication.findFirst({
       where: { id, tenantId: session.tenantId, deletedAt: null },
     })

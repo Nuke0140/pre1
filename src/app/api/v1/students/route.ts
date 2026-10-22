@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ok, withApi, errPermission } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
+import { can } from '@/lib/auth'
 import { StudentService } from '@/lib/students/student-service'
 import type { ProgramType, StudentStatus } from '@prisma/client'
 
@@ -8,10 +9,16 @@ import type { ProgramType, StudentStatus } from '@prisma/client'
  * GET /api/v1/students — Paginated directory with multi-dimensional filtering & search
  */
 export const GET = withApi(async (req: NextRequest) => {
-  const session = await requireApi(req, 'students:read')
+  const session = await requireApi(req)
   if (isResponse(session)) return session
   if (!session.tenantId) {
     throw errPermission('No tenant context found in active session')
+  }
+
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const hasAccess = can(effectiveRoles, 'students:read') || can(effectiveRoles, 'students:read-linked')
+  if (!hasAccess) {
+    throw errPermission('Missing permission: students:read or students:read-linked')
   }
 
   const sp = req.nextUrl.searchParams
@@ -19,14 +26,29 @@ export const GET = withApi(async (req: NextRequest) => {
   const pageSize = Math.min(100, Math.max(1, parseInt(sp.get('pageSize') || '20', 10)))
   const search = sp.get('q') || sp.get('search') || undefined
   const classroomId = sp.get('classroomId') || undefined
-  const branchId = sp.get('branchId') || session.branchId || undefined
+  const requestedBranchId = sp.get('branchId') || undefined
   const academicSessionId = sp.get('academicSessionId') || undefined
   const programType = (sp.get('programType') as ProgramType) || undefined
   const status = (sp.get('status') as StudentStatus) || undefined
 
-  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  if (requestedBranchId) {
+    const branchCheck = await requireBranchAccess(session, requestedBranchId)
+    if (branchCheck) return branchCheck
+  }
+
+  const authorizedBranches = await getAuthorizedBranchIds(session)
+  if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+    return ok([], { page, pageSize, total: 0, totalPages: 0, unassignedCount: 0 })
+  }
+
+  const branchIds = requestedBranchId
+    ? undefined
+    : authorizedBranches === 'ALL'
+    ? undefined
+    : authorizedBranches
+
   const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
-  if (isTeacher && session.branchId && sp.get('branchId') && sp.get('branchId') !== session.branchId) {
+  if (isTeacher && session.branchId && requestedBranchId && requestedBranchId !== session.branchId) {
     throw errPermission('Teacher cannot access students outside assigned campus')
   }
 
@@ -39,13 +61,15 @@ export const GET = withApi(async (req: NextRequest) => {
       actorName: session.name,
       actorRole: session.role,
       actorRoles: effectiveRoles,
+      assignedBranchIds: authorizedBranches === 'ALL' ? undefined : authorizedBranches,
     },
     {
       page,
       pageSize,
       search,
       classroomId,
-      branchId,
+      branchId: requestedBranchId,
+      branchIds,
       academicSessionId,
       programType,
       status,
@@ -88,10 +112,18 @@ export const POST = withApi(async (req: NextRequest) => {
     confirmDuplicate,
   } = body
 
+  const targetBranchId = branchId || session.branchId
+  if (!targetBranchId) {
+    throw errPermission('Branch context is required')
+  }
+
+  const branchCheck = await requireBranchAccess(session, targetBranchId)
+  if (branchCheck) return branchCheck
+
   const student = await StudentService.createStudent(
     {
       tenantId: session.tenantId,
-      branchId: branchId || session.branchId,
+      branchId: targetBranchId,
       academicSessionId,
       actorId: session.uid,
       actorName: session.name,
@@ -108,7 +140,7 @@ export const POST = withApi(async (req: NextRequest) => {
       programId,
       programType,
       classroomId,
-      branchId,
+      branchId: targetBranchId,
       academicSessionId,
       guardianName,
       guardianPhone,

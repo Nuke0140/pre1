@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 import { normalizeRole } from '@/lib/roles'
 import { can } from '@/lib/auth'
@@ -42,8 +42,9 @@ async function _GET(req: NextRequest, ctx: RouteContext) {
     }
 
     // Branch isolation for branch-scoped sessions
-    if (session.branchId && announcement.branchId && announcement.branchId !== session.branchId) {
-      return Errors.forbidden('Announcement is scoped to a different branch')
+    if (announcement.branchId) {
+      const branchCheck = await requireBranchAccess(session, announcement.branchId)
+      if (branchCheck) return branchCheck
     }
 
     const rawRoles = [session.role, ...(session.roles || [])].filter(Boolean)
@@ -142,8 +143,9 @@ async function _PATCH(req: NextRequest, ctx: RouteContext) {
     }
 
     // Branch isolation for branch-scoped sessions
-    if (session.branchId && existing.branchId && existing.branchId !== session.branchId) {
-      return Errors.forbidden('Announcement is scoped to a different branch')
+    if (existing.branchId) {
+      const branchCheck = await requireBranchAccess(session, existing.branchId)
+      if (branchCheck) return branchCheck
     }
 
     const body = await req.json()
@@ -373,8 +375,9 @@ async function _DELETE(req: NextRequest, ctx: RouteContext) {
     }
 
     // Branch isolation for branch-scoped sessions
-    if (session.branchId && existing.branchId && existing.branchId !== session.branchId) {
-      return Errors.forbidden('Announcement is scoped to a different branch')
+    if (existing.branchId) {
+      const branchCheck = await requireBranchAccess(session, existing.branchId)
+      if (branchCheck) return branchCheck
     }
 
     if (existing.status === 'DRAFT') {

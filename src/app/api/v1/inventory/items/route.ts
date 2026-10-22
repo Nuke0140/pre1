@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, isBranchAuthorized, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -12,7 +12,18 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const rawBranchId = searchParams.get('branchId')
+    const authorized = await getAuthorizedBranchIds(session)
+
+    if (rawBranchId) {
+      const isAuth = await isBranchAuthorized(session, rawBranchId)
+      if (!isAuth) return Errors.forbidden('Access denied: branch scope restricted')
+    }
+
+    const branchId =
+      rawBranchId ||
+      (authorized !== 'ALL' && authorized.length > 0 ? authorized[0] : (session.branchId || undefined))
+
     const categoryId = searchParams.get('categoryId') || undefined
     const itemType = searchParams.get('itemType') as any || undefined
     const search = searchParams.get('search') || undefined
@@ -47,6 +58,10 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    if (body.branchId) {
+      const branchErr = await requireBranchAccess(session, body.branchId)
+      if (branchErr) return branchErr
+    }
     const meta = getRequestMeta(req)
 
     const item = await InventoryService.createItem(

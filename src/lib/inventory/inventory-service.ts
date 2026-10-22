@@ -584,12 +584,18 @@ export class InventoryService {
 
   static async listLocations(
     tenantId: string,
-    params?: { branchId?: string; search?: string; isActive?: boolean }
+    params?: { branchId?: string; branchIds?: string[]; search?: string; isActive?: boolean }
   ) {
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     return db.inventoryLocation.findMany({
       where: {
         tenantId,
-        ...(params?.branchId ? { branchId: params.branchId } : {}),
+        ...branchFilter,
         ...(params?.isActive !== undefined ? { isActive: params.isActive } : {}),
         ...(params?.search
           ? {
@@ -812,6 +818,7 @@ export class InventoryService {
     tenantId: string,
     params?: {
       branchId?: string
+      branchIds?: string[]
       categoryId?: string
       itemType?: string
       search?: string
@@ -842,6 +849,12 @@ export class InventoryService {
         : {}),
     }
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : undefined
+
     const [total, items] = await Promise.all([
       db.inventoryItem.count({ where }),
       db.inventoryItem.findMany({
@@ -850,7 +863,7 @@ export class InventoryService {
           category: { select: { id: true, name: true, code: true } },
           unit: { select: { id: true, name: true, symbol: true } },
           defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
-          stocks: params?.branchId ? { where: { branchId: params.branchId } } : true,
+          stocks: branchFilter ? { where: branchFilter } : true,
         },
         orderBy: { name: 'asc' },
         skip,
@@ -898,7 +911,13 @@ export class InventoryService {
     }
   }
 
-  static async getItemDetail(tenantId: string, id: string, branchId?: string) {
+  static async getItemDetail(tenantId: string, id: string, branchId?: string, branchIds?: string[]) {
+    const branchFilter = branchId
+      ? { branchId }
+      : branchIds
+      ? { branchId: { in: branchIds } }
+      : {}
+
     const item = await db.inventoryItem.findFirst({
       where: { id, tenantId },
       include: {
@@ -906,13 +925,14 @@ export class InventoryService {
         unit: true,
         defaultVendor: true,
         stocks: {
-          where: branchId ? { branchId } : {},
+          where: branchFilter,
           include: {
             location: { select: { id: true, name: true, code: true } },
             branch: { select: { id: true, name: true, code: true } },
           },
         },
         movements: {
+          where: branchFilter,
           take: 20,
           orderBy: { createdAt: 'desc' },
           include: {
@@ -1189,6 +1209,7 @@ export class InventoryService {
     tenantId: string,
     params?: {
       branchId?: string
+      branchIds?: string[]
       classroomId?: string
       requestedById?: string
       status?: any
@@ -1201,9 +1222,15 @@ export class InventoryService {
     const pageSize = Math.min(100, Math.max(1, params?.pageSize || 50))
     const skip = (page - 1) * pageSize
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     const where: Prisma.MaterialRequestWhereInput = {
       tenantId,
-      ...(params?.branchId ? { branchId: params.branchId } : {}),
+      ...branchFilter,
       ...(params?.classroomId ? { classroomId: params.classroomId } : {}),
       ...(params?.requestedById ? { requestedById: params.requestedById } : {}),
       ...(params?.status ? { status: params.status } : {}),
@@ -1465,15 +1492,21 @@ export class InventoryService {
 
   static async listPurchaseRequests(
     tenantId: string,
-    params?: { branchId?: string; status?: any; search?: string; page?: number; pageSize?: number }
+    params?: { branchId?: string; branchIds?: string[]; status?: any; search?: string; page?: number; pageSize?: number }
   ) {
     const page = Math.max(1, params?.page || 1)
     const pageSize = Math.min(100, Math.max(1, params?.pageSize || 50))
     const skip = (page - 1) * pageSize
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     const where: Prisma.PurchaseRequestWhereInput = {
       tenantId,
-      ...(params?.branchId ? { branchId: params.branchId } : {}),
+      ...branchFilter,
       ...(params?.status ? { status: params.status } : {}),
       ...(params?.search
         ? {
@@ -1725,15 +1758,21 @@ export class InventoryService {
 
   static async listPurchaseOrders(
     tenantId: string,
-    params?: { branchId?: string; vendorId?: string; status?: any; search?: string; page?: number; pageSize?: number }
+    params?: { branchId?: string; branchIds?: string[]; vendorId?: string; status?: any; search?: string; page?: number; pageSize?: number }
   ) {
     const page = Math.max(1, params?.page || 1)
     const pageSize = Math.min(100, Math.max(1, params?.pageSize || 50))
     const skip = (page - 1) * pageSize
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     const where: Prisma.PurchaseOrderWhereInput = {
       tenantId,
-      ...(params?.branchId ? { branchId: params.branchId } : {}),
+      ...branchFilter,
       ...(params?.vendorId ? { vendorId: params.vendorId } : {}),
       ...(params?.status ? { status: params.status } : {}),
       ...(params?.search
@@ -2120,14 +2159,21 @@ export class InventoryService {
 
   static async listGoodsReceipts(
     tenantId: string,
-    params?: { purchaseOrderId?: string; vendorId?: string; search?: string; page?: number; pageSize?: number }
+    params?: { branchId?: string; branchIds?: string[]; purchaseOrderId?: string; vendorId?: string; search?: string; page?: number; pageSize?: number }
   ) {
     const page = Math.max(1, params?.page || 1)
     const pageSize = Math.min(100, Math.max(1, params?.pageSize || 50))
     const skip = (page - 1) * pageSize
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     const where: Prisma.GoodsReceiptWhereInput = {
       tenantId,
+      ...branchFilter,
       ...(params?.purchaseOrderId ? { purchaseOrderId: params.purchaseOrderId } : {}),
       ...(params?.vendorId ? { vendorId: params.vendorId } : {}),
       ...(params?.search
@@ -2435,6 +2481,7 @@ export class InventoryService {
     tenantId: string,
     params?: {
       branchId?: string
+      branchIds?: string[]
       classroomId?: string
       studentId?: string
       destinationType?: any
@@ -2447,9 +2494,15 @@ export class InventoryService {
     const pageSize = Math.min(100, Math.max(1, params?.pageSize || 50))
     const skip = (page - 1) * pageSize
 
+    const branchFilter = params?.branchId
+      ? { branchId: params.branchId }
+      : params?.branchIds
+      ? { branchId: { in: params.branchIds } }
+      : {}
+
     const where: Prisma.StockIssueWhereInput = {
       tenantId,
-      ...(params?.branchId ? { branchId: params.branchId } : {}),
+      ...branchFilter,
       ...(params?.classroomId ? { classroomId: params.classroomId } : {}),
       ...(params?.studentId ? { studentId: params.studentId } : {}),
       ...(params?.destinationType ? { destinationType: params.destinationType } : {}),
@@ -2994,14 +3047,20 @@ export class InventoryService {
   // 14. ENGINES: LOW STOCK & EXPIRY ALERTS
   // =========================================================================
 
-  static async getLowStockItems(tenantId: string, branchId?: string) {
+  static async getLowStockItems(tenantId: string, branchId?: string | string[]) {
+    const branchFilter = Array.isArray(branchId)
+      ? { branchId: { in: branchId } }
+      : branchId
+      ? { branchId }
+      : undefined
+
     const items = await db.inventoryItem.findMany({
       where: { tenantId, isActive: true, trackStock: true },
       include: {
         category: { select: { id: true, name: true, code: true } },
         unit: { select: { id: true, name: true, symbol: true } },
         defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
-        stocks: branchId ? { where: { branchId } } : true,
+        stocks: branchFilter ? { where: branchFilter } : true,
       },
     })
 
@@ -3027,14 +3086,20 @@ export class InventoryService {
       .filter((i) => i.isLowStock)
   }
 
-  static async getStockHealthRadar(tenantId: string, branchId?: string): Promise<StockHealthRadarSummary> {
+  static async getStockHealthRadar(tenantId: string, branchId?: string | string[]): Promise<StockHealthRadarSummary> {
+    const branchFilter = Array.isArray(branchId)
+      ? { branchId: { in: branchId } }
+      : branchId
+      ? { branchId }
+      : undefined
+
     const items = await db.inventoryItem.findMany({
       where: { tenantId, isActive: true, trackStock: true },
       include: {
         category: { select: { id: true, name: true, code: true } },
         unit: { select: { id: true, name: true, symbol: true } },
         defaultVendor: { select: { id: true, name: true, code: true, phone: true, contactPerson: true } },
-        stocks: branchId ? { where: { branchId } } : true,
+        stocks: branchFilter ? { where: branchFilter } : true,
       },
       orderBy: { name: 'asc' },
     })
@@ -3042,16 +3107,22 @@ export class InventoryService {
     return buildStockHealthRadarSummary(items)
   }
 
-  static async getExpiringStock(tenantId: string, branchId?: string, daysThreshold?: number) {
+  static async getExpiringStock(tenantId: string, branchId?: string | string[], daysThreshold?: number) {
     const cfg = getInventoryConfig(await getDomainConfig(tenantId, 'INVENTORY'))
     const days = daysThreshold ?? cfg.expiryWarningDays ?? 30
     const now = new Date()
     const warningDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
 
+    const branchFilter = Array.isArray(branchId)
+      ? { branchId: { in: branchId } }
+      : branchId
+      ? { branchId }
+      : {}
+
     const stocks = await db.inventoryStock.findMany({
       where: {
         tenantId,
-        ...(branchId ? { branchId } : {}),
+        ...branchFilter,
         expiryDate: { not: null },
         quantity: { gt: 0 },
       },
@@ -3093,8 +3164,13 @@ export class InventoryService {
   // 15. DASHBOARD KPIS & CONSUMPTION ANALYTICS
   // =========================================================================
 
-  static async getDashboardMetrics(tenantId: string, branchId?: string) {
-    const whereTenantBranch = { tenantId, ...(branchId ? { branchId } : {}) }
+  static async getDashboardMetrics(tenantId: string, branchId?: string | string[]) {
+    const branchFilter = Array.isArray(branchId)
+      ? { branchId: { in: branchId } }
+      : branchId
+      ? { branchId }
+      : {}
+    const whereTenantBranch = { tenantId, ...branchFilter }
 
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -3369,13 +3445,17 @@ export class InventoryService {
   static async exportData(
     tenantId: string,
     type: 'stock' | 'movements' | 'procurement' | 'consumption',
-    actor?: ActorContext
+    actor?: ActorContext,
+    branchIds?: string[]
   ): Promise<string> {
     let csv = ''
+    const branchFilter = branchIds && branchIds.length > 0
+      ? { branchId: { in: branchIds } }
+      : {}
 
     if (type === 'stock') {
       const stocks = await db.inventoryStock.findMany({
-        where: { tenantId },
+        where: { tenantId, ...branchFilter },
         include: {
           item: { include: { category: true, unit: true } },
           location: true,
@@ -3390,7 +3470,7 @@ export class InventoryService {
       }
     } else if (type === 'movements') {
       const movements = await db.stockMovement.findMany({
-        where: { tenantId },
+        where: { tenantId, ...branchFilter },
         include: { item: true, branch: true },
         take: 1000,
         orderBy: { createdAt: 'desc' },

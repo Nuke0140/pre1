@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { resolveAuthorizedBranchScope } from '@/lib/admissions/branch-context'
 
 /** GET /api/v1/classrooms — list classrooms for tenant (with student counts and branch filter) */
@@ -161,9 +161,16 @@ async function _POST(req: NextRequest) {
     if (!name || !programType) {
       return Errors.validation('name and programType are required')
     }
-    const branch = branchId
-      ? await db.branch.findFirst({ where: { id: branchId, tenantId: session.tenantId } })
-      : await db.branch.findFirst({ where: { tenantId: session.tenantId, isMain: true } })
+    const targetBranchId = branchId || session.branchId
+    if (!targetBranchId) {
+      return Errors.badRequest('Branch context is required')
+    }
+    const branchCheck = await requireBranchAccess(session, targetBranchId)
+    if (branchCheck) return branchCheck
+
+    const branch = await db.branch.findFirst({
+      where: { id: targetBranchId, tenantId: session.tenantId },
+    })
     if (!branch) return Errors.notFound('Branch')
 
     let acad = await db.academicSession.findFirst({

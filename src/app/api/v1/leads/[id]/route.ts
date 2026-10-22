@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { LeadService } from '@/lib/admissions/lead-service'
 import type { LeadStatus } from '@prisma/client'
 
@@ -17,6 +18,15 @@ async function _GET(
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const { id } = await params
+
+  const lead = await db.lead.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!lead) return Errors.notFound('Enquiry')
+
+  const branchErr = await requireBranchAccess(session, lead.branchId)
+  if (branchErr) return branchErr
 
   try {
     const data = await LeadService.getLead(session.tenantId, id)
@@ -50,6 +60,15 @@ async function _PATCH(
 
   const { id } = await params
 
+  const lead = await db.lead.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!lead) return Errors.notFound('Enquiry')
+
+  const branchErr = await requireBranchAccess(session, lead.branchId)
+  if (branchErr) return branchErr
+
   try {
     const body = await req.json()
     const {
@@ -64,6 +83,11 @@ async function _PATCH(
       lostNotes,
       ...detailUpdates
     } = body
+
+    if (branchId) {
+      const targetBranchErr = await requireBranchAccess(session, branchId)
+      if (targetBranchErr) return targetBranchErr
+    }
 
     const ctx = {
       tenantId: session.tenantId,

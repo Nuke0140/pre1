@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, bad, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { ClassroomsImportService } from '@/lib/importers/classrooms-import-service'
 
 /**
@@ -32,6 +32,7 @@ async function _POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { action = 'preview', csv, rows, previewRows, duplicatePolicy = 'SKIP', atomic = false } = body
+    const authorizedBranches = await getAuthorizedBranchIds(session)
 
     if (action === 'preview' || action === 'validate') {
       const dataInput = typeof csv === 'string' && csv.trim() ? csv : Array.isArray(rows) ? rows : []
@@ -40,6 +41,18 @@ async function _POST(req: NextRequest) {
       }
 
       const preview = await ClassroomsImportService.preview(session.tenantId, dataInput, { duplicatePolicy })
+      if (authorizedBranches !== 'ALL') {
+        for (const r of preview.rows) {
+          const rowBranch = r.data?.branchId
+          if (rowBranch && !authorizedBranches.includes(rowBranch)) {
+            r.status = 'BLOCKED'
+            r.action = 'BLOCK'
+            r.errors.push(`Unauthorized branch ID: ${rowBranch}`)
+          }
+        }
+        preview.blockedCount = preview.rows.filter(r => r.status === 'BLOCKED').length
+        preview.validCount = preview.rows.filter(r => r.status === 'VALID').length
+      }
       return ok(preview)
     }
 
@@ -52,6 +65,15 @@ async function _POST(req: NextRequest) {
 
       if (!rowsToExecute || !Array.isArray(rowsToExecute) || rowsToExecute.length === 0) {
         return bad('No validated rows provided for execution', 'EMPTY_ROWS')
+      }
+
+      if (authorizedBranches !== 'ALL') {
+        for (const row of rowsToExecute) {
+          const rowBranch = row.data?.branchId
+          if (rowBranch && !authorizedBranches.includes(rowBranch)) {
+            return bad(`Unauthorized branch assignment in import row: ${rowBranch}`, 'FORBIDDEN_BRANCH')
+          }
+        }
       }
 
       const result = await ClassroomsImportService.execute(

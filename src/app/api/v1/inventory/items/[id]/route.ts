@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -16,9 +16,21 @@ async function _GET(
   try {
     const { id } = await params
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
 
-    const item = await InventoryService.getItemDetail(session.tenantId, id, branchId)
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const branchIds = requestedBranchId
+      ? undefined
+      : authorizedBranches === 'ALL'
+      ? undefined
+      : authorizedBranches
+
+    const item = await InventoryService.getItemDetail(session.tenantId, id, requestedBranchId, branchIds)
     if (!item) return Errors.notFound('Item not found')
     return ok(item)
   } catch (err: any) {

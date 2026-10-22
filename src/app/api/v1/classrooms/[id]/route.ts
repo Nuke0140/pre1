@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 import { ConfigurationService } from '@/lib/setup/config-service'
 
@@ -22,6 +22,10 @@ async function _PATCH(
   try {
     const classroom = await db.classroom.findFirst({ where: { id, tenantId: session.tenantId } })
     if (!classroom) return Errors.notFound('Classroom')
+
+    const branchCheck = await requireBranchAccess(session, classroom.branchId)
+    if (branchCheck) return branchCheck
+
     const body = await req.json()
 
     const data: Record<string, unknown> = {}

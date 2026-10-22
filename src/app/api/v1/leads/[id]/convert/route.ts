@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
+import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { LeadService } from '@/lib/admissions/lead-service'
 
 /**
@@ -17,12 +18,26 @@ async function _POST(
 
   const { id } = await params
 
+  const lead = await db.lead.findFirst({
+    where: { id, tenantId: session.tenantId, deletedAt: null },
+    select: { branchId: true },
+  })
+  if (!lead) return Errors.notFound('Enquiry not found')
+
+  const branchErr = await requireBranchAccess(session, lead.branchId)
+  if (branchErr) return branchErr
+
   try {
     let body: any = {}
     try {
       body = await req.json()
     } catch {
       body = {}
+    }
+
+    if (body.branchId) {
+      const targetBranchErr = await requireBranchAccess(session, body.branchId)
+      if (targetBranchErr) return targetBranchErr
     }
 
     const result = await LeadService.convertToApplication(

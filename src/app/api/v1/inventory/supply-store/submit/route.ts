@@ -1,7 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
+import { db } from '@/lib/db'
 import { getRequestMeta } from '@/lib/audit'
 import { SupplyCartService } from '@/lib/inventory/supply-cart-service'
 

@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { classroomSeats } from '@/lib/capacity'
 import { resolveSessionId } from '@/lib/academic'
 import { raiseFollowUp } from '@/lib/followups'
@@ -39,10 +39,16 @@ async function _POST(
     })
     if (!student) return Errors.notFound('Student')
 
+    const sourceBranchCheck = await requireBranchAccess(session, student.branchId)
+    if (sourceBranchCheck) return sourceBranchCheck
+
     const target = await db.classroom.findFirst({
       where: { id: classroomId, tenantId: session.tenantId, isActive: true },
     })
     if (!target) return Errors.notFound('Target classroom')
+
+    const targetBranchCheck = await requireBranchAccess(session, target.branchId)
+    if (targetBranchCheck) return targetBranchCheck
     if (student.currentClassroomId === classroomId) {
       return Errors.conflict('Student is already allocated to this classroom')
     }

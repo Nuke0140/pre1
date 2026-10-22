@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
 
 /** GET /api/v1/branches — list branches for tenant */
@@ -12,8 +12,14 @@ async function _GET(req: NextRequest) {
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   try {
+    const authorized = await getAuthorizedBranchIds(session)
+    const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
+    if (authorized !== 'ALL') {
+      branchWhere.id = { in: authorized }
+    }
+
     const branches = await db.branch.findMany({
-      where: { tenantId: session.tenantId, deletedAt: null },
+      where: branchWhere,
       include: { _count: { select: { staffProfiles: true, facilities: true, calendarEvents: true } } },
       orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
     })

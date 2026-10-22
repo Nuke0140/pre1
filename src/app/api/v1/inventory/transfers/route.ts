@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -12,6 +12,11 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const fromBranchId = body.fromBranchId || session.branchId
+    if (fromBranchId) {
+      const branchCheck = await requireBranchAccess(session, fromBranchId)
+      if (branchCheck) return branchCheck
+    }
     const meta = getRequestMeta(req)
 
     const transfer = await InventoryService.transferStock(

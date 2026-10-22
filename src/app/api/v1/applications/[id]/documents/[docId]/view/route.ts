@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 import { S3StorageService } from '@/lib/storage/s3-storage-service'
 

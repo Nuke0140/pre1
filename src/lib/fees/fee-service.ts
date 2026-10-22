@@ -1687,10 +1687,12 @@ export class FeeService {
   /**
    * 10. EXPORTS
    */
-  static async exportInvoicesCsv(tenantId: string, status?: string) {
+  static async exportInvoicesCsv(tenantId: string, status?: string, branchIds?: string[]) {
+    const branchFilter = branchIds && branchIds.length > 0 ? { branchId: { in: branchIds } } : {}
     const invoices = await db.invoice.findMany({
       where: {
         tenantId,
+        ...branchFilter,
         deletedAt: null,
         ...(status && status !== 'ALL' ? { status: status as InvoiceStatus } : {}),
       },
@@ -1732,9 +1734,10 @@ export class FeeService {
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
   }
 
-  static async exportPaymentsCsv(tenantId: string) {
+  static async exportPaymentsCsv(tenantId: string, branchIds?: string[]) {
+    const branchFilter = branchIds && branchIds.length > 0 ? { invoice: { branchId: { in: branchIds } } } : {}
     const payments = await db.payment.findMany({
-      where: { tenantId },
+      where: { tenantId, ...branchFilter },
       include: {
         student: { select: { firstName: true, lastName: true, admissionNo: true } },
         invoice: { select: { invoiceNumber: true } },

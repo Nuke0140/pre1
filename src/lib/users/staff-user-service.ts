@@ -92,9 +92,12 @@ export class StaffUserService {
     }
 
     // 3. Branch restriction check
-    if (input.branchId && ctx.actorBranchId && !isOwnerOrPlatform && !isPrincipal) {
-      if (input.branchId !== ctx.actorBranchId) {
+    if (!isOwnerOrPlatform) {
+      if (ctx.actorBranchId && input.branchId && input.branchId !== ctx.actorBranchId) {
         throw new Error('Unauthorized: Cannot assign staff to another campus branch')
+      }
+      if (!input.branchId && ctx.actorBranchId) {
+        input.branchId = ctx.actorBranchId
       }
     }
 

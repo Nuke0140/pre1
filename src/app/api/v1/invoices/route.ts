@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { ok, withApi, errPermission, errValidation, errNotFound } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { audit, nextNumber } from '@/lib/sequence'
 import { resolveSessionId } from '@/lib/academic'
 import { emit } from '@/lib/events'
@@ -55,11 +55,23 @@ export const GET = withApi(async (req: NextRequest) => {
   const isGuardian = effectiveRoles.includes('GUARDIAN')
   const isStaffFinance = effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT'].includes(r))
   const isFamily = (isParent || isGuardian) && !isStaffFinance
-  const isBranchScopedStaff = !isInstitutionWide(session) && !isFamily
 
-  if (isBranchScopedStaff && !session.branchId) {
-    throw errPermission('Branch-scoped actor missing branch assignment')
+  const requestedBranchId = sp.get('branchId') || undefined
+  if (requestedBranchId) {
+    const branchCheck = await requireBranchAccess(session, requestedBranchId)
+    if (branchCheck) return branchCheck
   }
+
+  const authorizedBranches = await getAuthorizedBranchIds(session)
+  if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+    return ok([], { page, pageSize, total: 0, totalPages: 0 })
+  }
+
+  const branchFilter = requestedBranchId
+    ? { branchId: requestedBranchId }
+    : authorizedBranches === 'ALL'
+    ? {}
+    : { branchId: { in: authorizedBranches } }
 
   const where = {
     tenantId: session.tenantId,
@@ -68,10 +80,7 @@ export const GET = withApi(async (req: NextRequest) => {
     ...(status ? { status: status as 'ISSUED' } : {}),
     ...(isFamily
       ? { student: { guardians: { some: { guardian: { userId: session.uid } } } } }
-      : {}),
-    ...(isBranchScopedStaff && session.branchId
-      ? { student: { branchId: session.branchId } }
-      : {}),
+      : branchFilter),
   }
 
   const [total, invoices] = await Promise.all([

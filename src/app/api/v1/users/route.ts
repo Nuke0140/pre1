@@ -12,7 +12,7 @@ import {
   errBusiness,
   ErrorCodes,
 } from '@/lib/api'
-import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole } from '@/lib/auth-api'
+import { requireApi, isResponse, requireBranchAccess, requireCanAssignRole, getAuthorizedBranchIds, isBranchAuthorized } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { UserRole, Relationship, UserStatus, Gender } from '@prisma/client'
 import { normalizeFamilyCreateInput, normalizeBloodGroup, formatBloodGroup } from '@/lib/users/user-validation'
@@ -49,17 +49,21 @@ export const GET = withApi(async (req: NextRequest) => {
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'))
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50')))
 
-  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
-  )
+  const authorizedBranches = await getAuthorizedBranchIds(session)
+  const isInstitutionWide = authorizedBranches === 'ALL'
 
   let effectiveBranchId: string | undefined = undefined
-  if (!isInstitutionWide && session.branchId) {
-    if (branchFilter && branchFilter !== session.branchId) {
-      throw errPermission('Access denied: branch scope restricted')
+  let effectiveBranchIds: string[] | undefined = undefined
+
+  if (!isInstitutionWide) {
+    if (branchFilter) {
+      if (!authorizedBranches.includes(branchFilter)) {
+        throw errPermission('Access denied: branch scope restricted')
+      }
+      effectiveBranchId = branchFilter
+    } else {
+      effectiveBranchIds = authorizedBranches
     }
-    effectiveBranchId = session.branchId
   } else if (branchFilter) {
     effectiveBranchId = branchFilter
   }
@@ -100,6 +104,17 @@ export const GET = withApi(async (req: NextRequest) => {
           { assignedBranches: { some: { branchId: effectiveBranchId } } },
         ],
       })
+    } else if (effectiveBranchIds) {
+      if (effectiveBranchIds.length === 0) {
+        andConditions.push({ id: '__NO_AUTHORIZED_BRANCHES__' })
+      } else {
+        andConditions.push({
+          OR: [
+            { branchId: { in: effectiveBranchIds } },
+            { assignedBranches: { some: { branchId: { in: effectiveBranchIds } } } },
+          ],
+        })
+      }
     }
 
     if (!skipUserType && userTypeFilter === 'PARENT') {
@@ -226,7 +241,11 @@ export const GET = withApi(async (req: NextRequest) => {
                 student: {
                   tenantId: session.tenantId,
                   deletedAt: null,
-                  ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+                  ...(effectiveBranchId
+                    ? { branchId: effectiveBranchId }
+                    : effectiveBranchIds
+                    ? { branchId: { in: effectiveBranchIds } }
+                    : {}),
                 },
               },
             },
@@ -238,7 +257,11 @@ export const GET = withApi(async (req: NextRequest) => {
                 student: {
                   tenantId: session.tenantId,
                   deletedAt: null,
-                  ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+                  ...(effectiveBranchId
+                    ? { branchId: effectiveBranchId }
+                    : effectiveBranchIds
+                    ? { branchId: { in: effectiveBranchIds } }
+                    : {}),
                 },
               },
             },
@@ -252,6 +275,16 @@ export const GET = withApi(async (req: NextRequest) => {
             student: {
               tenantId: session.tenantId,
               branchId: effectiveBranchId,
+              deletedAt: null,
+            },
+          },
+        }
+      } else if (effectiveBranchIds) {
+        guardianBaseWhere.studentLinks = {
+          some: {
+            student: {
+              tenantId: session.tenantId,
+              branchId: { in: effectiveBranchIds },
               deletedAt: null,
             },
           },
@@ -375,7 +408,11 @@ export const GET = withApi(async (req: NextRequest) => {
           _count: { _all: true },
         }),
         db.branch.findMany({
-          where: { tenantId: session.tenantId, deletedAt: null },
+          where: {
+            tenantId: session.tenantId,
+            deletedAt: null,
+            ...(isInstitutionWide ? {} : { id: { in: authorizedBranches } }),
+          },
           select: { id: true, name: true, code: true, isMain: true },
         }),
         FamilyUserService.getFamilyKpis(session.tenantId, { branchId: effectiveBranchId }),
@@ -487,7 +524,11 @@ export const GET = withApi(async (req: NextRequest) => {
           _count: { _all: true },
         }),
         db.branch.findMany({
-          where: { tenantId: session.tenantId, deletedAt: null },
+          where: {
+            tenantId: session.tenantId,
+            deletedAt: null,
+            ...(isInstitutionWide ? {} : { id: { in: authorizedBranches } }),
+          },
           select: { id: true, name: true, code: true, isMain: true },
         }),
         FamilyUserService.getFamilyKpis(session.tenantId, { branchId: effectiveBranchId }),
@@ -1186,16 +1227,33 @@ export const POST = withApi(async (req: NextRequest) => {
   const roleErr = requireCanAssignRole(session, assignedRoles)
   if (roleErr) return roleErr
 
+  const authorizedBranches = await getAuthorizedBranchIds(session)
+  const isInstitutionWide = authorizedBranches === 'ALL'
+
+  let resolvedBranchId = branchId
+  if (!resolvedBranchId && !isInstitutionWide && authorizedBranches.length > 0) {
+    resolvedBranchId = session.branchId || authorizedBranches[0]
+  }
+
   // Validate branch boundary using centralized helper
   if (branchId) {
-    const branchErr = requireBranchAccess(session, branchId)
+    const branchErr = await requireBranchAccess(session, branchId)
     if (branchErr) return branchErr
 
     const branchExists = await db.branch.findFirst({
-      where: { id: branchId, tenantId: session.tenantId },
+      where: { id: branchId, tenantId: session.tenantId, deletedAt: null },
     })
     if (!branchExists) {
       throw errNotFound('Selected campus branch was not found in this school', ErrorCodes.NOT_FOUND_RESOURCE, 'branchId')
+    }
+  }
+
+  // Validate multi-branch assignments if provided
+  const effectiveBranchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
+  if (effectiveBranchIds && Array.isArray(effectiveBranchIds)) {
+    for (const bId of effectiveBranchIds) {
+      const bErr = await requireBranchAccess(session, bId)
+      if (bErr) return bErr
     }
   }
 
@@ -1224,7 +1282,7 @@ export const POST = withApi(async (req: NextRequest) => {
       role: finalPrimaryRole,
       password: effectivePassword,
       status: initialStatus,
-      branchId: branchId || undefined,
+      branchId: resolvedBranchId || undefined,
     })
 
     const familyResult = await FamilyUserService.createFamilyUser(
@@ -1233,7 +1291,7 @@ export const POST = withApi(async (req: NextRequest) => {
         actorId: (session as any).userId || session.uid,
         actorName: (session as any).fullName || session.name,
         actorRole: session.role,
-        actorBranchId: session.branchId,
+        actorBranchId: session.branchId || (authorizedBranches !== 'ALL' ? authorizedBranches[0] : undefined),
         reqMeta: getRequestMeta(req),
       },
       familyInput
@@ -1415,7 +1473,7 @@ export const POST = withApi(async (req: NextRequest) => {
         userId: user.id,
         role: finalPrimaryRole,
         roles: assignedRoles,
-        branchId: branchId || null,
+        branchId: resolvedBranchId || null,
         status: initialStatus,
       },
     })
@@ -1563,6 +1621,10 @@ export const POST = withApi(async (req: NextRequest) => {
           where: { id: sid, tenantId: session.tenantId!, deletedAt: null },
         })
         if (student) {
+          if (!isInstitutionWide && (!student.branchId || !authorizedBranches.includes(student.branchId))) {
+            throw errPermission('Unauthorized: Cannot link student belonging to another campus branch')
+          }
+
           await tx.$queryRaw`SELECT id FROM students WHERE id = ${sid} FOR UPDATE`
 
           // Enforce Max 2 Parents policy if PARENT role
@@ -1746,7 +1808,7 @@ export const POST = withApi(async (req: NextRequest) => {
             department: department?.trim() || null,
             qualification: qualification?.trim() || null,
             employmentType: employmentType || 'FULL_TIME',
-            branchId: branchId || null,
+            branchId: resolvedBranchId || null,
             reportingManagerId: resolvedReportingManagerId,
             dateOfBirth: parsedDob || null,
             gender: normGender,

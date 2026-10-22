@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -12,12 +12,33 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
     const search = searchParams.get('search') || undefined
     const type = searchParams.get('type') as any || undefined
     const isActive = searchParams.get('isActive') !== null ? searchParams.get('isActive') === 'true' : undefined
 
-    const locations = await InventoryService.listLocations(session.tenantId, { branchId, search, isActive })
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok([])
+    }
+
+    const branchIds = requestedBranchId
+      ? undefined
+      : authorizedBranches === 'ALL'
+      ? undefined
+      : authorizedBranches
+
+    const locations = await InventoryService.listLocations(session.tenantId, {
+      branchId: requestedBranchId,
+      branchIds,
+      search,
+      isActive,
+    })
     return ok(locations)
   } catch (err: any) {
     return bad(err.message, 'LOCATIONS_FETCH_FAILED')
@@ -31,11 +52,22 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const targetBranchId = body.branchId || session.branchId
+    if (!targetBranchId) {
+      return Errors.badRequest('Branch ID is required')
+    }
+
+    const branchCheck = await requireBranchAccess(session, targetBranchId)
+    if (branchCheck) return branchCheck
+
     const meta = getRequestMeta(req)
 
     const location = await InventoryService.createLocation(
       session.tenantId,
-      body,
+      {
+        ...body,
+        branchId: targetBranchId,
+      },
       {
         id: session.uid,
         name: session.name,

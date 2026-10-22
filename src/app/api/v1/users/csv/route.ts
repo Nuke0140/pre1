@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest, NextResponse } from 'next/server'
 import { ok, bad, serverError } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { UserCsvEngine, CsvPreviewRow } from '@/lib/users/csv-engine'
 
 /**
@@ -101,6 +101,14 @@ async function _POST(req: NextRequest) {
       }
     }
 
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const isInstitutionWide = authorizedBranches === 'ALL'
+    const csvActor = {
+      actorRole: session.role,
+      actorBranchId: session.branchId || (!isInstitutionWide ? authorizedBranches[0] : undefined),
+      authorizedBranchIds: isInstitutionWide ? undefined : authorizedBranches,
+    }
+
     if (action === 'preview' || action === 'validate') {
       let rawCsv = typeof csv === 'string' ? csv : ''
       if (!rawCsv && Array.isArray(body.rows) && body.rows.length > 0) {
@@ -112,12 +120,13 @@ async function _POST(req: NextRequest) {
       }
 
       if (templateType === 'FAMILY') {
-        const preview = await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv)
+        const preview = await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, csvActor)
         return ok(preview)
       } else {
         const preview = await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, {
           mode: body.mode,
           overwrite: body.overwrite,
+          ...csvActor,
         })
         return ok(preview)
       }
@@ -129,8 +138,8 @@ async function _POST(req: NextRequest) {
       if (!rowsToExecute && typeof csv === 'string') {
         const preview =
           templateType === 'FAMILY'
-            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, csv)
-            : await UserCsvEngine.previewStaffCsv(session.tenantId, csv, { mode: body.mode, overwrite: body.overwrite })
+            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, csv, csvActor)
+            : await UserCsvEngine.previewStaffCsv(session.tenantId, csv, { mode: body.mode, overwrite: body.overwrite, ...csvActor })
         rowsToExecute = preview.rows
       }
 
@@ -138,8 +147,8 @@ async function _POST(req: NextRequest) {
         const rawCsv = rowsToCsv(body.rows)
         const preview =
           templateType === 'FAMILY'
-            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv)
-            : await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, { mode: body.mode, overwrite: body.overwrite })
+            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, csvActor)
+            : await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, { mode: body.mode, overwrite: body.overwrite, ...csvActor })
         rowsToExecute = preview.rows
       }
 
@@ -200,6 +209,8 @@ async function _POST(req: NextRequest) {
             actorId: session.uid,
             actorName: session.name,
             actorRole: session.role,
+            actorBranchId: csvActor.actorBranchId,
+            authorizedBranchIds: csvActor.authorizedBranchIds,
           },
           rowsToExecute,
           { atomicAllOrNothing }
@@ -212,6 +223,8 @@ async function _POST(req: NextRequest) {
             actorId: session.uid,
             actorName: session.name,
             actorRole: session.role,
+            actorBranchId: csvActor.actorBranchId,
+            authorizedBranchIds: csvActor.authorizedBranchIds,
           },
           rowsToExecute,
           { atomicAllOrNothing, mode: body.mode }

@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { getRequestMeta } from '@/lib/audit'
 import { InventoryService } from '@/lib/inventory/inventory-service'
 
@@ -12,13 +12,31 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
     const purchaseOrderId = searchParams.get('purchaseOrderId') || undefined
     const vendorId = searchParams.get('vendorId') || undefined
     const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : undefined
     const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : undefined
 
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok({ grns: [], total: 0, page: 1, pageSize: pageSize || 50, totalPages: 0 })
+    }
+
+    const branchIds = requestedBranchId
+      ? undefined
+      : authorizedBranches === 'ALL'
+      ? undefined
+      : authorizedBranches
+
     const result = await InventoryService.listGoodsReceipts(session.tenantId, {
+      branchId: requestedBranchId,
+      branchIds,
       purchaseOrderId,
       vendorId,
       page,
@@ -38,13 +56,21 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json()
+    const targetBranchId = body.branchId || session.branchId
+    if (!targetBranchId) {
+      return Errors.badRequest('Branch context is required')
+    }
+
+    const branchCheck = await requireBranchAccess(session, targetBranchId)
+    if (branchCheck) return branchCheck
+
     const meta = getRequestMeta(req)
 
     const grn = await InventoryService.createGoodsReceipt(
       session.tenantId,
       {
         ...body,
-        branchId: body.branchId || session.branchId,
+        branchId: targetBranchId,
       },
       {
         id: session.uid,

@@ -5,7 +5,7 @@ export interface ScopedResource {
   branchId?: string | null
 }
 
-const INSTITUTION_WIDE_ROLES: Role[] = ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN']
+const INSTITUTION_WIDE_ROLES: Role[] = ['OWNER', 'PLATFORM_ADMIN']
 
 export interface ScopeActor {
   tenantId: string | null
@@ -79,12 +79,24 @@ export function assertBranchScope(
   if (!resourceBranchId || isInstitutionWide(session)) return
 
   // Branch-scoped role attempting to access a branch-bound resource:
+  const allowed = new Set<string>()
+  if (session.branchId) allowed.add(session.branchId)
+  if ((session as any).assignedBranchIds) {
+    for (const b of (session as any).assignedBranchIds) if (b) allowed.add(b)
+  }
+  if ((session as any).assignedBranches) {
+    for (const b of (session as any).assignedBranches) {
+      if (typeof b === 'string') allowed.add(b)
+      else if (b && b.branchId) allowed.add(b.branchId)
+    }
+  }
+
   // Missing branch assignment on the actor is an explicit DENY (fail-closed, not default-allow)
-  if (!session.branchId) {
+  if (allowed.size === 0) {
     throw new Error('Unauthorized: branch-scoped actor missing branch assignment')
   }
 
-  if (session.branchId !== resourceBranchId) {
+  if (!allowed.has(resourceBranchId)) {
     throw new Error('Unauthorized: resource belongs to another branch')
   }
 }
@@ -100,11 +112,23 @@ export function assertActorResourceScope(
   if (!resource.branchId || isActorInstitutionWide(actor)) return
 
   // Branch-scoped actor attempting to access branch-bound resource
-  if (!actor.branchId) {
+  const allowed = new Set<string>()
+  if (actor.branchId) allowed.add(actor.branchId)
+  if ((actor as any).assignedBranchIds) {
+    for (const b of (actor as any).assignedBranchIds) if (b) allowed.add(b)
+  }
+  if ((actor as any).assignedBranches) {
+    for (const b of (actor as any).assignedBranches) {
+      if (typeof b === 'string') allowed.add(b)
+      else if (b && b.branchId) allowed.add(b.branchId)
+    }
+  }
+
+  if (allowed.size === 0) {
     throw new Error('Unauthorized: branch-scoped actor missing branch assignment')
   }
 
-  if (actor.branchId !== resource.branchId) {
+  if (!allowed.has(resource.branchId)) {
     throw new Error('Unauthorized: resource belongs to another branch')
   }
 }

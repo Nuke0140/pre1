@@ -1,9 +1,8 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
-import { requireApi, isResponse } from '@/lib/auth-api'
+import { requireApi, isResponse, getAuthorizedBranchIds, requireBranchAccess } from '@/lib/auth-api'
 import { TransportService } from '@/lib/transport/transport-service'
-
 import { TransportSecurityService } from '@/lib/transport/transport-security'
 
 /**
@@ -17,10 +16,23 @@ async function _GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
+    const requestedBranchId = searchParams.get('branchId') || undefined
+
+    if (requestedBranchId) {
+      const branchCheck = await requireBranchAccess(session, requestedBranchId)
+      if (branchCheck) return branchCheck
+    }
+
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    if (authorizedBranches !== 'ALL' && authorizedBranches.length === 0) {
+      return ok([])
+    }
+
+    const branchToUse = requestedBranchId || (authorizedBranches === 'ALL' ? undefined : session.branchId)
 
     const context = {
       tenantId: session.tenantId,
-      branchId: session.branchId || undefined,
+      branchId: branchToUse,
       actorId: session.uid,
       actorName: session.name,
       actorRole: session.role,
@@ -62,10 +74,18 @@ async function _POST(req: NextRequest) {
       return Errors.validation('Route name is required')
     }
 
+    const targetBranchId = branchId || session.branchId
+    if (targetBranchId) {
+      const branchCheck = await requireBranchAccess(session, targetBranchId)
+      if (branchCheck) return branchCheck
+    } else if (session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {
+      return Errors.badRequest('Branch context is required')
+    }
+
     const route = await TransportService.createRoute(
       {
         tenantId: session.tenantId,
-        branchId: branchId || session.branchId,
+        branchId: targetBranchId,
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
