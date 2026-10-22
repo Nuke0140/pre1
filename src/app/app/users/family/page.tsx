@@ -8,7 +8,7 @@ import {
   Phone, Mail, Edit3, Shield, Eye, Lock,
   ChevronLeft, CheckCircle2, User, Users,
   KeyRound, Clock, X, Camera, Unlock, UserX, UserCheck, Send, ShieldAlert,
-  Building2, LayoutGrid, Table, Home, Sparkles, MapPin, Star, Trash2
+  Building2, LayoutGrid, Table, Home, Sparkles, MapPin, Star, Trash2, Network
 } from 'lucide-react'
 import { Avatar, StatusBadge, EmptyState, KpiTile, PageHead, IconButton, GlobalModuleNavigation, getFamilyNavConfig } from '@/components/preone/ui'
 import { EmptyUsersIllustration } from '@/components/preone'
@@ -874,6 +874,7 @@ export default function FamilyUsersPage() {
               className="font-semibold shadow-xs"
               groups={[
                 { id: 'primary', label: 'Primary Actions' },
+                { id: 'data', label: 'Data & Spreadsheet' },
                 { id: 'management', label: 'Management & Batch' },
               ]}
               actions={[
@@ -891,12 +892,26 @@ export default function FamilyUsersPage() {
                 },
                 {
                   id: 'organization-setup',
-                  label: 'Organization / Role Setup',
-                  helperText: 'Roles, capabilities dictionary & hierarchy',
-                  icon: <Shield />,
-                  category: 'settings',
+                  label: 'Organization Setup',
+                  helperText: 'Reporting hierarchy & roles dictionary',
+                  icon: <Network />,
+                  category: 'view',
                   groupId: 'primary',
                   href: '/app/users/organization',
+                },
+                {
+                  id: 'view-directory',
+                  label: 'Directory Table',
+                  helperText: 'Return to family directory table',
+                  icon: <Users />,
+                  category: 'view',
+                  groupId: 'primary',
+                  visible: viewMode === 'SPREADSHEET' || viewMode === 'HOUSEHOLDS',
+                  href: '/app/users/family',
+                  onClick: () => {
+                    handleSetViewMode('TABLE')
+                    router.push('/app/users/family')
+                  },
                 },
                 {
                   id: 'spreadsheet-workspace',
@@ -905,35 +920,51 @@ export default function FamilyUsersPage() {
                   icon: <FileSpreadsheet />,
                   category: 'import',
                   groupId: 'primary',
-                  onClick: () => handleSetViewMode('SPREADSHEET'),
+                  href: '/app/users/family?tab=import',
+                  onClick: () => {
+                    handleSetViewMode('SPREADSHEET')
+                    router.push('/app/users/family?tab=import')
+                  },
                 },
                 {
                   id: 'family-updates',
                   label: 'Family Updates',
-                  helperText: 'Individual family profile edits & bulk field updates',
+                  helperText: 'Individual family edits & bulk field updates',
                   icon: <Layers />,
                   category: 'edit',
                   groupId: 'management',
-                  onClick: () => {
-                    if (selectedKeys.length > 0) {
-                      setBulkFieldUpdateOpen(true)
-                    } else if (users.length > 0) {
-                      setEditingUser(users[0])
-                    } else {
-                      toast.info('No Family User', 'No family user available to edit')
-                    }
-                  },
+                  href: '/app/users/updates',
                 },
                 {
                   id: 'photo-management',
                   label: 'Photo Management',
-                  helperText: 'Individual portraits & bulk ZIP photo archives',
+                  helperText: 'Individual portrait & ZIP bulk photo upload',
                   icon: <Camera />,
                   category: 'import',
                   groupId: 'management',
-                  onClick: () => setZipPhotoModalOpen(true),
+                  href: '/app/users/photos',
                 },
-                // Hidden secondary action items for compatibility
+                // Legacy compatibility action items
+                {
+                  id: 'organize-hierarchy',
+                  label: 'Organize Hierarchy',
+                  helperText: 'Visual reporting structure & org chart',
+                  icon: <Network />,
+                  category: 'view',
+                  groupId: 'management',
+                  visible: false,
+                  onClick: () => handleSetViewMode('HOUSEHOLDS'),
+                },
+                {
+                  id: 'dictionary',
+                  label: 'Dictionary',
+                  helperText: 'Roles, permissions & capabilities dictionary',
+                  icon: <Shield />,
+                  category: 'settings',
+                  groupId: 'management',
+                  visible: false,
+                  onClick: () => setRolesModalOpen(true),
+                },
                 {
                   id: 'individual-edit',
                   label: t('users.individualEdit') || 'Individual Edit',
@@ -980,16 +1011,6 @@ export default function FamilyUsersPage() {
                   groupId: 'management',
                   visible: false,
                   onClick: () => setZipPhotoModalOpen(true),
-                },
-                {
-                  id: 'dictionary',
-                  label: 'Dictionary',
-                  helperText: 'Roles, permissions & capabilities dictionary',
-                  icon: <Shield />,
-                  category: 'settings',
-                  groupId: 'management',
-                  visible: false,
-                  onClick: () => setRolesModalOpen(true),
                 },
               ]}
             />
@@ -1084,10 +1105,14 @@ export default function FamilyUsersPage() {
         <div className="pt-2">
           <SpreadsheetImportWorkspace
             module="FAMILY"
-            onCancel={() => handleSetViewMode('TABLE')}
+            onCancel={() => {
+              handleSetViewMode('TABLE')
+              router.push('/app/users/family')
+            }}
             onSuccess={() => {
               fetchFamilyUsers()
               handleSetViewMode('TABLE')
+              router.push('/app/users/family')
             }}
             exportContext={{
               branchId: selectedBranch !== 'ALL' ? selectedBranch : undefined,

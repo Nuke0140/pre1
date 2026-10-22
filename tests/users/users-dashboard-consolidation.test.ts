@@ -5,12 +5,14 @@ import { join } from 'path'
 describe('PreOne — Users Dashboard Action Consolidation & Clean UX Test Suite', () => {
   const usersPagePath = join(process.cwd(), 'src/app/app/users/page.tsx')
   const staffPagePath = join(process.cwd(), 'src/app/app/users/staff/page.tsx')
+  const familyPagePath = join(process.cwd(), 'src/app/app/users/family/page.tsx')
   const orgPagePath = join(process.cwd(), 'src/app/app/users/organization/page.tsx')
   const updatesPagePath = join(process.cwd(), 'src/app/app/users/updates/page.tsx')
   const photosPagePath = join(process.cwd(), 'src/app/app/users/photos/page.tsx')
 
   const usersContent = readFileSync(usersPagePath, 'utf-8')
   const staffContent = readFileSync(staffPagePath, 'utf-8')
+  const familyContent = readFileSync(familyPagePath, 'utf-8')
 
   describe('1. Staff Users Dashboard Primary Actions Consolidation', () => {
     it('consolidates the five primary management actions into the centralized Actions button (/app/users/staff)', () => {
@@ -186,6 +188,48 @@ describe('PreOne — Users Dashboard Action Consolidation & Clean UX Test Suite'
       expect(addStaffContent).toContain('Work Email')
       expect(addStaffContent).toContain('Mobile Phone')
       expect(addStaffContent).toContain('Staff Profile Photo')
+    })
+  })
+
+  describe('7. Family Users Directory Primary Actions Alignment & Consolidation', () => {
+    it('aligns GlobalActionMenu in Family Directory with the consolidated action structure and links', () => {
+      // 1. Add Family
+      expect(familyContent).toContain("id: 'add-family'")
+      expect(familyContent).toContain('Add Family Member')
+
+      // 2. Organization Setup
+      expect(familyContent).toContain("id: 'organization-setup'")
+      expect(familyContent).toContain('Organization Setup')
+      expect(familyContent).toContain("href: '/app/users/organization'")
+
+      // 3. User Spreadsheet
+      expect(familyContent).toContain("id: 'spreadsheet-workspace'")
+      expect(familyContent).toContain('User Spreadsheet Tool')
+      expect(familyContent).toContain("href: '/app/users/family?tab=import'")
+
+      // 4. Family Updates
+      expect(familyContent).toContain("id: 'family-updates'")
+      expect(familyContent).toContain('Family Updates')
+      expect(familyContent).toContain("href: '/app/users/updates'")
+
+      // 5. Photo Management
+      expect(familyContent).toContain("id: 'photo-management'")
+      expect(familyContent).toContain('Photo Management')
+      expect(familyContent).toContain("href: '/app/users/photos'")
+
+      // 6. Directory Table return action
+      expect(familyContent).toContain("id: 'view-directory'")
+      expect(familyContent).toContain('Directory Table')
+      expect(familyContent).toContain("href: '/app/users/family'")
+
+      // Legacy compatibility actions preserved
+      expect(familyContent).toContain("id: 'organize-hierarchy'")
+      expect(familyContent).toContain("id: 'dictionary'")
+    })
+
+    it('preserves spreadsheet workspace in family directory with return navigation', () => {
+      expect(familyContent).toContain('<SpreadsheetImportWorkspace')
+      expect(familyContent).toContain("module=\"FAMILY\"")
     })
   })
 })
