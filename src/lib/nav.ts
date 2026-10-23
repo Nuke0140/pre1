@@ -28,7 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'finance', label: 'Fees', href: '/app/finance', icon: IndianRupee, grad: 'g-yellow', perm: 'finance:read' },
   { key: 'transport', label: 'Transport', href: '/app/transport', icon: Bus, grad: 'g-orange', perm: 'transport:read' },
   { key: 'inventory', label: 'Inventory', href: '/app/inventory', icon: Package, grad: 'g-emerald', perm: 'inventory:read' },
-  { key: 'learning', label: 'PreO Learning', href: '/app/learning', icon: GraduationCap, grad: 'g-violet' },
+  { key: 'learning', label: 'PreO Learning', href: '/app/learning', icon: GraduationCap, grad: 'g-violet', perm: 'academics:read' },
   { key: 'hr', label: 'HR & Workforce', href: '/app/hr', icon: Users, grad: 'g-indigo', perm: 'users:read' },
   { key: 'reports', label: 'Reports & Analytics', href: '/app/reports', icon: BarChart3, grad: 'g-purple', perm: 'reports:read' },
   { key: 'communication', label: 'Announcements', href: '/app/communication', icon: Megaphone, grad: 'g-orange', perm: 'communication:read' },

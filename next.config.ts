@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'date-fns',
+      'recharts',
+      'framer-motion',
+      '@radix-ui/react-icons',
+      '@tanstack/react-table',
+      '@tanstack/react-query',
+    ],
+    turbopackFileSystemCacheForDev: true,
+  },
   // output: "standalone" is only used for self-hosting (Caddy/Docker/bun).
   // On Vercel it conflicts with the adapter-based Turbopack build and causes
   // ENOENT on .next/next-server.js.nft.json (next.js#96657).
