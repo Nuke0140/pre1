@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { HelpCircle, X } from 'lucide-react'
+import type { AnimationItem } from 'lottie-web'
 import './preone-buddy-live.css'
 
 type Reaction = 'welcome' | 'happy' | 'explore' | 'oops' | 'thinking' | 'sleep'
@@ -23,7 +24,7 @@ export function triggerBuddyReaction(reaction: Reaction, message?: string) {
 export function PreOneBuddy() {
   const pathname = usePathname()
   const host = useRef<HTMLDivElement>(null)
-  const animation = useRef<{ play: () => void; pause: () => void; destroy: () => void; goToAndPlay: (frame: number, isFrame: boolean) => void } | null>(null)
+  const animation = useRef<AnimationItem | null>(null)
   const [reaction, setReaction] = useState<Reaction>('welcome')
   const [message, setMessage] = useState(messages.welcome)
   const [open, setOpen] = useState(false)
@@ -43,7 +44,7 @@ export function PreOneBuddy() {
   useEffect(() => {
     if (reducedMotion || !host.current) return
     let cancelled = false
-    let instance: ReturnType<import('lottie-web').AnimationItem['constructor']> | null = null
+    let instance: AnimationItem | null = null
     const start = async () => {
       const lottie = (await import('lottie-web')).default
       if (cancelled || !host.current) return
