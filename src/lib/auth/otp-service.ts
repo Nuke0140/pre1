@@ -73,17 +73,12 @@ export function isDemoOtpAllowed(identifier?: string): boolean {
     }
   }
 
-  const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
-  if (explicitAllow) {
-    return true
+  // In production, general demo OTP strictly fails closed unless an allowed demo identifier is provided
+  if (process.env.NODE_ENV === 'production') {
+    return false
   }
 
   // In non-production or preview environments, demo codes are enabled by default
-  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview') {
-    return true
-  }
-
-  // Fallback: allow demo OTP for testing unless explicitly disallowed
   return true
 }
 
@@ -99,7 +94,20 @@ export class OtpService {
    * Checks whether demo OTP bypass codes are currently allowed based on environment flags.
    */
   static isDemoOtpAllowed(identifier?: string): boolean {
-    return isDemoOtpAllowed(identifier)
+    const isProduction = process.env.NODE_ENV === 'production'
+    const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
+    const explicitDisallow = process.env.ALLOW_DEMO_OTP === 'false' || process.env.ENABLE_DEMO_OTP === 'false'
+
+    if (explicitDisallow) {
+      return false
+    }
+
+    if (isProduction) {
+      if (explicitAllow) return true
+      return isDemoOtpAllowed(identifier)
+    }
+
+    return true
   }
 
   /**
@@ -153,7 +161,7 @@ export class OtpService {
       cleanId === 'owner' ||
       cleanId === 'admin'
 
-    const isDemoAllowed = isDemoOtpAllowed(cleanId)
+    const isDemoAllowed = OtpService.isDemoOtpAllowed(cleanId)
     const isDemoCode = (isDemoAllowed || isDemoAccount) && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {
@@ -555,7 +563,7 @@ export class OtpService {
       cleanId === 'owner' ||
       cleanId === 'admin'
 
-    const isDemoAllowed = isDemoOtpAllowed(cleanId)
+    const isDemoAllowed = OtpService.isDemoOtpAllowed(cleanId)
     const isDemoCode = (isDemoAllowed || isDemoAccount) && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {

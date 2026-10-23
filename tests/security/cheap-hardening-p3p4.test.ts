@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { NextRequest } from 'next/server'
-import { middleware } from '@/middleware'
+import { middleware } from '@/proxy'
 import { GET as healthGet } from '@/app/api/v1/health/route'
 import { GET as versionGet } from '@/app/api/v1/version/route'
 

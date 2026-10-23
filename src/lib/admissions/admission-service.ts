@@ -2499,7 +2499,6 @@ export class AdmissionService {
           throw err
         }
       }
-      }
 
       let bloodGroup: any = null
       let emergencyContact: string | null = null
@@ -2582,12 +2581,13 @@ export class AdmissionService {
       const cleanParentPhone = app.parentPhone ? app.parentPhone.trim() : null
       const cleanParentEmail = app.parentEmail ? app.parentEmail.trim().toLowerCase() : null
 
-      const { user: parentUser } = await UserIdentityService.resolveOrCreateUser(tx, {
+      const { user: parentUser, isNewUser } = await UserIdentityService.resolveOrCreateUser(tx, {
         fullName: cleanParentName,
         email: cleanParentEmail,
         phone: cleanParentPhone,
         usernameType: 'PARENT',
-        status: 'ACTIVE',
+        status: 'PENDING',
+        mustChangePassword: true,
       })
 
       // Ensure TenantUser membership for parentUser with role PARENT
@@ -2597,8 +2597,32 @@ export class AdmissionService {
         role: 'PARENT',
         roles: ['PARENT'],
         branchId: scope.branchId,
-        status: 'ACTIVE',
+        status: 'PENDING',
       })
+
+      if (isNewUser) {
+        const rawInvToken = crypto.randomBytes(32).toString('hex')
+        const invTokenHash = crypto.createHash('sha256').update(rawInvToken).digest('hex')
+        let validInvitedById: string | null = null
+        if (ctx.actorId) {
+          const inviterExists = await tx.user.findUnique({ where: { id: ctx.actorId }, select: { id: true } })
+          if (inviterExists) validInvitedById = ctx.actorId
+        }
+
+        await tx.userInvitation.create({
+          data: {
+            tenantId: scope.tenantId,
+            userId: parentUser.id,
+            email: parentUser.email || `${parentUser.username}@preone.local`,
+            role: 'PARENT',
+            tokenHash: invTokenHash,
+            rawToken: null,
+            status: 'PENDING',
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            invitedById: validInvitedById,
+          },
+        })
+      }
 
       // Find if parentUser is linked to a guardian in THIS tenant
       if (parentUser) {
@@ -2945,7 +2969,7 @@ export class AdmissionService {
       action: 'ENROLL',
       entity: 'AdmissionApplication',
       entityId: applicationId,
-      summary: `Completed Admission: ${app.applicationNumber} → Student ${result.student.admissionNo} (${result.student.firstName}) enrolled in ${result.classroom.name} (Parent Account: ${result.parentUser?.email || result.parentUser?.phone})`,
+      summary: `Completed Admission: ${app.applicationNumber} → Student ${result.student.admissionNo} (${result.student.firstName}) enrolled in ${result.classroom?.name || 'Classroom'} (Parent Account: ${result.parentUser?.email || result.parentUser?.phone})`,
     })
 
     return {
@@ -2953,7 +2977,7 @@ export class AdmissionService {
       guardian: result.guardian,
       parentUser: result.parentUser,
       admissionNo: result.student.admissionNo,
-      classroomName: result.classroom.name,
+      classroomName: result.classroom?.name || 'Classroom',
       seatNumber: result.student.seatNumber || null,
       invoiceNumber: result.invoice?.invoiceNumber ?? null,
       isAlreadyEnrolled: false,

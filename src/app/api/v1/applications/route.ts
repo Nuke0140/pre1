@@ -254,8 +254,8 @@ export const POST = withApi(async (req: NextRequest) => {
   const isFormDraft = isDraft === true || body.status === 'DRAFT'
   let enrollmentResult: any = null
 
-  // Automatically move into confirmed admission & student module upon formal submission
-  if (!isFormDraft) {
+  // Automatically move into confirmed admission & student module upon formal submission when requested
+  if (!isFormDraft && (body.confirmAdmission === true || body.autoEnroll === true)) {
     try {
       enrollmentResult = await AdmissionService.completeEnrollment(
         {
