@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { PreOneBuddy, triggerBuddyReaction } from '@/components/preone/PreOneBuddy'
 import {
   Building2, Mail, User, AlertCircle, X,
   HelpCircle, CheckCircle2, ArrowLeft, KeyRound, Sparkles
@@ -350,6 +351,9 @@ export default function LoginPage() {
   }
 
   const isEmail = identifier.includes('@')
+
+  useEffect(() => { if (loading) triggerBuddyReaction('thinking') }, [loading])
+  useEffect(() => { if (generalError) triggerBuddyReaction('oops', 'No worries. Please review the message and try again.') }, [generalError])
 
   return (
     <AuthShell>
@@ -823,6 +827,7 @@ export default function LoginPage() {
           </div>
         </div>
       )}
+      <PreOneBuddy />
     </AuthShell>
   )
 }
