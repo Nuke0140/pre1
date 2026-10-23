@@ -15,6 +15,7 @@ import { GlobalSearchModal } from '@/components/shell/GlobalSearchModal'
 import { StartMenu } from '@/components/shell/StartMenu'
 import { BottomNav } from '@/components/shell/BottomNav'
 import { RouteProgress } from '@/components/preone/RouteProgress'
+import { PreOneBuddy } from '@/components/preone/PreOneBuddy'
 import { WorkspaceBackground } from '@/components/shell/WorkspaceBackground'
 import { GlobalWorkspaceHeader } from '@/components/shell/GlobalWorkspaceHeader'
 import { StaffProfileModal } from '@/components/profile/StaffProfileModal'
@@ -459,6 +460,7 @@ export function AppShell({
           </div>
         </div>
       )}
+      <PreOneBuddy />
     </>
   )
 }
