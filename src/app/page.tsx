@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { PreOneBuddy, triggerBuddyReaction } from '@/components/preone/PreOneBuddy'
 import {
   Building2, Mail, User, AlertCircle, X,
   HelpCircle, CheckCircle2, ArrowLeft, KeyRound, Sparkles
@@ -66,6 +67,14 @@ export default function LoginPage() {
     }, 0)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    triggerBuddyReaction('thinking')
+  }, [loading])
+
+  useEffect(() => {
+    if (generalError) triggerBuddyReaction('oops', 'No worries. Please review the message and try again.')
+  }, [generalError])
 
   // OTP specific state
   const [otp, setOtp] = useState<string[]>(['', '', '', ''])
@@ -764,6 +773,8 @@ export default function LoginPage() {
           </AuthCard>
         </AuthFrame>
       </AuthViewport>
+
+      <PreOneBuddy />
 
       {/* ── Forgot Password Dialog Modal ── */}
       {showForgotModal && (
