@@ -14,7 +14,28 @@ async function _GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const branchId = searchParams.get('branchId') || session.branchId || undefined
+    const rawBranchId = searchParams.get('branchId')
+    const isAllBranches =
+      !rawBranchId ||
+      rawBranchId === 'ALL' ||
+      rawBranchId === '__ALL_BRANCHES__' ||
+      rawBranchId.toLowerCase() === 'all'
+
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isInstitutionWide = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)
+    )
+
+    let branchId: string | undefined = undefined
+    if (!isInstitutionWide && session.branchId) {
+      if (!isAllBranches && rawBranchId !== session.branchId) {
+        throw errPermission('Access denied: branch scope restricted')
+      }
+      branchId = session.branchId
+    } else if (!isAllBranches) {
+      branchId = rawBranchId
+    }
+
     const academicSessionId = searchParams.get('academicSessionId') || undefined
 
     const stats = await StudentService.getStudentDashboardStats(

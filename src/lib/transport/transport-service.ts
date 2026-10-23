@@ -2229,102 +2229,49 @@ export class TransportService {
       data: { primaryTeacherId: teacherUser.id },
     })
 
-    // 6. Find or create Parent User & Guardian (Rahul Patil) with 3 Children (Aarav, Siya, Ved)
-    let parentUser = await db.user.findFirst({
-      where: { email: 'rahul.patil@preone.demo' },
-    })
-    if (!parentUser) {
-      parentUser = await db.user.create({
-        data: {
-          email: 'rahul.patil@preone.demo',
-          username: 'rahul.patil',
-          fullName: 'Rahul Patil',
-          phone: '+91 9988776655',
-          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
-          memberships: { create: { tenantId, role: 'PARENT', status: 'ACTIVE' } },
+    // 6. Link existing enrolled students if present — DO NOT create fake/seed student or parent records
+    const existingStudents = await db.student.findMany({
+      where: { tenantId, deletedAt: null, status: 'ACTIVE' },
+      include: {
+        guardians: {
+          include: { guardian: true },
+          where: { isPrimary: true },
+          take: 1,
         },
-      })
-    }
-
-    let guardian = await db.guardian.findFirst({
-      where: { userId: parentUser.id, tenantId },
+      },
+      take: 3,
     })
-    if (!guardian) {
-      guardian = await db.guardian.create({
-        data: {
-          tenantId,
-          userId: parentUser.id,
-          fullName: 'Rahul Patil',
-          phone: '+91 9988776655',
-          email: 'rahul.patil@preone.demo',
-          relationship: 'FATHER',
-          pickupPin: '8492',
-        },
-      })
-    }
 
-    // Create 3 Students
-    const childrenData = [
-      { firstName: 'Aarav', lastName: 'Patil', admissionNo: 'STU-001', stopIdx: 0 },
-      { firstName: 'Siya', lastName: 'Patil', admissionNo: 'STU-002', stopIdx: 1 },
-      { firstName: 'Ved', lastName: 'Patil', admissionNo: 'STU-003', stopIdx: 2 },
-    ]
-
-    const createdStudents: any[] = []
+    const assignedStudents: any[] = []
     const stops = route.stops.sort((a, b) => a.sequence - b.sequence)
 
-    for (const child of childrenData) {
-      let student = await db.student.findFirst({
-        where: { tenantId, admissionNo: child.admissionNo, deletedAt: null },
-      })
+    for (let idx = 0; idx < existingStudents.length; idx++) {
+      const student = existingStudents[idx]
+      const guardian = student.guardians[0]?.guardian
+      const stop = stops[idx] || stops[0]
 
-      if (!student) {
-        student = await db.student.create({
-          data: {
-            tenantId,
-            branchId: branch.id,
-            currentClassroomId: classroom.id,
-            firstName: child.firstName,
-            lastName: child.lastName,
-            admissionNo: child.admissionNo,
-            dob: new Date('2021-05-15'),
-            gender: 'MALE',
-            status: 'ACTIVE',
-            guardians: {
-              create: {
-                guardianId: guardian.id,
-                relationship: 'FATHER',
-                isPrimary: true,
-                canPickup: true,
-              },
+      if (guardian && stop) {
+        const existingAssign = await db.studentTransportAssignment.findFirst({
+          where: { tenantId, studentId: student.id, deletedAt: null },
+        })
+
+        if (!existingAssign) {
+          await db.studentTransportAssignment.create({
+            data: {
+              tenantId,
+              branchId: branch.id,
+              academicSessionId: session.id,
+              studentId: student.id,
+              routeId: route.id,
+              pickupStopId: stop.id,
+              dropStopId: stop.id,
+              tripType: 'TWO_WAY',
+              requestedByGuardianId: guardian.id,
+              status: 'ACTIVE',
             },
-          },
-        })
-      }
-
-      createdStudents.push(student)
-
-      // Create transport assignment for student
-      const stop = stops[child.stopIdx] || stops[0]
-      const existingAssign = await db.studentTransportAssignment.findFirst({
-        where: { tenantId, studentId: student.id, deletedAt: null },
-      })
-
-      if (!existingAssign) {
-        await db.studentTransportAssignment.create({
-          data: {
-            tenantId,
-            branchId: branch.id,
-            academicSessionId: session.id,
-            studentId: student.id,
-            routeId: route.id,
-            pickupStopId: stop.id,
-            dropStopId: stop.id,
-            tripType: 'TWO_WAY',
-            requestedByGuardianId: guardian.id,
-            status: 'ACTIVE',
-          },
-        })
+          })
+        }
+        assignedStudents.push({ student, stop, guardian })
       }
     }
 
@@ -2350,9 +2297,9 @@ export class TransportService {
           scheduledStartTime: '08:00',
           actualStartTime: new Date(),
           manifest: {
-            create: createdStudents.map((st, idx) => ({
-              studentId: st.id,
-              stopId: stops[idx]?.id || stops[0].id,
+            create: assignedStudents.map(({ student, stop }, idx) => ({
+              studentId: student.id,
+              stopId: stop.id,
               status: idx === 0 ? 'BOARDED' : 'EXPECTED',
               boardedAt: idx === 0 ? new Date() : null,
             })),
@@ -2364,15 +2311,19 @@ export class TransportService {
     // 8. Create Driver QR Token
     const qrObj = await this.generateDriverQRToken(ctx, { routeId: route.id, vehicleId: vehicle.id })
 
+    const primaryGuardian = assignedStudents[0]?.guardian
+
     return {
       success: true,
-      message: 'Transport demo master data seeded successfully',
+      message: 'Transport infrastructure configured successfully (no demo student accounts generated)',
       tenantId,
       vehicle: { id: vehicle.id, regNo: vehicle.registrationNumber },
       route: { id: route.id, code: route.code, name: route.name, stopsCount: stops.length },
-      driver: { id: driverProfile.id, name: 'Suresh Patil', username: 'suresh.driver' },
-      parent: { id: guardian.id, name: 'Rahul Patil', username: 'rahul.patil', childrenCount: createdStudents.length },
-      teacher: { id: 'tch-01', name: 'Priya Teacher', username: 'priya.teacher', className: 'Nursery A' },
+      driver: { id: driverProfile.id, name: driverUser.fullName || 'Driver', username: driverUser.username },
+      parent: primaryGuardian
+        ? { id: primaryGuardian.id, name: primaryGuardian.fullName }
+        : null,
+      teacher: { id: classroom.id, className: classroom.name },
       todayTripId: trip.id,
       testQrToken: qrObj.token,
     }

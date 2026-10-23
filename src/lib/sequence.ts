@@ -41,81 +41,131 @@ export async function nextNumber(
   } as const
   const prefix = `${prefixMap[model]}-${fy}`
 
+function extractMaxSeq(identifiers: (string | null | undefined)[]): number {
+  let max = 0
+  for (const id of identifiers) {
+    if (!id) continue
+    const parts = id.split('-')
+    const num = parseInt(parts[parts.length - 1], 10)
+    if (!isNaN(num) && num > max) {
+      max = num
+    }
+  }
+  return max
+}
+
   let seq = 0
   switch (model) {
     case 'employee': {
-      const c = await db.staffProfile.count({ where: { tenantId, employeeCode: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.staffProfile.findMany({
+        where: { tenantId, employeeCode: { startsWith: prefix } },
+        select: { employeeCode: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.employeeCode)) + 1
       return `${prefix}-${String(seq).padStart(3, '0')}`
     }
     case 'invoice': {
-      const c = await db.invoice.count({ where: { tenantId, invoiceNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.invoice.findMany({
+        where: { tenantId, invoiceNumber: { startsWith: prefix } },
+        select: { invoiceNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.invoiceNumber)) + 1
       break
     }
     case 'payment': {
-      const c = await db.payment.count({ where: { tenantId, paymentNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.payment.findMany({
+        where: { tenantId, paymentNumber: { startsWith: prefix } },
+        select: { paymentNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.paymentNumber)) + 1
       break
     }
     case 'receipt': {
-      // tenant-scoped sequence — receiptNumber is unique per tenant (M01 §53 fix)
-      const c = await db.receipt.count({ where: { tenantId, receiptNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.receipt.findMany({
+        where: { tenantId, receiptNumber: { startsWith: prefix } },
+        select: { receiptNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.receiptNumber)) + 1
       break
     }
     case 'lead': {
-      const c = await db.lead.count({ where: { tenantId, leadNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.lead.findMany({
+        where: { tenantId, leadNumber: { startsWith: prefix } },
+        select: { leadNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.leadNumber)) + 1
       break
     }
     case 'application': {
-      const c = await db.admissionApplication.count({
+      const records = await db.admissionApplication.findMany({
         where: { tenantId, applicationNumber: { startsWith: prefix } },
+        select: { applicationNumber: true },
       })
-      seq = c + 1
+      seq = extractMaxSeq(records.map((r) => r.applicationNumber)) + 1
       break
     }
     case 'student': {
-      const c = await db.student.count({
+      const records = await db.student.findMany({
         where: { tenantId, admissionNo: { startsWith: prefix } },
+        select: { admissionNo: true },
       })
-      seq = c + 1
+      seq = extractMaxSeq(records.map((r) => r.admissionNo)) + 1
       break
     }
     case 'material_request': {
-      const c = await db.materialRequest.count({ where: { tenantId, requestNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.materialRequest.findMany({
+        where: { tenantId, requestNumber: { startsWith: prefix } },
+        select: { requestNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.requestNumber)) + 1
       break
     }
     case 'purchase_request': {
-      const c = await db.purchaseRequest.count({ where: { tenantId, requestNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.purchaseRequest.findMany({
+        where: { tenantId, requestNumber: { startsWith: prefix } },
+        select: { requestNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.requestNumber)) + 1
       break
     }
     case 'purchase_order': {
-      const c = await db.purchaseOrder.count({ where: { tenantId, poNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.purchaseOrder.findMany({
+        where: { tenantId, poNumber: { startsWith: prefix } },
+        select: { poNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.poNumber)) + 1
       break
     }
     case 'goods_receipt': {
-      const c = await db.goodsReceipt.count({ where: { tenantId, grnNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.goodsReceipt.findMany({
+        where: { tenantId, grnNumber: { startsWith: prefix } },
+        select: { grnNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.grnNumber)) + 1
       break
     }
     case 'stock_issue': {
-      const c = await db.stockIssue.count({ where: { tenantId, issueNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.stockIssue.findMany({
+        where: { tenantId, issueNumber: { startsWith: prefix } },
+        select: { issueNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.issueNumber)) + 1
       break
     }
     case 'stock_return': {
-      const c = await db.stockReturn.count({ where: { tenantId, returnNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.stockReturn.findMany({
+        where: { tenantId, returnNumber: { startsWith: prefix } },
+        select: { returnNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.returnNumber)) + 1
       break
     }
     case 'stock_adjustment': {
-      const c = await db.stockAdjustment.count({ where: { tenantId, adjustmentNumber: { startsWith: prefix } } })
-      seq = c + 1
+      const records = await db.stockAdjustment.findMany({
+        where: { tenantId, adjustmentNumber: { startsWith: prefix } },
+        select: { adjustmentNumber: true },
+      })
+      seq = extractMaxSeq(records.map((r) => r.adjustmentNumber)) + 1
       break
     }
   }

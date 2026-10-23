@@ -64,11 +64,42 @@ export const GET = withApi(async (req: NextRequest) => {
     orderBy: { createdAt: 'desc' },
   })
 
+  const studentIds = apps.map((a) => a.studentId).filter(Boolean) as string[]
+  const classroomIds = apps.map((a) => a.classroomId).filter(Boolean) as string[]
+
+  const [students, classrooms] = await Promise.all([
+    studentIds.length > 0
+      ? db.student.findMany({
+          where: { id: { in: studentIds } },
+          select: {
+            id: true,
+            admissionNo: true,
+            photoUrl: true,
+            currentClassroomId: true,
+            currentClassroom: { select: { id: true, name: true, code: true } },
+          },
+        })
+      : [],
+    classroomIds.length > 0
+      ? db.classroom.findMany({
+          where: { id: { in: classroomIds } },
+          select: { id: true, name: true, code: true },
+        })
+      : [],
+  ])
+
+  const studentMap = new Map(students.map((s) => [s.id, s]))
+  const classroomMap = new Map(classrooms.map((c) => [c.id, c]))
   const branchMap = new Map(branchScope.branches.map((b) => [b.id, b]))
 
   return ok(
     apps.map((a) => {
       const b = branchMap.get(a.branchId)
+      const student = a.studentId ? studentMap.get(a.studentId) : null
+      const classroom = a.classroomId
+        ? classroomMap.get(a.classroomId)
+        : student?.currentClassroom || null
+
       const { humanNotes, metadata } = ApplicationMetadataHelper.parse(a.notes)
       return {
         id: a.id,
@@ -90,7 +121,11 @@ export const GET = withApi(async (req: NextRequest) => {
         verifiedAt: a.verifiedAt,
         approvedAt: a.approvedAt,
         studentId: a.studentId,
-        classroomId: a.classroomId,
+        classroomId: a.classroomId || student?.currentClassroomId || null,
+        classroomName: classroom?.name || null,
+        classroomCode: classroom?.code || null,
+        admissionNo: student?.admissionNo || null,
+        photoUrl: student?.photoUrl || null,
         leadNumber: a.lead?.leadNumber ?? null,
         leadId: a.leadId,
         offers: a.offers,
@@ -216,11 +251,44 @@ export const POST = withApi(async (req: NextRequest) => {
     }
   )
 
+  const isFormDraft = isDraft === true || body.status === 'DRAFT'
+  let enrollmentResult: any = null
+
+  // Automatically move into confirmed admission & student module upon formal submission
+  if (!isFormDraft) {
+    try {
+      enrollmentResult = await AdmissionService.completeEnrollment(
+        {
+          tenantId: session.tenantId,
+          branchId: targetBranchId,
+          academicYearId: academicYearId || app.academicSessionId,
+          actorId: session.uid,
+          actorName: session.name,
+          actorRole: session.role,
+        },
+        app.id,
+        {
+          classroomId: body.classroomId || undefined,
+          skipDocCheck: true,
+        }
+      )
+    } catch (enrollErr) {
+      console.error('Auto-enroll on application submission:', enrollErr)
+    }
+  }
+
+  const finalApp = enrollmentResult
+    ? await db.admissionApplication.findUnique({ where: { id: app.id } })
+    : app
+
   return ok({
     id: app.id,
     applicationNumber: app.applicationNumber,
-    status: app.status,
-    isDraft: app.status === 'DRAFT',
+    status: finalApp?.status || app.status,
+    isDraft: (finalApp?.status || app.status) === 'DRAFT',
+    studentId: enrollmentResult?.student?.id || finalApp?.studentId || null,
+    admissionNo: enrollmentResult?.student?.admissionNo || null,
+    classroomId: enrollmentResult?.classroom?.id || finalApp?.classroomId || null,
   }, undefined, 201)
 }, { module: 'admissions' })
 

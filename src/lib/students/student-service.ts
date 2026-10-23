@@ -20,6 +20,7 @@ import { audit } from '@/lib/audit'
 import { assertResourceScope } from '@/lib/security/resource-scope'
 import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
 import { PrimaryContactGuard } from '@/lib/users/primary-contact-guard'
+import { UserIdentityService } from '@/lib/users/user-identity-service'
 
 export interface ScopeContext {
   tenantId: string
@@ -1447,34 +1448,80 @@ export class StudentService {
         },
       })
 
-      // 2. Resolve or Create Guardian
-      let guardian = await tx.guardian.findFirst({
-        where: { tenantId: scope.tenantId, phone: input.guardianPhone.trim() },
+      // 2. Resolve or Create Parent / Guardian User Identity
+      const cleanGuardianPhone = input.guardianPhone?.trim() || null
+      const cleanGuardianEmail = input.guardianEmail?.trim()?.toLowerCase() || null
+      const cleanGuardianName = input.guardianName.trim()
+
+      const { user: guardianUser } = await UserIdentityService.resolveOrCreateUser(tx, {
+        fullName: cleanGuardianName,
+        email: cleanGuardianEmail,
+        phone: cleanGuardianPhone,
+        usernameType: 'PARENT',
+        status: 'ACTIVE',
       })
+
+      // Ensure TenantUser membership for Family User listing
+      await UserIdentityService.createOrUpdateMembership(tx, {
+        tenantId: scope.tenantId,
+        userId: guardianUser.id,
+        role: 'PARENT',
+        roles: ['PARENT'],
+        branchId: branchId || scope.branchId,
+        status: 'ACTIVE',
+      })
+
+      // Resolve or Create Guardian entity linked to the User
+      let guardian = await tx.guardian.findFirst({
+        where: { tenantId: scope.tenantId, userId: guardianUser.id, deletedAt: null },
+      })
+      if (!guardian && cleanGuardianPhone) {
+        guardian = await tx.guardian.findFirst({
+          where: { tenantId: scope.tenantId, phone: cleanGuardianPhone, deletedAt: null },
+        })
+      }
+
+      const existingGuardianForUser = await tx.guardian.findUnique({ where: { userId: guardianUser.id } })
+      const canLinkUser = !existingGuardianForUser || existingGuardianForUser.id === guardian?.id
+
       if (!guardian) {
         guardian = await tx.guardian.create({
           data: {
             tenantId: scope.tenantId,
-            fullName: input.guardianName.trim(),
-            phone: input.guardianPhone.trim(),
-            email: input.guardianEmail?.trim() || null,
+            fullName: cleanGuardianName,
+            phone: cleanGuardianPhone || '',
+            email: cleanGuardianEmail,
             relationship: (input.guardianRelationship as any) || 'FATHER',
             isPrimaryContact: true,
+            userId: canLinkUser ? guardianUser.id : null,
+          },
+        })
+      } else if (!guardian.userId && canLinkUser) {
+        guardian = await tx.guardian.update({
+          where: { id: guardian.id },
+          data: { userId: guardianUser.id },
+        })
+      } else if (existingGuardianForUser && existingGuardianForUser.id !== guardian.id) {
+        guardian = existingGuardianForUser
+      }
+
+      // 3. Link Student ↔ Guardian (Idempotent upsert)
+      const existingLink = await tx.studentGuardian.findUnique({
+        where: { studentId_guardianId: { studentId: student.id, guardianId: guardian.id } },
+      })
+      if (!existingLink) {
+        await tx.studentGuardian.create({
+          data: {
+            studentId: student.id,
+            guardianId: guardian.id,
+            relationship: (input.guardianRelationship as any) || 'FATHER',
+            isPrimary: true,
+            canPickup: input.canPickup !== false,
+            isFeePayer: input.isFeePayer !== false,
+            receivesComm: true,
           },
         })
       }
-
-      // 3. Link Student ↔ Guardian
-      await tx.studentGuardian.create({
-        data: {
-          studentId: student.id,
-          guardianId: guardian.id,
-          isPrimary: true,
-          canPickup: input.canPickup !== false,
-          isFeePayer: input.isFeePayer !== false,
-          receivesComm: true,
-        },
-      })
 
       // 4. Create StudentAllocation if classroom selected
       if (classroom) {

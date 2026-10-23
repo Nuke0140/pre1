@@ -400,11 +400,12 @@ export default function ApplicationsPage() {
         body: JSON.stringify({
           status: 'SUBMITTED',
           isDraft: false,
+          confirmAdmission: true,
         }),
       }).then((r) => r.json())
       setBusy(false)
       if (res.success) {
-        toast.show('Application submitted formally for review 📋', { type: 'success' })
+        toast.show('Admission Confirmed! Enrolled into Student Master & Parent portal account created ✓', { type: 'success' })
         openInspector(inspector.formId, 'overview')
         invalidateAdmissionsCounts()
         loadApplications()
@@ -414,6 +415,37 @@ export default function ApplicationsPage() {
     } catch {
       setBusy(false)
       toast.show('Server error submitting application', { type: 'error' })
+    }
+  }
+
+  // Quick Confirm Admission & Complete Enrollment
+  const handleQuickConfirmAdmission = async (appId: string, childName?: string) => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/applications/${appId}/enroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          academicYearId: selectedSessionId,
+        }),
+      }).then((r) => r.json())
+      setBusy(false)
+      if (res.success) {
+        toast.show(
+          `Admission Confirmed! ${childName || 'Child'} enrolled into Student Master & Parent portal account created ✓`,
+          { type: 'success' }
+        )
+        if (inspector.open && inspector.formId === appId) {
+          openInspector(appId, 'overview')
+        }
+        invalidateAdmissionsCounts()
+        loadApplications()
+      } else {
+        toast.show(res.error?.message || res.error || 'Failed to confirm admission', { type: 'error' })
+      }
+    } catch {
+      setBusy(false)
+      toast.show('Server error confirming admission', { type: 'error' })
     }
   }
 
@@ -643,6 +675,31 @@ export default function ApplicationsPage() {
                               showLabels={false}
                               size="sm"
                             />
+                            {!isDraft && app.status !== 'ENROLLED' && app.status !== 'ADMITTED' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleQuickConfirmAdmission(app.id, app.childFirstName)
+                                }}
+                                className="btn btn-primary btn-sm h-7 px-2.5 text-[11px] rounded-lg gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-2xs"
+                                title="Confirm Admission & Enroll into Student Master"
+                              >
+                                <Check size={12} />
+                                <span>Confirm</span>
+                              </button>
+                            )}
+                            {(app.status === 'ENROLLED' || app.status === 'ADMITTED') && (
+                              <a
+                                href="/app/admissions/admitted"
+                                onClick={(e) => e.stopPropagation()}
+                                className="btn btn-outline btn-sm h-7 px-2 text-[11px] rounded-lg gap-1 text-emerald-600 border-emerald-500/30"
+                                title="View in Confirmed Admissions"
+                              >
+                                <CheckCircle2 size={12} />
+                                <span>Confirmed</span>
+                              </a>
+                            )}
                             <PromoteStageButton
                               recordId={app.id}
                               kind="APPLICATION"
@@ -904,14 +961,24 @@ export default function ApplicationsPage() {
                       }}
                       onOpenDetails={() => {}}
                     />
+                    {inspector.data.application?.status !== 'ENROLLED' && inspector.data.application?.status !== 'ADMITTED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleQuickConfirmAdmission(inspector.formId!, inspector.data.application?.childFirstName)}
+                        className="btn btn-primary btn-sm h-8 px-3.5 rounded-xl gap-1.5 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                      >
+                        <CheckCircle2 size={13} />
+                        <span>Confirm Admission & Enroll</span>
+                      </button>
+                    )}
                     {inspector.data.application?.status === 'DRAFT' && (
                       <button
                         type="button"
                         onClick={handleSubmitDraftFromDrawer}
-                        className="btn btn-primary btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
+                        className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
                       >
                         <Send size={13} />
-                        <span>Submit Application for Review</span>
+                        <span>Submit for Review</span>
                       </button>
                     )}
                     {inspector.data.application?.status === 'UNDER_REVIEW' && (
@@ -931,8 +998,26 @@ export default function ApplicationsPage() {
                         className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
                       >
                         <Send size={13} />
-                        <span>Generate Offer Letter</span>
+                        <span>Send Offer Letter</span>
                       </button>
+                    )}
+                    {inspector.data.application?.status === 'OFFER_ACCEPTED' && (
+                      <a
+                        href="/app/admissions/admitted"
+                        className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold"
+                      >
+                        <GraduationCap size={13} />
+                        <span>View in Confirmed Admissions →</span>
+                      </a>
+                    )}
+                    {(inspector.data.application?.status === 'ADMITTED' || inspector.data.application?.status === 'ENROLLED') && (
+                      <a
+                        href="/app/students"
+                        className="btn btn-outline btn-sm h-8 px-3 rounded-xl gap-1 font-semibold text-emerald-600 border-emerald-500/30"
+                      >
+                        <GraduationCap size={13} />
+                        <span>View in Students Master →</span>
+                      </a>
                     )}
                   </div>
                 </div>
