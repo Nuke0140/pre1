@@ -1,0 +1,50 @@
+/* PreOne Buddy v1 — small, fixed, event-driven mascot */
+.preone-buddy {
+  position: fixed;
+  z-index: 70;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(88px, calc(env(safe-area-inset-bottom) + 76px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+.preone-buddy__button, .preone-buddy__bubble { pointer-events: auto; }
+.preone-buddy__button {
+  position: relative; display: grid; place-items: center; width: 76px; height: 76px;
+  border: 1px solid rgba(129,99,255,.38); border-radius: 24px;
+  background: linear-gradient(145deg, rgba(255,255,255,.97), rgba(238,233,255,.97));
+  box-shadow: 0 8px 28px rgba(49,25,120,.2); cursor: pointer; isolation: isolate;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.preone-buddy__button:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(49,25,120,.26); }
+.preone-buddy__button:focus-visible { outline: 3px solid #7c3aed; outline-offset: 4px; }
+.preone-buddy__image { position: relative; z-index: 1; display: block; width: 72px; height: 72px; object-fit: contain; }
+.preone-buddy__halo { position: absolute; inset: 5px; border-radius: 19px; background: radial-gradient(circle, rgba(124,58,237,.17), transparent 70%); }
+.preone-buddy__badge {
+  position: absolute; z-index: 2; right: -4px; top: -4px; display: grid; place-items: center;
+  width: 25px; height: 25px; border: 2px solid white; border-radius: 50%; color: white; background: #6d28d9;
+}
+.preone-buddy__bubble {
+  display: flex; align-items: flex-start; gap: 10px; max-width: min(280px, calc(100vw - 32px));
+  padding: 12px 12px 12px 14px; border: 1px solid rgba(124,58,237,.18); border-radius: 16px;
+  color: #211344; background: rgba(255,255,255,.97); box-shadow: 0 8px 30px rgba(30,20,60,.16);
+  font-size: 13px; line-height: 1.45;
+}
+.preone-buddy__close { flex: 0 0 auto; display: grid; place-items: center; padding: 2px; color: #6b6280; background: transparent; border: 0; cursor: pointer; }
+.preone-buddy[data-reaction="happy"] .preone-buddy__button { animation: preone-buddy-pop 420ms ease-out 1; }
+.preone-buddy[data-reaction="explore"] .preone-buddy__button { animation: preone-buddy-nod 360ms ease-out 1; }
+.preone-buddy[data-reaction="oops"] .preone-buddy__button { border-color: rgba(245,158,11,.55); }
+.preone-buddy[data-reaction="thinking"] .preone-buddy__halo { background: radial-gradient(circle, rgba(59,130,246,.2), transparent 70%); }
+.preone-buddy[data-reaction="sleep"] .preone-buddy__button { filter: saturate(.72); }
+@keyframes preone-buddy-pop { 50% { transform: translateY(-4px) scale(1.035); } }
+@keyframes preone-buddy-nod { 50% { transform: translateY(-3px) rotate(-3deg); } }
+@media (max-width: 640px) {
+  .preone-buddy { right: max(12px, env(safe-area-inset-right)); bottom: max(84px, calc(env(safe-area-inset-bottom) + 72px)); }
+  .preone-buddy__button { width: 62px; height: 62px; border-radius: 20px; }
+  .preone-buddy__image { width: 60px; height: 60px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preone-buddy__button, .preone-buddy__image { transition: none !important; animation: none !important; }
+}
