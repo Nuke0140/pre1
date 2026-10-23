@@ -1,125 +1,163 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { Heart, HelpCircle, X } from 'lucide-react'
-import './preone-buddy.css'
+import { HelpCircle, X } from 'lucide-react'
+import type { AnimationItem } from 'lottie-web'
+import './preone-buddy-live.css'
 
 export type BuddyReaction = 'welcome' | 'happy' | 'explore' | 'oops' | 'thinking' | 'sleep'
-type BuddyEvent = CustomEvent<{ reaction?: BuddyReaction; message?: string }>
+export type Reaction = BuddyReaction
 
-const copy: Record<BuddyReaction, { label: string; message: string }> = {
-  welcome: { label: 'Welcome', message: 'Hi! I’m PreOne Buddy. Let’s get started!' },
-  happy: { label: 'Celebrating', message: 'Great work! You did it. ✨' },
-  explore: { label: 'Explore', message: 'Ready to explore this part of PreOne?' },
-  oops: { label: 'Gentle help', message: 'No worries. Let’s check that together.' },
-  thinking: { label: 'Thinking', message: 'One moment — let’s work through this.' },
-  sleep: { label: 'Resting', message: 'I’m here whenever you need a hand.' },
+type BuddyEvent = CustomEvent<{ reaction?: Reaction; message?: string }>
+
+const messages: Record<Reaction, string> = {
+  welcome: 'Hi! I’m PreOne Buddy. Let’s get started!',
+  happy: 'Great work! You did it. ✨',
+  explore: 'Ready to explore this part of PreOne?',
+  oops: 'No worries. Let’s check that together.',
+  thinking: 'One moment — let’s work through this.',
+  sleep: 'I’m here whenever you need a hand.',
 }
 
-/** Send a non-sensitive event from a client component to trigger a reaction. */
-export function triggerBuddyReaction(reaction: BuddyReaction, message?: string) {
+export function triggerBuddyReaction(reaction: Reaction, message?: string) {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('preone:buddy', { detail: { reaction, message } }))
   }
 }
 
+/** Uses the existing 83 KB embedded-image Lottie asset; animation work pauses when hidden/offscreen. */
 export function PreOneBuddy() {
   const pathname = usePathname()
-  const [reaction, setReaction] = useState<BuddyReaction>('welcome')
-  const [message, setMessage] = useState(copy.welcome.message)
+  const host = useRef<HTMLDivElement>(null)
+  const animation = useRef<AnimationItem | null>(null)
+  const [reaction, setReaction] = useState<Reaction>('welcome')
+  const [message, setMessage] = useState(messages.welcome)
   const [open, setOpen] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
+  const [visible, setVisible] = useState(true)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const mounted = useRef(false)
-
-  const clearTimers = useCallback(() => {
-    if (idleTimer.current) clearTimeout(idleTimer.current)
-    if (messageTimer.current) clearTimeout(messageTimer.current)
-    idleTimer.current = null
-    messageTimer.current = null
-  }, [])
-
-  const reactTo = useCallback((next: BuddyReaction, customMessage?: string) => {
-    setReaction(next)
-    setMessage(customMessage || copy[next].message)
-    if (messageTimer.current) clearTimeout(messageTimer.current)
-    if (next !== 'sleep') {
-      setOpen(true)
-      messageTimer.current = setTimeout(() => setOpen(false), 4200)
-    }
-  }, [])
-
-  const resetIdle = useCallback(() => {
-    if (idleTimer.current) clearTimeout(idleTimer.current)
-    idleTimer.current = setTimeout(() => {
-      setReaction('sleep')
-      setMessage(copy.sleep.message)
-      setOpen(false)
-    }, 60000)
-  }, [])
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const updateMotion = () => setReducedMotion(media.matches)
-    updateMotion()
-    media.addEventListener?.('change', updateMotion)
-
-    const onBuddyEvent = (event: Event) => {
-      const detail = (event as BuddyEvent).detail
-      if (detail?.reaction && detail.reaction in copy) reactTo(detail.reaction, detail.message)
-      resetIdle()
-    }
-    const onActivity = () => resetIdle()
-    window.addEventListener('preone:buddy', onBuddyEvent)
-    window.addEventListener('pointerdown', onActivity, { passive: true })
-    window.addEventListener('keydown', onActivity)
-    resetIdle()
-
-    return () => {
-      clearTimers()
-      media.removeEventListener?.('change', updateMotion)
-      window.removeEventListener('preone:buddy', onBuddyEvent)
-      window.removeEventListener('pointerdown', onActivity)
-      window.removeEventListener('keydown', onActivity)
-    }
-  }, [clearTimers, reactTo, resetIdle])
+    const update = () => setReducedMotion(media.matches)
+    update()
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
 
   useEffect(() => {
-    if (!mounted.current) { mounted.current = true; return }
-    reactTo('explore')
-    resetIdle()
-  }, [pathname, reactTo, resetIdle])
+    if (reducedMotion || !host.current) return
+    let cancelled = false
+    let instance: AnimationItem | null = null
+    const start = async () => {
+      const lottie = (await import('lottie-web')).default
+      if (cancelled || !host.current) return
+      instance = lottie.loadAnimation({
+        container: host.current,
+        renderer: 'svg',
+        loop: true,
+        autoplay: false,
+        path: '/animations/home/preo_learning_mascot.json',
+        rendererSettings: { preserveAspectRatio: 'xMidYMid meet', progressiveLoad: true, hideOnTransparent: true },
+      })
+      animation.current = instance
+      if (visible && !document.hidden) instance.play()
+    }
+    void start()
+    return () => {
+      cancelled = true
+      instance?.destroy()
+      animation.current = null
+    }
+  }, [reducedMotion])
 
-  const toggleOpen = () => {
-    if (!open) {
-      setMessage(reaction === 'sleep' ? copy.sleep.message : copy[reaction].message)
+  useEffect(() => {
+    if (reducedMotion || !animation.current) return
+    if (visible && !document.hidden) animation.current.play()
+    else animation.current.pause()
+  }, [visible, reducedMotion])
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) animation.current?.pause()
+      else if (visible && !reducedMotion) animation.current?.play()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    const observer = host.current ? new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.1 }) : null
+    if (host.current) observer?.observe(host.current)
+    return () => { document.removeEventListener('visibilitychange', onVisibility); observer?.disconnect() }
+  }, [visible, reducedMotion])
+
+  useEffect(() => {
+    const idle = () => {
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+      idleTimer.current = setTimeout(() => {
+        setReaction('sleep')
+        setMessage(messages.sleep)
+        setOpen(false)
+        animation.current?.pause()
+      }, 60000)
+    }
+    const onEvent = (event: Event) => {
+      const detail = (event as BuddyEvent).detail
+      if (!detail?.reaction || !(detail.reaction in messages)) return
+      setReaction(detail.reaction)
+      setMessage(detail.message || messages[detail.reaction])
       setOpen(true)
-      if (reaction === 'sleep') setReaction('welcome')
-    } else setOpen(false)
-    resetIdle()
+      if (messageTimer.current) clearTimeout(messageTimer.current)
+      messageTimer.current = setTimeout(() => setOpen(false), 4200)
+      if (!reducedMotion && visible && !document.hidden) animation.current?.play()
+      idle()
+    }
+    const activity = () => { idle(); if (reaction === 'sleep' && !reducedMotion && visible && !document.hidden) animation.current?.play() }
+    window.addEventListener('preone:buddy', onEvent)
+    window.addEventListener('pointerdown', activity, { passive: true })
+    window.addEventListener('keydown', activity)
+    idle()
+    return () => {
+      window.removeEventListener('preone:buddy', onEvent)
+      window.removeEventListener('pointerdown', activity)
+      window.removeEventListener('keydown', activity)
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+      if (messageTimer.current) clearTimeout(messageTimer.current)
+    }
+  }, [reaction, reducedMotion, visible])
+
+  useEffect(() => {
+    triggerBuddyReaction(pathname === '/' ? 'welcome' : 'explore')
+  }, [pathname])
+
+  const toggle = () => {
+    setOpen((current) => !current)
+    if (reaction === 'sleep') {
+      setReaction('welcome')
+      setMessage(messages.welcome)
+      if (!reducedMotion && visible && !document.hidden) animation.current?.play()
+    }
   }
 
   return (
-    <div className={`preone-buddy ${reducedMotion ? 'preone-buddy--reduced' : ''}`} data-reaction={reaction}>
+    <div className="preone-buddy-live" data-reaction={reaction}>
       {open && (
-        <div className="preone-buddy__bubble" role="status" aria-live="polite">
+        <div className="preone-buddy-live__bubble" role="status" aria-live="polite">
           <span>{message}</span>
-          <button type="button" className="preone-buddy__close" aria-label="Dismiss Buddy message" onClick={() => setOpen(false)}><X size={14} /></button>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Dismiss Buddy message">
+            <X size={14} />
+          </button>
         </div>
       )}
-      <button type="button" className="preone-buddy__button" onClick={toggleOpen}
-        aria-label={open ? 'Close PreOne Buddy message' : 'Open PreOne Buddy help'}
-        aria-expanded={open} aria-controls="preone-buddy-help" title="PreOne Buddy — help and reactions">
-        <span className="preone-buddy__halo" aria-hidden="true" />
-        <img className="preone-buddy__image" src="/animations/home/preo_learning_mascot.webp"
-          alt="" width="88" height="88" loading="lazy" decoding="async" />
-        <span className="preone-buddy__badge" aria-hidden="true">
-          {reaction === 'happy' ? <Heart size={14} fill="currentColor" /> : <HelpCircle size={14} />}
+      <button className="preone-buddy-live__button" type="button" onClick={toggle} aria-label="Open PreOne Buddy help" aria-expanded={open}>
+        {reducedMotion ? (
+          <img src="/animations/home/preo_learning_mascot.webp" alt="" width="88" height="88" loading="lazy" decoding="async" />
+        ) : (
+          <div className="preone-buddy-live__animation" ref={host} aria-hidden="true" />
+        )}
+        <span className="preone-buddy-live__badge" aria-hidden="true">
+          <HelpCircle size={14} />
         </span>
       </button>
-      <span id="preone-buddy-help" className="sr-only">PreOne Buddy: {copy[reaction].label}. Activate the mascot to read its message.</span>
     </div>
   )
 }
