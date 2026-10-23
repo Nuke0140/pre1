@@ -69,7 +69,7 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
-    triggerBuddyReaction('thinking')
+    if (loading) triggerBuddyReaction('thinking')
   }, [loading])
 
   useEffect(() => {
@@ -81,6 +81,10 @@ export default function LoginPage() {
   const [otpCountdown, setOtpCountdown] = useState<number>(45)
   const [canResendOtp, setCanResendOtp] = useState<boolean>(false)
   const [resendSuccess, setResendSuccess] = useState<boolean>(false)
+
+  useEffect(() => {
+    if (resendSuccess) triggerBuddyReaction('happy', 'Your verification code is on its way!')
+  }, [resendSuccess])
 
   // MFA Step-Up specific state (Doc 1.2)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
