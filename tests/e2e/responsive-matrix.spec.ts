@@ -79,6 +79,10 @@ test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () =
           // Navigate to page (with client hydration wait)
           await page.goto(p.path, { waitUntil: 'domcontentloaded' })
           await page.waitForTimeout(300)
+          const finalPath = new URL(page.url()).pathname
+          if (finalPath !== p.path) {
+            throw new Error(`Expected authenticated route ${p.path}, but the app navigated to ${finalPath}. The responsive matrix must not audit the login screen as an application page.`)
+          }
 
           // Promoted Playwright assert: pages x 9 viewports (no clipped-without-rail, no h-scroll, profile visible)
           await expect(page).toPassResponsiveProbe({
