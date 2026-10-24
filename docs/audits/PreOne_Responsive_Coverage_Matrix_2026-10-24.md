@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
-**Current Audit Branch:** `audit/whole-product-2026-10-24`  
+**Current Audit Branch:** `audit/whole-product-2026-10-24` (follow-up fixes pending CI verification)  
 **Test Spec:** `tests/e2e/responsive-matrix.spec.ts`  
 **Audit Probe:** `tests/e2e/responsive-probe.ts`  
 **Baseline Fixture:** `tests/fixtures/responsive-sweep-baseline.json` (63 combinations)
@@ -48,19 +48,23 @@ The table below presents the verified compliance for all 7 core pages across all
 
 | Page | 320 Compact | 390 Standard | 667x375 Land. | 768 Tab-P | 820 Air | 1024 Tab-L | 1280 Lap-13 | 1440 Lap-15 | 1920 Desk | Status |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Home** (`/app/home`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Students** (`/app/students`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Daily Diary** (`/app/daily-diary`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Finance** (`/app/fees`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Admissions** (`/app/admissions`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Settings** (`/app/settings`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
-| **Audit** (`/app/audit`) | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | PASS | **VERIFIED** |
+| **Home** (`/app/home`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Students** (`/app/students`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Daily Diary** (`/app/daily-diary`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Finance** (`/app/fees`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Admissions** (`/app/admissions`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Settings** (`/app/settings`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
+| **Audit** (`/app/audit`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
 
-**Summary:** 63 / 63 Combinations Validated against baseline probe contracts.
+**Summary:** 63 combinations are configured, but current CI verification is FAIL, not PASS. Run `40092919930` reports 14 Playwright failures after retries. Do not mark the viewport matrix verified until the updated audit branch completes the full suite successfully.
 
 ---
 
-## 3. Confirmed Layout Defects Remediated in Baseline
+## 3. Current CI Failure Evidence (Run 40092919930)
+
+The current workflow executed the configured 63 Playwright tests but ended with **14 failed** after retries. Therefore the original all-PASS table below was a target/baseline claim, not the current verified state. The actual logs show repeated `.dock-zone-right` / `.dock-datetime` overflow at 820×1180 and failures across multiple pages; the exact updated branch changes are pending rerun. Mark all combinations NOT VERIFIED unless a current run has a passing result for that page/viewport pair.
+
+## 4. Historical Layout Defects Reported as Remediated
 
 1. **Short Landscape Viewport Dock Overflow (`667x375-phone-landscape`):**  
    - *Defect:* In mobile landscape viewports with heights ≤ 375px, the floating dock navigation bar overlapped the bottom viewport boundary and obstructed table action buttons.  
@@ -77,7 +81,7 @@ The table below presents the verified compliance for all 7 core pages across all
 
 ---
 
-## 4. Test State Coverage & Gaps
+## 5. Test State Coverage & Gaps
 
 ### 4.1 Covered States
 - Authenticated School Owner persona (`owner@sunshine.demo`)
