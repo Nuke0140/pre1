@@ -302,7 +302,7 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       expect(probe).toContain('toPassResponsiveProbe(options?: ResponsiveProbeOptions)')
       expect(probe).toContain('baseExpect.extend')
       expect(matrix).toContain('await expect(page).toPassResponsiveProbe({')
-      expect(matrix).toContain('requireProfile: true')
+      expect(matrix).toContain('requireProfile: vp.width >= 1280')
       expect(baseline.metadata.totalCombinations).toBe(63)
       expect(baseline.metadata.baselinePassCount).toBe(63)
       expect(baseline.metadata.baselineFailCount).toBe(0)
