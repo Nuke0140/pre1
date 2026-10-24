@@ -1189,7 +1189,7 @@ export function InventoryClient({ session }: { session: SessionProps }) {
       return metrics.stockHealthRadar
     }
     return buildStockHealthRadarSummary(items)
-  }, [metrics?.stockHealthRadar, items])
+  }, [metrics, items])
 
   const handleQuickReorder = useCallback((item: any) => {
     if (!canProcure && !canManageStock) return
