@@ -5183,6 +5183,47 @@ input[data-trailing-action="true"]:-webkit-autofill,
   }
 }
 
+/* Tablet widths retain full desktop dock zones today, which overflows at 768–1024px.
+   Compact the dock at medium widths and reserve the Date/Time zone only on roomy layouts. */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .taskbar.preone-dock {
+    grid-template-columns: minmax(0, 1fr);
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .dock-zone-left,
+  .dock-zone-right {
+    display: none !important;
+  }
+
+  .dock-zone-center {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    overflow: hidden;
+    gap: 2px;
+  }
+
+  .dock-nav-group,
+  .dock-nav-group-left,
+  .dock-nav-group-right {
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .dock-item {
+    min-width: 40px !important;
+    padding-inline: 8px !important;
+  }
+
+  .dock-item-label {
+    display: none !important;
+  }
+}
+
 /* Touch-target pass: verify >= 44px on tab rails and dock items */
 .dock-item {
   min-height: 44px !important;
