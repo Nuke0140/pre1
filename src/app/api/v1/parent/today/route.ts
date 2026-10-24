@@ -83,11 +83,23 @@ async function _GET(req: NextRequest) {
 
     const targetChildrenIds = filterChildId ? [filterChildId] : allLinkedStudentIds
 
-    // 2. Fetch Branches for campus name mapping
-    const branches = await db.branch.findMany({
-      where: { tenantId, deletedAt: null },
-      select: { id: true, name: true, code: true },
-    })
+    // 2. Fetch Branches strictly for the linked children's classrooms / enrollments
+    const linkedBranchIds = Array.from(
+      new Set(
+        guardians.flatMap((g) =>
+          g.studentLinks
+            .filter((l) => targetChildrenIds.includes(l.student.id))
+            .flatMap((l) => [l.student.currentClassroom?.branchId, l.student.branchId].filter(Boolean) as string[])
+        )
+      )
+    )
+
+    const branches = linkedBranchIds.length > 0
+      ? await db.branch.findMany({
+          where: { tenantId, id: { in: linkedBranchIds }, deletedAt: null },
+          select: { id: true, name: true, code: true },
+        })
+      : []
     const branchMap = new Map(branches.map((b) => [b.id, b]))
 
     // 3. Attendance — Today + Complete Records for History & Summary
@@ -141,6 +153,36 @@ async function _GET(req: NextRequest) {
         category: true,
       },
     })
+
+    // 5b. Scheduled Class Daily Diary for assigned classrooms (Today's activities)
+    const targetClassroomIds = Array.from(
+      new Set(
+        guardians.flatMap((g) =>
+          g.studentLinks
+            .filter((l) => targetChildrenIds.includes(l.student.id) && l.student.currentClassroomId)
+            .map((l) => l.student.currentClassroomId!)
+        )
+      )
+    )
+
+    const startOfToday = new Date(`${today}T00:00:00.000Z`)
+    const endOfToday = new Date(`${today}T23:59:59.999Z`)
+
+    const todayClassActivities = targetClassroomIds.length > 0
+      ? await db.classroomActivity.findMany({
+          where: {
+            tenantId,
+            classroomId: { in: targetClassroomIds },
+            activityDate: { gte: startOfToday, lte: endOfToday },
+            status: { not: 'CANCELLED' },
+            deletedAt: null,
+          },
+          include: {
+            teacher: { select: { id: true, fullName: true } },
+          },
+          orderBy: [{ startTime: 'asc' }, { createdAt: 'asc' }],
+        })
+      : []
 
     // 6. Fees — Invoices, line items & payment history
     const [invoices, feeSchedules] = await Promise.all([
@@ -205,7 +247,8 @@ async function _GET(req: NextRequest) {
       for (const link of g.studentLinks) {
         const s = link.student
         if (targetChildrenIds.includes(s.id) && !childrenList.some((c) => c.id === s.id)) {
-          const branch = branchMap.get(s.branchId)
+          const effectiveBranchId = s.currentClassroom?.branchId || s.branchId
+          const branch = effectiveBranchId ? branchMap.get(effectiveBranchId) : null
 
           // Attendance stats
           const studentAttendanceRecords = allAttendances.filter((a) => a.studentId === s.id)
@@ -368,6 +411,30 @@ async function _GET(req: NextRequest) {
                 category: u.category,
                 observedAt: u.observedAt.toISOString(),
               })),
+
+            // Scheduled Class Daily Diary (Today's planned timetable & activities)
+            scheduledDiary: {
+              date: today,
+              classroomId: s.currentClassroomId || null,
+              classroomName: s.currentClassroom?.name || null,
+              activities: todayClassActivities
+                .filter((act) => act.classroomId === s.currentClassroomId)
+                .map((act) => ({
+                  id: act.id,
+                  title: act.title,
+                  activityType: act.activityType || 'ACTIVITY',
+                  startTime: act.startTime || null,
+                  endTime: act.endTime || null,
+                  durationMinutes: act.durationMinutes,
+                  description: act.description || null,
+                  instructions: act.instructions || null,
+                  materials: act.materials || null,
+                  expectedOutcome: act.expectedOutcome || null,
+                  actualOutcome: act.status === 'COMPLETED' ? act.actualOutcome : null,
+                  status: act.status,
+                  teacherName: act.teacher?.fullName || s.currentClassroom?.primaryTeacher?.fullName || null,
+                })),
+            },
 
             // Fees Data
             fees: {
