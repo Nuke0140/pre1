@@ -42,68 +42,10 @@ test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () =
 
   test.beforeAll(async () => {
     // Ensure the tenant and user exist so Next.js AppLayout does not redirect to '/'
-    try {
-      const { db } = await import('../../src/lib/db')
-      const tenantId = '1fac9d27-88a1-4e78-90a4-8a0e38bc744f'
-      const userId = '3a484602-7155-49ff-a9aa-18d451b356f6'
-      const branchId = 'b100d3bd-92cf-4e76-8d6b-7735ac098ebc'
-
-      await db.tenant.upsert({
-        where: { id: tenantId },
-        update: { status: 'ACTIVE', onboardingStep: 5 },
-        create: {
-          id: tenantId,
-          name: 'PreOne Sunshine',
-          code: 'SUNSHINE',
-          type: 'SCHOOL',
-          status: 'ACTIVE',
-          subscriptionPlan: 'PRO',
-          onboardingStep: 5,
-        },
-      })
-
-      await db.branch.upsert({
-        where: { id: branchId },
-        update: { isMain: true, isActive: true },
-        create: {
-          id: branchId,
-          tenantId,
-          name: 'Main Campus',
-          code: 'MAIN',
-          isMain: true,
-          isActive: true,
-        },
-      })
-
-      await db.user.upsert({
-        where: { id: userId },
-        update: { status: 'ACTIVE' },
-        create: {
-          id: userId,
-          email: 'owner@sunshine.demo',
-          username: 'owner.sunshine',
-          fullName: 'School Owner',
-          passwordHash: '$2b$10$W3MCU5DI0ScjrbYzTs8D0uN.Bini1xg1wQZnzaKgn14Rz0D1EB5Ju',
-          status: 'ACTIVE',
-        },
-      })
-
-      await db.tenantUser.upsert({
-        where: { id: '5b7ccddb-9ab6-4a79-b62c-f3e4821d6257' },
-        update: { status: 'ACTIVE', role: 'OWNER' },
-        create: {
-          id: '5b7ccddb-9ab6-4a79-b62c-f3e4821d6257',
-          tenantId,
-          userId,
-          role: 'OWNER',
-          roles: ['OWNER', 'PRINCIPAL'],
-          branchId,
-          status: 'ACTIVE',
-        },
-      })
-    } catch (err) {
-      console.warn('[responsive-matrix] Database bootstrap skipped/failed:', err)
-    }
+    // Database fixtures are provisioned by scripts/seed-responsive-ci.ts in CI.
+    // Do not dynamically import the app's Prisma singleton in Playwright's CJS loader:
+    // it is ESM TypeScript and this import failed silently, leaving the matrix unauthenticated.
+    
 
     // Match the authenticated test persona used by the dashboard browser suite.
     // Without a session, /app routes redirect to AuthShell and these tests audit
