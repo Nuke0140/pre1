@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   '/api/v1/operations/health',
   '/api/v1/public',
   '/api/v1/webhooks',
+  '/api/v1/payments/webhook',
 ]
 
 function resolveTraceId(req: NextRequest): string {
