@@ -1,4 +1,5 @@
 import { test } from '@playwright/test'
+import { signSession, SESSION_COOKIE } from '../../src/lib/auth'
 import { expect } from './responsive-probe'
 import baselineFixture from '../fixtures/responsive-sweep-baseline.json'
 
@@ -37,12 +38,38 @@ export const VIEWPORT_MATRIX = [
 ] as const
 
 test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () => {
+  let sessionToken: string
+
+  test.beforeAll(async () => {
+    // Match the authenticated test persona used by the dashboard browser suite.
+    // Without a session, /app routes redirect to AuthShell and these tests audit
+    // decorative login artwork instead of the responsive application shell.
+    sessionToken = await signSession({
+      uid: '3a484602-7155-49ff-a9aa-18d451b356f6',
+      email: 'owner@sunshine.demo',
+      name: 'Executive',
+      tenantId: '1fac9d27-88a1-4e78-90a4-8a0e38bc744f',
+      branchId: null,
+      role: 'OWNER',
+      roles: ['OWNER'],
+    })
+  })
+
   for (const vp of VIEWPORT_MATRIX) {
     test.describe(`Viewport: ${vp.name} (${vp.width}x${vp.height})`, () => {
       test.use({ viewport: { width: vp.width, height: vp.height } })
 
       for (const p of CORE_PAGES) {
-        test(`verifies ${p.name} layout integrity against baseline sweep`, async ({ page }) => {
+        test(`verifies ${p.name} layout integrity against baseline sweep`, async ({ page, context }) => {
+          await context.addCookies([{
+            name: SESSION_COOKIE,
+            value: sessionToken,
+            domain: 'localhost',
+            path: '/',
+            httpOnly: true,
+            sameSite: 'Lax',
+          }])
+
           // Navigate to page (with client hydration wait)
           await page.goto(p.path, { waitUntil: 'domcontentloaded' })
           await page.waitForTimeout(300)
