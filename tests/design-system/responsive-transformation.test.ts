@@ -255,7 +255,7 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       const workflow = await Bun.file('.github/workflows/responsive-matrix.yml').text()
       expect(inventory).toContain('useMemo')
       expect(inventory).toContain('stockHealthRadarSummary = useMemo(')
-      expect(inventory).toContain('[metrics?.stockHealthRadar, items]')
+      expect(inventory).toContain('}, [metrics, items])')
       expect(eslint).toContain('react-hooks/rules-of-hooks')
       expect(workflow).toContain('Verify React Hooks and ESLint Guardrails')
       expect(workflow).toContain('npx eslint src/app/app/inventory/InventoryClient.tsx')

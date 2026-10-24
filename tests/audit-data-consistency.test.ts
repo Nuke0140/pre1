@@ -493,4 +493,159 @@ describe('PreOne Integration Audit: Actual Record Consistency Proof', () => {
       )
     ).rejects.toThrow()
   })
+
+  // -------------------------------------------------------------
+  // Test Suite 5: Tenant vs Branch Distinct Identity & Ownership
+  // -------------------------------------------------------------
+  it('Strict Verification: Tenant vs Branch Distinct Identity & Ownership Hierarchy', async () => {
+    // Assert Tenant and Branch IDs are completely distinct UUIDs
+    expect(tenantA.id).not.toBe(branchA1.id)
+    expect(tenantA.id).not.toBe(branchA2.id)
+    expect(branchA1.id).not.toBe(branchA2.id)
+
+    // Assert Branch belongs to Tenant
+    const fetchedBranch1 = await db.branch.findUnique({ where: { id: branchA1.id } })
+    const fetchedBranch2 = await db.branch.findUnique({ where: { id: branchA2.id } })
+    expect(fetchedBranch1?.tenantId).toBe(tenantA.id)
+    expect(fetchedBranch2?.tenantId).toBe(tenantA.id)
+
+    // Assert Classroom belongs to Tenant and Branch
+    const fetchedClassroom = await db.classroom.findUnique({ where: { id: classroomA1.id } })
+    expect(fetchedClassroom?.tenantId).toBe(tenantA.id)
+    expect(fetchedClassroom?.branchId).toBe(branchA1.id)
+    expect(fetchedClassroom?.branchId).not.toBe(tenantA.id)
+
+    // Assert Student belongs to Tenant and Branch
+    const fetchedStudent = await db.student.findUnique({ where: { id: studentA.id } })
+    expect(fetchedStudent?.tenantId).toBe(tenantA.id)
+    expect(fetchedStudent?.branchId).toBe(branchA1.id)
+    expect(fetchedStudent?.tenantId).not.toBe(fetchedStudent?.branchId)
+
+    // Assert Guardian profile belongs to Tenant
+    const fetchedGuardian = await db.guardian.findUnique({ where: { id: guardianA.id } })
+    expect(fetchedGuardian?.tenantId).toBe(tenantA.id)
+    expect(fetchedGuardian?.tenantId).not.toBe(branchA1.id)
+  })
+
+  // -------------------------------------------------------------
+  // Test Suite 6: Optional Email Variations in FamilyUserService
+  // -------------------------------------------------------------
+  it('Regression: Robust Optional Email Handling across Existing and New Child flows', async () => {
+    const emailTestTs = Date.now()
+
+    // 1. Email omitted / undefined in EXISTING child mode
+    const resUndefined = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'GUARDIAN',
+        fullName: 'Aunt Maya Undefined',
+        phone: `+919888${emailTestTs.toString().slice(-6)}`,
+        relationship: 'OTHER',
+        childMode: 'EXISTING',
+        existingChild: { studentId: studentA.id },
+        permissions: { canPickup: true },
+      }
+    )
+    expect(resUndefined.guardian).toBeDefined()
+    expect(resUndefined.user.email).toBeNull()
+    expect(resUndefined.guardian.email).toBeNull()
+
+    // 2. Email explicitly null in EXISTING child mode
+    const resNull = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'GUARDIAN',
+        fullName: 'Uncle Raj Null',
+        phone: `+919889${emailTestTs.toString().slice(-6)}`,
+        email: null as any,
+        relationship: 'OTHER',
+        childMode: 'EXISTING',
+        existingChild: { studentId: studentA.id },
+        permissions: { canPickup: false, pickupPin: '1234' },
+      }
+    )
+    expect(resNull.guardian).toBeDefined()
+    expect(resNull.user.email).toBeNull()
+    expect(resNull.guardian.email).toBeNull()
+    expect(resNull.guardian.pickupPin).toBe('1234')
+
+    // 3. Email empty string in EXISTING child mode
+    const resEmpty = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'GUARDIAN',
+        fullName: 'Escort Driver Empty',
+        phone: `+919890${emailTestTs.toString().slice(-6)}`,
+        email: '',
+        relationship: 'OTHER',
+        childMode: 'EXISTING',
+        existingChild: { studentId: studentA.id },
+      }
+    )
+    expect(resEmpty.guardian).toBeDefined()
+    expect(resEmpty.user.email).toBeNull()
+    expect(resEmpty.guardian.email).toBeNull()
+
+    // 4. Email whitespace-only in EXISTING child mode
+    const resWhitespace = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'GUARDIAN',
+        fullName: 'Nanny Sita Whitespace',
+        phone: `+919891${emailTestTs.toString().slice(-6)}`,
+        email: '   ',
+        relationship: 'OTHER',
+        childMode: 'EXISTING',
+        existingChild: { studentId: studentA.id },
+      }
+    )
+    expect(resWhitespace.guardian).toBeDefined()
+    expect(resWhitespace.user.email).toBeNull()
+    expect(resWhitespace.guardian.email).toBeNull()
+
+    // 5. Valid email in EXISTING child mode
+    const resValid = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'GUARDIAN',
+        fullName: 'Legal Guardian Valid',
+        phone: `+919892${emailTestTs.toString().slice(-6)}`,
+        email: `legal.guardian.${emailTestTs}@audit.test`,
+        relationship: 'LEGAL_GUARDIAN',
+        childMode: 'EXISTING',
+        existingChild: { studentId: studentA.id },
+        occupation: 'Advocate',
+      }
+    )
+    expect(resValid.guardian).toBeDefined()
+    expect(resValid.user.email).toBe(`legal.guardian.${emailTestTs}@audit.test`)
+    expect(resValid.guardian.email).toBe(`legal.guardian.${emailTestTs}@audit.test`)
+    expect(resValid.guardian.occupation).toBe('Advocate')
+
+    // 6. Email omitted in CREATE NEW CHILD mode
+    const resNewChildNoEmail = await FamilyUserService.createFamilyUser(
+      { tenantId: tenantA.id, actorId: ownerUserA.id },
+      {
+        role: 'PARENT',
+        fullName: 'Devendra Patel',
+        phone: `+919893${emailTestTs.toString().slice(-6)}`,
+        relationship: 'FATHER',
+        isPrimaryContact: true,
+        childMode: 'CREATE',
+        newChild: {
+          firstName: 'Diya',
+          lastName: 'Patel',
+          dob: new Date('2022-09-01'),
+          gender: 'FEMALE',
+          programType: 'NURSERY',
+          branchId: branchA1.id,
+          classroomId: classroomA1.id,
+        },
+      }
+    )
+    expect(resNewChildNoEmail.guardian).toBeDefined()
+    expect(resNewChildNoEmail.student).toBeDefined()
+    expect(resNewChildNoEmail.user.email).toBeNull()
+    expect(resNewChildNoEmail.guardian.email).toBeNull()
+  })
 })

@@ -1359,6 +1359,7 @@ export class StudentService {
       guardianPhone: string
       guardianEmail?: string
       guardianRelationship?: string
+      guardianUsername?: string
       canPickup?: boolean
       isFeePayer?: boolean
       confirmDuplicate?: boolean
@@ -1457,6 +1458,7 @@ export class StudentService {
         fullName: cleanGuardianName,
         email: cleanGuardianEmail,
         phone: cleanGuardianPhone,
+        username: input.guardianUsername,
         usernameType: 'PARENT',
         status: 'ACTIVE',
       })
