@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Static GLB check. Usage: python scripts/validate-preo-glb.py path/to/file.glb"""
+"""Static GLB check. Usage: python scripts/preo-3d/validate-preo-glb.py path/to/file.glb"""
 import json, os, struct, sys
 REQUIRED = ["idle_breathe", "wave_welcome", "thinking", "celebrate", "sleep"]
 
 def read_glb(path):
-    raw = open(path, "rb").read()
+    with open(path, "rb") as handle:
+        raw = handle.read()
     if len(raw) < 20:
         raise ValueError("File is too small to be GLB")
     magic, version, total = struct.unpack_from("<4sII", raw, 0)
@@ -12,15 +13,19 @@ def read_glb(path):
         raise ValueError("Invalid GLB v2 header or length")
     pos, json_chunk = 12, None
     while pos < len(raw):
+        if pos + 8 > len(raw):
+            raise ValueError("Truncated GLB chunk header")
         length, kind = struct.unpack_from("<II", raw, pos)
         pos += 8
-        chunk = raw[pos:pos+length]
+        if pos + length > len(raw):
+            raise ValueError("Truncated GLB chunk payload")
+        chunk = raw[pos:pos + length]
         pos += length
         if kind == 0x4E4F534A:
             json_chunk = chunk
     if json_chunk is None:
         raise ValueError("Missing GLB JSON chunk")
-    return json.loads(json_chunk.decode("utf-8").rstrip(" \\t\\r\\n\\0"))
+    return json.loads(json_chunk.decode("utf-8").rstrip(" \t\r\n\0"))
 
 def main(path):
     doc = read_glb(path)
@@ -43,13 +48,13 @@ def main(path):
     print("Animation names:", ", ".join(sorted(animations)) or "(none)")
     if errors:
         print("FAIL / NEEDS REVIEW")
-        print("\\n".join("- "+e for e in errors))
+        print("\n".join("- "+e for e in errors))
         return 1
     print("STATIC STRUCTURE PASS — visual playback still requires manual/runtime QA.")
     return 0
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python scripts/validate-preo-glb.py path/to/file.glb")
+        print("Usage: python scripts/preo-3d/validate-preo-glb.py path/to/file.glb")
         sys.exit(2)
     sys.exit(main(sys.argv[1]))
