@@ -11,6 +11,20 @@ jobs:
     name: Viewport Matrix & Visual Diff Guardrail
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: preone
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d preone"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout repository
@@ -29,6 +43,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare isolated CI database schema
+        run: npx prisma db push --accept-data-loss
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/preone
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/preone
 
       - name: Run Design System & Responsive Unit/Contract Tests
         run: bun test tests/design-system/responsive-transformation.test.ts
@@ -50,6 +70,8 @@ jobs:
         env:
           CI: 1
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:3000
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/preone
+          DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/preone
 
       - name: Upload visual regression snapshots
         uses: actions/upload-artifact@v4
