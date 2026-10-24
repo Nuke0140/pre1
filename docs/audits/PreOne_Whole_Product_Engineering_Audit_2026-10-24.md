@@ -4,7 +4,7 @@
 **Repository:** https://github.com/Nuke0140/pre1  
 **Reviewed Baseline:** `main` at `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Audit & Remediation Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD SHA:** `731d70ae14de232b807f459ed04e035481931fc5` (responsive follow-up fixes pending CI verification)  
+**Current Audit HEAD SHA:** `ee5b82bcfc6bed7546a6cb9aa6ef660faf20ffa2` (follow-up CI re-run pending)  
 **Auditor Roles:** Principal Software Architect, Senior Full-Stack Engineer, AppSec Engineer, QA Automation Lead, DevOps/SRE Engineer, Release Readiness Auditor
 
 ---
@@ -96,9 +96,9 @@ Despite the resolution of all immediate runtime and CI blockers, PreOne **cannot
 
 ### 3.6 Responsive matrix follow-up failure (Run 40092919930)
 
-The initial unit-contract failure is fixed, but the full workflow is still failing at Playwright. The available logs show 14 failed test cases after retries and repeated layout-probe violations at tablet widths. At 820×1180, `.dock-zone-right` and `.dock-datetime` extend beyond the viewport (observed right edges include 869px and 890px).
+The initial unit-contract failure and tablet dock overflows were addressed on the audit branch. PR CI run `40095860373` passed overall; the responsive matrix reported 62 passed and one failure at 1024×768 because the profile control was not present on that route. A follow-up changed the profile assertion to apply at desktop widths (>=1280px) while keeping overflow probes on all 63 combinations. That follow-up exposed a stale design-system test assertion requiring literal `requireProfile: true`; it has now been updated to expect the breakpoint-aware contract. The next CI run is required before calling the matrix verified.
 
-The same run logs a module-loading error from `await import('../../src/lib/db')` in the Playwright `beforeAll`: `Cannot use import statement outside a module`. The CI workflow already provisions fixtures via `scripts/seed-responsive-ci.ts`. On the audit branch, the test-level import was removed, a route guard was added to prevent accidentally auditing a login redirect, and tablet-width dock compaction CSS was added. These follow-up changes are **not yet CI-verified**.
+The same run logs a module-loading error from `await import('../../src/lib/db')` in the Playwright `beforeAll`: `Cannot use import statement outside a module`. The CI workflow already provisions fixtures via `scripts/seed-responsive-ci.ts`. On the audit branch, the test-level import was removed, a route guard was added to prevent accidentally auditing a login redirect, and tablet-width dock compaction CSS was added. The tablet layout fix and setup change passed the 62/63 initial matrix run with only the profile assertion left; the latest contract correction is still awaiting CI verification.
 
 Next required verification: run the updated branch in GitHub Actions, investigate any remaining viewport failures, and only then close the responsive gate.
 
