@@ -31,6 +31,7 @@ import { PageHead, StatusBadge, GlobalModuleNavigation, SETTINGS_NAVIGATION_CONF
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { ThemeGlowSettings } from '@/components/shell/ThemeGlowSettings'
+import { validateSchoolProfileInput } from '@/lib/settings/settings-validation'
 
 interface SchoolProfile {
   id: string
@@ -79,6 +80,7 @@ export default function SettingsControlCenter() {
   // Data states
   const [profile, setProfile] = useState<SchoolProfile | null>(null)
   const [profileForm, setProfileForm] = useState<Partial<SchoolProfile>>({})
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
   
   // Domain configs
   const [operatingConfig, setOperatingConfig] = useState<any>({})
@@ -186,8 +188,29 @@ export default function SettingsControlCenter() {
     setActiveTab(newTab)
   }
 
+  // Update Profile Field with Error Clearing
+  const updateProfileField = (field: keyof SchoolProfile, value: any) => {
+    setProfileForm((prev) => ({ ...prev, [field]: value }))
+    if (profileErrors[field as string]) {
+      setProfileErrors((prev) => {
+        const next = { ...prev }
+        delete next[field as string]
+        return next
+      })
+    }
+    setDirty(true)
+  }
+
   // Save School Profile
   const handleSaveProfile = async () => {
+    const validation = validateSchoolProfileInput(profileForm)
+    if (!validation.valid) {
+      setProfileErrors(validation.errors)
+      toast.error('Validation Error', 'Please correct the highlighted fields before saving.')
+      return
+    }
+
+    setProfileErrors({})
     setBusy(true)
     try {
       const res = await fetch('/api/v1/settings', {
@@ -198,13 +221,22 @@ export default function SettingsControlCenter() {
 
       if (res.success) {
         toast.success('School profile updated successfully')
-        setProfile((prev) => ({ ...prev, ...profileForm } as SchoolProfile))
+        const updated = res.data?.profile || { ...profile, ...profileForm }
+        setProfile(updated)
+        setProfileForm(updated)
         setDirty(false)
+        setProfileErrors({})
       } else {
+        const serverFieldErrors = (res.error?.details as any)?.fieldErrors
+        if (serverFieldErrors && typeof serverFieldErrors === 'object') {
+          setProfileErrors(serverFieldErrors)
+        } else if (res.error?.field) {
+          setProfileErrors({ [res.error.field]: res.error.message })
+        }
         toast.error('Update failed', res.error?.message || 'Could not save profile')
       }
     } catch (e: any) {
-      toast.error('Save failed', e.message)
+      toast.error('Save failed', e.message || 'An unexpected error occurred while saving profile')
     } finally {
       setBusy(false)
     }
@@ -439,7 +471,7 @@ export default function SettingsControlCenter() {
             </div>
             <button className="btn btn-primary" onClick={handleSaveProfile} disabled={busy}>
               <Save size={14} />
-              Save Profile
+              {busy ? 'Saving...' : 'Save Profile'}
             </button>
           </div>
 
@@ -448,13 +480,15 @@ export default function SettingsControlCenter() {
               <label>School Name *</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${profileErrors.name ? 'border-destructive' : ''}`}
                 value={profileForm.name || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, name: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('name', e.target.value)}
               />
+              {profileErrors.name && (
+                <p style={{ fontSize: 12, color: 'var(--danger, #ef4444)', marginTop: 4 }}>
+                  {profileErrors.name}
+                </p>
+              )}
             </div>
             <div className="form-group">
               <label>School Code (Unique)</label>
@@ -464,25 +498,29 @@ export default function SettingsControlCenter() {
               <label>Official Email</label>
               <input
                 type="email"
-                className="input"
+                className={`input ${profileErrors.email ? 'border-destructive' : ''}`}
                 value={profileForm.email || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, email: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('email', e.target.value)}
               />
+              {profileErrors.email && (
+                <p style={{ fontSize: 12, color: 'var(--danger, #ef4444)', marginTop: 4 }}>
+                  {profileErrors.email}
+                </p>
+              )}
             </div>
             <div className="form-group">
               <label>Phone Number</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${profileErrors.phone ? 'border-destructive' : ''}`}
                 value={profileForm.phone || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, phone: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('phone', e.target.value)}
               />
+              {profileErrors.phone && (
+                <p style={{ fontSize: 12, color: 'var(--danger, #ef4444)', marginTop: 4 }}>
+                  {profileErrors.phone}
+                </p>
+              )}
             </div>
             <div className="form-group">
               <label>Website</label>
@@ -490,10 +528,7 @@ export default function SettingsControlCenter() {
                 type="text"
                 className="input"
                 value={profileForm.website || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, website: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('website', e.target.value)}
               />
             </div>
             <div className="form-group">
@@ -501,10 +536,7 @@ export default function SettingsControlCenter() {
               <select
                 className="input"
                 value={profileForm.timezone || 'Asia/Kolkata'}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, timezone: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('timezone', e.target.value)}
               >
                 <option value="Asia/Kolkata">Asia/Kolkata (IST +5:30)</option>
                 <option value="UTC">UTC (+0:00)</option>
@@ -517,10 +549,7 @@ export default function SettingsControlCenter() {
               <select
                 className="input"
                 value={profileForm.locale || 'en-IN'}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, locale: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('locale', e.target.value)}
               >
                 <option value="en-IN">English (India) - en-IN</option>
                 <option value="en-US">English (US) - en-US</option>
@@ -532,10 +561,7 @@ export default function SettingsControlCenter() {
               <select
                 className="input"
                 value={profileForm.academicYearStartMonth || 4}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, academicYearStartMonth: parseInt(e.target.value) })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('academicYearStartMonth', parseInt(e.target.value))}
               >
                 <option value={1}>January</option>
                 <option value={4}>April (Standard Indian Preschools)</option>
@@ -547,27 +573,31 @@ export default function SettingsControlCenter() {
               <label>GSTIN / Tax ID</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${profileErrors.gstNumber ? 'border-destructive' : ''}`}
                 placeholder="27AABCU9603R1ZM"
                 value={profileForm.gstNumber || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, gstNumber: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('gstNumber', e.target.value)}
               />
+              {profileErrors.gstNumber && (
+                <p style={{ fontSize: 12, color: 'var(--danger, #ef4444)', marginTop: 4 }}>
+                  {profileErrors.gstNumber}
+                </p>
+              )}
             </div>
             <div className="form-group">
               <label>PAN Number</label>
               <input
                 type="text"
-                className="input"
+                className={`input ${profileErrors.panNumber ? 'border-destructive' : ''}`}
                 placeholder="ABCDE1234F"
                 value={profileForm.panNumber || ''}
-                onChange={(e) => {
-                  setProfileForm({ ...profileForm, panNumber: e.target.value })
-                  setDirty(true)
-                }}
+                onChange={(e) => updateProfileField('panNumber', e.target.value)}
               />
+              {profileErrors.panNumber && (
+                <p style={{ fontSize: 12, color: 'var(--danger, #ef4444)', marginTop: 4 }}>
+                  {profileErrors.panNumber}
+                </p>
+              )}
             </div>
           </div>
 
@@ -577,10 +607,7 @@ export default function SettingsControlCenter() {
               className="input"
               rows={2}
               value={profileForm.address || ''}
-              onChange={(e) => {
-                setProfileForm({ ...profileForm, address: e.target.value })
-                setDirty(true)
-              }}
+              onChange={(e) => updateProfileField('address', e.target.value)}
             />
           </div>
         </div>

@@ -64,7 +64,7 @@ export function generateVerhoeff(numStr: string): number {
 export interface StatutoryValidationResult {
   valid: boolean
   error?: string
-  normalized?: string
+  normalized?: string | null
 }
 
 /**
@@ -72,8 +72,8 @@ export interface StatutoryValidationResult {
  * Format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F).
  */
 export function validatePan(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
-    return { valid: true }
+  if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+    return { valid: true, normalized: null }
   }
 
   // Preserve masked values
@@ -133,10 +133,10 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     }
   }
 
-  if (clean[0] === '0') {
+  if (clean[0] === '0' || clean[0] === '1') {
     return {
       valid: false,
-      error: 'Invalid Aadhaar number: cannot start with 0',
+      error: 'Invalid Aadhaar number: cannot start with 0 or 1',
     }
   }
 
@@ -145,6 +145,52 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     return {
       valid: false,
       error: 'Invalid Aadhaar number: cannot be all identical digits',
+    }
+  }
+
+  if (!validateVerhoeff(clean)) {
+    return {
+      valid: false,
+      error: 'Invalid Aadhaar number: failed Verhoeff checksum validation',
+    }
+  }
+
+  return { valid: true, normalized: clean }
+}
+
+/**
+ * Validates and normalizes GSTIN (Goods and Services Tax Identification Number).
+ * Format: 15 alphanumeric characters.
+ * - 2 digits state code
+ * - 10 chars PAN
+ * - 1 entity code (1-9, A-Z)
+ * - 'Z' default character
+ * - 1 check digit (0-9, A-Z)
+ * e.g. 27AABCU9603R1ZM
+ */
+export function validateGstin(val?: string | null): StatutoryValidationResult {
+  if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '')) {
+    return { valid: true, normalized: null }
+  }
+
+  // Preserve masked values
+  if (typeof val === 'string' && val.includes('•')) {
+    return { valid: true, normalized: val }
+  }
+
+  const clean = String(val).trim().toUpperCase()
+
+  if (clean.length !== 15) {
+    return {
+      valid: false,
+      error: 'GSTIN must be exactly 15 alphanumeric characters (e.g. 27AABCU9603R1ZM)',
+    }
+  }
+
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(clean)) {
+    return {
+      valid: false,
+      error: 'Invalid GSTIN format. Expected format: 2-digit state code, 10-char PAN, 1-char entity number, "Z", and 1-char checksum (e.g. 27AABCU9603R1ZM)',
     }
   }
 
