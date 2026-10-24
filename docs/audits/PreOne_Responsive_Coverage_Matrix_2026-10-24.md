@@ -56,11 +56,11 @@ The table below presents the verified compliance for all 7 core pages across all
 | **Settings** (`/app/settings`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
 | **Audit** (`/app/audit`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
 
-**Summary:** 63 combinations are configured, but current CI verification is FAIL, not PASS. Run `40092919930` reports 14 Playwright failures after retries. Do not mark the viewport matrix verified until the updated audit branch completes the full suite successfully.
+**Summary:** 63 combinations are configured. Run `40092919930` originally failed 14 combinations with shared tablet dock overflow. PR run `40095860373` then reported 62 passed and 1 failed due the profile selector missing at 1024×768 on Settings; a follow-up adjusted that assertion by breakpoint. A contract-test mismatch then stopped run `40096312078` before Playwright. Current updated branch awaits the next full CI run; matrix remains OPEN / NOT VERIFIED.
 
 ---
 
-## 3. Current CI Failure Evidence (Run 40092919930)
+## 3. Current CI Evidence and Follow-up Changes
 
 The current workflow executed the configured 63 Playwright tests but ended with **14 failed** after retries. Therefore the original all-PASS table below was a target/baseline claim, not the current verified state. The actual logs show repeated `.dock-zone-right` / `.dock-datetime` overflow at 820×1180 and failures across multiple pages; the exact updated branch changes are pending rerun. Mark all combinations NOT VERIFIED unless a current run has a passing result for that page/viewport pair.
 
