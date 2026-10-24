@@ -3,7 +3,7 @@
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at commit `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Current Audit Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD:** `ee5b82bcfc6bed7546a6cb9aa6ef660faf20ffa2` (contract fix pending CI verification)  
+**Verified Responsive Code SHA:** `673037090a25ed02552867423f9a102bcbe50b56`  
 **Author:** Independent Release Readiness & Architecture Auditor
 
 ---
@@ -150,7 +150,7 @@ The contract-test failure described above is fixed, but the responsive workflow 
 - A follow-up changed profile reachability to require the control at widths >=1280 while preserving the overflow probes for all 63 combinations.
 - The next run `40096312078` failed the contract test because `tests/design-system/responsive-transformation.test.ts` still expected literal `requireProfile: true`; that assertion was aligned to `requireProfile: vp.width >= 1280`.
 - Final verification: run `40096519090` completed with overall SUCCESS. Playwright output confirms `Running 63 tests using 1 worker` and `63 passed (2.7m)`. The prior tablet overflow and profile-selector assertion failures no longer reproduce.
-- Next.js still prints `Skipping validation of types`; successful build does not clear the TypeScript release blocker.
+- Next.js still prints `Skipping validation of types`; successful build does not clear the TypeScript release blocker. The later run `40097080366` was triggered by report-only commits and was still in progress at latest review; the verified code run for the responsive changes is `40096519090`.
 
 ## 6. Remaining CI & Build Hardening Recommendations
 
