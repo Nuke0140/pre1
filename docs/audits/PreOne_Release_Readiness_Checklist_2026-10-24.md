@@ -14,7 +14,7 @@
 | **GATE-01** | Dependency Integrity | `npm ci` | Clean install from lockfile | Exit code 0, all packages resolved | **PASS** |
 | **GATE-02** | Responsive CI Contract | `bun test tests/design-system/responsive-transformation.test.ts` | 32 tests pass; 0 fail | 32 passed, 0 failed, 408 expect calls | **PASS** |
 | **GATE-03** | ESLint Code Quality | `npx eslint src/app/app/inventory/InventoryClient.tsx` | Exit code 0; 0 errors | 0 errors, 0 warnings | **PASS** |
-| **GATE-04** | Responsive Viewport Matrix | `npx playwright test tests/e2e/responsive-matrix.spec.ts` | 7 pages × 9 viewports (63 combinations) | Run `40092919930`: 14 failed, including dock overflow at tablet widths; follow-up branch fixes not yet run | **FAIL (BLOCKER)** |
+| **GATE-04** | Responsive Viewport Matrix | `npx playwright test tests/e2e/responsive-matrix.spec.ts` | 7 pages × 9 viewports (63 combinations) | Run `40095860373`: 62 passed, 1 failed (profile assertion at Settings/1024px); follow-up contract assertion just corrected, CI pending | **FAIL / OPEN** |
 | **GATE-05** | Authentication & OTP Security | `bun test tests/auth/otp-verification.test.ts` | Fail-closed in prod, demo codes restricted | 21 passed, 0 failed, 112 expect calls | **PASS** |
 | **GATE-06** | Payment Webhook Security | `bun test tests/api/payment-webhook.test.ts` | HMAC SHA-256 verify & tenant anti-spoof | 5 passed, 0 failed, 16 expect calls | **PASS** |
 | **GATE-07** | Academics Report-Card | `bun test tests/api/report-cards-parent-audit.test.ts` | PARENT query does not crash on delegate | 1 passed, 0 failed, 5 expect calls | **PASS** |
@@ -45,7 +45,7 @@
 
 ### Gate 04: Playwright Responsive Matrix
 - **Command:** `npx playwright test tests/e2e/responsive-matrix.spec.ts`
-- **Result:** **FAIL** in observed run `40092919930`: 14 failures after retries. Logs expose dock-right overflow at 820px and other tablet widths. Follow-up changes to CSS and E2E setup exist on the audit branch but are not yet verified.
+- **Result:** Run `40092919930` failed 14 cases due tablet dock overflow. PR run `40095860373` passed the workflow but Playwright returned 62 passed and 1 failed at Settings/1024px because the profile selector was not present. A follow-up adjusted the requirement and updated the contract test; the latest branch run is pending.
 - **Evidence:** [GitHub Actions run 40092919930](https://github.com/Nuke0140/pre1/actions/runs/40092919930), `tests/e2e/responsive-matrix.spec.ts`, `src/app/globals.css`.
 
 ### Gate 05: Authentication & OTP Security
