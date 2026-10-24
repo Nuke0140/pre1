@@ -174,7 +174,7 @@
 - **Category:** UI / Responsive QA / CI
 - **Severity:** P1 (Release gate blocker)
 - **Affected Files:** `.github/workflows/responsive-matrix.yml`, `tests/e2e/responsive-matrix.spec.ts`, `tests/e2e/responsive-probe.ts`, `src/app/globals.css`, `src/components/shell/BottomNav.tsx`, `src/components/shell/DockDateTime.tsx`
-- **Status:** **VERIFIED — current Chromium responsive matrix passed 63/63 in run 40096519090**
+- **Status:** **VERIFIED — Chromium responsive matrix passed 63/63 in run 40096519090 at code SHA 673037090a25ed02552867423f9a102bcbe50b56**
 - **Evidence:** [Workflow run 40092919930](https://github.com/Nuke0140/pre1/actions/runs/40092919930) has unit contract PASS (32 tests), ESLint PASS, build PASS with type validation skipped, but Playwright fails with 14 cases after retries.
 - **Observed Behavior:** At 820×1180, `.dock-zone-right`, `.dock-datetime`, `.dock-dt-text`, and `.dock-time` spill past the viewport; observed right edges include 869px and 890px for an 820px viewport. Similar failures occur across multiple pages, implicating the shared dock layout.
 - **Test Setup Evidence:** The same run logs `SyntaxError: Cannot use import statement outside a module` from the test worker dynamically importing `src/lib/db.ts`. The previous catch logged and ignored the issue. CI already runs `scripts/seed-responsive-ci.ts`.
