@@ -3,7 +3,7 @@
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at commit `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Current Audit Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD:** `bf5e6ce`  
+**Current Audit HEAD:** `731d70ae14de232b807f459ed04e035481931fc5` (follow-up remediation commits are pending CI verification)  
 **Author:** Independent Release Readiness & Architecture Auditor
 
 ---
@@ -131,7 +131,28 @@ Because this unit/contract test failed with exit code 1:
 
 ---
 
-## 5. Remaining CI & Build Hardening Recommendations
+## 5. Follow-up CI evidence from run 40092919930
+
+The contract-test failure described above is fixed, but the responsive workflow is still failing at the Playwright stage. The available run logs show 63 tests executed and **14 failed** after retries. It is therefore incorrect to mark the full matrix VERIFIED.
+
+### 5.1 Confirmed E2E failures
+- Logs repeatedly show responsive-probe violations at 768×1024 and 820×1180.
+- At 820×1180, `.dock-zone-right`, `.dock-datetime`, `.dock-dt-text`, and `.dock-time` extend beyond the viewport; reported right edges include 869px and 890px while the viewport width is 820px.
+- The repeated selectors across multiple pages point to a shared shell/dock breakpoint issue rather than independent page-only defects.
+
+### 5.2 Test setup issue observed
+- `tests/e2e/responsive-matrix.spec.ts` dynamically imported `src/lib/db.ts` from Playwright's test worker. The log shows `SyntaxError: Cannot use import statement outside a module`, which was caught and logged; the tests continued without those test-level fixture upserts.
+- The workflow already runs `scripts/seed-responsive-ci.ts`, so the incompatible test-level import was removed on the audit branch. A route guard was added to fail if an `/app/...` route redirects away, rather than accidentally measuring the login screen.
+- A compact-dock CSS rule for 641–1023px was added on the audit branch. These changes have **not yet been executed in CI**, so they remain unverified.
+
+### 5.3 Actual status at report update
+- Contract suite: PASS in run 40092919930 (32 tests).
+- Inventory ESLint: PASS in run 40092919930.
+- Next.js build: PASS in run 40092919930, but logs explicitly say `Skipping validation of types`; this is not a TypeScript pass.
+- Playwright responsive matrix: FAIL in run 40092919930 (14 failed).
+- Latest audit-branch CSS and E2E changes: NOT RUN / awaiting CI.
+
+## 6. Remaining CI & Build Hardening Recommendations
 
 1. **Eliminate brittle string-grep assertions in unit tests:** Replace raw file `.text()` assertions with compiler AST inspections or semantic component unit tests where feasible.
 2. **Decouple Playwright WebServer from Dev Server:** Configure Playwright in CI to run against a pre-built standalone production build (`next start`) rather than `bun run dev` to prevent hot-reloading overhead and memory leaks during multi-viewport runs.
