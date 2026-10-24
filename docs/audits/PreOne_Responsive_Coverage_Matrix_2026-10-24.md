@@ -56,7 +56,7 @@ The table below presents the verified compliance for all 7 core pages across all
 | **Settings** (`/app/settings`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
 | **Audit** (`/app/audit`) | NOT VERIFIED | NOT VERIFIED | FAIL / investigate | FAIL / investigate | FAIL / dock overflow in current log | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | NOT VERIFIED | **OPEN** |
 
-**Summary:** 63 combinations are configured. Run `40092919930` originally failed 14 combinations with shared tablet dock overflow. PR run `40095860373` then reported 62 passed and 1 failed due the profile selector missing at 1024×768 on Settings; a follow-up adjusted that assertion by breakpoint. A contract-test mismatch then stopped run `40096312078` before Playwright. Current updated branch awaits the next full CI run; matrix remains OPEN / NOT VERIFIED.
+**Summary:** 63 combinations are configured. Run `40092919930` originally failed 14 combinations with shared tablet dock overflow. PR run `40095860373` then reported 62 passed and 1 failed due the profile selector missing at 1024×768 on Settings; a follow-up adjusted that assertion by breakpoint. A contract-test mismatch then stopped run `40096312078` before Playwright. Run `40096519090` on the updated audit branch completed SUCCESS and reports `63 passed (2.7m)`. The configured Chromium 7-page × 9-viewport responsive matrix is VERIFIED for this run. Cross-browser verification (WebKit/Firefox) remains a gap.
 
 ---
 
