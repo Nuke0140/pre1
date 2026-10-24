@@ -148,8 +148,9 @@ The contract-test failure described above is fixed, but the responsive workflow 
 ### 5.3 Follow-up CI status and next correction
 - PR CI run `40095860373` completed with overall conclusion SUCCESS, but Playwright had `62 passed` and one failed case: `settings @ 1024-tablet-landscape`, where the profile selector was not found. The dock overflow at 768/820px no longer appears in the logged failure list; the shared dock compaction appears to have resolved that failure mode in this run.
 - A follow-up changed profile reachability to require the control at widths >=1280 while preserving the overflow probes for all 63 combinations.
-- The next run `40096312078` then failed the contract test because `tests/design-system/responsive-transformation.test.ts` still expected the old literal `requireProfile: true`. That contract assertion has now been aligned to `requireProfile: vp.width >= 1280` on the audit branch.
-- Current updated branch needs another workflow run. Next.js still prints `Skipping validation of types`; successful build does not clear the TypeScript release blocker.
+- The next run `40096312078` failed the contract test because `tests/design-system/responsive-transformation.test.ts` still expected literal `requireProfile: true`; that assertion was aligned to `requireProfile: vp.width >= 1280`.
+- Final verification: run `40096519090` completed with overall SUCCESS. Playwright output confirms `Running 63 tests using 1 worker` and `63 passed (2.7m)`. The prior tablet overflow and profile-selector assertion failures no longer reproduce.
+- Next.js still prints `Skipping validation of types`; successful build does not clear the TypeScript release blocker.
 
 ## 6. Remaining CI & Build Hardening Recommendations
 
