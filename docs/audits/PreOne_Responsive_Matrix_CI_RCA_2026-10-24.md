@@ -3,7 +3,7 @@
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at commit `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Current Audit Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD:** `731d70ae14de232b807f459ed04e035481931fc5` (follow-up remediation commits are pending CI verification)  
+**Current Audit HEAD:** `dbe3284ae495808d7e5530010a8a710385059bda` (profile-probe follow-up pending CI verification)  
 **Author:** Independent Release Readiness & Architecture Auditor
 
 ---
@@ -145,12 +145,11 @@ The contract-test failure described above is fixed, but the responsive workflow 
 - The workflow already runs `scripts/seed-responsive-ci.ts`, so the incompatible test-level import was removed on the audit branch. A route guard was added to fail if an `/app/...` route redirects away, rather than accidentally measuring the login screen.
 - A compact-dock CSS rule for 641–1023px was added on the audit branch. These changes have **not yet been executed in CI**, so they remain unverified.
 
-### 5.3 Actual status at report update
-- Contract suite: PASS in run 40092919930 (32 tests).
-- Inventory ESLint: PASS in run 40092919930.
-- Next.js build: PASS in run 40092919930, but logs explicitly say `Skipping validation of types`; this is not a TypeScript pass.
-- Playwright responsive matrix: FAIL in run 40092919930 (14 failed).
-- Latest audit-branch CSS and E2E changes: NOT RUN / awaiting CI.
+### 5.3 Actual status after the first follow-up fix
+- PR CI run `40095860373` completed with overall conclusion SUCCESS. Contract suite, Inventory ESLint, Next.js build, Playwright, and artifact upload steps were successful.
+- Playwright reported `62 passed` and one failure: `settings @ 1024-tablet-landscape`, with `Profile / Sign-out button is clipped or not reachable ... "not found"`. This exposed an over-broad profile assertion at a breakpoint where the tested selector is absent; the test needs to align with the actual responsive header contract without weakening the overflow checks.
+- A follow-up change on the audit branch scopes the profile-reachability requirement to viewport widths >=1280px and retains the overflow probes at all 63 page/viewport combinations. This follow-up commit has not yet been rerun in CI.
+- Next.js logs still say `Skipping validation of types`; build success is not a TypeScript pass. The TypeScript release blocker remains open.
 
 ## 6. Remaining CI & Build Hardening Recommendations
 
