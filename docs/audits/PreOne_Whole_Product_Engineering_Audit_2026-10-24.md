@@ -4,7 +4,8 @@
 **Repository:** https://github.com/Nuke0140/pre1  
 **Reviewed Baseline:** `main` at `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Audit & Remediation Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD SHA:** `ee5b82bcfc6bed7546a6cb9aa6ef660faf20ffa2` (follow-up CI re-run pending)  
+**Verified Responsive Code SHA:** `673037090a25ed02552867423f9a102bcbe50b56`  
+**Branch Tip:** see current branch ref; latest commits update audit documents only  
 **Auditor Roles:** Principal Software Architect, Senior Full-Stack Engineer, AppSec Engineer, QA Automation Lead, DevOps/SRE Engineer, Release Readiness Auditor
 
 ---
@@ -100,7 +101,7 @@ The unit-contract assertion and shared dock tablet overflow were corrected on th
 
 The same run logs a module-loading error from `await import('../../src/lib/db')` in the Playwright `beforeAll`: `Cannot use import statement outside a module`. The CI workflow already provisions fixtures via `scripts/seed-responsive-ci.ts`. On the audit branch, the test-level import was removed, a route guard was added to prevent accidentally auditing a login redirect, and tablet-width dock compaction CSS was added. The tablet layout and profile-probe corrections are verified by run `40096519090` with 63/63 Playwright tests passing. TypeScript remains independently unverified by the build and is still a release blocker.
 
-Next required verification: run the updated branch in GitHub Actions, investigate any remaining viewport failures, and only then close the responsive gate.
+The responsive matrix is VERIFIED for the code commit tested in run `40096519090` (63/63 Chromium checks). Subsequent commits update audit reports and do not modify responsive application/test code. Run `40097080366` was triggered by audit-document changes and its Playwright stage was still in progress at latest review; the final app-code verification evidence remains run `40096519090`.
 
 ## 4. Re-Verification of Historical PreOne Audit Findings
 
