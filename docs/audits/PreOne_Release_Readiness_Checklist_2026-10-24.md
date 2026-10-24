@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at commit `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
-**Current Audit Branch:** `audit/whole-product-2026-10-24` (`bf5e6ce`)  
+**Current Audit Branch:** `audit/whole-product-2026-10-24` (follow-up changes pending CI verification)  
 **Evaluation Standard:** Zero unverified assertions. Every gate must be supported by direct command output and empirical execution logs.
 
 ---
@@ -14,7 +14,7 @@
 | **GATE-01** | Dependency Integrity | `npm ci` | Clean install from lockfile | Exit code 0, all packages resolved | **PASS** |
 | **GATE-02** | Responsive CI Contract | `bun test tests/design-system/responsive-transformation.test.ts` | 32 tests pass; 0 fail | 32 passed, 0 failed, 408 expect calls | **PASS** |
 | **GATE-03** | ESLint Code Quality | `npx eslint src/app/app/inventory/InventoryClient.tsx` | Exit code 0; 0 errors | 0 errors, 0 warnings | **PASS** |
-| **GATE-04** | Responsive Viewport Matrix | `tests/e2e/responsive-matrix.spec.ts` | 7 pages × 9 viewports (63 combinations) | All 63 baseline probe assertions satisfied | **PASS** |
+| **GATE-04** | Responsive Viewport Matrix | `npx playwright test tests/e2e/responsive-matrix.spec.ts` | 7 pages × 9 viewports (63 combinations) | Run `40092919930`: 14 failed, including dock overflow at tablet widths; follow-up branch fixes not yet run | **FAIL (BLOCKER)** |
 | **GATE-05** | Authentication & OTP Security | `bun test tests/auth/otp-verification.test.ts` | Fail-closed in prod, demo codes restricted | 21 passed, 0 failed, 112 expect calls | **PASS** |
 | **GATE-06** | Payment Webhook Security | `bun test tests/api/payment-webhook.test.ts` | HMAC SHA-256 verify & tenant anti-spoof | 5 passed, 0 failed, 16 expect calls | **PASS** |
 | **GATE-07** | Academics Report-Card | `bun test tests/api/report-cards-parent-audit.test.ts` | PARENT query does not crash on delegate | 1 passed, 0 failed, 5 expect calls | **PASS** |
@@ -45,8 +45,8 @@
 
 ### Gate 04: Playwright Responsive Matrix
 - **Command:** `npx playwright test tests/e2e/responsive-matrix.spec.ts`
-- **Result:** Verified across 7 core application pages (`home`, `students`, `daily-diary`, `finance`, `admissions`, `settings`, `audit`) and 9 viewport breakpoints (320px to 1920px).
-- **Evidence:** `tests/fixtures/responsive-sweep-baseline.json` and `tests/visual-regression/snapshots/`.
+- **Result:** **FAIL** in observed run `40092919930`: 14 failures after retries. Logs expose dock-right overflow at 820px and other tablet widths. Follow-up changes to CSS and E2E setup exist on the audit branch but are not yet verified.
+- **Evidence:** [GitHub Actions run 40092919930](https://github.com/Nuke0140/pre1/actions/runs/40092919930), `tests/e2e/responsive-matrix.spec.ts`, `src/app/globals.css`.
 
 ### Gate 05: Authentication & OTP Security
 - **Command:** `bun test tests/auth/otp-verification.test.ts`
@@ -90,6 +90,6 @@ NOT READY — CONFIRMED BLOCKERS
 ```
 
 ### Justification
-While the immediate CI failure (F-001) is resolved and verified, and all critical P0 security vulnerabilities (Demo OTP bypass, unauthenticated payment webhook, report-card runtime crash) have been repaired and verified with repeatable tests, the application cannot be responsibly released to production until:
+The initial contract-test assertion is fixed and the listed focused security regression suites reported passing. However, the full responsive workflow remains failing at the Playwright stage. PreOne cannot be responsibly released to production until:
 1. **TypeScript compilation errors (890 errors across 194 files)** are resolved or systematically isolated, and
 2. `typescript.ignoreBuildErrors: true` is eliminated so CI fails on broken types.
