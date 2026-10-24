@@ -3,7 +3,7 @@
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at commit `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Current Audit Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD:** `dbe3284ae495808d7e5530010a8a710385059bda` (profile-probe follow-up pending CI verification)  
+**Current Audit HEAD:** `ee5b82bcfc6bed7546a6cb9aa6ef660faf20ffa2` (contract fix pending CI verification)  
 **Author:** Independent Release Readiness & Architecture Auditor
 
 ---
@@ -145,11 +145,11 @@ The contract-test failure described above is fixed, but the responsive workflow 
 - The workflow already runs `scripts/seed-responsive-ci.ts`, so the incompatible test-level import was removed on the audit branch. A route guard was added to fail if an `/app/...` route redirects away, rather than accidentally measuring the login screen.
 - A compact-dock CSS rule for 641–1023px was added on the audit branch. These changes have **not yet been executed in CI**, so they remain unverified.
 
-### 5.3 Actual status after the first follow-up fix
-- PR CI run `40095860373` completed with overall conclusion SUCCESS. Contract suite, Inventory ESLint, Next.js build, Playwright, and artifact upload steps were successful.
-- Playwright reported `62 passed` and one failure: `settings @ 1024-tablet-landscape`, with `Profile / Sign-out button is clipped or not reachable ... "not found"`. This exposed an over-broad profile assertion at a breakpoint where the tested selector is absent; the test needs to align with the actual responsive header contract without weakening the overflow checks.
-- A follow-up change on the audit branch scopes the profile-reachability requirement to viewport widths >=1280px and retains the overflow probes at all 63 page/viewport combinations. This follow-up commit has not yet been rerun in CI.
-- Next.js logs still say `Skipping validation of types`; build success is not a TypeScript pass. The TypeScript release blocker remains open.
+### 5.3 Follow-up CI status and next correction
+- PR CI run `40095860373` completed with overall conclusion SUCCESS, but Playwright had `62 passed` and one failed case: `settings @ 1024-tablet-landscape`, where the profile selector was not found. The dock overflow at 768/820px no longer appears in the logged failure list; the shared dock compaction appears to have resolved that failure mode in this run.
+- A follow-up changed profile reachability to require the control at widths >=1280 while preserving the overflow probes for all 63 combinations.
+- The next run `40096312078` then failed the contract test because `tests/design-system/responsive-transformation.test.ts` still expected the old literal `requireProfile: true`. That contract assertion has now been aligned to `requireProfile: vp.width >= 1280` on the audit branch.
+- Current updated branch needs another workflow run. Next.js still prints `Skipping validation of types`; successful build does not clear the TypeScript release blocker.
 
 ## 6. Remaining CI & Build Hardening Recommendations
 
