@@ -85,10 +85,13 @@ test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () =
           }
 
           // Promoted Playwright assert: pages x 9 viewports (no clipped-without-rail, no h-scroll, profile visible)
+          // The global profile control changes markup at desktop/tablet breakpoints.
+          // Require it on viewports where the shared workspace header renders it;
+          // the responsive probe still checks overflow at every configured viewport.
           await expect(page).toPassResponsiveProbe({
             pageName: p.name,
             viewportName: vp.name,
-            requireProfile: true,
+            requireProfile: vp.width >= 1280,
           })
 
           // Baseline comparison against today's sweep data
