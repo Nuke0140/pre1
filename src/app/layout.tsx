@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import PreHydration from "@/components/PreHydration";
 import { GlobalScrollbar } from "@/components/scrollbar/GlobalScrollbar";
 import "./globals.css";
+import "./typography.css";
 
 export const metadata: Metadata = {
   title: "PreOne — Preschool Operating System",
