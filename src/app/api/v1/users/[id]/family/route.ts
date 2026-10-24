@@ -291,6 +291,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
         actorId: (session as any).userId || session.uid,
         actorName: session.name,
         actorRole: session.role,
+        actorRoles: session.roles,
         actorBranchId: session.branchId,
         reqMeta: {
           ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || undefined,
@@ -330,6 +331,9 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     }
     if (err.message?.includes('not found')) {
       return notFound(err.message)
+    }
+    if (err.message?.includes('Unauthorized') || err.message?.includes('another campus branch')) {
+      return forbidden(err.message)
     }
     return serverError(err.message)
   }

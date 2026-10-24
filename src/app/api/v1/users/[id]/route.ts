@@ -1485,10 +1485,51 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
 
   try {
     if (!member && targetGuardian) {
-      await db.guardian.update({
-        where: { id: targetGuardian.id },
-        data: { deletedAt: new Date() },
+      let deleteBody: any = {}
+      try {
+        deleteBody = await req.json()
+      } catch {}
+      const searchParams = req.nextUrl.searchParams
+      const alternateGuardianId =
+        deleteBody.alternateGuardianId ||
+        deleteBody.nominateAlternateId ||
+        searchParams.get('alternateGuardianId') ||
+        searchParams.get('nominateAlternateId')
+      const alternateUserId =
+        deleteBody.alternateUserId || searchParams.get('alternateUserId')
+      const alternateGuardiansByStudent = deleteBody.alternateGuardiansByStudent
+
+      const guardCheck = await PrimaryContactGuard.checkDeactivationSafety({
+        tenantId: session.tenantId,
+        userId: targetGuardian.id,
+        targetStatus: 'INACTIVE',
+        action: 'delete',
+        alternateGuardianId,
+        alternateUserId,
+        nominateAlternateId: alternateGuardianId,
+        alternateGuardiansByStudent,
       })
+
+      if (!guardCheck.safe) {
+        return fail(
+          guardCheck.code || 'PRIMARY_CONTACT_DEACTIVATION_BLOCKED',
+          guardCheck.error || 'Cannot deactivate primary contact without nominating an alternate contact',
+          409,
+          undefined,
+          { affectedStudents: guardCheck.affectedStudents }
+        )
+      }
+
+      await db.$transaction(async (tx) => {
+        if (guardCheck.transfers && guardCheck.transfers.length > 0) {
+          await PrimaryContactGuard.executeTransfers(tx, session.tenantId!, guardCheck.transfers)
+        }
+        await tx.guardian.update({
+          where: { id: targetGuardian.id },
+          data: { deletedAt: new Date() },
+        })
+      })
+
       await recordAudit({
         tenantId: session.tenantId,
         actorId: session.uid,

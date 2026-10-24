@@ -11,17 +11,58 @@ export const GET = withApi(async (req: NextRequest) => {
     throw errPermission('Tenant context required')
   }
 
+  const url = new URL(req.url)
+  const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
+
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  )
+
+  let effectiveBranchId: string | undefined = undefined
+  if (!isInstitutionWide && session.branchId) {
+    if (branchFilter && branchFilter !== session.branchId) {
+      throw errPermission('Access denied: branch scope restricted')
+    }
+    effectiveBranchId = session.branchId
+  } else if (branchFilter && branchFilter !== 'ALL') {
+    effectiveBranchId = branchFilter
+  }
+
+  const whereClause: any = {
+    tenantId: session.tenantId,
+    deletedAt: null,
+  }
+
+  if (effectiveBranchId) {
+    whereClause.studentLinks = {
+      some: {
+        student: {
+          tenantId: session.tenantId,
+          branchId: effectiveBranchId,
+          deletedAt: null,
+        },
+      },
+    }
+  }
+
   const guardians = await db.guardian.findMany({
-    where: {
-      tenantId: session.tenantId,
-      deletedAt: null,
-    },
+    where: whereClause,
     include: {
       user: { select: { id: true, email: true, status: true } },
       studentLinks: {
+        where: effectiveBranchId
+          ? {
+              student: {
+                tenantId: session.tenantId,
+                branchId: effectiveBranchId,
+                deletedAt: null,
+              },
+            }
+          : undefined,
         include: {
           student: {
-            select: { id: true, firstName: true, lastName: true, admissionNo: true },
+            select: { id: true, firstName: true, lastName: true, admissionNo: true, branchId: true },
           },
         },
       },

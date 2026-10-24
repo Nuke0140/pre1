@@ -52,7 +52,10 @@ async function executeExport(req: NextRequest, params: ExportParams) {
     const { userIds, role, branchId, status, userType, search } = params
 
     // Enforce branch scope if session user is restricted to a specific branch
-    const isInstitutionWide = ['OWNER', 'PLATFORM_ADMIN'].includes(session.role)
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isInstitutionWide = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+    )
     let effectiveBranchId: string | undefined = undefined
     if (!isInstitutionWide && session.branchId) {
       if (branchId && branchId !== session.branchId) {

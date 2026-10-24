@@ -629,7 +629,7 @@ describe('PreOne Users Module: Field Simplification & HR Module Separation', () 
           currentAddress: 'Flat 402, Sunshine Heights, Pune',
           permanentAddress: '10 Palace Road, Mysore',
           panNumber: 'ABCDE1234F',
-          aadhaarNumber: '123456789012',
+          aadhaarNumber: '998877665548',
           uanNumber: '100900800700',
           esiNumber: '11223344556677889',
           noticePeriodDays: 60,
@@ -656,7 +656,7 @@ describe('PreOne Users Module: Field Simplification & HR Module Separation', () 
       // Verify StaffService.getStaff360 returns decrypted values for authorized UI
       const staff360 = await StaffService.getStaff360(tenant.id, staffProfile.id)
       expect(staff360.panNumber).toBe('ABCDE1234F')
-      expect(staff360.aadhaarNumber).toBe('123456789012')
+      expect(staff360.aadhaarNumber).toBe('998877665548')
       expect(staff360.uanNumber).toBe('100900800700')
       expect(staff360.esiNumber).toBe('11223344556677889')
       expect(staff360.currentAddress).toBe('Flat 402, Sunshine Heights, Pune')

@@ -288,7 +288,15 @@ export class UserCsvEngine {
   static async previewStaffCsv(
     tenantId: string,
     csvContent: string,
-    options?: { mode?: 'CREATE' | 'UPDATE'; overwrite?: boolean }
+    options?: {
+      mode?: 'CREATE' | 'UPDATE'
+      overwrite?: boolean
+      actorContext?: {
+        actorBranchId?: string | null
+        actorRole?: string
+        actorRoles?: string[]
+      }
+    }
   ): Promise<CsvPreviewResult & { invalidRows?: number; newUsers?: number; existingUsers?: number; errors?: any[] }> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
@@ -428,6 +436,10 @@ export class UserCsvEngine {
         }
       }
 
+      if (options?.actorContext?.actorBranchId && branchId && branchId !== options.actorContext.actorBranchId) {
+        errors.push('Cannot assign staff to another campus branch')
+      }
+
       // Check classroom assignment
       const rawClassroom = (r.classroomCode || r.classroom || r.assignedClassroom || '')?.trim()
       let classroomId: string | null = null
@@ -487,6 +499,39 @@ export class UserCsvEngine {
               errors.push('Failed to securely process initial password: fail closed')
             }
           }
+        }
+      }
+
+      // Statutory ID validation if present in CSV
+      const rawPan = (rows[i] as any)?.panNumber || (rows[i] as any)?.pan || (rows[i] as any)?.pannumber || (rows[i] as any)?.pan_number
+      if (rawPan) {
+        const panRes = validatePan(rawPan)
+        if (!panRes.valid && panRes.error) {
+          errors.push(panRes.error)
+        }
+      }
+
+      const rawAadhaar = (rows[i] as any)?.aadhaarNumber || (rows[i] as any)?.aadhaar || (rows[i] as any)?.aadhaarnumber || (rows[i] as any)?.aadhaar_number
+      if (rawAadhaar) {
+        const aadhaarRes = validateAadhaar(rawAadhaar)
+        if (!aadhaarRes.valid && aadhaarRes.error) {
+          errors.push(aadhaarRes.error)
+        }
+      }
+
+      const rawUan = (rows[i] as any)?.uanNumber || (rows[i] as any)?.uan || (rows[i] as any)?.uannumber || (rows[i] as any)?.uan_number
+      if (rawUan) {
+        const uanRes = validateUan(rawUan)
+        if (!uanRes.valid && uanRes.error) {
+          errors.push(uanRes.error)
+        }
+      }
+
+      const rawEsi = (rows[i] as any)?.esiNumber || (rows[i] as any)?.esi || (rows[i] as any)?.esinumber || (rows[i] as any)?.esi_number
+      if (rawEsi) {
+        const esiRes = validateEsi(rawEsi)
+        if (!esiRes.valid && esiRes.error) {
+          errors.push(esiRes.error)
         }
       }
 
@@ -562,7 +607,15 @@ export class UserCsvEngine {
    * Preview & Validation for Parent / Guardian CSV
    * Supports Multi-Child linking, authoritative student resolution, and enforces strict Max 2 Parents rule
    */
-  static async previewFamilyCsv(tenantId: string, csvContent: string): Promise<CsvPreviewResult> {
+  static async previewFamilyCsv(
+    tenantId: string,
+    csvContent: string,
+    actorContext?: {
+      actorBranchId?: string | null
+      actorRole?: string
+      actorRoles?: string[]
+    }
+  ): Promise<CsvPreviewResult> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
 
@@ -708,6 +761,10 @@ export class UserCsvEngine {
       let isAlreadyLinked = false
 
       if (isExistingChild) {
+        if (actorContext?.actorBranchId && targetStudent.branchId !== actorContext.actorBranchId) {
+          errors.push('Cannot link student belonging to another campus branch')
+        }
+
         // Mismatch checks — Do NOT silently overwrite existing student data!
         if (studentName) {
           const dbFullName = `${targetStudent.firstName} ${targetStudent.lastName || ''}`.trim().toLowerCase()
@@ -784,10 +841,46 @@ export class UserCsvEngine {
         if (classInput && !classroomMap.has(classInput)) {
           errors.push(`Student class "${classInput}" not found in this school`)
         }
+        if (actorContext?.actorBranchId && branchInput && branchMap.get(branchInput) !== actorContext.actorBranchId) {
+          errors.push('Cannot create student in another campus branch')
+        }
       }
 
-      const branchId = branchInput ? branchMap.get(branchInput) || null : null
+      const branchId = branchInput ? branchMap.get(branchInput) || null : (actorContext?.actorBranchId || null)
       const classroom = classInput ? classroomMap.get(classInput) || null : null
+
+      // Statutory ID validation if present in CSV
+      const rawPan = (rows[i] as any)?.panNumber || (rows[i] as any)?.pan || (rows[i] as any)?.pannumber || (rows[i] as any)?.pan_number
+      if (rawPan) {
+        const panRes = validatePan(rawPan)
+        if (!panRes.valid && panRes.error) {
+          errors.push(panRes.error)
+        }
+      }
+
+      const rawAadhaar = (rows[i] as any)?.aadhaarNumber || (rows[i] as any)?.aadhaar || (rows[i] as any)?.aadhaarnumber || (rows[i] as any)?.aadhaar_number
+      if (rawAadhaar) {
+        const aadhaarRes = validateAadhaar(rawAadhaar)
+        if (!aadhaarRes.valid && aadhaarRes.error) {
+          errors.push(aadhaarRes.error)
+        }
+      }
+
+      const rawUan = (rows[i] as any)?.uanNumber || (rows[i] as any)?.uan || (rows[i] as any)?.uannumber || (rows[i] as any)?.uan_number
+      if (rawUan) {
+        const uanRes = validateUan(rawUan)
+        if (!uanRes.valid && uanRes.error) {
+          errors.push(uanRes.error)
+        }
+      }
+
+      const rawEsi = (rows[i] as any)?.esiNumber || (rows[i] as any)?.esi || (rows[i] as any)?.esinumber || (rows[i] as any)?.esi_number
+      if (rawEsi) {
+        const esiRes = validateEsi(rawEsi)
+        if (!esiRes.valid && esiRes.error) {
+          errors.push(esiRes.error)
+        }
+      }
 
       const isBlocked = errors.length > 0
       const isLinkAction = isMultiChildLink || Boolean(userInDb)
@@ -896,7 +989,14 @@ export class UserCsvEngine {
    * Supports atomic rollback option for strict enterprise migrations and async progress reporting.
    */
   static async executeStaffImport(
-    ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
+    ctx: {
+      tenantId: string
+      actorId?: string
+      actorName?: string
+      actorRole?: string
+      actorRoles?: string[]
+      actorBranchId?: string | null
+    },
     rows: CsvPreviewRow[],
     options?: {
       atomicAllOrNothing?: boolean
@@ -1073,6 +1173,8 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorRoles: ctx.actorRoles,
+                actorBranchId: ctx.actorBranchId,
               },
               rowData as any,
               tx
@@ -1144,6 +1246,8 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorRoles: ctx.actorRoles,
+              actorBranchId: ctx.actorBranchId,
             },
             rowData as any
           )
@@ -1195,7 +1299,14 @@ export class UserCsvEngine {
    * Executes validated Family CSV rows in safe transactional chunks.
    */
   static async executeFamilyImport(
-    ctx: { tenantId: string; actorId?: string; actorName?: string; actorRole?: string },
+    ctx: {
+      tenantId: string
+      actorId?: string
+      actorName?: string
+      actorRole?: string
+      actorRoles?: string[]
+      actorBranchId?: string | null
+    },
     rows: CsvPreviewRow[],
     options?: {
       atomicAllOrNothing?: boolean
@@ -1227,6 +1338,8 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorRoles: ctx.actorRoles,
+                actorBranchId: ctx.actorBranchId,
               },
               row.data as any
             )
@@ -1285,6 +1398,8 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorRoles: ctx.actorRoles,
+              actorBranchId: ctx.actorBranchId,
             },
             row.data as any
           )

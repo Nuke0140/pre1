@@ -46,7 +46,7 @@ export async function requireApi(
   }
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  let hasPermission = !permission || can(effectiveRoles, permission)
+  let hasPermission = !permission || can(effectiveRoles, permission) || Boolean(session.permissions?.includes(permission as any))
   if (!hasPermission && permission && session.tenantId) {
     const dynamicPerms = await RbacEngine.resolveEffectivePermissions({
       userId: session.uid,
@@ -169,8 +169,10 @@ export async function requireCanManageUser(
   })
 
   if (targetMember) {
-    const isActorOwnerOrPlatform =
-      session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+    const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
+    const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
 
     // Non-owners cannot modify OWNER users
     if (targetMember.role === 'OWNER' && !isActorOwnerOrPlatform) {
@@ -180,8 +182,7 @@ export async function requireCanManageUser(
     // Non-owners/principals cannot modify PRINCIPAL accounts
     if (
       targetMember.role === 'PRINCIPAL' &&
-      !isActorOwnerOrPlatform &&
-      session.role !== 'PRINCIPAL'
+      !isInstitutionWide
     ) {
       return forbidden('You do not have permission to modify principal accounts')
     }
@@ -191,8 +192,7 @@ export async function requireCanManageUser(
       session.branchId &&
       targetMember.branchId &&
       session.branchId !== targetMember.branchId &&
-      !isActorOwnerOrPlatform &&
-      session.role !== 'PRINCIPAL'
+      !isInstitutionWide
     ) {
       return forbidden('Cannot manage users belonging to another campus branch')
     }
@@ -244,10 +244,12 @@ export async function requireCanManageUser(
   }
 
   // Branch boundary check for guardian (check if any linked student belongs to actor's branch)
-  const isActorOwnerOrPlatform =
-    session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+  const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
+  const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
 
-  if (session.branchId && !isActorOwnerOrPlatform && session.role !== 'PRINCIPAL') {
+  if (session.branchId && !isInstitutionWide) {
     const hasBranchAccess = targetGuardian.studentLinks.some(
       (sl) => sl.student.branchId === session.branchId
     )
@@ -266,11 +268,13 @@ export function requireCanAssignRole(
   session: SessionPayload,
   targetRoles: UserRole[]
 ): Response | null {
-  const isOwnerOrPlatform =
-    session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+  const isPrincipal = effectiveRoles.includes('PRINCIPAL')
 
-  const actorRole = normalizeRole(session.role)
-  const actorLevel = ROLE_META[actorRole]?.hierarchyLevel ?? 0
+  const actorLevel = Math.max(
+    ...effectiveRoles.map((r) => ROLE_META[normalizeRole(r)]?.hierarchyLevel ?? 0)
+  )
 
   for (const r of targetRoles) {
     if (r === 'PLATFORM_ADMIN') {
@@ -282,7 +286,7 @@ export function requireCanAssignRole(
     if (
       r === 'PRINCIPAL' &&
       !isOwnerOrPlatform &&
-      session.role !== 'PRINCIPAL'
+      !isPrincipal
     ) {
       return forbidden('Only owners and principals can assign PRINCIPAL role')
     }

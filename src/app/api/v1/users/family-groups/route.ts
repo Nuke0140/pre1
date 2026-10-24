@@ -50,10 +50,16 @@ async function _GET(req: NextRequest) {
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '24', 10)))
 
     // If session is branch-scoped and not owner/principal, enforce branchFilter
-    const effectiveBranchFilter =
-      session.role === 'OWNER' || session.role === 'PRINCIPAL' || session.role === 'PLATFORM_ADMIN'
-        ? branchFilter
-        : session.branchId || branchFilter
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isInstitutionWide = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+    )
+
+    if (!isInstitutionWide && session.branchId && branchFilter && branchFilter !== session.branchId) {
+      return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
+    }
+
+    const effectiveBranchFilter = isInstitutionWide ? branchFilter : (session.branchId || branchFilter)
 
     // 1. Fetch all student-guardian links
     const allLinks = await db.studentGuardian.findMany({

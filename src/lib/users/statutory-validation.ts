@@ -133,10 +133,10 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     }
   }
 
-  if (clean[0] === '0') {
+  if (clean[0] === '0' || clean[0] === '1') {
     return {
       valid: false,
-      error: 'Invalid Aadhaar number: cannot start with 0',
+      error: 'Invalid Aadhaar number: cannot start with 0 or 1',
     }
   }
 
@@ -145,6 +145,14 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     return {
       valid: false,
       error: 'Invalid Aadhaar number: cannot be all identical digits',
+    }
+  }
+
+  // Verhoeff checksum validation
+  if (!validateVerhoeff(clean)) {
+    return {
+      valid: false,
+      error: 'Invalid Aadhaar number: failed Verhoeff checksum validation',
     }
   }
 

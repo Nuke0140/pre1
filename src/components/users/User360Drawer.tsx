@@ -48,7 +48,7 @@ function fmtLocalDate(d?: string | null) {
   }
 }
 
-export function User360Drawer({ open, onClose, user, onEdit, onStatusChange }: User360DrawerProps) {
+export function User360Drawer({ open, onClose, user, onEdit, onStatusChange, onDelete }: User360DrawerProps) {
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'RELATIONSHIPS' | 'SECURITY' | 'DOCUMENTS' | 'ACTIVITY'>('OVERVIEW')
   const [staffDocuments, setStaffDocuments] = useState<any[]>([])
