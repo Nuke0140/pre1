@@ -46,7 +46,8 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
       const pills = await Bun.file('src/components/preone/ClassroomFilterPills.tsx').text()
       expect(students).toContain('ClassroomFilterPills')
       expect(pills).toContain('touch-pan-x')
-      expect(pills).toContain('overflow-x-auto')
+      expect(pills).toContain('cfp-container')
+      expect(pills).toContain('Auto-scroll selected pill into view smoothly')
     })
   })
 
@@ -267,15 +268,16 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
     })
 
     it('keeps Finance and Admissions filter controls constrained', async () => {
-      const files = await Promise.all([
-        Bun.file('src/app/app/fees/page.tsx').text(),
-        Bun.file('src/app/app/admissions/applications/page.tsx').text(),
-        Bun.file('src/app/app/admissions/enquiries/page.tsx').text(),
-        Bun.file('src/app/app/admissions/follow-ups/page.tsx').text(),
-        Bun.file('src/app/app/admissions/page.tsx').text(),
-        Bun.file('src/components/admissions/AdmissionsShell.tsx').text(),
-        Bun.file('src/app/globals.css').text(),
-      ])
+      const paths = [
+        'src/app/app/fees/page.tsx',
+        'src/app/app/admissions/applications/page.tsx',
+        'src/app/app/admissions/enquiries/page.tsx',
+        'src/app/app/admissions/follow-ups/page.tsx',
+        'src/app/app/admissions/page.tsx',
+        'src/components/admissions/AdmissionsShell.tsx',
+        'src/app/globals.css',
+      ]
+      const files = await Promise.all(paths.map((path) => Bun.file(path).text()))
       for (const file of files.slice(0, 6)) expect(file).toContain('max-w-full min-w-0')
       expect(files[6]).toContain('.flex-wrap select')
       expect(files[6]).toContain('text-overflow: ellipsis;')
@@ -284,8 +286,9 @@ describe('PreOne Responsive Transformation v1.0 Test Suite', () => {
     it('keeps inventory layouts constrained on narrow viewports', async () => {
       const inventory = await Bun.file('src/app/app/inventory/InventoryClient.tsx').text()
       const css = await Bun.file('src/app/globals.css').text()
-      expect(inventory).toContain('min-w-0 max-w-full')
+      expect(inventory).toContain('w-full max-w-full min-w-0')
       expect(inventory).toContain('flex flex-wrap gap-2')
+      expect(inventory).toContain('card w-full max-w-full min-w-0 overflow-hidden')
       expect(css).toContain('.card{')
       expect(css).toContain('box-sizing: border-box;')
     })
