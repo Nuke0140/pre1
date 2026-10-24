@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-24  
 **Audit Baseline:** `main` at `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
-**Current Audit Branch:** `audit/whole-product-2026-10-24`  
+**Current Audit Branch:** `audit/whole-product-2026-10-24` (latest follow-up changes pending CI verification)  
 **Status Standard:**
 - `CONFIRMED`: Reproduced or directly supported by empirical evidence.
 - `FIXED`: Correction implemented in code.
@@ -168,6 +168,19 @@
 - **Remaining Risk:** Elevated XSS impact if a stored XSS vulnerability were to exist in client templates.
 
 ---
+
+
+### F-011: Responsive Playwright Matrix Fails at Tablet Widths
+- **Category:** UI / Responsive QA / CI
+- **Severity:** P1 (Release gate blocker)
+- **Affected Files:** `.github/workflows/responsive-matrix.yml`, `tests/e2e/responsive-matrix.spec.ts`, `tests/e2e/responsive-probe.ts`, `src/app/globals.css`, `src/components/shell/BottomNav.tsx`, `src/components/shell/DockDateTime.tsx`
+- **Status:** **OPEN — fix implemented on audit branch, NOT YET VERIFIED**
+- **Evidence:** [Workflow run 40092919930](https://github.com/Nuke0140/pre1/actions/runs/40092919930) has unit contract PASS (32 tests), ESLint PASS, build PASS with type validation skipped, but Playwright fails with 14 cases after retries.
+- **Observed Behavior:** At 820×1180, `.dock-zone-right`, `.dock-datetime`, `.dock-dt-text`, and `.dock-time` spill past the viewport; observed right edges include 869px and 890px for an 820px viewport. Similar failures occur across multiple pages, implicating the shared dock layout.
+- **Test Setup Evidence:** The same run logs `SyntaxError: Cannot use import statement outside a module` from the test worker dynamically importing `src/lib/db.ts`. The previous catch logged and ignored the issue. CI already runs `scripts/seed-responsive-ci.ts`.
+- **Changes on Audit Branch:** Tablet dock compaction CSS for 641–1023px; removed the incompatible test-worker Prisma import; added a guard to throw if an app route redirects elsewhere.
+- **Verification:** NOT RUN after these changes. Do not label the matrix fixed until a current CI run passes.
+- **Next Action:** Run the responsive workflow on the updated branch, inspect any remaining failing probes, and fix the shared responsive layout without weakening the probe.
 
 ### F-010: Responsive Matrix Automated Browser Coverage Limited to Chromium
 - **Category:** QA Automation & Cross-Browser
