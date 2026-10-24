@@ -4,7 +4,7 @@
 **Repository:** https://github.com/Nuke0140/pre1  
 **Reviewed Baseline:** `main` at `3792b8fe92a8813dc65b36194bf2ffe518263d60`  
 **Audit & Remediation Branch:** `audit/whole-product-2026-10-24`  
-**Current Audit HEAD SHA:** `bf5e6ce`  
+**Current Audit HEAD SHA:** `731d70ae14de232b807f459ed04e035481931fc5` (responsive follow-up fixes pending CI verification)  
 **Auditor Roles:** Principal Software Architect, Senior Full-Stack Engineer, AppSec Engineer, QA Automation Lead, DevOps/SRE Engineer, Release Readiness Auditor
 
 ---
@@ -23,7 +23,7 @@ NOT READY — CONFIRMED BLOCKERS
 PreOne contains substantial enterprise-grade domain features, mature security primitives (bcrypt password hashing, JOSE session tokens, fine-grained RBAC with 11 roles, cryptographic signed transport QR tokens, timing-safe webhook HMAC verification, and branch-scoped data isolation).
 
 During this audit:
-1. **The primary CI blocker (F-001)** on `.github/workflows/responsive-matrix.yml` was diagnosed and verified fixed.
+1. **The initial unit-contract failure (F-001)** was corrected: the stale assertion now expects `[metrics, items]`. In run `40092919930`, the focused unit test, Inventory ESLint, and Next.js build passed.
 2. **Three Critical P0 Security Defects** were discovered, remediated, and verified with automated test suites:
    - **Production Demo OTP Bypass (F-003):** Eliminated an exploitable authentication bypass where accounts matching `sunshine`, `demo`, `owner`, or `admin` could be compromised via `0000` in production.
    - **Unauthenticated Payment Webhook & Tenant Spoofing (F-004):** Implemented timing-safe HMAC-SHA256 signature verification and authoritative database tenant resolution.
@@ -45,7 +45,7 @@ Despite the resolution of all immediate runtime and CI blockers, PreOne **cannot
 | **G-01** | Dependencies | Clean installation via `npm ci` | Clean, 0 vulnerability warnings | **PASS** |
 | **G-02** | CI Unit Contract | `responsive-transformation.test.ts` (32 tests) | 32 pass, 0 fail, 408 expectations | **PASS — VERIFIED** |
 | **G-03** | ESLint Guard | `npx eslint src/app/app/inventory/InventoryClient.tsx` | Exit 0, 0 errors, 0 warnings | **PASS — VERIFIED** |
-| **G-04** | Responsive Matrix | 7 pages × 9 viewports (63 combinations) | All 63 baseline probe assertions pass | **PASS — VERIFIED** |
+| **G-04** | Responsive Matrix | 7 pages × 9 viewports (63 combinations) | Run `40092919930` failed with 14 Playwright cases; shared dock overflow observed at tablet widths | **FAIL — OPEN** |
 | **G-05** | Auth & Demo OTP | Production fail-closed; no unauthorized bypass | 21 pass, 0 fail, 112 expectations | **PASS — VERIFIED** |
 | **G-06** | Payment Webhook | HMAC SHA-256 signature verification | 5 pass, 0 fail, 16 expectations | **PASS — VERIFIED** |
 | **G-07** | Academics Parent Route | Scoped report-card listing without 500 crash | 1 pass, 0 fail, 5 expectations | **PASS — VERIFIED** |
@@ -64,7 +64,7 @@ Despite the resolution of all immediate runtime and CI blockers, PreOne **cannot
 - **Failed Test:** `tests/design-system/responsive-transformation.test.ts:258` (`keeps Inventory hook imports and lint guards in CI`)
 - **Root Cause:** Refactoring in `fead26e` aligned `stockHealthRadarSummary` dependencies to `[metrics, items]` for React Compiler / ESLint inference. An unreviewed bulk commit `d7afc35` reverted line 258 of the test file to look for literal string `[metrics?.stockHealthRadar, items]`, causing a brittle false negative while production code remained compliant.
 - **Remediation:** Realigned test to expect `}, [metrics, items])`, provisioned PostgreSQL `postgres:16` service in CI, and added deterministic test fixture seeding (`scripts/seed-responsive-ci.ts`).
-- **Verification:** `bun test tests/design-system/responsive-transformation.test.ts` passed 32/32 tests; `npx eslint src/app/app/inventory/InventoryClient.tsx` exited 0.
+- **Verification:** Run `40092919930` shows the focused contract suite (32/32), Inventory ESLint, and Next.js build passed. The Playwright stage then failed with 14 failures; logs include dock elements extending to x=869–890px in an 820px viewport.
 
 ### 3.2 Demo OTP Security Remediation (P0)
 - **Vulnerability:** In `src/lib/auth/otp-service.ts`, `isDemoOtpAllowed` checked identifier string patterns before checking `NODE_ENV === 'production'`, and `verifyOtp` evaluated `(isDemoAllowed || isDemoAccount)`. This enabled any user with `sunshine` or `demo` in their email/username (or username `owner` / `admin`) to authenticate with code `0000` in production without any active OTP or rate limiting.
@@ -93,6 +93,14 @@ Despite the resolution of all immediate runtime and CI blockers, PreOne **cannot
 - **Remediation:** Defined `bad: (message: string, field?: string) => fail('BAD_REQUEST', message, 400, field)` in `src/lib/api.ts`.
 
 ---
+
+### 3.6 Responsive matrix follow-up failure (Run 40092919930)
+
+The initial unit-contract failure is fixed, but the full workflow is still failing at Playwright. The available logs show 14 failed test cases after retries and repeated layout-probe violations at tablet widths. At 820×1180, `.dock-zone-right` and `.dock-datetime` extend beyond the viewport (observed right edges include 869px and 890px).
+
+The same run logs a module-loading error from `await import('../../src/lib/db')` in the Playwright `beforeAll`: `Cannot use import statement outside a module`. The CI workflow already provisions fixtures via `scripts/seed-responsive-ci.ts`. On the audit branch, the test-level import was removed, a route guard was added to prevent accidentally auditing a login redirect, and tablet-width dock compaction CSS was added. These follow-up changes are **not yet CI-verified**.
+
+Next required verification: run the updated branch in GitHub Actions, investigate any remaining viewport failures, and only then close the responsive gate.
 
 ## 4. Re-Verification of Historical PreOne Audit Findings
 
