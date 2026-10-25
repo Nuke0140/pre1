@@ -1074,7 +1074,6 @@ export default function SetupPage() {
               <div className="field"><label>Code <span className="req">*</span></label><input className="input" name="code" required placeholder="KRM" /></div>
               <div className="field"><label>City</label><input className="input" name="city" placeholder="Bengaluru" /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
-              <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" placeholder="60" /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
@@ -1117,7 +1116,6 @@ export default function SetupPage() {
               <div className="field"><label>Code</label><input className="input" value={editingItem.code} disabled /></div>
               <div className="field"><label>City</label><input className="input" name="city" defaultValue={editingItem.city || ''} /></div>
               <div className="field"><label>Phone</label><input className="input" name="phone" defaultValue={editingItem.phone || ''} /></div>
-              <div className="field"><label>Capacity</label><input className="input" name="capacity" type="number" defaultValue={editingItem.capacity || ''} /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" defaultValue={editingItem.address || ''} /></div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
                 <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>

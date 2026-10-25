@@ -2,7 +2,7 @@
 .preone-buddy-live__button,.preone-buddy-live__bubble{pointer-events:auto}
 .preone-buddy-live__button{position:relative;display:grid;place-items:center;width:82px;height:82px;padding:0;border:1px solid rgba(129,99,255,.38);border-radius:24px;background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(238,233,255,.97));box-shadow:0 8px 28px rgba(49,25,120,.2);cursor:pointer;overflow:hidden}
 .preone-buddy-live__button:focus-visible{outline:3px solid #7c3aed;outline-offset:4px}
-.preone-buddy-live__animation,.preone-buddy-live__button img{width:100%;height:100%;object-fit:contain}
+.preone-buddy-live__animation,.preone-buddy-live__button img,.preone-buddy-live__button .preo-mascot-3d,.preone-buddy-live__button canvas{width:100%;height:100%;object-fit:contain;display:block}
 .preone-buddy-live__badge{position:absolute;right:1px;top:1px;display:grid;place-items:center;width:24px;height:24px;border:2px solid white;border-radius:50%;color:white;background:#6d28d9}
 .preone-buddy-live__bubble{display:flex;align-items:flex-start;gap:10px;max-width:min(280px,calc(100vw - 32px));padding:12px 12px 12px 14px;border:1px solid rgba(124,58,237,.18);border-radius:16px;color:#211344;background:rgba(255,255,255,.97);box-shadow:0 8px 30px rgba(30,20,60,.16);font-size:13px;line-height:1.45}
 .preone-buddy-live__bubble button{flex:0 0 auto;display:grid;place-items:center;padding:2px;color:#6b6280;background:transparent;border:0;cursor:pointer}

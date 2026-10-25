@@ -141,6 +141,28 @@ export interface CsvPreviewResult {
   rows: CsvPreviewRow[]
 }
 
+/**
+ * Helper to safely extract statutory identifier values across case variations and aliases
+ */
+function extractStatutoryValue(row: Record<string, any>, field: 'pan' | 'aadhaar' | 'uan' | 'esi'): string | undefined {
+  const aliases: Record<'pan' | 'aadhaar' | 'uan' | 'esi', string[]> = {
+    pan: ['pannumber', 'pan_number', 'pan', 'pancard', 'pan_card'],
+    aadhaar: ['aadhaarnumber', 'aadhaar_number', 'aadhaar', 'adhar', 'uidai'],
+    uan: ['uannumber', 'uan_number', 'uan', 'epf_uan'],
+    esi: ['esinumber', 'esi_number', 'esi', 'esic'],
+  }
+  const allowed = aliases[field]
+  for (const [key, val] of Object.entries(row)) {
+    if (val === undefined || val === null || val === '') continue
+    const cleanKey = key.replace(/^["']|["']$/g, '').trim().toLowerCase().replace(/[\s\-_]+/g, '')
+    if (allowed.includes(cleanKey)) {
+      const s = String(val).trim()
+      if (s) return s
+    }
+  }
+  return undefined
+}
+
 export class UserCsvEngine {
   /**
    * Generates downloadable Staff CSV template
@@ -348,6 +370,10 @@ export class UserCsvEngine {
       for (const k of unmappedKeys) {
         const hrCheck = isHrFieldHeader(k)
         if (hrCheck.isHr) {
+          // Statutory fields are validated and imported to StaffProfile, so they are not ignored
+          if (['panNumber', 'aadhaarNumber', 'uanNumber', 'esiNumber'].includes(hrCheck.fieldName || '')) {
+            continue
+          }
           hrFieldsFound.push(k)
         } else {
           trulyUnmapped.push(k)
@@ -503,35 +529,48 @@ export class UserCsvEngine {
       }
 
       // Statutory ID validation if present in CSV
-      const rawPan = (rows[i] as any)?.panNumber || (rows[i] as any)?.pan || (rows[i] as any)?.pannumber || (rows[i] as any)?.pan_number
+      let validPan: string | undefined = undefined
+      let validAadhaar: string | undefined = undefined
+      let validUan: string | undefined = undefined
+      let validEsi: string | undefined = undefined
+
+      const rawPan = extractStatutoryValue(rows[i], 'pan')
       if (rawPan) {
         const panRes = validatePan(rawPan)
         if (!panRes.valid && panRes.error) {
           errors.push(panRes.error)
+        } else if (panRes.valid && panRes.normalized) {
+          validPan = panRes.normalized
         }
       }
 
-      const rawAadhaar = (rows[i] as any)?.aadhaarNumber || (rows[i] as any)?.aadhaar || (rows[i] as any)?.aadhaarnumber || (rows[i] as any)?.aadhaar_number
+      const rawAadhaar = extractStatutoryValue(rows[i], 'aadhaar')
       if (rawAadhaar) {
         const aadhaarRes = validateAadhaar(rawAadhaar)
         if (!aadhaarRes.valid && aadhaarRes.error) {
           errors.push(aadhaarRes.error)
+        } else if (aadhaarRes.valid && aadhaarRes.normalized) {
+          validAadhaar = aadhaarRes.normalized
         }
       }
 
-      const rawUan = (rows[i] as any)?.uanNumber || (rows[i] as any)?.uan || (rows[i] as any)?.uannumber || (rows[i] as any)?.uan_number
+      const rawUan = extractStatutoryValue(rows[i], 'uan')
       if (rawUan) {
         const uanRes = validateUan(rawUan)
         if (!uanRes.valid && uanRes.error) {
           errors.push(uanRes.error)
+        } else if (uanRes.valid && uanRes.normalized) {
+          validUan = uanRes.normalized
         }
       }
 
-      const rawEsi = (rows[i] as any)?.esiNumber || (rows[i] as any)?.esi || (rows[i] as any)?.esinumber || (rows[i] as any)?.esi_number
+      const rawEsi = extractStatutoryValue(rows[i], 'esi')
       if (rawEsi) {
         const esiRes = validateEsi(rawEsi)
         if (!esiRes.valid && esiRes.error) {
           errors.push(esiRes.error)
+        } else if (esiRes.valid && esiRes.normalized) {
+          validEsi = esiRes.normalized
         }
       }
 
@@ -564,6 +603,10 @@ export class UserCsvEngine {
               password: encryptedPasswordToken ? '••••••••' : undefined,
               encryptedPassword: encryptedPasswordToken,
               status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
+              panNumber: validPan || undefined,
+              aadhaarNumber: validAadhaar || undefined,
+              uanNumber: validUan || undefined,
+              esiNumber: validEsi || undefined,
             },
           }
         })()
@@ -850,7 +893,7 @@ export class UserCsvEngine {
       const classroom = classInput ? classroomMap.get(classInput) || null : null
 
       // Statutory ID validation if present in CSV
-      const rawPan = (rows[i] as any)?.panNumber || (rows[i] as any)?.pan || (rows[i] as any)?.pannumber || (rows[i] as any)?.pan_number
+      const rawPan = extractStatutoryValue(rows[i], 'pan')
       if (rawPan) {
         const panRes = validatePan(rawPan)
         if (!panRes.valid && panRes.error) {
@@ -858,7 +901,7 @@ export class UserCsvEngine {
         }
       }
 
-      const rawAadhaar = (rows[i] as any)?.aadhaarNumber || (rows[i] as any)?.aadhaar || (rows[i] as any)?.aadhaarnumber || (rows[i] as any)?.aadhaar_number
+      const rawAadhaar = extractStatutoryValue(rows[i], 'aadhaar')
       if (rawAadhaar) {
         const aadhaarRes = validateAadhaar(rawAadhaar)
         if (!aadhaarRes.valid && aadhaarRes.error) {
@@ -866,7 +909,7 @@ export class UserCsvEngine {
         }
       }
 
-      const rawUan = (rows[i] as any)?.uanNumber || (rows[i] as any)?.uan || (rows[i] as any)?.uannumber || (rows[i] as any)?.uan_number
+      const rawUan = extractStatutoryValue(rows[i], 'uan')
       if (rawUan) {
         const uanRes = validateUan(rawUan)
         if (!uanRes.valid && uanRes.error) {
@@ -874,7 +917,7 @@ export class UserCsvEngine {
         }
       }
 
-      const rawEsi = (rows[i] as any)?.esiNumber || (rows[i] as any)?.esi || (rows[i] as any)?.esinumber || (rows[i] as any)?.esi_number
+      const rawEsi = extractStatutoryValue(rows[i], 'esi')
       if (rawEsi) {
         const esiRes = validateEsi(rawEsi)
         if (!esiRes.valid && esiRes.error) {
