@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Briefcase, Building, Mail, Phone, User, Shield, Check, Key,
   Calendar, GraduationCap, Sparkles, RefreshCw, Layers, Award,
@@ -57,6 +57,9 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   const [reportingManagerId, setReportingManagerId] = useState('')
   const [classroomId, setClassroomId] = useState('')
   const [panNumber, setPanNumber] = useState('')
+  const [panError, setPanError] = useState<string | null>(null)
+  const [panTouched, setPanTouched] = useState(false)
+  const nextLockRef = useRef(false)
   const [aadhaarNumber, setAadhaarNumber] = useState('')
   const [uanNumber, setUanNumber] = useState('')
   const [esiNumber, setEsiNumber] = useState('')
@@ -292,6 +295,8 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     setReportingManagerId('')
     setClassroomId('')
     setPanNumber('')
+    setPanError(null)
+    setPanTouched(false)
     setAadhaarNumber('')
     setUanNumber('')
     setEsiNumber('')
@@ -326,11 +331,20 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
     }
 
     if (panNumber.trim()) {
+      setPanTouched(true)
       const panRes = validatePan(panNumber)
       if (!panRes.valid) {
+        setPanError(panRes.error || 'Invalid PAN format')
         toast.error('Validation Error', panRes.error || 'Invalid PAN format')
         return false
+      } else {
+        setPanError(null)
+        if (panRes.normalized && panRes.normalized !== panNumber) {
+          setPanNumber(panRes.normalized)
+        }
       }
+    } else {
+      setPanError(null)
     }
 
     if (aadhaarNumber.trim()) {
@@ -361,6 +375,12 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
   }
 
   const handleNext = () => {
+    if (nextLockRef.current) return
+    nextLockRef.current = true
+    setTimeout(() => {
+      nextLockRef.current = false
+    }, 400)
+
     if (step === 1) {
       if (validateStep1()) setStep(2)
     } else if (step === 2) {
@@ -477,7 +497,7 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
           joiningDate: joiningDate || undefined,
           reportingManagerId: reportingManagerId || undefined,
           classroomId: isTeacher && classroomId ? classroomId : undefined,
-          panNumber: panNumber.trim().toUpperCase() || undefined,
+          panNumber: panNumber.trim() ? (validatePan(panNumber).normalized || panNumber.trim().toUpperCase()) : undefined,
           aadhaarNumber: aadhaarNumber.trim() || undefined,
           uanNumber: uanNumber.trim() || undefined,
           esiNumber: esiNumber.trim() || undefined,
@@ -1113,17 +1133,60 @@ export function AddStaffModal({ open, onClose, branches, classrooms, onSuccess }
 
                   {/* PAN Number */}
                   <div className="field">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                      PAN Number (Tax ID)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                        PAN Number (Tax ID)
+                      </label>
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Format: ABCDE1234F
+                      </span>
+                    </div>
                     <input
                       type="text"
-                      maxLength={10}
                       placeholder="ABCDE1234F"
                       value={panNumber}
-                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
-                      className="input w-full text-xs mt-1 uppercase font-mono"
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase()
+                        setPanNumber(val)
+                        if (panTouched) {
+                          if (!val.trim()) {
+                            setPanError(null)
+                          } else {
+                            const res = validatePan(val)
+                            setPanError(res.valid ? null : (res.error || 'Invalid PAN format'))
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        setPanTouched(true)
+                        if (panNumber.trim()) {
+                          const res = validatePan(panNumber)
+                          if (!res.valid) {
+                            setPanError(res.error || 'Invalid PAN format')
+                          } else {
+                            setPanError(null)
+                            if (res.normalized && res.normalized !== panNumber) {
+                              setPanNumber(res.normalized)
+                            }
+                          }
+                        } else {
+                          setPanError(null)
+                        }
+                      }}
+                      className={`input w-full text-xs mt-1 uppercase font-mono transition-colors ${
+                        panError
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                          : panNumber.trim() && !panError && validatePan(panNumber).valid
+                          ? 'border-emerald-500 focus:border-emerald-500'
+                          : ''
+                      }`}
                     />
+                    {panError && (
+                      <span className="text-[11px] text-red-500 flex items-center gap-1 mt-1 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{panError}</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Aadhaar Number */}

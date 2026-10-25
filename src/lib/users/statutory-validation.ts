@@ -72,7 +72,7 @@ export interface StatutoryValidationResult {
  * Format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F).
  */
 export function validatePan(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
+  if (val === undefined || val === null) {
     return { valid: true }
   }
 
@@ -83,14 +83,13 @@ export function validatePan(val?: string | null): StatutoryValidationResult {
 
   const clean = String(val).trim().toUpperCase()
 
-  if (clean.length !== 10) {
-    return {
-      valid: false,
-      error: 'PAN must be exactly 10 alphanumeric characters (e.g. ABCDE1234F)',
-    }
+  // Blank or whitespace-only is valid for optional field
+  if (clean === '') {
+    return { valid: true }
   }
 
-  if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(clean)) {
+  // Official Indian PAN format: 5 letters, 4 digits, 1 letter (exactly 10 chars)
+  if (clean.length !== 10 || !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(clean)) {
     return {
       valid: false,
       error: 'Invalid PAN format. Must be 5 letters, 4 digits, and 1 letter (e.g. ABCDE1234F)',

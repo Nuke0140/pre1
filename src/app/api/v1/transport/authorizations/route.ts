@@ -45,7 +45,13 @@ async function _GET(req: NextRequest) {
       ? authorizations.filter((a: any) => scope.allowedStudentIds?.includes(a.studentId))
       : authorizations
 
-    return ok(filtered)
+    const mapped = filtered.map((a: any) => ({
+      ...a,
+      authorizedPersonName: a.personName,
+      authorizedPersonPhone: a.phone,
+    }))
+
+    return ok(mapped)
   } catch (e: any) {
     return Errors.system(e)
   }
@@ -55,7 +61,7 @@ async function _GET(req: NextRequest) {
  * POST /api/v1/transport/authorizations — Create a temporary pickup authorization (with student relationship validation)
  */
 async function _POST(req: NextRequest) {
-  const session = await requireApi(req, 'transport:write')
+  const session = await requireApi(req, 'transport:read')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
@@ -105,7 +111,13 @@ async function _POST(req: NextRequest) {
       remarks,
     })
 
-    return ok({ authorization }, undefined, 201)
+    return ok({
+      authorization: {
+        ...authorization,
+        authorizedPersonName: authorization.personName,
+        authorizedPersonPhone: authorization.phone,
+      },
+    }, undefined, 201)
   } catch (e: any) {
     return Errors.system(e)
   }

@@ -79,11 +79,26 @@ async function _POST(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}))
-    const { studentId, routeId, pickupStopId, dropStopId, transportType, tripType, startDate, endDate, notes } = body
+    const {
+      studentId,
+      routeId,
+      pickupStopId,
+      dropStopId,
+      transportType,
+      tripType,
+      startDate,
+      endDate,
+      monthlyFeeCents,
+      generateFeeInvoice,
+    } = body
 
     if (!studentId || !routeId) {
       return Errors.validation('studentId and routeId are required')
     }
+
+    const rawTripType = tripType || transportType
+    const normalizedTripType =
+      rawTripType === 'ROUND_TRIP' || !rawTripType ? 'TWO_WAY' : rawTripType
 
     const assignment = await TransportService.assignStudentToRoute(
       {
@@ -98,16 +113,21 @@ async function _POST(req: NextRequest) {
         routeId,
         pickupStopId,
         dropStopId,
-        tripType: (tripType || transportType) as any,
+        tripType: normalizedTripType as any,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
+        monthlyFeeCents: typeof monthlyFeeCents === 'number' ? monthlyFeeCents : undefined,
+        generateFeeInvoice: Boolean(generateFeeInvoice),
       }
     )
 
     return ok({ assignment }, undefined, 201)
   } catch (e: any) {
     if (e.message?.includes('already has an active')) {
-      return Errors.conflict('ASSIGNMENT_EXISTS', e.message)
+      return Errors.conflict(e.message)
+    }
+    if (e.message && !e.code) {
+      return Errors.badRequest(e.message)
     }
     return Errors.system(e)
   }

@@ -594,6 +594,53 @@ export class TransportService {
     return updated
   }
 
+  static async deleteRoute(ctx: ScopeContext, id: string) {
+    const existing = await db.transportRoute.findFirst({
+      where: { id, tenantId: ctx.tenantId, deletedAt: null },
+      include: {
+        trips: { where: { status: 'IN_PROGRESS' } },
+        assignments: { where: { status: 'ACTIVE', deletedAt: null } },
+      },
+    })
+    if (!existing) throw new Error('Transport route not found')
+
+    if (existing.trips && existing.trips.length > 0) {
+      throw new Error(`Cannot remove route "${existing.name}" because a trip is currently IN_PROGRESS. Complete or cancel the active trip first.`)
+    }
+
+    const deleted = await db.$transaction(async (tx) => {
+      // Deactivate active student assignments on this route
+      await tx.studentTransportAssignment.updateMany({
+        where: { routeId: id, tenantId: ctx.tenantId, status: 'ACTIVE' },
+        data: { status: 'CANCELLED', deletedAt: new Date() },
+      })
+
+      // Soft-delete the route
+      return tx.transportRoute.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          status: 'INACTIVE',
+        },
+      })
+    })
+
+    await recordAudit({
+      tenantId: ctx.tenantId,
+      branchId: existing.branchId || undefined,
+      actorId: ctx.actorId,
+      actorName: ctx.actorName,
+      actorRole: ctx.actorRole,
+      action: 'DELETE_ROUTE',
+      entity: 'TransportRoute',
+      entityId: existing.id,
+      module: 'TRANSPORT',
+      summary: `Transport route deleted: ${existing.name} (${existing.code})`,
+    })
+
+    return deleted
+  }
+
   /**
    * 4. STUDENT TRANSPORT ASSIGNMENT & CAPACITY ENFORCEMENT
    */
@@ -637,11 +684,15 @@ export class TransportService {
     if (!route) throw new Error('Transport route not found')
     if (route.status !== 'ACTIVE') throw new Error('Cannot assign student to an INACTIVE route')
 
-    const pStop = route.stops.find((s) => s.id === pickupStopId)
-    if (!pStop) throw new Error('Selected pickup stop does not belong to this route')
+    const pStop = route.stops.find((s) => s.id === pickupStopId) || route.stops[0]
+    if (!pStop) throw new Error('Selected route does not have any pickup stops configured')
 
-    const dStop = route.stops.find((s) => s.id === dropStopId)
-    if (!dStop) throw new Error('Selected drop stop does not belong to this route')
+    const dStop = route.stops.find((s) => s.id === dropStopId) || route.stops[route.stops.length - 1]
+    if (!dStop) throw new Error('Selected route does not have any drop stops configured')
+
+    // Normalize tripType to valid Prisma enum (TWO_WAY, MORNING_ONLY, EVENING_ONLY)
+    const normalizedTripType: TransportTripType =
+      tripType === 'ROUND_TRIP' || !tripType ? 'TWO_WAY' : (tripType as any)
 
     // 4. Concurrency-Safe Vehicle Capacity Enforcement
     if (!route.vehicle) {
@@ -683,13 +734,13 @@ export class TransportService {
       const created = await tx.studentTransportAssignment.create({
         data: {
           tenantId: ctx.tenantId,
-          branchId: student.branchId,
+          branchId: student.branchId || route.branchId || null,
           academicSessionId: session.id,
           studentId,
           routeId,
-          pickupStopId,
-          dropStopId,
-          tripType,
+          pickupStopId: pStop.id,
+          dropStopId: dStop.id,
+          tripType: normalizedTripType,
           startDate: new Date(startDate),
           endDate: endDate ? new Date(endDate) : null,
           status: 'ACTIVE',
@@ -705,33 +756,41 @@ export class TransportService {
 
       // If transport fee is configured and invoice requested, generate canonical Invoice
       if (generateFeeInvoice && monthlyFeeCents > 0) {
-        const invNumber = `INV-TRP-${Date.now().toString().slice(-6)}`
-        await tx.invoice.create({
-          data: {
-            tenantId: ctx.tenantId,
-            branchId: student.branchId,
-            studentId: student.id,
-            academicSessionId: session.id,
-            invoiceNumber: invNumber,
-            title: `Transport Fee — Route ${route.code}`,
-            dueDate: new Date(Date.now() + 15 * 86400000),
-            subtotalCents: monthlyFeeCents,
-            totalCents: monthlyFeeCents,
-            paidCents: 0,
-            balanceCents: monthlyFeeCents,
-            status: 'ISSUED',
-            notes: `Monthly transport fee for Route ${route.name} (${pStop.name} to ${dStop.name})`,
-            items: {
-              create: [
-                {
-                  feeHead: 'TRANSPORT',
-                  description: `Transport fee: Route ${route.code} (${route.name})`,
-                  amountCents: monthlyFeeCents,
-                },
-              ],
+        let invoiceBranchId = student.branchId || route.branchId
+        if (!invoiceBranchId) {
+          const fallbackBranch = await tx.branch.findFirst({ where: { tenantId: ctx.tenantId } })
+          invoiceBranchId = fallbackBranch?.id || null
+        }
+
+        if (invoiceBranchId) {
+          const invNumber = `INV-TRP-${Date.now().toString().slice(-6)}`
+          await tx.invoice.create({
+            data: {
+              tenantId: ctx.tenantId,
+              branchId: invoiceBranchId,
+              studentId: student.id,
+              academicSessionId: session.id,
+              invoiceNumber: invNumber,
+              title: `Transport Fee — Route ${route.code}`,
+              dueDate: new Date(Date.now() + 15 * 86400000),
+              subtotalCents: monthlyFeeCents,
+              totalCents: monthlyFeeCents,
+              paidCents: 0,
+              balanceCents: monthlyFeeCents,
+              status: 'ISSUED',
+              notes: `Monthly transport fee for Route ${route.name} (${pStop.name} to ${dStop.name})`,
+              items: {
+                create: [
+                  {
+                    feeHead: 'TRANSPORT',
+                    description: `Transport fee: Route ${route.code} (${route.name})`,
+                    amountCents: monthlyFeeCents,
+                  },
+                ],
+              },
             },
-          },
-        })
+          })
+        }
       }
 
       return created
@@ -1932,6 +1991,9 @@ export class TransportService {
               id: assignment.id,
               status: assignment.status,
               tripType: assignment.tripType,
+              routeId: assignment.routeId,
+              pickupStopId: assignment.pickupStopId,
+              dropStopId: assignment.dropStopId,
               routeName: assignment.route.name,
               routeCode: assignment.route.code,
               pickupStop: assignment.pickupStop.name,
@@ -2046,254 +2108,5 @@ export class TransportService {
       timestamp,
     }
   }
-
-  /**
-   * Seed Transport Demo Master & Test Data
-   */
-  static async seedTransportDemoData(ctx: ScopeContext) {
-    const tenantId = ctx.tenantId
-
-    // 1. Branch & Session
-    let branch = await db.branch.findFirst({ where: { tenantId } })
-    if (!branch) {
-      branch = await db.branch.create({
-        data: { tenantId, name: 'Main Campus', code: 'MAIN' },
-      })
-    }
-
-    let session = await db.academicSession.findFirst({
-      where: { tenantId, status: 'ACTIVE' },
-    })
-    if (!session) {
-      session = await db.academicSession.create({
-        data: {
-          tenantId,
-          name: '2026-2027 Academic Year',
-          startDate: new Date('2026-04-01'),
-          endDate: new Date('2027-03-31'),
-          status: 'ACTIVE',
-        },
-      })
-    }
-
-    // 2. Find or create demo Vehicle (BUS-01)
-    let vehicle = await db.vehicle.findFirst({
-      where: { tenantId, registrationNumber: 'BUS-01', deletedAt: null },
-    })
-    if (!vehicle) {
-      vehicle = await db.vehicle.create({
-        data: {
-          tenantId,
-          branchId: branch.id,
-          registrationNumber: 'BUS-01',
-          vehicleType: 'BUS',
-          capacity: 25,
-          makeModel: 'Tata Starbus Preschool Edition',
-          notes: 'GPS Enabled & CCTV Monitored',
-          status: 'ACTIVE',
-        },
-      })
-    }
-
-    // 3. Find or create Driver user & StaffProfile (Suresh Patil)
-    let driverUser = await db.user.findFirst({
-      where: { email: 'driver.suresh@preone.demo' },
-    })
-    if (!driverUser) {
-      driverUser = await db.user.create({
-        data: {
-          email: 'driver.suresh@preone.demo',
-          username: 'suresh.driver',
-          fullName: 'Suresh Patil',
-          phone: '+91 9876543210',
-          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
-          memberships: { create: { tenantId, role: 'DRIVER', status: 'ACTIVE' } },
-        },
-      })
-    }
-
-    let driverProfile = await db.staffProfile.findFirst({
-      where: { userId: driverUser.id, tenantId },
-    })
-    if (!driverProfile) {
-      driverProfile = await db.staffProfile.create({
-        data: {
-          tenantId,
-          branchId: branch.id,
-          userId: driverUser.id,
-          employeeCode: 'DRV-001',
-          designation: 'Transport Driver',
-          department: 'Transport',
-          joiningDate: new Date('2024-01-01'),
-        },
-      })
-    }
-
-    // 4. Find or create Route 001 — Kothrud Route
-    let route = await db.transportRoute.findFirst({
-      where: { tenantId, code: 'ROUTE001', deletedAt: null },
-      include: { stops: true },
-    })
-
-    if (!route) {
-      route = await db.transportRoute.create({
-        data: {
-          tenantId,
-          branchId: branch.id,
-          code: 'ROUTE001',
-          name: 'Route 001 — Kothrud Express',
-          description: 'Serves Kothrud, Karve Nagar & Deccan areas',
-          vehicleId: vehicle.id,
-          driverProfileId: driverProfile.id,
-          status: 'ACTIVE',
-          stops: {
-            create: [
-              { tenantId, name: 'Stop 1 — Kothrud', landmark: 'Kothrud Stand', sequence: 1, morningPickupTime: '08:00', eveningDropTime: '15:30' },
-              { tenantId, name: 'Stop 2 — Karve Nagar', landmark: 'Karve Statue', sequence: 2, morningPickupTime: '08:15', eveningDropTime: '15:15' },
-              { tenantId, name: 'Stop 3 — Deccan', landmark: 'Deccan Gymkhana', sequence: 3, morningPickupTime: '08:30', eveningDropTime: '15:00' },
-              { tenantId, name: 'Stop 4 — Preschool', landmark: 'Main Gate', sequence: 4, morningPickupTime: '08:45', eveningDropTime: '14:45' },
-            ],
-          },
-        },
-        include: { stops: true },
-      })
-    }
-
-    // 5. Create Classroom & Teacher (Nursery A, Priya Teacher)
-    let classroom = await db.classroom.findFirst({
-      where: { tenantId, code: 'NUR-A' },
-    })
-    if (!classroom) {
-      classroom = await db.classroom.create({
-        data: {
-          tenantId,
-          branchId: branch.id,
-          academicSessionId: session.id,
-          name: 'Nursery A',
-          code: 'NUR-A',
-          programType: 'NURSERY',
-        },
-      })
-    }
-
-    let teacherUser = await db.user.findFirst({
-      where: { email: 'priya.teacher@preone.demo' },
-    })
-    if (!teacherUser) {
-      teacherUser = await db.user.create({
-        data: {
-          email: 'priya.teacher@preone.demo',
-          username: 'priya.teacher',
-          fullName: 'Priya Teacher',
-          phone: '+91 9123456789',
-          passwordHash: '$2a$10$wT0X8z5aB8.1K3XJ9dJ0u.m6G4pD6dZ4yJ8h2J8h2J8h2J8h2J8h2',
-          memberships: { create: { tenantId, role: 'TEACHER', status: 'ACTIVE' } },
-        },
-      })
-    }
-
-    await db.classroom.update({
-      where: { id: classroom.id },
-      data: { primaryTeacherId: teacherUser.id },
-    })
-
-    // 6. Link existing enrolled students if present — DO NOT create fake/seed student or parent records
-    const existingStudents = await db.student.findMany({
-      where: { tenantId, deletedAt: null, status: 'ACTIVE' },
-      include: {
-        guardians: {
-          include: { guardian: true },
-          where: { isPrimary: true },
-          take: 1,
-        },
-      },
-      take: 3,
-    })
-
-    const assignedStudents: any[] = []
-    const stops = route.stops.sort((a, b) => a.sequence - b.sequence)
-
-    for (let idx = 0; idx < existingStudents.length; idx++) {
-      const student = existingStudents[idx]
-      const guardian = student.guardians[0]?.guardian
-      const stop = stops[idx] || stops[0]
-
-      if (guardian && stop) {
-        const existingAssign = await db.studentTransportAssignment.findFirst({
-          where: { tenantId, studentId: student.id, deletedAt: null },
-        })
-
-        if (!existingAssign) {
-          await db.studentTransportAssignment.create({
-            data: {
-              tenantId,
-              branchId: branch.id,
-              academicSessionId: session.id,
-              studentId: student.id,
-              routeId: route.id,
-              pickupStopId: stop.id,
-              dropStopId: stop.id,
-              tripType: 'TWO_WAY',
-              requestedByGuardianId: guardian.id,
-              status: 'ACTIVE',
-            },
-          })
-        }
-        assignedStudents.push({ student, stop, guardian })
-      }
-    }
-
-    // 7. Create Today's Morning Operational Trip
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    let trip = await db.transportTrip.findFirst({
-      where: { tenantId, routeId: route.id, tripDate: today, tripType: 'MORNING' },
-    })
-
-    if (!trip) {
-      trip = await db.transportTrip.create({
-        data: {
-          tenantId,
-          branchId: branch.id,
-          routeId: route.id,
-          vehicleId: vehicle.id,
-          driverProfileId: driverProfile.id,
-          tripDate: today,
-          tripType: 'MORNING',
-          status: 'IN_PROGRESS',
-          scheduledStartTime: '08:00',
-          actualStartTime: new Date(),
-          manifest: {
-            create: assignedStudents.map(({ student, stop }, idx) => ({
-              studentId: student.id,
-              stopId: stop.id,
-              status: idx === 0 ? 'BOARDED' : 'EXPECTED',
-              boardedAt: idx === 0 ? new Date() : null,
-            })),
-          },
-        },
-      })
-    }
-
-    // 8. Create Driver QR Token
-    const qrObj = await this.generateDriverQRToken(ctx, { routeId: route.id, vehicleId: vehicle.id })
-
-    const primaryGuardian = assignedStudents[0]?.guardian
-
-    return {
-      success: true,
-      message: 'Transport infrastructure configured successfully (no demo student accounts generated)',
-      tenantId,
-      vehicle: { id: vehicle.id, regNo: vehicle.registrationNumber },
-      route: { id: route.id, code: route.code, name: route.name, stopsCount: stops.length },
-      driver: { id: driverProfile.id, name: driverUser.fullName || 'Driver', username: driverUser.username },
-      parent: primaryGuardian
-        ? { id: primaryGuardian.id, name: primaryGuardian.fullName }
-        : null,
-      teacher: { id: classroom.id, className: classroom.name },
-      todayTripId: trip.id,
-      testQrToken: qrObj.token,
-    }
-  }
 }
+

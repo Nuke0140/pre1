@@ -67,5 +67,34 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
   }
 }
 
+/**
+ * DELETE /api/v1/transport/routes/[id] — Remove transport route
+ */
+async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireApi(req, 'transport:write')
+  if (isResponse(session)) return session
+  if (!session.tenantId) return Errors.forbidden('No tenant context')
+  const { id } = await params
+
+  try {
+    const deleted = await TransportService.deleteRoute(
+      {
+        tenantId: session.tenantId,
+        actorId: session.uid,
+        actorName: session.name,
+        actorRole: session.role,
+      },
+      id
+    )
+
+    return ok({ deleted: true, route: deleted })
+  } catch (e: any) {
+    if (e.message?.includes('not found')) return Errors.notFound(e.message)
+    return Errors.system(e)
+  }
+}
+
 export const GET = withApi(_GET)
 export const PATCH = withApi(_PATCH)
+export const DELETE = withApi(_DELETE)
+

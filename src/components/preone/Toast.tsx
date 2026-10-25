@@ -41,14 +41,24 @@ const ICONS: Record<ToastType, React.ReactNode> = {
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([])
   const idRef = useRef(1)
+  const activeKeysRef = useRef<Set<string>>(new Set())
 
   const push = useCallback((type: ToastType, title: string, body?: string, action?: ToastAction, duration?: number) => {
+    const key = `${type}:::${title}:::${body || ''}`
+    if (activeKeysRef.current.has(key)) {
+      return
+    }
+    activeKeysRef.current.add(key)
+
     const id = idRef.current++
     setItems((prev) => [...prev.slice(-4), { id, type, title, body, action, duration: action ? 8000 : duration }])
     const wait = action ? 8000 : (duration ?? 4200)
     setTimeout(() => {
       setItems((prev) => prev.map((t) => (t.id === id && !t.out ? { ...t, out: true } : t)))
-      setTimeout(() => setItems((prev) => prev.filter((t) => t.id !== id)), 280)
+      setTimeout(() => {
+        setItems((prev) => prev.filter((t) => t.id !== id))
+        activeKeysRef.current.delete(key)
+      }, 280)
     }, wait)
   }, [])
 
@@ -82,6 +92,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   style={{ marginTop: 8, padding: '3px 12px', fontSize: 12 }}
                   onClick={() => {
                     t.action!.onClick()
+                    activeKeysRef.current.delete(`${t.type}:::${t.title}:::${t.body || ''}`)
                     setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, out: true } : x)))
                     setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), 280)
                   }}
