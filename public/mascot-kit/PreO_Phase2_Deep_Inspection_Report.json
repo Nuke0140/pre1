@@ -1,0 +1,93 @@
+{
+  "file": "PreO_Explorer_Phase2_Prototype.glb",
+  "container_valid": true,
+  "mesh_count": 37,
+  "node_count": 57,
+  "animation_clip_names": [
+    "idle_breathe",
+    "wave_welcome",
+    "thinking",
+    "celebrate",
+    "sleep"
+  ],
+  "required_clip_names_present": true,
+  "animation_target_summary": [
+    {
+      "name": "idle_breathe",
+      "channel_count": 2,
+      "targets": [
+        {
+          "node": "chest",
+          "path": "rotation"
+        },
+        {
+          "node": "head",
+          "path": "rotation"
+        }
+      ]
+    },
+    {
+      "name": "wave_welcome",
+      "channel_count": 2,
+      "targets": [
+        {
+          "node": "forearm_L",
+          "path": "rotation"
+        },
+        {
+          "node": "upper_arm_L",
+          "path": "rotation"
+        }
+      ]
+    },
+    {
+      "name": "thinking",
+      "channel_count": 2,
+      "targets": [
+        {
+          "node": "forearm_L",
+          "path": "rotation"
+        },
+        {
+          "node": "head",
+          "path": "rotation"
+        }
+      ]
+    },
+    {
+      "name": "celebrate",
+      "channel_count": 3,
+      "targets": [
+        {
+          "node": "chest",
+          "path": "rotation"
+        },
+        {
+          "node": "upper_arm_L",
+          "path": "rotation"
+        },
+        {
+          "node": "upper_arm_R",
+          "path": "rotation"
+        }
+      ]
+    },
+    {
+      "name": "sleep",
+      "channel_count": 2,
+      "targets": [
+        {
+          "node": "chest",
+          "path": "rotation"
+        },
+        {
+          "node": "head",
+          "path": "rotation"
+        }
+      ]
+    }
+  ],
+  "mesh_has_skin_joint_and_weight_attributes": false,
+  "skins_count": 1,
+  "assessment": "Static structure inspection only; no Blender or browser playback was run. Meshes do not contain JOINTS_0/WEIGHTS_0 attributes, so this is not a vertex-skinned production rig."
+}
