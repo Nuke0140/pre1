@@ -47,21 +47,18 @@ describe('PRE1-BRANDING-002: Branding Configuration Enhancement & Global School 
       expect(schoolProfileApi).toContain('academicYearStartMonth')
     })
 
-    it('verifies the 4 primary configuration areas are present in Branding Configuration', async () => {
+    it('verifies the focused configuration areas are present in Branding Configuration and removed sections are absent', async () => {
       const pageCode = await Bun.file('src/app/app/setup/branding/page.tsx').text()
+      // Present sections
       expect(pageCode).toContain('1. Brand Colors')
-      expect(pageCode).toContain('2. Footer Settings')
-      expect(pageCode).toContain('3. Glow Settings')
-      expect(pageCode).toContain('4. School Logo')
-    })
+      expect(pageCode).toContain('2. Glow Settings')
+      expect(pageCode).toContain('3. School Logo')
 
-    it('verifies Workspace Layout and School Banner remain preserved and functional', async () => {
-      const pageCode = await Bun.file('src/app/app/setup/branding/page.tsx').text()
-      expect(pageCode).toContain('5. Workspace Layout')
-      expect(pageCode).toContain('WINDOWS_SHELL')
-      expect(pageCode).toContain('CLASSIC_SIDEBAR')
-      expect(pageCode).toContain('6. School Banner (Optional)')
-      expect(pageCode).toContain('handleBannerFileUpload')
+      // Removed sections per user request
+      expect(pageCode).not.toContain('Live Preview')
+      expect(pageCode).not.toContain('Footer Settings')
+      expect(pageCode).not.toContain('Workspace Layout')
+      expect(pageCode).not.toContain('School Banner (Optional)')
     })
   })
 
