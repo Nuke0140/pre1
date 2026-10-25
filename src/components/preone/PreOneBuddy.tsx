@@ -26,7 +26,7 @@ export function triggerBuddyReaction(reaction: Reaction, message?: string) {
   }
 }
 
-/** Uses the existing 83 KB embedded-image Lottie asset; animation work pauses when hidden/offscreen. */
+/** Animated Lottie mascot with a visible image fallback if animation loading fails. */
 export function PreOneBuddy() {
   const pathname = usePathname()
   const host = useRef<HTMLDivElement>(null)
@@ -35,6 +35,7 @@ export function PreOneBuddy() {
   const [message, setMessage] = useState(messages.welcome)
   const [open, setOpen] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(false)
+  const [animationFailed, setAnimationFailed] = useState(false)
   const [visible, setVisible] = useState(true)
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -52,18 +53,23 @@ export function PreOneBuddy() {
     let cancelled = false
     let instance: AnimationItem | null = null
     const start = async () => {
-      const lottie = (await import('lottie-web')).default
-      if (cancelled || !host.current) return
-      instance = lottie.loadAnimation({
-        container: host.current,
-        renderer: 'svg',
-        loop: true,
-        autoplay: false,
-        path: '/animations/home/preo_learning_mascot.json',
-        rendererSettings: { preserveAspectRatio: 'xMidYMid meet', progressiveLoad: true, hideOnTransparent: true },
-      })
-      animation.current = instance
-      if (visible && !document.hidden) instance.play()
+      try {
+        const lottie = (await import('lottie-web')).default
+        if (cancelled || !host.current) return
+        instance = lottie.loadAnimation({
+          container: host.current,
+          renderer: 'svg',
+          loop: true,
+          autoplay: false,
+          path: '/animations/home/preo_learning_mascot.json',
+          rendererSettings: { preserveAspectRatio: 'xMidYMid meet', progressiveLoad: true, hideOnTransparent: true },
+        })
+        animation.current = instance
+        instance.addEventListener('data_failed', () => setAnimationFailed(true))
+        if (visible && !document.hidden) instance.play()
+      } catch {
+        setAnimationFailed(true)
+      }
     }
     void start()
     return () => {
@@ -143,20 +149,16 @@ export function PreOneBuddy() {
       {open && (
         <div className="preone-buddy-live__bubble" role="status" aria-live="polite">
           <span>{message}</span>
-          <button type="button" onClick={() => setOpen(false)} aria-label="Dismiss Buddy message">
-            <X size={14} />
-          </button>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Dismiss Buddy message"><X size={14} /></button>
         </div>
       )}
       <button className="preone-buddy-live__button" type="button" onClick={toggle} aria-label="Open PreOne Buddy help" aria-expanded={open}>
-        {reducedMotion ? (
-          <img src="/animations/home/preo_learning_mascot.webp" alt="" width="88" height="88" loading="lazy" decoding="async" />
+        {reducedMotion || animationFailed ? (
+          <img src="/animations/home/preo_learning_mascot.webp" alt="PreOne Buddy" width="88" height="88" decoding="async" />
         ) : (
           <div className="preone-buddy-live__animation" ref={host} aria-hidden="true" />
         )}
-        <span className="preone-buddy-live__badge" aria-hidden="true">
-          <HelpCircle size={14} />
-        </span>
+        <span className="preone-buddy-live__badge" aria-hidden="true"><HelpCircle size={14} /></span>
       </button>
     </div>
   )
