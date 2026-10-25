@@ -16,9 +16,13 @@ async function _GET(req: NextRequest) {
   if (!session.tenantId) return Errors.forbidden('No tenant context')
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  const hasAccess = can(effectiveRoles, 'students:read') || can(effectiveRoles, 'academics:read')
+  const isParent = effectiveRoles.includes('PARENT') || effectiveRoles.includes('GUARDIAN')
+  const hasAccess =
+    can(effectiveRoles, 'students:read') ||
+    can(effectiveRoles, 'academics:read') ||
+    (isParent && can(effectiveRoles, 'reports:read'))
   if (!hasAccess) {
-    return Errors.forbidden('Missing permission: students:read or academics:read')
+    return Errors.forbidden('Missing permission: students:read, academics:read, or reports:read')
   }
 
   const { searchParams } = new URL(req.url)
@@ -44,17 +48,16 @@ async function _GET(req: NextRequest) {
   const limit = parseInt(searchParams.get('limit') || '50', 10)
 
   // Enforce parent-ward isolation: parents can ONLY see their canonical linked children's published reports
-  const isParent = effectiveRoles.includes('PARENT') || effectiveRoles.includes('GUARDIAN')
   const isStaff = effectiveRoles.some((r) =>
     ['PLATFORM_ADMIN', 'OWNER', 'PRINCIPAL', 'COORDINATOR', 'TEACHER', 'ACCOUNTS', 'ADMIN'].includes(r)
   )
 
   if (isParent && !isStaff) {
     // Validate actual Guardian-Student canonical relationship in database
-    const linkedGuardians = await db.guardianStudent.findMany({
+    const linkedGuardians = await db.studentGuardian.findMany({
       where: {
-        tenantId: session.tenantId,
         guardian: {
+          tenantId: session.tenantId,
           userId: session.uid,
           deletedAt: null,
         },
