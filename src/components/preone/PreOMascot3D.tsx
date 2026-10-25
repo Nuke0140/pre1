@@ -45,6 +45,7 @@ export function PreOMascot3D({
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [showReferenceFallback, setShowReferenceFallback] = useState(false)
 
   // Three.js internal references
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -147,17 +148,17 @@ export function PreOMascot3D({
     rimLight.position.set(0, 3, -3)
     scene.add(rimLight)
 
-    // Load Model (Checks for production model first, falls back to prototype)
+    // Only use the approved production asset. The prototype is intentionally not
+    // shown as a fallback because its blockout appearance does not match the
+    // approved PreO character reference.
     const loader = new GLTFLoader()
-    const candidateUrls = [
-      '/models/PreO_Explorer_Production.glb',
-      '/models/PreO_Explorer_Phase2_Prototype.glb',
-    ]
+    const candidateUrls = ['/models/PreO_Explorer_Production.glb']
 
     const tryLoad = (index: number) => {
       if (index >= candidateUrls.length) {
         if (!isDisposed) {
-          setLoadError('Failed to load mascot 3D model')
+          setLoadError(null)
+          setShowReferenceFallback(true)
           setLoading(false)
         }
         return
@@ -394,20 +395,55 @@ export function PreOMascot3D({
           />
         </div>
       )}
-      {loadError && (
+      {showReferenceFallback && (
         <div
+          className="preo-mascot-3d__reference-fallback"
           style={{
             position: 'absolute',
             inset: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 10,
-            color: '#9333ea',
-            textAlign: 'center',
-            padding: 4,
+            overflow: 'hidden',
+            background: 'linear-gradient(145deg, #ffffff 0%, #ede9fe 100%)',
+            borderRadius: 'inherit',
           }}
         >
+          <img
+            src="/images/preo_explorer_concept.jpg"
+            alt="PreO: The Explorer approved character reference; production 3D model is not installed yet"
+            draggable={false}
+            style={{
+              display: 'block',
+              width: 'auto',
+              height: '100%',
+              maxWidth: 'none',
+              aspectRatio: '0.52',
+              objectFit: 'cover',
+              objectPosition: 'left center',
+            }}
+          />
+          <span
+            style={{
+              position: 'absolute',
+              left: 6,
+              right: 6,
+              bottom: 5,
+              padding: '3px 5px',
+              borderRadius: 6,
+              background: 'rgba(30, 27, 75, 0.78)',
+              color: '#ffffff',
+              fontSize: 9,
+              lineHeight: 1.2,
+              textAlign: 'center',
+            }}
+          >
+            Reference preview · production 3D pending
+          </span>
+        </div>
+      )}
+      {loadError && !showReferenceFallback && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 10, color: '#9333ea', textAlign: 'center', padding: 4 }}>
           {loadError}
         </div>
       )}
