@@ -17,6 +17,7 @@ import {
 import { ProgramSeatSelector } from '@/components/admissions/ProgramSeatSelector'
 import { useAutosave } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
+import { useBranding } from '@/lib/branding-context'
 
 export interface AdditionalGuardian {
   id?: string
@@ -41,6 +42,7 @@ export interface StaffAdmissionFormModalProps {
   selectedBranchId: string
   selectedSessionId: string
   onSuccess: (app: any) => void
+  schoolName?: string
 }
 
 export function StaffAdmissionFormModal({
@@ -54,8 +56,11 @@ export function StaffAdmissionFormModal({
   selectedBranchId,
   selectedSessionId,
   onSuccess,
+  schoolName: propSchoolName,
 }: StaffAdmissionFormModalProps) {
   const toast = useToast()
+  const branding = useBranding()
+  const displaySchoolName = (propSchoolName || branding.schoolName || 'PreOne').trim()
   const [activeTab, setActiveTab] = useState<'school' | 'child' | 'parent' | 'guardians' | 'documents' | 'declarations'>('school')
   const [saving, setSaving] = useState(false)
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null)
@@ -700,7 +705,11 @@ export function StaffAdmissionFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={applicationId ? `Admission Dossier: ${applicationNumber || 'Application'}` : 'New Admission Application'}
+      title={
+        applicationId
+          ? `${displaySchoolName} — Admission Dossier: ${applicationNumber || 'Application'}`
+          : `${displaySchoolName} — New Admission Application`
+      }
       subtitle="Comprehensive child record, parent guardians, document checklist, and declarations"
       icon={<FileSpreadsheet size={20} className="text-primary" />}
       size="xl"
@@ -787,6 +796,19 @@ export function StaffAdmissionFormModal({
           {/* TAB 1: SCHOOL & SESSION */}
           {activeTab === 'school' && (
             <div className="space-y-3.5">
+              {/* Institution Identity Indicator */}
+              <div className="p-3 rounded-xl bg-primary/[0.04] border border-primary/20 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    Institution / School
+                  </div>
+                  <div className="text-sm font-bold text-foreground" data-testid="admission-school-name">
+                    {displaySchoolName}
+                  </div>
+                </div>
+                <Building2 className="w-5 h-5 text-primary/70 shrink-0" />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-semibold text-foreground flex items-center gap-1">

@@ -14,22 +14,16 @@ async function _GET(req: NextRequest) {
 
     if (code) {
       tenant = await db.tenant.findUnique({
-        where: { code },
+        where: { code, deletedAt: null },
       })
     }
 
-    // Fallback: If no code or not found, check if there is an active tenant in the system
-    if (!tenant) {
-      tenant = await db.tenant.findFirst({
-        where: { deletedAt: null },
-        orderBy: { createdAt: 'asc' },
-      })
-    }
-
+    // Fail-closed tenant isolation: If no code provided or no tenant found for that code,
+    // do NOT fall back to arbitrary database tenants. Return neutral PreOne default branding.
     if (!tenant) {
       return ok({
         ...PREONE_BRANDING_DEFAULTS,
-        schoolName: 'PreOne Preschool',
+        schoolName: 'PreOne',
         schoolCode: '',
       })
     }
@@ -39,7 +33,7 @@ async function _GET(req: NextRequest) {
   } catch {
     return ok({
       ...PREONE_BRANDING_DEFAULTS,
-      schoolName: 'PreOne Preschool',
+      schoolName: 'PreOne',
       schoolCode: '',
     })
   }

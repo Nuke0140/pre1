@@ -36,6 +36,15 @@ export function AuthBrand({
         )}
       </div>
 
+      {/* Prominent School Name Display */}
+      {schoolName && (
+        <div className="auth-stagger-2 mb-2 px-2" data-testid="auth-school-name">
+          <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white truncate max-w-sm mx-auto">
+            {schoolName}
+          </h2>
+        </div>
+      )}
+
       {/* Brand Tagline Badge */}
       {tagline && (
         <div className="auth-stagger-2 auth-tagline-badge flex justify-center">
