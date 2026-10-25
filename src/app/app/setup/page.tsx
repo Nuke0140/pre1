@@ -748,6 +748,8 @@ export default function SetupPage() {
                         ? '/app/setup/branding'
                         : s.key === 'templates'
                         ? '/app/setup/templates'
+                        : s.key === 'roles'
+                        ? '/app/setup/roles'
                         : `/app/setup/${s.key}`
                     }
                     name={s.label}
@@ -849,6 +851,8 @@ export default function SetupPage() {
                         ? '/app/setup/branding'
                         : s.key === 'templates'
                         ? '/app/setup/templates'
+                        : s.key === 'roles'
+                        ? '/app/setup/roles'
                         : `/app/setup/${s.key}`
                     }
                     name={s.label}
@@ -910,6 +914,8 @@ export default function SetupPage() {
                               ? '/app/setup/branding'
                               : s.key === 'templates'
                               ? '/app/setup/templates'
+                              : s.key === 'roles'
+                              ? '/app/setup/roles'
                               : `/app/setup/${s.key}`
                           }
                           name={s.label}

@@ -444,6 +444,13 @@ export const GET = withApi(async (req: NextRequest) => {
                 },
               },
             },
+            customRoles: {
+              include: {
+                customRole: {
+                  select: { id: true, name: true, code: true, capabilities: true, status: true },
+                },
+              },
+            },
             user: {
               include: {
                 taughtClasses: {
@@ -734,6 +741,11 @@ export const GET = withApi(async (req: NextRequest) => {
           : 'CONFIGURED'
       const maskedPassword = hasPassword ? '••••••••' : null
 
+      const customRoles = ((m as any).customRoles || [])
+        .map((cr: any) => cr.customRole)
+        .filter((cr: any) => cr && cr.status === 'ACTIVE')
+      const customRoleIds = customRoles.map((cr: any) => cr.id)
+
       return {
         id: m.id,
         userId: m.user.id,
@@ -745,6 +757,8 @@ export const GET = withApi(async (req: NextRequest) => {
         phone: m.user.phone,
         role: m.role,
         roles: assignedRoles,
+        customRoles,
+        customRoleIds,
         status: m.status,
         hasPassword,
         passwordStatus,
@@ -1198,7 +1212,7 @@ export const POST = withApi(async (req: NextRequest) => {
 
   // Validate branch boundary using centralized helper
   if (branchId) {
-    const branchErr = requireBranchAccess(session, branchId)
+    const branchErr = await requireBranchAccess(session, branchId)
     if (branchErr) return branchErr
 
     const branchExists = await db.branch.findFirst({
