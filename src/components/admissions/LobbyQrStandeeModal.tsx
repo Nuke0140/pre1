@@ -23,6 +23,7 @@ export interface LobbyQrStandeeModalProps {
   branchName?: string
   schoolName?: string
   academicSessionName?: string
+  logoUrl?: string | null
 }
 
 export function LobbyQrStandeeModal({
@@ -32,6 +33,7 @@ export function LobbyQrStandeeModal({
   branchName,
   schoolName = 'PreOne Preschool',
   academicSessionName,
+  logoUrl,
 }: LobbyQrStandeeModalProps) {
   const toast = useToast()
   const [copied, setCopied] = useState(false)
@@ -94,6 +96,16 @@ export function LobbyQrStandeeModal({
 
           {/* Standee Header */}
           <div className="space-y-1 mb-4">
+            {logoUrl && (
+              <div className="flex justify-center mb-2">
+                <img
+                  src={logoUrl}
+                  alt={schoolName}
+                  className="h-12 max-h-12 max-w-[180px] object-contain drop-shadow-xs rounded-lg"
+                  data-testid="lobby-qr-school-logo"
+                />
+              </div>
+            )}
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-primary/15 text-primary border border-primary/25">
               <Sparkles size={12} />
               <span>Welcome to Admissions</span>

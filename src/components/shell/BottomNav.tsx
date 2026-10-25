@@ -26,6 +26,7 @@ export interface BottomNavProps {
   onToggleMenu: () => void
   triggerRef: React.RefObject<HTMLButtonElement | null>
   className?: string
+  footerText?: string | null
 }
 
 interface ResolvedDockItem {
@@ -51,6 +52,7 @@ export function BottomNav({
   onToggleMenu,
   triggerRef,
   className = '',
+  footerText,
 }: BottomNavProps) {
   const { t } = useI18n()
 

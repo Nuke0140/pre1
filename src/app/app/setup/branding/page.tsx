@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Palette, Upload, RefreshCw, RotateCcw, Save, CheckCircle2,
   AlertTriangle, Eye, ArrowLeft, Building2, ExternalLink,
-  Trash2, Image as ImageIcon, Sparkles, Check, Monitor, Layout, FileText, Users, Lock, ChevronRight
+  Trash2, Image as ImageIcon, Sparkles, Check, Monitor, Layout, FileText, Users, Lock, ChevronRight, Layers
 } from 'lucide-react'
 import { PageHead, Skeleton, StatusBadge, Breadcrumbs, SetupScopeBadge } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -53,6 +53,8 @@ export default function BrandingPage() {
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
   const [isBannerCustom, setIsBannerCustom] = useState(false)
   const [glowConfig, setGlowConfig] = useState<ShellGlowConfig>(DEFAULT_SHELL_GLOW_CONFIG)
+  const [footerVisible, setFooterVisible] = useState(true)
+  const [footerText, setFooterText] = useState('')
 
   // File Upload Refs
   const logoFileInputRef = useRef<HTMLInputElement | null>(null)
@@ -80,6 +82,8 @@ export default function BrandingPage() {
         setLayout(d.layout || 'WINDOWS_SHELL')
         setBannerUrl(d.bannerUrl || null)
         setIsBannerCustom(Boolean(d.bannerUrl))
+        setFooterVisible(d.footerVisible !== false)
+        setFooterText(d.footerText || '')
 
         if (d.footerGlow) {
           setGlowConfig(d.footerGlow)
@@ -96,6 +100,8 @@ export default function BrandingPage() {
         setPrimaryColor(PREONE_BRANDING_DEFAULTS.primaryColor)
         setAccentColor(PREONE_BRANDING_DEFAULTS.accentColor)
         setLayout('WINDOWS_SHELL')
+        setFooterVisible(true)
+        setFooterText('')
         const stored = getStoredShellGlowConfig()
         setGlowConfig(stored)
       }
@@ -252,6 +258,11 @@ export default function BrandingPage() {
       return
     }
 
+    if (footerText && footerText.length > 120) {
+      toast.error('Invalid Footer Note', 'Custom footer text cannot exceed 120 characters.')
+      return
+    }
+
     setSaving(true)
     try {
       const payload = {
@@ -261,6 +272,8 @@ export default function BrandingPage() {
         bannerUrl: isBannerCustom ? bannerUrl : null,
         logoUrl: logoUrl || null,
         footerGlow: glowConfig,
+        footerVisible,
+        footerText: footerText.trim() || null,
       }
 
       const res = await fetch('/api/v1/setup/config/BRANDING', {
@@ -322,6 +335,8 @@ export default function BrandingPage() {
       setLayout('WINDOWS_SHELL')
       setBannerUrl(null)
       setIsBannerCustom(false)
+      setFooterVisible(true)
+      setFooterText('')
       setGlowConfig(DEFAULT_SHELL_GLOW_CONFIG)
       await saveShellGlowConfig(DEFAULT_SHELL_GLOW_CONFIG)
 
@@ -433,6 +448,10 @@ export default function BrandingPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <ImageIcon size={13} style={{ color: logoUrl ? 'var(--color-success, #10b981)' : 'var(--text-muted)' }} />
+              Logo: <strong style={{ color: 'var(--text-primary)' }}>{logoUrl ? 'Configured' : 'Default Mark'}</strong>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
               <span
                 style={{
                   width: 10,
@@ -466,7 +485,11 @@ export default function BrandingPage() {
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
               <Sparkles size={13} style={{ color: glowConfig.enabled ? 'var(--color-success, #10b981)' : 'var(--text-muted)' }} />
-              Footer Glow: <strong style={{ color: 'var(--text-primary)' }}>{glowConfig.enabled ? 'ON' : 'OFF'}</strong>
+              Glow: <strong style={{ color: 'var(--text-primary)' }}>{glowConfig.enabled ? 'ON' : 'OFF'}</strong>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
+              <Layers size={13} style={{ color: footerVisible ? 'var(--color-success, #10b981)' : 'var(--text-muted)' }} />
+              Footer: <strong style={{ color: 'var(--text-primary)' }}>{footerVisible ? 'Visible' : 'Hidden'}</strong>
             </span>
           </div>
         </div>
@@ -480,81 +503,16 @@ export default function BrandingPage() {
         ═══════════════════════════════════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* ── 1. Linked School Identity ── */}
-          <div
-            className="card"
-            style={{
-              padding: 20,
-              background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.04) 0%, rgba(59, 130, 246, 0.02) 100%)',
-              borderColor: 'rgba(124, 58, 237, 0.2)',
-              borderRadius: 14,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 12,
-                    backgroundColor: 'var(--card, #fff)',
-                    border: '1.5px solid rgba(124, 58, 237, 0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.08)',
-                  }}
-                >
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt="School Crest"
-                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                    />
-                  ) : (
-                    <Building2 size={24} style={{ color: 'var(--primary)' }} />
-                  )}
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
-                      {schoolName}
-                    </h3>
-                    {schoolCode && (
-                      <span className="badge b-neutral" style={{ fontSize: 11, fontWeight: 600 }}>
-                        {schoolCode}
-                      </span>
-                    )}
-                  </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>
-                    Institutional crest & legal identity are managed in Foundation setup.
-                  </p>
-                </div>
-              </div>
-
-              <a
-                href="/app/setup/school_profile"
-                className="btn btn-outline btn-sm"
-                style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, borderRadius: 8, whiteSpace: 'nowrap' }}
-              >
-                School Profile <ExternalLink size={12} />
-              </a>
-            </div>
-          </div>
-
-          {/* ── 2. Brand Colors & Floating Footer Dock Glow ── */}
+          {/* ── 1. Brand Colors ── */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Palette size={16} /> 2. Brand Colors &amp; Footer Glow
+                  <Palette size={16} /> 1. Brand Colors
                 </h3>
               </div>
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                Primary color applies to navigation and major buttons; accent color applies to highlights, badges, and the floating footer dock glow.
+                Primary color applies to navigation and major buttons; accent color applies to highlights and badges across portals.
               </p>
             </div>
 
@@ -753,27 +711,58 @@ export default function BrandingPage() {
                 )}
               </div>
             </div>
+          </div>
 
-            {/* ── Sub-feature: Floating Footer Dock Glow & Atmosphere (Edit Footer) ── */}
-            <div
-              style={{
-                marginTop: 20,
-                paddingTop: 16,
-                borderTop: '1px solid var(--border-subtle)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                <div>
-                  <h4 style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Sparkles size={15} style={{ color: 'var(--primary)' }} />
-                    Floating Footer Dock Glow &amp; Atmosphere
-                  </h4>
-                  <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-                    Configure the ambient outer glow and 1px gradient accent border on the floating bottom navigation dock.
-                  </p>
-                </div>
+          {/* ── 2. Footer Settings ── */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Layers size={16} /> 2. Footer Settings
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setFooterVisible(!footerVisible)}
+                  className={`btn btn-sm ${footerVisible ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ fontSize: 11.5, padding: '3px 12px', borderRadius: 999 }}
+                >
+                  {footerVisible ? 'Footer Dock: Visible' : 'Footer Dock: Hidden'}
+                </button>
+              </div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                Configure floating navigation dock visibility and custom institutional footer text / legal disclaimer for documents and portals.
+              </p>
+            </div>
 
-                {/* Footer Glow Toggle */}
+            <div className="field">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  Institutional Footer Note / Legal Disclaimer
+                </label>
+                <span style={{ fontSize: 11, color: footerText.length > 120 ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  {footerText.length}/120 characters
+                </span>
+              </div>
+              <input
+                className="input text-xs"
+                value={footerText}
+                maxLength={120}
+                onChange={(e) => setFooterText(e.target.value)}
+                placeholder="e.g. © 2026 PreOne Preschool • All rights reserved • Affiliated with CBSE"
+              />
+              <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '6px 0 0' }}>
+                Appears on printed receipts, downloadable documents, and parent portal footer area.
+              </p>
+            </div>
+          </div>
+
+          {/* ── 3. Glow Settings ── */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Sparkles size={16} /> 3. Glow Settings
+                </h3>
                 <button
                   type="button"
                   onClick={() => {
@@ -784,140 +773,286 @@ export default function BrandingPage() {
                   className={`btn btn-sm ${glowConfig.enabled ? 'btn-primary' : 'btn-outline'}`}
                   style={{ fontSize: 11.5, padding: '3px 12px', borderRadius: 999 }}
                 >
-                  {glowConfig.enabled ? 'Footer Glow: ON' : 'Footer Glow: OFF'}
+                  {glowConfig.enabled ? 'Glow: ON' : 'Glow: OFF'}
                 </button>
               </div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                Configure the ambient outer glow and 1px gradient accent border on the floating bottom navigation dock.
+              </p>
+            </div>
 
-              {glowConfig.enabled && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginTop: 12 }}>
-                  {/* Glow Intensity */}
-                  <div>
-                    <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
-                      Glow Intensity
-                    </label>
-                    <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
-                      {(['subtle', 'balanced', 'prominent'] as GlowIntensity[]).map((lvl) => (
-                        <button
-                          key={lvl}
-                          type="button"
-                          onClick={() => {
-                            const next = { ...glowConfig, intensity: lvl, applyTo: 'footer' as const }
-                            setGlowConfig(next)
-                            applyShellGlowToDom(next, primaryColor, accentColor)
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '4px 6px',
-                            fontSize: 11,
-                            fontWeight: glowConfig.intensity === lvl ? 700 : 500,
-                            borderRadius: 6,
-                            background: glowConfig.intensity === lvl ? 'var(--card)' : 'transparent',
-                            color: glowConfig.intensity === lvl ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            border: 'none',
-                            cursor: 'pointer',
-                            textTransform: 'capitalize',
-                          }}
-                        >
-                          {lvl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Glow Style */}
-                  <div>
-                    <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
-                      Glow Style
-                    </label>
-                    <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
-                      {(
-                        [
-                          { id: 'soft', label: 'Soft Aura' },
-                          { id: 'gradient', label: 'Gradient Line' },
-                          { id: 'edge-highlight', label: 'Edge Highlight' },
-                        ] as { id: GlowStyle; label: string }[]
-                      ).map((s) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => {
-                            const next = { ...glowConfig, style: s.id, applyTo: 'footer' as const }
-                            setGlowConfig(next)
-                            applyShellGlowToDom(next, primaryColor, accentColor)
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '4px 6px',
-                            fontSize: 11,
-                            fontWeight: glowConfig.style === s.id ? 700 : 500,
-                            borderRadius: 6,
-                            background: glowConfig.style === s.id ? 'var(--card)' : 'transparent',
-                            color: glowConfig.style === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
+            {glowConfig.enabled && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                {/* Glow Intensity */}
+                <div>
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
+                    Glow Intensity
+                  </label>
+                  <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
+                    {(['subtle', 'balanced', 'prominent'] as GlowIntensity[]).map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => {
+                          const next = { ...glowConfig, intensity: lvl, applyTo: 'footer' as const }
+                          setGlowConfig(next)
+                          applyShellGlowToDom(next, primaryColor, accentColor)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '4px 6px',
+                          fontSize: 11,
+                          fontWeight: glowConfig.intensity === lvl ? 700 : 500,
+                          borderRadius: 6,
+                          background: glowConfig.intensity === lvl ? 'var(--card)' : 'transparent',
+                          color: glowConfig.intensity === lvl ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          border: 'none',
+                          cursor: 'pointer',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {lvl}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              )}
 
-              {/* Interactive Mini Dock Mock within this section */}
+                {/* Glow Style */}
+                <div>
+                  <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6, display: 'block' }}>
+                    Glow Style
+                  </label>
+                  <div style={{ display: 'flex', gap: 4, background: 'var(--bg-subtle)', padding: 3, borderRadius: 8 }}>
+                    {(
+                      [
+                        { id: 'soft', label: 'Soft Aura' },
+                        { id: 'gradient', label: 'Gradient Line' },
+                        { id: 'edge-highlight', label: 'Edge Highlight' },
+                      ] as { id: GlowStyle; label: string }[]
+                    ).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          const next = { ...glowConfig, style: s.id, applyTo: 'footer' as const }
+                          setGlowConfig(next)
+                          applyShellGlowToDom(next, primaryColor, accentColor)
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: '4px 6px',
+                          fontSize: 11,
+                          fontWeight: glowConfig.style === s.id ? 700 : 500,
+                          borderRadius: 6,
+                          background: glowConfig.style === s.id ? 'var(--card)' : 'transparent',
+                          color: glowConfig.style === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Mini Dock Mock within this section */}
+            <div
+              style={{
+                marginTop: 14,
+                padding: '14px 16px',
+                borderRadius: 12,
+                background: 'var(--bg-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <div
+                className="taskbar preone-dock"
                 style={{
-                  marginTop: 14,
-                  padding: '14px 16px',
-                  borderRadius: 12,
-                  background: 'var(--bg-subtle)',
+                  height: 38,
+                  width: '100%',
+                  maxWidth: 290,
+                  borderRadius: 9999,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 12px',
+                  position: 'relative',
                 }}
               >
-                <div
-                  className="taskbar preone-dock"
-                  style={{
-                    height: 38,
-                    width: '100%',
-                    maxWidth: 290,
-                    borderRadius: 9999,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0 12px',
-                    position: 'relative',
-                  }}
-                >
-                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Home</span>
-                  <div className="dock-orb-container" style={{ margin: '0 4px' }}>
-                    <div
-                      className="dock-orb"
-                      style={{
-                        width: 32,
-                        height: 32,
-                        transform: 'translateY(-4px)',
-                        boxShadow: glowConfig.enabled
-                          ? `0 4px 14px -2px color-mix(in srgb, ${primaryColor} 50%, transparent)`
-                          : 'none',
-                      }}
-                    >
-                      <span style={{ width: 12, height: 12, borderRadius: '50%', background: primaryColor }} />
-                    </div>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Home</span>
+                <div className="dock-orb-container" style={{ margin: '0 4px' }}>
+                  <div
+                    className="dock-orb"
+                    style={{
+                      width: 32,
+                      height: 32,
+                      transform: 'translateY(-4px)',
+                      boxShadow: glowConfig.enabled
+                        ? `0 4px 14px -2px color-mix(in srgb, ${primaryColor} 50%, transparent)`
+                        : 'none',
+                    }}
+                  >
+                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: primaryColor }} />
                   </div>
-                  <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Settings</span>
                 </div>
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)' }}>Settings</span>
               </div>
             </div>
           </div>
 
-          {/* ── 3. Workspace Layout ── */}
+          {/* ── 4. School Logo ── */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ImageIcon size={16} /> 4. School Logo
+                </h3>
+                {logoUrl && (
+                  <span className="badge b-success" style={{ fontSize: 11, fontWeight: 700 }}>
+                    Active Logo
+                  </span>
+                )}
+              </div>
+              <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                Official institutional crest displayed on Login, Application Forms, Admission Dossiers, and Home Launcher.
+              </p>
+            </div>
+
+            <input
+              type="file"
+              ref={logoFileInputRef}
+              onChange={handleLogoFileUpload}
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+              style={{ display: 'none' }}
+            />
+
+            {logoUrl ? (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 20,
+                  borderRadius: 12,
+                  border: '1.5px solid var(--border-default)',
+                  background: 'var(--bg-subtle)',
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    maxHeight: 100,
+                    maxWidth: 240,
+                    padding: 8,
+                    borderRadius: 10,
+                    background: 'var(--card, #fff)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <img
+                    src={logoUrl}
+                    alt="School Crest"
+                    style={{ maxHeight: 84, maxWidth: 220, objectFit: 'contain' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm font-semibold"
+                    disabled={uploadingLogo}
+                    onClick={() => logoFileInputRef.current?.click()}
+                  >
+                    <Upload size={13} style={{ marginRight: 6 }} />
+                    {uploadingLogo ? 'Uploading Logo...' : 'Replace Logo'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm text-danger font-semibold"
+                    onClick={() => setRemoveLogoModalOpen(true)}
+                    style={{ color: 'var(--danger)' }}
+                  >
+                    <Trash2 size={13} style={{ marginRight: 4 }} /> Remove Logo
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 24,
+                  borderRadius: 12,
+                  border: '2px dashed var(--border-default)',
+                  background: 'var(--bg-subtle)',
+                  textAlign: 'center',
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    background: 'var(--card, #fff)',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <Building2 size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    No School Logo Configured
+                  </div>
+                  <p style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '3px 0 10px', maxWidth: 320 }}>
+                    Upload a PNG, JPG, WebP, or SVG logo (max 2MB). PreOne will display neutral institutional defaults when no logo is set.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm font-semibold"
+                  disabled={uploadingLogo}
+                  onClick={() => logoFileInputRef.current?.click()}
+                >
+                  <Upload size={13} style={{ marginRight: 6 }} />
+                  {uploadingLogo ? 'Uploading Logo...' : 'Upload School Logo'}
+                </button>
+              </div>
+            )}
+
+            <div style={{ marginTop: 14 }}>
+              <input
+                className="input text-xs"
+                placeholder="Or enter direct durable logo URL (https://.../logo.png)"
+                value={logoUrl || ''}
+                onChange={(e) => setLogoUrl(e.target.value.trim() || null)}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                Accepted formats: PNG, JPG, WebP, SVG. Max file size: 2MB. Stored durably in centralized cloud storage.
+              </div>
+            </div>
+          </div>
+
+          {/* ── 5. Workspace Layout ── */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
               <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
-                3. Workspace Layout
+                5. Workspace Layout
               </h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                 Select how staff navigate the PreOne Operating System.
@@ -976,11 +1111,11 @@ export default function BrandingPage() {
             </div>
           </div>
 
-          {/* ── 4. Banner / Visual (Optional) ── */}
+          {/* ── 6. School Banner (Optional) ── */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12, marginBottom: 16 }}>
               <h3 style={{ fontSize: 15, fontWeight: 750, color: 'var(--text-primary)', margin: 0 }}>
-                4. School Banner (Optional)
+                6. School Banner (Optional)
               </h3>
               <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
                 Used in parent portal hero headers and communication templates.
@@ -1266,7 +1401,7 @@ export default function BrandingPage() {
                   </div>
 
                   {/* PreOne Windows Shell Floating Dock with Glow */}
-                  {layout === 'WINDOWS_SHELL' && (
+                  {layout === 'WINDOWS_SHELL' && footerVisible && (
                     <div style={{ padding: '4px 12px 8px', display: 'flex', justifyContent: 'center', background: '#f3f4f6' }}>
                       <div
                         className="taskbar preone-dock"
@@ -1439,6 +1574,12 @@ export default function BrandingPage() {
                       <span>Total Paid</span>
                       <span>₹45,000</span>
                     </div>
+
+                    {footerText && (
+                      <div style={{ marginTop: 10, paddingTop: 6, borderTop: '1px solid #f3f4f6', fontSize: 9.5, color: '#6b7280', textAlign: 'center' }}>
+                        {footerText}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

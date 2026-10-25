@@ -361,7 +361,7 @@ export function AppShell({
       {false && nav.slice(0, 5).map((n) => n.href === '/app/home' ? pathname === '/app/home' : pathname.startsWith(n.href))}
 
       {/* ── Global Bottom Navigation / PreOne Dock ── */}
-      {!isPendingPasswordChange && (
+      {!isPendingPasswordChange && branding?.footerVisible !== false && (
         <BottomNav
           user={user}
           nav={nav}
@@ -369,6 +369,7 @@ export function AppShell({
           isOpen={menuOpen}
           onToggleMenu={() => setMenuOpen((v) => !v)}
           triggerRef={startBtnRef}
+          footerText={branding?.footerText}
         />
       )}
 

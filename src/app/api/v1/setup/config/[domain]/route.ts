@@ -114,7 +114,20 @@ async function _PUT(
         }
       }
 
-      // 5. Canonical Logo handling: Tenant.logoUrl
+      // 5. Validate Footer Settings
+      if (body.footerText !== undefined && body.footerText !== null && body.footerText !== '') {
+        if (typeof body.footerText !== 'string' || body.footerText.length > 120) {
+          return Errors.validation('footerText cannot exceed 120 characters', 'footerText')
+        }
+      }
+
+      if (body.footerVisible !== undefined && body.footerVisible !== null) {
+        if (typeof body.footerVisible !== 'boolean') {
+          return Errors.validation('footerVisible must be a boolean', 'footerVisible')
+        }
+      }
+
+      // 6. Canonical Logo handling: Tenant.logoUrl
       if ('logoUrl' in body) {
         await db.tenant.update({
           where: { id: session.tenantId },
@@ -128,6 +141,9 @@ async function _PUT(
       if (body.accentColor !== undefined) configPayload.accentColor = body.accentColor?.trim()
       if (body.layout !== undefined) configPayload.layout = body.layout
       if ('bannerUrl' in body) configPayload.bannerUrl = body.bannerUrl || null
+      if ('footerGlow' in body) configPayload.footerGlow = body.footerGlow || null
+      if ('footerText' in body) configPayload.footerText = body.footerText ? String(body.footerText).trim() : null
+      if ('footerVisible' in body) configPayload.footerVisible = Boolean(body.footerVisible)
 
       const before = await db.schoolConfig.findUnique({
         where: { tenantId_domain: { tenantId: session.tenantId, domain: 'BRANDING' } },

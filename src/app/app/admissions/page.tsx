@@ -38,6 +38,7 @@ import { PromoteStageButton } from '@/components/admissions/PromoteStageButton'
 import { CallLogDialog } from '@/components/admissions/CallLogDialog'
 import { WhatsAppTemplateModal } from '@/components/admissions/WhatsAppTemplateModal'
 import { CommunicationHistoryList } from '@/components/admissions/CommunicationHistoryList'
+import { useBranding } from '@/lib/branding-context'
 
 // ── Master Types ─────────────────────────────────────────────────────────────
 interface AcademicSessionOption {
@@ -438,6 +439,7 @@ function computeNextAction(app: ApplicationListItem | ReviewData['application'],
 export default function AdmissionsPage() {
   const toast = useToast()
   const { t } = useI18n()
+  const branding = useBranding()
 
   // Navigation state (Default: Overview workspace)
   const [tab, setTab] = useState<string>('overview')
@@ -7164,6 +7166,8 @@ export default function AdmissionsPage() {
         onClose={() => setLobbyQrModal(false)}
         branchId={selectedBranchId}
         branchName={branches.find((b) => b.id === selectedBranchId)?.name}
+        schoolName={branding.schoolName || 'PreOne'}
+        logoUrl={branding.logoUrl}
       />
 
       {/* ── RECEPTIONIST ALERT: FLOATING LOBBY WALK-IN BANNER ── */}
@@ -7220,7 +7224,7 @@ export default function AdmissionsPage() {
         childName={whatsAppModal.target?.childName}
         branchName={whatsAppModal.target?.branchName || branches.find((b) => b.id === selectedBranchId)?.name}
         branchId={whatsAppModal.target?.branchId || (selectedBranchId !== '__ALL_BRANCHES__' ? selectedBranchId : undefined)}
-        schoolName="PreOne"
+        schoolName={branding.schoolName || 'PreOne'}
         onPrepared={() => {
           loadData()
           invalidateAdmissionsCounts()
