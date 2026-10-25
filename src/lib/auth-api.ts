@@ -121,13 +121,62 @@ export async function requireTenantMembership(
 }
 
 /**
+ * Resolves the authorized branch IDs for the session actor.
+ * - Institution-wide roles (OWNER, PRINCIPAL, PLATFORM_ADMIN) return null (unrestricted multi-campus scope).
+ * - Branch-scoped staff return an array containing their primary branch and any assigned branches in TenantUserBranch.
+ */
+export async function getAuthorizedBranchIds(
+  session: SessionPayload
+): Promise<string[] | null> {
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  )
+  if (isInstitutionWide) return null
+
+  if (!session.tenantId) return []
+
+  const branchSet = new Set<string>()
+  if (session.branchId) {
+    branchSet.add(session.branchId)
+  }
+
+  // Lookup any multi-branch assignments in TenantUserBranch
+  const memberships = await db.tenantUser.findMany({
+    where: {
+      userId: session.uid,
+      tenantId: session.tenantId,
+      deletedAt: null,
+      status: 'ACTIVE',
+    },
+    include: {
+      assignedBranches: {
+        select: { branchId: true },
+      },
+    },
+  })
+
+  for (const m of memberships) {
+    if (m.branchId) branchSet.add(m.branchId)
+    if (m.assignedBranches) {
+      for (const ab of m.assignedBranches) {
+        if (ab.branchId) branchSet.add(ab.branchId)
+      }
+    }
+  }
+
+  return Array.from(branchSet)
+}
+
+/**
  * Verifies that the actor has access to the target branch.
  * Owners, Principals, and Platform Admins have institution-wide multi-campus access.
+ * Branch-scoped staff are verified against both session.branchId and any TenantUserBranch assignments.
  */
-export function requireBranchAccess(
+export async function requireBranchAccess(
   session: SessionPayload,
   targetBranchId?: string | null
-): Response | null {
+): Promise<Response | null> {
   if (!targetBranchId) return null
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
@@ -136,8 +185,12 @@ export function requireBranchAccess(
   )
   if (isInstitutionWide) return null
 
-  // If user is branch-scoped, they cannot access a different branch
-  if (session.branchId && session.branchId !== targetBranchId) {
+  const allowedBranchIds = await getAuthorizedBranchIds(session)
+  if (!allowedBranchIds || allowedBranchIds.length === 0) {
+    return forbidden('Access denied: branch scope restricted (no branch assignment)')
+  }
+
+  if (!allowedBranchIds.includes(targetBranchId)) {
     return forbidden('Access denied: branch scope restricted')
   }
 

@@ -20,7 +20,7 @@ import { AuditService } from '@/lib/audit/audit-service'
 export interface CreateTemplateInput {
   name: string
   type: DocumentType
-  presetKey?: DocumentType | 'BLANK'
+  presetKey?: DocumentType | 'BLANK' | string
   format?: PageFormat
   createdByName?: string
   actorId?: string
@@ -157,8 +157,17 @@ export class TemplateService {
 
     let definition: TemplateDefinition
 
-    if (input.presetKey && input.presetKey !== 'BLANK' && TEMPLATE_PRESETS[input.presetKey as DocumentType]) {
-      const preset = TEMPLATE_PRESETS[input.presetKey as DocumentType]
+    const resolvedPresetKey =
+      input.presetKey === 'SLEEK_MINIMALIST' || input.presetKey === 'SLEEK_MINIMALIST_FEE_RECEIPT'
+        ? 'FEE_RECEIPT_SLEEK'
+        : input.presetKey === 'THERMAL_RECEIPT' || input.presetKey === 'RECEIPT_THERMAL'
+        ? 'FEE_RECEIPT_THERMAL'
+        : input.presetKey === 'INSTITUTIONAL_RECEIPT' || input.presetKey === 'INSTITUTIONAL_FEE_RECEIPT'
+        ? 'FEE_RECEIPT_INSTITUTIONAL'
+        : input.presetKey
+
+    if (resolvedPresetKey && resolvedPresetKey !== 'BLANK' && (TEMPLATE_PRESETS as any)[resolvedPresetKey]) {
+      const preset = (TEMPLATE_PRESETS as any)[resolvedPresetKey]
       definition = JSON.parse(JSON.stringify(preset.definition))
       definition.status = 'DRAFT'
       definition.version = 1
@@ -279,6 +288,13 @@ export class TemplateService {
   }
 
   /**
+   * Assign a template as the default active template for its document type.
+   */
+  static async assignDefaultTemplate(tenantId: string, id: string) {
+    return this.updateTemplate(tenantId, id, { isDefault: true })
+  }
+
+  /**
    * Publish an immutable template version.
    */
   static async publishTemplate(
@@ -331,6 +347,13 @@ export class TemplateService {
     }).catch(() => {})
 
     return updated
+  }
+
+  /**
+   * Assign a template as the default active template for its document type.
+   */
+  static async assignDefaultTemplate(tenantId: string, id: string) {
+    return this.updateTemplate(tenantId, id, { isDefault: true })
   }
 
   /**
@@ -520,9 +543,11 @@ export class TemplateService {
 
         if (el.type === 'photo') {
           const photoUrl = resolveTokens(el.content || '', dataContext)
+          const isLogo = el.name?.toLowerCase().includes('logo') || el.fieldBinding?.includes('logo')
+          const hasImage = photoUrl && photoUrl !== el.content && !photoUrl.startsWith('{{')
           return `<div class="tmpl-element tmpl-photo" ${styleAttr}>
-            <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #f1f5f9; color: #64748b; font-size: 8pt; border: 1px dashed #cbd5e1; border-radius: 4px; overflow: hidden;">
-              ${photoUrl && photoUrl !== el.content ? `<img src="${photoUrl}" alt="Photo" style="width: 100%; height: 100%; object-fit: cover;" />` : `<span>PHOTO</span>`}
+            <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: ${s.backgroundColor || '#f8fafc'}; color: #64748b; font-size: 8pt; border: ${s.borderWidth !== undefined ? `${s.borderWidth}px solid ${s.borderColor || '#cbd5e1'}` : '1px dashed #cbd5e1'}; border-radius: ${s.borderRadius || 4}px; overflow: hidden;">
+              ${hasImage ? `<img src="${photoUrl}" alt="${isLogo ? 'School Logo' : 'Photo'}" style="width: 100%; height: 100%; object-fit: contain;" />` : `<span style="font-size: 7pt; font-weight: 600; color: #94a3b8;">${isLogo ? 'LOGO' : 'PHOTO'}</span>`}
             </div>
           </div>`
         }
@@ -602,7 +627,7 @@ export class TemplateService {
           }
 
           return `<div class="tmpl-element tmpl-table" ${styleAttr}>
-            <table style="width: 100%; border-collapse: collapse; font-size: 8pt;">
+            <table style="width: 100%; border-collapse: collapse; font-size: ${s.fontSize || 8}pt; font-family: ${s.fontFamily || 'inherit'};">
               <thead>
                 <tr style="background: #f8fafc; border-bottom: 1.5px solid #cbd5e1;">
                   ${cols

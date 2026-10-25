@@ -95,10 +95,11 @@ export default function TemplateDashboardClient() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createMode, setCreateMode] = useState<'PRESET' | 'BLANK'>('PRESET')
-  const [selectedPreset, setSelectedPreset] = useState<DocumentType>('STUDENT_ID_CARD')
+  const [selectedPreset, setSelectedPreset] = useState<string>('STUDENT_ID_CARD')
   const [newTemplateType, setNewTemplateType] = useState<DocumentType>('STUDENT_ID_CARD')
   const [newTemplateName, setNewTemplateName] = useState('')
   const [newTemplateFormat, setNewTemplateFormat] = useState<PageFormat>('ID_CARD_PORTRAIT')
+  const [presetCategoryFilter, setPresetCategoryFilter] = useState<'ALL' | DocumentType>('ALL')
 
   // Preview Modal
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
@@ -162,9 +163,10 @@ export default function TemplateDashboardClient() {
 
     setCreating(true)
     try {
-      const type = createMode === 'PRESET' ? selectedPreset : newTemplateType
+      const selectedPresetMeta = TEMPLATE_PRESETS[selectedPreset]
+      const type = createMode === 'PRESET' ? (selectedPresetMeta?.type || 'FEE_RECEIPT') : newTemplateType
       const payload = {
-        name: newTemplateName.trim(),
+        name: newTemplateName.trim() || selectedPresetMeta?.name || 'New Document Template',
         type,
         presetKey: createMode === 'PRESET' ? selectedPreset : 'BLANK',
         format: createMode === 'BLANK' ? newTemplateFormat : undefined,
@@ -533,12 +535,12 @@ export default function TemplateDashboardClient() {
                 padding: 20,
               }}
             >
-              <Skeleton style={{ height: 24, width: '60%', marginBottom: 12 }} />
-              <Skeleton style={{ height: 16, width: '40%', marginBottom: 16 }} />
-              <Skeleton style={{ height: 60, width: '100%', marginBottom: 16 }} />
+              <Skeleton h={24} w="60%" className="mb-3" />
+              <Skeleton h={16} w="40%" className="mb-4" />
+              <Skeleton h={60} w="100%" className="mb-4" />
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Skeleton style={{ height: 28, width: '30%' }} />
-                <Skeleton style={{ height: 28, width: '30%' }} />
+                <Skeleton h={28} w="30%" />
+                <Skeleton h={28} w="30%" />
               </div>
             </div>
           ))}
@@ -807,45 +809,106 @@ export default function TemplateDashboardClient() {
             {/* PRESET MODE PICKER */}
             {createMode === 'PRESET' ? (
               <div className="field">
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'block' }}>
-                  Select Preschool Document Preset:
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
-                  {(Object.keys(TEMPLATE_PRESETS) as DocumentType[]).map((pKey) => {
-                    const preset = TEMPLATE_PRESETS[pKey]
-                    const Icon = TYPE_ICONS[preset.type] || FileText
-                    const isSelected = selectedPreset === pKey
-
-                    return (
-                      <div
-                        key={pKey}
-                        onClick={() => {
-                          setSelectedPreset(pKey)
-                          if (!newTemplateName) {
-                            setNewTemplateName(preset.name)
-                          }
-                        }}
-                        style={{
-                          border: isSelected ? '2px solid #7C3AED' : '1px solid var(--border-color)',
-                          background: isSelected ? '#7C3AED0A' : 'var(--surface-panel)',
-                          borderRadius: 8,
-                          padding: 12,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 4,
-                          transition: 'all 0.15s ease',
-                        }}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>
+                    Select Preschool Document Preset:
+                  </label>
+                  <div style={{ display: 'flex', gap: 4, background: 'var(--surface-muted)', padding: 2, borderRadius: 6 }}>
+                    {[
+                      { id: 'ALL', label: 'All' },
+                      { id: 'FEE_RECEIPT', label: 'Fee Receipts' },
+                      { id: 'STUDENT_ID_CARD', label: 'ID Cards' },
+                      { id: 'CERTIFICATE', label: 'Certificates' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        className={`btn btn-xs ${presetCategoryFilter === cat.id ? 'btn-primary' : 'btn-ghost'}`}
+                        style={{ padding: '2px 8px', fontSize: 11 }}
+                        onClick={() => setPresetCategoryFilter(cat.id as any)}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13, color: TYPE_COLORS[preset.type] }}>
-                          <Icon size={16} />
-                          {preset.definition.documentType.replaceAll('_', ' ')}
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, maxHeight: 280, overflowY: 'auto' }}>
+                  {Object.keys(TEMPLATE_PRESETS)
+                    .filter((k) => {
+                      const aliasKeys = [
+                        'SLEEK_MINIMALIST',
+                        'SLEEK_MINIMALIST_FEE_RECEIPT',
+                        'THERMAL_RECEIPT',
+                        'RECEIPT_THERMAL',
+                        'INSTITUTIONAL_RECEIPT',
+                        'INSTITUTIONAL_FEE_RECEIPT',
+                      ]
+                      if (aliasKeys.includes(k)) return false
+                      if (presetCategoryFilter !== 'ALL' && TEMPLATE_PRESETS[k]?.type !== presetCategoryFilter) {
+                        return false
+                      }
+                      return true
+                    })
+                    .map((pKey) => {
+                      const preset = TEMPLATE_PRESETS[pKey]
+                      const Icon = TYPE_ICONS[preset.type] || FileText
+                      const isSelected = selectedPreset === pKey
+                      const dim = `${preset.definition.widthMm} × ${preset.definition.heightMm} mm`
+                      const formatBadge =
+                        preset.definition.pageSize === 'RECEIPT_THERMAL'
+                          ? '80mm POS Thermal'
+                          : preset.definition.pageSize === 'A4_PORTRAIT'
+                          ? 'A4 Portrait'
+                          : preset.definition.pageSize === 'RECEIPT_HALF_A4'
+                          ? 'A5 Landscape'
+                          : preset.definition.pageSize.replaceAll('_', ' ')
+
+                      return (
+                        <div
+                          key={pKey}
+                          onClick={() => {
+                            setSelectedPreset(pKey)
+                            if (!newTemplateName) {
+                              setNewTemplateName(preset.name)
+                            }
+                          }}
+                          style={{
+                            border: isSelected ? '2px solid #7C3AED' : '1px solid var(--border-color)',
+                            background: isSelected ? '#7C3AED0A' : 'var(--surface-panel)',
+                            borderRadius: 8,
+                            padding: 12,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 12, color: TYPE_COLORS[preset.type] }}>
+                              <Icon size={14} />
+                              {preset.definition.documentType.replaceAll('_', ' ')}
+                            </div>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                background: isSelected ? '#7C3AED20' : 'var(--surface-muted)',
+                                color: isSelected ? '#7C3AED' : 'var(--text-muted)',
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {formatBadge}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{preset.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.3 }}>{preset.description}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{dim}</div>
                         </div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{preset.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.3 }}>{preset.description}</div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
                 </div>
               </div>
             ) : (

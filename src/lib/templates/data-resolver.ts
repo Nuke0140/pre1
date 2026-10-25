@@ -33,6 +33,58 @@ export interface FieldValidationItem {
   description?: string
 }
 
+/**
+ * Converts Indian currency numbers to formal English words.
+ * E.g., 24500 -> "Rupees Twenty Four Thousand Five Hundred Only"
+ */
+export function numberToWordsIndian(num: number): string {
+  if (isNaN(num) || num <= 0) return 'Rupees Zero Only'
+
+  const ones = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ]
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+  const convertTwoDigits = (n: number): string => {
+    if (n < 20) return ones[n]
+    const unit = n % 10
+    return `${tens[Math.floor(n / 10)]}${unit ? ' ' + ones[unit] : ''}`
+  }
+
+  const convertThreeDigits = (n: number): string => {
+    const hundred = Math.floor(n / 100)
+    const remainder = n % 100
+    let res = ''
+    if (hundred > 0) {
+      res += `${ones[hundred]} Hundred`
+      if (remainder > 0) res += ' '
+    }
+    if (remainder > 0) {
+      res += convertTwoDigits(remainder)
+    }
+    return res
+  }
+
+  let n = Math.floor(num)
+  const crore = Math.floor(n / 10000000)
+  n %= 10000000
+  const lakh = Math.floor(n / 100000)
+  n %= 100000
+  const thousand = Math.floor(n / 1000)
+  n %= 1000
+  const remainder = n
+
+  const parts: string[] = []
+  if (crore > 0) parts.push(`${convertThreeDigits(crore)} Crore`)
+  if (lakh > 0) parts.push(`${convertTwoDigits(lakh)} Lakh`)
+  if (thousand > 0) parts.push(`${convertTwoDigits(thousand)} Thousand`)
+  if (remainder > 0) parts.push(convertThreeDigits(remainder))
+
+  const words = parts.join(' ').trim()
+  return words ? `Rupees ${words} Only` : 'Rupees Zero Only'
+}
+
 export interface ValidationSummary {
   ready: boolean
   status: 'READY' | 'ATTENTION_NEEDED' | 'BLOCKED'
@@ -111,6 +163,58 @@ export class TemplateDataResolver {
       }))
     }
 
+    // 2. Fee Receipts — Search live Payment records first
+    if (documentType === 'FEE_RECEIPT') {
+      const payWhere: any = { tenantId }
+      if (trimmed) {
+        payWhere.OR = [
+          { paymentNumber: { contains: trimmed, mode: 'insensitive' } },
+          { transactionRef: { contains: trimmed, mode: 'insensitive' } },
+          { student: { firstName: { contains: trimmed, mode: 'insensitive' } } },
+          { student: { lastName: { contains: trimmed, mode: 'insensitive' } } },
+          { student: { admissionNo: { contains: trimmed, mode: 'insensitive' } } },
+        ]
+      }
+
+      const payments = await db.payment.findMany({
+        where: payWhere,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          student: {
+            include: { currentClassroom: true, guardians: { include: { guardian: true } } },
+          },
+          invoice: true,
+          receipt: true,
+        },
+      })
+
+      if (payments.length > 0) {
+        return payments.map((p) => {
+          const studentName = p.student
+            ? `${p.student.firstName} ${p.student.lastName || ''}`.trim()
+            : 'Enrolled Student'
+          const rcptNo = p.receipt?.receiptNumber || p.paymentNumber
+          const amt = `₹${(p.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          return {
+            id: p.id,
+            type: 'PAYMENT' as const,
+            title: `${studentName} — ${amt}`,
+            subtitle: `Rcpt: ${rcptNo} | ${new Date(p.paymentDate).toLocaleDateString('en-GB')}`,
+            badgeText: p.status || 'PAID',
+            avatarUrl: p.student?.photoUrl || null,
+            metadata: {
+              paymentNumber: p.paymentNumber,
+              receiptNumber: rcptNo,
+              amount: amt,
+              admissionNo: p.student?.admissionNo || '',
+              classroom: p.student?.currentClassroom?.name || 'Unassigned',
+            },
+          }
+        })
+      }
+    }
+
     // 2. Student-Centric Document Types (ID card, certificates, admission form, report card, general letter)
     const studentWhere: any = {
       tenantId,
@@ -167,9 +271,9 @@ export class TemplateDataResolver {
     documentType: DocumentType,
     recordId: string,
     recordType: 'STUDENT' | 'STAFF' | 'PAYMENT' | 'FIXTURE'
-  ): Promise<Record<string, string>> {
+  ): Promise<Record<string, any>> {
     // Start with default sample values as safety baseline
-    const context: Record<string, string> = { ...getDefaultSampleData() }
+    const context: Record<string, any> = { ...getDefaultSampleData() }
 
     // Fetch Tenant Info
     const tenant = await db.tenant.findUnique({
@@ -183,8 +287,13 @@ export class TemplateDataResolver {
       if (tenant.city) context['school.city'] = tenant.city
       if (tenant.phone) context['school.phone'] = tenant.phone
       if (tenant.email) context['school.email'] = tenant.email
+      if (tenant.website) context['school.website'] = tenant.website
+      if (tenant.logoUrl) context['school.logoUrl'] = tenant.logoUrl
+      if (tenant.gstNumber) context['school.gstNumber'] = tenant.gstNumber
+      if (tenant.principalSignatureUrl) context['school.principalSignatureUrl'] = tenant.principalSignatureUrl
       context['school.academicYear'] = '2026-2027'
       context['school.principalName'] = 'Dr. Meenakshi Sundaram'
+      context['school.affiliationNo'] = 'AFF-CBSE-2026/089'
     }
 
     // System tokens
@@ -219,7 +328,12 @@ export class TemplateDataResolver {
           payments: {
             take: 1,
             orderBy: { createdAt: 'desc' },
-            include: { invoice: true },
+            include: {
+              receipt: true,
+              invoice: {
+                include: { items: true },
+              },
+            },
           },
         },
       })
@@ -278,16 +392,163 @@ export class TemplateDataResolver {
         // Optional payment details
         const latestPayment = student.payments[0]
         if (latestPayment) {
-          context['finance.receiptNumber'] = latestPayment.paymentNumber
+          context['finance.receiptNumber'] = latestPayment.receipt?.receiptNumber || latestPayment.paymentNumber
           context['finance.paymentMethod'] = latestPayment.method || 'UPI'
-          context['finance.totalAmount'] = `₹${(latestPayment.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-          context['finance.paidAmount'] = context['finance.totalAmount']
-          context['finance.balanceAmount'] = '₹0.00'
+          const paidFormatted = `₹${(latestPayment.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          context['finance.paidAmount'] = paidFormatted
+          context['finance.amountInWords'] = numberToWordsIndian(latestPayment.amountCents / 100)
+          if (latestPayment.transactionRef) {
+            context['finance.transactionRef'] = latestPayment.transactionRef
+          }
+          if (latestPayment.invoice) {
+            const inv = latestPayment.invoice
+            context['finance.invoiceNumber'] = inv.invoiceNumber
+            context['finance.totalAmount'] = `₹${(inv.totalCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            context['finance.subtotalAmount'] = `₹${(inv.subtotalCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            context['finance.discountAmount'] = `₹${(inv.discountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            context['finance.balanceAmount'] = `₹${(inv.balanceCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            const rawStatus = inv.status || 'PAID'
+            const badgeStatus = rawStatus === 'PAID' ? 'PAID' : rawStatus === 'PARTIALLY_PAID' ? 'PARTIALLY PAID' : rawStatus === 'OVERDUE' ? 'OVERDUE' : 'DUE'
+            context['finance.paymentStatus'] = badgeStatus
+            context['finance.statusBadge'] = badgeStatus
+
+            if (inv.items && inv.items.length > 0) {
+              context['table.rows'] = inv.items.map((it, idx) => ({
+                sno: String(idx + 1),
+                item: it.description || it.feeHead || 'Fee Item',
+                description: it.description || it.feeHead || 'Fee Item',
+                term: 'Term 1',
+                amount: `₹${(it.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+              }))
+            }
+          } else {
+            context['finance.totalAmount'] = paidFormatted
+            context['finance.subtotalAmount'] = paidFormatted
+            context['finance.discountAmount'] = '₹0.00'
+            context['finance.balanceAmount'] = '₹0.00'
+            context['finance.paymentStatus'] = 'PAID'
+            context['finance.statusBadge'] = 'PAID'
+            context['table.rows'] = [
+              {
+                sno: '1',
+                item: 'Term Tuition & Academic Program',
+                description: 'Term Tuition & Academic Program',
+                term: 'Term 1',
+                amount: paidFormatted,
+              },
+            ]
+          }
           context['finance.paymentDate'] = new Date(latestPayment.paymentDate).toLocaleDateString('en-GB', {
             day: '2-digit',
             month: 'short',
             year: 'numeric',
           })
+        }
+      }
+    }
+
+    // Resolve Payment Record directly
+    if (recordType === 'PAYMENT') {
+      const payment = await db.payment.findFirst({
+        where: { id: recordId, tenantId },
+        include: {
+          receipt: true,
+          invoice: {
+            include: {
+              items: true,
+            },
+          },
+          feeSchedule: true,
+          student: {
+            include: {
+              currentClassroom: true,
+              guardians: { include: { guardian: true } },
+            },
+          },
+        },
+      })
+
+      if (payment) {
+        context['finance.receiptNumber'] = payment.receipt?.receiptNumber || payment.paymentNumber
+        context['finance.paymentMethod'] = payment.method || 'UPI'
+        const paidFormatted = `₹${(payment.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+        context['finance.paidAmount'] = paidFormatted
+        context['finance.amountInWords'] = numberToWordsIndian(payment.amountCents / 100)
+        if (payment.transactionRef) context['finance.transactionRef'] = payment.transactionRef
+        if (payment.paymentDate) {
+          context['finance.paymentDate'] = new Date(payment.paymentDate).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          })
+        }
+
+        if (payment.invoice) {
+          const inv = payment.invoice
+          context['finance.invoiceNumber'] = inv.invoiceNumber
+          context['finance.totalAmount'] = `₹${(inv.totalCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          context['finance.subtotalAmount'] = `₹${(inv.subtotalCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          context['finance.discountAmount'] = `₹${(inv.discountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          context['finance.balanceAmount'] = `₹${(inv.balanceCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          const rawStatus = inv.status || 'PAID'
+          const badgeStatus = rawStatus === 'PAID' ? 'PAID' : rawStatus === 'PARTIALLY_PAID' ? 'PARTIALLY PAID' : rawStatus === 'OVERDUE' ? 'OVERDUE' : 'DUE'
+          context['finance.paymentStatus'] = badgeStatus
+          context['finance.statusBadge'] = badgeStatus
+
+          if (inv.items && inv.items.length > 0) {
+            context['table.rows'] = inv.items.map((it, idx) => ({
+              sno: String(idx + 1),
+              item: it.description || it.feeHead || 'Fee Item',
+              description: it.description || it.feeHead || 'Fee Item',
+              term: 'Term 1',
+              amount: `₹${(it.amountCents / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            }))
+          }
+        } else {
+          context['finance.totalAmount'] = paidFormatted
+          context['finance.subtotalAmount'] = paidFormatted
+          context['finance.discountAmount'] = '₹0.00'
+          context['finance.balanceAmount'] = '₹0.00'
+          context['finance.paymentStatus'] = 'PAID'
+          context['finance.statusBadge'] = 'PAID'
+          if (payment.feeSchedule) {
+            context['table.rows'] = [
+              {
+                sno: '1',
+                item: payment.feeSchedule.period ? `${payment.feeSchedule.period} Tuition & Academic Fee` : 'Tuition & Academic Fee',
+                description: payment.feeSchedule.period ? `${payment.feeSchedule.period} Tuition & Academic Fee` : 'Tuition & Academic Fee',
+                term: payment.feeSchedule.period || 'Term 1',
+                amount: paidFormatted,
+              },
+            ]
+          } else {
+            context['table.rows'] = [
+              {
+                sno: '1',
+                item: 'Term Tuition & Program Fee',
+                description: 'Term Tuition & Program Fee',
+                term: 'Term 1',
+                amount: paidFormatted,
+              },
+            ]
+          }
+        }
+
+        if (payment.student) {
+          const s = payment.student
+          context['student.fullName'] = `${s.firstName} ${s.lastName || ''}`.trim()
+          context['student.admissionNumber'] = s.admissionNo
+          context['student.rollNumber'] = s.seatNumber || s.admissionNo.slice(-3)
+          if (s.address) context['student.address'] = s.address
+          if (s.currentClassroom) {
+            context['classroom.name'] = s.currentClassroom.name
+            context['classroom.program'] = (s.currentClassroom as any).program || s.currentClassroom.programType || 'Preschool Foundation'
+          }
+          const primaryG = s.guardians?.find((g) => g.isPrimary) || s.guardians?.[0]
+          if (primaryG && primaryG.guardian) {
+            context['guardian.primaryName'] = primaryG.guardian.fullName
+            context['guardian.phone'] = primaryG.guardian.phone || ''
+          }
         }
       }
     }

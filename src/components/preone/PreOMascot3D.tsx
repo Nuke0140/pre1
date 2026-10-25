@@ -5,9 +5,21 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 export type PreOReaction = 'welcome' | 'happy' | 'explore' | 'oops' | 'thinking' | 'sleep' | 'idle'
+export type MascotMode = 'auto' | 'production_only' | 'prototype_diagnostic' | 'approved_art'
+export type CameraFraming = 'companion' | 'full_body' | 'portrait'
+
+export interface ModelStatus {
+  isProduction3D: boolean
+  isPrototype: boolean
+  isPending: boolean
+  availableClips: string[]
+  error?: string
+}
 
 export interface PreOMascot3DProps {
   reaction?: PreOReaction
+  mode?: MascotMode
+  framing?: CameraFraming
   interactive?: boolean
   autoRotate?: boolean
   className?: string
@@ -16,7 +28,9 @@ export interface PreOMascot3DProps {
   height?: number | string
   onClick?: () => void
   cameraFov?: number
-  enableShadows?: boolean
+  showStatusBadge?: boolean
+  customModelUrl?: string
+  onStatusChange?: (status: ModelStatus) => void
 }
 
 const CLIP_MAP: Record<PreOReaction, string> = {
@@ -33,6 +47,8 @@ const ONE_SHOT_CLIPS = new Set(['wave_welcome', 'celebrate'])
 
 export function PreOMascot3D({
   reaction = 'idle',
+  mode = 'auto',
+  framing = 'companion',
   interactive = true,
   autoRotate = false,
   className = '',
@@ -40,10 +56,15 @@ export function PreOMascot3D({
   width = '100%',
   height = '100%',
   onClick,
-  cameraFov = 38,
+  cameraFov = 34,
+  showStatusBadge = false,
+  customModelUrl,
+  onStatusChange,
 }: PreOMascot3DProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(true)
+  const [modelTypeLoaded, setModelTypeLoaded] = useState<'production' | 'prototype' | 'art_fallback' | null>(null)
+  const [availableClips, setAvailableClips] = useState<string[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
 
   // Three.js internal references
@@ -71,7 +92,7 @@ export function PreOMascot3D({
 
     const isOneShot = ONE_SHOT_CLIPS.has(clipName)
     const shouldLoop = options?.loop ?? !isOneShot
-    const fadeDuration = options?.fade ?? 0.22
+    const fadeDuration = options?.fade ?? 0.24
 
     const currentClip = activeClipRef.current
     const prevAction = currentClip ? actionsRef.current.get(currentClip) : null
@@ -95,7 +116,7 @@ export function PreOMascot3D({
     activeClipRef.current = clipName
   }, [])
 
-  // Reaction prop changed -> play matching clip
+  // Reaction prop changed -> play matching clip if 3D model is active
   useEffect(() => {
     const targetClip = CLIP_MAP[reaction] || 'idle_breathe'
     playClip(targetClip)
@@ -103,6 +124,18 @@ export function PreOMascot3D({
 
   // Setup Three.js scene & load GLB
   useEffect(() => {
+    if (mode === 'approved_art') {
+      setModelTypeLoaded('art_fallback')
+      setLoading(false)
+      onStatusChange?.({
+        isProduction3D: false,
+        isPrototype: false,
+        isPending: true,
+        availableClips: [],
+      })
+      return
+    }
+
     const container = containerRef.current
     if (!container) return
 
@@ -126,133 +159,166 @@ export function PreOMascot3D({
     renderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2))
     renderer.setSize(container.clientWidth, container.clientHeight)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
-    renderer.toneMappingExposure = 1.2
+    renderer.toneMappingExposure = 1.25
     renderer.outputColorSpace = THREE.SRGBColorSpace
     rendererRef.current = renderer
     container.appendChild(renderer.domElement)
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.35)
+    // Three-point Pixar Studio Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.4)
     scene.add(ambientLight)
 
-    const keyLight = new THREE.DirectionalLight(0xfff7ed, 1.8)
-    keyLight.position.set(2, 4, 3)
+    const keyLight = new THREE.DirectionalLight(0xfff7ed, 1.85)
+    keyLight.position.set(2.5, 4.5, 3.5)
     scene.add(keyLight)
 
-    const fillLight = new THREE.DirectionalLight(0xddd6fe, 1.2)
-    fillLight.position.set(-3, 2, 2)
+    const fillLight = new THREE.DirectionalLight(0xddd6fe, 1.25)
+    fillLight.position.set(-3.5, 2.0, 2.5)
     scene.add(fillLight)
 
-    const rimLight = new THREE.DirectionalLight(0xfae8ff, 1.0)
-    rimLight.position.set(0, 3, -3)
+    const rimLight = new THREE.DirectionalLight(0xfae8ff, 1.1)
+    rimLight.position.set(0, 4.0, -3.5)
     scene.add(rimLight)
 
-    // Load Model (Checks for production model first, falls back to prototype)
-    const loader = new GLTFLoader()
-    const candidateUrls = [
-      '/models/PreO_Explorer_Production.glb',
-      '/models/PreO_Explorer_Phase2_Prototype.glb',
-    ]
-
-    const tryLoad = (index: number) => {
-      if (index >= candidateUrls.length) {
-        if (!isDisposed) {
-          setLoadError('Failed to load mascot 3D model')
-          setLoading(false)
-        }
-        return
+    // Determine target model URL
+    // Rule: Never silently load the prototype when production GLB is expected!
+    let targetUrl: string | undefined = customModelUrl
+    if (!targetUrl) {
+      if (mode === 'prototype_diagnostic') {
+        targetUrl = '/models/PreO_Explorer_Phase2_Prototype.glb'
+      } else {
+        // Authoritative production target
+        targetUrl = '/models/PreO_Explorer_Production.glb'
       }
-
-      const modelUrl = candidateUrls[index]
-      loader.load(
-        modelUrl,
-        (gltf) => {
-          if (isDisposed) return
-
-          const model = gltf.scene
-          modelRootRef.current = model
-
-          // Enhance PBR materials if needed (translucent goggles, emissive wristbands)
-          model.traverse((child) => {
-            if ((child as THREE.Mesh).isMesh) {
-              const mesh = child as THREE.Mesh
-              const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-              materials.forEach((mat) => {
-                if (mat && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-                  const stdMat = mat as THREE.MeshStandardMaterial
-                  if (mesh.name.toLowerCase().includes('goggle') || stdMat.name.toLowerCase().includes('goggle')) {
-                    stdMat.transparent = true
-                    stdMat.opacity = 0.75
-                    stdMat.roughness = 0.15
-                  }
-                  if (mesh.name.toLowerCase().includes('wristband') || stdMat.name.toLowerCase().includes('wristband')) {
-                    stdMat.emissive = new THREE.Color(0xa78bfa)
-                    stdMat.emissiveIntensity = 0.6
-                  }
-                }
-              })
-            }
-          })
-
-          // Center model geometry
-          const box = new THREE.Box3().setFromObject(model)
-          const center = new THREE.Vector3()
-          const size = new THREE.Vector3()
-          box.getCenter(center)
-          box.getSize(size)
-
-          // Center on (0, 0, 0)
-          model.position.x = -center.x
-          model.position.y = -center.y
-          model.position.z = -center.z
-
-          const rootGroup = new THREE.Group()
-          rootGroup.add(model)
-          scene.add(rootGroup)
-          modelRootRef.current = rootGroup
-
-          // Position camera to fit model nicely
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const fovRad = (camera.fov * Math.PI) / 180
-          let cameraDistance = (maxDim / (2 * Math.tan(fovRad / 2))) * 1.15
-          camera.position.set(0, 0, cameraDistance)
-          camera.lookAt(0, 0, 0)
-
-          // Set up Animation Mixer
-          const mixer = new THREE.AnimationMixer(model)
-          mixerRef.current = mixer
-
-          // Map clips
-          const actions = new Map<string, THREE.AnimationAction>()
-          for (const clip of gltf.animations) {
-            const action = mixer.clipAction(clip)
-            actions.set(clip.name, action)
-          }
-          actionsRef.current = actions
-
-          // On one-shot finished -> return to idle
-          mixer.addEventListener('finished', (e: any) => {
-            const finishedClipName = e.action?.getClip?.()?.name
-            if (finishedClipName && ONE_SHOT_CLIPS.has(finishedClipName)) {
-              playClip('idle_breathe', { loop: true })
-            }
-          })
-
-          // Initial play
-          const initialClip = CLIP_MAP[reaction] || 'idle_breathe'
-          playClip(initialClip)
-
-          setLoading(false)
-        },
-        undefined,
-        () => {
-          // Fall back to next candidate URL
-          tryLoad(index + 1)
-        }
-      )
     }
 
-    tryLoad(0)
+    const loader = new GLTFLoader()
+
+    loader.load(
+      targetUrl,
+      (gltf) => {
+        if (isDisposed) return
+
+        const model = gltf.scene
+        modelRootRef.current = model
+
+        const isProd = targetUrl?.includes('Production')
+        const loadedType = isProd ? 'production' : 'prototype'
+        setModelTypeLoaded(loadedType)
+
+        // Enhance PBR materials for goggles and wristbands
+        model.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const mesh = child as THREE.Mesh
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+            materials.forEach((mat) => {
+              if (mat && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
+                const stdMat = mat as THREE.MeshStandardMaterial
+                const nameLower = (mesh.name + ' ' + stdMat.name).toLowerCase()
+
+                if (nameLower.includes('goggle') || nameLower.includes('lens')) {
+                  stdMat.transparent = true
+                  stdMat.opacity = 0.78
+                  stdMat.roughness = 0.12
+                  stdMat.metalness = 0.05
+                }
+                if (nameLower.includes('wristband') || nameLower.includes('ring')) {
+                  stdMat.emissive = new THREE.Color(0x8b5cf6)
+                  stdMat.emissiveIntensity = 0.65
+                }
+              }
+            })
+          }
+        })
+
+        // Bounding box calculation & centering
+        const box = new THREE.Box3().setFromObject(model)
+        const center = new THREE.Vector3()
+        const size = new THREE.Vector3()
+        box.getCenter(center)
+        box.getSize(size)
+
+        model.position.x = -center.x
+        model.position.y = -center.y
+        model.position.z = -center.z
+
+        const rootGroup = new THREE.Group()
+        rootGroup.add(model)
+        scene.add(rootGroup)
+        modelRootRef.current = rootGroup
+
+        // Camera Framing calculation
+        const fovRad = (camera.fov * Math.PI) / 180
+        if (framing === 'companion') {
+          // Tight framing focusing on head, goggles, and chest logo
+          const companionHeight = size.y * 0.72
+          const distance = companionHeight / (2 * Math.tan(fovRad / 2))
+          camera.position.set(0, size.y * 0.12, distance)
+          camera.lookAt(0, size.y * 0.12, 0)
+        } else if (framing === 'portrait') {
+          const headHeight = size.y * 0.45
+          const distance = headHeight / (2 * Math.tan(fovRad / 2))
+          camera.position.set(0, size.y * 0.28, distance)
+          camera.lookAt(0, size.y * 0.28, 0)
+        } else {
+          // Full body framing
+          const maxDim = Math.max(size.x, size.y, size.z)
+          const distance = (maxDim / (2 * Math.tan(fovRad / 2))) * 1.08
+          camera.position.set(0, 0, distance)
+          camera.lookAt(0, 0, 0)
+        }
+
+        // Set up Animation Mixer
+        const mixer = new THREE.AnimationMixer(model)
+        mixerRef.current = mixer
+
+        const clipNames: string[] = []
+        const actions = new Map<string, THREE.AnimationAction>()
+        for (const clip of gltf.animations) {
+          clipNames.push(clip.name)
+          const action = mixer.clipAction(clip)
+          actions.set(clip.name, action)
+        }
+        actionsRef.current = actions
+        setAvailableClips(clipNames)
+
+        // Return to idle when one-shot completes
+        mixer.addEventListener('finished', (e: any) => {
+          const finishedClipName = e.action?.getClip?.()?.name
+          if (finishedClipName && ONE_SHOT_CLIPS.has(finishedClipName)) {
+            playClip('idle_breathe', { loop: true })
+          }
+        })
+
+        // Initial play
+        const initialClip = CLIP_MAP[reaction] || 'idle_breathe'
+        playClip(initialClip)
+
+        setLoading(false)
+        onStatusChange?.({
+          isProduction3D: isProd,
+          isPrototype: !isProd,
+          isPending: false,
+          availableClips: clipNames,
+        })
+      },
+      undefined,
+      (err) => {
+        if (isDisposed) return
+        // Production GLB missing -> graceful fallback to approved 2D artwork
+        setModelTypeLoaded('art_fallback')
+        setLoading(false)
+        onStatusChange?.({
+          isProduction3D: false,
+          isPrototype: false,
+          isPending: true,
+          availableClips: [],
+          error: 'Production 3D model pending',
+        })
+      }
+    )
 
     // Animation Loop
     const clock = new THREE.Clock()
@@ -266,20 +332,20 @@ export function PreOMascot3D({
         mixerRef.current.update(delta)
       }
 
-      // Smooth interactive head/body tilt towards mouse
+      // Smooth interactive mouse tilt (only active for genuine 3D models)
       if (modelRootRef.current) {
         const root = modelRootRef.current
-        const targetX = interactive && isHoveredRef.current ? mouseTargetRef.current.y * 0.25 : 0
-        const targetY = interactive && isHoveredRef.current ? mouseTargetRef.current.x * 0.45 : (autoRotate ? Math.sin(clock.getElapsedTime() * 0.8) * 0.15 : 0)
+        const targetX = interactive && isHoveredRef.current ? mouseTargetRef.current.y * 0.22 : 0
+        const targetY = interactive && isHoveredRef.current
+          ? mouseTargetRef.current.x * 0.38
+          : (autoRotate ? Math.sin(clock.getElapsedTime() * 0.7) * 0.12 : 0)
 
         mouseCurrentRef.current.x += (targetX - mouseCurrentRef.current.x) * 0.08
         mouseCurrentRef.current.y += (targetY - mouseCurrentRef.current.y) * 0.08
 
         root.rotation.x = mouseCurrentRef.current.x
         root.rotation.y = mouseCurrentRef.current.y
-
-        // Subtle breathing float
-        root.position.y = Math.sin(clock.getElapsedTime() * 1.8) * 0.035
+        root.position.y = Math.sin(clock.getElapsedTime() * 1.6) * 0.028
       }
 
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
@@ -291,18 +357,18 @@ export function PreOMascot3D({
     // Resize observer
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const width = entry.contentRect.width
-        const height = entry.contentRect.height
-        if (width > 0 && height > 0 && rendererRef.current && cameraRef.current) {
-          cameraRef.current.aspect = width / height
+        const w = entry.contentRect.width
+        const h = entry.contentRect.height
+        if (w > 0 && h > 0 && rendererRef.current && cameraRef.current) {
+          cameraRef.current.aspect = w / h
           cameraRef.current.updateProjectionMatrix()
-          rendererRef.current.setSize(width, height)
+          rendererRef.current.setSize(w, h)
         }
       }
     })
     resizeObserver.observe(container)
 
-    // Visibility observer to pause loop offscreen
+    // Intersection observer
     const visObserver = new IntersectionObserver(([entry]) => {
       isVisibleRef.current = entry.isIntersecting
     }, { threshold: 0.05 })
@@ -325,7 +391,7 @@ export function PreOMascot3D({
       }
       scene.clear()
     }
-  }, [cameraFov, interactive, autoRotate, playClip])
+  }, [cameraFov, framing, mode, customModelUrl, interactive, autoRotate, playClip, onStatusChange])
 
   // Mouse interaction handlers
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -343,14 +409,20 @@ export function PreOMascot3D({
   }
 
   const handleClick = () => {
-    // Play wave or celebrate on tap
-    if (activeClipRef.current === 'wave_welcome') {
-      playClip('celebrate')
-    } else {
-      playClip('wave_welcome')
+    if (modelTypeLoaded === 'production' || modelTypeLoaded === 'prototype') {
+      if (activeClipRef.current === 'wave_welcome') {
+        playClip('celebrate')
+      } else {
+        playClip('wave_welcome')
+      }
     }
     onClick?.()
   }
+
+  // Approved character artwork path (companion avatar vs full body)
+  const approvedArtworkSrc = framing === 'companion'
+    ? '/images/preo-approved-avatar.webp'
+    : '/images/preo-approved-fullbody.webp'
 
   return (
     <div
@@ -363,14 +435,47 @@ export function PreOMascot3D({
         cursor: interactive ? 'pointer' : 'default',
         overflow: 'hidden',
         userSelect: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         ...style,
       }}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onClick={handleClick}
       role="img"
-      aria-label="Interactive 3D PreO Preschool Mascot"
+      aria-label="PreO: The Explorer — PreOne Mascot"
     >
+      {/* Approved 2D Artwork Fallback (when 3D production model is pending or requested) */}
+      {modelTypeLoaded === 'art_fallback' && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: framing === 'companion' ? 0 : 8,
+          }}
+        >
+          <img
+            src={approvedArtworkSrc}
+            alt="PreO The Explorer — Approved Concept Reference"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: framing === 'companion' ? 'cover' : 'contain',
+              objectPosition: framing === 'companion' ? 'center 20%' : 'center center',
+              filter: framing === 'companion' ? 'none' : 'drop-shadow(0 8px 20px rgba(109, 40, 217, 0.18))',
+              pointerEvents: 'none',
+            }}
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+      )}
+
+      {/* Loading Spinner */}
       {loading && (
         <div
           style={{
@@ -380,35 +485,50 @@ export function PreOMascot3D({
             alignItems: 'center',
             justifyContent: 'center',
             background: 'transparent',
+            zIndex: 10,
           }}
         >
           <div
             style={{
-              width: 24,
-              height: 24,
+              width: 22,
+              height: 22,
               borderRadius: '50%',
-              border: '2px solid rgba(124, 58, 237, 0.25)',
+              border: '2.5px solid rgba(124, 58, 237, 0.25)',
               borderTopColor: '#7c3aed',
-              animation: 'spin 0.8s linear infinite',
+              animation: 'spin 0.75s linear infinite',
             }}
           />
         </div>
       )}
-      {loadError && (
+
+      {/* Status Badges for Studio Modal */}
+      {showStatusBadge && (
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            bottom: 8,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: modelTypeLoaded === 'production'
+              ? 'rgba(16, 185, 129, 0.92)'
+              : modelTypeLoaded === 'prototype'
+              ? 'rgba(217, 119, 6, 0.95)'
+              : 'rgba(109, 40, 217, 0.92)',
+            color: '#ffffff',
             fontSize: 10,
-            color: '#9333ea',
-            textAlign: 'center',
-            padding: 4,
+            fontWeight: 700,
+            padding: '4px 12px',
+            borderRadius: 999,
+            letterSpacing: '0.02em',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 15,
           }}
         >
-          {loadError}
+          {modelTypeLoaded === 'production' && '✓ PreO Production 3D (Live Mesh)'}
+          {modelTypeLoaded === 'prototype' && '⚠️ Phase 2 Blockout Rig Test (Diagnostic)'}
+          {modelTypeLoaded === 'art_fallback' && 'Production 3D Model Pending — Approved Concept Visual'}
         </div>
       )}
     </div>

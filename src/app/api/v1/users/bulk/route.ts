@@ -152,7 +152,7 @@ export const POST = withApi(async (req: NextRequest) => {
     // Validate target branch if provided
     const targetBranchId = action === 'UPDATE_PROFILE' ? effectiveBranchId : (action === 'CHANGE_BRANCH' ? branchId : undefined)
     if (targetBranchId) {
-      const branchErr = requireBranchAccess(session, targetBranchId)
+      const branchErr = await requireBranchAccess(session, targetBranchId)
       if (branchErr) return branchErr
 
       const branch = await db.branch.findFirst({

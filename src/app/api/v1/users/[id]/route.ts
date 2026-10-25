@@ -770,7 +770,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     }
 
     if (branchId) {
-      const branchErr = requireBranchAccess(session, branchId)
+      const branchErr = await requireBranchAccess(session, branchId)
       if (branchErr) return branchErr
     }
 
