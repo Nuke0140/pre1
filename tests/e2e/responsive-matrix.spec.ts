@@ -101,8 +101,8 @@ test.describe('PreOne Responsive Viewport Matrix & Visual Diff Guardrails', () =
           status: 'ACTIVE',
         },
       })
-    } catch (err) {
-      console.warn('[responsive-matrix] Database bootstrap skipped/failed:', err)
+    } catch {
+      // Database is seeded by scripts/seed-responsive-ci.ts in CI
     }
 
     // Match the authenticated test persona used by the dashboard browser suite.
