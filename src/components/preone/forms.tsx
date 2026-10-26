@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Calendar as CalIcon, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar as CalIcon, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { AnimatedCheckmark } from './TactileMotion'
 
 /* ─── Date picker ─────────────────────────────────────────────────── */
@@ -14,6 +14,18 @@ export function toIso(d: Date): string {
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+const MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+]
+
+type DatePickerMode = 'days' | 'month' | 'year'
+
 export function DatePicker({
   value, onChange, name, placeholder = 'Select date',
 }: {
@@ -23,29 +35,59 @@ export function DatePicker({
   placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<DatePickerMode>('days')
   const [view, setView] = useState(() => {
-    const base = value ? new Date(value) : new Date()
-    return { y: base.getFullYear(), m: base.getMonth() }
+    const base = value ? new Date(value + (value.length === 10 ? 'T00:00:00' : '')) : new Date()
+    const valid = !isNaN(base.getTime()) ? base : new Date()
+    return { y: valid.getFullYear(), m: valid.getMonth() }
   })
+  const [yearPageStart, setYearPageStart] = useState(() => Math.floor(view.y / 12) * 12)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (open) {
+      if (value) {
+        const parsed = new Date(value + (value.length === 10 ? 'T00:00:00' : ''))
+        if (!isNaN(parsed.getTime())) {
+          setView({ y: parsed.getFullYear(), m: parsed.getMonth() })
+          setYearPageStart(Math.floor(parsed.getFullYear() / 12) * 12)
+        }
+      } else {
+        setYearPageStart(Math.floor(view.y / 12) * 12)
+      }
+      setMode('days')
+    }
+  }, [open, value])
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as HTMLElement)) setOpen(false)
+      if (rootRef.current && !rootRef.current.contains(e.target as HTMLElement)) {
+        setOpen(false)
+        setMode('days')
+      }
     }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (mode !== 'days') {
+          setMode('days')
+        } else {
+          setOpen(false)
+        }
+      }
+    }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, mode])
 
   const pick = (d: Date) => {
     onChange(toIso(d))
     setOpen(false)
+    setMode('days')
   }
 
   const cells = useMemo(() => {
@@ -57,7 +99,7 @@ export function DatePicker({
     return out
   }, [view])
 
-  const monthLabel = new Date(view.y, view.m, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+  const monthLabel = `${MONTH_NAMES[view.m]} ${view.y}`
   const fmt = (iso?: string) =>
     iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
 
@@ -81,44 +123,214 @@ export function DatePicker({
       {name && <input type="hidden" name={name} value={value || ''} />}
       {open && (
         <div className="dp-cal" role="dialog" aria-label={monthLabel}>
-          <div className="dp-head">
-            <button type="button" className="dp-nav" aria-label="Previous month" onClick={() => setView((v) => ({ y: v.m === 0 ? v.y - 1 : v.y, m: v.m === 0 ? 11 : v.m - 1 }))}>
-              <ChevronLeft size={15} />
-            </button>
-            <span className="dp-month">{monthLabel}</span>
-            <button type="button" className="dp-nav" aria-label="Next month" onClick={() => setView((v) => ({ y: v.m === 11 ? v.y + 1 : v.y, m: v.m === 11 ? 0 : v.m + 1 }))}>
-              <ChevronRight size={15} />
-            </button>
-          </div>
-          <div className="dp-grid dp-weekdays">
-            {WEEKDAYS.map((d) => (
-              <span key={d} className="dp-dow">{d}</span>
-            ))}
-          </div>
-          <div className="dp-grid">
-            {cells.map((d, i) =>
-              d ? (
+          {mode === 'days' && (
+            <>
+              <div className="dp-head">
                 <button
                   type="button"
-                  key={i}
-                  className={`dp-day${value && toIso(d) === value ? ' on' : ''}`}
-                  onClick={() => pick(d)}
+                  className="dp-nav"
+                  aria-label="Previous month"
+                  onClick={() => setView((v) => ({ y: v.m === 0 ? v.y - 1 : v.y, m: v.m === 0 ? 11 : v.m - 1 }))}
                 >
-                  {d.getDate()}
+                  <ChevronLeft size={15} />
                 </button>
-              ) : (
-                <span key={i} className="dp-day empty" />
-              ),
-            )}
-          </div>
+                <div className="dp-title-group">
+                  <button
+                    type="button"
+                    className="dp-title-btn"
+                    onClick={() => setMode('month')}
+                    aria-label="Select month"
+                    title="Click to select month"
+                  >
+                    <span>{MONTH_NAMES[view.m]}</span>
+                    <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                  </button>
+                  <button
+                    type="button"
+                    className="dp-title-btn"
+                    onClick={() => {
+                      setYearPageStart(Math.floor(view.y / 12) * 12)
+                      setMode('year')
+                    }}
+                    aria-label="Select year"
+                    title="Click to select year"
+                  >
+                    <span>{view.y}</span>
+                    <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="dp-nav"
+                  aria-label="Next month"
+                  onClick={() => setView((v) => ({ y: v.m === 11 ? v.y + 1 : v.y, m: v.m === 11 ? 0 : v.m + 1 }))}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+              <div className="dp-grid dp-weekdays">
+                {WEEKDAYS.map((d) => (
+                  <span key={d} className="dp-dow">{d}</span>
+                ))}
+              </div>
+              <div className="dp-grid">
+                {cells.map((d, i) =>
+                  d ? (
+                    <button
+                      type="button"
+                      key={i}
+                      className={`dp-day${value && toIso(d) === value ? ' on' : ''}`}
+                      onClick={() => pick(d)}
+                    >
+                      {d.getDate()}
+                    </button>
+                  ) : (
+                    <span key={i} className="dp-day-empty" aria-hidden="true" />
+                  ),
+                )}
+              </div>
+            </>
+          )}
+
+          {mode === 'month' && (
+            <>
+              <div className="dp-head">
+                <button
+                  type="button"
+                  className="dp-nav"
+                  aria-label="Previous year"
+                  onClick={() => setView((v) => ({ ...v, y: v.y - 1 }))}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <div className="dp-title-group">
+                  <span className="dp-view-title">Select Month</span>
+                  <button
+                    type="button"
+                    className="dp-title-btn"
+                    onClick={() => {
+                      setYearPageStart(Math.floor(view.y / 12) * 12)
+                      setMode('year')
+                    }}
+                    aria-label="Select year"
+                    title="Click to select year"
+                  >
+                    <span>{view.y}</span>
+                    <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="dp-nav"
+                  aria-label="Next year"
+                  onClick={() => setView((v) => ({ ...v, y: v.y + 1 }))}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+              <div className="dp-month-grid">
+                {MONTH_NAMES.map((mName, idx) => {
+                  const isSelected = view.m === idx
+                  return (
+                    <button
+                      key={mName}
+                      type="button"
+                      className={`dp-selection-btn${isSelected ? ' on' : ''}`}
+                      onClick={() => {
+                        setView((v) => ({ ...v, m: idx }))
+                        setMode('days')
+                      }}
+                      aria-label={mName}
+                    >
+                      <span className="dp-selection-label">{MONTH_SHORT[idx]}</span>
+                      <span className="dp-selection-sub">{mName}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
+          {mode === 'year' && (
+            <>
+              <div className="dp-head">
+                <button
+                  type="button"
+                  className="dp-nav"
+                  aria-label="Previous 12 years"
+                  onClick={() => setYearPageStart((ys) => ys - 12)}
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <div className="dp-title-group">
+                  <span className="dp-view-title">{yearPageStart} – {yearPageStart + 11}</span>
+                </div>
+                <button
+                  type="button"
+                  className="dp-nav"
+                  aria-label="Next 12 years"
+                  onClick={() => setYearPageStart((ys) => ys + 12)}
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
+              <div className="dp-year-grid">
+                {Array.from({ length: 12 }, (_, i) => yearPageStart + i).map((yr) => {
+                  const isSelected = view.y === yr
+                  const isCurrentYear = new Date().getFullYear() === yr
+                  return (
+                    <button
+                      key={yr}
+                      type="button"
+                      className={`dp-selection-btn${isSelected ? ' on' : ''}${isCurrentYear && !isSelected ? ' today' : ''}`}
+                      onClick={() => {
+                        setView((v) => ({ ...v, y: yr }))
+                        setMode('days')
+                      }}
+                    >
+                      <span className="dp-selection-label">{yr}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          )}
+
           <div className="dp-foot">
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => pick(new Date())}>
-              Today
-            </button>
-            {value && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { onChange(''); setOpen(false) }}>
-                Clear
+            {mode !== 'days' ? (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setMode('days')}
+              >
+                Back to Dates
               </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    const now = new Date()
+                    setView({ y: now.getFullYear(), m: now.getMonth() })
+                    pick(now)
+                  }}
+                >
+                  Today
+                </button>
+                {value && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      onChange('')
+                      setOpen(false)
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
