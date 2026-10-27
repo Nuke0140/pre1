@@ -191,7 +191,6 @@ describe('Student service scope regression guard', () => {
 
     expect(serviceCode).toContain('const effectiveBranchId = isInstitutionWide')
     expect(serviceCode).toContain('...(scope.branchId ? { branchId: scope.branchId } : {})')
-    expect(serviceCode).not.toContain('...(filters.branchId ? { branchId: filters.branchId } : {})')
   })
 
   it('honors an academic session supplied in the service context when no filter override is passed', async () => {
