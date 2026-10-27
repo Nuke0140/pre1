@@ -145,7 +145,26 @@ export class StudentService {
    * List students with multi-dimensional filtering, search and server-side pagination
    */
   static async listStudents(ctx: ScopeContext, filters: StudentFilterOptions = {}) {
-    const scope = await this.verifyScope(ctx.tenantId, filters.branchId || ctx.branchId, filters.academicSessionId || ctx.academicSessionId, { requireSession: false })
+    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0
+      ? ctx.actorRoles
+      : (ctx.actorRole ? [ctx.actorRole] : [])) as string[]
+    const isInstitutionWide = effectiveRoles.some((role) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(role)
+    )
+
+    // A caller's branch context is a security boundary, not merely a default filter.
+    // Institution-wide roles may intentionally select another branch; all other roles
+    // remain pinned to their session branch even if a service caller supplies a filter.
+    const effectiveBranchId = isInstitutionWide
+      ? (filters.branchId || ctx.branchId || undefined)
+      : (ctx.branchId || filters.branchId || undefined)
+    const effectiveAcademicSessionId = filters.academicSessionId || ctx.academicSessionId || undefined
+    const scope = await this.verifyScope(
+      ctx.tenantId,
+      effectiveBranchId,
+      effectiveAcademicSessionId,
+      { requireSession: false }
+    )
     const page = Math.max(1, filters.page || 1)
     const pageSize = Math.min(100, Math.max(1, filters.pageSize || 20))
     const search = filters.search?.trim()
@@ -153,7 +172,7 @@ export class StudentService {
     const where: any = {
       tenantId: scope.tenantId,
       deletedAt: null,
-      ...(filters.branchId ? { branchId: filters.branchId } : {}),
+      ...(scope.branchId ? { branchId: scope.branchId } : {}),
       ...(filters.classroomId ? { currentClassroomId: filters.classroomId } : {}),
       ...(filters.status ? { status: filters.status } : {}),
     }
@@ -162,10 +181,10 @@ export class StudentService {
       where.currentClassroom = { programType: filters.programType }
     }
 
-    if (filters.academicSessionId) {
+    if (effectiveAcademicSessionId) {
       where.currentClassroom = {
         ...(where.currentClassroom || {}),
-        academicSessionId: filters.academicSessionId,
+        academicSessionId: effectiveAcademicSessionId,
       }
     }
 
@@ -191,7 +210,6 @@ export class StudentService {
     }
 
     // If teacher role, scope strictly to their assigned classrooms
-    const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean) as string[]
     const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
     if (isTeacher && ctx.actorId) {
       const assignedRooms = await db.classroom.findMany({

@@ -183,3 +183,20 @@ describe('BUG-022: Students Page Payload Smoke Test & Runtime Safety', () => {
     expect(studentsCode).toContain('col-span-7 lg:col-span-8')
   })
 })
+
+
+describe('Student service scope regression guard', () => {
+  it('pins directory queries to the resolved branch context, not only an optional filter', async () => {
+    const serviceCode = await Bun.file('src/lib/students/student-service.ts').text()
+
+    expect(serviceCode).toContain('const effectiveBranchId = isInstitutionWide')
+    expect(serviceCode).toContain('...(scope.branchId ? { branchId: scope.branchId } : {})')
+  })
+
+  it('honors an academic session supplied in the service context when no filter override is passed', async () => {
+    const serviceCode = await Bun.file('src/lib/students/student-service.ts').text()
+
+    expect(serviceCode).toContain('const effectiveAcademicSessionId = filters.academicSessionId || ctx.academicSessionId || undefined')
+    expect(serviceCode).toContain('if (effectiveAcademicSessionId)')
+  })
+})
