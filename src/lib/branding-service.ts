@@ -52,6 +52,12 @@ export async function getEffectiveBranding(tenantId: string): Promise<BrandingCo
       : null
 
   const logoUrl = tenant?.logoUrl || null
+  const footerGlow = (brandData.footerGlow as any) || null
+  const footerText =
+    typeof brandData.footerText === 'string' && brandData.footerText.trim()
+      ? brandData.footerText.trim()
+      : null
+  const footerVisible = brandData.footerVisible !== false
 
   return {
     primaryColor,
@@ -61,7 +67,9 @@ export async function getEffectiveBranding(tenantId: string): Promise<BrandingCo
     logoUrl,
     schoolName: tenant?.name?.trim() || '',
     schoolCode: tenant?.code || '',
-    footerGlow: (brandData.footerGlow as any) || null,
+    footerGlow,
+    footerText,
+    footerVisible,
   }
 }
 
@@ -77,6 +85,9 @@ export async function resetThemeSettings(
     accentColor: PREONE_BRANDING_DEFAULTS.accentColor,
     layout: PREONE_BRANDING_DEFAULTS.layout,
     bannerUrl: null,
+    footerGlow: null,
+    footerText: null,
+    footerVisible: true,
   }
 
   const oldConfig = await db.schoolConfig.findUnique({

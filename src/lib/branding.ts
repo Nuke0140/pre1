@@ -20,6 +20,8 @@ export interface BrandingConfig {
   schoolName?: string
   schoolCode?: string
   footerGlow?: any
+  footerText?: string | null
+  footerVisible?: boolean
 }
 
 export const PREONE_BRANDING_DEFAULTS: BrandingConfig = {
@@ -28,6 +30,9 @@ export const PREONE_BRANDING_DEFAULTS: BrandingConfig = {
   layout: 'WINDOWS_SHELL',
   bannerUrl: null,
   logoUrl: null,
+  footerGlow: null,
+  footerText: null,
+  footerVisible: true,
 }
 
 /**

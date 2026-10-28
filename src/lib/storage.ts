@@ -43,6 +43,49 @@ export function isDurableAssetUrl(url: string | null | undefined): boolean {
 }
 
 /**
+ * Validates actual binary content (magic bytes) to ensure file content matches image MIME type.
+ * Rejects disguised executables, scripts, or corrupted files.
+ */
+export function validateImageContent(buffer: Buffer, mimeType: string): void {
+  if (!buffer || buffer.length < 8) {
+    throw new Error('Uploaded file is empty or corrupted.')
+  }
+
+  const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47
+  const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+  const isWebp =
+    buffer.length >= 12 &&
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  const isSvg =
+    mimeType.includes('svg') &&
+    buffer.slice(0, 1024).toString('utf-8').toLowerCase().includes('<svg')
+
+  if (mimeType === 'image/png' && !isPng) {
+    throw new Error('Corrupted or invalid PNG image file header.')
+  }
+  if ((mimeType === 'image/jpeg' || mimeType === 'image/jpg') && !isJpeg) {
+    throw new Error('Corrupted or invalid JPEG image file header.')
+  }
+  if (mimeType === 'image/webp' && !isWebp) {
+    throw new Error('Corrupted or invalid WebP image file header.')
+  }
+  if (mimeType === 'image/svg+xml') {
+    if (!isSvg) {
+      throw new Error('Corrupted or invalid SVG image file content.')
+    }
+    const svgContent = buffer.toString('utf-8').toLowerCase()
+    if (svgContent.includes('<script') || svgContent.includes('javascript:') || svgContent.includes('onload=')) {
+      throw new Error('SVG contains disallowed script or event handler elements.')
+    }
+  }
+
+  if (!isPng && !isJpeg && !isWebp && !isSvg) {
+    throw new Error('Uploaded file binary does not match a recognized, safe image format.')
+  }
+}
+
+/**
  * Durably saves an uploaded branding asset (logo or banner) to S3 object storage.
  * In production or S3-configured environments, uploads directly to AWS S3.
  * In development/test environments, uses in-memory S3 storage (never writing binaries to Git or disk).
@@ -72,6 +115,9 @@ export async function saveBrandingAsset({
     const maxMb = maxSize / (1024 * 1024)
     throw new Error(`File exceeds maximum allowed size of ${maxMb}MB for ${type}.`)
   }
+
+  // Validate actual binary signatures / magic bytes
+  validateImageContent(buffer, normalizedMime)
 
   const uploadResult = await S3StorageService.uploadBufferToS3({
     tenantId,

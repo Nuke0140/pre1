@@ -711,7 +711,18 @@ export function StaffAdmissionFormModal({
           : `${displaySchoolName} — New Admission Application`
       }
       subtitle="Comprehensive child record, parent guardians, document checklist, and declarations"
-      icon={<FileSpreadsheet size={20} className="text-primary" />}
+      icon={
+        branding?.logoUrl ? (
+          <img
+            src={branding.logoUrl}
+            alt={displaySchoolName}
+            className="w-5 h-5 object-contain rounded shrink-0"
+            data-testid="admission-modal-logo"
+          />
+        ) : (
+          <FileSpreadsheet size={20} className="text-primary" />
+        )
+      }
       size="xl"
     >
       <div className="space-y-4">
@@ -797,16 +808,30 @@ export function StaffAdmissionFormModal({
           {activeTab === 'school' && (
             <div className="space-y-3.5">
               {/* Institution Identity Indicator */}
-              <div className="p-3 rounded-xl bg-primary/[0.04] border border-primary/20 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                    Institution / School
-                  </div>
-                  <div className="text-sm font-bold text-foreground" data-testid="admission-school-name">
-                    {displaySchoolName}
+              <div className="p-3 rounded-xl bg-primary/[0.04] border border-primary/20 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {branding?.logoUrl ? (
+                    <img
+                      src={branding.logoUrl}
+                      alt={displaySchoolName}
+                      className="w-10 h-10 object-contain rounded-lg border border-border/40 bg-card p-1 shrink-0"
+                      data-testid="admission-school-logo"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Building2 className="w-5 h-5 text-primary/70" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                      Institution / School
+                    </div>
+                    <div className="text-sm font-bold text-foreground truncate" data-testid="admission-school-name">
+                      {displaySchoolName}
+                    </div>
                   </div>
                 </div>
-                <Building2 className="w-5 h-5 text-primary/70 shrink-0" />
+                <Building2 className="w-5 h-5 text-primary/40 shrink-0 hidden sm:block" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

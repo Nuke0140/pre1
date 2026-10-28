@@ -96,7 +96,7 @@ export const SETUP_STEPS: StepDef[] = [
     applicability: 'OPTIONAL',
     deps: ['school_profile'],
     icon: 'ShieldCheck',
-    description: 'Roles & Permissions: deferred for future implementation (non-blocking).',
+    description: 'Manage staff roles, module permissions, branch assignments and transfers across your school.',
   },
 
   // ── PHASE 2 — ACADEMIC STRUCTURE ─────────────────────────────────────
