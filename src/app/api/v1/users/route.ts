@@ -50,12 +50,12 @@ export const GET = withApi(async (req: NextRequest) => {
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50')))
 
   const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL'
+  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
 
   let effectiveBranchId: string | undefined = undefined
   let effectiveBranchIds: string[] | undefined = undefined
 
-  if (!isInstitutionWide) {
+  if (!isInstitutionWide && Array.isArray(authorizedBranches)) {
     if (branchFilter) {
       if (!authorizedBranches.includes(branchFilter)) {
         throw errPermission('Access denied: branch scope restricted')
@@ -411,7 +411,7 @@ export const GET = withApi(async (req: NextRequest) => {
           where: {
             tenantId: session.tenantId,
             deletedAt: null,
-            ...(isInstitutionWide ? {} : { id: { in: authorizedBranches } }),
+            ...(isInstitutionWide || !authorizedBranches || !Array.isArray(authorizedBranches) ? {} : { id: { in: authorizedBranches } }),
           },
           select: { id: true, name: true, code: true, isMain: true },
         }),
@@ -534,7 +534,7 @@ export const GET = withApi(async (req: NextRequest) => {
           where: {
             tenantId: session.tenantId,
             deletedAt: null,
-            ...(isInstitutionWide ? {} : { id: { in: authorizedBranches } }),
+            ...(isInstitutionWide || !authorizedBranches || !Array.isArray(authorizedBranches) ? {} : { id: { in: authorizedBranches } }),
           },
           select: { id: true, name: true, code: true, isMain: true },
         }),
@@ -1252,10 +1252,10 @@ export const POST = withApi(async (req: NextRequest) => {
   if (roleErr) return roleErr
 
   const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL'
+  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
 
   let resolvedBranchId = branchId
-  if (!resolvedBranchId && !isInstitutionWide && authorizedBranches.length > 0) {
+  if (!resolvedBranchId && !isInstitutionWide && Array.isArray(authorizedBranches) && authorizedBranches.length > 0) {
     resolvedBranchId = session.branchId || authorizedBranches[0]
   }
 
@@ -1315,7 +1315,7 @@ export const POST = withApi(async (req: NextRequest) => {
         actorId: (session as any).userId || session.uid,
         actorName: (session as any).fullName || session.name,
         actorRole: session.role,
-        actorBranchId: session.branchId || (authorizedBranches !== 'ALL' ? authorizedBranches[0] : undefined),
+        actorBranchId: session.branchId || (!isInstitutionWide && Array.isArray(authorizedBranches) ? authorizedBranches[0] : undefined),
         reqMeta: getRequestMeta(req),
       },
       familyInput
@@ -1645,7 +1645,7 @@ export const POST = withApi(async (req: NextRequest) => {
           where: { id: sid, tenantId: session.tenantId!, deletedAt: null },
         })
         if (student) {
-          if (!isInstitutionWide && (!student.branchId || !authorizedBranches.includes(student.branchId))) {
+          if (!isInstitutionWide && Array.isArray(authorizedBranches) && (!student.branchId || !authorizedBranches.includes(student.branchId))) {
             throw errPermission('Unauthorized: Cannot link student belonging to another campus branch')
           }
 

@@ -281,7 +281,7 @@ export class TemplateDataResolver {
     })
 
     if (tenant) {
-      context['school.name'] = tenant.name || 'PreOne Preschool Academy'
+      context['school.name'] = tenant.name?.trim() || 'PreOne'
       context['school.code'] = tenant.code || 'PRE-ONE'
       if (tenant.address) context['school.address'] = tenant.address
       if (tenant.city) context['school.city'] = tenant.city

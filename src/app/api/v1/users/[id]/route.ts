@@ -41,13 +41,13 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
   try {
     const authorizedBranches = await getAuthorizedBranchIds(session)
-    const isInstitutionWide = authorizedBranches === 'ALL'
+    const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
 
     if (!targetMember && targetGuardian) {
       const g = targetGuardian
       const isSelf = session.uid === g.userId || session.uid === g.id
       const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
-      if (!isInstitutionWide && !isSelf) {
+      if (!isInstitutionWide && !isSelf && Array.isArray(authorizedBranches)) {
         branchWhere.id = { in: authorizedBranches }
       }
       const branches = await db.branch.findMany({
@@ -58,7 +58,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
       const visibleLinks = isSelf || isInstitutionWide
         ? g.studentLinks
-        : g.studentLinks.filter((sl: any) => sl.student?.branchId && authorizedBranches.includes(sl.student.branchId))
+        : g.studentLinks.filter((sl: any) => sl.student?.branchId && Array.isArray(authorizedBranches) && authorizedBranches.includes(sl.student.branchId))
 
       const students = visibleLinks.map((sl: any) => {
         const b = branchMap.get(sl.student?.branchId)
@@ -270,7 +270,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
       const isSelf = session.uid === member.userId
       const visibleLinks = isSelf || isInstitutionWide
         ? gp.studentLinks
-        : gp.studentLinks.filter((sl: any) => sl.student?.branchId && authorizedBranches.includes(sl.student.branchId))
+        : gp.studentLinks.filter((sl: any) => sl.student?.branchId && Array.isArray(authorizedBranches) && authorizedBranches.includes(sl.student.branchId))
 
       const branchIds = Array.from(
         new Set(visibleLinks.map((sl: any) => sl.student.branchId).filter(Boolean))

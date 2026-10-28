@@ -350,13 +350,6 @@ export class TemplateService {
   }
 
   /**
-   * Assign a template as the default active template for its document type.
-   */
-  static async assignDefaultTemplate(tenantId: string, id: string) {
-    return this.updateTemplate(tenantId, id, { isDefault: true })
-  }
-
-  /**
    * Duplicate an existing template into a new editable draft.
    */
   static async duplicateTemplate(

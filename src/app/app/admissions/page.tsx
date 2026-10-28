@@ -5775,6 +5775,26 @@ export default function AdmissionsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Celebration Card */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: 12, padding: 18 }}>
+              {/* Institution Header for On-Screen & Printable Admission Confirmation Slip */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 12, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {branding?.logoUrl ? (
+                    <img src={branding.logoUrl} alt={branding.schoolName || 'School Logo'} style={{ height: 32, maxWidth: 140, objectFit: 'contain' }} />
+                  ) : (
+                    <Building2 size={22} style={{ color: 'var(--primary)' }} />
+                  )}
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text-primary)' }} data-testid="admission-slip-school-name">
+                      {branding.schoolName || 'PreOne'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                      Official Admission Confirmation & Enrollment Slip
+                    </div>
+                  </div>
+                </div>
+                <span className="badge b-primary" style={{ fontSize: 11, fontWeight: 700 }}>ENROLLED</span>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
                 {/* Child & Admission */}
                 <div>

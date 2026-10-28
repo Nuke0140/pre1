@@ -209,34 +209,7 @@ export class ConfigurationService {
     const min = program.ageMinMonths
     const max = program.ageMaxMonths
 
-    if (min != null && ageMonths < min) {
-      return {
-        eligible: false,
-        ageMonths,
-        minMonths: min,
-        maxMonths: max,
-        code: 'AGE_BELOW_MINIMUM',
-        reason: `Child is ${ageMonths} months old; minimum required for ${program.name} is ${min} months.`,
-        programId: program.id,
-        programName: program.name,
-        programType: program.programType,
-      }
-    }
-
-    if (max != null && ageMonths > max) {
-      return {
-        eligible: false,
-        ageMonths,
-        minMonths: min,
-        maxMonths: max,
-        code: 'AGE_ABOVE_MAXIMUM',
-        reason: `Child is ${ageMonths} months old; maximum permitted for ${program.name} is ${max} months.`,
-        programId: program.id,
-        programName: program.name,
-        programType: program.programType,
-      }
-    }
-
+    // Hard age restrictions removed per user requirement: all ages are accepted flexibly
     return {
       eligible: true,
       ageMonths,

@@ -4,12 +4,35 @@
  * Zero raw client SQL or untrusted evaluation.
  */
 
+export type FieldDomain =
+  | 'SCHOOL'
+  | 'STUDENT'
+  | 'GUARDIAN'
+  | 'CLASSROOM'
+  | 'FINANCE'
+  | 'STAFF'
+  | 'TRANSPORT'
+  | 'ATTENDANCE'
+  | 'SYSTEM'
+
+export type FieldDataType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'image'
+  | 'currency'
+  | 'badge'
+  | 'code'
+  | 'signature'
+
 export interface FieldDefinition {
   key: string // e.g. 'student.fullName'
   label: string // e.g. 'Student Full Name'
-  domain: 'SCHOOL' | 'STUDENT' | 'GUARDIAN' | 'CLASSROOM' | 'FINANCE' | 'STAFF' | 'SYSTEM'
+  domain: FieldDomain
+  dataType?: FieldDataType
   sampleValue: string
   description?: string
+  tags?: string[]
 }
 
 export const APPROVED_TEMPLATE_FIELDS: FieldDefinition[] = [
@@ -403,34 +426,136 @@ export const APPROVED_TEMPLATE_FIELDS: FieldDefinition[] = [
     description: 'Staff badge photo portrait',
   },
 
+  // ── TRANSPORT DOMAIN ──
+  {
+    key: 'transport.routeName',
+    label: 'Bus / Transport Route',
+    domain: 'TRANSPORT',
+    dataType: 'text',
+    sampleValue: 'Route 4 — Indiranagar / Koramangala',
+    description: 'Assigned school transport line',
+    tags: ['bus', 'van', 'route', 'transport', 'cab'],
+  },
+  {
+    key: 'transport.vehicleNumber',
+    label: 'Vehicle Registration No',
+    domain: 'TRANSPORT',
+    dataType: 'text',
+    sampleValue: 'KA-01-MJ-8821',
+    description: 'School bus or cab plate number',
+    tags: ['bus', 'vehicle', 'plate', 'transport'],
+  },
+  {
+    key: 'transport.driverName',
+    label: 'Driver Name',
+    domain: 'TRANSPORT',
+    dataType: 'text',
+    sampleValue: 'Ramesh Gowda',
+    description: 'Assigned verified bus driver',
+    tags: ['driver', 'staff', 'transport'],
+  },
+  {
+    key: 'transport.driverPhone',
+    label: 'Driver Mobile Number',
+    domain: 'TRANSPORT',
+    dataType: 'text',
+    sampleValue: '+91 98440 22119',
+    description: 'Emergency driver contact mobile',
+    tags: ['driver', 'phone', 'emergency', 'transport'],
+  },
+  {
+    key: 'transport.pickupStop',
+    label: 'Designated Bus Stop',
+    domain: 'TRANSPORT',
+    dataType: 'text',
+    sampleValue: 'Greenwood Gates (Stop #3)',
+    description: 'Designated student boarding location',
+    tags: ['bus', 'stop', 'pickup', 'transport'],
+  },
+
+  // ── ATTENDANCE DOMAIN ──
+  {
+    key: 'attendance.percentage',
+    label: 'Attendance Rate',
+    domain: 'ATTENDANCE',
+    dataType: 'badge',
+    sampleValue: '96.5%',
+    description: 'Overall term attendance percentage',
+    tags: ['attendance', 'present', 'rate', 'percentage'],
+  },
+  {
+    key: 'attendance.presentDays',
+    label: 'Days Present',
+    domain: 'ATTENDANCE',
+    dataType: 'number',
+    sampleValue: '112',
+    description: 'Total school days student attended',
+    tags: ['attendance', 'present', 'days'],
+  },
+  {
+    key: 'attendance.totalDays',
+    label: 'Total Working Days',
+    domain: 'ATTENDANCE',
+    dataType: 'number',
+    sampleValue: '116',
+    description: 'Total school working days in academic session',
+    tags: ['attendance', 'working', 'total'],
+  },
+
   // ── SYSTEM & PRINT DOMAIN ──
   {
     key: 'system.currentDate',
     label: 'Printed Date',
     domain: 'SYSTEM',
+    dataType: 'date',
     sampleValue: '02 Oct 2026',
     description: 'Today date at time of document printing',
+    tags: ['today', 'date', 'printed'],
   },
   {
     key: 'system.currentDateTime',
     label: 'Printed Timestamp',
     domain: 'SYSTEM',
+    dataType: 'date',
     sampleValue: '02 Oct 2026, 06:45 PM',
     description: 'Exact timestamp for verification tracking',
+    tags: ['timestamp', 'time', 'date', 'printed'],
+  },
+  {
+    key: 'system.currentTime',
+    label: 'Printed Time',
+    domain: 'SYSTEM',
+    dataType: 'date',
+    sampleValue: '06:45 PM',
+    description: 'Current local clock time when rendered',
+    tags: ['time', 'printed', 'clock'],
   },
   {
     key: 'system.pageNumber',
     label: 'Page Number',
     domain: 'SYSTEM',
+    dataType: 'number',
     sampleValue: '1',
     description: 'Current page number',
+    tags: ['page', 'number'],
   },
   {
     key: 'system.totalPages',
     label: 'Total Pages',
     domain: 'SYSTEM',
+    dataType: 'number',
     sampleValue: '1',
     description: 'Total count of document pages',
+    tags: ['page', 'total'],
+  },
+  {
+    key: 'system.verifyQrUrl',
+    label: 'Document Verification URL',
+    domain: 'SYSTEM',
+    dataType: 'code',
+    sampleValue: 'https://preone.school/verify/REC-2026-0842',
+    description: 'Secure authenticity QR payload',
+    tags: ['qr', 'verify', 'authenticity', 'scanner'],
   },
 ]
 
@@ -445,8 +570,29 @@ export const FIELD_DOMAINS: {
   { key: 'CLASSROOM', label: 'Class & Program', color: '#D97706' },
   { key: 'FINANCE', label: 'Fee & Billing', color: '#0D9488' },
   { key: 'STAFF', label: 'Faculty & Staff', color: '#9333EA' },
+  { key: 'TRANSPORT', label: 'Transport & Bus', color: '#EA580C' },
+  { key: 'ATTENDANCE', label: 'Attendance', color: '#16A34A' },
   { key: 'SYSTEM', label: 'Print & System', color: '#475569' },
 ]
+
+/**
+ * Searches approved fields with keyword match, token match, and alias tag support.
+ */
+export function searchApprovedFields(
+  query: string,
+  domain: string = 'ALL'
+): FieldDefinition[] {
+  const q = query.trim().toLowerCase()
+  return APPROVED_TEMPLATE_FIELDS.filter((f) => {
+    if (domain !== 'ALL' && f.domain !== domain) return false
+    if (!q) return true
+    if (f.label.toLowerCase().includes(q)) return true
+    if (f.key.toLowerCase().includes(q)) return true
+    if (f.description && f.description.toLowerCase().includes(q)) return true
+    if (f.tags && f.tags.some((t) => t.toLowerCase().includes(q))) return true
+    return false
+  })
+}
 
 /**
  * Returns a complete sample data record dictionary for preview rendering.

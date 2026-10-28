@@ -108,11 +108,11 @@ async function _POST(req: NextRequest) {
     }
 
     const authorizedBranches = await getAuthorizedBranchIds(session)
-    const isInstitutionWide = authorizedBranches === 'ALL'
+    const isInstWide = isInstitutionWide || authorizedBranches === 'ALL' || authorizedBranches === null
     const csvActor = {
       actorRole: session.role,
-      actorBranchId: session.branchId || (!isInstitutionWide ? authorizedBranches[0] : undefined),
-      authorizedBranchIds: isInstitutionWide ? undefined : authorizedBranches,
+      actorBranchId: session.branchId || (!isInstWide && Array.isArray(authorizedBranches) ? authorizedBranches[0] : undefined),
+      authorizedBranchIds: isInstWide || !Array.isArray(authorizedBranches) ? undefined : authorizedBranches,
     }
 
     if (action === 'preview' || action === 'validate') {

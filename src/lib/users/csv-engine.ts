@@ -833,8 +833,8 @@ export class UserCsvEngine {
         }
 
         // Check branch boundary for existing student
-        const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
-        const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
+        const isOwnerOrPlatform = actorContext?.actorRole === 'OWNER' || actorContext?.actorRole === 'PLATFORM_ADMIN'
+        const allowedBranches = actorContext?.authorizedBranchIds || (actorContext?.actorBranchId ? [actorContext.actorBranchId] : [])
         if (!isOwnerOrPlatform && allowedBranches.length > 0) {
           if (targetStudent.branchId && !allowedBranches.includes(targetStudent.branchId)) {
             errors.push(`Unauthorized: Student "${targetStudent.firstName}" belongs to another campus branch`)
@@ -1227,7 +1227,10 @@ export class UserCsvEngine {
                 actorRole: ctx.actorRole,
                 actorRoles: ctx.actorRoles,
                 actorBranchId: ctx.actorBranchId,
+              },
+              rowData as any,
               tx
+            )
             if (row.action === 'CREATE') createdCount++
             else updatedCount++
           }

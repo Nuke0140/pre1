@@ -1144,23 +1144,6 @@ export default function SetupPage() {
           <form onSubmit={async (e) => {
             e.preventDefault(); setBusy(true)
             const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
-            const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
-            const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
-            if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
-              toast.error('Validation error', 'Min age cannot be negative')
-              setBusy(false)
-              return
-            }
-            if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
-              toast.error('Validation error', 'Max age cannot be negative')
-              setBusy(false)
-              return
-            }
-            if (minAge !== null && maxAge !== null && minAge > maxAge) {
-              toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
-              setBusy(false)
-              return
-            }
             const res = await fetch('/api/v1/programs', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1184,8 +1167,6 @@ export default function SetupPage() {
                 </select>
               </div>
               <div className="field"><label>Capacity (seats) <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
-              <div className="field"><label>Min Age (months)</label><input className="input" name="ageMinMonths" type="number" placeholder="24" /></div>
-              <div className="field"><label>Max Age (months)</label><input className="input" name="ageMaxMonths" type="number" placeholder="36" /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" placeholder="Sensory and motor early play" /></div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
@@ -1202,30 +1183,11 @@ export default function SetupPage() {
           <form onSubmit={async (e) => {
             e.preventDefault(); setBusy(true)
             const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
-            const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
-            const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
-            if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
-              toast.error('Validation error', 'Min age cannot be negative')
-              setBusy(false)
-              return
-            }
-            if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
-              toast.error('Validation error', 'Max age cannot be negative')
-              setBusy(false)
-              return
-            }
-            if (minAge !== null && maxAge !== null && minAge > maxAge) {
-              toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
-              setBusy(false)
-              return
-            }
             const res = await fetch(`/api/v1/programs/${editingItem.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 name: fd.name,
-                ageMinMonths: minAge,
-                ageMaxMonths: maxAge,
                 capacity: Number(fd.capacity || 20),
                 description: fd.description || null,
                 isActive: fd.isActive === 'on',
@@ -1244,8 +1206,6 @@ export default function SetupPage() {
               <div className="field"><label>Program Name <span className="req">*</span></label><input className="input" name="name" defaultValue={editingItem.name} required /></div>
               <div className="field"><label>Code</label><input className="input" value={editingItem.code} disabled /></div>
               <div className="field"><label>Capacity (seats) <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={editingItem.capacity} min="1" required /></div>
-              <div className="field"><label>Min Age (months)</label><input className="input" name="ageMinMonths" type="number" defaultValue={editingItem.ageMinMonths || ''} /></div>
-              <div className="field"><label>Max Age (months)</label><input className="input" name="ageMaxMonths" type="number" defaultValue={editingItem.ageMaxMonths || ''} /></div>
               <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" defaultValue={editingItem.description || ''} /></div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>

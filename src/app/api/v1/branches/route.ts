@@ -14,7 +14,7 @@ async function _GET(req: NextRequest) {
   try {
     const authorized = await getAuthorizedBranchIds(session)
     const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
-    if (authorized !== 'ALL') {
+    if (authorized !== 'ALL' && authorized !== null && Array.isArray(authorized)) {
       branchWhere.id = { in: authorized }
     }
 

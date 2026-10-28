@@ -92,7 +92,7 @@ async function _GET(req: NextRequest) {
 
     // 2. Fetch authorized tenant branches
     const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
-    if (!isInstitutionWide && !isParentOrGuardian) {
+    if (!isInstitutionWide && !isParentOrGuardian && Array.isArray(authorizedBranches)) {
       branchWhere.id = { in: authorizedBranches }
     }
 

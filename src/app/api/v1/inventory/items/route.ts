@@ -22,7 +22,7 @@ async function _GET(req: NextRequest) {
 
     const branchId =
       rawBranchId ||
-      (authorized !== 'ALL' && authorized.length > 0 ? authorized[0] : (session.branchId || undefined))
+      (authorized && authorized !== 'ALL' && authorized.length > 0 ? authorized[0] : (session.branchId || undefined))
 
     const categoryId = searchParams.get('categoryId') || undefined
     const itemType = searchParams.get('itemType') as any || undefined

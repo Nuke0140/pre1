@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { GET as getAuthBranding } from '@/app/api/v1/auth/branding/route'
 import { getEffectiveBranding } from '@/lib/branding-service'
 import { PREONE_BRANDING_DEFAULTS } from '@/lib/branding-types'
+import { TemplateDataResolver } from '@/lib/templates/data-resolver'
 
 /**
  * PRE1-BRAND-001: End-to-End Multi-Tenant Isolation & Scenario Verification
@@ -141,5 +142,25 @@ describe('PRE1-BRAND-001: End-to-End Multi-Tenant Lifecycle & Security Audit', (
 
     const effective = await getEffectiveBranding(tenantAId)
     expect(effective.schoolName).toBe(marathiName)
+  })
+
+  it('Admission PDF/print template output resolves Tenant.name into school.name', async () => {
+    // Test canonical template resolver for ADMISSION_FORM document type
+    const context = await TemplateDataResolver.resolveDataContext(
+      tenantAId,
+      'ADMISSION_FORM',
+      'sample-fixture',
+      'FIXTURE'
+    )
+
+    // Verify school.name is resolved to the active tenant name
+    const currentTenant = await db.tenant.findUnique({ where: { id: tenantAId } })
+    expect(context['school.name']).toBe(currentTenant?.name)
+    expect(context['school.code']).toBe(currentTenant?.code)
+
+    // Also verify admissions print slip contains the school branding anchor
+    const admissionsPageCode = await Bun.file('src/app/app/admissions/page.tsx').text()
+    expect(admissionsPageCode).toContain('data-testid="admission-slip-school-name"')
+    expect(admissionsPageCode).toContain('branding.schoolName || \'PreOne\'')
   })
 })

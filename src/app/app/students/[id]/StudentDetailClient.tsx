@@ -11,7 +11,7 @@ import {
   AlertTriangle, Upload, UserPlus, ArrowRightLeft, GraduationCap,
   ExternalLink, Check, X, AlertCircle, RefreshCw, ArrowLeft,
   Calendar, CheckCircle, Clock, Eye, Lock, Download,
-  Briefcase, Package, Send, CheckCheck, Printer
+  Briefcase, Package, Send, CheckCheck, Printer, Copy
 } from 'lucide-react'
 import { Avatar, StatusBadge, Segmented, EmptyState, Breadcrumbs } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -895,6 +895,48 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
   const primaryG = (guardians || []).find((g: any) => g.isPrimary) || (guardians || [])[0] || null
   const emergencyG = (guardians || []).find((g: any) => g.isEmergencyContact) || primaryG
 
+  const handleCopyId = () => {
+    if (student?.id) {
+      navigator.clipboard.writeText(student.id)
+      toast.success('Copied to clipboard', `Student ID ${student.id} copied`)
+    }
+  }
+
+  // Calculate profile completeness score
+  const profileCompleteness = Math.min(
+    100,
+    Math.round(
+      [
+        !!(student?.firstName && student?.lastName),
+        !!student?.dob,
+        !!student?.gender,
+        !!student?.bloodGroup,
+        !!student?.address,
+        !!student?.photoUrl,
+        guardiansList.length > 0,
+        !!student?.admissionNo,
+        !!student?.seatNumber,
+        !!academic?.classroom?.id,
+      ].filter(Boolean).length * 10
+    )
+  )
+
+  const tabList = [
+    { key: 'overview', label: 'Overview' },
+    { key: 'personal', label: 'Personal Details' },
+    { key: 'guardians', label: 'Guardians', badge: guardiansList.length },
+    { key: 'academic', label: 'Academic & Class' },
+    { key: 'report-cards', label: 'Report Cards', badge: reportCards?.length || 0 },
+    { key: 'attendance', label: 'Attendance', badge: `${attendanceRate}%` },
+    { key: 'transport', label: 'Transport', badge: profile.transport?.activeAssignment ? 'Active' : 'None' },
+    { key: 'fees', label: 'Fees', badge: finance?.invoices?.length || 0 },
+    { key: 'inventory', label: 'Inventory', badge: profile.inventory?.stockIssues?.length || 0 },
+    { key: 'observations', label: 'Observations', badge: academics?.observations?.length || 0 },
+    { key: 'timeline', label: 'Timeline' },
+    { key: 'documents', label: 'Documents', badge: studentDocuments?.length || 0 },
+    { key: 'audit', label: 'Audit', badge: audit?.length || 0 },
+  ]
+
   return (
     <div className="space-y-6 pb-20 max-w-7xl mx-auto">
       {/* ── BREADCRUMB / BACK NAVIGATION ── */}
@@ -913,47 +955,261 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
 
       {/* ── HERO DOSSIER CARD / PROFILE HEADER ── */}
       <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start gap-5">
-          {/* Avatar with Photo & Camera Upload Trigger */}
-          <div className="relative self-center sm:self-start">
-            <Avatar
-              name={student?.name || student?.fullName || student?.firstName}
-              src={student?.photoUrl}
-              size="lg"
-            />
-            {/* Status indicator ring */}
-            <div
-              className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${
-                student?.status === 'ACTIVE'
-                  ? 'bg-emerald-500'
-                  : student?.status === 'WITHDRAWN'
-                  ? 'bg-rose-500'
-                  : 'bg-amber-500'
-              }`}
-              title={`Status: ${student?.status}`}
-            />
-            {/* Camera Trigger */}
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => setEditStudentOpen(true)}
-                className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm hover:bg-purple-700 transition-colors"
-                title="Edit identity & photo"
-              >
-                <Camera size={11} />
-              </button>
-            )}
+        {/* Soft Ambient Glow */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/5 dark:bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+          {/* LEFT: Child Identity Details & Demographics */}
+          <div className="flex flex-col sm:flex-row items-start gap-5 flex-1 min-w-0">
+            {/* Avatar with Photo & Camera Upload Trigger */}
+            <div className="relative self-center sm:self-start shrink-0">
+              <Avatar
+                name={student?.name || student?.fullName || student?.firstName}
+                src={student?.photoUrl}
+                size="lg"
+              />
+              {/* Status indicator ring */}
+              <div
+                className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${
+                  student?.status === 'ACTIVE'
+                    ? 'bg-emerald-500'
+                    : student?.status === 'WITHDRAWN'
+                    ? 'bg-rose-500'
+                    : 'bg-amber-500'
+                }`}
+                title={`Status: ${student?.status}`}
+              />
+              {/* Camera Trigger */}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditStudentOpen(true)}
+                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm hover:bg-purple-700 transition-colors"
+                  title="Edit identity & photo"
+                >
+                  <Camera size={11} />
+                </button>
+              )}
+            </div>
+
+            {/* Identity & Demographics Column */}
+            <div className="space-y-2 text-center sm:text-left min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white truncate">
+                  {student?.name || student?.fullName || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student Profile'}
+                </h1>
+
+                {/* Status Badge with Click-to-Change */}
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusForm({
+                        status: student?.status || 'ACTIVE',
+                        reason: '',
+                        notes: '',
+                        forceWithPendingFees: false,
+                      })
+                      setStatusOpen(true)
+                    }}
+                    className="hover:opacity-85 transition-opacity"
+                    title="Click to transition lifecycle status"
+                  >
+                    <StatusBadge status={student?.status || 'ACTIVE'} />
+                  </button>
+                ) : (
+                  <StatusBadge status={student?.status || 'ACTIVE'} />
+                )}
+
+                {/* Read-Only Admission Number Pill */}
+                {student?.admissionNo && (
+                  <span
+                    className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40 select-all"
+                    title="Admission Number (Read-only)"
+                  >
+                    {student.admissionNo}
+                  </span>
+                )}
+
+                {/* Editable Seat Number Pill */}
+                {student?.seatNumber ? (
+                  canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditStudentOpen(true)}
+                      className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/40 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors inline-flex items-center gap-1 group"
+                      title="Seat Number (Click to edit)"
+                    >
+                      <span>Seat: {student.seatNumber}</span>
+                      <Edit3 size={10} className="text-sky-500 opacity-60 group-hover:opacity-100" />
+                    </button>
+                  ) : (
+                    <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/40">
+                      Seat: {student.seatNumber}
+                    </span>
+                  )
+                ) : canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditStudentOpen(true)}
+                    className="font-mono text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 border border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-400 transition-colors inline-flex items-center gap-1"
+                    title="Click to assign Seat Number"
+                  >
+                    <span>+ Assign Seat</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Program, Classroom & Educator Pill Row */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold border border-slate-200/60 dark:border-slate-700">
+                  <School size={13} className="text-purple-600 dark:text-purple-400" />
+                  <span>{academic?.classroom ? `${academic.classroom.name} (${enumLabel(academic.classroom.programType)})` : 'Unassigned Class'}</span>
+                </span>
+
+                {academic?.classroom?.primaryTeacher && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
+                    <UserCheck size={13} className="text-emerald-500" />
+                    <span>Educator: {academic.classroom.primaryTeacher.fullName}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Demographics row */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-slate-500 dark:text-slate-400">
+                {childAge && (
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                    Age {childAge}
+                  </span>
+                )}
+                {student?.dob && (
+                  <>
+                    <span>•</span>
+                    <span>Born {fmtDate(student.dob)}</span>
+                  </>
+                )}
+                {student?.gender && (
+                  <>
+                    <span>•</span>
+                    <span>{enumLabel(student.gender)}</span>
+                  </>
+                )}
+                {student?.bloodGroup && (
+                  <>
+                    <span>•</span>
+                    <span className="font-semibold text-rose-600 dark:text-rose-400">
+                      🩸 {student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-')}
+                    </span>
+                  </>
+                )}
+                {student?.admissionDate && (
+                  <>
+                    <span>•</span>
+                    <span>Enrolled {fmtDate(student.admissionDate)}</span>
+                  </>
+                )}
+              </div>
+
+              {/* 1-Click Quick Contact Strip */}
+              {primaryG && (
+                <div className="pt-1.5 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                  <StudentGuardianQuickActions
+                    guardian={primaryG}
+                    emergencyContact={emergencyG}
+                    childName={student?.name || student?.fullName || student?.firstName}
+                    variant="card"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Child Identity Details */}
-          <div className="flex-1 min-w-[260px] space-y-2 text-center sm:text-left">
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {student?.name || student?.fullName || `${student?.firstName || ''} ${student?.lastName || ''}`.trim() || 'Student'}
-              </h1>
+          {/* CENTER & RIGHT WRAPPER */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto shrink-0 justify-between lg:justify-end">
+            {/* 3 QUICK METRIC CARDS */}
+            <div className="grid grid-cols-3 gap-2.5 w-full sm:w-auto">
+              {/* Attendance Quick Tile */}
+              <button
+                type="button"
+                onClick={() => handleTabChange('attendance')}
+                className={`p-3 rounded-xl border text-center transition-all hover:scale-[1.02] cursor-pointer group min-w-[95px] ${
+                  attendanceRate >= 80
+                    ? 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/40'
+                    : 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-200/80 dark:bg-amber-950/30 dark:border-amber-800/40'
+                }`}
+                title="Click to view full Attendance records"
+              >
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <CheckCircle2
+                    size={13}
+                    className={attendanceRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}
+                  />
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                    Attendance
+                  </span>
+                </div>
+                <div className={`text-lg font-extrabold ${attendanceRate >= 80 ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                  {attendanceRate}%
+                </div>
+              </button>
 
-              {/* Status Badge with Click-to-Change */}
-              {canEdit ? (
+              {/* Fee Balance Quick Tile */}
+              <button
+                type="button"
+                onClick={() => handleTabChange('fees')}
+                className={`p-3 rounded-xl border text-center transition-all hover:scale-[1.02] cursor-pointer group min-w-[95px] ${
+                  feeBalance > 0
+                    ? 'bg-rose-50/70 hover:bg-rose-100/70 border-rose-200/80 dark:bg-rose-950/30 dark:border-rose-800/40'
+                    : 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200/80 dark:bg-emerald-950/30 dark:border-emerald-800/40'
+                }`}
+                title="Click to view full Fee Invoices"
+              >
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Wallet
+                    size={13}
+                    className={feeBalance > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}
+                  />
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                    Fee Balance
+                  </span>
+                </div>
+                <div className={`text-lg font-extrabold ${feeBalance > 0 ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                  {inr(feeBalance, { compact: true })}
+                </div>
+              </button>
+
+              {/* Observations Quick Tile */}
+              <button
+                type="button"
+                onClick={() => handleTabChange('observations')}
+                className="p-3 rounded-xl border bg-purple-50/70 hover:bg-purple-100/70 border-purple-200/80 dark:bg-purple-950/30 dark:border-purple-800/40 text-center transition-all hover:scale-[1.02] cursor-pointer group min-w-[95px]"
+                title="Click to view developmental Observations"
+              >
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Sparkles size={13} className="text-purple-600 dark:text-purple-400" />
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 dark:text-slate-400">
+                    Observations
+                  </span>
+                </div>
+                <div className="text-lg font-extrabold text-purple-700 dark:text-purple-300">
+                  {academics?.observations?.length || 0}
+                </div>
+              </button>
+            </div>
+
+            {/* PRIMARY ACTIONS GROUP */}
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap sm:flex-nowrap">
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditStudentOpen(true)}
+                  className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 transition-colors shadow-xs shrink-0"
+                >
+                  <Edit3 size={13} />
+                  <span>Edit Profile</span>
+                </button>
+              )}
+              {canEdit && (
                 <button
                   type="button"
                   onClick={() => {
@@ -965,143 +1221,22 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
                     })
                     setStatusOpen(true)
                   }}
-                  className="hover:opacity-85 transition-opacity"
-                  title="Click to transition lifecycle status"
+                  className="h-10 px-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs shrink-0"
                 >
-                  <StatusBadge status={student?.status || 'ACTIVE'} />
+                  <RefreshCw size={12} />
+                  <span>Change Status</span>
                 </button>
-              ) : (
-                <StatusBadge status={student?.status || 'ACTIVE'} />
               )}
-
-              {student?.admissionNo && (
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
-                  {student.admissionNo}
-                </span>
-              )}
-
-              {student?.seatNumber && (
-                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/40">
-                  Seat: {student.seatNumber}
-                </span>
-              )}
-            </div>
-
-            {/* Program, Classroom & Educator Pill Row */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold border border-slate-200/60 dark:border-slate-700">
-                <School size={13} className="text-purple-600 dark:text-purple-400" />
-                <span>{academic?.classroom ? `${academic.classroom.name} (${enumLabel(academic.classroom.programType)})` : 'Unassigned Class'}</span>
-              </span>
-
-              {academic?.classroom?.primaryTeacher && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  <UserCheck size={13} className="text-emerald-500" />
-                  <span>Educator: {academic.classroom.primaryTeacher.fullName}</span>
-                </span>
-              )}
-            </div>
-
-            {/* Demographics row */}
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-slate-500 dark:text-slate-400">
-              {childAge && (
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
-                  Age {childAge}
-                </span>
-              )}
-              {student?.dob && (
-                <>
-                  <span>•</span>
-                  <span>Born {fmtDate(student.dob)}</span>
-                </>
-              )}
-              {student?.gender && (
-                <>
-                  <span>•</span>
-                  <span>{enumLabel(student.gender)}</span>
-                </>
-              )}
-              {student?.bloodGroup && (
-                <>
-                  <span>•</span>
-                  <span className="font-semibold text-rose-600 dark:text-rose-400">
-                    🩸 {student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-')}
-                  </span>
-                </>
-              )}
-              {student?.admissionDate && (
-                <>
-                  <span>•</span>
-                  <span>Enrolled {fmtDate(student.admissionDate)}</span>
-                </>
-              )}
-            </div>
-
-            {/* 1-Click Quick Contact Strip */}
-            {primaryG && (
-              <div className="pt-2 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-                <StudentGuardianQuickActions
-                  guardian={primaryG}
-                  emergencyContact={emergencyG}
-                  childName={student?.name || student?.fullName || student?.firstName}
-                  variant="card"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Quick Metrics & Actions */}
-          <div className="flex items-center gap-2.5 self-center sm:self-start flex-wrap justify-center sm:justify-end">
-            {/* Attendance Quick Tile */}
-            <div className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700 text-center min-w-[90px]">
-              <div className={`text-base font-bold ${attendanceRate >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                {attendanceRate}%
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Attendance</div>
-            </div>
-
-            {/* Fee Balance Quick Tile */}
-            <div className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700 text-center min-w-[90px]">
-              <div className={`text-base font-bold ${feeBalance > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                {inr(feeBalance, { compact: true })}
-              </div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Fee Balance</div>
-            </div>
-
-            {/* Actions */}
-            {canEdit && (
               <button
-                onClick={() => setEditStudentOpen(true)}
-                className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
+                type="button"
+                onClick={() => setWelcomeKitOpen(true)}
+                className="h-10 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm shrink-0"
+                title="Issue preconfigured Welcome Kit bundle with uniform sets, school bag, diary & workbook"
               >
-                <Edit3 size={13} />
-                <span>Edit</span>
+                <Package size={14} />
+                <span>Issue Welcome Kit</span>
               </button>
-            )}
-            {canEdit && (
-              <button
-                onClick={() => {
-                  setStatusForm({
-                    status: student?.status || 'ACTIVE',
-                    reason: '',
-                    notes: '',
-                    forceWithPendingFees: false,
-                  })
-                  setStatusOpen(true)
-                }}
-                className="h-10 px-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <span>Change Status</span>
-              </button>
-            )}
-            <button
-              onClick={() => setWelcomeKitOpen(true)}
-              className="h-10 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
-              title="Issue preconfigured Welcome Kit bundle with uniform sets, school bag, diary & workbook"
-            >
-              <Package size={14} />
-              <span>Issue Welcome Kit</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1117,6 +1252,15 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
                 <span className="px-2 py-0.2 rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-[10px]">
                   Blood: {student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-')}
                 </span>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setEditStudentOpen(true)}
+                  className="ml-auto text-amber-700 dark:text-amber-300 hover:underline font-semibold text-[11px] flex items-center gap-1"
+                >
+                  <Edit3 size={11} /> Update Directives
+                </button>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] pt-1">
@@ -1149,26 +1293,46 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
         </div>
       )}
 
-      {/* ── MULTI-TAB NAVIGATION STRIP ── */}
-      <div className="overflow-x-auto scrollbar-none pb-1">
-        <Segmented
-          value={tab}
-          onChange={handleTabChange}
-          options={[
-            { key: 'overview', label: 'Overview' },
-            { key: 'guardians', label: `Guardians (${guardiansList.length})` },
-            { key: 'academic', label: 'Academic & Class' },
-            { key: 'report-cards', label: `Report Cards (${reportCards?.length || 0})` },
-            { key: 'attendance', label: `Attendance (${attendanceRate}%)` },
-            { key: 'transport', label: `Transport (${profile.transport?.activeAssignment ? 'Active' : 'None'})` },
-            { key: 'fees', label: `Fees (${finance?.invoices?.length || 0})` },
-            { key: 'inventory', label: `Inventory (${profile.inventory?.stockIssues?.length || 0})` },
-            { key: 'observations', label: `Observations (${academics?.observations?.length || 0})` },
-            { key: 'timeline', label: 'Timeline' },
-            { key: 'documents', label: `Documents (${studentDocuments?.length || 0})` },
-            { key: 'audit', label: `Audit (${audit?.length || 0})` },
-          ]}
-        />
+      {/* ── MULTI-TAB NAVIGATION STRIP (13 TABS) ── */}
+      <div className="relative border-b border-slate-200/80 dark:border-slate-800">
+        <div
+          role="tablist"
+          aria-label="Student 360 Sections"
+          className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-2 pt-1"
+        >
+          {tabList.map((t) => {
+            const isActive = tab === t.key
+            return (
+              <button
+                key={t.key}
+                role="tab"
+                id={`tab-${t.key}`}
+                aria-selected={isActive}
+                aria-controls={`tabpanel-${t.key}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => handleTabChange(t.key)}
+                className={`group px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500/30 ${
+                  isActive
+                    ? 'bg-purple-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/70'
+                }`}
+              >
+                <span>{t.label}</span>
+                {t.badge !== undefined && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold transition-colors ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
+                    }`}
+                  >
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── TAB 1: OVERVIEW ── */}
@@ -1180,225 +1344,738 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
           hidden={tab !== 'overview'}
           className={tab === 'overview' ? 'tab-panel-enter' : ''}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Card 1: Child Identity & Personal Info */}
-          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Sparkles size={17} className="text-purple-600 dark:text-purple-400" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Child Identity & Details</h3>
+          {/* Responsive 3-Column Grid for Cards A through I */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {/* ── CARD A: PERSONAL DETAILS ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Personal Details</h3>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditStudentOpen(true)}
+                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                    >
+                      <Edit3 size={12} /> Edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Full Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{student?.firstName} {student?.lastName || ''}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Date of Birth</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{fmtDate(student.dob)} ({childAge || 'Calculated'})</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Gender</span>
+                    <span className="text-slate-800 dark:text-slate-200">{enumLabel(student.gender)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Blood Group</span>
+                    <span className={`font-semibold ${student.bloodGroup ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+                      🩸 {student.bloodGroup ? student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-') : 'Not recorded'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 items-start">
+                    <span className="text-slate-500">Address</span>
+                    <span className="max-w-[200px] text-right text-slate-800 dark:text-slate-200 truncate" title={student.address}>
+                      {student.address || 'No residential address recorded'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('personal')}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 w-full group"
+              >
+                <span>View Full Personal Profile</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+
+            {/* ── CARD B: ADMISSION & ACADEMIC PLACEMENT ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <School size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Admission & Academic</h3>
+                  </div>
+                  <StatusBadge status={admission?.status || student.status} />
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Admission No.</span>
+                    <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60">
+                      {student.admissionNo || 'Pending'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60 items-center">
+                    <span className="text-slate-500">Seat Number</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60">
+                        {student.seatNumber || 'Not assigned'}
+                      </span>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => setEditStudentOpen(true)}
+                          className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Current Section</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {academic?.classroom?.name || 'Unassigned'}
+                      {academic?.classroom?.programType ? ` (${enumLabel(academic.classroom.programType)})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Enrolled Session</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{academic?.session?.name || 'Current Session'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Application Ref</span>
+                    <span className="font-mono text-xs text-slate-700 dark:text-slate-300">{admission?.applicationNumber || 'Direct Enrollment'}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Enrollment Date</span>
+                    <span className="text-slate-800 dark:text-slate-200">{fmtDate(student.admissionDate)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {canEdit && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setAllocOpen(true)}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1"
+                  >
+                    <Shuffle size={11} /> Reallocate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTransferOpen(true)}
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1"
+                  >
+                    <ArrowRightLeft size={11} /> Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromoteOpen(true)}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200/60 text-xs font-semibold flex items-center gap-1"
+                  >
+                    <GraduationCap size={12} /> Promote
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── CARD C: HEALTH & SAFETY DIRECTIVES ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert size={16} className="text-amber-600 dark:text-amber-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Health & Safety</h3>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditStudentOpen(true)}
+                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                    >
+                      <Edit3 size={12} /> Edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Known Allergies</span>
+                    <span className={student?.allergies ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400"}>
+                      {student?.allergies || 'None recorded'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Medical Conditions</span>
+                    <span className={student?.medicalAlerts ? "font-semibold text-amber-600 dark:text-amber-400" : "text-slate-400"}>
+                      {student?.medicalAlerts || 'None recorded'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Dietary Restrictions</span>
+                    <span className="text-slate-800 dark:text-slate-200">{student?.dietaryRestrictions || 'None recorded'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Emergency Protocol</span>
+                    <span className="text-slate-800 dark:text-slate-200 text-right max-w-[200px] truncate" title={student?.emergencyMedicalInstructions}>
+                      {student?.emergencyMedicalInstructions || 'Standard emergency protocol'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-slate-500">Blood Group</span>
+                    <span className="font-bold text-rose-600 dark:text-rose-400">
+                      🩸 {student?.bloodGroup ? student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-') : 'Not recorded'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-500">Safety Status:</span>
+                {(student?.allergies || student?.medicalAlerts || student?.dietaryRestrictions) ? (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold text-[10px] border border-amber-200/50">
+                    Active Directives
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] border border-emerald-200/50">
+                    Standard Protocol
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* ── CARD D: GUARDIANS & CONTACTS ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Guardians & Contacts</h3>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGuardianForm({
+                          isEdit: false,
+                          guardianId: '',
+                          fullName: '',
+                          phone: '',
+                          email: '',
+                          occupation: '',
+                          relationship: 'MOTHER',
+                          isPrimary: false,
+                          canPickup: true,
+                          pickupPin: '',
+                          isFeePayer: false,
+                          receivesComm: true,
+                        })
+                        setGuardianModalOpen(true)
+                      }}
+                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {guardiansList && guardiansList.length > 0 ? (
+                    guardiansList.slice(0, 2).map((g: any) => (
+                      <div key={g.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900 dark:text-white truncate">{g.name}</span>
+                            {g.isPrimary && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-slate-500 text-[11px] flex items-center gap-1.5">
+                            <span>{enumLabel(g.relationship)}</span>
+                            <span>•</span>
+                            <span>{g.phone || 'No phone'}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {g.canPickup ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50">
+                              Pickup Auth
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-slate-400">No Pickup</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 py-3 text-center">No guardians linked to profile.</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('guardians')}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 w-full group"
+              >
+                <span>Manage All Guardians ({guardiansList.length})</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+
+            {/* ── CARD E: TRANSPORT INFORMATION ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Bus size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Transport & Route</h3>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    profile?.transport?.activeAssignment
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                  }`}>
+                    {profile?.transport?.activeAssignment ? 'Active' : 'Not Enrolled'}
+                  </span>
+                </div>
+
+                {profile?.transport?.activeAssignment ? (
+                  <div className="space-y-2.5 text-xs">
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Route</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">
+                        {profile.transport.activeAssignment.route?.name || 'Assigned Route'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Pickup Stop</span>
+                      <span className="text-slate-800 dark:text-slate-200">{profile.transport.activeAssignment.pickupStop?.name || 'Main Gate'}</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-slate-500">Drop Stop</span>
+                      <span className="text-slate-800 dark:text-slate-200">{profile.transport.activeAssignment.dropStop?.name || 'Home Stop'}</span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-slate-500">Trip Type</span>
+                      <span className="text-slate-800 dark:text-slate-200">{enumLabel(profile.transport.activeAssignment.tripType || 'BOTH')}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center space-y-1 text-xs">
+                    <p className="text-slate-600 dark:text-slate-300 font-medium">No school transport assigned.</p>
+                    <p className="text-slate-400 text-[11px]">Commutes via authorized parent pickup/drop.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                {canEdit && (
+                  profile?.transport?.activeAssignment ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTransportModalOpen(true)}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                      >
+                        Manage
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCancelTransportOpen(true)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setTransportModalOpen(true)}
+                      className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 text-purple-700 dark:text-purple-300 border border-purple-200/60 text-xs font-semibold flex items-center gap-1"
+                    >
+                      <Bus size={11} /> Assign Route
+                    </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('transport')}
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline ml-auto"
+                >
+                  Details →
+                </button>
+              </div>
+            </div>
+
+            {/* ── CARD F: INVENTORY & WELCOME KIT ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Package size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Inventory & Welcome Kit</h3>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                    profile?.inventory?.stockIssues && profile.inventory.stockIssues.length > 0
+                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50'
+                      : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/50'
+                  }`}>
+                    {profile?.inventory?.stockIssues && profile.inventory.stockIssues.length > 0 ? 'Issued' : 'Pending'}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div className="text-[11px] text-slate-500 font-medium">Standard Bundle Items:</div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <span className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">✓ Uniform Sets</span>
+                    <span className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">✓ School Bag & Badge</span>
+                    <span className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">✓ Diary & Workbooks</span>
+                    <span className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300">✓ Activity Materials</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setWelcomeKitOpen(true)}
+                    className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs"
+                  >
+                    <Package size={11} /> Issue Kit
+                  </button>
+                  {profile?.inventory?.stockIssues && profile.inventory.stockIssues.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setHandoverSlipOpen(true)}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1"
+                    >
+                      <Printer size={11} /> Slip
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('inventory')}
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                >
+                  View Tab →
+                </button>
+              </div>
+            </div>
+
+            {/* ── CARD G: RECENT OBSERVATIONS & MILESTONES ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Recent Observations</h3>
+                  </div>
+                  {canRecordAcademics && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setObsForm({
+                          id: undefined,
+                          narrative: '',
+                          category: 'Developmental Milestone',
+                          milestoneTags: '',
+                          concern: 'NORMAL',
+                        })
+                        setObsModalOpen(true)
+                      }}
+                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                    >
+                      + New
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {academics?.observations && academics.observations.length > 0 ? (
+                    academics.observations.slice(0, 2).map((obs: any) => (
+                      <div key={obs.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-purple-700 dark:text-purple-300 text-[11px] bg-purple-50 dark:bg-purple-950/60 px-1.5 py-0.2 rounded">
+                            {obs.category || 'Milestone'}
+                          </span>
+                          <span className="text-[10px] text-slate-400">{fmtDate(obs.observedAt || obs.createdAt)}</span>
+                        </div>
+                        <p className="text-slate-700 dark:text-slate-300 text-[11px] line-clamp-2 italic">
+                          &ldquo;{obs.narrative}&rdquo;
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 py-3 text-center">No developmental observations recorded yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('observations')}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 w-full group"
+              >
+                <span>View All Observations ({academics?.observations?.length || 0})</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+
+            {/* ── CARD H: DOCUMENTS & VERIFICATION ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Student Documents</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                    {studentDocuments?.length || 0}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {studentDocuments && studentDocuments.length > 0 ? (
+                    studentDocuments.slice(0, 2).map((doc: any) => (
+                      <div key={doc.id} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                        <div className="min-w-0 flex-1 pr-2">
+                          <div className="font-semibold text-slate-900 dark:text-white truncate">{doc.title}</div>
+                          <div className="text-[10px] text-slate-400">{doc.category || 'Verification'} • {fmtDate(doc.createdAt)}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc(doc)}
+                          className="px-2 py-1 rounded bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 shrink-0"
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-400 py-3 text-center">No verification documents uploaded.</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('documents')}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 w-full group"
+              >
+                <span>Manage Documents ({studentDocuments?.length || 0})</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+
+            {/* ── CARD I: RECORD METADATA & QUICK INFORMATION ── */}
+            <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 hover:border-slate-300 dark:hover:border-slate-700 transition-colors flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Clock3 size={16} className="text-purple-600 dark:text-purple-400" />
+                    <h3 className="font-bold text-slate-900 dark:text-white text-base">Record Information</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60">
+                    Verified
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60 items-center">
+                    <span className="text-slate-500">Student ID</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyId}
+                      className="font-mono text-xs text-slate-700 dark:text-slate-300 hover:text-purple-600 flex items-center gap-1 group"
+                      title="Click to copy ID"
+                    >
+                      <span className="truncate max-w-[120px]">{student?.id}</span>
+                      <Copy size={11} className="text-slate-400 group-hover:text-purple-600" />
+                    </button>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Created At</span>
+                    <span className="text-slate-800 dark:text-slate-200">{fmtDate(student?.createdAt)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Last Updated</span>
+                    <span className="text-slate-800 dark:text-slate-200">{timeAgo(student?.updatedAt)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800/60">
+                    <span className="text-slate-500">Branch</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {academic?.classroom?.branch?.name || branches?.find((b) => b.id === student?.branchId)?.name || 'Main Campus'}
+                    </span>
+                  </div>
+                  <div className="py-1 space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Profile Completeness</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">{profileCompleteness}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${profileCompleteness}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleTabChange('audit')}
+                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 w-full group"
+              >
+                <span>View Security Audit Ledger ({audit?.length || 0})</span>
+                <ChevronRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: PERSONAL DETAILS (FULL BREAKDOWN) ── */}
+      {visitedTabs.has('personal') && (
+        <div
+          role="tabpanel"
+          id="tabpanel-personal"
+          aria-labelledby="tab-personal"
+          hidden={tab !== 'personal'}
+          className={tab === 'personal' ? 'tab-panel-enter' : ''}
+        >
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Personal Profile & Registry</h3>
+                <p className="text-xs text-slate-500">Comprehensive demographic identity, residential records, and emergency protocols.</p>
               </div>
               {canEdit && (
                 <button
+                  type="button"
                   onClick={() => setEditStudentOpen(true)}
-                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                  className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <Edit3 size={12} /> Edit
+                  <Edit3 size={13} />
+                  <span>Edit Personal Details</span>
                 </button>
               )}
             </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Full Name</span>
-                <span className="font-semibold text-slate-900 dark:text-white">{student?.firstName} {student?.lastName || ''}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Date of Birth</span>
-                <span className="font-semibold text-slate-900 dark:text-white">{fmtDate(student.dob)} ({childAge || 'Calculated'})</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Gender</span>
-                <span className="text-slate-800 dark:text-slate-200">{enumLabel(student.gender)}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Blood Group</span>
-                <span className={`font-semibold ${student.bloodGroup ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
-                  {student.bloodGroup ? student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-') : 'Not recorded'}
-                </span>
-              </div>
-              <div className="flex justify-between py-1.5 items-start">
-                <span className="text-slate-500">Residential Address</span>
-                <span className="max-w-[240px] text-right text-slate-800 dark:text-slate-200">
-                  {student.address || 'No residential address recorded'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Current Enrollment & Origin Dossier */}
-          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <School size={17} className="text-purple-600 dark:text-purple-400" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Admission & Placement Dossier</h3>
-              </div>
-              <StatusBadge status={admission?.status || student.status} />
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Application Ref</span>
-                <span className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">{admission?.applicationNumber || 'Direct Enrollment'}</span>
-              </div>
-              {admission?.lead && (
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Lead Attribution</span>
-                  <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">
-                    {admission.lead.leadNumber} • {admission.lead.source || 'Inquiry'}
-                  </span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Card 1: Child Identity & Demographics */}
+              <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <UserCheck size={17} className="text-purple-600 dark:text-purple-400" />
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">Child Identity & Demographics</h4>
                 </div>
-              )}
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Previous School</span>
-                <span className="text-slate-800 dark:text-slate-200">{admission?.previousSchool || 'First-time Preschooler'}</span>
-              </div>
-              {admission?.offer && (
-                <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-500">Agreed Offer Terms</span>
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                    {inr(admission.offer.feeTotalCents || 0)} ({admission.offer.status})
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Enrolled Session</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{academic?.session?.name || 'Current Academic Session'}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-slate-500">Enrollment Date</span>
-                <span className="text-slate-800 dark:text-slate-200">{fmtDate(student.admissionDate)}</span>
-              </div>
-              <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 items-center">
-                <span className="text-slate-500">Current Section</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{academic?.classroom?.name || 'Unassigned'}</span>
-                  {canEdit && (
-                    <button
-                      onClick={() => setAllocOpen(true)}
-                      className="text-xs font-semibold text-purple-600 hover:underline px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50"
-                    >
-                      Change
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-between py-1.5 items-center">
-                <span className="text-slate-500">Seat Number</span>
-                <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
-                  {student.seatNumber || 'Not assigned'}
-                </span>
-              </div>
-              {admission?.notes && (
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1">
-                    <Lock size={12} className="text-slate-400" />
-                    <span>Counselor & Intake Notes (Staff Only)</span>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">First Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{student?.firstName}</span>
                   </div>
-                  <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 italic">
-                    &ldquo;{admission.notes}&rdquo;
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Card 3: Pickup Authorization Overview */}
-          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={17} className="text-emerald-600" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Pickup Authorization</h3>
-              </div>
-              <button
-                onClick={() => {
-                  setGuardianForm({
-                    isEdit: false,
-                    guardianId: '',
-                    fullName: '',
-                    phone: '',
-                    email: '',
-                    relationship: 'MOTHER',
-                    isPrimary: false,
-                    canPickup: true,
-                    pickupPin: '',
-                    isFeePayer: false,
-                    receivesComm: true,
-                  })
-                  setGuardianModalOpen(true)
-                }}
-                className="text-xs font-semibold text-purple-600 hover:underline"
-              >
-                + Add Guardian
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {guardians && guardians.length > 0 ? (
-                guardians.filter((g: any) => g.canPickup).map((g: any) => (
-                  <div key={g.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-slate-900 dark:text-white text-sm">{g.name}</div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span>{enumLabel(g.relationship)}</span>
-                        <span>•</span>
-                        <span>{g.phone}</span>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/50">
-                      Authorized Pickup
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Last Name</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{student?.lastName || '—'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Date of Birth</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{fmtDate(student?.dob)}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Age</span>
+                    <span className="font-semibold text-purple-700 dark:text-purple-300">{childAge || 'Calculated'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Gender</span>
+                    <span className="text-slate-800 dark:text-slate-200">{enumLabel(student?.gender)}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Blood Group</span>
+                    <span className={`font-semibold ${student?.bloodGroup ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'}`}>
+                      🩸 {student?.bloodGroup ? student.bloodGroup.replace('_POSITIVE', '+').replace('_NEGATIVE', '-') : 'Not recorded'}
                     </span>
                   </div>
-                ))
-              ) : (
-                <p className="text-xs text-slate-400 py-3 text-center">No authorized pickup individuals specified.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Card 4: Parent Portal Connection */}
-          <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Smartphone size={17} className="text-purple-600 dark:text-purple-400" />
-                <h3 className="font-bold text-slate-900 dark:text-white text-base">Parent Portal Connection</h3>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {guardians && guardians.some((g: any) => g.portalAccount) ? (
-                guardians.filter((g: any) => g.portalAccount).map((g: any) => (
-                  <div key={g.id} className="p-3.5 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-emerald-900 dark:text-emerald-200 text-sm">{g.name}</span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded">
-                        ● Connected
-                      </span>
-                    </div>
-                    <div className="text-xs text-emerald-700 dark:text-emerald-300">
-                      Login Email: {g.portalAccount?.email}
-                    </div>
-                    {g.portalAccount?.lastLoginAt && (
-                      <div className="text-[11px] text-slate-500">
-                        Last Active: {timeAgo(g.portalAccount.lastLoginAt)}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 text-center space-y-1.5">
-                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                    No active parent portal account linked yet.
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Guardians receive access invitations to monitor daily diary, attendance and invoices.
-                  </p>
                 </div>
-              )}
+              </div>
+
+              {/* Card 2: Residential & Communication Details */}
+              <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <MapPin size={17} className="text-purple-600 dark:text-purple-400" />
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">Residential Address & Contacts</h4>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="space-y-1 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500 text-xs block">Residential Address</span>
+                    <p className="text-slate-900 dark:text-white font-medium">
+                      {student?.address || 'No residential address recorded on file.'}
+                    </p>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Primary Guardian</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{primaryG?.name || 'None linked'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-slate-500">Primary Phone</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{primaryG?.phone || 'None'}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span className="text-slate-500">Emergency Contact</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">{emergencyG?.name || primaryG?.name || 'None'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Health & Directives Detailed */}
+              <div className="bg-white/95 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4 lg:col-span-2">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <ShieldAlert size={17} className="text-amber-600 dark:text-amber-400" />
+                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">Health Directives & Safety Protocols</h4>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+                    <span className="font-bold text-slate-500 block mb-1">Known Allergies</span>
+                    <p className={student?.allergies ? "font-semibold text-rose-600 dark:text-rose-400" : "text-slate-400"}>
+                      {student?.allergies || 'No known allergies'}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+                    <span className="font-bold text-slate-500 block mb-1">Medical Conditions</span>
+                    <p className={student?.medicalAlerts ? "font-semibold text-amber-600 dark:text-amber-400" : "text-slate-400"}>
+                      {student?.medicalAlerts || 'No active medical conditions'}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+                    <span className="font-bold text-slate-500 block mb-1">Dietary Restrictions</span>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium">
+                      {student?.dietaryRestrictions || 'Standard preschool meal menu'}
+                    </p>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700">
+                    <span className="font-bold text-slate-500 block mb-1">Emergency Protocol</span>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium">
+                      {student?.emergencyMedicalInstructions || 'Standard emergency protocol'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       )}
 
       {/* ── TAB 2: GUARDIANS & PICKUPS ── */}

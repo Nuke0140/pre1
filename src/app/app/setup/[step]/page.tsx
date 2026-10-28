@@ -5,7 +5,7 @@ import {
   ArrowLeft, CheckCircle2, AlertTriangle, Plus, Lock, RotateCcw, RotateCw, Save,
   UserPlus, CalendarPlus, Trash2, Building2, Upload, Users, Settings2,
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
-  ArrowUpRight, ShieldCheck, Download, Filter, X,
+  ArrowUpRight, ShieldCheck, Download, Filter, X, FileSpreadsheet,
 } from 'lucide-react'
 import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
 import { SetupScopeBadge } from '@/components/preone/SetupScopeBadge'
@@ -548,17 +548,16 @@ export default function SetupStepPage() {
                 <TableToolbar title="Master Programs" count={list.length} onAdd={() => setModal('program')} addLabel="Add Program" />
                 {list.length === 0 ? <EmptyState icon={<Blocks size={40} />} title="No programs configured" message="Define the master programs your preschool runs — Playgroup, Nursery, Jr KG, Sr KG, Daycare. Mappings below will make them operational across campuses." /> : (
                   <div className="dtable-scroll"><table className="dtable">
-                    <thead><tr><th>Program</th><th>Age band</th><th>Master Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Program</th><th>Master Capacity</th><th>Classes</th><th>Fee plan</th><th>Status</th><th>Actions</th></tr></thead>
                     <tbody>{list.map((p: any) => (
                       <tr key={String(p.id)}>
                         <td><span className="cell-strong">{p.name}</span><span className="cell-sub">{p.code} · {String(p.programType).toLowerCase()}</span></td>
-                        <td>{p.ageMinMonths != null && p.ageMaxMonths != null ? (p.ageMinMonths + '–' + p.ageMaxMonths + ' mo') : 'Flexible'}</td>
                         <td>{p.capacity ? (p.capacity + ' seats') : '—'}</td>
                         <td>{String(p.classrooms ?? 0)}</td>
                         <td>{p.hasFeePlan ? <span className="badge b-success">linked</span> : <span className="badge b-warning">none</span>}</td>
                         <td><StatusBadge status={p.isActive ? 'ACTIVE' : 'INACTIVE'} /></td>
                         <td>
-                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(p); setEditType('program'); }} title="Edit program age and capacity">
+                          <button className="btn btn-sm btn-outline" onClick={() => { setEditItem(p); setEditType('program'); }} title="Edit program">
                             <Edit3 size={13} /> Edit
                           </button>
                         </td>
@@ -2702,24 +2701,6 @@ function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; on
     e.preventDefault(); setBusy(true)
     const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
 
-    const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
-    const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
-    if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
-      toast.error('Validation error', 'Min age cannot be negative')
-      setBusy(false)
-      return
-    }
-    if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
-      toast.error('Validation error', 'Max age cannot be negative')
-      setBusy(false)
-      return
-    }
-    if (minAge !== null && maxAge !== null && minAge > maxAge) {
-      toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
-      setBusy(false)
-      return
-    }
-
     const j = await api('/api/v1/programs', 'POST', fd)
     if (j.success) {
       // Map program to selected campuses
@@ -2756,9 +2737,6 @@ function ProgramModal({ onClose, onDone, api, toast }: { onClose: () => void; on
             <div className="helper">Links the program to fee plans and canonical integrations — name and code stay custom.</div>
           </div>
           <div className="field"><label>Master Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={20} min="1" required /></div>
-          <div className="field"><label>Min age (months)</label><input className="input" name="ageMinMonths" type="number" /></div>
-          <div className="field"><label>Max age (months)</label><input className="input" name="ageMaxMonths" type="number" /></div>
-          <div className="field"><label>Duration (months)</label><input className="input" name="durationMonths" type="number" placeholder="12" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" /></div>
 
           {branches.length > 0 && (
@@ -3178,29 +3156,11 @@ function EditProgramModal({ item, onClose, onDone, api, toast }: { item: Dict; o
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); setBusy(true); setImpactWarning(null)
-    const minAge = fd.ageMinMonths !== '' && fd.ageMinMonths != null ? Number(fd.ageMinMonths) : null
-    const maxAge = fd.ageMaxMonths !== '' && fd.ageMaxMonths != null ? Number(fd.ageMaxMonths) : null
-    if (minAge !== null && (isNaN(minAge) || minAge < 0)) {
-      toast.error('Validation error', 'Min age cannot be negative')
-      setBusy(false)
-      return
-    }
-    if (maxAge !== null && (isNaN(maxAge) || maxAge < 0)) {
-      toast.error('Validation error', 'Max age cannot be negative')
-      setBusy(false)
-      return
-    }
-    if (minAge !== null && maxAge !== null && minAge > maxAge) {
-      toast.error('Validation error', `Minimum age (${minAge} mo) cannot exceed maximum age (${maxAge} mo)`)
-      setBusy(false)
-      return
-    }
+    const fd = Object.fromEntries(new FormData(e.currentTarget).entries())
 
     const payload = {
       name: fd.name,
       description: fd.description || null,
-      ageMinMonths: minAge,
-      ageMaxMonths: maxAge,
       capacity: Number(fd.capacity || 20),
       isActive: fd.isActive === 'on',
     }
@@ -3231,8 +3191,6 @@ function EditProgramModal({ item, onClose, onDone, api, toast }: { item: Dict; o
           <div className="field"><label>Program Name <span className="req">*</span></label><input className="input" name="name" defaultValue={String(item.name || '')} required /></div>
           <div className="field"><label>Code</label><input className="input" value={String(item.code || '')} disabled title="Program code is permanent" /></div>
           <div className="field"><label>Seat Capacity <span className="req">*</span></label><input className="input" name="capacity" type="number" defaultValue={Number(item.capacity || 20)} min="1" required /></div>
-          <div className="field"><label>Min Age (months)</label><input className="input" name="ageMinMonths" type="number" defaultValue={item.ageMinMonths != null ? Number(item.ageMinMonths) : ''} placeholder="e.g. 24" /></div>
-          <div className="field"><label>Max Age (months)</label><input className="input" name="ageMaxMonths" type="number" defaultValue={item.ageMaxMonths != null ? Number(item.ageMaxMonths) : ''} placeholder="e.g. 36" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Description</label><input className="input" name="description" defaultValue={String(item.description || '')} placeholder="e.g. Sensory discovery & play-based early foundation" /></div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>

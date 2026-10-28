@@ -311,10 +311,24 @@ export default function TemplateDashboardClient() {
       <PageHead
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span>No-Code Template Studio</span>
+            <span>Template Studio 2.0</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #7C3AED, #6366F1)',
+                color: '#FFFFFF',
+                padding: '2px 8px',
+                borderRadius: 12,
+                letterSpacing: 0.5,
+              }}
+            >
+              VISUAL BUILDER
+            </span>
             <SetupScopeBadge scope="TENANT" size="md" />
           </div>
         }
+        subtitle="Visual document creator with smart preschool database bindings, live student testing, and print-accurate generation."
         breadcrumbs={[
           { label: 'Home', href: '/app' },
           { label: 'Setup', href: '/app/setup' },
@@ -333,6 +347,7 @@ export default function TemplateDashboardClient() {
             <button
               type="button"
               className="btn btn-primary"
+              style={{ background: 'var(--brand-600, #7C3AED)', borderColor: 'var(--brand-600, #7C3AED)' }}
               onClick={() => {
                 setNewTemplateName('')
                 setCreateMode('PRESET')
@@ -340,7 +355,7 @@ export default function TemplateDashboardClient() {
                 setCreateModalOpen(true)
               }}
             >
-              <Plus size={16} /> New Template
+              <Plus size={16} /> Create Template
             </button>
           </div>
         }
