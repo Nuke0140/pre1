@@ -141,6 +141,28 @@ export interface CsvPreviewResult {
   rows: CsvPreviewRow[]
 }
 
+/**
+ * Helper to safely extract statutory identifier values across case variations and aliases
+ */
+function extractStatutoryValue(row: Record<string, any>, field: 'pan' | 'aadhaar' | 'uan' | 'esi'): string | undefined {
+  const aliases: Record<'pan' | 'aadhaar' | 'uan' | 'esi', string[]> = {
+    pan: ['pannumber', 'pan_number', 'pan', 'pancard', 'pan_card'],
+    aadhaar: ['aadhaarnumber', 'aadhaar_number', 'aadhaar', 'adhar', 'uidai'],
+    uan: ['uannumber', 'uan_number', 'uan', 'epf_uan'],
+    esi: ['esinumber', 'esi_number', 'esi', 'esic'],
+  }
+  const allowed = aliases[field]
+  for (const [key, val] of Object.entries(row)) {
+    if (val === undefined || val === null || val === '') continue
+    const cleanKey = key.replace(/^["']|["']$/g, '').trim().toLowerCase().replace(/[\s\-_]+/g, '')
+    if (allowed.includes(cleanKey)) {
+      const s = String(val).trim()
+      if (s) return s
+    }
+  }
+  return undefined
+}
+
 export class UserCsvEngine {
   /**
    * Generates downloadable Staff CSV template
@@ -291,9 +313,11 @@ export class UserCsvEngine {
     options?: {
       mode?: 'CREATE' | 'UPDATE'
       overwrite?: boolean
-      actorRole?: string
-      actorBranchId?: string
-      authorizedBranchIds?: string[]
+      actorContext?: {
+        actorBranchId?: string | null
+        actorRole?: string
+        actorRoles?: string[]
+      }
     }
   ): Promise<CsvPreviewResult & { invalidRows?: number; newUsers?: number; existingUsers?: number; errors?: any[] }> {
     const { rows } = parseCsvString(csvContent)
@@ -346,6 +370,10 @@ export class UserCsvEngine {
       for (const k of unmappedKeys) {
         const hrCheck = isHrFieldHeader(k)
         if (hrCheck.isHr) {
+          // Statutory fields are validated and imported to StaffProfile, so they are not ignored
+          if (['panNumber', 'aadhaarNumber', 'uanNumber', 'esiNumber'].includes(hrCheck.fieldName || '')) {
+            continue
+          }
           hrFieldsFound.push(k)
         } else {
           trulyUnmapped.push(k)
@@ -434,14 +462,8 @@ export class UserCsvEngine {
         }
       }
 
-      const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
-      const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
-      if (!isOwnerOrPlatform && allowedBranches.length > 0) {
-        if (branchId && !allowedBranches.includes(branchId)) {
-          errors.push(`Unauthorized: Cannot assign staff to branch "${branchCode}" outside your authorized campus`)
-        } else if (!branchId && options?.actorBranchId) {
-          branchId = options.actorBranchId
-        }
+      if (options?.actorContext?.actorBranchId && branchId && branchId !== options.actorContext.actorBranchId) {
+        errors.push('Cannot assign staff to another campus branch')
       }
 
       // Check classroom assignment
@@ -506,6 +528,52 @@ export class UserCsvEngine {
         }
       }
 
+      // Statutory ID validation if present in CSV
+      let validPan: string | undefined = undefined
+      let validAadhaar: string | undefined = undefined
+      let validUan: string | undefined = undefined
+      let validEsi: string | undefined = undefined
+
+      const rawPan = extractStatutoryValue(rows[i], 'pan')
+      if (rawPan) {
+        const panRes = validatePan(rawPan)
+        if (!panRes.valid && panRes.error) {
+          errors.push(panRes.error)
+        } else if (panRes.valid && panRes.normalized) {
+          validPan = panRes.normalized
+        }
+      }
+
+      const rawAadhaar = extractStatutoryValue(rows[i], 'aadhaar')
+      if (rawAadhaar) {
+        const aadhaarRes = validateAadhaar(rawAadhaar)
+        if (!aadhaarRes.valid && aadhaarRes.error) {
+          errors.push(aadhaarRes.error)
+        } else if (aadhaarRes.valid && aadhaarRes.normalized) {
+          validAadhaar = aadhaarRes.normalized
+        }
+      }
+
+      const rawUan = extractStatutoryValue(rows[i], 'uan')
+      if (rawUan) {
+        const uanRes = validateUan(rawUan)
+        if (!uanRes.valid && uanRes.error) {
+          errors.push(uanRes.error)
+        } else if (uanRes.valid && uanRes.normalized) {
+          validUan = uanRes.normalized
+        }
+      }
+
+      const rawEsi = extractStatutoryValue(rows[i], 'esi')
+      if (rawEsi) {
+        const esiRes = validateEsi(rawEsi)
+        if (!esiRes.valid && esiRes.error) {
+          errors.push(esiRes.error)
+        } else if (esiRes.valid && esiRes.normalized) {
+          validEsi = esiRes.normalized
+        }
+      }
+
       const isBlocked = errors.length > 0
       previewRows.push(
         (() => {
@@ -535,6 +603,10 @@ export class UserCsvEngine {
               password: encryptedPasswordToken ? '••••••••' : undefined,
               encryptedPassword: encryptedPasswordToken,
               status: (r.status?.toUpperCase() as UserStatus) || 'ACTIVE',
+              panNumber: validPan || undefined,
+              aadhaarNumber: validAadhaar || undefined,
+              uanNumber: validUan || undefined,
+              esiNumber: validEsi || undefined,
             },
           }
         })()
@@ -581,10 +653,10 @@ export class UserCsvEngine {
   static async previewFamilyCsv(
     tenantId: string,
     csvContent: string,
-    options?: {
+    actorContext?: {
+      actorBranchId?: string | null
       actorRole?: string
-      actorBranchId?: string
-      authorizedBranchIds?: string[]
+      actorRoles?: string[]
     }
   ): Promise<CsvPreviewResult> {
     const { rows } = parseCsvString(csvContent)
@@ -732,6 +804,10 @@ export class UserCsvEngine {
       let isAlreadyLinked = false
 
       if (isExistingChild) {
+        if (actorContext?.actorBranchId && targetStudent.branchId !== actorContext.actorBranchId) {
+          errors.push('Cannot link student belonging to another campus branch')
+        }
+
         // Mismatch checks — Do NOT silently overwrite existing student data!
         if (studentName) {
           const dbFullName = `${targetStudent.firstName} ${targetStudent.lastName || ''}`.trim().toLowerCase()
@@ -817,19 +893,46 @@ export class UserCsvEngine {
         if (classInput && !classroomMap.has(classInput)) {
           errors.push(`Student class "${classInput}" not found in this school`)
         }
-
-        const isOwnerOrPlatform = options?.actorRole === 'OWNER' || options?.actorRole === 'PLATFORM_ADMIN'
-        const allowedBranches = options?.authorizedBranchIds || (options?.actorBranchId ? [options.actorBranchId] : [])
-        const resolvedBranchId = branchInput ? branchMap.get(branchInput) || null : (options?.actorBranchId || null)
-        if (!isOwnerOrPlatform && allowedBranches.length > 0) {
-          if (resolvedBranchId && !allowedBranches.includes(resolvedBranchId)) {
-            errors.push(`Unauthorized: Cannot enroll student in branch "${branchInput}" outside your authorized campus`)
-          }
+        if (actorContext?.actorBranchId && branchInput && branchMap.get(branchInput) !== actorContext.actorBranchId) {
+          errors.push('Cannot create student in another campus branch')
         }
       }
 
-      const branchId = branchInput ? branchMap.get(branchInput) || null : null
+      const branchId = branchInput ? branchMap.get(branchInput) || null : (actorContext?.actorBranchId || null)
       const classroom = classInput ? classroomMap.get(classInput) || null : null
+
+      // Statutory ID validation if present in CSV
+      const rawPan = extractStatutoryValue(rows[i], 'pan')
+      if (rawPan) {
+        const panRes = validatePan(rawPan)
+        if (!panRes.valid && panRes.error) {
+          errors.push(panRes.error)
+        }
+      }
+
+      const rawAadhaar = extractStatutoryValue(rows[i], 'aadhaar')
+      if (rawAadhaar) {
+        const aadhaarRes = validateAadhaar(rawAadhaar)
+        if (!aadhaarRes.valid && aadhaarRes.error) {
+          errors.push(aadhaarRes.error)
+        }
+      }
+
+      const rawUan = extractStatutoryValue(rows[i], 'uan')
+      if (rawUan) {
+        const uanRes = validateUan(rawUan)
+        if (!uanRes.valid && uanRes.error) {
+          errors.push(uanRes.error)
+        }
+      }
+
+      const rawEsi = extractStatutoryValue(rows[i], 'esi')
+      if (rawEsi) {
+        const esiRes = validateEsi(rawEsi)
+        if (!esiRes.valid && esiRes.error) {
+          errors.push(esiRes.error)
+        }
+      }
 
       const isBlocked = errors.length > 0
       const isLinkAction = isMultiChildLink || Boolean(userInDb)
@@ -943,8 +1046,8 @@ export class UserCsvEngine {
       actorId?: string
       actorName?: string
       actorRole?: string
-      actorBranchId?: string
-      authorizedBranchIds?: string[]
+      actorRoles?: string[]
+      actorBranchId?: string | null
     },
     rows: CsvPreviewRow[],
     options?: {
@@ -1122,11 +1225,9 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorRoles: ctx.actorRoles,
                 actorBranchId: ctx.actorBranchId,
-              },
-              rowData as any,
               tx
-            )
             if (row.action === 'CREATE') createdCount++
             else updatedCount++
           }
@@ -1194,6 +1295,7 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorRoles: ctx.actorRoles,
               actorBranchId: ctx.actorBranchId,
             },
             rowData as any
@@ -1251,8 +1353,8 @@ export class UserCsvEngine {
       actorId?: string
       actorName?: string
       actorRole?: string
-      actorBranchId?: string
-      authorizedBranchIds?: string[]
+      actorRoles?: string[]
+      actorBranchId?: string | null
     },
     rows: CsvPreviewRow[],
     options?: {
@@ -1285,6 +1387,7 @@ export class UserCsvEngine {
                 actorId: ctx.actorId,
                 actorName: ctx.actorName,
                 actorRole: ctx.actorRole,
+                actorRoles: ctx.actorRoles,
                 actorBranchId: ctx.actorBranchId,
               },
               row.data as any
@@ -1344,6 +1447,7 @@ export class UserCsvEngine {
               actorId: ctx.actorId,
               actorName: ctx.actorName,
               actorRole: ctx.actorRole,
+              actorRoles: ctx.actorRoles,
               actorBranchId: ctx.actorBranchId,
             },
             row.data as any

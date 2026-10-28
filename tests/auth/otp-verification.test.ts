@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { OtpService, OTP_COOLDOWN_MS } from '@/lib/auth/otp-service'
 import { db } from '@/lib/db'
 import { emailService, MockEmailProvider } from '@/lib/email/email-service'
-import { middleware } from '@/middleware'
+import { middleware } from '@/proxy'
 import { NextRequest } from 'next/server'
 import { POST as sendRoute } from '@/app/api/v1/auth/otp/send/route'
 import { POST as resendRoute } from '@/app/api/v1/auth/otp/resend/route'
@@ -221,6 +221,13 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
         })
         expect(prodResult.success).toBe(false)
         expect(prodResult.error?.code).toBe('AUTH_004') // No active OTP found, bypass rejected
+
+        const prodDemoResult = await OtpService.verifyOtp({
+          identifier: 'owner@sunshine.demo',
+          code: '0000',
+        })
+        expect(prodDemoResult.success).toBe(false)
+        expect(prodDemoResult.error?.code).toBe('AUTH_004') // Fail-closed even for demo account
       } finally {
         process.env.NODE_ENV = originalNodeEnv
         if (originalAllow !== undefined) process.env.ALLOW_DEMO_OTP = originalAllow
@@ -243,6 +250,13 @@ describe('BUG-002: OTP Verification & Un-gated Endpoints Test Suite', () => {
         })
         expect(result.success).toBe(false)
         expect(result.error?.code).toBe('AUTH_004')
+
+        const disabledDemoResult = await OtpService.verifyOtp({
+          identifier: 'owner@sunshine.demo',
+          code: '1234',
+        })
+        expect(disabledDemoResult.success).toBe(false)
+        expect(disabledDemoResult.error?.code).toBe('AUTH_004')
       } finally {
         if (originalEnable !== undefined) process.env.ENABLE_DEMO_OTP = originalEnable
         else delete process.env.ENABLE_DEMO_OTP

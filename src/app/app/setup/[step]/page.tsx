@@ -2670,7 +2670,6 @@ function BranchModal({ onClose, onDone, api, toast }: { onClose: () => void; onD
           <div className="field"><label>City</label><input className="input" name="city" /></div>
           <div className="field"><label>Phone</label><input className="input" name="phone" /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Address</label><input className="input" name="address" /></div>
-          <div className="field"><label>Capacity (seats)</label><input className="input" name="capacity" type="number" min="1" /></div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
           <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
@@ -3157,7 +3156,6 @@ function EditBranchModal({ item, onClose, onDone, api, toast }: { item: Dict; on
           <div className="field"><label>City</label><input className="input" name="city" defaultValue={String(item.city || '')} /></div>
           <div className="field"><label>Contact Phone</label><input className="input" name="phone" defaultValue={String(item.phone || '')} /></div>
           <div className="field" style={{ gridColumn: '1 / -1' }}><label>Campus Address</label><input className="input" name="address" defaultValue={String(item.address || '')} /></div>
-          <div className="field"><label>Seat Capacity</label><input className="input" name="capacity" type="number" defaultValue={item.capacity ? Number(item.capacity) : ''} min="1" /></div>
           <div className="field" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24 }}>
             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" name="isActive" defaultChecked={item.isActive !== false} />

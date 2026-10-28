@@ -110,7 +110,35 @@ async function _PATCH(
       body
     )
 
-    return ok(updated)
+    let enrollmentResult: any = null
+    const shouldAutoConfirm = !body.isDraft && (body.status === 'SUBMITTED' || body.status === 'ENROLLED' || body.confirmAdmission === true)
+    if (shouldAutoConfirm) {
+      try {
+        enrollmentResult = await AdmissionService.completeEnrollment(
+          {
+            tenantId: session.tenantId,
+            branchId: session.branchId || app.branchId,
+            academicYearId: app.academicSessionId,
+            actorId: session.uid,
+            actorName: session.name,
+            actorRole: session.role,
+          },
+          id,
+          {
+            classroomId: body.classroomId || undefined,
+            skipDocCheck: true,
+          }
+        )
+      } catch (enrollErr) {
+        console.error('Auto-enroll on application update error:', enrollErr)
+      }
+    }
+
+    const finalApp = enrollmentResult
+      ? await db.admissionApplication.findUnique({ where: { id } })
+      : updated
+
+    return ok(finalApp)
   } catch (e: any) {
     if (e.message && e.message.toLowerCase().includes('not found')) {
       return Errors.notFound(e.message)

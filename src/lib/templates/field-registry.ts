@@ -84,6 +84,27 @@ export const APPROVED_TEMPLATE_FIELDS: FieldDefinition[] = [
     sampleValue: '2026-2027',
     description: 'Current active academic year cycle',
   },
+  {
+    key: 'school.gstNumber',
+    label: 'GST Number',
+    domain: 'SCHOOL',
+    sampleValue: '29AAAAA0000A1Z5',
+    description: 'Goods & Services Tax Identification Number',
+  },
+  {
+    key: 'school.affiliationNo',
+    label: 'Affiliation / Registration No',
+    domain: 'SCHOOL',
+    sampleValue: 'AFF-KA-2024-089',
+    description: 'State or education board accreditation number',
+  },
+  {
+    key: 'school.website',
+    label: 'School Website',
+    domain: 'SCHOOL',
+    sampleValue: 'www.littleexplorers.edu',
+    description: 'Official school web domain',
+  },
 
   // ── STUDENT DOMAIN ──
   {
@@ -301,6 +322,34 @@ export const APPROVED_TEMPLATE_FIELDS: FieldDefinition[] = [
     domain: 'FINANCE',
     sampleValue: 'Rupees Twenty Four Thousand Five Hundred Only',
     description: 'Formal English currency representation',
+  },
+  {
+    key: 'finance.paymentStatus',
+    label: 'Payment Status',
+    domain: 'FINANCE',
+    sampleValue: 'PAID',
+    description: 'Payment settlement state (PAID, PARTIALLY_PAID, UNPAID, OVERDUE)',
+  },
+  {
+    key: 'finance.statusBadge',
+    label: 'Status Badge Text',
+    domain: 'FINANCE',
+    sampleValue: 'PAID',
+    description: 'Formatted uppercase settlement indicator badge',
+  },
+  {
+    key: 'finance.subtotalAmount',
+    label: 'Subtotal Amount',
+    domain: 'FINANCE',
+    sampleValue: '₹24,500.00',
+    description: 'Subtotal of fee heads before deductions or waivers',
+  },
+  {
+    key: 'finance.discountAmount',
+    label: 'Concession / Discount Amount',
+    domain: 'FINANCE',
+    sampleValue: '₹0.00',
+    description: 'Fee waivers, sibling concessions, or scholarships applied',
   },
 
   // ── STAFF DOMAIN ──

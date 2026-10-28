@@ -2,7 +2,6 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, fail, Errors } from '@/lib/api'
 import { requireApi, isResponse, requireBranchAccess } from '@/lib/auth-api'
-import { db } from '@/lib/db'
 import { AdmissionProgressionService } from '@/lib/admissions/progression-service'
 
 /**
@@ -22,7 +21,13 @@ async function _GET(
   if (!recordId) return Errors.badRequest('recordId parameter is required')
 
   const sp = req.nextUrl.searchParams
-  const branchId = sp.get('branchId') || session.branchId || ''
+  const rawBranchId = sp.get('branchId')
+  if (rawBranchId) {
+    const branchErr = await requireBranchAccess(session, rawBranchId)
+    if (branchErr) return branchErr
+  }
+
+  const branchId = rawBranchId || session.branchId || ''
   const academicYearId = sp.get('academicYearId') || sp.get('academicSessionId') || ''
 
   const ctx = {
@@ -40,6 +45,9 @@ async function _GET(
   } catch (err: any) {
     if (err.message && err.message.includes('not found in this tenant')) {
       return fail('NOT_FOUND_001', err.message, 404)
+    }
+    if (err.message && err.message.includes('Unauthorized branch access')) {
+      return fail('PERMISSION_DENIED', err.message, 403)
     }
     return fail('BAD_REQUEST', err.message || 'Failed to evaluate progression eligibility', 400)
   }
@@ -62,6 +70,10 @@ async function _POST(
   if (!recordId) return Errors.badRequest('recordId parameter is required')
 
   const body = await req.json().catch(() => ({}))
+  if (body.branchId) {
+    const branchErr = await requireBranchAccess(session, body.branchId)
+    if (branchErr) return branchErr
+  }
 
   const ctx = {
     tenantId: session.tenantId,
@@ -89,6 +101,9 @@ async function _POST(
   } catch (err: any) {
     if (err.message && err.message.includes('not found in this tenant')) {
       return fail('NOT_FOUND_001', err.message, 404)
+    }
+    if (err.message && err.message.includes('Unauthorized branch access')) {
+      return fail('PERMISSION_DENIED', err.message, 403)
     }
     return fail('PROMOTION_FAILED', err.message || 'Failed to promote admission record', 422)
   }

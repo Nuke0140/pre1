@@ -52,6 +52,16 @@ describe('B4 — Domain Integrations Test Suite (Admissions, Finance, HR)', () =
       },
     })
 
+    await db.program.create({
+      data: {
+        tenantId: testTenant.id,
+        name: 'Nursery',
+        code: `NUR-${ts.slice(-4)}`,
+        programType: 'NURSERY',
+        isActive: true,
+      },
+    })
+
     const testBranch = await db.branch.create({
       data: {
         tenantId: testTenant.id,
@@ -101,6 +111,9 @@ describe('B4 — Domain Integrations Test Suite (Admissions, Finance, HR)', () =
         childName: 'Reyansh',
         childDob: '2021-05-15',
         notes: 'Looking for nursery admission',
+        interestedProgram: 'NURSERY',
+        schoolCode: testTenant.code,
+        consentGiven: true,
       }),
     })
 

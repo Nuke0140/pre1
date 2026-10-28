@@ -89,20 +89,31 @@ export class PdfService {
         const fullHtml = TemplateService.renderTemplateHtml(definition, dataContext)
         fs.writeFileSync(tempHtmlPath, fullHtml, 'utf8')
 
-        execFileSync(
-          browserPath,
-          [
-            '--headless=new',
-            '--disable-gpu',
-            '--no-pdf-header-footer',
-            `--print-to-pdf=${tempPdfPath}`,
-            tempHtmlPath,
-          ],
-          {
-            timeout: options.timeoutMs || 15000,
-            stdio: 'pipe',
+        try {
+          execFileSync(
+            browserPath,
+            [
+              '--headless=new',
+              '--disable-gpu',
+              '--no-sandbox',
+              '--disable-extensions',
+              '--disable-background-networking',
+              '--disable-sync',
+              '--disable-default-apps',
+              '--no-pdf-header-footer',
+              `--print-to-pdf=${tempPdfPath}`,
+              tempHtmlPath,
+            ],
+            {
+              timeout: options.timeoutMs || 8000,
+              stdio: 'ignore',
+            }
+          )
+        } catch (execErr) {
+          if (!fs.existsSync(tempPdfPath)) {
+            throw execErr
           }
-        )
+        }
 
         if (fs.existsSync(tempPdfPath)) {
           pdfBuffer = fs.readFileSync(tempPdfPath)
@@ -214,7 +225,11 @@ export class PdfService {
         const lines = resolvedText.split('\n')
         const lineHeight = fontSize * 1.2
         lines.forEach((line, idx) => {
-          page.drawText(line, {
+          const sanitizedLine = line
+            .replace(/₹/g, 'Rs. ')
+            .replace(/•/g, '-')
+            .replace(/[^\x00-\xFF]/g, '')
+          page.drawText(sanitizedLine, {
             x: xPt + 4,
             y: yPt + hPt - (idx + 1) * lineHeight,
             size: fontSize,
@@ -235,8 +250,9 @@ export class PdfService {
           borderColor: rgb(0.8, 0.83, 0.88),
           borderWidth: 1,
         })
-        page.drawText('PHOTO', {
-          x: xPt + wPt / 2 - 14,
+        const isLogo = elem.name?.toLowerCase().includes('logo') || elem.fieldBinding?.includes('logo')
+        page.drawText(isLogo ? 'LOGO' : 'PHOTO', {
+          x: xPt + wPt / 2 - (isLogo ? 12 : 14),
           y: yPt + hPt / 2 - 4,
           size: 8,
           font: fontBold,
@@ -276,6 +292,8 @@ export class PdfService {
           borderWidth: 1,
         })
         const codeText = resolveTokens(elem.content || '12345678', dataContext)
+          .replace(/₹/g, 'Rs. ')
+          .replace(/[^\x00-\xFF]/g, '')
         page.drawText(`||| ||| || |||  *${codeText}*`, {
           x: xPt + 4,
           y: yPt + hPt / 2 - 4,
@@ -288,6 +306,8 @@ export class PdfService {
       // Signature Box
       if (elem.type === 'signature') {
         const sigText = resolveTokens(elem.content || 'Authorized Signature', dataContext)
+          .replace(/₹/g, 'Rs. ')
+          .replace(/[^\x00-\xFF]/g, '')
         page.drawLine({
           start: { x: xPt + 5, y: yPt + 14 },
           end: { x: xPt + wPt - 5, y: yPt + 14 },

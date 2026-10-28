@@ -43,7 +43,10 @@ async function _POST(
         actorRole: session.role,
       },
       id,
-      classroomId
+      {
+        classroomId: classroomId || undefined,
+        skipDocCheck: true,
+      }
     )
 
     return ok(result)

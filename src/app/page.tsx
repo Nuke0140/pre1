@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { PreOneBuddy, triggerBuddyReaction } from '@/components/preone/PreOneBuddy'
 import {
   Building2, Mail, User, AlertCircle, X,
   HelpCircle, CheckCircle2, ArrowLeft, KeyRound, Sparkles
@@ -67,11 +68,23 @@ export default function LoginPage() {
     return () => clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    if (loading) triggerBuddyReaction('thinking')
+  }, [loading])
+
+  useEffect(() => {
+    if (generalError) triggerBuddyReaction('oops', 'No worries. Please review the message and try again.')
+  }, [generalError])
+
   // OTP specific state
   const [otp, setOtp] = useState<string[]>(['', '', '', ''])
   const [otpCountdown, setOtpCountdown] = useState<number>(45)
   const [canResendOtp, setCanResendOtp] = useState<boolean>(false)
   const [resendSuccess, setResendSuccess] = useState<boolean>(false)
+
+  useEffect(() => {
+    if (resendSuccess) triggerBuddyReaction('happy', 'Your verification code is on its way!')
+  }, [resendSuccess])
 
   // MFA Step-Up specific state (Doc 1.2)
   const [mfaToken, setMfaToken] = useState<string | null>(null)
@@ -764,6 +777,8 @@ export default function LoginPage() {
           </AuthCard>
         </AuthFrame>
       </AuthViewport>
+
+      <PreOneBuddy />
 
       {/* ── Forgot Password Dialog Modal ── */}
       {showForgotModal && (

@@ -17,6 +17,7 @@ import {
 import { ProgramSeatSelector } from '@/components/admissions/ProgramSeatSelector'
 import { useAutosave } from '@/lib/forms/use-autosave'
 import { useToast } from '@/components/preone/Toast'
+import { useBranding } from '@/lib/branding-context'
 
 export interface AdditionalGuardian {
   id?: string
@@ -41,6 +42,7 @@ export interface StaffAdmissionFormModalProps {
   selectedBranchId: string
   selectedSessionId: string
   onSuccess: (app: any) => void
+  schoolName?: string
 }
 
 export function StaffAdmissionFormModal({
@@ -54,8 +56,11 @@ export function StaffAdmissionFormModal({
   selectedBranchId,
   selectedSessionId,
   onSuccess,
+  schoolName: propSchoolName,
 }: StaffAdmissionFormModalProps) {
   const toast = useToast()
+  const branding = useBranding()
+  const displaySchoolName = (propSchoolName || branding.schoolName || 'PreOne').trim()
   const [activeTab, setActiveTab] = useState<'school' | 'child' | 'parent' | 'guardians' | 'documents' | 'declarations'>('school')
   const [saving, setSaving] = useState(false)
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null)
@@ -65,6 +70,8 @@ export function StaffAdmissionFormModal({
   const [academicYearId, setAcademicYearId] = useState('')
   const [programId, setProgramId] = useState('')
   const [programType, setProgramType] = useState('NURSERY')
+  const [classroomId, setClassroomId] = useState('')
+  const [classrooms, setClassrooms] = useState<any[]>([])
   const [leadId, setLeadId] = useState<string | null>(null)
   const [leadNumber, setLeadNumber] = useState<string | null>(null)
   const [applicationNumber, setApplicationNumber] = useState<string | null>(null)
@@ -105,6 +112,16 @@ export function StaffAdmissionFormModal({
   const [declaredByName, setDeclaredByName] = useState('')
   const [persistedDraftId, setPersistedDraftId] = useState<string | null>(applicationId || null)
 
+  // Fetch classrooms list on mount
+  useEffect(() => {
+    fetch('/api/v1/classrooms')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data && Array.isArray(d.data)) setClassrooms(d.data)
+      })
+      .catch(() => {})
+  }, [])
+
   // Populate form on open / initialData change
   useEffect(() => {
     if (!open) return
@@ -116,6 +133,7 @@ export function StaffAdmissionFormModal({
       setAcademicYearId(initialData.academicSessionId || initialData.academicYearId || selectedSessionId || '')
       setProgramId(initialData.programId || '')
       setProgramType(initialData.programType || 'NURSERY')
+      setClassroomId(initialData.classroomId || '')
       setLeadId(initialData.leadId || null)
       setLeadNumber(initialData.leadNumber || initialData.lead?.leadNumber || null)
       setApplicationNumber(initialData.applicationNumber || null)
@@ -162,6 +180,7 @@ export function StaffAdmissionFormModal({
       setAcademicYearId(selectedSessionId || (sessions[0]?.id || ''))
       setProgramId('')
       setProgramType(programs[0]?.programType || 'NURSERY')
+      setClassroomId('')
       setLeadId(null)
       setLeadNumber(null)
       setApplicationNumber(null)
@@ -236,6 +255,15 @@ export function StaffAdmissionFormModal({
       reason: `Eligible: ${ageMonths} months old (${prog.name})`,
     }
   }, [childDob, programType, programId, programs])
+
+  const targetBranch = branchId || selectedBranchId
+  const availableClassrooms = useMemo(() => {
+    return classrooms.filter((c) => {
+      const matchBranch = !targetBranch || targetBranch === '__ALL_BRANCHES__' || c.branchId === targetBranch
+      const matchProg = !programType || c.programType === programType || c.programId === programId
+      return matchBranch && matchProg && c.isActive
+    })
+  }, [classrooms, targetBranch, programType, programId])
 
   // Guardian Repeater Handlers
   const handleAddGuardian = () => {
@@ -600,6 +628,7 @@ export function StaffAdmissionFormModal({
         academicYearId,
         programId: selectedProg?.id || programId || null,
         programType: selectedProg?.programType || programType,
+        classroomId: classroomId || undefined,
         childFirstName: childFirstName.trim(),
         childLastName: childLastName.trim() || null,
         childMiddleName: childMiddleName.trim() || null,
@@ -626,6 +655,7 @@ export function StaffAdmissionFormModal({
         notes: notes.trim(),
         isDraft,
         status: isDraft ? 'DRAFT' : 'SUBMITTED',
+        confirmAdmission: !isDraft,
         leadId,
       }
 
@@ -648,7 +678,7 @@ export function StaffAdmissionFormModal({
       if (res.success) {
         if (!isDraft) {
           autosave.clearDraft()
-          toast.success('Application submitted formally for review 📋')
+          toast.success('Admission Confirmed & Enrolled! Student profile & Parent portal account created ✓')
           onSuccess(res.data)
           onClose()
         } else {
@@ -675,7 +705,11 @@ export function StaffAdmissionFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={applicationId ? `Admission Dossier: ${applicationNumber || 'Application'}` : 'New Admission Application'}
+      title={
+        applicationId
+          ? `${displaySchoolName} — Admission Dossier: ${applicationNumber || 'Application'}`
+          : `${displaySchoolName} — New Admission Application`
+      }
       subtitle="Comprehensive child record, parent guardians, document checklist, and declarations"
       icon={<FileSpreadsheet size={20} className="text-primary" />}
       size="xl"
@@ -704,7 +738,7 @@ export function StaffAdmissionFormModal({
             />
           </div>
           <div className="text-[11px] text-muted-foreground">
-            Strict PreOne Invariant: Submission does NOT create student or parent accounts.
+            Strict PreOne Invariant: Submission does not create student or parent accounts until formal admission enrollment.
           </div>
         </div>
 
@@ -762,6 +796,19 @@ export function StaffAdmissionFormModal({
           {/* TAB 1: SCHOOL & SESSION */}
           {activeTab === 'school' && (
             <div className="space-y-3.5">
+              {/* Institution Identity Indicator */}
+              <div className="p-3 rounded-xl bg-primary/[0.04] border border-primary/20 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    Institution / School
+                  </div>
+                  <div className="text-sm font-bold text-foreground" data-testid="admission-school-name">
+                    {displaySchoolName}
+                  </div>
+                </div>
+                <Building2 className="w-5 h-5 text-primary/70 shrink-0" />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="font-semibold text-foreground flex items-center gap-1">
@@ -825,6 +872,25 @@ export function StaffAdmissionFormModal({
                     className="input h-9 text-xs w-full rounded-xl bg-muted/50 cursor-not-allowed font-mono text-muted-foreground"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1 pt-1 border-t border-border/60">
+                <label className="font-semibold text-foreground flex items-center justify-between">
+                  <span>Classroom Section Allocation</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">Optional — auto-assigns active section if omitted</span>
+                </label>
+                <select
+                  value={classroomId}
+                  onChange={(e) => setClassroomId(e.target.value)}
+                  className="input h-9 text-xs w-full rounded-xl bg-card"
+                >
+                  <option value="">⚡ Auto-allocate Section based on Program</option>
+                  {availableClassrooms.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code}) — Capacity: {c.capacity || 20}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           )}
@@ -1404,10 +1470,10 @@ export function StaffAdmissionFormModal({
               type="button"
               disabled={saving || autosave.status === 'SAVING'}
               onClick={() => handleSave(false)}
-              className="btn btn-primary btn-sm h-9 px-4 text-xs font-semibold rounded-xl gap-1.5 shadow-xs"
+              className="btn btn-primary btn-sm h-9 px-4 text-xs font-semibold rounded-xl gap-1.5 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              <Send size={13} />
-              <span>{saving ? 'Submitting...' : 'Submit Application'}</span>
+              <CheckCircle2 size={13} />
+              <span>{saving ? 'Confirming...' : 'Submit & Confirm Admission'}</span>
             </button>
           </div>
         </div>

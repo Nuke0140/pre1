@@ -1154,8 +1154,18 @@ export const POST = withApi(async (req: NextRequest) => {
     if (!rawUsername) {
       if (isStaffFlow) {
         const baseSlug = sanitizeUsernameSlug(effectiveFullName)
-        const randSuffix = Math.floor(100 + Math.random() * 900)
-        finalUsername = normalizeUsername(`${baseSlug}.${randSuffix}`)
+        let candidate = normalizeUsername(`${baseSlug}.${Math.floor(100 + Math.random() * 900)}`)
+        let attempts = 0
+        while (attempts < 5) {
+          const exists = await db.user.findFirst({
+            where: { username: { equals: candidate, mode: 'insensitive' }, deletedAt: null },
+            select: { id: true },
+          })
+          if (!exists) break
+          candidate = normalizeUsername(`${baseSlug}.${Math.floor(1000 + Math.random() * 9000)}`)
+          attempts++
+        }
+        finalUsername = candidate
       } else {
         finalUsername = undefined
       }

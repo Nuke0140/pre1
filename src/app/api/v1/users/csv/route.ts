@@ -86,6 +86,12 @@ async function _POST(req: NextRequest) {
     const body = await req.json()
     const { action = 'preview', type: inputType, csv, previewRows } = body
 
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isInstitutionWide = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+    )
+    const actorBranchId = isInstitutionWide ? null : session.branchId
+
     // Auto-detect template type if not explicitly set
     let templateType: 'STAFF' | 'FAMILY' =
       inputType?.toUpperCase() === 'FAMILY' || inputType?.toUpperCase() === 'PARENT' ? 'FAMILY' : 'STAFF'
@@ -120,13 +126,21 @@ async function _POST(req: NextRequest) {
       }
 
       if (templateType === 'FAMILY') {
-        const preview = await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, csvActor)
+        const preview = await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, {
+          actorBranchId,
+          actorRole: session.role,
+          actorRoles: session.roles,
+        })
         return ok(preview)
       } else {
         const preview = await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, {
           mode: body.mode,
           overwrite: body.overwrite,
-          ...csvActor,
+          actorContext: {
+            actorBranchId,
+            actorRole: session.role,
+            actorRoles: session.roles,
+          },
         })
         return ok(preview)
       }
@@ -138,8 +152,20 @@ async function _POST(req: NextRequest) {
       if (!rowsToExecute && typeof csv === 'string') {
         const preview =
           templateType === 'FAMILY'
-            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, csv, csvActor)
-            : await UserCsvEngine.previewStaffCsv(session.tenantId, csv, { mode: body.mode, overwrite: body.overwrite, ...csvActor })
+            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, csv, {
+                actorBranchId,
+                actorRole: session.role,
+                actorRoles: session.roles,
+              })
+            : await UserCsvEngine.previewStaffCsv(session.tenantId, csv, {
+                mode: body.mode,
+                overwrite: body.overwrite,
+                actorContext: {
+                  actorBranchId,
+                  actorRole: session.role,
+                  actorRoles: session.roles,
+                },
+              })
         rowsToExecute = preview.rows
       }
 
@@ -147,8 +173,20 @@ async function _POST(req: NextRequest) {
         const rawCsv = rowsToCsv(body.rows)
         const preview =
           templateType === 'FAMILY'
-            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, csvActor)
-            : await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, { mode: body.mode, overwrite: body.overwrite, ...csvActor })
+            ? await UserCsvEngine.previewFamilyCsv(session.tenantId, rawCsv, {
+                actorBranchId,
+                actorRole: session.role,
+                actorRoles: session.roles,
+              })
+            : await UserCsvEngine.previewStaffCsv(session.tenantId, rawCsv, {
+                mode: body.mode,
+                overwrite: body.overwrite,
+                actorContext: {
+                  actorBranchId,
+                  actorRole: session.role,
+                  actorRoles: session.roles,
+                },
+              })
         rowsToExecute = preview.rows
       }
 
@@ -177,6 +215,8 @@ async function _POST(req: NextRequest) {
               id: session.uid,
               name: session.name,
               role: session.role,
+              roles: session.roles,
+              branchId: session.branchId,
             },
           },
         })
@@ -209,8 +249,8 @@ async function _POST(req: NextRequest) {
             actorId: session.uid,
             actorName: session.name,
             actorRole: session.role,
-            actorBranchId: csvActor.actorBranchId,
-            authorizedBranchIds: csvActor.authorizedBranchIds,
+            actorRoles: session.roles,
+            actorBranchId,
           },
           rowsToExecute,
           { atomicAllOrNothing }
@@ -223,8 +263,8 @@ async function _POST(req: NextRequest) {
             actorId: session.uid,
             actorName: session.name,
             actorRole: session.role,
-            actorBranchId: csvActor.actorBranchId,
-            authorizedBranchIds: csvActor.authorizedBranchIds,
+            actorRoles: session.roles,
+            actorBranchId,
           },
           rowsToExecute,
           { atomicAllOrNothing, mode: body.mode }

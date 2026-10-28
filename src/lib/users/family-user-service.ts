@@ -11,6 +11,7 @@ export interface FamilyContext {
   actorId?: string
   actorName?: string
   actorRole?: string
+  actorRoles?: string[]
   actorBranchId?: string | null
   reqMeta?: {
     ipAddress?: string
@@ -392,12 +393,10 @@ export class FamilyUserService {
       }
 
       // Branch check if actor is branch scoped
-      if (
-        ctx.actorBranchId &&
-        targetStudent.branchId !== ctx.actorBranchId &&
-        ctx.actorRole !== 'OWNER' &&
-        ctx.actorRole !== 'PLATFORM_ADMIN'
-      ) {
+      const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+
+      if (ctx.actorBranchId && targetStudent.branchId !== ctx.actorBranchId && !isInstitutionWide) {
         throw new Error('Unauthorized: Selected student belongs to another campus branch')
       }
 
@@ -421,14 +420,10 @@ export class FamilyUserService {
       // ─────────────────────────────────────────────────────────────
       const childData = input.newChild!
 
-      const isOwnerOrPlatform = ctx.actorRole === 'OWNER' || ctx.actorRole === 'PLATFORM_ADMIN'
-      if (!isOwnerOrPlatform) {
-        if (ctx.actorBranchId && childData.branchId && childData.branchId !== ctx.actorBranchId) {
-          throw new Error('Unauthorized: Cannot create student in another campus branch')
-        }
-        if (!childData.branchId && ctx.actorBranchId) {
-          childData.branchId = ctx.actorBranchId
-        }
+      const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+      if (ctx.actorBranchId && childData.branchId && childData.branchId !== ctx.actorBranchId && !isInstitutionWide) {
+        throw new Error('Unauthorized: Cannot create student in another campus branch')
       }
 
       // Generate child username
@@ -488,8 +483,9 @@ export class FamilyUserService {
             username: childUsername,
             guardianName: input.fullName.trim(),
             guardianPhone: input.phone.trim(),
-            guardianEmail: input.email.trim(),
+            guardianEmail: input.email?.trim() || undefined,
             guardianRelationship: mappedRel,
+            guardianUsername: user.username,
             canPickup: perms.canPickup,
             isFeePayer: perms.isFeePayer,
             confirmDuplicate: input.confirmDuplicate ?? false,
@@ -671,7 +667,7 @@ export class FamilyUserService {
               userId: user.id,
               fullName: input.fullName.trim(),
               phone: input.phone.trim(),
-              email: input.email.trim(),
+              email: input.email?.trim() || null,
               relationship: mappedRel,
               pickupPin: perms.pickupPin,
               isPrimaryContact: Boolean(input.isPrimaryContact),
@@ -883,13 +879,10 @@ export class FamilyUserService {
       })
       if (!student) throw new Error('Student not found in this school')
 
-      // Branch boundary check for non-owners
-      if (
-        ctx.actorBranchId &&
-        student.branchId !== ctx.actorBranchId &&
-        ctx.actorRole !== 'OWNER' &&
-        ctx.actorRole !== 'PLATFORM_ADMIN'
-      ) {
+      // Branch boundary check: Branch-scoped actor cannot link a student belonging to another campus
+      const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+      if (ctx.actorBranchId && student.branchId !== ctx.actorBranchId && !isInstitutionWide) {
         throw new Error('Unauthorized: Cannot link student belonging to another campus branch')
       }
 

@@ -20,6 +20,30 @@ export interface StaffContext {
   }
 }
 
+/**
+ * Checks whether an error is a unique constraint violation targeting staff employeeCode.
+ */
+export function isEmployeeCodeUniqueViolation(err: any): boolean {
+  if (!err) return false
+  if (err.code !== 'P2002') return false
+  const target = err.meta?.target
+  if (Array.isArray(target)) {
+    if (target.includes('employeeCode') || target.includes('employee_code')) return true
+  } else if (typeof target === 'string') {
+    if (target.includes('employeeCode') || target.includes('employee_code')) return true
+  }
+  const msg = typeof err.message === 'string' ? err.message : ''
+  if (
+    msg.includes('employeeCode') ||
+    msg.includes('employee_code') ||
+    msg.includes('staff_profiles_tenant_id_employee_code_key') ||
+    msg.includes('tenantId_employeeCode')
+  ) {
+    return true
+  }
+  return false
+}
+
 export class StaffUserService {
   /**
    * Generates a collision-resistant employee code in format EMP-YYYY-NNN
@@ -103,14 +127,8 @@ export class StaffUserService {
 
     const initialStatus: UserStatus = input.status || 'ACTIVE'
 
-    // Determine employee code prior to transaction if not provided
-    let candidateEmpCode = input.employeeCode?.trim()
-    if (!candidateEmpCode) {
-      candidateEmpCode = await this.generateUniqueEmployeeCode(ctx.tenantId)
-    }
-
-    // 4. Atomic transaction
-    const executeLogic = async (tx: any) => {
+    // 4. Atomic transaction with bounded retry on employeeCode collisions
+    const executeLogic = async (tx: any, candidateEmpCode: string) => {
       // Step A: Create or resolve User identity
       const { user } = await UserIdentityService.resolveOrCreateUser(tx, {
         fullName: input.fullName,
@@ -150,10 +168,7 @@ export class StaffUserService {
         where: { tenantId_userId: { tenantId: ctx.tenantId, userId: user.id } },
       })
 
-      let empCode =
-        input.employeeCode?.trim() ||
-        staffProfile?.employeeCode ||
-        candidateEmpCode
+      let empCode = staffProfile?.employeeCode || candidateEmpCode
 
       if (!staffProfile) {
         const existingEmp = await tx.staffProfile.findFirst({
@@ -230,21 +245,7 @@ export class StaffUserService {
           noticePeriodDays: noticePeriod !== undefined ? noticePeriod : 60,
         }
 
-        try {
-          staffProfile = await tx.staffProfile.create({ data: createData })
-        } catch (err: any) {
-          if (err.code === 'P2002' || err.message?.includes('Unique constraint')) {
-            const fallbackCode = `${empCode}-${Date.now().toString().slice(-4)}-${Math.floor(Math.random() * 900 + 100)}`
-            staffProfile = await tx.staffProfile.create({
-              data: {
-                ...createData,
-                employeeCode: fallbackCode,
-              },
-            })
-          } else {
-            throw err
-          }
-        }
+        staffProfile = await tx.staffProfile.create({ data: createData })
       }
 
       // Step D: Classroom binding if TEACHER or ATTENDANT
@@ -321,7 +322,48 @@ export class StaffUserService {
       }
     }
 
-    const result = externalTx ? await executeLogic(externalTx) : await db.$transaction(executeLogic)
+    let result: any = null
+
+    if (externalTx) {
+      let candidateEmpCode = input.employeeCode?.trim()
+      if (!candidateEmpCode) {
+        candidateEmpCode = await this.generateUniqueEmployeeCode(ctx.tenantId)
+      }
+      result = await executeLogic(externalTx, candidateEmpCode)
+    } else {
+      const maxAttempts = 3
+      let lastError: any = null
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        let candidateEmpCode: string
+        if (attempt === 1) {
+          candidateEmpCode = input.employeeCode?.trim() || (await this.generateUniqueEmployeeCode(ctx.tenantId))
+        } else {
+          // Collision retry in a fresh, isolated PostgreSQL transaction
+          // Under concurrency, append random entropy to eliminate check-then-act race conditions
+          const base = input.employeeCode?.trim() || (await this.generateUniqueEmployeeCode(ctx.tenantId))
+          const rand = Math.floor(Math.random() * 9000 + 1000)
+          candidateEmpCode = `${base}-${Date.now().toString().slice(-4)}-${rand}`
+        }
+
+        try {
+          result = await db.$transaction(async (tx) => {
+            return await executeLogic(tx, candidateEmpCode)
+          })
+          break
+        } catch (err: any) {
+          lastError = err
+          const isCollision = isEmployeeCodeUniqueViolation(err)
+          if (!isCollision || attempt === maxAttempts) {
+            throw err
+          }
+        }
+      }
+
+      if (!result && lastError) {
+        throw lastError
+      }
+    }
 
     // 5. Emit audit log
     await recordAudit({

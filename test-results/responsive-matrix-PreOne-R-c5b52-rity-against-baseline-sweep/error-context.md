@@ -1,0 +1,167 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: responsive-matrix.spec.ts >> PreOne Responsive Viewport Matrix & Visual Diff Guardrails >> Viewport: 1920-desktop-1080p (1920x1080) >> verifies audit layout integrity against baseline sweep
+- Location: tests\e2e\responsive-matrix.spec.ts:127:13
+
+# Error details
+
+```
+Test timeout of 30000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content":
+    - /url: "#main"
+  - button "Open PreO Mascot companion" [ref=e2] [cursor=pointer]:
+    - 'img "PreO: The Explorer — PreOne Mascot" [ref=e3]'
+  - banner [ref=e10]:
+    - generic [ref=e11]:
+      - link "PreOne OS Home" [ref=e13] [cursor=pointer]:
+        - /url: /app/home
+      - button "Global search (Press ⌘K / Ctrl+K to open)" [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]: Search anything (students, staff, invoices, routes)...
+        - generic [ref=e25]:
+          - generic [ref=e26]: Ctrl
+          - text: K
+      - generic [ref=e27]:
+        - button "Help and keyboard shortcuts" [ref=e28] [cursor=pointer]:
+          - generic [ref=e32]: Help
+        - button "Full Screen" [ref=e33] [cursor=pointer]
+        - button "Language" [ref=e41] [cursor=pointer]:
+          - generic [ref=e46]: EN
+        - button "Switch to dark theme" [ref=e47] [cursor=pointer]:
+          - generic [ref=e50]: Theme
+        - button "Inbox & Attention" [ref=e52] [cursor=pointer]:
+          - generic [ref=e56]: Inbox
+        - button "Alerts and Notifications" [ref=e58] [cursor=pointer]:
+          - generic [ref=e62]: Alerts
+        - button "Open user profile menu" [ref=e65] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e66]: SO
+          - generic [ref=e67]:
+            - generic [ref=e68]: School Owner
+            - generic [ref=e69]: Owner
+  - main [ref=e72]:
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e76]:
+          - navigation "Breadcrumb" [ref=e78]:
+            - list [ref=e79]:
+              - listitem [ref=e80]:
+                - link "Home" [ref=e81] [cursor=pointer]:
+                  - /url: /app
+              - listitem [aria-hidden] [ref=e86]
+              - listitem [ref=e89]:
+                - generic "Audit Logs" [ref=e90]
+          - heading "Audit Logs & Governance" [level=1] [ref=e93]
+          - paragraph [ref=e94]: Authoritative, tamper-evident forensic history and security event tracking across PreOne
+        - button "Export CSV" [ref=e96] [cursor=pointer]
+      - generic [ref=e101]:
+        - 'generic "Total Events: ..." [ref=e102]':
+          - generic "Total Events" [ref=e104]
+          - generic [ref=e110]: ...
+          - generic [ref=e112]: System audit log
+        - 'generic "Today''s Activity: ..." [ref=e114]':
+          - generic "Today's Activity" [ref=e116]
+          - generic [ref=e122]: ...
+          - generic [ref=e124]: Logged today
+        - 'generic "Security Events: ..." [ref=e126]':
+          - generic "Security Events" [ref=e128]
+          - generic [ref=e134]: ...
+          - generic [ref=e136]: Auth & access
+        - 'generic "Critical Mutations: ..." [ref=e138]':
+          - generic "Critical Mutations" [ref=e140]
+          - generic [ref=e145]: ...
+          - generic [ref=e147]: Data modifications
+        - 'generic "Failed Actions: ..." [ref=e149]':
+          - generic "Failed Actions" [ref=e151]
+          - generic [ref=e156]: ...
+          - generic [ref=e158]: System rejections
+        - 'generic "Audit Exports: ..." [ref=e160]':
+          - generic "Audit Exports" [ref=e162]
+          - generic [ref=e168]: ...
+          - generic [ref=e170]: CSV generations
+      - tablist "Audit category views" [ref=e173]:
+        - generic [ref=e174]:
+          - tab "All Activity" [selected] [ref=e175] [cursor=pointer]
+          - tab "Security Events" [ref=e181] [cursor=pointer]
+          - tab "Data Changes" [ref=e186] [cursor=pointer]
+          - tab "Payment Activity" [ref=e191] [cursor=pointer]
+          - tab "Exports & Reports" [ref=e196] [cursor=pointer]
+      - generic [ref=e202]:
+        - search "Global filter toolbar" [ref=e204]:
+          - generic [ref=e205]:
+            - generic [ref=e207]:
+              - textbox "Search records" [ref=e208]:
+                - /placeholder: Search action, record, summary, actor...
+              - 'generic "Keyboard shortcut: ⌘K" [ref=e210]': ⌘K
+            - generic [ref=e211]:
+              - 'button "Module: All Modules" [ref=e213] [cursor=pointer]':
+                - generic [ref=e214]:
+                  - generic [ref=e215]: "Module:"
+                  - generic [ref=e216]: All Modules
+              - 'button "Severity: All Severities" [ref=e220] [cursor=pointer]':
+                - generic [ref=e221]:
+                  - generic [ref=e222]: "Severity:"
+                  - generic [ref=e223]: All Severities
+            - button "Refresh" [ref=e227] [cursor=pointer]
+        - table [ref=e235]:
+          - rowgroup [ref=e236]:
+            - row [ref=e237]:
+              - columnheader "When" [ref=e238]
+              - columnheader "Action & Severity" [ref=e239]
+              - columnheader "Module" [ref=e240]
+              - columnheader "Entity & ID" [ref=e241]
+              - columnheader "Summary" [ref=e242]
+              - columnheader "Actor" [ref=e243]
+              - columnheader "Network" [ref=e244]
+              - columnheader [ref=e245]
+          - rowgroup
+        - generic [ref=e253]:
+          - generic [ref=e254]: Showing 0 of 0 total audit records
+          - generic [ref=e255]:
+            - button "Previous" [disabled]
+            - generic [ref=e256]: Page 1 of 1
+            - button "Next" [disabled]
+  - contentinfo:
+    - navigation "Global navigation dock" [ref=e257]:
+      - generic [ref=e258]:
+        - generic [ref=e259]:
+          - link "Home" [ref=e260] [cursor=pointer]:
+            - /url: /app/home
+          - link "Dashboard" [ref=e266] [cursor=pointer]:
+            - /url: /app/dashboard
+            - generic [ref=e267]:
+              - img "Dashboard"
+        - button "PreOne Start Menu" [ref=e271] [cursor=pointer]
+        - generic [ref=e284]:
+          - link "Students" [ref=e285] [cursor=pointer]:
+            - /url: /app/students
+            - generic [ref=e286]:
+              - img "Students"
+          - link "PreO Learning" [ref=e288] [cursor=pointer]:
+            - /url: /app/learning
+            - generic [ref=e289]:
+              - img "PreO Learning"
+          - link "Users & Access" [ref=e291] [cursor=pointer]:
+            - /url: /app/users
+            - generic [ref=e292]:
+              - img "Users & Access"
+          - link "Daily Diary" [ref=e294] [cursor=pointer]:
+            - /url: /app/daily-diary
+            - generic [ref=e295]:
+              - img "Daily Diary"
+      - status "Current date and time" [ref=e298]:
+        - generic [ref=e302]:
+          - generic [ref=e303]: 4:55 PM
+          - generic [ref=e304]: Wed, 18 Sept
+  - status
+```

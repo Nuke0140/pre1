@@ -54,7 +54,7 @@ export function HomeClient({ role, branding, user }: HomeClientProps) {
             <div className="flex flex-col items-center gap-2">
               <img
                 src={branding.logoUrl}
-                alt={user?.tenantName || 'School Logo'}
+                alt={user?.tenantName || branding?.schoolName || 'School Logo'}
                 className="h-16 max-h-16 max-w-[260px] object-contain drop-shadow-sm rounded-lg"
               />
             </div>
@@ -63,11 +63,16 @@ export function HomeClient({ role, branding, user }: HomeClientProps) {
           )}
         </div>
 
+        {/* Canonical School Title */}
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-center text-foreground mt-2 mb-1" data-testid="home-school-title">
+          {user?.tenantName || branding?.schoolName || 'PreOne'}
+        </h1>
+
         {user && (
           <div className="home-context-bar" role="status">
-            <span className="home-tenant-badge">
+            <span className="home-tenant-badge" data-testid="home-tenant-badge">
               <span className="home-tenant-dot" aria-hidden="true" />
-              {user.tenantName || 'Sunshine Kids Preschool'}
+              {user.tenantName || branding?.schoolName || 'PreOne'}
             </span>
             <span className="home-context-sep" aria-hidden="true">•</span>
             <span className="home-greeting">

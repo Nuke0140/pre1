@@ -11,96 +11,35 @@ export const GET = withApi(async (req: NextRequest) => {
     throw errPermission('Tenant context required')
   }
 
-  const effectiveRoles =
-    session.roles && session.roles.length > 0
-      ? session.roles
-      : session.role
-      ? [session.role]
-      : []
+  const url = new URL(req.url)
+  const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
 
-  const isParentOrGuardian = effectiveRoles.every(
-    (r) => r === 'PARENT' || r === 'GUARDIAN'
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
   )
 
-  const url = new URL(req.url)
-  const branchParam = url.searchParams.get('branchId') || url.searchParams.get('branch')
-
-  const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL'
-
-  let targetBranchSet: string[] | null = null
-
-  if (isParentOrGuardian) {
-    // Parents/guardians are strictly limited to their own profile
-    const ownGuardian = await db.guardian.findFirst({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        OR: [{ userId: session.uid }, { id: session.uid }],
-      },
-      include: {
-        user: { select: { id: true, email: true, status: true } },
-        studentLinks: {
-          include: {
-            student: {
-              select: { id: true, firstName: true, lastName: true, admissionNo: true, branchId: true },
-            },
-          },
-        },
-      },
-    })
-
-    if (!ownGuardian) return ok([])
-
-    return ok([
-      {
-        id: ownGuardian.id,
-        fullName: ownGuardian.fullName,
-        relationship: ownGuardian.relationship,
-        phone: ownGuardian.phone,
-        email: ownGuardian.email,
-        hasAccount: !!ownGuardian.userId,
-        linkedUser: ownGuardian.user
-          ? { id: ownGuardian.user.id, email: ownGuardian.user.email, status: ownGuardian.user.status }
-          : null,
-        children: ownGuardian.studentLinks.map((sl) => ({
-          id: sl.student.id,
-          name: `${sl.student.firstName} ${sl.student.lastName || ''}`.trim(),
-          admissionNo: sl.student.admissionNo,
-          canPickup: sl.canPickup,
-          branchId: sl.student.branchId,
-        })),
-      },
-    ])
-  }
-
-  if (!isInstitutionWide) {
-    if (branchParam) {
-      if (!authorizedBranches.includes(branchParam)) {
-        throw errPermission('Access denied: branch scope restricted')
-      }
-      targetBranchSet = [branchParam]
-    } else {
-      targetBranchSet = authorizedBranches
+  let effectiveBranchId: string | undefined = undefined
+  if (!isInstitutionWide && session.branchId) {
+    if (branchFilter && branchFilter !== session.branchId) {
+      throw errPermission('Access denied: branch scope restricted')
     }
-  } else if (branchParam && branchParam !== 'ALL') {
-    targetBranchSet = [branchParam]
+    effectiveBranchId = session.branchId
+  } else if (branchFilter && branchFilter !== 'ALL') {
+    effectiveBranchId = branchFilter
   }
 
-  const where: any = {
+  const whereClause: any = {
     tenantId: session.tenantId,
     deletedAt: null,
   }
 
-  if (targetBranchSet) {
-    if (targetBranchSet.length === 0) {
-      return ok([])
-    }
-    where.studentLinks = {
+  if (effectiveBranchId) {
+    whereClause.studentLinks = {
       some: {
         student: {
           tenantId: session.tenantId,
-          branchId: { in: targetBranchSet },
+          branchId: effectiveBranchId,
           deletedAt: null,
         },
       },
@@ -108,10 +47,19 @@ export const GET = withApi(async (req: NextRequest) => {
   }
 
   const guardians = await db.guardian.findMany({
-    where,
+    where: whereClause,
     include: {
       user: { select: { id: true, email: true, status: true } },
       studentLinks: {
+        where: effectiveBranchId
+          ? {
+              student: {
+                tenantId: session.tenantId,
+                branchId: effectiveBranchId,
+                deletedAt: null,
+              },
+            }
+          : undefined,
         include: {
           student: {
             select: { id: true, firstName: true, lastName: true, admissionNo: true, branchId: true },

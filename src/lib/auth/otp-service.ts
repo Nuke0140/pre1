@@ -57,33 +57,13 @@ export function isDemoOtpAllowed(identifier?: string): boolean {
     return false
   }
 
-  // Any demo identifier or demo domain (e.g. *.demo, sunshine.demo, demo) always permits demo OTP
-  if (identifier) {
-    const clean = identifier.toLowerCase().trim()
-    if (
-      clean.endsWith('.demo') ||
-      clean.includes('@sunshine.demo') ||
-      clean.includes('.demo') ||
-      clean.includes('sunshine') ||
-      clean.startsWith('demo') ||
-      clean === 'owner' ||
-      clean === 'admin'
-    ) {
-      return true
-    }
-  }
-
-  const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
-  if (explicitAllow) {
-    return true
+  // In production, general demo OTP strictly fails closed unless explicitly allowed via environment flags
+  if (process.env.NODE_ENV === 'production') {
+    const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
+    return explicitAllow
   }
 
   // In non-production or preview environments, demo codes are enabled by default
-  if (process.env.NODE_ENV !== 'production' || process.env.VERCEL_ENV === 'preview') {
-    return true
-  }
-
-  // Fallback: allow demo OTP for testing unless explicitly disallowed
   return true
 }
 
@@ -99,7 +79,20 @@ export class OtpService {
    * Checks whether demo OTP bypass codes are currently allowed based on environment flags.
    */
   static isDemoOtpAllowed(identifier?: string): boolean {
-    return isDemoOtpAllowed(identifier)
+    const isProduction = process.env.NODE_ENV === 'production'
+    const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
+    const explicitDisallow = process.env.ALLOW_DEMO_OTP === 'false' || process.env.ENABLE_DEMO_OTP === 'false'
+
+    if (explicitDisallow) {
+      return false
+    }
+
+    if (isProduction) {
+      if (explicitAllow) return true
+      return isDemoOtpAllowed(identifier)
+    }
+
+    return true
   }
 
   /**
@@ -153,8 +146,8 @@ export class OtpService {
       cleanId === 'owner' ||
       cleanId === 'admin'
 
-    const isDemoAllowed = isDemoOtpAllowed(cleanId)
-    const isDemoCode = (isDemoAllowed || isDemoAccount) && DEMO_OTP_CODES.includes(cleanCode)
+    const isDemoAllowed = OtpService.isDemoOtpAllowed(cleanId)
+    const isDemoCode = isDemoAllowed && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {
       if (cleanId) {
@@ -167,8 +160,8 @@ export class OtpService {
       return { valid: true }
     }
 
-    // 1. IP throttling (skip for demo accounts)
-    if (!isDemoAccount && ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
+    // 1. IP throttling
+    if (ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
       return {
         valid: false,
         error: {
@@ -179,8 +172,8 @@ export class OtpService {
       }
     }
 
-    // 2. Identifier lockout (skip for demo accounts)
-    if (!isDemoAccount && cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
+    // 2. Identifier lockout
+    if (cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
       return {
         valid: false,
         error: {
@@ -191,8 +184,8 @@ export class OtpService {
       }
     }
 
-    // 3. Locked OTP check (skip for demo accounts)
-    if (!isDemoAccount && cleanId) {
+    // 3. Locked OTP check
+    if (cleanId) {
       const lockExpiry = lockedOtps.get(cleanId)
       if (lockExpiry && Date.now() < lockExpiry) {
         return {
@@ -555,8 +548,8 @@ export class OtpService {
       cleanId === 'owner' ||
       cleanId === 'admin'
 
-    const isDemoAllowed = isDemoOtpAllowed(cleanId)
-    const isDemoCode = (isDemoAllowed || isDemoAccount) && DEMO_OTP_CODES.includes(cleanCode)
+    const isDemoAllowed = OtpService.isDemoOtpAllowed(cleanId)
+    const isDemoCode = isDemoAllowed && DEMO_OTP_CODES.includes(cleanCode)
 
     if (isDemoCode) {
       if (cleanId) {
@@ -568,8 +561,8 @@ export class OtpService {
       }
     }
 
-    // 1. Per-IP throttling check (BUG-030) (skip for demo accounts)
-    if (!isDemoCode && !isDemoAccount && ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
+    // 1. Per-IP throttling check (BUG-030)
+    if (!isDemoCode && ip && getIpFailedAttempts(ip) >= MAX_IP_FAILURES) {
       return {
         success: false,
         error: {
@@ -580,8 +573,8 @@ export class OtpService {
       }
     }
 
-    // 2. Per-identifier throttling & lockout check (BUG-030) (skip for demo accounts)
-    if (!isDemoCode && !isDemoAccount && cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
+    // 2. Per-identifier throttling & lockout check (BUG-030)
+    if (!isDemoCode && cleanId && getFailedAttempts(cleanId) >= MAX_CONSECUTIVE_FAILURES) {
       return {
         success: false,
         error: {
@@ -592,8 +585,8 @@ export class OtpService {
       }
     }
 
-    // 3. Exhausted attempts lockout check for active OTP code (skip for demo accounts)
-    if (!isDemoCode && !isDemoAccount && cleanId) {
+    // 3. Exhausted attempts lockout check for active OTP code
+    if (!isDemoCode && cleanId) {
       const lockExpiry = lockedOtps.get(cleanId)
       if (lockExpiry && Date.now() < lockExpiry) {
         return {

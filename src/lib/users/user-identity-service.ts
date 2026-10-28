@@ -110,7 +110,7 @@ export class UserIdentityService {
     const passwordHash = await this.hashPassword(rawPassword)
 
     const effectiveMustChangePassword = opts.mustChangePassword !== undefined
-      ? (isParentRole ? false : opts.mustChangePassword)
+      ? opts.mustChangePassword
       : (isParentRole ? false : isGeneratedPassword)
 
     if (!user) {

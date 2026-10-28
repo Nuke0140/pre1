@@ -20,14 +20,15 @@ async function _PATCH(req: NextRequest) {
     const data: Record<string, unknown> = {}
     for (const k of allowed) {
       if (k in body) {
-        if (k === 'legalName') {
-          data['name'] = body['legalName']
+        if (k === 'legalName' || k === 'name') {
+          const val = body[k]
+          data['name'] = typeof val === 'string' ? val.trim() : val
         } else {
           data[k] = body[k]
         }
       }
     }
-    if ('name' in data && (data.name ?? '').toString().trim() === '') {
+    if ('name' in data && (!data.name || (data.name as string).trim() === '')) {
       return Errors.validation('School legal name cannot be empty', 'name')
     }
     if (Object.keys(data).length === 0) {

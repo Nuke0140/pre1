@@ -31,25 +31,7 @@ async function _GET(req: NextRequest) {
       facilities: b._count.facilities, staff: b._count.staffProfiles,
     })))
   } catch (e) {
-    console.warn('[GET /api/v1/branches] DB unreachable, returning fallback main branch:', e)
-    return ok([{
-      id: 'branch-main',
-      name: 'Main Campus',
-      code: 'MAIN',
-      address: '123 Education Street',
-      city: 'Pune',
-      state: 'Maharashtra',
-      pincode: '411001',
-      phone: '+91 98765 43210',
-      email: 'info@sunshine.demo',
-      timingOpen: '08:30',
-      timingClose: '16:00',
-      capacity: 150,
-      isMain: true,
-      isActive: true,
-      facilities: 6,
-      staff: 15,
-    }])
+    return Errors.system(e)
   }
 }
 

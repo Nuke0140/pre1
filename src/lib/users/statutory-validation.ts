@@ -72,7 +72,7 @@ export interface StatutoryValidationResult {
  * Format: 5 uppercase letters, 4 digits, 1 uppercase letter (e.g. ABCDE1234F).
  */
 export function validatePan(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
+  if (val === undefined || val === null || val === '' || (typeof val === 'string' && val.trim() === '')) {
     return { valid: true }
   }
 
@@ -108,7 +108,7 @@ export function validatePan(val?: string | null): StatutoryValidationResult {
  * - Checksum must satisfy Verhoeff algorithm
  */
 export function validateAadhaar(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
+  if (val === undefined || val === null || val === '' || (typeof val === 'string' && val.trim() === '')) {
     return { valid: true }
   }
 
@@ -133,10 +133,10 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     }
   }
 
-  if (clean[0] === '0') {
+  if (clean[0] === '0' || clean[0] === '1') {
     return {
       valid: false,
-      error: 'Invalid Aadhaar number: cannot start with 0',
+      error: 'Invalid Aadhaar number: cannot start with 0 or 1',
     }
   }
 
@@ -148,6 +148,14 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
     }
   }
 
+  // Verhoeff checksum validation
+  if (!validateVerhoeff(clean)) {
+    return {
+      valid: false,
+      error: 'Invalid Aadhaar number: failed Verhoeff checksum validation',
+    }
+  }
+
   return { valid: true, normalized: clean }
 }
 
@@ -156,7 +164,7 @@ export function validateAadhaar(val?: string | null): StatutoryValidationResult 
  * Format: exactly 12 numeric digits.
  */
 export function validateUan(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
+  if (val === undefined || val === null || val === '' || (typeof val === 'string' && val.trim() === '')) {
     return { valid: true }
   }
 
@@ -182,7 +190,7 @@ export function validateUan(val?: string | null): StatutoryValidationResult {
  * Format: exactly 17 numeric digits.
  */
 export function validateEsi(val?: string | null): StatutoryValidationResult {
-  if (val === undefined || val === null || val === '') {
+  if (val === undefined || val === null || val === '' || (typeof val === 'string' && val.trim() === '')) {
     return { valid: true }
   }
 

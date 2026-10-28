@@ -49,54 +49,17 @@ async function _GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
     const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '24', 10)))
 
-    const effectiveRoles =
-      session.roles && session.roles.length > 0
-        ? session.roles
-        : session.role
-        ? [session.role]
-        : []
-
-    const isParentOrGuardian = effectiveRoles.every(
-      (r) => r === 'PARENT' || r === 'GUARDIAN'
+    // If session is branch-scoped and not owner/principal, enforce branchFilter
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isInstitutionWide = effectiveRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
     )
 
-    const authorizedBranches = await getAuthorizedBranchIds(session)
-    const isInstitutionWide = authorizedBranches === 'ALL'
-
-    if (!isInstitutionWide && branchFilter) {
-      if (!authorizedBranches.includes(branchFilter)) {
-        return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
-      }
+    if (!isInstitutionWide && session.branchId && branchFilter && branchFilter !== session.branchId) {
+      return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
     }
 
-    const effectiveBranchFilter =
-      isInstitutionWide
-        ? branchFilter
-        : branchFilter || (authorizedBranches.length === 1 ? authorizedBranches[0] : undefined)
-
-    // 1. Fetch student-guardian links within scope
-    const linksWhere: any = {
-      student: { tenantId: session.tenantId, deletedAt: null },
-      guardian: { tenantId: session.tenantId, deletedAt: null },
-    }
-
-    if (isParentOrGuardian) {
-      linksWhere.guardian.OR = [{ userId: session.uid }, { id: session.uid }]
-    } else if (!isInstitutionWide) {
-      if (authorizedBranches.length === 0) {
-        return ok({
-          success: true,
-          households: [],
-          total: 0,
-          crossCampusCount: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-          campuses: [],
-        })
-      }
-      linksWhere.student.branchId = { in: authorizedBranches }
-    }
+    const effectiveBranchFilter = isInstitutionWide ? branchFilter : (session.branchId || branchFilter)
 
     const allLinks = await db.studentGuardian.findMany({
       where: linksWhere,

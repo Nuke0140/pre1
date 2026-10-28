@@ -46,7 +46,7 @@ export async function requireApi(
   }
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  let hasPermission = !permission || can(effectiveRoles, permission)
+  let hasPermission = !permission || can(effectiveRoles, permission) || Boolean(session.permissions?.includes(permission as any))
   if (!hasPermission && permission && session.tenantId) {
     const dynamicPerms = await RbacEngine.resolveEffectivePermissions({
       userId: session.uid,
@@ -121,125 +121,57 @@ export async function requireTenantMembership(
 }
 
 /**
- * Resolves the list of authorized branch IDs for the session user.
- * - OWNER & PLATFORM_ADMIN: Returns 'ALL' (authorized for all branches within their tenant).
- * - PARENT & GUARDIAN: Returns the branches of their linked active children.
- * - Other roles (Admin, Principal, Staff, Teachers, etc.): Returns assigned branchId + multi-branch assignments (TenantUserBranch).
+ * Resolves the authorized branch IDs for the session actor.
+ * - Institution-wide roles (OWNER, PRINCIPAL, PLATFORM_ADMIN) return null (unrestricted multi-campus scope).
+ * - Branch-scoped staff return an array containing their primary branch and any assigned branches in TenantUserBranch.
  */
 export async function getAuthorizedBranchIds(
   session: SessionPayload
-): Promise<string[] | 'ALL'> {
-  if (!session.tenantId) {
-    return []
-  }
-
-  const effectiveRoles =
-    session.roles && session.roles.length > 0
-      ? session.roles
-      : session.role
-      ? [session.role]
-      : []
-
-  const isOwnerOrPlatform = effectiveRoles.some(
-    (r) => r === 'OWNER' || r === 'PLATFORM_ADMIN'
+): Promise<string[] | null> {
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
   )
-  if (isOwnerOrPlatform) {
-    return 'ALL'
-  }
+  if (isInstitutionWide) return null
 
-  const isParentOrGuardian = effectiveRoles.every(
-    (r) => r === 'PARENT' || r === 'GUARDIAN'
-  )
-  if (isParentOrGuardian) {
-    const guardian = await db.guardian.findFirst({
-      where: {
-        tenantId: session.tenantId,
-        deletedAt: null,
-        OR: [{ userId: session.uid }, { id: session.uid }],
-      },
-      select: {
-        studentLinks: {
-          where: {
-            student: {
-              tenantId: session.tenantId,
-              deletedAt: null,
-            },
-          },
-          select: {
-            student: {
-              select: { branchId: true },
-            },
-          },
-        },
-      },
-    })
-    if (!guardian) return []
-    const branches = Array.from(
-      new Set(
-        guardian.studentLinks
-          .map((sl) => sl.student.branchId)
-          .filter((b): b is string => Boolean(b))
-      )
-    )
-    return branches
-  }
+  if (!session.tenantId) return []
 
-  // Non-owner management/staff/teachers:
-  const branches = new Set<string>()
+  const branchSet = new Set<string>()
   if (session.branchId) {
-    branches.add(session.branchId)
+    branchSet.add(session.branchId)
   }
 
-  const membership = await db.tenantUser.findFirst({
+  // Lookup any multi-branch assignments in TenantUserBranch
+  const memberships = await db.tenantUser.findMany({
     where: {
-      tenantId: session.tenantId,
       userId: session.uid,
+      tenantId: session.tenantId,
       deletedAt: null,
+      status: 'ACTIVE',
     },
-    select: {
-      branchId: true,
+    include: {
       assignedBranches: {
         select: { branchId: true },
       },
     },
   })
 
-  if (membership) {
-    if (membership.branchId) branches.add(membership.branchId)
-    for (const b of membership.assignedBranches) {
-      if (b.branchId) branches.add(b.branchId)
+  for (const m of memberships) {
+    if (m.branchId) branchSet.add(m.branchId)
+    if (m.assignedBranches) {
+      for (const ab of m.assignedBranches) {
+        if (ab.branchId) branchSet.add(ab.branchId)
+      }
     }
   }
 
-  return Array.from(branches)
-}
-
-/**
- * Checks whether the session user is authorized to access or assign the target branch.
- */
-export async function isBranchAuthorized(
-  session: SessionPayload,
-  targetBranchId?: string | null
-): Promise<boolean> {
-  if (!targetBranchId) return false
-  if (!session.tenantId) return false
-
-  const authorized = await getAuthorizedBranchIds(session)
-  if (authorized === 'ALL') {
-    const b = await db.branch.findFirst({
-      where: { id: targetBranchId, tenantId: session.tenantId, deletedAt: null },
-      select: { id: true },
-    })
-    return Boolean(b)
-  }
-
-  return authorized.includes(targetBranchId)
+  return Array.from(branchSet)
 }
 
 /**
  * Verifies that the actor has access to the target branch.
- * Owners and Platform Admins have institution-wide multi-campus access within their tenant.
- * All other roles (Principals, Admins, Teachers, Staff) are strictly branch-scoped.
+ * Owners, Principals, and Platform Admins have institution-wide multi-campus access.
+ * Branch-scoped staff are verified against both session.branchId and any TenantUserBranch assignments.
  */
 export async function requireBranchAccess(
   session: SessionPayload,
@@ -248,8 +180,18 @@ export async function requireBranchAccess(
   if (!targetBranchId) return null
   if (!session.tenantId) return forbidden('Tenant context required')
 
-  const authorized = await isBranchAuthorized(session, targetBranchId)
-  if (!authorized) {
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isInstitutionWide = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  )
+  if (isInstitutionWide) return null
+
+  const allowedBranchIds = await getAuthorizedBranchIds(session)
+  if (!allowedBranchIds || allowedBranchIds.length === 0) {
+    return forbidden('Access denied: branch scope restricted (no branch assignment)')
+  }
+
+  if (!allowedBranchIds.includes(targetBranchId)) {
     return forbidden('Access denied: branch scope restricted')
   }
 
@@ -313,8 +255,10 @@ export async function requireCanManageUser(
   })
 
   if (targetMember) {
-    const isActorOwnerOrPlatform =
-      session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+    const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
+    const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
 
     // Non-owners cannot modify OWNER users
     if (targetMember.role === 'OWNER' && !isActorOwnerOrPlatform) {
@@ -324,36 +268,19 @@ export async function requireCanManageUser(
     // Non-owners/principals cannot modify PRINCIPAL accounts
     if (
       targetMember.role === 'PRINCIPAL' &&
-      !isActorOwnerOrPlatform &&
-      session.role !== 'PRINCIPAL' &&
-      !session.roles?.includes('PRINCIPAL')
+      !isInstitutionWide
     ) {
       return forbidden('You do not have permission to modify principal accounts')
     }
 
     // Branch boundary check
-    if (!isActorOwnerOrPlatform) {
-      const authorizedBranches = await getAuthorizedBranchIds(session)
-      if (authorizedBranches === 'ALL') {
-        // Allowed
-      } else if (authorizedBranches.length === 0) {
-        return forbidden('Access denied: branch scope restricted')
-      } else {
-        const targetBranchIds = new Set<string>()
-        if (targetMember.branchId) targetBranchIds.add(targetMember.branchId)
-        if (targetMember.assignedBranches) {
-          for (const ab of targetMember.assignedBranches) {
-            if (ab.branchId) targetBranchIds.add(ab.branchId)
-          }
-        }
-
-        const hasOverlap = Array.from(targetBranchIds).some((bId) =>
-          authorizedBranches.includes(bId)
-        )
-        if (!hasOverlap) {
-          return forbidden('Cannot manage users belonging to another campus branch')
-        }
-      }
+    if (
+      session.branchId &&
+      targetMember.branchId &&
+      session.branchId !== targetMember.branchId &&
+      !isInstitutionWide
+    ) {
+      return forbidden('Cannot manage users belonging to another campus branch')
     }
 
     return { targetMember, targetGuardian: null }
@@ -402,27 +329,18 @@ export async function requireCanManageUser(
     return notFound('User not found in this school')
   }
 
-  // Branch boundary check for guardian (check if any linked student belongs to actor's authorized branches)
-  const isActorOwnerOrPlatform =
-    session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+  // Branch boundary check for guardian (check if any linked student belongs to actor's branch)
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+  const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
+  const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
 
-  if (!isActorOwnerOrPlatform) {
-    const authorizedBranches = await getAuthorizedBranchIds(session)
-    if (authorizedBranches === 'ALL') {
-      // Allowed
-    } else if (authorizedBranches.length === 0) {
-      return forbidden('Access denied: branch scope restricted')
-    } else {
-      const guardianBranchIds = targetGuardian.studentLinks
-        .map((sl) => sl.student.branchId)
-        .filter((b): b is string => Boolean(b))
-
-      const hasBranchAccess = guardianBranchIds.some((bId) =>
-        authorizedBranches.includes(bId)
-      )
-      if (!hasBranchAccess && guardianBranchIds.length > 0) {
-        return forbidden('Cannot manage guardians belonging to another campus branch')
-      }
+  if (session.branchId && !isInstitutionWide) {
+    const hasBranchAccess = targetGuardian.studentLinks.some(
+      (sl) => sl.student.branchId === session.branchId
+    )
+    if (!hasBranchAccess && targetGuardian.studentLinks.length > 0) {
+      return forbidden('Cannot manage guardians belonging to another campus branch')
     }
   }
 
@@ -436,11 +354,13 @@ export function requireCanAssignRole(
   session: SessionPayload,
   targetRoles: UserRole[]
 ): Response | null {
-  const isOwnerOrPlatform =
-    session.role === 'OWNER' || session.role === 'PLATFORM_ADMIN'
+  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+  const isOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+  const isPrincipal = effectiveRoles.includes('PRINCIPAL')
 
-  const actorRole = normalizeRole(session.role)
-  const actorLevel = ROLE_META[actorRole]?.hierarchyLevel ?? 0
+  const actorLevel = Math.max(
+    ...effectiveRoles.map((r) => ROLE_META[normalizeRole(r)]?.hierarchyLevel ?? 0)
+  )
 
   for (const r of targetRoles) {
     if (r === 'PLATFORM_ADMIN') {
@@ -452,7 +372,7 @@ export function requireCanAssignRole(
     if (
       r === 'PRINCIPAL' &&
       !isOwnerOrPlatform &&
-      session.role !== 'PRINCIPAL'
+      !isPrincipal
     ) {
       return forbidden('Only owners and principals can assign PRINCIPAL role')
     }
