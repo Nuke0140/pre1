@@ -48,6 +48,12 @@ import {
   UserRecord, BranchOption, ClassroomOption, Role,
   CANONICAL_STAFF_ROLES, ROLE_BADGE
 } from '@/components/users/types'
+import {
+  UserIdentityCell,
+  UserContactCell,
+  UserRolePlacementCell,
+  UserRowActions,
+} from '@/components/users'
 import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
@@ -304,245 +310,136 @@ export default function StaffUsersPage() {
     return { active, teachers, staffOps, leadership }
   }, [users])
 
-  // Columns definition for DataTable
+  // Columns definition for DataTable (PRE1-USER-IDENTITY-UI-001: 4-Column Structured Identity Anatomy)
   const columns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: t('users.staffMember'),
+      header: t('users.staffMember') || 'Staff Member & Placement',
       sortable: true,
+      sortValue: (u) => u.name,
       render: (u) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={u.name} src={u.avatarUrl} size="md" />
-          <div>
-            <div className="font-semibold text-gray-900 dark:text-white hover:text-indigo-600 transition-colors cursor-pointer" onClick={() => setViewingUser(u)}>
-              {u.name}
-            </div>
-            <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email?.split('@')[0] || 'staff'}
-            </div>
-          </div>
-        </div>
+        <UserIdentityCell
+          user={u}
+          onClick={() => setViewingUser(u)}
+          contextType="staff"
+        />
       ),
+    },
+    {
+      key: 'contact',
+      header: t('users.contactDetails') || 'Contact',
+      render: (u) => <UserContactCell user={u} />,
     },
     {
       key: 'role',
-      header: t('users.roleTitle'),
+      header: t('users.roleTitle') || 'Clearance / Role',
       sortable: true,
-      render: (u) => {
-        const badge = ROLE_BADGE[normalizeRole(u.role)] || ROLE_BADGE[u.role] || { cls: 'b-neutral', label: u.role }
-        const assignedClassroomName =
-          (u.taughtClasses && u.taughtClasses[0]?.name) ||
-          (u as any).classroom?.name ||
-          (u as any).preferences?.assignedClassroomName ||
-          (u as any).user?.taughtClasses?.[0]?.name
-
-        return (
-          <div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className={`badge ${badge.cls} text-xs font-semibold`}>
-                {badge.label}
-              </span>
-              {assignedClassroomName && (
-                <span
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-200/60 dark:border-purple-800/60"
-                  title={`Assigned to ${assignedClassroomName}`}
-                >
-                  <DoorOpen className="w-3 h-3 shrink-0" />
-                  <span className="truncate max-w-[120px]">{assignedClassroomName}</span>
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-gray-500 mt-0.5 font-medium">
-              {u.staffProfile?.designation || u.staffProfile?.department || 'Staff'}
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      key: 'email',
-      header: t('users.contactDetails'),
-      render: (u) => (
-        <div className="text-xs space-y-0.5">
-          {u.email ? (
-            <div className="text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5 break-all">
-              <Mail className="w-3 h-3 text-gray-400 shrink-0" />
-              <span>{u.email}</span>
-            </div>
-          ) : (
-            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
-              <Mail className="w-3 h-3 text-gray-300 shrink-0" />
-              <span>{t('users.noEmailAddress')}</span>
-            </div>
-          )}
-          {u.phone && (
-            <div className="text-gray-500 font-mono flex items-center gap-1.5">
-              <Phone className="w-3 h-3 text-gray-400" />
-              {u.phone}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'branchId',
-      header: t('users.branch'),
-      render: (u) => {
-        const assigned = u.assignedBranches || []
-        const primaryBranch = branches.find((b) => b.id === u.branchId) || assigned.find((b) => b.isPrimary || b.id === u.branchId)
-        const additionalCount = assigned.length > 1 ? assigned.length - 1 : 0
-
-        return (
-          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-            <div className="flex items-center gap-1.5">
-              <Building className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span>{primaryBranch ? `${primaryBranch.name} (${primaryBranch.code})` : t('users.allCampuses')}</span>
-              {additionalCount > 0 && (
-                <span className="badge b-purple text-[10px] px-1.5 py-0" title={assigned.map((b) => `${b.name} (${b.code})`).join(', ')}>
-                  +{additionalCount}
-                </span>
-              )}
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      key: 'status',
-      header: t('common.status'),
-      sortable: true,
-      render: (u) => <StatusBadge status={u.status} />,
-    },
-    {
-      key: 'lastLoginAt',
-      header: t('users.lastActive'),
-      render: (u) => (
-        <span className="text-xs text-gray-500">
-          {u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}
-        </span>
-      ),
+      sortValue: (u) => u.role,
+      render: (u) => <UserRolePlacementCell user={u} contextType="staff" />,
     },
     {
       key: 'actions',
-      header: t('common.actions'),
+      header: t('common.actions') || 'Actions',
       align: 'right',
       render: (u) => (
-        <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-          <IconButton
-            icon={<Eye size={15} />}
-            label={t('users.view360Profile')}
+        <UserRowActions
+          user={u}
+          onView={(user) => setViewingUser(user)}
+          onEdit={(user) => setEditingUser(user)}
+          viewLabel={t('users.view360Profile')}
+          editLabel={t('users.editStaff')}
+        >
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setViewingUser(u)}
-          />
-          <IconButton
-            icon={<Edit3 size={15} />}
-            label={t('users.editStaff')}
+          >
+            <Eye size={14} className="text-slate-500" />
+            <span>{t('users.view360Profile')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setEditingUser(u)}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title={t('common.moreActions')}
-                aria-label={t('common.moreActions')}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
-              >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setEditingUser(u)}
-              >
-                <Edit3 size={14} className="text-primary" />
-                <span>{t('users.individualEdit')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => {
-                  setSelectedKeys([u.userId || u.id])
-                  setBulkFieldUpdateOpen(true)
-                }}
-              >
-                <Layers size={14} className="text-purple-600" />
-                <span>{t('users.bulkFieldUpdate')}</span>
-              </DropdownMenuItem>
+          >
+            <Edit3 size={14} className="text-primary" />
+            <span>{t('users.individualEdit')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => {
+              setSelectedKeys([u.userId || u.id])
+              setBulkFieldUpdateOpen(true)
+            }}
+          >
+            <Layers size={14} className="text-purple-600" />
+            <span>{t('users.bulkFieldUpdate')}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
-              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                Admin Actions
-              </div>
+          <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            Admin Actions
+          </div>
 
-              {/* Reset Password */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setResetPasswordUser(u)}
-              >
-                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
-                <span>Reset Password</span>
-              </DropdownMenuItem>
+          {/* Reset Password */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setResetPasswordUser(u)}
+          >
+            <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span>Reset Password</span>
+          </DropdownMenuItem>
 
-              {/* Unlock Account */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleUnlockUser(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
-                <span>Unlock Account</span>
-                {u.status === 'LOCKED' && (
-                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
-                )}
-              </DropdownMenuItem>
+          {/* Unlock Account */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleUnlockUser(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>Unlock Account</span>
+            {u.status === 'LOCKED' && (
+              <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+            )}
+          </DropdownMenuItem>
 
-              {/* Suspend / Reactivate */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setSuspendModalUser(u)}
-              >
-                {u.status === 'ACTIVE' ? (
-                  <>
-                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
-                  </>
-                )}
-              </DropdownMenuItem>
+          {/* Suspend / Reactivate */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setSuspendModalUser(u)}
+          >
+            {u.status === 'ACTIVE' ? (
+              <>
+                <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+              </>
+            ) : (
+              <>
+                <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+              </>
+            )}
+          </DropdownMenuItem>
 
-              {/* Resend Invite / Welcome */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleResendInvite(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Send size={14} className="text-sky-600 dark:text-sky-400" />
-                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
-              </DropdownMenuItem>
+          {/* Resend Invite / Welcome */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleResendInvite(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Send size={14} className="text-sky-600 dark:text-sky-400" />
+            <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-              {/* Delete / Deactivate User */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
-                onClick={() => setDeleteModalUser(u)}
-              >
-                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
-                <span>Delete Account</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          {/* Delete / Deactivate User */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+            onClick={() => setDeleteModalUser(u)}
+          >
+            <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+            <span>Delete Account</span>
+          </DropdownMenuItem>
+        </UserRowActions>
       ),
     },
   ]

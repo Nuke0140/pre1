@@ -74,7 +74,7 @@ export async function resolveAuthorizedBranchScope(
   // Derive user's authorized branch list
   let authorizedBranches = allTenantBranches
   const authBranchIds = await getAuthorizedBranchIds(session)
-  if (authBranchIds !== 'ALL') {
+  if (authBranchIds !== null && (authBranchIds as unknown) !== 'ALL') {
     authorizedBranches = allTenantBranches.filter((b) => authBranchIds.includes(b.id))
     if (authorizedBranches.length === 0) {
       return {
@@ -89,7 +89,7 @@ export async function resolveAuthorizedBranchScope(
   }
 
   const authorizedBranchIds = authorizedBranches.map((b) => b.id)
-  const isMultiBranchAuthorized = (authBranchIds === 'ALL' || authorizedBranches.length > 1) && authorizedBranches.length > 1
+  const isMultiBranchAuthorized = (authBranchIds === 'ALL' || authBranchIds === null || authorizedBranches.length > 1) && authorizedBranches.length > 1
 
   // Handle branch selection
   const cleanReq = requestedBranchId?.trim()

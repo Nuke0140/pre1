@@ -31,6 +31,12 @@ import { SuspendUserModal } from '@/components/users/SuspendUserModal'
 import { DeleteUserModal } from '@/components/users/DeleteUserModal'
 import { PickupPinModal } from '@/components/users/PickupPinModal'
 import {
+  UserIdentityCell,
+  UserContactCell,
+  UserRolePlacementCell,
+  UserRowActions,
+} from '@/components/users'
+import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -350,240 +356,146 @@ export default function FamilyUsersPage() {
   const parentColumns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: t('users.parentIdentity'),
+      header: t('users.parentIdentity') || 'Parent Identity',
       sortable: true,
+      sortValue: (u) => u.name,
+      width: '40%',
       render: (u) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={u.name} src={u.avatarUrl} size="md" />
-          <div className="min-w-0">
-            <div
-              className="font-semibold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer text-sm truncate"
-              onClick={() => setViewingUser(u)}
-              title={t('users.view360Profile')}
-            >
-              {u.name}
-            </div>
-            <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email?.split('@')[0] || 'parent'}
-            </div>
-          </div>
-        </div>
+        <UserIdentityCell
+          user={u}
+          onClick={() => setViewingUser(u)}
+          contextType="parent"
+        />
       ),
     },
     {
-      key: 'children',
-      header: t('users.linkedStudents'),
-      render: (u) => {
-        const children = u.guardianProfile?.students || []
-        if (children.length === 0) {
-          return <span className="text-xs text-gray-400 italic">{t('users.noLinkedStudents')}</span>
-        }
-        return (
-          <div className="space-y-1">
-            {children.map((child) => (
-              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
-                <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
-                <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
-                {child.branchName && (
-                  <span className="badge b-purple text-[9px] shrink-0 font-normal">
-                    {child.branchName}
-                  </span>
-                )}
-                <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'parent'})</span>
-              </div>
-            ))}
-            {u.guardianProfile?.isCrossCampus && (
-              <div className="pt-0.5">
-                <span className="badge b-purple text-[10px] font-semibold flex items-center gap-1 w-fit">
-                  <Building2 className="w-3 h-3 text-purple-600" />
-                  Cross-Campus ({u.guardianProfile.campusesCount} Campuses)
-                </span>
-              </div>
-            )}
-          </div>
-        )
-      },
+      key: 'contact',
+      header: t('users.contactDetails') || 'Contact',
+      width: '26%',
+      render: (u) => <UserContactCell user={u} />,
     },
     {
-      key: 'email',
-      header: t('users.contactDetails'),
-      render: (u) => (
-        <div className="text-xs space-y-1">
-          {u.email ? (
-            <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono break-all">
-              <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span>{u.email}</span>
-            </div>
-          ) : (
-            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-              <span>{t('users.noEmailAddress')}</span>
-            </div>
-          )}
-          {u.phone && (
-            <div className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-mono">
-              <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span>{u.phone}</span>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'financials',
-      header: t('users.feeVisibility'),
-      render: () => (
-        <span className="badge b-success text-xs font-medium">
-          {t('users.feePayer')}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: t('common.status'),
+      key: 'role',
+      header: t('users.roleTitle') || 'Clearance / Role',
       sortable: true,
-      render: (u) => <StatusBadge status={u.status} />,
-    },
-    {
-      key: 'lastLoginAt',
-      header: t('users.lastPortalLogin'),
-      render: (u) => (
-        <span className="text-xs text-gray-500 flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}</span>
-        </span>
-      ),
+      sortValue: (u) => u.role,
+      width: '22%',
+      render: (u) => <UserRolePlacementCell user={u} contextType="parent" />,
     },
     {
       key: 'actions',
-      header: t('common.actions'),
+      header: t('common.actions') || 'Actions',
       align: 'right',
+      width: '12%',
       render: (u) => (
-        <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-          <IconButton
-            icon={<Eye size={15} />}
-            label={t('users.view360Profile')}
+        <UserRowActions
+          user={u}
+          onView={(user) => setViewingUser(user)}
+          onEdit={(user) => setEditingUser(user)}
+          viewLabel={t('users.view360Profile')}
+          editLabel={t('users.editParent')}
+        >
+          {/* Note: t('common.moreActions') || 'More Actions' */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setViewingUser(u)}
-          />
-          <IconButton
-            icon={<Edit3 size={15} />}
-            label={t('users.editParent')}
+          >
+            <Eye size={14} className="text-slate-500" />
+            <span>{t('users.view360Profile')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setEditingUser(u)}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title={t('common.moreActions')}
-                aria-label={t('common.moreActions')}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
-              >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setEditingUser(u)}
-              >
-                <Edit3 size={14} className="text-amber-600" />
-                <span>{t('users.individualEdit')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => {
-                  setSelectedKeys([u.userId || u.id])
-                  setBulkFieldUpdateOpen(true)
-                }}
-              >
-                <Layers size={14} className="text-purple-600" />
-                <span>{t('users.bulkFieldUpdate')}</span>
-              </DropdownMenuItem>
+          >
+            <Edit3 size={14} className="text-amber-600" />
+            <span>{t('users.individualEdit')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => {
+              setSelectedKeys([u.userId || u.id])
+              setBulkFieldUpdateOpen(true)
+            }}
+          >
+            <Layers size={14} className="text-purple-600" />
+            <span>{t('users.bulkFieldUpdate')}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
-              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                Admin Actions
-              </div>
+          <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            Admin Actions
+          </div>
 
-              {/* Reset Password */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setResetPasswordUser(u)}
-              >
-                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
-                <span>Reset Password</span>
-              </DropdownMenuItem>
+          {/* Reset Password */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setResetPasswordUser(u)}
+          >
+            <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span>Reset Password</span>
+          </DropdownMenuItem>
 
-              {/* Manage Pickup PIN */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setPickupPinUser(u)}
-              >
-                <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
-                <span>Manage Pickup PIN</span>
-              </DropdownMenuItem>
+          {/* Manage Pickup PIN */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setPickupPinUser(u)}
+          >
+            <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
+            <span>Manage Pickup PIN</span>
+          </DropdownMenuItem>
 
-              {/* Unlock Account */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleUnlockUser(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
-                <span>Unlock Account</span>
-                {u.status === 'LOCKED' && (
-                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
-                )}
-              </DropdownMenuItem>
+          {/* Unlock Account */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleUnlockUser(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>Unlock Account</span>
+            {u.status === 'LOCKED' && (
+              <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+            )}
+          </DropdownMenuItem>
 
-              {/* Suspend / Reactivate */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setSuspendModalUser(u)}
-              >
-                {u.status === 'ACTIVE' ? (
-                  <>
-                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
-                  </>
-                )}
-              </DropdownMenuItem>
+          {/* Suspend / Reactivate */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setSuspendModalUser(u)}
+          >
+            {u.status === 'ACTIVE' ? (
+              <>
+                <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+              </>
+            ) : (
+              <>
+                <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+              </>
+            )}
+          </DropdownMenuItem>
 
-              {/* Resend Invite / Welcome */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleResendInvite(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Send size={14} className="text-sky-600 dark:text-sky-400" />
-                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
-              </DropdownMenuItem>
+          {/* Resend Invite / Welcome */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleResendInvite(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Send size={14} className="text-sky-600 dark:text-sky-400" />
+            <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-              {/* Delete / Deactivate User */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
-                onClick={() => setDeleteModalUser(u)}
-              >
-                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
-                <span>Delete Account</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          {/* Delete / Deactivate User */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+            onClick={() => setDeleteModalUser(u)}
+          >
+            <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+            <span>Delete Account</span>
+          </DropdownMenuItem>
+        </UserRowActions>
       ),
     },
   ]
@@ -592,252 +504,146 @@ export default function FamilyUsersPage() {
   const guardianColumns: Column<UserRecord>[] = [
     {
       key: 'name',
-      header: t('users.authorizedGuardian'),
+      header: t('users.authorizedGuardian') || 'Guardian Identity',
       sortable: true,
+      sortValue: (u) => u.name,
+      width: '40%',
       render: (u) => (
-        <div className="flex items-center gap-3">
-          <Avatar name={u.name} src={u.avatarUrl} size="md" />
-          <div className="min-w-0">
-            <div
-              className="font-semibold text-gray-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer text-sm truncate"
-              onClick={() => setViewingUser(u)}
-              title={t('users.view360Profile')}
-            >
-              {u.name}
-            </div>
-            <div className="text-[11px] text-gray-400 font-mono">
-              @{u.username || u.email?.split('@')[0] || 'guardian'}
-            </div>
-          </div>
-        </div>
+        <UserIdentityCell
+          user={u}
+          onClick={() => setViewingUser(u)}
+          contextType="guardian"
+        />
       ),
     },
     {
-      key: 'children',
-      header: t('users.authorizedLinkedChild'),
-      render: (u) => {
-        const children = u.guardianProfile?.students || []
-        if (children.length === 0) {
-          return <span className="text-xs text-gray-400 italic">{t('users.noLinkedChildren')}</span>
-        }
-        return (
-          <div className="space-y-1">
-            {children.map((child) => (
-              <div key={child.id} className="text-xs flex items-center gap-1.5 font-medium flex-wrap">
-                <span className="text-gray-900 dark:text-white font-medium">{child.name}</span>
-                <span className="badge b-primary font-mono text-[10px] shrink-0">{child.admissionNo}</span>
-                {child.branchName && (
-                  <span className="badge b-purple text-[9px] shrink-0 font-normal">
-                    {child.branchName}
-                  </span>
-                )}
-                <span className="text-gray-400 text-[10px] capitalize shrink-0">({child.relationship?.toLowerCase() || 'guardian'})</span>
-              </div>
-            ))}
-            {u.guardianProfile?.isCrossCampus && (
-              <div className="pt-0.5">
-                <span className="badge b-purple text-[10px] font-semibold flex items-center gap-1 w-fit">
-                  <Building2 className="w-3 h-3 text-purple-600" />
-                  Cross-Campus ({u.guardianProfile.campusesCount} Campuses)
-                </span>
-              </div>
-            )}
-          </div>
-        )
-      },
+      key: 'contact',
+      header: t('users.contactDetails') || 'Contact',
+      width: '26%',
+      render: (u) => <UserContactCell user={u} />,
     },
     {
-      key: 'pickup',
-      header: t('users.pickupSecurity'),
-      render: (u) => {
-        const children = u.guardianProfile?.students || []
-        const canPickup = children.some((c) => c.canPickup)
-        const hasPin = children.some((c) => Boolean(c.pickupPin))
-        return (
-          <div className="flex items-center gap-1.5">
-            <span className={`badge text-xs ${canPickup ? 'b-success' : 'b-neutral'}`}>
-              {canPickup ? t('users.authorized') : t('users.restricted')}
-            </span>
-            {hasPin && (
-              <span className="badge b-purple font-mono text-[10px]">
-                {t('users.pinSet')}
-              </span>
-            )}
-          </div>
-        )
-      },
-    },
-    {
-      key: 'email',
-      header: t('users.contactDetails'),
-      render: (u) => (
-        <div className="text-xs space-y-1">
-          {u.email ? (
-            <div className="text-gray-700 dark:text-gray-300 flex items-center gap-1.5 font-mono">
-              <Mail className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span>{u.email}</span>
-            </div>
-          ) : (
-            <div className="text-gray-400 italic text-[11px] flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-gray-300 shrink-0" />
-              <span>{t('users.noEmailAddress')}</span>
-            </div>
-          )}
-          {u.phone && (
-            <div className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-mono">
-              <Phone className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-              <span>{u.phone}</span>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: t('common.status'),
+      key: 'role',
+      header: t('users.roleTitle') || 'Clearance / Role',
       sortable: true,
-      render: (u) => <StatusBadge status={u.status} />,
-    },
-    {
-      key: 'lastLoginAt',
-      header: t('users.lastActive'),
-      render: (u) => (
-        <span className="text-xs text-gray-500 flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-          <span>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : t('users.never')}</span>
-        </span>
-      ),
+      sortValue: (u) => u.role,
+      width: '22%',
+      render: (u) => <UserRolePlacementCell user={u} contextType="guardian" />,
     },
     {
       key: 'actions',
-      header: t('common.actions'),
+      header: t('common.actions') || 'Actions',
       align: 'right',
+      width: '12%',
       render: (u) => (
-        <div className="dt-actions-row flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-          <IconButton
-            icon={<Eye size={15} />}
-            label={t('users.view360Profile')}
+        <UserRowActions
+          user={u}
+          onView={(user) => setViewingUser(user)}
+          onEdit={(user) => setEditingUser(user)}
+          viewLabel={t('users.view360Profile')}
+          editLabel={t('users.editGuardian')}
+        >
+          {/* Note: t('common.moreActions') || 'More Actions' */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setViewingUser(u)}
-          />
-          <IconButton
-            icon={<Edit3 size={15} />}
-            label={t('users.editGuardian')}
+          >
+            <Eye size={14} className="text-slate-500" />
+            <span>{t('users.view360Profile')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             onClick={() => setEditingUser(u)}
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="dt-icon-btn p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 transition-colors"
-                title={t('common.moreActions')}
-                aria-label={t('common.moreActions')}
-              >
-                <MoreHorizontal size={15} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-lg border border-border/80 bg-popover z-50">
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setViewingUser(u)}
-              >
-                <Eye size={14} className="text-slate-500" />
-                <span>{t('users.view360Profile')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setEditingUser(u)}
-              >
-                <Edit3 size={14} className="text-amber-600" />
-                <span>{t('users.individualEdit')}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => {
-                  setSelectedKeys([u.userId || u.id])
-                  setBulkFieldUpdateOpen(true)
-                }}
-              >
-                <Layers size={14} className="text-purple-600" />
-                <span>{t('users.bulkFieldUpdate')}</span>
-              </DropdownMenuItem>
+          >
+            <Edit3 size={14} className="text-amber-600" />
+            <span>{t('users.individualEdit')}</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => {
+              setSelectedKeys([u.userId || u.id])
+              setBulkFieldUpdateOpen(true)
+            }}
+          >
+            <Layers size={14} className="text-purple-600" />
+            <span>{t('users.bulkFieldUpdate')}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator className="my-1 border-t border-border/60" />
-              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                Admin Actions
-              </div>
+          <DropdownMenuSeparator className="my-1 border-t border-border/60" />
+          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+            Admin Actions
+          </div>
 
-              {/* Reset Password */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setResetPasswordUser(u)}
-              >
-                <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
-                <span>Reset Password</span>
-              </DropdownMenuItem>
+          {/* Reset Password */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setResetPasswordUser(u)}
+          >
+            <KeyRound size={14} className="text-indigo-600 dark:text-indigo-400" />
+            <span>Reset Password</span>
+          </DropdownMenuItem>
 
-              {/* Manage Pickup PIN */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setPickupPinUser(u)}
-              >
-                <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
-                <span>Manage Pickup PIN</span>
-              </DropdownMenuItem>
+          {/* Manage Pickup PIN */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setPickupPinUser(u)}
+          >
+            <ShieldAlert size={14} className="text-purple-600 dark:text-purple-400" />
+            <span>Manage Pickup PIN</span>
+          </DropdownMenuItem>
 
-              {/* Unlock Account */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleUnlockUser(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
-                <span>Unlock Account</span>
-                {u.status === 'LOCKED' && (
-                  <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
-                )}
-              </DropdownMenuItem>
+          {/* Unlock Account */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleUnlockUser(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Unlock size={14} className="text-amber-600 dark:text-amber-400" />
+            <span>Unlock Account</span>
+            {u.status === 'LOCKED' && (
+              <span className="badge badge-xs b-red ml-auto text-[9px] uppercase">Locked</span>
+            )}
+          </DropdownMenuItem>
 
-              {/* Suspend / Reactivate */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => setSuspendModalUser(u)}
-              >
-                {u.status === 'ACTIVE' ? (
-                  <>
-                    <UserX size={14} className="text-rose-600 dark:text-rose-400" />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
-                  </>
-                )}
-              </DropdownMenuItem>
+          {/* Suspend / Reactivate */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => setSuspendModalUser(u)}
+          >
+            {u.status === 'ACTIVE' ? (
+              <>
+                <UserX size={14} className="text-rose-600 dark:text-rose-400" />
+                <span className="text-rose-600 dark:text-rose-400 font-medium">Suspend Access</span>
+              </>
+            ) : (
+              <>
+                <UserCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Reactivate Access</span>
+              </>
+            )}
+          </DropdownMenuItem>
 
-              {/* Resend Invite / Welcome */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
-                onClick={() => handleResendInvite(u)}
-                disabled={actionLoadingId === (u.userId || u.id)}
-              >
-                <Send size={14} className="text-sky-600 dark:text-sky-400" />
-                <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
-              </DropdownMenuItem>
+          {/* Resend Invite / Welcome */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+            onClick={() => handleResendInvite(u)}
+            disabled={actionLoadingId === (u.userId || u.id)}
+          >
+            <Send size={14} className="text-sky-600 dark:text-sky-400" />
+            <span>{u.status === 'PENDING' ? 'Resend Invitation' : 'Resend Welcome Email'}</span>
+          </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
+          <DropdownMenuSeparator />
 
-              {/* Delete / Deactivate User */}
-              <DropdownMenuItem
-                className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
-                onClick={() => setDeleteModalUser(u)}
-              >
-                <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
-                <span>Delete Account</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          {/* Delete / Deactivate User */}
+          <DropdownMenuItem
+            className="flex items-center gap-2 px-2.5 py-2 text-xs rounded-lg cursor-pointer hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-medium"
+            onClick={() => setDeleteModalUser(u)}
+          >
+            <Trash2 size={14} className="text-rose-600 dark:text-rose-400" />
+            <span>Delete Account</span>
+          </DropdownMenuItem>
+        </UserRowActions>
       ),
     },
   ]

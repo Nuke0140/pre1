@@ -26,6 +26,8 @@ import { KitHandoverSlipModal } from '@/components/inventory/KitHandoverSlipModa
 
 interface Props {
   profile: any
+  currentUserRole?: string
+  currentUserRoles?: string[]
 }
 
 function formatAge(dobStr?: string | Date): string {
@@ -54,10 +56,19 @@ const TL_DOT: Record<string, { color: string; label: string }> = {
   NOTE: { color: 'var(--text-secondary)', label: 'Note' },
 }
 
-export function StudentDetailClient({ profile }: Props) {
+export function StudentDetailClient({ profile, currentUserRole, currentUserRoles }: Props) {
   const { student, admission, academic, guardians, attendance, finance, academics, timeline, audit } = profile
   const router = useRouter()
   const toast = useToast()
+
+  const effectiveRoles = currentUserRoles && currentUserRoles.length > 0
+    ? currentUserRoles
+    : (currentUserRole ? [currentUserRole] : ['OWNER'])
+  const canEdit = effectiveRoles.some((r) =>
+    ['OWNER', 'PRINCIPAL', 'ADMIN', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)
+  )
+  const canRecordAcademics = canEdit || effectiveRoles.includes('TEACHER')
+
   const [tab, setTab] = useState('overview')
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']))
   const [guardiansList, setGuardiansList] = useState<any[]>(guardians || [])
@@ -88,9 +99,31 @@ export function StudentDetailClient({ profile }: Props) {
   const [guardianModalOpen, setGuardianModalOpen] = useState(false)
   const [unlinkModalOpen, setUnlinkModalOpen] = useState(false)
   const [cancelTransportOpen, setCancelTransportOpen] = useState(false)
+  const [transportModalOpen, setTransportModalOpen] = useState(false)
+  const [obsModalOpen, setObsModalOpen] = useState(false)
   const [welcomeKitOpen, setWelcomeKitOpen] = useState(false)
   const [handoverSlipOpen, setHandoverSlipOpen] = useState(false)
   const [selectedKitId, setSelectedKitId] = useState<string | null>(null)
+
+  // Observation Form State
+  const [obsForm, setObsForm] = useState({
+    id: undefined as string | undefined,
+    narrative: '',
+    category: 'Developmental Milestone',
+    milestoneTags: '',
+    concern: 'NORMAL',
+  })
+
+  // Transport Form & Routes State
+  const [transportRoutes, setTransportRoutes] = useState<any[]>([])
+  const [transportForm, setTransportForm] = useState({
+    assignmentId: undefined as string | undefined,
+    routeId: '',
+    pickupStopId: '',
+    dropStopId: '',
+    tripType: 'BOTH',
+    notes: '',
+  })
 
   // Photo upload reference
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -111,6 +144,27 @@ export function StudentDetailClient({ profile }: Props) {
     seatNumber: student?.seatNumber || '',
     generateSeatNumber: false,
   })
+
+  // Synchronize editForm whenever student prop updates or modal opens (Fix STU-EDIT-003)
+  useEffect(() => {
+    if (student) {
+      setEditForm({
+        firstName: student.firstName || '',
+        lastName: student.lastName || '',
+        dob: student.dob ? new Date(student.dob).toISOString().slice(0, 10) : '',
+        gender: student.gender || 'MALE',
+        bloodGroup: student.bloodGroup || '',
+        allergies: student.allergies || '',
+        medicalAlerts: student.medicalAlerts || '',
+        dietaryRestrictions: student.dietaryRestrictions || '',
+        emergencyMedicalInstructions: student.emergencyMedicalInstructions || '',
+        address: student.address || '',
+        photoUrl: student.photoUrl || '',
+        seatNumber: student.seatNumber || '',
+        generateSeatNumber: false,
+      })
+    }
+  }, [student, editStudentOpen])
 
   // Report Card State
   const [reportCards, setReportCards] = useState<any[]>(profile.reportCards || [])
@@ -677,6 +731,163 @@ export function StudentDetailClient({ profile }: Props) {
     }
   }
 
+  // 9. ASSIGN / UPDATE TRANSPORT
+  const handleOpenAssignTransport = (existing?: any) => {
+    if (existing) {
+      setTransportForm({
+        assignmentId: existing.id,
+        routeId: existing.routeId || existing.route?.id || '',
+        pickupStopId: existing.pickupStopId || existing.pickupStop?.id || '',
+        dropStopId: existing.dropStopId || existing.dropStop?.id || '',
+        tripType: existing.tripType || existing.transportType || 'BOTH',
+        notes: existing.notes || '',
+      })
+    } else {
+      setTransportForm({
+        assignmentId: undefined,
+        routeId: transportRoutes[0]?.id || '',
+        pickupStopId: '',
+        dropStopId: '',
+        tripType: 'BOTH',
+        notes: '',
+      })
+    }
+    setTransportModalOpen(true)
+  }
+
+  const handleSaveTransport = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!transportForm.routeId) {
+      toast.error('Validation error', 'Please select a transport route')
+      return
+    }
+    setBusy(true)
+    try {
+      if (transportForm.assignmentId) {
+        const res = await fetch(`/api/v1/transport/assignments/${transportForm.assignmentId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickupStopId: transportForm.pickupStopId || null,
+            dropStopId: transportForm.dropStopId || null,
+            tripType: transportForm.tripType,
+          }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          toast.success('Transport updated', 'Route details updated successfully')
+          setTransportModalOpen(false)
+          router.refresh()
+        } else {
+          toast.error('Update failed', json.error?.message || 'Could not update transport')
+        }
+      } else {
+        const res = await fetch('/api/v1/transport/assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: student?.id,
+            routeId: transportForm.routeId,
+            pickupStopId: transportForm.pickupStopId || undefined,
+            dropStopId: transportForm.dropStopId || undefined,
+            tripType: transportForm.tripType,
+            notes: transportForm.notes || undefined,
+          }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          toast.success('Transport assigned', 'Student linked to transport route')
+          setTransportModalOpen(false)
+          router.refresh()
+        } else {
+          toast.error('Assignment failed', json.error?.message || 'Could not assign transport')
+        }
+      }
+    } catch (err: any) {
+      toast.error('Transport error', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // 10. OBSERVATION ADD & EDIT HANDLERS
+  const handleOpenAddObs = () => {
+    setObsForm({
+      id: undefined,
+      narrative: '',
+      category: 'Developmental Milestone',
+      milestoneTags: '',
+      concern: 'NORMAL',
+    })
+    setObsModalOpen(true)
+  }
+
+  const handleOpenEditObs = (obs: any) => {
+    setObsForm({
+      id: obs.id,
+      narrative: obs.narrative || '',
+      category: obs.category || 'Developmental Milestone',
+      milestoneTags: obs.milestoneTags || '',
+      concern: obs.concern || 'NORMAL',
+    })
+    setObsModalOpen(true)
+  }
+
+  const handleSaveObservation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!obsForm.narrative.trim()) {
+      toast.error('Validation error', 'Narrative is required')
+      return
+    }
+    setBusy(true)
+    try {
+      if (obsForm.id) {
+        const res = await fetch(`/api/v1/observations/${obsForm.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            narrative: obsForm.narrative,
+            category: obsForm.category,
+            milestoneTags: obsForm.milestoneTags,
+            concern: obsForm.concern,
+          }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          toast.success('Observation updated', 'Changes saved successfully')
+          setObsModalOpen(false)
+          router.refresh()
+        } else {
+          toast.error('Update failed', json.error?.message || 'Could not update observation')
+        }
+      } else {
+        const res = await fetch('/api/v1/observations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: student?.id,
+            narrative: obsForm.narrative,
+            category: obsForm.category,
+            milestoneTags: obsForm.milestoneTags,
+            concern: obsForm.concern,
+          }),
+        })
+        const json = await res.json()
+        if (json.success) {
+          toast.success('Observation recorded', 'New observation added to student portfolio')
+          setObsModalOpen(false)
+          router.refresh()
+        } else {
+          toast.error('Record failed', json.error?.message || 'Could not record observation')
+        }
+      }
+    } catch (err: any) {
+      toast.error('Observation error', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const childAge = formatAge(student?.dob)
   const feeBalance = finance?.balanceCents || 0
   const attendanceRate = attendance?.percentage || 0
@@ -722,14 +933,16 @@ export function StudentDetailClient({ profile }: Props) {
               title={`Status: ${student?.status}`}
             />
             {/* Camera Trigger */}
-            <button
-              type="button"
-              onClick={() => setEditStudentOpen(true)}
-              className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm hover:bg-purple-700 transition-colors"
-              title="Edit identity & photo"
-            >
-              <Camera size={11} />
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditStudentOpen(true)}
+                className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm hover:bg-purple-700 transition-colors"
+                title="Edit identity & photo"
+              >
+                <Camera size={11} />
+              </button>
+            )}
           </div>
 
           {/* Child Identity Details */}
@@ -740,22 +953,26 @@ export function StudentDetailClient({ profile }: Props) {
               </h1>
 
               {/* Status Badge with Click-to-Change */}
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusForm({
-                    status: student?.status || 'ACTIVE',
-                    reason: '',
-                    notes: '',
-                    forceWithPendingFees: false,
-                  })
-                  setStatusOpen(true)
-                }}
-                className="hover:opacity-85 transition-opacity"
-                title="Click to transition lifecycle status"
-              >
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusForm({
+                      status: student?.status || 'ACTIVE',
+                      reason: '',
+                      notes: '',
+                      forceWithPendingFees: false,
+                    })
+                    setStatusOpen(true)
+                  }}
+                  className="hover:opacity-85 transition-opacity"
+                  title="Click to transition lifecycle status"
+                >
+                  <StatusBadge status={student?.status || 'ACTIVE'} />
+                </button>
+              ) : (
                 <StatusBadge status={student?.status || 'ACTIVE'} />
-              </button>
+              )}
 
               {student?.admissionNo && (
                 <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/40">
@@ -852,27 +1069,31 @@ export function StudentDetailClient({ profile }: Props) {
             </div>
 
             {/* Actions */}
-            <button
-              onClick={() => setEditStudentOpen(true)}
-              className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
-            >
-              <Edit3 size={13} />
-              <span>Edit</span>
-            </button>
-            <button
-              onClick={() => {
-                setStatusForm({
-                  status: student?.status || 'ACTIVE',
-                  reason: '',
-                  notes: '',
-                  forceWithPendingFees: false,
-                })
-                setStatusOpen(true)
-              }}
-              className="h-10 px-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            >
-              <span>Change Status</span>
-            </button>
+            {canEdit && (
+              <button
+                onClick={() => setEditStudentOpen(true)}
+                className="h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
+              >
+                <Edit3 size={13} />
+                <span>Edit</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                onClick={() => {
+                  setStatusForm({
+                    status: student?.status || 'ACTIVE',
+                    reason: '',
+                    notes: '',
+                    forceWithPendingFees: false,
+                  })
+                  setStatusOpen(true)
+                }}
+                className="h-10 px-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800/50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <span>Change Status</span>
+              </button>
+            )}
             <button
               onClick={() => setWelcomeKitOpen(true)}
               className="h-10 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
@@ -967,12 +1188,14 @@ export function StudentDetailClient({ profile }: Props) {
                 <Sparkles size={17} className="text-purple-600 dark:text-purple-400" />
                 <h3 className="font-bold text-slate-900 dark:text-white text-base">Child Identity & Details</h3>
               </div>
-              <button
-                onClick={() => setEditStudentOpen(true)}
-                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
-              >
-                <Edit3 size={12} /> Edit
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setEditStudentOpen(true)}
+                  className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                >
+                  <Edit3 size={12} /> Edit
+                </button>
+              )}
             </div>
 
             <div className="space-y-3 text-sm">
@@ -1050,12 +1273,14 @@ export function StudentDetailClient({ profile }: Props) {
                 <span className="text-slate-500">Current Section</span>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{academic?.classroom?.name || 'Unassigned'}</span>
-                  <button
-                    onClick={() => setAllocOpen(true)}
-                    className="text-xs font-semibold text-purple-600 hover:underline px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50"
-                  >
-                    Change
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => setAllocOpen(true)}
+                      className="text-xs font-semibold text-purple-600 hover:underline px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50"
+                    >
+                      Change
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="flex justify-between py-1.5 items-center">
@@ -1781,12 +2006,25 @@ export function StudentDetailClient({ profile }: Props) {
                   <Bus size={18} className="text-purple-600 dark:text-purple-400" />
                   <h3 className="font-bold text-slate-900 dark:text-white text-base">Active Transportation Route</h3>
                 </div>
-                <button
-                  onClick={() => setCancelTransportOpen(true)}
-                  className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold"
-                >
-                  Cancel Transport
-                </button>
+                <div className="flex items-center gap-2">
+                  {canEdit && (
+                    <button
+                      onClick={() => handleOpenAssignTransport(profile.transport.activeAssignment)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1"
+                    >
+                      <Edit3 size={12} />
+                      <span>Edit Route</span>
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      onClick={() => setCancelTransportOpen(true)}
+                      className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold"
+                    >
+                      Cancel Transport
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
@@ -1815,10 +2053,10 @@ export function StudentDetailClient({ profile }: Props) {
               icon={<Bus size={28} />}
               title="No School Transport Assigned"
               description="There's no school transport route linked to this student's profile yet."
-              action={{
-                label: 'Assign Route',
-                href: '/app/transport',
-              }}
+              action={canEdit ? {
+                label: 'Assign Transport Route',
+                onClick: () => handleOpenAssignTransport(),
+              } : undefined}
             />
           )}
 
@@ -2201,13 +2439,24 @@ export function StudentDetailClient({ profile }: Props) {
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Observations & Milestones</h2>
               <p className="text-xs text-slate-500">Documented developmental progress, milestones and classroom diary notes.</p>
             </div>
-            <Link
-              href="/app/daily-diary?tab=observations"
-              className="bg-primary hover:bg-primary-hover text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5"
-            >
-              <span>Open Daily Diary</span>
-              <ExternalLink size={13} />
-            </Link>
+            <div className="flex items-center gap-2">
+              {canRecordAcademics && (
+                <button
+                  onClick={handleOpenAddObs}
+                  className="bg-primary hover:bg-primary-hover text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5"
+                >
+                  <Sparkles size={13} />
+                  <span>Record Observation</span>
+                </button>
+              )}
+              <Link
+                href="/app/daily-diary?tab=observations"
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5"
+              >
+                <span>Open Daily Diary</span>
+                <ExternalLink size={13} />
+              </Link>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -2218,7 +2467,19 @@ export function StudentDetailClient({ profile }: Props) {
                     <span className="font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider text-[11px]">
                       {obs.category || 'Developmental Milestone'}
                     </span>
-                    <span className="text-slate-400">{timeAgo(obs.observedAt)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-400">{timeAgo(obs.observedAt)}</span>
+                      {canRecordAcademics && (
+                        <button
+                          onClick={() => handleOpenEditObs(obs)}
+                          className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                          title="Edit this observation"
+                        >
+                          <Edit3 size={11} />
+                          <span>Edit</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                     {obs.narrative}
@@ -2236,10 +2497,10 @@ export function StudentDetailClient({ profile }: Props) {
                 icon={<Sparkles size={28} />}
                 title="No Observations Recorded Yet"
                 description="Learning observations for this student will appear here when recorded."
-                action={{
+                action={canRecordAcademics ? {
                   label: 'Add Observation',
-                  href: `/app/daily-diary?tab=observations&studentId=${student?.id || ''}`,
-                }}
+                  onClick: handleOpenAddObs,
+                } : undefined}
               />
             )}
           </div>
@@ -3415,6 +3676,184 @@ export function StudentDetailClient({ profile }: Props) {
         onClose={() => setHandoverSlipOpen(false)}
         kitIssuanceId={selectedKitId}
       />
+
+      {/* ── MODAL: OBSERVATION ENTRY & EDIT ── */}
+      <Modal
+        open={obsModalOpen}
+        onClose={() => setObsModalOpen(false)}
+        title={obsForm.id ? 'Edit Learning Observation' : 'Record Learning Observation'}
+        subtitle={`Developmental milestone documentation for ${student?.firstName}`}
+        icon={<Sparkles size={20} />}
+      >
+        <form onSubmit={handleSaveObservation} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Category / Domain *</label>
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={obsForm.category}
+                onChange={(e) => setObsForm((p) => ({ ...p, category: e.target.value }))}
+              >
+                <option value="Developmental Milestone">Developmental Milestone</option>
+                <option value="Physical Development">Physical Development</option>
+                <option value="Cognitive Learning">Cognitive Learning</option>
+                <option value="Social & Emotional">Social & Emotional</option>
+                <option value="Language & Literacy">Language & Literacy</option>
+                <option value="Creative Arts">Creative Arts</option>
+                <option value="STEM / Inquiry">STEM / Inquiry</option>
+                <option value="Classroom Routine">Classroom Routine</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Observation Concern Level</label>
+              <select
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={obsForm.concern}
+                onChange={(e) => setObsForm((p) => ({ ...p, concern: e.target.value }))}
+              >
+                <option value="NORMAL">Typical Milestone Progress</option>
+                <option value="PROGRESS">Active Developmental Progress</option>
+                <option value="NEEDS_ATTENTION">Needs Attention / Focus Area</option>
+                <option value="URGENT">Urgent Concern / Special Support</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Milestone Tags (Optional)</label>
+            <input
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={obsForm.milestoneTags}
+              onChange={(e) => setObsForm((p) => ({ ...p, milestoneTags: e.target.value }))}
+              placeholder="e.g. Scissor grasp, sharing toys, counting to 10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Observation Narrative *</label>
+            <textarea
+              required
+              rows={4}
+              className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={obsForm.narrative}
+              onChange={(e) => setObsForm((p) => ({ ...p, narrative: e.target.value }))}
+              placeholder="Detailed educator notes describing observed behavior, child engagement, and milestone outcomes..."
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <button
+              type="button"
+              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              onClick={() => setObsModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50"
+            >
+              {busy ? 'Saving...' : obsForm.id ? 'Save Changes' : 'Record Observation'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ── MODAL: ASSIGN / EDIT TRANSPORT ROUTE ── */}
+      <Modal
+        open={transportModalOpen}
+        onClose={() => setTransportModalOpen(false)}
+        title={transportForm.assignmentId ? 'Edit Transport Assignment' : 'Assign Bus Route'}
+        subtitle={`School transportation management for ${student?.firstName}`}
+        icon={<Bus size={20} />}
+      >
+        <form onSubmit={handleSaveTransport} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transportation Route *</label>
+            <select
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              required
+              disabled={Boolean(transportForm.assignmentId)}
+              value={transportForm.routeId}
+              onChange={(e) => setTransportForm((p) => ({ ...p, routeId: e.target.value }))}
+            >
+              <option value="" disabled>Select route...</option>
+              {transportRoutes.map((r: any) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} — {r.vehicle?.registrationNo || 'Bus'} ({r.branch?.name || 'Main Campus'})
+                </option>
+              ))}
+              {transportRoutes.length === 0 && profile.transport?.activeAssignment?.route && (
+                <option value={profile.transport.activeAssignment.route.id}>
+                  {profile.transport.activeAssignment.route.name}
+                </option>
+              )}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Pickup Stop Name / Location</label>
+              <input
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={transportForm.pickupStopId}
+                onChange={(e) => setTransportForm((p) => ({ ...p, pickupStopId: e.target.value }))}
+                placeholder="e.g. Green Park Circle / Stop A"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Drop-off Stop Name / Location</label>
+              <input
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                value={transportForm.dropStopId}
+                onChange={(e) => setTransportForm((p) => ({ ...p, dropStopId: e.target.value }))}
+                placeholder="e.g. School Gate 1 / Stop B"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Service Schedule / Direction *</label>
+            <select
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={transportForm.tripType}
+              onChange={(e) => setTransportForm((p) => ({ ...p, tripType: e.target.value }))}
+            >
+              <option value="BOTH">Two-way (Morning Pickup & Afternoon Drop-off)</option>
+              <option value="PICKUP_ONLY">Morning Pickup Only</option>
+              <option value="DROP_ONLY">Afternoon Drop-off Only</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Special Instructions / Driver Notes</label>
+            <input
+              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              value={transportForm.notes}
+              onChange={(e) => setTransportForm((p) => ({ ...p, notes: e.target.value }))}
+              placeholder="e.g. Guardian meets at yellow gate; notify on delay"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200/80 dark:border-slate-800">
+            <button
+              type="button"
+              className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+              onClick={() => setTransportModalOpen(false)}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded-xl text-xs font-semibold shadow-sm disabled:opacity-50"
+            >
+              {busy ? 'Saving...' : transportForm.assignmentId ? 'Update Assignment' : 'Confirm Assignment'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   )
 }

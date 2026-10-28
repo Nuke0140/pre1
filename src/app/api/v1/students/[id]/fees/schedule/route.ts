@@ -24,6 +24,14 @@ async function _GET(req: NextRequest, ctx: { params?: Promise<{ id: string }> | 
       if (!isLinked) {
         return Errors.forbidden('Access denied: You are not authorized to view this student’s fee schedule')
       }
+    } else {
+      const effectiveRoles = (session.roles && session.roles.length > 0 ? session.roles : [session.role]) as string[]
+      const hasFinance = effectiveRoles.some((r) =>
+        ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'ACCOUNTS', 'SUPER_ADMIN', 'PLATFORM_ADMIN'].includes(r)
+      )
+      if (!hasFinance) {
+        return Errors.forbidden('Access denied: Missing finance permissions')
+      }
     }
 
     await FeeService.syncOverdueSchedules(session.tenantId, studentId)

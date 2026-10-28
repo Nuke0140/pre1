@@ -141,6 +141,7 @@ async function runVerification() {
         email: guardianEmail,
         fullName: 'Dr. Sunita Verma',
         status: 'ACTIVE',
+        passwordHash: 'test-hashed-placeholder',
         lastLoginAt: new Date(Date.now() - 3600000),
       },
     })
@@ -156,7 +157,7 @@ async function runVerification() {
     await db.userSession.create({
       data: {
         userId: portalUser.id,
-        sessionToken: `token-${Date.now()}`,
+        tokenHash: `hash-${Date.now()}`,
         device: 'Apple iPhone 15',
         platform: 'iOS 18.2 / Safari Mobile',
         ipAddress: '103.21.244.1',
@@ -571,7 +572,7 @@ async function runVerification() {
     await db.invoice.deleteMany({ where: { studentId } })
     await db.stockIssue.deleteMany({ where: { studentId } })
     await db.transportPickupAuthorization.deleteMany({ where: { studentId } })
-    await db.studentClassroomAllocation.deleteMany({ where: { studentId } })
+    await db.studentAllocation.deleteMany({ where: { studentId } })
     await db.studentGuardian.deleteMany({ where: { studentId } })
     await db.student.delete({ where: { id: studentId } }).catch(() => {})
     console.log('✨ Cleanup complete.\n')

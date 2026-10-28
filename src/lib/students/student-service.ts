@@ -18,7 +18,8 @@ import { ConfigurationService } from '@/lib/setup/config-service'
 import { classroomSeats } from '@/lib/capacity'
 import { audit } from '@/lib/audit'
 import { assertResourceScope } from '@/lib/security/resource-scope'
-import type { Gender, BloodGroup, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
+import { BloodGroup } from '@prisma/client'
+import type { Gender, StudentStatus, ProgramType, UserRole, Prisma } from '@prisma/client'
 import { PrimaryContactGuard } from '@/lib/users/primary-contact-guard'
 import { UserIdentityService } from '@/lib/users/user-identity-service'
 
@@ -591,9 +592,9 @@ export class StudentService {
     const effectiveActorRoles = ctx.actorRoles && ctx.actorRoles.length > 0
       ? ctx.actorRoles
       : (ctx.actorRole ? [ctx.actorRole] : [])
-    const hasFinanceAccess = effectiveActorRoles.some((r) => ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'PARENT'].includes(r))
-      || (effectiveActorRoles.length > 0 && !effectiveActorRoles.includes('GUARDIAN'))
-      || (effectiveActorRoles.length === 0 && ctx.actorRole !== 'GUARDIAN')
+    const hasFinanceAccess = effectiveActorRoles.some((r) =>
+      ['OWNER', 'PRINCIPAL', 'ACCOUNTANT', 'ACCOUNTS', 'PARENT'].includes(r)
+    )
 
     // Area E: Student Deposits & Refunds
     let deposits: any[] = []
@@ -1076,6 +1077,7 @@ export class StudentService {
                 photoUrl: true,
                 relationship: true,
                 occupation: true,
+                userId: true,
               },
             },
           },
@@ -1429,6 +1431,9 @@ export class StudentService {
         where: { id: input.classroomId, tenantId: scope.tenantId, isActive: true },
       })
       if (!classroom) throw new Error('Selected classroom not found or inactive')
+      if (classroom.branchId && branchId && classroom.branchId !== branchId) {
+        throw new Error('Selected classroom belongs to a different branch')
+      }
 
       const seats = await classroomSeats(classroom.id)
       if (seats.available <= 0) {
@@ -1622,7 +1627,7 @@ export class StudentService {
       lastName?: string
       dob?: Date | string
       gender?: Gender
-      bloodGroup?: BloodGroup
+      bloodGroup?: BloodGroup | string | null
       allergies?: string | null
       medicalAlerts?: string | null
       dietaryRestrictions?: string | null
@@ -1641,9 +1646,66 @@ export class StudentService {
     })
     if (!student) throw new Error('Student not found')
 
+    // 1. Validate required demographic fields when provided
+    if (input.firstName !== undefined) {
+      const trimmedFirst = input.firstName.trim()
+      if (!trimmedFirst) {
+        throw new Error('First name is required and cannot be empty')
+      }
+    }
+
+    if (input.dob !== undefined) {
+      const parsedDob = new Date(input.dob)
+      if (isNaN(parsedDob.getTime())) {
+        throw new Error('Invalid date of birth')
+      }
+      if (parsedDob > new Date()) {
+        throw new Error('Date of birth cannot be in the future')
+      }
+    }
+
+    if (input.gender !== undefined) {
+      const validGenders = ['MALE', 'FEMALE', 'OTHER', 'NON_SPECIFIED']
+      if (!validGenders.includes(input.gender)) {
+        throw new Error(`Invalid gender '${input.gender}'. Must be one of: ${validGenders.join(', ')}`)
+      }
+    }
+
     let newSeatNumber = input.seatNumber
     if (input.generateSeatNumber && student.currentClassroomId) {
       newSeatNumber = await this.generateSeatNumber(scope.tenantId, student.currentClassroomId)
+    }
+
+    let normalizedSeatNumber: string | null | undefined = undefined
+    if (newSeatNumber !== undefined) {
+      const trimmedSeat = typeof newSeatNumber === 'string' ? newSeatNumber.trim() : null
+      if (trimmedSeat) {
+        if (student.currentClassroomId) {
+          const conflict = await db.student.findFirst({
+            where: {
+              tenantId: scope.tenantId,
+              currentClassroomId: student.currentClassroomId,
+              seatNumber: trimmedSeat,
+              id: { not: student.id },
+              deletedAt: null,
+            },
+            select: { id: true, firstName: true, lastName: true },
+          })
+          if (conflict) {
+            throw new Error(
+              `Seat number '${trimmedSeat}' is already assigned to ${conflict.firstName} ${conflict.lastName || ''}`.trim()
+            )
+          }
+        }
+        normalizedSeatNumber = trimmedSeat
+      } else {
+        normalizedSeatNumber = null
+      }
+    }
+
+    let normalizedPhotoUrl: string | null | undefined = undefined
+    if (input.photoUrl !== undefined) {
+      normalizedPhotoUrl = input.photoUrl?.trim() || null
     }
 
     const sanitizeText = (val?: string | null, maxLen: number = 500): string | null => {
@@ -1652,21 +1714,34 @@ export class StudentService {
       return cleaned.slice(0, maxLen) || null
     }
 
+    let normalizedBloodGroup: BloodGroup | null | undefined = undefined
+    if (input.bloodGroup !== undefined) {
+      if (input.bloodGroup === null || input.bloodGroup === '') {
+        normalizedBloodGroup = null
+      } else if ((Object.values(BloodGroup) as string[]).includes(input.bloodGroup)) {
+        normalizedBloodGroup = input.bloodGroup as BloodGroup
+      } else {
+        throw new Error(
+          `Invalid blood group '${input.bloodGroup}'. Must be one of: ${Object.values(BloodGroup).join(', ')}`
+        )
+      }
+    }
+
     const updated = await db.student.update({
       where: { id: student.id },
       data: {
-        ...(input.firstName ? { firstName: input.firstName.trim() } : {}),
+        ...(input.firstName !== undefined ? { firstName: input.firstName.trim() } : {}),
         ...(input.lastName !== undefined ? { lastName: input.lastName?.trim() || null } : {}),
-        ...(input.dob ? { dob: new Date(input.dob) } : {}),
-        ...(input.gender ? { gender: input.gender } : {}),
-        ...(input.bloodGroup !== undefined ? { bloodGroup: input.bloodGroup } : {}),
+        ...(input.dob !== undefined ? { dob: new Date(input.dob) } : {}),
+        ...(input.gender !== undefined ? { gender: input.gender } : {}),
+        ...(normalizedBloodGroup !== undefined ? { bloodGroup: normalizedBloodGroup } : {}),
         ...(input.allergies !== undefined ? { allergies: sanitizeText(input.allergies, 500) } : {}),
         ...(input.medicalAlerts !== undefined ? { medicalAlerts: sanitizeText(input.medicalAlerts, 500) } : {}),
         ...(input.dietaryRestrictions !== undefined ? { dietaryRestrictions: sanitizeText(input.dietaryRestrictions, 500) } : {}),
         ...(input.emergencyMedicalInstructions !== undefined ? { emergencyMedicalInstructions: sanitizeText(input.emergencyMedicalInstructions, 1000) } : {}),
         ...(input.address !== undefined ? { address: sanitizeText(input.address, 500) } : {}),
-        ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl } : {}),
-        ...(newSeatNumber !== undefined ? { seatNumber: newSeatNumber } : {}),
+        ...(normalizedPhotoUrl !== undefined ? { photoUrl: normalizedPhotoUrl } : {}),
+        ...(normalizedSeatNumber !== undefined ? { seatNumber: normalizedSeatNumber } : {}),
       },
     })
 
@@ -1719,6 +1794,9 @@ export class StudentService {
       where: { id: input.destinationClassroomId, tenantId: scope.tenantId, isActive: true },
     })
     if (!targetClass) throw new Error('Target classroom not found or inactive')
+    if (targetClass.branchId && student.branchId && targetClass.branchId !== student.branchId) {
+      throw new Error('Cannot reallocate to classroom in a different branch. Use Branch Transfer instead.')
+    }
 
     // Concurrency-safe capacity check
     const seats = await classroomSeats(targetClass.id)
@@ -2548,7 +2626,13 @@ export class StudentService {
       summary: `${actionType === 'PICKUP_AUTHORIZATION_UPDATED' || actionType === 'GUARDIAN_AUTHORIZATION_CHANGED' ? `Updated pickup authorization (${input.pickupStatus || link.pickupStatus})` : 'Updated guardian link'} (${guardian.fullName}) for student ${student.firstName}`,
     })
 
-    return link
+    const hasPin = Boolean((link.pickupPin && link.pickupPin.trim()) || (guardian.pickupPin && guardian.pickupPin.trim()))
+    return {
+      ...link,
+      pickupPin: undefined,
+      hasPickupPin: hasPin,
+      pickupPinMasked: hasPin ? '••••' : null,
+    }
   }
 
   // =========================================================================

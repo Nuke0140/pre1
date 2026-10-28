@@ -22,11 +22,19 @@ export default async function StudentDetailPage({
         actorId: session.uid,
         actorName: session.name,
         actorRole: session.role,
+        actorRoles: session.roles,
       },
       id
     )
 
-    return <StudentDetailClient profile={profile} />
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    return (
+      <StudentDetailClient
+        profile={profile}
+        currentUserRole={session.role}
+        currentUserRoles={effectiveRoles}
+      />
+    )
   } catch (error) {
     notFound()
   }

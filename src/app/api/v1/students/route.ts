@@ -33,7 +33,6 @@ export const GET = withApi(async (req: NextRequest) => {
     rawBranchId === '__ALL_BRANCHES__' ||
     rawBranchId.toLowerCase() === 'all'
 
-  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isInstitutionWide = effectiveRoles.some((r) =>
     ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)
   )
@@ -53,7 +52,7 @@ export const GET = withApi(async (req: NextRequest) => {
   const status = (sp.get('status') as StudentStatus) || undefined
 
   const isTeacher = effectiveRoles.includes('TEACHER') && !effectiveRoles.some((r) => ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r))
-  if (isTeacher && session.branchId && requestedBranchId && requestedBranchId !== session.branchId) {
+  if (isTeacher && session.branchId && rawBranchId && rawBranchId !== session.branchId) {
     throw errPermission('Teacher cannot access students outside assigned campus')
   }
 
@@ -66,15 +65,13 @@ export const GET = withApi(async (req: NextRequest) => {
       actorName: session.name,
       actorRole: session.role,
       actorRoles: effectiveRoles,
-      assignedBranchIds: authorizedBranches === 'ALL' ? undefined : authorizedBranches,
     },
     {
       page,
       pageSize,
       search,
       classroomId,
-      branchId: requestedBranchId,
-      branchIds,
+      branchId,
       academicSessionId,
       programType,
       status,

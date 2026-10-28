@@ -330,7 +330,6 @@ export async function requireCanManageUser(
   }
 
   // Branch boundary check for guardian (check if any linked student belongs to actor's branch)
-  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
   const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
   const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
