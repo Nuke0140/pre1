@@ -11,6 +11,7 @@ import { db } from '@/lib/db'
 import { UserIdentityService } from '@/lib/users/user-identity-service'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import { PermissionCache } from '@/lib/cache/permission-cache'
+import { RbacEngine } from '@/lib/auth/rbac-engine'
 
 /**
  * GET /api/v1/roles/branch-assignments
@@ -48,15 +49,25 @@ async function _GET(req: NextRequest) {
     role: { notIn: ['PARENT', 'GUARDIAN'] },
   }
 
+  const conditions: any[] = []
+
   if (effectiveBranchId) {
-    where.OR = [
-      { branchId: effectiveBranchId },
-      { assignedBranches: { some: { branchId: effectiveBranchId } } },
-    ]
+    conditions.push({
+      OR: [
+        { branchId: effectiveBranchId },
+        { assignedBranches: { some: { branchId: effectiveBranchId } } },
+      ],
+    })
   }
 
   if (staffFilter) {
-    where.OR = [{ id: staffFilter }, { userId: staffFilter }]
+    conditions.push({
+      OR: [{ id: staffFilter }, { userId: staffFilter }],
+    })
+  }
+
+  if (conditions.length > 0) {
+    where.AND = conditions
   }
 
   try {
@@ -201,6 +212,21 @@ async function _POST(req: NextRequest) {
     const oldPrimaryBranchId = member.branchId
     const existingBranchIds = member.assignedBranches.map((ab) => ab.branchId)
 
+    if (action === 'REMOVE_BRANCH') {
+      if (targetBranchId === member.branchId) {
+        return bad(
+          'Cannot remove the primary branch assignment directly. Transfer primary branch first.',
+          'CANNOT_REMOVE_PRIMARY_BRANCH'
+        )
+      }
+      if (!existingBranchIds.includes(targetBranchId)) {
+        return bad(
+          'Staff member is not assigned to the specified branch',
+          'BRANCH_NOT_ASSIGNED'
+        )
+      }
+    }
+
     const meta = getRequestMeta(req)
 
     // 4. Execute operation inside transaction
@@ -218,12 +244,6 @@ async function _POST(req: NextRequest) {
           nextPrimaryBranchId = targetBranchId
         }
       } else if (action === 'REMOVE_BRANCH') {
-        if (targetBranchId === nextPrimaryBranchId) {
-          return bad(
-            'Cannot remove the primary branch assignment directly. Transfer primary branch first.',
-            'CANNOT_REMOVE_PRIMARY_BRANCH'
-          )
-        }
         nextBranchIds = nextBranchIds.filter((bId) => bId !== targetBranchId)
       } else if (action === 'TRANSFER_PRIMARY') {
         // If caller doesn't retain source access, remove the old primary branch
@@ -270,6 +290,7 @@ async function _POST(req: NextRequest) {
 
     // Invalidate user cache
     PermissionCache.bumpUserVersion(member.userId)
+    RbacEngine.invalidateUserCache(member.userId)
 
     // Record audit
     await recordAudit({
