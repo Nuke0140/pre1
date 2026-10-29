@@ -16,8 +16,10 @@ async function _GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const unreadOnly = searchParams.get('unread') === 'true'
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 20
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0
+    const rawLimit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 20
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 20 : rawLimit))
+    const rawOffset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0
+    const offset = Math.max(0, isNaN(rawOffset) ? 0 : rawOffset)
 
     const result = await NotificationEngine.getUserNotifications(session.tenantId, session.uid, {
       unreadOnly,

@@ -35,7 +35,8 @@ export class RecipientResolver {
     const studentGuardians = await db.studentGuardian.findMany({
       where: {
         studentId,
-        student: { tenantId },
+        student: { tenantId, deletedAt: null },
+        guardian: { deletedAt: null },
         receivesComm: true,
         ...(options?.onlyPrimary ? { isPrimary: true } : {}),
         ...(options?.onlyFeePayers ? { isFeePayer: true } : {}),
@@ -43,24 +44,26 @@ export class RecipientResolver {
       include: {
         guardian: {
           include: {
-            user: { select: { id: true, email: true, phone: true } },
+            user: { select: { id: true, email: true, phone: true, status: true, deletedAt: true } },
           },
         },
       },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
     })
 
-    return studentGuardians.map((sg) => ({
-      userId: sg.guardian.userId || sg.guardian.user?.id || null,
-      guardianId: sg.guardian.id,
-      studentId,
-      fullName: sg.guardian.fullName,
-      phone: sg.guardian.phone || sg.guardian.user?.phone || null,
-      email: sg.guardian.email || sg.guardian.user?.email || null,
-      relationship: sg.relationship || sg.guardian.relationship,
-      isPrimary: sg.isPrimary,
-      role: 'PARENT',
-    }))
+    return studentGuardians
+      .filter((sg) => !sg.guardian.user || (sg.guardian.user.status !== 'SUSPENDED' && !sg.guardian.user.deletedAt))
+      .map((sg) => ({
+        userId: sg.guardian.userId || sg.guardian.user?.id || null,
+        guardianId: sg.guardian.id,
+        studentId,
+        fullName: sg.guardian.fullName,
+        phone: sg.guardian.phone || sg.guardian.user?.phone || null,
+        email: sg.guardian.email || sg.guardian.user?.email || null,
+        relationship: sg.relationship || sg.guardian.relationship,
+        isPrimary: sg.isPrimary,
+        role: 'PARENT',
+      }))
   }
 
   /**
@@ -86,12 +89,13 @@ export class RecipientResolver {
     const studentGuardians = await db.studentGuardian.findMany({
       where: {
         studentId: { in: studentIds },
+        guardian: { deletedAt: null },
         receivesComm: true,
       },
       include: {
         guardian: {
           include: {
-            user: { select: { id: true, email: true, phone: true } },
+            user: { select: { id: true, email: true, phone: true, status: true, deletedAt: true } },
           },
         },
       },
@@ -100,6 +104,9 @@ export class RecipientResolver {
     // Deduplicate by guardian ID so parents with multiple siblings don't get duplicate notifications
     const map = new Map<string, ResolvedRecipient>()
     for (const sg of studentGuardians) {
+      if (sg.guardian.user && (sg.guardian.user.status === 'SUSPENDED' || sg.guardian.user.deletedAt)) {
+        continue
+      }
       if (!map.has(sg.guardianId)) {
         map.set(sg.guardianId, {
           userId: sg.guardian.userId || sg.guardian.user?.id || null,

@@ -150,6 +150,8 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
       'TRANSPORT_DELAY',
       'STAFF_ALERT',
       'INVENTORY_ALERT',
+      'OBSERVATION_PUBLISHED',
+      'OBSERVATION_ALERT',
     ],
     language: 'en-IN',
     templates: {
@@ -160,6 +162,8 @@ const DEFAULTS: Record<string, Record<string, unknown>> = {
       TRANSPORT_DELAY: 'School transport delay alert for {{studentName}}: Bus route {{routeName}} delayed by {{delayMinutes}} mins.',
       INVENTORY_ALERT: 'Low stock notification: Item {{itemName}} has reached reorder level ({{availableQuantity}} remaining).',
       STAFF_ALERT: 'Staff notification: {{title}} - {{detail}}',
+      OBSERVATION_PUBLISHED: 'New learning observation for {{studentName}}: {{title}}',
+      OBSERVATION_ALERT: 'Learning observation alert for {{studentName}}: {{detail}}',
     },
   },
   DAILY_OPERATIONS: {

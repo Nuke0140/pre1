@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Search,
   Bell,
@@ -112,6 +113,19 @@ export function GlobalWorkspaceHeader({
   const langRef = useRef<HTMLDivElement>(null)
   const profileMenuRef = useRef<HTMLDivElement>(null)
   const { locale, setLocale, t } = useI18n()
+  const router = useRouter()
+
+  const handleNotificationClick = (n: any) => {
+    if (!n.isRead) {
+      onMarkRead(n.id)
+    }
+    if (n.linkUrl && typeof n.linkUrl === 'string' && n.linkUrl.startsWith('/') && !n.linkUrl.startsWith('//')) {
+      if (notifOpen) {
+        onToggleNotif()
+      }
+      router.push(n.linkUrl)
+    }
+  }
 
   // Close language and profile popovers on click outside
   useEffect(() => {
@@ -587,7 +601,15 @@ export function GlobalWorkspaceHeader({
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => !n.isRead && onMarkRead(n.id)}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNotificationClick(n)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleNotificationClick(n)
+                        }
+                      }}
                       style={{
                         padding: '10px 14px',
                         borderBottom: '1px solid var(--border-subtle)',
