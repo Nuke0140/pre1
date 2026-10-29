@@ -25,7 +25,7 @@ import { validateStatutoryInputs } from '@/lib/users/statutory-validation'
 import { MIN_PASSWORD_LENGTH, PASSWORD_POLICY, can } from '@/lib/auth'
 import { resetFailedAttempts, resetPersistentFailedAttempts } from '@/lib/auth/lockout-tracker'
 import { EncryptionService } from '@/lib/security/encryption-service'
-import { CustomRoleService } from '@/lib/auth/rbac-engine'
+import { CustomRoleService, RbacEngine } from '@/lib/auth/rbac-engine'
 import { PrimaryContactGuard } from '@/lib/users/primary-contact-guard'
 
 /** GET /api/v1/users/[id] — get user details including linked profile, roles, and taught classes */
@@ -574,6 +574,20 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     }
 
     const branchIds = inputBranchIds !== undefined ? inputBranchIds : inputAssignedBranchIds
+
+    // Self-escalation guard: Non-owners cannot alter their own roles, status, or branch assignments
+    const isSelf = session.uid === member.userId
+    const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
+    const isActorOwnerOrPlatform = effectiveRoles.some((r) => r === 'OWNER' || r === 'PLATFORM_ADMIN')
+
+    if (isSelf && !isActorOwnerOrPlatform) {
+      const isAlteringRoles = role !== undefined || primaryRole !== undefined || inputRoles !== undefined || customRoleIds !== undefined
+      const isAlteringStatus = status !== undefined
+      const isAlteringBranch = branchId !== undefined || inputBranchIds !== undefined || inputAssignedBranchIds !== undefined
+      if (isAlteringRoles || isAlteringStatus || isAlteringBranch) {
+        return forbidden('Cannot modify your own administrative role, status, or branch assignments (self-escalation prevention)')
+      }
+    }
 
     // Authorization check: Reject unauthorized HR-field modifications through Users API
     const HR_MANAGED_FIELDS = [
@@ -1191,6 +1205,20 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
         customRoleIds,
         assignedById: session.uid,
       })
+    }
+
+    // Invalidate permission cache whenever roles, custom roles, or branches change
+    if (
+      targetRoles !== undefined ||
+      role !== undefined ||
+      primaryRole !== undefined ||
+      customRoleIds !== undefined ||
+      branchId !== undefined ||
+      inputBranchIds !== undefined ||
+      inputAssignedBranchIds !== undefined
+    ) {
+      PermissionCache.bumpUserVersion(member.userId)
+      RbacEngine.invalidateUserCache(member.userId)
     }
 
     // If password was reset by administrator, revoke all active sessions for the user and record audit

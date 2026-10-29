@@ -129,10 +129,11 @@ export async function getAuthorizedBranchIds(
   session: SessionPayload
 ): Promise<string[] | null> {
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  const isOwnerOrPlatform = effectiveRoles.some((r) =>
+    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
   )
-  if (isInstitutionWide) return null
+  if (isOwnerOrPlatform) return null
+  if (!session.branchId && effectiveRoles.includes('PRINCIPAL')) return null
 
   if (!session.tenantId) return []
 
@@ -181,10 +182,11 @@ export async function requireBranchAccess(
   if (!session.tenantId) return forbidden('Tenant context required')
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+  const isOwnerOrPlatform = effectiveRoles.some((r) =>
+    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
   )
-  if (isInstitutionWide) return null
+  if (isOwnerOrPlatform) return null
+  if (!session.branchId && effectiveRoles.includes('PRINCIPAL')) return null
 
   const allowedBranchIds = await getAuthorizedBranchIds(session)
   if (!allowedBranchIds || allowedBranchIds.length === 0) {
@@ -285,14 +287,17 @@ export async function requireCanManageUser(
       return forbidden('You do not have permission to modify principal accounts')
     }
 
-    // Branch boundary check
-    if (
-      session.branchId &&
-      targetMember.branchId &&
-      session.branchId !== targetMember.branchId &&
-      !isInstitutionWide
-    ) {
-      return forbidden('Cannot manage users belonging to another campus branch')
+    // Branch boundary check (considers primary branch and all assigned branches)
+    if (session.branchId && !isActorOwnerOrPlatform) {
+      const targetBranches = new Set<string>()
+      if (targetMember.branchId) targetBranches.add(targetMember.branchId)
+      for (const ab of targetMember.assignedBranches || []) {
+        if (ab.branchId) targetBranches.add(ab.branchId)
+      }
+
+      if (targetBranches.size > 0 && !targetBranches.has(session.branchId)) {
+        return forbidden('Cannot manage users belonging to another campus branch')
+      }
     }
 
     return { targetMember, targetGuardian: null }
@@ -346,7 +351,7 @@ export async function requireCanManageUser(
   const isActorPrincipal = effectiveRoles.includes('PRINCIPAL')
   const isInstitutionWide = isActorOwnerOrPlatform || isActorPrincipal
 
-  if (session.branchId && !isInstitutionWide) {
+  if (session.branchId && !isActorOwnerOrPlatform) {
     const hasBranchAccess = targetGuardian.studentLinks.some(
       (sl) => sl.student.branchId === session.branchId
     )

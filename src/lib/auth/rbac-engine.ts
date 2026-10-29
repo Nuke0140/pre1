@@ -565,6 +565,12 @@ export class CustomRoleService {
 
     if (parentRoleId !== undefined) {
       if (parentRoleId) {
+        const parent = await db.customRole.findFirst({
+          where: { id: parentRoleId, tenantId, deletedAt: null },
+        })
+        if (!parent) {
+          throw new Error('Parent role not found in this school')
+        }
         await RbacEngine.checkInheritanceCycle(id, parentRoleId, tenantId)
         updates.parentRoleId = parentRoleId
       } else {
