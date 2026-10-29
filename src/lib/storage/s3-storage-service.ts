@@ -8,6 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import crypto from 'crypto'
 import path from 'path'
+import fs from 'fs'
 
 export interface PresignedUploadRequest {
   tenantId: string
@@ -33,6 +34,7 @@ export interface DirectUploadParams {
   mimeType: string
   originalName?: string
   userId?: string
+  key?: string
 }
 
 export interface UploadResult {
@@ -147,6 +149,12 @@ export class S3StorageService {
    * Resolves the public, durable URL for an S3 object key.
    */
   static resolvePublicUrl(key: string): string {
+    if (!this.isS3Configured()) {
+      const parts = key.split('/')
+      const category = parts[2] || 'avatars'
+      const filename = path.basename(key)
+      return `/uploads/${category}/${filename}`
+    }
     const cdn = this.getCdnBaseUrl()
     if (cdn) {
       return `${cdn}/${key}`
@@ -336,12 +344,14 @@ export class S3StorageService {
     })
     this.validateBufferMagicBytes(params.buffer, params.mimeType)
 
-    const key = this.generateObjectKey(
-      params.tenantId,
-      params.category,
-      params.originalName,
-      params.mimeType
-    )
+    const key =
+      params.key ||
+      this.generateObjectKey(
+        params.tenantId,
+        params.category,
+        params.originalName,
+        params.mimeType
+      )
     const url = this.resolvePublicUrl(key)
 
     if (this.isS3Configured()) {
@@ -368,6 +378,19 @@ export class S3StorageService {
         mimeType: params.mimeType,
         size: params.buffer.length,
       })
+
+      // When running in local environment without AWS S3, persist buffer to public/uploads directory
+      try {
+        const uploadDir = path.join(process.cwd(), 'public', 'uploads', params.category)
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true })
+        }
+        const filename = path.basename(key)
+        const filePath = path.join(uploadDir, filename)
+        fs.writeFileSync(filePath, params.buffer)
+      } catch (diskErr) {
+        console.warn('Failed to persist uploaded asset to public/uploads disk:', diskErr)
+      }
     }
 
     return {
@@ -436,6 +459,17 @@ export class S3StorageService {
       }
     } else {
       mockS3Store.delete(key)
+      try {
+        const parts = key.split('/')
+        const category = parts[2] || 'avatars'
+        const filename = path.basename(key)
+        const filePath = path.join(process.cwd(), 'public', 'uploads', category, filename)
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
+      } catch {
+        // Non-blocking cleanup
+      }
       return true
     }
   }

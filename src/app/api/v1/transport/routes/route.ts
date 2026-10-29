@@ -16,6 +16,7 @@ async function _GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') || undefined
+    const assignedOnly = searchParams.get('assignedOnly') === 'true'
     const requestedBranchId = searchParams.get('branchId') || undefined
 
     if (requestedBranchId) {
@@ -42,14 +43,21 @@ async function _GET(req: NextRequest) {
 
     const routes = await TransportService.getRoutes(context, { status: status as any })
 
-    // Scope driver view to assigned routes only
+    // Scope driver view to assigned routes only.
+    // For parents, if assignedOnly is explicitly requested, scope to children's assigned routes only;
+    // otherwise parents can view available routes to select or request route changes.
     const filtered = scope.isDriver && scope.allowedRouteIds !== null
       ? routes.filter((r: any) => scope.allowedRouteIds?.includes(r.id))
-      : scope.isParent && scope.allowedStudentIds !== null
+      : scope.isParent && assignedOnly && scope.allowedStudentIds !== null
       ? routes.filter((r: any) => r.assignments?.some((a: any) => scope.allowedStudentIds?.includes(a.studentId)))
       : routes
 
-    return ok(filtered)
+    // For parents selecting routes without explicit status filter, show active routes
+    const finalRoutes = scope.isParent && !status
+      ? filtered.filter((r: any) => !r.status || r.status === 'ACTIVE')
+      : filtered
+
+    return ok(finalRoutes)
   } catch (e: any) {
     return Errors.system(e)
   }

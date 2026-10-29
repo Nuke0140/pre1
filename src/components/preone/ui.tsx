@@ -22,15 +22,24 @@ export function Avatar({
   const [imgError, setImgError] = React.useState(false)
   const safeName = name || ''
 
-  React.useEffect(() => {
-    setImgError(false)
+  const effectiveSrc = React.useMemo(() => {
+    if (!src || typeof src !== 'string') return null
+    if (src.includes('preone-storage.s3') && src.includes('/avatars/')) {
+      const filename = src.split('/').pop()
+      return filename ? `/uploads/avatars/${filename}` : src
+    }
+    return src
   }, [src])
 
-  if (src && !imgError) {
+  React.useEffect(() => {
+    setImgError(false)
+  }, [effectiveSrc])
+
+  if (effectiveSrc && !imgError) {
     return (
       <span className={`avatar ${size || ''} ${className || ''}`} style={{ overflow: 'hidden', padding: 0 }} aria-hidden="true">
         <img
-          src={src}
+          src={effectiveSrc}
           alt={safeName}
           onError={() => setImgError(true)}
           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit', display: 'block' }}

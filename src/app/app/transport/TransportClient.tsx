@@ -35,6 +35,8 @@ import {
   Zap,
   QrCode,
   Eye,
+  Minus,
+  Trash2,
 } from 'lucide-react'
 import { PageHead, StatusBadge, EmptyState, KpiTile, Segmented, Field, GlobalKpiCard, KpiGrid, GlobalModuleNavigation, getTransportNavConfig } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
@@ -100,7 +102,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const canOperate = isAdmin || isSecurity
 
   type AdminDestKey = 'HOME' | 'TRIPS' | 'STUDENTS_ROUTES' | 'SAFETY' | 'FLEET_SETTINGS'
-  type LegacyTabKey = 'OVERVIEW' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'AUTHORIZATIONS' | 'SECURITY' | 'INCIDENTS' | 'SCANNER' | 'SEED'
+  type LegacyTabKey = 'OVERVIEW' | 'ROUTES' | 'VEHICLES' | 'STUDENTS' | 'AUTHORIZATIONS' | 'SECURITY' | 'INCIDENTS' | 'SCANNER'
   type NonAdminDestKey = 'PARENT' | 'DRIVER' | 'TEACHER'
   type TabKey = AdminDestKey | LegacyTabKey | NonAdminDestKey
 
@@ -116,11 +118,13 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [tab, setTab] = useState<TabKey>(defaultTab)
   const [parentPreviewStudent, setParentPreviewStudent] = useState<any>(null)
   const [selectedRouteId, setSelectedRouteId] = useState<string>('')
+  const [selectedPickupStopId, setSelectedPickupStopId] = useState<string>('')
+  const [selectedDropStopId, setSelectedDropStopId] = useState<string>('')
 
   // 5-Group Destination Sub-Tabs
   const [childrenRoutesSubTab, setChildrenRoutesSubTab] = useState<'allocations' | 'routes'>('allocations')
   const [safetySubTab, setSafetySubTab] = useState<'authorizations' | 'incidents' | 'security_logs'>('authorizations')
-  const [fleetSettingsSubTab, setFleetSettingsSubTab] = useState<'vehicles' | 'scanner' | 'seed'>('vehicles')
+  const [fleetSettingsSubTab, setFleetSettingsSubTab] = useState<'vehicles' | 'scanner'>('vehicles')
 
   // Guided Multi-Step Wizard States
   const [assignStudentStep, setAssignStudentStep] = useState(1)
@@ -128,7 +132,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [assignStudentRouteId, setAssignStudentRouteId] = useState('')
   const [assignStudentPickupStopId, setAssignStudentPickupStopId] = useState('')
   const [assignStudentDropStopId, setAssignStudentDropStopId] = useState('')
-  const [assignStudentTripType, setAssignStudentTripType] = useState('ROUND_TRIP')
+  const [assignStudentTripType, setAssignStudentTripType] = useState('TWO_WAY')
   const [assignStudentMonthlyFee, setAssignStudentMonthlyFee] = useState(2500)
   const [assignStudentGenerateInvoice, setAssignStudentGenerateInvoice] = useState(true)
 
@@ -180,9 +184,6 @@ export function TransportClient({ session }: { session: SessionProps }) {
       } else if (target === 'SCANNER') {
         setTab('FLEET_SETTINGS')
         setFleetSettingsSubTab('scanner')
-      } else if (target === 'SEED') {
-        setTab('FLEET_SETTINGS')
-        setFleetSettingsSubTab('seed')
       } else {
         setTab(target)
       }
@@ -209,9 +210,40 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [routeSelectionModal, setRouteSelectionModal] = useState<any>(null)
   const [driverQrModal, setDriverQrModal] = useState<any>(null)
   const [showVisualQr, setShowVisualQr] = useState<string | null>(null)
-  const [seedResult, setSeedResult] = useState<any>(null)
   const [driverArrivedStudents, setDriverArrivedStudents] = useState<string[]>([])
   const [teacherVerifiedStudents, setTeacherVerifiedStudents] = useState<string[]>([])
+
+  // Unified selectable students list for pickup authorizations & security operations
+  const authSelectableStudents = useMemo(() => {
+    if (isParent) {
+      return (myChildren || []).map((c: any) => ({
+        id: c.studentId || c.id,
+        firstName: c.firstName,
+        lastName: c.lastName || '',
+        fullName: c.fullName || `${c.firstName} ${c.lastName || ''}`.trim(),
+        admissionNo: c.admissionNo || '',
+        className: c.className || '',
+      }))
+    }
+    if (availableStudents && availableStudents.length > 0) {
+      return availableStudents.map((s: any) => ({
+        id: s.id,
+        firstName: s.firstName,
+        lastName: s.lastName || '',
+        fullName: `${s.firstName} ${s.lastName || ''}`.trim(),
+        admissionNo: s.admissionNo || s.rollNumber || '',
+        className: s.currentClassroom?.name || s.className || '',
+      }))
+    }
+    return (myChildren || []).map((c: any) => ({
+      id: c.studentId || c.id,
+      firstName: c.firstName,
+      lastName: c.lastName || '',
+      fullName: c.fullName || `${c.firstName} ${c.lastName || ''}`.trim(),
+      admissionNo: c.admissionNo || '',
+      className: c.className || '',
+    }))
+  }, [isParent, myChildren, availableStudents])
 
 
   // Filter States
@@ -252,6 +284,11 @@ export function TransportClient({ session }: { session: SessionProps }) {
   const [editVehicleModal, setEditVehicleModal] = useState<any>(null)
   const [addRouteOpen, setAddRouteOpen] = useState(false)
   const [editRouteModal, setEditRouteModal] = useState<any>(null)
+  const [deleteRouteModal, setDeleteRouteModal] = useState<any>(null)
+  const [newRouteStops, setNewRouteStops] = useState<{ id: string; name: string; pickupTime: string; dropTime: string }[]>([
+    { id: '1', name: '', pickupTime: '07:45', dropTime: '15:15' },
+    { id: '2', name: '', pickupTime: '08:05', dropTime: '15:35' },
+  ])
   const [manageStopsModal, setManageStopsModal] = useState<any>(null)
   const [assignStudentOpen, setAssignStudentOpen] = useState(false)
   const [cancelAssignmentModal, setCancelAssignmentModal] = useState<any>(null)
@@ -387,8 +424,10 @@ export function TransportClient({ session }: { session: SessionProps }) {
       loadStaff()
       loadStudents()
     }
-    if (isAdmin || isSecurity) {
+    if (isAdmin || isSecurity || isParent) {
       loadAuthorizations()
+    }
+    if (isAdmin || isSecurity) {
       loadSecurityLogs()
     }
     if (isTeacher) {
@@ -396,6 +435,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
     }
     if (isParent) {
       loadMyChildren()
+      loadRoutes()
     }
   }, [
     isAdmin,
@@ -418,42 +458,71 @@ export function TransportClient({ session }: { session: SessionProps }) {
   ])
 
   // Action Handlers for Transport Workflow
-  const handleSeedDemoData = async () => {
-    setBusy(true)
-    try {
-      const res = await fetch('/api/v1/transport/seed', { method: 'POST' })
-      const json = await res.json()
-      if (json.success) {
-        toast.success('Transport master & demo data seeded successfully!')
-        setSeedResult(json.data)
-        loadDashboard()
-        loadRoutes()
-        loadVehicles()
-        loadAssignments()
-        loadTrips()
-        loadMyChildren()
-        loadTeacherData()
-        setTab('SEED')
-      } else {
-        toast.error(json.error?.message || 'Failed to seed demo data')
+  const openRouteSelectionModal = useCallback((child: any) => {
+    loadRoutes()
+    const targetRouteId = child?.assignment?.routeId || (routes.length > 0 ? routes[0].id : '')
+    setSelectedRouteId(targetRouteId)
+    const targetRoute = routes.find((r: any) => r.id === targetRouteId) || routes[0]
+    const stops = targetRoute?.stops || []
+    setSelectedPickupStopId(child?.assignment?.pickupStopId || (stops[0]?.id ?? ''))
+    setSelectedDropStopId(child?.assignment?.dropStopId || (stops[stops.length - 1]?.id ?? stops[0]?.id ?? ''))
+    setRouteSelectionModal(child)
+  }, [routes, loadRoutes])
+
+  useEffect(() => {
+    if (routeSelectionModal && routes.length > 0) {
+      const activeRoutes = routes.filter((r: any) => !r.status || r.status === 'ACTIVE')
+      const targetRoute = activeRoutes.find((r: any) => r.id === selectedRouteId) || activeRoutes[0]
+      if (targetRoute) {
+        if (!selectedRouteId || !activeRoutes.some((r: any) => r.id === selectedRouteId)) {
+          setSelectedRouteId(targetRoute.id)
+        }
+        const stops = targetRoute.stops || []
+        if (stops.length > 0) {
+          if (!selectedPickupStopId || !stops.some((s: any) => s.id === selectedPickupStopId)) {
+            setSelectedPickupStopId(routeSelectionModal.assignment?.pickupStopId || stops[0].id)
+          }
+          if (!selectedDropStopId || !stops.some((s: any) => s.id === selectedDropStopId)) {
+            setSelectedDropStopId(routeSelectionModal.assignment?.dropStopId || stops[stops.length - 1]?.id || stops[0].id)
+          }
+        }
       }
-    } catch {
-      toast.error('Error seeding demo data')
-    } finally {
-      setBusy(false)
     }
-  }
+  }, [routeSelectionModal, routes, selectedRouteId, selectedPickupStopId, selectedDropStopId])
+
+  const handleOpenAddAuth = useCallback((defaultStudentId?: string) => {
+    loadMyChildren()
+    if (isAdmin) loadStudents()
+    const targetStudentId = defaultStudentId || (authSelectableStudents.length > 0 ? authSelectableStudents[0].id : '')
+    setAddAuthStudentId(targetStudentId)
+    setAddAuthStep(1)
+    setAddAuthOpen(true)
+  }, [authSelectableStudents, isAdmin, loadMyChildren, loadStudents])
+
+  useEffect(() => {
+    if (addAuthOpen && authSelectableStudents.length > 0) {
+      if (!addAuthStudentId || !authSelectableStudents.some((s) => s.id === addAuthStudentId)) {
+        setAddAuthStudentId(authSelectableStudents[0].id)
+      }
+    }
+  }, [addAuthOpen, authSelectableStudents, addAuthStudentId])
 
   const handleParentSubmitRouteSelection = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!routeSelectionModal) return
     const fd = new FormData(e.currentTarget)
-    const routeId = fd.get('routeId') as string
-    const pickupStopId = fd.get('pickupStopId') as string
-    const dropStopId = fd.get('dropStopId') as string
+    const routeId = (fd.get('routeId') as string) || selectedRouteId
+    const pickupStopId = (fd.get('pickupStopId') as string) || selectedPickupStopId
+    const dropStopId = (fd.get('dropStopId') as string) || selectedDropStopId
 
     if (!routeId || !pickupStopId || !dropStopId) {
-      toast.error('Please select a route, pickup stop, and drop stop')
+      toast.error('Please select an available route, pickup stop, and drop stop')
+      return
+    }
+
+    const studentId = routeSelectionModal.studentId || routeSelectionModal.id
+    if (!studentId) {
+      toast.error('Student ID is missing')
       return
     }
 
@@ -463,7 +532,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          studentId: routeSelectionModal.studentId,
+          studentId,
           routeId,
           pickupStopId,
           dropStopId,
@@ -471,7 +540,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
       })
       const json = await res.json()
       if (json.success) {
-        toast.success(`Transport route selected for ${routeSelectionModal.fullName}`)
+        toast.success(`Transport route selected for ${routeSelectionModal.fullName || routeSelectionModal.firstName}`)
         setRouteSelectionModal(null)
         loadMyChildren()
         loadAssignments()
@@ -887,6 +956,27 @@ export function TransportClient({ session }: { session: SessionProps }) {
     setBusy(true)
     const fd = new FormData(e.currentTarget)
     try {
+      // Gather stops from newRouteStops state
+      const validStops = newRouteStops
+        .filter((s) => s.name && s.name.trim())
+        .map((s, idx) => ({
+          name: s.name.trim(),
+          sequence: idx + 1,
+          morningPickupTime: s.pickupTime || '07:45',
+          eveningDropTime: s.dropTime || '15:15',
+        }))
+
+      // Include final School Campus destination stop
+      const stopsPayload = [
+        ...validStops,
+        {
+          name: 'School Campus',
+          sequence: validStops.length + 1,
+          morningPickupTime: '08:30',
+          eveningDropTime: '15:00',
+        },
+      ]
+
       const res = await fetch('/api/v1/transport/routes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -897,17 +987,17 @@ export function TransportClient({ session }: { session: SessionProps }) {
           vehicleId: fd.get('vehicleId') || undefined,
           driverProfileId: fd.get('driverProfileId') || undefined,
           attendantProfileId: fd.get('attendantProfileId') || undefined,
-          stops: [
-            { name: fd.get('stop1Name'), sequence: 1, morningPickupTime: '07:45', eveningDropTime: '15:15' },
-            { name: fd.get('stop2Name'), sequence: 2, morningPickupTime: '08:05', eveningDropTime: '15:35' },
-            { name: 'School Campus', sequence: 3, morningPickupTime: '08:30', eveningDropTime: '15:00' },
-          ].filter((s) => s.name),
+          stops: stopsPayload,
         }),
       })
       const json = await res.json()
       if (json.success) {
         toast.success('Route created successfully')
         setAddRouteOpen(false)
+        setNewRouteStops([
+          { id: '1', name: '', pickupTime: '07:45', dropTime: '15:15' },
+          { id: '2', name: '', pickupTime: '08:05', dropTime: '15:35' },
+        ])
         loadRoutes()
         loadDashboard()
       } else {
@@ -915,6 +1005,33 @@ export function TransportClient({ session }: { session: SessionProps }) {
       }
     } catch (err: any) {
       toast.error('Error creating route', err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDeleteRoute = (routeId: string, routeName: string) => {
+    setDeleteRouteModal({ id: routeId, name: routeName })
+  }
+
+  const confirmDeleteRoute = async () => {
+    if (!deleteRouteModal) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/v1/transport/routes/${deleteRouteModal.id}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (json.success) {
+        toast.success(`Route "${deleteRouteModal.name}" removed successfully`)
+        setDeleteRouteModal(null)
+        loadRoutes()
+        loadDashboard()
+      } else {
+        toast.error('Failed to remove route', json.error?.message || json.error)
+      }
+    } catch (err: any) {
+      toast.error('Error removing route', err.message)
     } finally {
       setBusy(false)
     }
@@ -1152,7 +1269,8 @@ export function TransportClient({ session }: { session: SessionProps }) {
     const routeId = (fd.get('routeId') as string) || assignStudentRouteId
     const pickupStopId = (fd.get('pickupStopId') as string) || assignStudentPickupStopId
     const dropStopId = (fd.get('dropStopId') as string) || assignStudentDropStopId
-    const tripType = (fd.get('tripType') as string) || assignStudentTripType
+    const tripTypeRaw = (fd.get('tripType') as string) || assignStudentTripType
+    const tripType = tripTypeRaw === 'ROUND_TRIP' || !tripTypeRaw ? 'TWO_WAY' : tripTypeRaw
     const monthlyFee = fd.get('monthlyFee') !== null && fd.get('monthlyFee') !== '' ? Number(fd.get('monthlyFee')) : assignStudentMonthlyFee
     const generateFeeInvoice = fd.get('generateFeeInvoice') !== null ? fd.get('generateFeeInvoice') === 'on' : assignStudentGenerateInvoice
 
@@ -1331,6 +1449,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
         setAddAuthPersonPhone('')
         setAddAuthReason('')
         loadAuthorizations()
+        loadMyChildren()
       } else {
         toast.error('Failed to create authorization', json.error?.message || json.error)
       }
@@ -1476,7 +1595,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
         if (tab === 'OVERVIEW') setTab('HOME')
         else if (tab === 'STUDENTS' || tab === 'ROUTES') setTab('STUDENTS_ROUTES')
         else if (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY') setTab('SAFETY')
-        else if (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED') setTab('FLEET_SETTINGS')
+        else if (tab === 'VEHICLES' || tab === 'SCANNER') setTab('FLEET_SETTINGS')
         else setTab(allowedTabs[0].key)
       } else {
         setTab(allowedTabs[0].key)
@@ -1575,10 +1694,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 {safetySubTab === 'authorizations' && (
                   <button
                     className="btn btn-primary"
-                    onClick={() => {
-                      setAddAuthStep(1)
-                      setAddAuthOpen(true)
-                    }}
+                    onClick={() => handleOpenAddAuth()}
                   >
                     <Plus size={15} /> Request Temp Pickup
                   </button>
@@ -1618,10 +1734,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {tab === 'PARENT' && (
               <button
                 className="btn btn-primary"
-                onClick={() => {
-                  setAddAuthStep(1)
-                  setAddAuthOpen(true)
-                }}
+                onClick={() => handleOpenAddAuth()}
               >
                 <Plus size={15} /> Request Alternate Pickup
               </button>
@@ -1742,7 +1855,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
             ? 'STUDENTS_ROUTES'
             : isAdmin && (tab === 'AUTHORIZATIONS' || tab === 'INCIDENTS' || tab === 'SECURITY')
             ? 'SAFETY'
-            : isAdmin && (tab === 'VEHICLES' || tab === 'SCANNER' || tab === 'SEED')
+            : isAdmin && (tab === 'VEHICLES' || tab === 'SCANNER')
             ? 'FLEET_SETTINGS'
             : tab
         }
@@ -1763,15 +1876,12 @@ export function TransportClient({ session }: { session: SessionProps }) {
           </div>
 
           {myChildren.length === 0 ? (
-            <div className="card" style={{ padding: 30, textAlign: 'center' }}>
-              <Users size={40} style={{ color: 'var(--muted)', marginBottom: 12 }} />
-              <h3>No Linked Children Found for Parent Account</h3>
-              <p style={{ color: 'var(--muted)', fontSize: 14, maxWidth: 500, margin: '8px auto 20px' }}>
-                If you are testing as a parent, click below to seed demo master data with Rahul Patil and 3 linked children (Aarav, Siya, Ved).
-              </p>
-              <button className="btn btn-primary" onClick={handleSeedDemoData} disabled={busy}>
-                <Zap size={14} /> Seed Demo Parent & Children Data
-              </button>
+            <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+              <Users size={44} style={{ color: 'var(--muted)', marginBottom: 12, opacity: 0.6 }} />
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Linked Children Found</div>
+              <div style={{ color: 'var(--text-muted, #64748b)', fontSize: 14, maxWidth: 460, margin: '0 auto' }}>
+                No active children are currently linked to this parent account. Please contact preschool administration if you believe this is an error.
+              </div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 20 }}>
@@ -1800,25 +1910,43 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                         🏁 Drop: <b>{child.assignment.dropStop}</b> ({child.assignment.dropTime})
                       </div>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{ marginTop: 10, width: '100%', justifyContent: 'center' }}
-                        onClick={() => setRouteSelectionModal(child)}
-                      >
-                        <Edit3 size={13} /> Change Route / Stop
-                      </button>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ justifyContent: 'center' }}
+                          onClick={() => openRouteSelectionModal(child)}
+                        >
+                          <Edit3 size={13} /> Change Route
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ justifyContent: 'center' }}
+                          onClick={() => handleOpenAddAuth(child.studentId || child.id)}
+                        >
+                          <UserCheck size={13} /> Alternate Pickup
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ background: 'rgba(234, 179, 8, 0.1)', padding: 14, borderRadius: 10, marginBottom: 14, border: '1px dashed var(--warning)' }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--warning-dark)' }}>No Route Assigned Yet</div>
                       <p style={{ fontSize: 12, color: 'var(--muted)', margin: '4px 0 10px' }}>Select a preschool transport route for {child.firstName}.</p>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ width: '100%', justifyContent: 'center' }}
-                        onClick={() => setRouteSelectionModal(child)}
-                      >
-                        <Plus size={13} /> Select Transport Route
-                      </button>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ justifyContent: 'center' }}
+                          onClick={() => openRouteSelectionModal(child)}
+                        >
+                          <Plus size={13} /> Select Route
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ justifyContent: 'center' }}
+                          onClick={() => handleOpenAddAuth(child.studentId || child.id)}
+                        >
+                          <UserCheck size={13} /> Alternate Pickup
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -2057,80 +2185,6 @@ export function TransportClient({ session }: { session: SessionProps }) {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TAB: SEED — DEMO DATA & SCENARIO TEST RUNNER */}
-      {/* ========================================================================= */}
-      {((tab === 'FLEET_SETTINGS' && fleetSettingsSubTab === 'seed') || (!isAdmin && tab === 'SEED')) && (
-        <div style={{ marginTop: 16 }}>
-          <div className="card" style={{ marginBottom: 20, background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)', border: '1px solid var(--warning)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--warning-dark)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Master Seed Data & Scenario Testing Harness
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>PreOne Demo Transport Master Setup</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Populates Tenant, Driver Suresh Patil, Bus BUS-01, Route 001 (Kothrud), Parent Rahul Patil, 3 Children (Aarav, Siya, Ved), and Class Teacher Priya Teacher.
-                </div>
-              </div>
-              <button className="btn btn-primary" onClick={handleSeedDemoData} disabled={busy}>
-                <Zap size={15} /> {seedResult ? 'Re-Seed Master Demo Data' : 'Seed Master Demo Data'}
-              </button>
-            </div>
-          </div>
-
-          {seedResult && (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={18} /> Demo Master Data Active
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, fontSize: 13 }}>
-                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
-                  <b>Bus:</b> {seedResult.vehicle.regNo}
-                </div>
-                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
-                  <b>Route:</b> {seedResult.route.name} ({seedResult.route.stopsCount} Stops)
-                </div>
-                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
-                  <b>Driver:</b> {seedResult.driver.name} ({seedResult.driver.username})
-                </div>
-                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
-                  <b>Parent:</b> {seedResult.parent.name} ({seedResult.parent.childrenCount} Children)
-                </div>
-                <div style={{ padding: 10, background: 'var(--c-surface-hover)', borderRadius: 8 }}>
-                  <b>Teacher:</b> {seedResult.teacher.name} ({seedResult.teacher.className})
-                </div>
-              </div>
-
-              <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Generated Secure Driver Test QR Token:</div>
-                <div style={{ padding: 12, background: '#000', color: '#00ff88', fontFamily: 'monospace', borderRadius: 8, fontSize: 12, wordBreak: 'break-all' }}>
-                  {seedResult.testQrToken}
-                </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => {
-                      const token = seedResult.testQrToken
-                      setScanInput(token)
-                      setTab('SCANNER')
-                      handlePerformScan(token)
-                    }}
-                  >
-                    Load Token into QR Scanner
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setTab('PARENT')}>
-                    Go to Parent Portal
-                  </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setTab('TEACHER')}>
-                    Go to Teacher View
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* DESTINATION 1: HOME / OVERVIEW — OPERATIONAL COMMAND CENTER */}
@@ -2466,14 +2520,28 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     <div className="card-title">Route Transit Status & Network Coverage</div>
                     <div className="card-sub">Configured stops, allocated buses, and active student distribution</div>
                   </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setTab('ROUTES')}>
-                    View All Routes <ArrowRight size={13} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {canWrite && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => setAddRouteOpen(true)}
+                        title="Add Route (+)"
+                        aria-label="Add Route"
+                      >
+                        <Plus size={13} /> Add Route
+                      </button>
+                    )}
+                    <button className="btn btn-ghost btn-sm" onClick={() => setTab('ROUTES')}>
+                      View All Routes <ArrowRight size={13} />
+                    </button>
+                  </div>
                 </div>
                 {routes.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {routes.slice(0, 5).map((r) => {
                       const studentCount = assignments.filter((a) => a.routeId === r.id && a.status === 'ACTIVE').length
+                      const vehicleReg = r.vehicle?.registrationNumber || r.defaultVehicle?.registrationNumber || 'Unassigned'
+                      const driverName = r.driverProfile?.user?.fullName || r.defaultDriver?.user?.fullName || 'Unassigned'
                       return (
                         <div
                           key={r.id}
@@ -2491,19 +2559,42 @@ export function TransportClient({ session }: { session: SessionProps }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span style={{ fontWeight: 700, fontSize: 14 }}>{r.name}</span>
                               <span className="badge b-neutral" style={{ fontFamily: 'var(--font-mono)' }}>{r.code}</span>
-                              <span className={`badge ${r.isActive ? 'b-success' : 'b-neutral'}`}>
-                                {r.isActive ? 'Active' : 'Inactive'}
+                              <span className={`badge ${r.status === 'ACTIVE' || r.isActive ? 'b-success' : 'b-neutral'}`}>
+                                {r.status === 'ACTIVE' || r.isActive ? 'Active' : 'Inactive'}
                               </span>
                             </div>
                             <div className="t-caption" style={{ marginTop: 3 }}>
-                              Stops: <b>{r.stops?.length || 0}</b> · Bus: <b>{r.defaultVehicle?.registrationNumber || 'Unassigned'}</b> · Driver: <b>{r.defaultDriver?.user?.fullName || 'Unassigned'}</b>
+                              Stops: <b>{r.stops?.length || 0}</b> · Bus: <b>{vehicleReg}</b> · Driver: <b>{driverName}</b>
                             </div>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700 }}>
-                              {studentCount} Students
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 13, fontWeight: 700 }}>
+                                {studentCount} Students
+                              </div>
+                              <div className="t-caption">{r.stops?.[0]?.morningPickupTime ? `Starts ${r.stops[0].morningPickupTime}` : 'Configured'}</div>
                             </div>
-                            <div className="t-caption">{r.stops?.[0]?.morningPickupTime ? `Starts ${r.stops[0].morningPickupTime}` : 'Configured'}</div>
+                            {canWrite && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  onClick={() => setEditRouteModal(r)}
+                                  title="Edit Route"
+                                  style={{ padding: '4px 6px' }}
+                                >
+                                  <Edit3 size={13} />
+                                </button>
+                                <button
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: 'var(--c-danger, #ef4444)', padding: '4px 6px' }}
+                                  onClick={() => handleDeleteRoute(r.id, r.name)}
+                                  title="Remove Route (-)"
+                                  aria-label={`Remove Route ${r.name}`}
+                                >
+                                  <Minus size={14} />
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -2514,7 +2605,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                     icon={<MapPin size={32} />}
                     title="No Routes Configured"
                     message="Set up transport routes and pickup stops for enrolled children."
-                    action={canWrite && <button className="btn btn-primary btn-sm" onClick={() => setAddRouteOpen(true)}>Add Route</button>}
+                    action={canWrite && <button className="btn btn-primary btn-sm" onClick={() => setAddRouteOpen(true)}><Plus size={13} /> Add Route</button>}
                   />
                 )}
               </div>
@@ -3008,13 +3099,24 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       </td>
                       {canWrite && (
                         <td style={{ textAlign: 'right' }}>
-                          <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => setEditRouteModal(r)}
-                            title="Edit Route & Assignments"
-                          >
-                            <Edit3 size={13} /> Edit
-                          </button>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setEditRouteModal(r)}
+                              title="Edit Route & Assignments"
+                            >
+                              <Edit3 size={13} /> Edit
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: 'var(--c-danger, #ef4444)' }}
+                              onClick={() => handleDeleteRoute(r.id, r.name)}
+                              title="Remove Route (-)"
+                              aria-label={`Remove Route ${r.name}`}
+                            >
+                              <Minus size={13} /> Remove
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -3035,7 +3137,6 @@ export function TransportClient({ session }: { session: SessionProps }) {
             options={[
               { key: 'vehicles', label: `Fleet Vehicles (${vehicles.length})` },
               { key: 'scanner', label: 'Gate QR / PIN Scanner' },
-              { key: 'seed', label: 'Demo Data Harness' },
             ]}
             value={fleetSettingsSubTab}
             onChange={(k) => setFleetSettingsSubTab(k as any)}
@@ -3460,7 +3561,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       }
                     }}
                   >
-                    Scan Temp Auth ({authorizations[0].authorizedPersonName})
+                    Scan Temp Auth ({authorizations[0].personName || authorizations[0].authorizedPersonName})
                   </button>
                 )}
                 {scanInput && (
@@ -3544,7 +3645,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
                       {scanResult.activeTemporaryAuthorization && (
                         <div style={{ marginTop: 10, padding: 8, background: 'rgba(234, 179, 8, 0.1)', borderRadius: 6, fontSize: 12 }}>
-                          🚨 <b>Active Temp Pickup Authorization:</b> {scanResult.activeTemporaryAuthorization.authorizedPersonName} ({scanResult.activeTemporaryAuthorization.relationship})
+                          🚨 <b>Active Temp Pickup Authorization:</b> {scanResult.activeTemporaryAuthorization.personName || scanResult.activeTemporaryAuthorization.authorizedPersonName} ({scanResult.activeTemporaryAuthorization.relationship})
                         </div>
                       )}
                     </div>
@@ -3698,9 +3799,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   <div style={{ padding: 14, background: 'var(--c-surface)', borderRadius: 8, border: '1px solid var(--border)', marginTop: 12 }}>
                     <div style={{ fontSize: 12, opacity: 0.7 }}>Temporary Authorized Pickup Person</div>
                     <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>
-                      {scanResult.authorization.authorizedPersonName} ({scanResult.authorization.relationship})
+                      {scanResult.authorization.personName || scanResult.authorization.authorizedPersonName} ({scanResult.authorization.relationship})
                     </div>
-                    <div style={{ fontSize: 13 }}>📞 Phone: {scanResult.authorization.authorizedPersonPhone}</div>
+                    <div style={{ fontSize: 13 }}>📞 Phone: {scanResult.authorization.phone || scanResult.authorization.authorizedPersonPhone}</div>
                     <div style={{ fontSize: 13 }}>Reason: {scanResult.authorization.reason || 'N/A'}</div>
                     {scanResult.authorization.student && (
                       <div style={{ fontSize: 13, marginTop: 6, padding: 6, background: 'var(--c-surface-hover)', borderRadius: 6 }}>
@@ -3717,7 +3818,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                       className="btn btn-secondary btn-sm"
                       onClick={() => {
                         setTab('AUTHORIZATIONS')
-                        setAddAuthOpen(true)
+                        handleOpenAddAuth(scanResult.student?.id)
                       }}
                     >
                       + Register Temp Authorization for Student
@@ -3745,7 +3846,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 <div className="card-sub">Alternate non-parent pickup requests requiring explicit staff verification</div>
               </div>
               {(canOperate || isParent) && (
-                <button className="btn btn-primary btn-sm" onClick={() => setAddAuthOpen(true)}>
+                <button className="btn btn-primary btn-sm" onClick={() => handleOpenAddAuth()}>
                   <Plus size={14} /> Request Temp Pickup
                 </button>
               )}
@@ -3774,8 +3875,12 @@ export function TransportClient({ session }: { session: SessionProps }) {
                         </b>
                       </td>
                       <td>
-                        <div><b>{auth.authorizedPersonName}</b></div>
-                        <div style={{ fontSize: 12, opacity: 0.7 }}>📞 {auth.authorizedPersonPhone}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>
+                          {auth.personName || auth.authorizedPersonName || 'Authorized Person'}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                          📞 {auth.phone || auth.authorizedPersonPhone || 'N/A'}
+                        </div>
                       </td>
                       <td>{auth.relationship || 'Alternate'}</td>
                       <td style={{ maxWidth: 180, fontSize: 13 }}>{auth.reason || 'N/A'}</td>
@@ -3959,19 +4064,25 @@ export function TransportClient({ session }: { session: SessionProps }) {
             {addAuthStep === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <Field label="Step 1: Select Student" required helper="Select enrolled child requiring non-parent pickup">
-                  <select
-                    className="input"
-                    required
-                    value={addAuthStudentId}
-                    onChange={(e) => setAddAuthStudentId(e.target.value)}
-                  >
-                    <option value="">-- Choose Student --</option>
-                    {availableStudents.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.firstName} {s.lastName || ''} ({s.admissionNo || s.id})
-                      </option>
-                    ))}
-                  </select>
+                  {authSelectableStudents.length === 0 ? (
+                    <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px dashed var(--warning)', borderRadius: 8, fontSize: 13, color: 'var(--warning-dark)' }}>
+                      ⚠️ No enrolled children found for pickup authorization.
+                    </div>
+                  ) : (
+                    <select
+                      className="input"
+                      required
+                      value={addAuthStudentId}
+                      onChange={(e) => setAddAuthStudentId(e.target.value)}
+                    >
+                      <option value="">-- Choose Student --</option>
+                      {authSelectableStudents.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName} {s.className ? `• Class: ${s.className}` : ''} {s.admissionNo ? `• Adm: #${s.admissionNo}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </Field>
 
                 <Field label="Usage Type" required>
@@ -4076,7 +4187,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
 
             {/* STEP 3: Reason & Security Review */}
             {addAuthStep === 3 && (() => {
-              const child = availableStudents.find((s) => s.id === addAuthStudentId)
+              const child = authSelectableStudents.find((s) => s.id === addAuthStudentId)
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -4094,7 +4205,7 @@ export function TransportClient({ session }: { session: SessionProps }) {
                   <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--c-surface-hover, rgba(0,0,0,0.02))', border: '1px solid var(--border-default)', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                       <span className="t-caption">Child</span>
-                      <span style={{ fontWeight: 700 }}>{child?.firstName} {child?.lastName || ''}</span>
+                      <span style={{ fontWeight: 700 }}>{child?.fullName || `${child?.firstName || 'Student'} ${child?.lastName || ''}`}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-default)', paddingBottom: 6 }}>
                       <span className="t-caption">Authorized Adult</span>
@@ -4143,9 +4254,9 @@ export function TransportClient({ session }: { session: SessionProps }) {
                 <option value="" disabled>
                   -- Select Student --
                 </option>
-                {availableStudents.map((s) => (
+                {authSelectableStudents.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.firstName} {s.lastName || ''} ({s.rollNumber || s.id})
+                    {s.fullName} {s.className ? `• Class: ${s.className}` : ''} {s.admissionNo ? `• Adm: #${s.admissionNo}` : ''}
                   </option>
                 ))}
               </select>
@@ -5175,20 +5286,83 @@ export function TransportClient({ session }: { session: SessionProps }) {
             </Field>
             <Field label="Assign Driver (from HR Staff Directory)">
               <select name="driverProfileId" className="input">
-                <option value="">-- Select Eligible Driver --</option>
+                <option value="">{eligibleStaff.length === 0 ? '-- No Eligible Drivers Found --' : '-- Select Eligible Driver --'}</option>
                 {eligibleStaff.map((s) => (
                   <option key={s.id} value={s.id}>{s.fullName} ({s.designation} · {s.employeeCode})</option>
                 ))}
               </select>
             </Field>
             <div className="card" style={{ padding: 12, background: 'var(--c-surface-hover)' }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Ordered Stops Sequence</div>
-              <Field label="Stop 1 Name (e.g. Green Valley Circle)">
-                <input type="text" name="stop1Name" className="input" placeholder="Stop 1" required />
-              </Field>
-              <Field label="Stop 2 Name (e.g. Sunrise Enclave)">
-                <input type="text" name="stop2Name" className="input" placeholder="Stop 2" />
-              </Field>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>Ordered Stops Sequence</div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: 12, gap: 4 }}
+                  onClick={() => {
+                    const nextId = String(Date.now())
+                    setNewRouteStops((prev) => [
+                      ...prev,
+                      { id: nextId, name: '', pickupTime: '08:15', dropTime: '15:45' },
+                    ])
+                  }}
+                  title="Add Another Stop (+)"
+                >
+                  <Plus size={13} /> Add Stop
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {newRouteStops.map((st, idx) => (
+                  <div key={st.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder={`Stop ${idx + 1} Name (e.g. Green Valley Circle)`}
+                        value={st.name}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setNewRouteStops((prev) =>
+                            prev.map((item) => (item.id === st.id ? { ...item, name: val } : item))
+                          )
+                        }}
+                        required={idx === 0}
+                      />
+                    </div>
+                    <div style={{ width: 105 }}>
+                      <input
+                        type="time"
+                        className="input"
+                        value={st.pickupTime}
+                        title="Morning Pickup Time"
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setNewRouteStops((prev) =>
+                            prev.map((item) => (item.id === st.id ? { ...item, pickupTime: val } : item))
+                          )
+                        }}
+                      />
+                    </div>
+                    {newRouteStops.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ color: 'var(--c-danger, #ef4444)', padding: '6px' }}
+                        onClick={() => {
+                          setNewRouteStops((prev) => prev.filter((item) => item.id !== st.id))
+                        }}
+                        title="Remove Stop (-)"
+                        aria-label={`Remove Stop ${idx + 1}`}
+                      >
+                        <Minus size={14} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ fontSize: 11, color: 'var(--c-muted)', marginTop: 2 }}>
+                  * Final stop (School Campus) is automatically linked at destination.
+                </div>
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
@@ -5196,6 +5370,52 @@ export function TransportClient({ session }: { session: SessionProps }) {
             <button type="submit" className="btn btn-primary" disabled={busy}>Save Route</button>
           </div>
         </form>
+      </Modal>
+
+      {/* ========================================================================= */}
+      {/* MODAL: REMOVE ROUTE CONFIRMATION */}
+      {/* ========================================================================= */}
+      <Modal
+        open={!!deleteRouteModal}
+        onClose={() => setDeleteRouteModal(null)}
+        title="Remove Bus Route"
+        subtitle="Deactivate route and release student assignments"
+        icon={<AlertTriangle size={20} color="var(--danger, #ef4444)" />}
+      >
+        {deleteRouteModal && (
+          <div>
+            <div style={{ padding: 14, background: 'rgba(239, 68, 68, 0.08)', borderRadius: 10, border: '1px solid rgba(239, 68, 68, 0.2)', marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, color: 'var(--danger, #ef4444)', fontSize: 14 }}>
+                Confirm Route Deletion
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--foreground)', marginTop: 6, lineHeight: 1.5 }}>
+                Are you sure you want to remove route <b>{deleteRouteModal.name}</b>?
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--c-muted)', marginTop: 6 }}>
+                Active student assignments linked to this route will be marked inactive. This action can be audited in the security logs.
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setDeleteRouteModal(null)}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{ background: 'var(--danger, #ef4444)', color: '#ffffff', gap: 6 }}
+                onClick={confirmDeleteRoute}
+                disabled={busy}
+              >
+                <Minus size={14} /> Remove Route
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* ========================================================================= */}
@@ -5336,44 +5556,121 @@ export function TransportClient({ session }: { session: SessionProps }) {
       {/* ========================================================================= */}
       {/* MODAL: PARENT ROUTE SELECTION */}
       {/* ========================================================================= */}
-      <Modal open={!!routeSelectionModal} onClose={() => setRouteSelectionModal(null)} title={`Select Transport Route for ${routeSelectionModal?.fullName}`} subtitle="Choose a route and pickup/drop stop for this child" icon={<Bus size={20} />}>
-        {routeSelectionModal && (
-          <form onSubmit={handleParentSubmitRouteSelection}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Field label="Child" required>
-                <input type="text" className="input" value={`${routeSelectionModal.fullName} (${routeSelectionModal.className})`} disabled />
-              </Field>
-              <Field label="Available Preschool Transport Route" required>
-                <select name="routeId" className="input" defaultValue={routes[0]?.id || ''} required onChange={(e) => {
-                  const r = routes.find(rt => rt.id === e.target.value)
-                  if (r) setSelectedRouteId(r.id)
-                }}>
-                  {routes.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name} ({r.code}) — {r.description || 'Active'}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Pickup Stop" required>
-                <select name="pickupStopId" className="input" required>
-                  {(routes.find(r => r.id === selectedRouteId)?.stops || routes[0]?.stops || []).map((s: any) => (
-                    <option key={s.id} value={s.id}>{s.name} (Pickup: {s.morningPickupTime})</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Drop Stop" required>
-                <select name="dropStopId" className="input" required>
-                  {(routes.find(r => r.id === selectedRouteId)?.stops || routes[0]?.stops || []).map((s: any) => (
-                    <option key={s.id} value={s.id}>{s.name} (Drop: {s.eveningDropTime})</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setRouteSelectionModal(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={busy}>Submit Route Selection Request</button>
-            </div>
-          </form>
-        )}
+      <Modal open={!!routeSelectionModal} onClose={() => setRouteSelectionModal(null)} title={`Select Transport Route for ${routeSelectionModal?.fullName || routeSelectionModal?.firstName || 'Child'}`} subtitle="Choose a preschool route and pickup/drop stop for this child" icon={<Bus size={20} />}>
+        {routeSelectionModal && (() => {
+          const activeRoutes = routes.filter((r: any) => !r.status || r.status === 'ACTIVE')
+          const currentRoute = activeRoutes.find((r: any) => r.id === selectedRouteId) || activeRoutes[0]
+          const currentStops = currentRoute?.stops || []
+
+          return (
+            <form onSubmit={handleParentSubmitRouteSelection}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Field label="Child" required>
+                  <input
+                    type="text"
+                    className="input"
+                    value={`${routeSelectionModal.fullName || routeSelectionModal.firstName} (${routeSelectionModal.className || 'Preschool'})`}
+                    disabled
+                  />
+                </Field>
+
+                <Field label="Available Preschool Transport Route" required>
+                  {activeRoutes.length === 0 ? (
+                    <div style={{ padding: '10px 12px', background: 'var(--c-surface-hover)', borderRadius: 8, fontSize: 13, color: 'var(--muted)' }}>
+                      No active transport routes are currently available.
+                    </div>
+                  ) : (
+                    <select
+                      name="routeId"
+                      className="input"
+                      value={selectedRouteId || activeRoutes[0]?.id || ''}
+                      required
+                      onChange={(e) => {
+                        const newRouteId = e.target.value
+                        setSelectedRouteId(newRouteId)
+                        const target = activeRoutes.find((r: any) => r.id === newRouteId)
+                        const stops = target?.stops || []
+                        if (stops.length > 0) {
+                          setSelectedPickupStopId(stops[0].id)
+                          setSelectedDropStopId(stops[stops.length - 1]?.id || stops[0].id)
+                        } else {
+                          setSelectedPickupStopId('')
+                          setSelectedDropStopId('')
+                        }
+                      }}
+                    >
+                      {activeRoutes.map((r: any) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name} ({r.code}) {r.description ? `— ${r.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+
+                <Field label="Pickup Stop" required>
+                  {currentStops.length === 0 ? (
+                    <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px dashed var(--warning)', borderRadius: 8, fontSize: 12, color: 'var(--warning-dark)' }}>
+                      ⚠️ No stops configured for this route yet. Please contact school administration.
+                    </div>
+                  ) : (
+                    <select
+                      name="pickupStopId"
+                      className="input"
+                      value={selectedPickupStopId || currentStops[0]?.id || ''}
+                      required
+                      onChange={(e) => setSelectedPickupStopId(e.target.value)}
+                    >
+                      {currentStops.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} (Morning Pickup: {s.morningPickupTime || '08:00'})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+
+                <Field label="Drop Stop" required>
+                  {currentStops.length === 0 ? (
+                    <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px dashed var(--warning)', borderRadius: 8, fontSize: 12, color: 'var(--warning-dark)' }}>
+                      ⚠️ No stops configured for this route yet. Please contact school administration.
+                    </div>
+                  ) : (
+                    <select
+                      name="dropStopId"
+                      className="input"
+                      value={selectedDropStopId || currentStops[currentStops.length - 1]?.id || currentStops[0]?.id || ''}
+                      required
+                      onChange={(e) => setSelectedDropStopId(e.target.value)}
+                    >
+                      {currentStops.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} (Evening Drop: {s.eveningDropTime || '15:00'})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+
+                {currentRoute?.vehicle && (
+                  <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--c-surface-hover)', padding: '8px 12px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🚌 <b>Assigned Vehicle:</b> {currentRoute.vehicle.name || currentRoute.vehicle.plateNumber} (Capacity: {currentRoute.vehicle.capacity || 20})
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setRouteSelectionModal(null)}>Cancel</button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={busy || activeRoutes.length === 0 || currentStops.length === 0}
+                >
+                  Submit Route Selection Request
+                </button>
+              </div>
+            </form>
+          )
+        })()}
       </Modal>
 
       {/* ========================================================================= */}

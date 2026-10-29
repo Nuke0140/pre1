@@ -127,7 +127,6 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'communication:read',
     'finance:read',
     'transport:read',
-    'reports:read',
     'students:read-linked',
     'attendance:read-linked',
     'diary:read-linked',
