@@ -63,6 +63,7 @@ async function _PATCH(req: NextRequest, { params }: { params: Promise<{ id: stri
     return ok({ route: updated })
   } catch (e: any) {
     if (e.message?.includes('not found')) return Errors.notFound(e.message)
+    if (e.message?.includes('IN_PROGRESS')) return Errors.conflict(e.message)
     return Errors.system(e)
   }
 }
@@ -90,6 +91,7 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
     return ok({ deleted: true, route: deleted })
   } catch (e: any) {
     if (e.message?.includes('not found')) return Errors.notFound(e.message)
+    if (e.message?.includes('IN_PROGRESS')) return Errors.conflict(e.message)
     return Errors.system(e)
   }
 }

@@ -692,7 +692,7 @@ export class TransportService {
 
     // Normalize tripType to valid Prisma enum (TWO_WAY, MORNING_ONLY, EVENING_ONLY)
     const normalizedTripType: TransportTripType =
-      tripType === 'ROUND_TRIP' || !tripType ? 'TWO_WAY' : (tripType as any)
+      (tripType as any) === 'ROUND_TRIP' || !tripType ? 'TWO_WAY' : (tripType as any)
 
     // 4. Concurrency-Safe Vehicle Capacity Enforcement
     if (!route.vehicle) {
