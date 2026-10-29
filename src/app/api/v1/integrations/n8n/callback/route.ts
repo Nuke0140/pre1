@@ -4,6 +4,16 @@ import { db } from '@/lib/db'
 import { getTranslation } from '@/lib/i18n'
 import { SupportedLocale } from '@/lib/i18n/types'
 
+// Resilient memory cache for callback idempotency (L1 fast lookup)
+const processedCallbacks = new Map<string, { status: string; tenantId: string; processedAt: string }>()
+
+/**
+ * Exposed for testing to simulate process restarts or multi-instance cache miss.
+ */
+export function _testClearCallbackCache() {
+  processedCallbacks.clear()
+}
+
 export async function POST(req: NextRequest) {
   const signature = req.headers.get('x-preone-signature')
   const eventId = req.headers.get('x-preone-event-id')
@@ -66,27 +76,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Idempotency check: Find if callback was already processed
-  const existingEvent = await db.integrationEvent.findUnique({
-    where: { eventId: resolvedEventId },
-  })
-
-  if (existingEvent && existingEvent.status === 'SUCCESS' && existingEvent.response) {
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          eventId: resolvedEventId,
-          status: 'ALREADY_PROCESSED',
-          message: 'Callback already processed idempotently',
-        },
-      },
-      { status: 200 }
-    )
-  }
-
-  // Verify tenant isolation if tenant is specified
-  const targetTenantId = tenantId || body.tenantId || existingEvent?.tenantId
+  const targetTenantId = tenantId || body.tenantId
   if (!targetTenantId) {
     return NextResponse.json(
       {
@@ -110,36 +100,152 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const cacheKey = `${targetTenantId}:${resolvedEventId}`
+
+  // 1. L1 Fast-path: In-memory cache check
+  const existingCache = processedCallbacks.get(cacheKey)
+  if (existingCache && existingCache.status === 'SUCCESS') {
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          eventId: resolvedEventId,
+          status: 'ALREADY_PROCESSED',
+          message: 'Callback already processed idempotently',
+        },
+      },
+      { status: 200 }
+    )
+  }
+
+  // 2. L2 Persistent source of truth: NotificationDeliveryLog (survives restarts & multi-container)
+  try {
+    const existingLog = await db.notificationDeliveryLog.findFirst({
+      where: {
+        tenantId: targetTenantId,
+        eventId: resolvedEventId,
+        eventType: 'N8N_CALLBACK',
+      },
+    })
+
+    if (existingLog && existingLog.status === 'SUCCESS') {
+      // Repopulate L1 cache
+      processedCallbacks.set(cacheKey, {
+        status: 'SUCCESS',
+        tenantId: targetTenantId,
+        processedAt: existingLog.createdAt.toISOString(),
+      })
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            eventId: resolvedEventId,
+            status: 'ALREADY_PROCESSED',
+            message: 'Callback already processed idempotently',
+          },
+        },
+        { status: 200 }
+      )
+    }
+  } catch (err) {
+    console.warn('[n8n callback] Persistent delivery log check warning:', err)
+  }
+
+  // 3. Optional integrationEvent check
+  let existingEvent: any = null
+  try {
+    if ((db as any).integrationEvent) {
+      existingEvent = await (db as any).integrationEvent.findUnique({
+        where: { eventId: resolvedEventId },
+      })
+    }
+  } catch {}
+
+  if (existingEvent && existingEvent.status === 'SUCCESS' && existingEvent.response) {
+    processedCallbacks.set(cacheKey, {
+      status: 'SUCCESS',
+      tenantId: targetTenantId,
+      processedAt: new Date().toISOString(),
+    })
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          eventId: resolvedEventId,
+          status: 'ALREADY_PROCESSED',
+          message: 'Callback already processed idempotently',
+        },
+      },
+      { status: 200 }
+    )
+  }
+
   const locale = (body.locale || existingEvent?.locale || 'en-IN') as SupportedLocale
 
-  // Update IntegrationEvent status to SUCCESS with response payload
-  await db.integrationEvent.upsert({
-    where: { eventId: resolvedEventId },
-    create: {
-      eventId: resolvedEventId,
-      tenantId: targetTenantId,
-      branchId: body.branchId ?? null,
-      eventType: eventType || body.eventType || 'N8N_CALLBACK',
-      locale,
-      status: 'SUCCESS',
-      payload: body,
-      response: {
-        processedAt: new Date().toISOString(),
-        status: 'OK',
-        result: body.result ?? null,
-      },
-      lastAttemptAt: new Date(),
-    },
-    update: {
-      status: 'SUCCESS',
-      response: {
-        processedAt: new Date().toISOString(),
-        status: 'OK',
-        result: body.result ?? null,
-      },
-      lastAttemptAt: new Date(),
-    },
+  // Record into L1 memory cache
+  processedCallbacks.set(cacheKey, {
+    status: 'SUCCESS',
+    tenantId: targetTenantId,
+    processedAt: new Date().toISOString(),
   })
+
+  // Record into L2 persistent database log
+  try {
+    await db.notificationDeliveryLog.create({
+      data: {
+        tenantId: targetTenantId,
+        eventId: resolvedEventId,
+        eventType: 'N8N_CALLBACK',
+        channel: 'WEBHOOK',
+        recipientType: 'SYSTEM',
+        recipientId: 'n8n',
+        title: `n8n callback: ${eventType || body.eventType || 'N8N_CALLBACK'}`,
+        body: JSON.stringify(body).slice(0, 1000),
+        status: 'SUCCESS',
+        metadata: {
+          result: body.result ?? null,
+          processedAt: new Date().toISOString(),
+          payload: body,
+        },
+      },
+    })
+  } catch (err) {
+    console.warn('[n8n callback] Could not write persistent delivery log:', err)
+  }
+
+  // Update IntegrationEvent status to SUCCESS if table exists
+  try {
+    if ((db as any).integrationEvent) {
+      await (db as any).integrationEvent.upsert({
+        where: { eventId: resolvedEventId },
+        create: {
+          eventId: resolvedEventId,
+          tenantId: targetTenantId,
+          branchId: body.branchId ?? null,
+          eventType: eventType || body.eventType || 'N8N_CALLBACK',
+          locale,
+          status: 'SUCCESS',
+          payload: body,
+          response: {
+            processedAt: new Date().toISOString(),
+            status: 'OK',
+            result: body.result ?? null,
+          },
+          lastAttemptAt: new Date(),
+        },
+        update: {
+          status: 'SUCCESS',
+          response: {
+            processedAt: new Date().toISOString(),
+            status: 'OK',
+            result: body.result ?? null,
+          },
+          lastAttemptAt: new Date(),
+        },
+      })
+    }
+  } catch {}
 
   return NextResponse.json({
     success: true,

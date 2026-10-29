@@ -315,6 +315,40 @@ export function registerNotificationListeners() {
           break
         }
 
+        case 'ObservationRecorded': {
+          if (e.concern === 'NEEDS_ATTENTION' || e.concern === 'URGENT') {
+            const student = await db.student.findUnique({
+              where: { id: e.studentId },
+              select: { firstName: true, lastName: true },
+            })
+            const studentName = [student?.firstName, student?.lastName].filter(Boolean).join(' ') || 'Child'
+
+            await NotificationEngine.dispatch({
+              tenantId: e.tenantId,
+              eventType: 'OBSERVATION_ALERT',
+              category: 'ACADEMICS',
+              severity: e.concern === 'URGENT' ? 'URGENT' : 'WARNING',
+              studentId: e.studentId,
+              staffFilter: { role: 'COORDINATOR' },
+              title: e.title,
+              body: `Learning observation alert for {{studentName}}: {{detail}}`,
+              placeholders: {
+                studentName,
+                detail: e.detail || '',
+              },
+              linkUrl: `/app/daily-diary?tab=observations`,
+              skipTimelineEntry: true,
+              metadata: {
+                observationId: e.observationId,
+                studentId: e.studentId,
+                concern: e.concern,
+                category: e.category,
+              },
+            })
+          }
+          break
+        }
+
         default:
           break
       }

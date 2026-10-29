@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { assertResourceScope, tenantScopedIdWhere } from '@/lib/security/resource-scope'
+import { audit } from '@/lib/sequence'
+import { NotificationEngine } from '@/lib/notifications/notification-engine'
 
 /**
  * POST /api/v1/observations/{id}/publish — teacher approves & publishes
@@ -69,8 +71,49 @@ async function _POST(
       summary: `Observation published to parents of ${observation.student.firstName}`,
     })
 
+    // Dispatch notification to authorized parents/guardians
+    try {
+      const studentName = observation.student.firstName
+      const preview = observation.narrative.length > 120
+        ? `${observation.narrative.slice(0, 117)}...`
+        : observation.narrative
+
+      await NotificationEngine.dispatch({
+        tenantId: session.tenantId!,
+        eventType: 'OBSERVATION_PUBLISHED',
+        category: 'ACADEMICS',
+        severity: 'INFO',
+        studentId: observation.studentId,
+        classroomId: observation.classroomId ?? undefined,
+        title: `New Learning Observation for ${studentName}`,
+        body: `A new learning observation was recorded: {{preview}}`,
+        placeholders: {
+          studentName,
+          preview,
+          title: observation.category || 'Learning Milestone',
+        },
+        linkUrl: `/app/students/${observation.studentId}?tab=observations`,
+        skipTimelineEntry: true, // Already recorded on timeline in transaction
+        metadata: {
+          observationId: observation.id,
+          studentId: observation.studentId,
+          category: observation.category,
+        },
+        actor: {
+          id: session.uid,
+          name: session.name,
+          role: session.role,
+        },
+      })
+    } catch (notifErr) {
+      console.error('[ObservationPublish] Failed to dispatch parent notification:', notifErr)
+    }
+
     return ok({ timelineEntryId: published.id })
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message?.includes('Unauthorized')) {
+      return Errors.forbidden(e.message)
+    }
     return Errors.system(e)
   }
 }

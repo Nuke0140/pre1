@@ -28,6 +28,7 @@ interface Props {
   profile: any
   currentUserRole?: string
   currentUserRoles?: string[]
+  initialTab?: string
 }
 
 function formatAge(dobStr?: string | Date): string {
@@ -56,7 +57,7 @@ const TL_DOT: Record<string, { color: string; label: string }> = {
   NOTE: { color: 'var(--text-secondary)', label: 'Note' },
 }
 
-export function StudentDetailClient({ profile, currentUserRole, currentUserRoles }: Props) {
+export function StudentDetailClient({ profile, currentUserRole, currentUserRoles, initialTab }: Props) {
   const { student, admission, academic, guardians, attendance, finance, academics, timeline, audit } = profile
   const router = useRouter()
   const toast = useToast()
@@ -69,8 +70,9 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
   )
   const canRecordAcademics = canEdit || effectiveRoles.includes('TEACHER')
 
-  const [tab, setTab] = useState('overview')
-  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview']))
+  const resolvedInitialTab = initialTab || 'overview'
+  const [tab, setTab] = useState(resolvedInitialTab)
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['overview', resolvedInitialTab]))
   const [guardiansList, setGuardiansList] = useState<any[]>(guardians || [])
 
   const handleTabChange = useCallback((nextTab: string) => {
@@ -82,6 +84,17 @@ export function StudentDetailClient({ profile, currentUserRole, currentUserRoles
       return next
     })
   }, [])
+
+  // Sync tab with URL query parameter (e.g., from notification link /app/students/[id]?tab=observations)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const qTab = new URLSearchParams(window.location.search).get('tab')
+      if (qTab && qTab !== tab) {
+        handleTabChange(qTab)
+      }
+    }
+  }, [handleTabChange, tab])
+
   const [busy, setBusy] = useState(false)
 
   // Master options

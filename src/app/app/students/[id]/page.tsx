@@ -5,14 +5,18 @@ import { StudentDetailClient } from './StudentDetailClient'
 
 export default async function StudentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ tab?: string }>
 }) {
   const session = await getSession()
   if (!session) redirect('/')
   if (!session.tenantId) notFound()
 
   const { id } = await params
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
+  const initialTab = typeof resolvedSearchParams?.tab === 'string' ? resolvedSearchParams.tab : undefined
 
   try {
     const profile = await StudentService.getStudentProfile(
@@ -33,6 +37,7 @@ export default async function StudentDetailPage({
         profile={profile}
         currentUserRole={session.role}
         currentUserRoles={effectiveRoles}
+        initialTab={initialTab}
       />
     )
   } catch (error) {

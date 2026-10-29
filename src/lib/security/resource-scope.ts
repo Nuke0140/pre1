@@ -75,8 +75,10 @@ export function assertBranchScope(
   session: SessionPayload,
   resourceBranchId?: string | null
 ): void {
-  // If the resource is not bound to a specific branch, or actor has institution-wide privileges
-  if (!resourceBranchId || isInstitutionWide(session)) return
+  const roles = session.roles && session.roles.length > 0 ? session.roles : (session.role ? [session.role] : [])
+  // If the resource is not bound to a specific branch, or actor has institution-wide privileges,
+  // or actor is PARENT (parent authorization is enforced at object-level through student-guardian linking)
+  if (!resourceBranchId || isInstitutionWide(session) || roles.includes('PARENT')) return
 
   // Branch-scoped role attempting to access a branch-bound resource:
   const allowed = new Set<string>()
@@ -109,7 +111,8 @@ export function assertActorResourceScope(
   if (resource.tenantId !== actor.tenantId) {
     throw new Error('Unauthorized: cross-tenant resource access')
   }
-  if (!resource.branchId || isActorInstitutionWide(actor)) return
+  const roles = getActorRoles(actor)
+  if (!resource.branchId || isActorInstitutionWide(actor) || roles.includes('PARENT')) return
 
   // Branch-scoped actor attempting to access branch-bound resource
   const allowed = new Set<string>()
