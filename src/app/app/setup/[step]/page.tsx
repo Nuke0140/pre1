@@ -7,7 +7,8 @@ import {
   Blocks, CalendarDays, DoorOpen, GraduationCap, LayoutGrid, IndianRupee, Edit3, Edit, Power, Check, BookOpen,
   ArrowUpRight, ShieldCheck, Download, Filter, X, FileSpreadsheet,
 } from 'lucide-react'
-import { PageHead, Skeleton, EmptyState, StatusBadge } from '@/components/preone/ui'
+import { PageHead, Skeleton, EmptyState, StatusBadge, KpiTile } from '@/components/preone/ui'
+import { SpreadsheetImportWorkspace } from '@/components/importers/SpreadsheetImportWorkspace'
 import { SetupScopeBadge } from '@/components/preone/SetupScopeBadge'
 import { SmartDependencyResolver } from '@/components/setup/SmartDependencyResolver'
 import { Modal } from '@/components/preone/Modal'
@@ -839,6 +840,7 @@ function AcademicYearsSection({
 
 function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dict[]; onDone: () => void; onEditClass: (c: Dict) => void; onAddClass: () => void }) {
   const toast = useToast()
+  const [viewMode, setViewMode] = useState<'DIRECTORY' | 'IMPORT'>('DIRECTORY')
   const [programs, setPrograms] = useState<Dict[]>([])
   const [branches, setBranches] = useState<Dict[]>([])
   const [academicYears, setAcademicYears] = useState<Dict[]>([])
@@ -890,6 +892,9 @@ function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dic
     })
   }, [rooms, selectedBranchId, selectedProgramId, selectedYearId, searchQuery])
 
+  const totalCapacity = useMemo(() => rooms.reduce((acc: number, c: any) => acc + (Number(c.capacity) || 0), 0), [rooms])
+  const totalStudents = useMemo(() => rooms.reduce((acc: number, c: any) => acc + (Number(c.students) || 0), 0), [rooms])
+
   const emptyCampuses = useMemo(() => {
     return branches.filter((b: any) => !rooms.some((r: any) => r.branchId === b.id))
   }, [branches, rooms])
@@ -905,146 +910,197 @@ function ClassesSection({ rooms, onDone, onEditClass, onAddClass }: { rooms: Dic
 
   return (
     <>
+      {/* ── Merged Classrooms KPI Strip ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 14 }}>
+        <KpiTile
+          label="Total Classrooms"
+          value={rooms.length}
+          icon={<LayoutGrid className="w-4 h-4 text-purple-600" />}
+          iconClass="ic-purple"
+          variant="compact"
+        />
+        <KpiTile
+          label="Active Campuses"
+          value={branches.length}
+          icon={<Building2 className="w-4 h-4 text-blue-600" />}
+          iconClass="ic-blue"
+          variant="compact"
+        />
+        <KpiTile
+          label="Total Student Capacity"
+          value={totalCapacity}
+          icon={<Users className="w-4 h-4 text-emerald-600" />}
+          iconClass="ic-green"
+          variant="compact"
+        />
+        <KpiTile
+          label="Enrolled Students"
+          value={totalStudents}
+          icon={<GraduationCap className="w-4 h-4 text-amber-600" />}
+          iconClass="ic-orange"
+          variant="compact"
+        />
+      </div>
+
       <TableToolbar
-        title="Class-sections (current year)"
+        title={viewMode === 'IMPORT' ? 'Import Classrooms via Spreadsheet' : 'Class-sections (current year)'}
         count={filteredRooms.length}
         icon={<LayoutGrid size={14} style={{ marginRight: 6, verticalAlign: -2 }} />}
         extraActions={
-          <a
-            href="/app/classrooms"
-            className="btn btn-secondary btn-sm"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
-            title="Import Classrooms via Spreadsheet"
-          >
-            <FileSpreadsheet size={13} style={{ color: 'var(--primary)' }} />
-            <span>Import via Spreadsheet</span>
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setViewMode(viewMode === 'IMPORT' ? 'DIRECTORY' : 'IMPORT')}
+              className={`btn btn-sm ${viewMode === 'IMPORT' ? 'btn-secondary' : 'btn-outline'}`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+              title="Import Classrooms via Spreadsheet"
+            >
+              <FileSpreadsheet size={13} style={{ color: 'var(--primary)' }} />
+              <span>{viewMode === 'IMPORT' ? 'View Directory' : 'Import via Spreadsheet'}</span>
+            </button>
+          </div>
         }
-        onAdd={onAddClass}
+        onAdd={viewMode === 'DIRECTORY' ? onAddClass : undefined}
         addLabel="Add Classroom"
       />
 
-      {emptyCampuses.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--amber-bg, #fef3c7)', color: 'var(--amber-text, #92400e)', borderRadius: 8, marginBottom: 14, fontSize: 13, border: '1px solid #fde68a' }}>
-          <span>
-            <strong>Campus pending classroom:</strong> {emptyCampuses.map((b) => b.name).join(', ')} does not have any classrooms yet. Each active campus requires at least one classroom in the operating year.
-          </span>
-          <button className="btn btn-sm btn-outline" onClick={onAddClass}>
-            + Add Classroom
-          </button>
+      {viewMode === 'IMPORT' ? (
+        <div style={{ marginTop: 12, marginBottom: 20 }}>
+          <SpreadsheetImportWorkspace
+            module="CLASSROOMS"
+            embedded
+            onSuccess={() => {
+              onDone()
+              setViewMode('DIRECTORY')
+            }}
+            onCancel={() => setViewMode('DIRECTORY')}
+          />
         </div>
-      )}
-
-      {/* ── Context & Multi-Dimensional Filters Bar ── */}
-      <div style={{ padding: '12px 14px', background: 'var(--surface-muted)', borderRadius: 10, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Building2 size={15} style={{ color: 'var(--primary)' }} />
-            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Campus:</span>
-            <select
-              className="select"
-              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
-              value={selectedBranchId}
-              onChange={(e) => {
-                setSelectedBranchId(e.target.value)
-                setSelectedProgramId('ALL')
-              }}
-            >
-              <option value="ALL">All Campuses ({branches.length})</option>
-              {branches.map((b: any) => (
-                <option key={String(b.id)} value={String(b.id)}>{b.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Blocks size={15} style={{ color: 'var(--primary)' }} />
-            <span style={{ fontSize: 12.5, fontWeight: 700 }}>Program:</span>
-            <select
-              className="select"
-              style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
-              value={selectedProgramId}
-              onChange={(e) => setSelectedProgramId(e.target.value)}
-            >
-              <option value="ALL">All Programs ({applicablePrograms.length})</option>
-              {applicablePrograms.map((p: any) => (
-                <option key={String(p.id)} value={String(p.id)}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {academicYears.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CalendarDays size={15} style={{ color: 'var(--primary)' }} />
-              <span style={{ fontSize: 12.5, fontWeight: 700 }}>Year:</span>
-              <select
-                className="select"
-                style={{ height: 32, fontSize: 12.5, minWidth: 130 }}
-                value={selectedYearId}
-                onChange={(e) => setSelectedYearId(e.target.value)}
-              >
-                <option value="ALL">All Years ({academicYears.length})</option>
-                {academicYears.map((y: any) => (
-                  <option key={String(y.id)} value={String(y.id)}>{y.name}{y.isCurrent ? ' (current)' : ''}</option>
-                ))}
-              </select>
+      ) : (
+        <>
+          {emptyCampuses.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--amber-bg, #fef3c7)', color: 'var(--amber-text, #92400e)', borderRadius: 8, marginBottom: 14, fontSize: 13, border: '1px solid #fde68a' }}>
+              <span>
+                <strong>Campus pending classroom:</strong> {emptyCampuses.map((b) => b.name).join(', ')} does not have any classrooms yet. Each active campus requires at least one classroom in the operating year.
+              </span>
+              <button className="btn btn-sm btn-outline" onClick={onAddClass}>
+                + Add Classroom
+              </button>
             </div>
           )}
 
-          <div style={{ flex: 1, minWidth: 160 }}>
-            <input
-              className="input"
-              style={{ height: 32, fontSize: 12.5 }}
-              placeholder="Search by class name, code, teacher…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          {/* ── Context & Multi-Dimensional Filters Bar ── */}
+          <div style={{ padding: '12px 14px', background: 'var(--surface-muted)', borderRadius: 10, border: '1px solid var(--border-subtle)', marginBottom: 14 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Building2 size={15} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>Campus:</span>
+                <select
+                  className="select"
+                  style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+                  value={selectedBranchId}
+                  onChange={(e) => {
+                    setSelectedBranchId(e.target.value)
+                    setSelectedProgramId('ALL')
+                  }}
+                >
+                  <option value="ALL">All Campuses ({branches.length})</option>
+                  {branches.map((b: any) => (
+                    <option key={String(b.id)} value={String(b.id)}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Blocks size={15} style={{ color: 'var(--primary)' }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700 }}>Program:</span>
+                <select
+                  className="select"
+                  style={{ height: 32, fontSize: 12.5, minWidth: 150 }}
+                  value={selectedProgramId}
+                  onChange={(e) => setSelectedProgramId(e.target.value)}
+                >
+                  <option value="ALL">All Programs ({applicablePrograms.length})</option>
+                  {applicablePrograms.map((p: any) => (
+                    <option key={String(p.id)} value={String(p.id)}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {academicYears.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CalendarDays size={15} style={{ color: 'var(--primary)' }} />
+                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>Year:</span>
+                  <select
+                    className="select"
+                    style={{ height: 32, fontSize: 12.5, minWidth: 130 }}
+                    value={selectedYearId}
+                    onChange={(e) => setSelectedYearId(e.target.value)}
+                  >
+                    <option value="ALL">All Years ({academicYears.length})</option>
+                    {academicYears.map((y: any) => (
+                      <option key={String(y.id)} value={String(y.id)}>{y.name}{y.isCurrent ? ' (current)' : ''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <input
+                  className="input"
+                  style={{ height: 32, fontSize: 12.5 }}
+                  placeholder="Search by class name, code, teacher…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={clearFilters}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
+                >
+                  <X size={13} /> Clear
+                </button>
+              )}
+            </div>
           </div>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={clearFilters}
-              style={{ display: 'flex', alignItems: 'center', gap: 4, height: 32 }}
-            >
-              <X size={13} /> Clear
-            </button>
+          <p className="helper" style={{ marginBottom: 10 }}>Classes and learning spaces are organized by campus, academic program, and assigned educator.</p>
+          <div className="dtable-scroll"><table className="dtable">
+            <thead><tr><th>Owning Campus</th><th>Class</th><th>Linked Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link Program</th><th>Actions</th></tr></thead>
+            <tbody>{filteredRooms.map((c: any) => (
+              <tr key={String(c.id)}>
+                <td><span className="badge b-primary">{c.branchName || 'Main Campus'}</span></td>
+                <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
+                <td>{c.programName ? <span className="badge b-neutral">{c.programName}</span> : <span className="badge b-warning">not linked</span>}</td>
+                <td>{String(c.capacity)} seats</td>
+                <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
+                <td>{String(c.students ?? 0)}</td>
+                <td>
+                  <select className="select" style={{ maxWidth: 170 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
+                    <option value="">— choose program —</option>
+                    {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
+                  </select>
+                </td>
+                <td>
+                  <button className="btn btn-sm btn-outline" onClick={() => onEditClass(c)} title="Edit class settings">
+                    <Edit3 size={13} /> Edit
+                  </button>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table></div>
+          {filteredRooms.length === 0 && (
+            <EmptyState
+              icon={<LayoutGrid size={36} />}
+              title={hasActiveFilters ? "No classes match filters" : "No classes for the current year"}
+              message={hasActiveFilters ? "Try clearing or adjusting your branch or program filters." : "Add classroom sections with program link and capacity, or import via spreadsheet."}
+            />
           )}
-        </div>
-      </div>
-
-      <p className="helper" style={{ marginBottom: 10 }}>New classes are added in <a href="/app/settings" className="cell-link">Settings → Classes</a>. Each class-section is mapped to its owning campus and academic program.</p>
-      <div className="dtable-scroll"><table className="dtable">
-        <thead><tr><th>Owning Campus</th><th>Class</th><th>Linked Program</th><th>Capacity</th><th>Teacher</th><th>Students</th><th>Link Program</th><th>Actions</th></tr></thead>
-        <tbody>{filteredRooms.map((c: any) => (
-          <tr key={String(c.id)}>
-            <td><span className="badge b-primary">{c.branchName || 'Main Campus'}</span></td>
-            <td><span className="cell-strong">{c.name}</span><span className="cell-sub">{c.code}</span></td>
-            <td>{c.programName ? <span className="badge b-neutral">{c.programName}</span> : <span className="badge b-warning">not linked</span>}</td>
-            <td>{String(c.capacity)} seats</td>
-            <td>{c.teacher ?? <span className="badge b-warning">unassigned</span>}</td>
-            <td>{String(c.students ?? 0)}</td>
-            <td>
-              <select className="select" style={{ maxWidth: 170 }} value={String(c.programId ?? '')} onChange={(e) => link(String(c.id), e.target.value)}>
-                <option value="">— choose program —</option>
-                {programs.map((p: any) => <option key={String(p.id)} value={String(p.id)}>{p.name}</option>)}
-              </select>
-            </td>
-            <td>
-              <button className="btn btn-sm btn-outline" onClick={() => onEditClass(c)} title="Edit class settings">
-                <Edit3 size={13} /> Edit
-              </button>
-            </td>
-          </tr>
-        ))}</tbody>
-      </table></div>
-      {filteredRooms.length === 0 && (
-        <EmptyState
-          icon={<LayoutGrid size={36} />}
-          title={hasActiveFilters ? "No classes match filters" : "No classes for the current year"}
-          message={hasActiveFilters ? "Try clearing or adjusting your branch or program filters." : "Add class-sections in Settings → Classes — each needs a program link and capacity."}
-        />
+        </>
       )}
     </>
   )

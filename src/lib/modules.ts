@@ -129,21 +129,15 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     semanticTheme: 'orange',
     animation: '/animations/home/hr_workforce.json',
   },
-  classrooms: {
-    description: 'Classrooms, sections & capacities',
+  setup: {
+    description: 'School configuration & classrooms',
     tileSize: 'md',
     semanticTheme: 'lavender',
     animation: '/animations/home/setup.json',
     quickActions: [
-      { label: 'View classrooms', href: '/app/classrooms' },
-      { label: 'Import spreadsheet', href: '/app/classrooms' },
+      { label: 'Classrooms', href: '/app/setup/classroom', perm: 'settings:read' },
+      { label: 'School Profile', href: '/app/setup/school_profile', perm: 'settings:read' },
     ],
-  },
-  setup: {
-    description: 'School configuration',
-    tileSize: 'sm',
-    semanticTheme: 'lavender',
-    animation: '/animations/home/setup.json',
   },
   admissions: {
     description: 'Inquiries & enrollments',

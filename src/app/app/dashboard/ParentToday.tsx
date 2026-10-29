@@ -405,7 +405,7 @@ export function ParentToday({ initialChildren, initialToday }: ParentTodayProps)
                 <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <AlertTriangle size={14} style={{ color: 'var(--danger)' }} />
                   <b style={{ fontSize: 12.5 }}>{a.title}</b>
-                  <span className="t-caption">{timeAgo(a.createdAt)}</span>
+                  <span className="t-caption" suppressHydrationWarning>{timeAgo(a.createdAt)}</span>
                 </div>
               ))}
             </div>
@@ -440,7 +440,7 @@ export function ParentToday({ initialChildren, initialToday }: ParentTodayProps)
                           {e.title}
                           {e.mood ? ` · ${e.mood}` : ''}
                         </span>
-                        <div className="t-caption">{timeAgo(e.at)}</div>
+                        <div className="t-caption" suppressHydrationWarning>{timeAgo(e.at)}</div>
                       </div>
                     </div>
                   ))}
@@ -460,7 +460,7 @@ export function ParentToday({ initialChildren, initialToday }: ParentTodayProps)
                   </p>
                   <div className="t-caption" style={{ marginTop: 4 }}>
                     {childDetail.latestUpdate.category ? `${childDetail.latestUpdate.category} · ` : ''}
-                    {timeAgo(childDetail.latestUpdate.observedAt)}
+                    <span suppressHydrationWarning>{timeAgo(childDetail.latestUpdate.observedAt)}</span>
                   </div>
                 </div>
               ) : (

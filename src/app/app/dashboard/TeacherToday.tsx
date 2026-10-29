@@ -227,7 +227,7 @@ export function TeacherToday() {
                 : <AlertTriangle size={16} style={{ color: 'var(--warning)' }} />}
               <div style={{ flex: 1 }}>
                 <b style={{ fontSize: 13 }}>{f.title}</b>
-                <div className="t-caption">{f.student ? `${f.student} · ` : ''}{f.domain} · {timeAgo(f.createdAt)}</div>
+                <div className="t-caption" suppressHydrationWarning>{f.student ? `${f.student} · ` : ''}{f.domain} · {timeAgo(f.createdAt)}</div>
               </div>
               <StatusBadge status={f.status} />
               <button className="btn btn-success btn-sm" disabled={busy} onClick={() => resolveFu(f.id)}>

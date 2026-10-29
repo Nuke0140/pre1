@@ -199,6 +199,18 @@ export async function requireBranchAccess(
 }
 
 /**
+ * Returns true if the actor is authorized to access the specified branch.
+ */
+export async function isBranchAuthorized(
+  session: SessionPayload,
+  targetBranchId?: string | null
+): Promise<boolean> {
+  if (!targetBranchId) return true
+  const denial = await requireBranchAccess(session, targetBranchId)
+  return denial === null
+}
+
+/**
  * Verifies that the actor has the authority to manage the target user.
  * - Non-owners cannot edit or delete OWNER accounts.
  * - Non-owners cannot edit PRINCIPAL accounts.

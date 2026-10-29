@@ -24,7 +24,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'users', label: 'Users', href: '/app/users', icon: UserCheck, grad: 'g-violet', perm: 'users:read' },
   { key: 'admissions', label: 'Admissions', href: '/app/admissions', icon: ClipboardList, grad: 'g-pink', perm: 'admissions:read' },
   { key: 'students', label: 'Students', href: '/app/students', icon: Users, grad: 'g-blue', perm: 'students:read' },
-  { key: 'classrooms', label: 'Classrooms', href: '/app/classrooms', icon: LayoutGrid, grad: 'g-blue', perm: 'settings:read' },
   { key: 'daily-diary', label: 'Daily Diary', href: '/app/daily-diary', icon: CalendarCheck, grad: 'g-emerald', perm: 'attendance:read' },
   { key: 'finance', label: 'Fees', href: '/app/finance', icon: IndianRupee, grad: 'g-yellow', perm: 'finance:read' },
   { key: 'transport', label: 'Transport', href: '/app/transport', icon: Bus, grad: 'g-orange', perm: 'transport:read' },

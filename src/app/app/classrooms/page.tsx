@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   LayoutGrid, Plus, FileSpreadsheet, Building2, Blocks,
   GraduationCap, Users, RefreshCw, Search, ShieldCheck
@@ -16,6 +17,11 @@ import { Modal } from '@/components/preone/Modal'
 export default function ClassroomsPage() {
   const toast = useToast()
   const { t } = useI18n()
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace('/app/setup/classroom')
+  }, [router])
 
   const [activeTab, setActiveTab] = useState<'DIRECTORY' | 'IMPORT'>('DIRECTORY')
   const [classrooms, setClassrooms] = useState<any[]>([])
@@ -127,7 +133,20 @@ export default function ClassroomsPage() {
         ]}
       />
 
-      {/* Page Header */}
+            {/* Merged to Setup Notice */}
+      <div className="p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3">
+          <RefreshCw className="w-4 h-4 text-purple-600 animate-spin" />
+          <span className="text-xs font-medium text-purple-900 dark:text-purple-200">
+            Classrooms management has been merged into School Setup. Redirecting to <Link href="/app/setup/classroom" className="underline font-bold">Classroom Setup</Link>...
+          </span>
+        </div>
+        <Link href="/app/setup/classroom" className="btn btn-primary btn-sm text-xs font-semibold">
+          Go to Classroom Setup →
+        </Link>
+      </div>
+
+{/* Page Header */}
       <PageHead
         title="Classrooms & Learning Spaces"
         sub="Manage preschool class-sections, room capacities, assigned guides, and bulk spreadsheet migrations."

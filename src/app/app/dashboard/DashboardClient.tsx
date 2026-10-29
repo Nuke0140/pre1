@@ -152,13 +152,13 @@ export function DashboardClient({ role, perms, setup, sessionName, userName, dat
                 <Sparkles size={13} className="text-primary" />
                 Preschool Operations Command
               </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" suppressHydrationWarning>
                 <Clock size={12} className="text-slate-500" />
                 {todayFormatted}
               </span>
             </div>
 
-            <h1 className="operational-hero-title text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="operational-hero-title text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2" suppressHydrationWarning>
               <span>{greeting.emoji}</span>
               <span>
                 {greeting.text},{' '}
@@ -604,7 +604,7 @@ export function DashboardClient({ role, perms, setup, sessionName, userName, dat
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
                         <span className="font-medium text-slate-700 dark:text-slate-300">{a.actor || 'System'}</span>
                         <span>·</span>
-                        <span>{timeAgo(a.at)}</span>
+                        <span suppressHydrationWarning>{timeAgo(a.at)}</span>
                       </p>
                     </div>
                   </div>

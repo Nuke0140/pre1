@@ -58,6 +58,8 @@ function timeToMinutes(timeStr: string): number {
 /** Helper: Assert that a user has authorized branch and classroom access */
 async function assertClassroomAccess(session: SessionPayload, classroomId: string) {
   const tenantId = session.tenantId!
+  const scope = getScopeFromSession(session)
+
   const classroom = await db.classroom.findFirst({
     where: { id: classroomId, tenantId },
     select: { primaryTeacherId: true, branchId: true },
@@ -67,24 +69,33 @@ async function assertClassroomAccess(session: SessionPayload, classroomId: strin
     throw new Error('Classroom not found')
   }
 
-  const isBranchOk = await isBranchAuthorized(session, classroom.branchId)
-  if (!isBranchOk) {
-    throw new Error('FORBIDDEN_BRANCH_ACCESS: You are not authorized to access this branch')
-  }
-
-  const scope = getScopeFromSession(session)
-  if (scope.isAdmin) return
-
-  if (classroom.primaryTeacherId === session.uid) {
+  if (scope.isAdmin) {
+    if (session.branchId && classroom.branchId && classroom.branchId !== session.branchId) {
+      const isBranchOk = await isBranchAuthorized(session, classroom.branchId)
+      if (!isBranchOk) {
+        throw new Error('FORBIDDEN_BRANCH_ACCESS: You are not authorized to access this branch')
+      }
+    }
     return
   }
 
-  const isMapped = await db.classroomSubject.findFirst({
-    where: { classroomId, specialistTeacherId: session.uid },
-  })
+  // Teacher scoping: verify classroom assignment
+  const isAssigned = classroom.primaryTeacherId === session.uid
+  if (!isAssigned) {
+    const isMapped = await db.classroomSubject.findFirst({
+      where: { classroomId, specialistTeacherId: session.uid },
+    })
+    if (!isMapped) {
+      throw new Error('FORBIDDEN_TEACHER_CLASSROOM_ACCESS: You are only authorized to manage your assigned classroom')
+    }
+  }
 
-  if (!isMapped) {
-    throw new Error('FORBIDDEN_TEACHER_CLASSROOM_ACCESS: You are only authorized to manage your assigned classroom')
+  // Branch boundary check for teachers with specific branchId
+  if (session.branchId && classroom.branchId && classroom.branchId !== session.branchId) {
+    const isBranchOk = await isBranchAuthorized(session, classroom.branchId)
+    if (!isBranchOk) {
+      throw new Error('FORBIDDEN_BRANCH_ACCESS: You are not authorized to access this branch')
+    }
   }
 }
 
@@ -112,7 +123,7 @@ export class DailyDiaryService {
     })
 
     const authorizedBranches = await getAuthorizedBranchIds(session)
-    const branches = authorizedBranches === 'ALL'
+    let branches = authorizedBranches === 'ALL' || authorizedBranches === null
       ? allBranches
       : allBranches.filter((b) => authorizedBranches.includes(b.id))
 
@@ -128,7 +139,7 @@ export class DailyDiaryService {
           { subjectMappings: { some: { specialistTeacherId: session.uid } } },
         ],
       }
-    } else if (authorizedBranches !== 'ALL') {
+    } else if (authorizedBranches !== 'ALL' && authorizedBranches !== null) {
       classroomsWhere.branchId = { in: authorizedBranches }
     }
 
@@ -154,9 +165,6 @@ export class DailyDiaryService {
       },
       orderBy: { name: 'asc' },
     })
-
-    // Filter branches strictly for teachers and branch-scoped staff
-    let branches = allBranches
     if (scope.isTeacher) {
       const teacherBranchIds = Array.from(
         new Set([
@@ -164,7 +172,7 @@ export class DailyDiaryService {
           ...classrooms.map((c) => c.branchId).filter(Boolean),
         ])
       )
-      branches = allBranches.filter((b) => teacherBranchIds.includes(b.id))
+      branches = branches.filter((b) => teacherBranchIds.includes(b.id))
     } else if (scope.branchId) {
       branches = allBranches.filter((b) => b.id === scope.branchId)
     }

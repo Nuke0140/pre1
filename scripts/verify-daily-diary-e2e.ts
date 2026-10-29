@@ -149,6 +149,23 @@ async function runTests() {
       },
     })
 
+    // Seed Subject for timetable eligibility
+    const sub = await db.subject.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'Morning Circle & Phonemic Rhymes',
+        code: `MCPR-${testSuffix}`,
+        status: 'ACTIVE',
+      },
+    })
+    await db.classroomSubject.create({
+      data: {
+        tenantId: tenant.id,
+        classroomId: classA.id,
+        subjectId: sub.id,
+      },
+    })
+
     // Create 2 Students in Class A
     const student1 = await db.student.create({
       data: {
