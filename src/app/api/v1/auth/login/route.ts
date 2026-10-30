@@ -9,6 +9,7 @@ import { audit, getRequestMeta } from '@/lib/audit'
 import { SessionService } from '@/lib/users/session-service'
 import { MfaService } from '@/lib/auth/mfa-service'
 import { OtpService } from '@/lib/auth/otp-service'
+import { resolveTenantContext } from '@/lib/auth/tenant-resolver'
 
 import {
   recordFailedAttempt,
@@ -28,6 +29,8 @@ export const POST = withApi(
         username,
         password,
         schoolCode,
+        tenantId,
+        selectedTenantId,
         code,
         otp,
         mfaCode,
@@ -38,6 +41,8 @@ export const POST = withApi(
         username?: string
         password?: string
         schoolCode?: string
+        tenantId?: string
+        selectedTenantId?: string
         code?: string
         otp?: string
         mfaCode?: string
@@ -251,14 +256,24 @@ export const POST = withApi(
         return Errors.business('AUTH_003', 'Invalid credentials', 401)
       }
 
-      // Resolve targeted school membership if schoolCode was specified, otherwise prefer active membership
-      let membership = user.memberships.find((m) => m.status === 'ACTIVE') || user.memberships[0]
-      if (cleanSchoolCode) {
+      // Resolve tenant context via Host header/subdomain, query, or explicit identifier
+      const resolvedTenant = await resolveTenantContext(req, schoolCode || tenantId || selectedTenantId)
+
+      if (resolvedTenant && resolvedTenant.status !== 'ACTIVE') {
+        return Errors.business('TENANT_INACTIVE', 'This school workspace is currently inactive.', 403)
+      }
+
+      // Resolve targeted school membership
+      let membership = user.memberships.find((m: any) => m.status === 'ACTIVE') || user.memberships[0]
+
+      if (resolvedTenant) {
         const matchingMembership = user.memberships.find(
-          (m) => m.tenant?.code?.toUpperCase() === cleanSchoolCode
+          (m: any) =>
+            m.tenantId === resolvedTenant.id ||
+            m.tenant?.code?.toUpperCase() === resolvedTenant.code.toUpperCase()
         )
         if (!matchingMembership && user.memberships.length > 0) {
-          // Cross-tenant mismatch protection: user doesn't belong to the supplied school code
+          // Cross-tenant mismatch protection: user doesn't belong to the supplied or host-resolved school
           recordFailedAttempt(user.id)
           recordFailedAttempt(loginId)
           await audit({
@@ -269,7 +284,7 @@ export const POST = withApi(
             entity: 'User',
             entityId: user.id,
             module: 'AUTH',
-            summary: `Login rejected for ${loginId}: school code ${cleanSchoolCode} does not match user memberships`,
+            summary: `Login rejected for ${loginId}: school ${resolvedTenant.code} does not match user memberships`,
             severity: 'WARNING',
             ipAddress: meta.ipAddress,
             userAgent: meta.userAgent,
@@ -279,6 +294,46 @@ export const POST = withApi(
         }
         if (matchingMembership) {
           membership = matchingMembership
+        }
+      } else {
+        // Multi-school handling on generic/root domain
+        const activeMemberships = (user.memberships || []).filter(
+          (m: any) => m.status === 'ACTIVE' && (!m.tenant || m.tenant.status === 'ACTIVE')
+        )
+
+        if (activeMemberships.length > 1) {
+          const selectedTenant = selectedTenantId || tenantId || cleanSchoolCode
+          if (selectedTenant) {
+            const chosen = activeMemberships.find(
+              (m: any) =>
+                m.tenantId === selectedTenant ||
+                m.tenant?.code?.toUpperCase() === selectedTenant.toUpperCase()
+            )
+            if (chosen) {
+              membership = chosen
+            }
+          } else {
+            // Validate password before returning school selection challenge to prevent discovery
+            const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
+            if (!isPasswordValid) {
+              recordFailedAttempt(user.id)
+              recordFailedAttempt(loginId)
+              return Errors.business('AUTH_003', 'Invalid credentials', 401)
+            }
+
+            return ok({
+              requiresSchoolSelection: true,
+              schools: activeMemberships.map((m: any) => ({
+                id: m.tenant?.id || m.tenantId,
+                name: m.tenant?.name || 'School Workspace',
+                code: m.tenant?.code || '',
+                logoUrl: m.tenant?.logoUrl || null,
+                role: m.role,
+              })),
+            })
+          }
+        } else if (activeMemberships.length === 1) {
+          membership = activeMemberships[0]
         }
       }
 
@@ -580,7 +635,11 @@ export const POST = withApi(
           username: user.username,
           role: primaryRole,
           roles: effectiveRoles,
-          tenant: { id: membership.tenantId, name: membership.tenant.name },
+          tenant: {
+            id: membership.tenantId,
+            name: membership.tenant?.name,
+            code: membership.tenant?.code,
+          },
           branch: branch ? { id: branch.id, name: branch.name } : null,
           mustChangePassword: effectiveMustChangePassword,
         },

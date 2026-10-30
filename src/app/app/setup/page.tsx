@@ -17,6 +17,8 @@ import {
   SetupScopeBadge,
 } from '@/components/preone'
 import { Modal } from '@/components/preone/Modal'
+import { broadcastBrandingUpdate } from '@/lib/branding-context'
+import { DEFAULT_SHELL_GLOW_CONFIG } from '@/lib/theme/shell-glow'
 import { useToast } from '@/components/preone/Toast'
 import { PHASES, SETUP_STEPS, STEP_MAP, type StepKey } from '@/lib/setup/steps'
 import { CopyBranchSetupModal } from '@/components/setup/CopyBranchSetupModal'
@@ -1032,6 +1034,22 @@ export default function SetupPage() {
               toast.success('School profile updated')
               setActiveModal(null)
               refreshAll()
+              fetch('/api/v1/branding').then((r) => r.json()).then((bRes) => {
+                if (bRes.success && bRes.data) {
+                  const b = bRes.data
+                  broadcastBrandingUpdate({
+                    schoolName: b.school?.name || (fd.name as string) || profile.name,
+                    schoolCode: profile.code,
+                    logoUrl: b.school?.logoUrl || null,
+                    bannerUrl: null,
+                    primaryColor: b.theme?.primaryColor || '#7C3AED',
+                    accentColor: b.theme?.accentColor || '#3B82F6',
+                    layout: 'WINDOWS_SHELL',
+                    footerGlow: DEFAULT_SHELL_GLOW_CONFIG,
+                    campusName: b.campusName || null,
+                  })
+                }
+              }).catch(() => {})
             } else {
               toast.error('Update failed', res.error?.message)
             }

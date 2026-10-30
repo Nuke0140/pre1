@@ -15,6 +15,7 @@ import {
   evaluateColorContrast,
   type BrandingConfig
 } from '@/lib/branding-types'
+import { broadcastBrandingUpdate } from '@/lib/branding-context'
 import {
   PREONE_THEME_PRESETS,
   DEFAULT_SHELL_GLOW_CONFIG,
@@ -223,6 +224,18 @@ export default function BrandingPage() {
         body: JSON.stringify({ action: 'complete' }),
       }).catch(() => {})
 
+      const updatedBranding: BrandingConfig = {
+        schoolName,
+        schoolCode,
+        logoUrl: logoUrl || null,
+        bannerUrl: null,
+        primaryColor: isPrimaryCustom ? primaryColor : PREONE_BRANDING_DEFAULTS.primaryColor,
+        accentColor: isAccentCustom ? accentColor : PREONE_BRANDING_DEFAULTS.accentColor,
+        layout: 'WINDOWS_SHELL',
+        footerGlow: glowConfig,
+      }
+      broadcastBrandingUpdate(updatedBranding)
+
       toast.success('Branding updated successfully', 'School visual identity and colors have been saved.')
       setInitialData({
         ...payload,
@@ -264,6 +277,19 @@ export default function BrandingPage() {
       await saveShellGlowConfig(DEFAULT_SHELL_GLOW_CONFIG)
 
       setResetModalOpen(false)
+
+      const resetBranding: BrandingConfig = {
+        schoolName,
+        schoolCode,
+        logoUrl: logoUrl || null,
+        bannerUrl: null,
+        primaryColor: PREONE_BRANDING_DEFAULTS.primaryColor,
+        accentColor: PREONE_BRANDING_DEFAULTS.accentColor,
+        layout: 'WINDOWS_SHELL',
+        footerGlow: DEFAULT_SHELL_GLOW_CONFIG,
+      }
+      broadcastBrandingUpdate(resetBranding)
+
       toast.success('Theme reset to defaults', 'Colors and glow settings were reset. School logo is preserved.')
       router.refresh()
     } catch (e: any) {

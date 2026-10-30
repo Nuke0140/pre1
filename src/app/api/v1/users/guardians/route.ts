@@ -16,7 +16,7 @@ export const GET = withApi(async (req: NextRequest) => {
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
+    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
   )
 
   let effectiveBranchId: string | undefined = undefined
@@ -28,6 +28,8 @@ export const GET = withApi(async (req: NextRequest) => {
   } else if (branchFilter && branchFilter !== 'ALL') {
     effectiveBranchId = branchFilter
   }
+
+  const targetBranchSet = effectiveBranchId ? [effectiveBranchId] : null
 
   const whereClause: any = {
     tenantId: session.tenantId,

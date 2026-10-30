@@ -27,6 +27,7 @@ import { FullscreenButton } from './FullscreenButton'
 import { HelpButton } from './HelpButton'
 import { Avatar } from '@/components/preone/ui'
 import type { BrandingConfig } from '@/lib/branding-types'
+import { useBranding } from '@/lib/branding-context'
 import { useI18n } from '@/lib/i18n/context'
 import { SUPPORTED_LOCALES, SupportedLocale } from '@/lib/i18n/types'
 
@@ -108,6 +109,13 @@ export function GlobalWorkspaceHeader({
 }: GlobalWorkspaceHeaderProps) {
   const [scrolled, setScrolled] = useState(false)
   const [isMac, setIsMac] = useState(false)
+  const contextBranding = useBranding()
+  const activeBranding = contextBranding || branding
+  const [logoFailed, setLogoFailed] = useState(false)
+
+  useEffect(() => {
+    setLogoFailed(false)
+  }, [activeBranding?.logoUrl])
   const [langOpen, setLangOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
@@ -215,11 +223,12 @@ export function GlobalWorkspaceHeader({
               aria-label="PreOne OS Home"
               title="PreOne OS Home"
             >
-              {branding?.logoUrl ? (
+              {activeBranding?.logoUrl && !logoFailed ? (
                 <img
-                  src={branding.logoUrl}
-                  alt={user.tenantName || 'School Logo'}
+                  src={activeBranding.logoUrl}
+                  alt={activeBranding.schoolName || user.tenantName || 'School Logo'}
                   className="h-6 w-6 object-contain rounded drop-shadow-xs transition-transform duration-200 hover:scale-105"
+                  onError={() => setLogoFailed(true)}
                 />
               ) : (
                 <svg

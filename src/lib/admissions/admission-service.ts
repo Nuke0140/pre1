@@ -356,7 +356,7 @@ export class AdmissionService {
       action: 'UPDATE_STATUS',
       entity: 'Lead',
       entityId: enquiryId,
-      summary: `Enquiry ${enquiry.leadNumber} status transitioned: ${enquiry.status} → ${newStatus}`,
+      summary: `Enquiry ${enquiry.leadNumber} status transitioned: ${enquiry.status} -> ${newStatus}`,
     })
 
     return updated
@@ -2969,7 +2969,7 @@ export class AdmissionService {
       action: 'ENROLL',
       entity: 'AdmissionApplication',
       entityId: applicationId,
-      summary: `Completed Admission: ${app.applicationNumber} → Student ${result.student.admissionNo} (${result.student.firstName}) enrolled in ${result.classroom?.name || 'Classroom'} (Parent Account: ${result.parentUser?.email || result.parentUser?.phone})`,
+      summary: `Completed Admission: ${app.applicationNumber} -> Student ${result.student.admissionNo} (${result.student.firstName}) enrolled in ${result.classroom?.name || 'Classroom'} (Parent Account: ${result.parentUser?.email || result.parentUser?.phone})`,
     })
 
     return {

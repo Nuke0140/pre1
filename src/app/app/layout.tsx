@@ -50,7 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       if (!tenant) {
         redirect('/')
       }
-      branding = await getEffectiveBranding(session.tenantId)
+      branding = await getEffectiveBranding(session.tenantId, session.branchId)
       tenantName = branding?.schoolName || tenant.name || 'PreOne'
 
       if (session.branchId) {

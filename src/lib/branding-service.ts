@@ -2,7 +2,7 @@
  * PreOne — Canonical Server Branding Service
  *
  * Server-side operations for School Visual Identity:
- *  - Resolving effective branding with Tenant and SchoolConfig fallback
+ *  - Resolving effective branding with Tenant, SchoolConfig, and Branch fallback
  *  - Theme reset with audit logging
  */
 
@@ -18,17 +18,29 @@ export * from './branding'
 
 /**
  * Single Canonical Resolver for Effective Branding across PreOne OS.
- * Reads Tenant and SchoolConfig(domain = "BRANDING") and resolves defaults.
+ * Reads Tenant, Branch, and SchoolConfig(domain = "BRANDING") and resolves defaults.
  */
-export async function getEffectiveBranding(tenantId: string): Promise<BrandingConfig> {
-  const [tenant, configRow] = await Promise.all([
+export async function getEffectiveBranding(
+  tenantId: string,
+  branchId?: string | null
+): Promise<BrandingConfig> {
+  const [tenant, configRow, branch] = await Promise.all([
     db.tenant.findUnique({
       where: { id: tenantId },
-      select: { logoUrl: true, name: true, code: true },
+      select: { id: true, logoUrl: true, name: true, code: true },
     }),
     db.schoolConfig.findUnique({
       where: { tenantId_domain: { tenantId, domain: 'BRANDING' } },
     }),
+    branchId
+      ? db.branch.findUnique({
+          where: { id: branchId },
+          select: { id: true, name: true, code: true },
+        })
+      : db.branch.findFirst({
+          where: { tenantId, isMain: true, deletedAt: null },
+          select: { id: true, name: true, code: true },
+        }),
   ])
 
   const brandData = (configRow?.data as Record<string, unknown>) || {}
@@ -70,6 +82,9 @@ export async function getEffectiveBranding(tenantId: string): Promise<BrandingCo
     footerGlow,
     footerText,
     footerVisible,
+    campusName: branch?.name || null,
+    branchId: branch?.id || null,
+    schoolId: tenant?.id || null,
   }
 }
 
@@ -134,15 +149,24 @@ export async function resetThemeSettings(
     },
   })
 
-  const tenant = await db.tenant.findUnique({
-    where: { id: tenantId },
-    select: { logoUrl: true, name: true, code: true },
-  })
+  const [tenant, mainBranch] = await Promise.all([
+    db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true, logoUrl: true, name: true, code: true },
+    }),
+    db.branch.findFirst({
+      where: { tenantId, isMain: true, deletedAt: null },
+      select: { id: true, name: true, code: true },
+    }),
+  ])
 
   return {
     ...resetData,
     logoUrl: tenant?.logoUrl || null,
     schoolName: tenant?.name?.trim() || '',
     schoolCode: tenant?.code || '',
+    campusName: mainBranch?.name || null,
+    branchId: mainBranch?.id || null,
+    schoolId: tenant?.id || null,
   }
 }

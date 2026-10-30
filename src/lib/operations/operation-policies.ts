@@ -102,7 +102,7 @@ export class OperationPolicies {
       lateMinutes: diffMinutes,
       chargeRupees,
       chargeCents,
-      policyNote: `Late pickup by ${diffMinutes}m (grace: ${graceMinutes}m). ₹${chargeRupees} charged per policy.`,
+      policyNote: `Late pickup by ${diffMinutes}m (grace: ${graceMinutes}m). INR ${chargeRupees} charged per policy.`,
     }
   }
 

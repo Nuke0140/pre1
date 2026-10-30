@@ -34,14 +34,15 @@ export const GET = withApi(async (req: NextRequest) => {
     rawBranchId.toLowerCase() === 'all'
 
   const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)
+    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
   )
 
   let branchId: string | undefined = undefined
+  if (!isAllBranches && rawBranchId) {
+    const branchCheck = await requireBranchAccess(session, rawBranchId)
+    if (branchCheck) return branchCheck
+  }
   if (!isInstitutionWide && session.branchId) {
-    if (!isAllBranches && rawBranchId !== session.branchId) {
-      throw errPermission('Access denied: branch scope restricted')
-    }
     branchId = session.branchId
   } else if (!isAllBranches) {
     branchId = rawBranchId

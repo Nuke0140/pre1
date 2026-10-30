@@ -687,7 +687,7 @@ export class OperationsService {
       entity: 'Student',
       entityId: student.id,
       module: 'Operations',
-      summary: `Authorized pickup released: ${student.firstName} to ${authCheck.guardianName}. ${lateCalc.isLate ? `(LATE: ₹${lateCalc.chargeRupees} billed)` : ""}`,
+      summary: `Authorized pickup released: ${student.firstName} to ${authCheck.guardianName}. ${lateCalc.isLate ? `(LATE: INR ${lateCalc.chargeRupees} billed)` : ""}`,
       ipAddress: ctx.ipAddress,
       userAgent: ctx.userAgent,
     })

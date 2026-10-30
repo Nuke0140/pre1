@@ -181,12 +181,19 @@ export async function requireBranchAccess(
   if (!targetBranchId) return null
   if (!session.tenantId) return forbidden('Tenant context required')
 
+  const targetBranch = await db.branch.findFirst({
+    where: { id: targetBranchId, tenantId: session.tenantId, deletedAt: null },
+    select: { id: true },
+  })
+  if (!targetBranch) {
+    return forbidden('Branch not found in this tenant or access denied')
+  }
+
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
   const isOwnerOrPlatform = effectiveRoles.some((r) =>
     ['OWNER', 'PLATFORM_ADMIN'].includes(r)
   )
   if (isOwnerOrPlatform) return null
-  if (!session.branchId && effectiveRoles.includes('PRINCIPAL')) return null
 
   const allowedBranchIds = await getAuthorizedBranchIds(session)
   if (!allowedBranchIds || allowedBranchIds.length === 0) {

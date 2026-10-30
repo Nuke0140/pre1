@@ -462,8 +462,10 @@ export class UserCsvEngine {
         }
       }
 
-      if (options?.actorContext?.actorBranchId && branchId && branchId !== options.actorContext.actorBranchId) {
-        errors.push('Cannot assign staff to another campus branch')
+      const effectiveActorBranchId = options?.actorContext?.actorBranchId || (options)?.actorBranchId;
+      const authorizedBranches = (options)?.authorizedBranchIds || (options)?.actorAuthorizedBranchIds;
+      if ((effectiveActorBranchId && branchId && branchId !== effectiveActorBranchId) || (authorizedBranches && branchId && !authorizedBranches.includes(branchId))) {
+        errors.push(`Cannot assign staff to branch outside your authorized campus (branch: ${branchCode})`)
       }
 
       // Check classroom assignment

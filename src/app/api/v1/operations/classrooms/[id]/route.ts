@@ -30,6 +30,9 @@ async function _GET(
 
     return ok(data)
   } catch (err: any) {
+    if (err.message?.includes('authorized') || err.message?.includes('forbidden')) {
+      return Errors.forbidden(err.message)
+    }
     return Errors.system(err)
   }
 }

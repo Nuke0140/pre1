@@ -4,8 +4,8 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { PreOneBuddy, triggerBuddyReaction } from '@/components/preone/PreOneBuddy'
 import {
-  Building2, Mail, User, AlertCircle, X,
-  HelpCircle, CheckCircle2, ArrowLeft, KeyRound, Sparkles
+  Mail, User, AlertCircle, X,
+  HelpCircle, CheckCircle2, ArrowLeft, KeyRound, Sparkles, ArrowRight
 } from 'lucide-react'
 import {
   AuthShell,
@@ -29,27 +29,43 @@ import {
 export default function LoginPage() {
   const router = useRouter()
   const [authMode, setAuthMode] = useState<'login' | 'otp'>('login')
-  const [schoolCode, setSchoolCode] = useState('')
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [brandingLoading, setBrandingLoading] = useState(true)
   const [generalError, setGeneralError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<{
-    schoolCode?: string
     identifier?: string
     password?: string
     otp?: string
   }>({})
   const [touched, setTouched] = useState<{
-    schoolCode?: boolean
     identifier?: boolean
     password?: boolean
   }>({})
   const [capsLockActive, setCapsLockActive] = useState<boolean>(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [useUsername, setUseUsername] = useState(false)
-  const [branding, setBranding] = useState<{ logoUrl: string | null; schoolName?: string; primaryColor?: string } | null>(null)
   const [greeting, setGreeting] = useState<string | null>(null)
+
+  // School branding state
+  const [branding, setBranding] = useState<{
+    logoUrl?: string | null
+    schoolName?: string
+    campusName?: string | null
+    primaryColor?: string
+    theme?: { primaryColor?: string; secondaryColor?: string }
+    school?: { name?: string; logoUrl?: string | null; campusName?: string | null }
+  } | null>(null)
+
+  // Multi-school disambiguation state
+  const [availableSchools, setAvailableSchools] = useState<Array<{
+    id: string
+    name: string
+    code: string
+    logoUrl?: string | null
+    role?: string
+  }> | null>(null)
 
   // Compute time-aware greeting safely on client mount
   useEffect(() => {
@@ -93,22 +109,38 @@ export default function LoginPage() {
 
   const identifierInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch school branding for login surface
+  // Fetch school branding for login surface based on hostname/subdomain or query param
   useEffect(() => {
-    const queryCode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('code') || '' : ''
-    const codeToFetch = queryCode || schoolCode
-    if (queryCode && !schoolCode) {
-      setTimeout(() => setSchoolCode(queryCode), 0)
-    }
-    fetch(`/api/v1/auth/branding?code=${encodeURIComponent(codeToFetch)}`)
+    let isMounted = true
+    const queryCode = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('code') ||
+        new URLSearchParams(window.location.search).get('school') ||
+        new URLSearchParams(window.location.search).get('tenant') || ''
+      : ''
+    const url = queryCode
+      ? `/api/v1/auth/branding?code=${encodeURIComponent(queryCode)}`
+      : '/api/v1/auth/branding'
+
+    fetch(url)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (j?.success && j.data) {
+        if (isMounted && j?.success && j.data) {
           setBranding(j.data)
+          const primary = j.data.theme?.primaryColor || j.data.primaryColor
+          if (primary && primary !== '#7C3AED') {
+            document.documentElement.style.setProperty('--primary', primary)
+          }
         }
       })
       .catch(() => {})
-  }, [schoolCode])
+      .finally(() => {
+        if (isMounted) setBrandingLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Auto redirect if already logged in
   useEffect(() => {
@@ -141,15 +173,11 @@ export default function LoginPage() {
     }
   }, [authMode, otpCountdown])
 
-  const validateField = (fieldName: 'schoolCode' | 'identifier' | 'password', val?: string) => {
-    const value = val !== undefined ? val : (fieldName === 'schoolCode' ? schoolCode : fieldName === 'identifier' ? identifier : password)
+  const validateField = (fieldName: 'identifier' | 'password', val?: string) => {
+    const value = val !== undefined ? val : (fieldName === 'identifier' ? identifier : password)
     let err: string | undefined
 
-    if (fieldName === 'schoolCode') {
-      if (!value.trim()) {
-        err = 'School code is required.'
-      }
-    } else if (fieldName === 'identifier') {
+    if (fieldName === 'identifier') {
       const trimmed = value.trim()
       if (!trimmed) {
         err = useUsername ? 'Username is required.' : 'Email or username is required.'
@@ -173,11 +201,8 @@ export default function LoginPage() {
   }
 
   const validateLoginForm = () => {
-    setTouched({ schoolCode: true, identifier: true, password: true })
-    const errors: { schoolCode?: string; identifier?: string; password?: string } = {}
-    if (!schoolCode.trim()) {
-      errors.schoolCode = 'School code is required.'
-    }
+    setTouched({ identifier: true, password: true })
+    const errors: { identifier?: string; password?: string } = {}
     const trimmedIdent = identifier.trim()
     if (!trimmedIdent) {
       errors.identifier = useUsername ? 'Username is required.' : 'Email or username is required.'
@@ -194,7 +219,7 @@ export default function LoginPage() {
     return Object.keys(errors).length === 0
   }
 
-  const handleLogin = async (e?: React.FormEvent) => {
+  const handleLogin = async (e?: React.FormEvent, selectedTenantId?: string) => {
     if (e) e.preventDefault()
     setGeneralError(null)
 
@@ -211,13 +236,20 @@ export default function LoginPage() {
         body: JSON.stringify({
           identifier: identifier.trim(),
           password,
-          schoolCode: schoolCode.trim() || undefined,
+          selectedTenantId: selectedTenantId || undefined,
         }),
       })
 
       const json = await res.json()
       if (!json.success) {
         setGeneralError(json.error?.message || 'Invalid credentials. Please verify and try again.')
+        setLoading(false)
+        return
+      }
+
+      // Multi-school workspace disambiguation flow
+      if (json.data?.requiresSchoolSelection && Array.isArray(json.data.schools)) {
+        setAvailableSchools(json.data.schools)
         setLoading(false)
         return
       }
@@ -287,7 +319,6 @@ export default function LoginPage() {
             body: JSON.stringify({
               identifier: identifier.trim() || undefined,
               code,
-              schoolCode: schoolCode.trim() || undefined,
             }),
           }))
 
@@ -333,7 +364,6 @@ export default function LoginPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               identifier: identifier.trim() || undefined,
-              schoolCode: schoolCode.trim() || undefined,
             }),
           }))
 
@@ -363,6 +393,9 @@ export default function LoginPage() {
   }
 
   const isEmail = identifier.includes('@')
+  const effectiveSchoolName = branding?.school?.name || branding?.schoolName
+  const effectiveLogoUrl = branding?.school?.logoUrl || branding?.logoUrl
+  const effectiveCampusName = branding?.school?.campusName || branding?.campusName
 
   return (
     <AuthShell>
@@ -370,11 +403,13 @@ export default function LoginPage() {
         <AuthFrame>
           <AuthCard>
             
-            {/* Hero Brand Anchor — Unboxed with breathing room */}
+            {/* Dynamic School Branding Anchor */}
             <AuthBrand
               tagline="Nurturing Little Futures"
-              logoUrl={branding?.logoUrl}
-              schoolName={branding?.schoolName}
+              logoUrl={effectiveLogoUrl}
+              schoolName={effectiveSchoolName}
+              campusName={effectiveCampusName}
+              loading={brandingLoading}
             />
 
             {/* ══════════════════════════════════════════════════════════
@@ -393,12 +428,11 @@ export default function LoginPage() {
                   <div className="mb-4 p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/50 flex items-center justify-between text-xs text-purple-900 dark:text-purple-200 animate-in fade-in">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                      <span className="truncate">Demo: <strong>sunshine</strong> • <strong>owner@sunshine.demo</strong></span>
+                      <span className="truncate">Demo: <strong>owner@sunshine.demo</strong></span>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setSchoolCode('sunshine')
                         setIdentifier('owner@sunshine.demo')
                         setPassword('Preone@123')
                         setFieldErrors({})
@@ -431,213 +465,216 @@ export default function LoginPage() {
                     </div>
                   )}
 
-                  <AuthForm onSubmit={handleLogin}>
-                    
-                    {/* Field 1: School Code */}
-                    <AuthField
-                      id="login-school-code"
-                      label="School Code"
-                      error={fieldErrors.schoolCode}
-                    >
-                      <AuthInput
-                        id="login-school-code"
-                        type="text"
-                        value={schoolCode}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setSchoolCode(val)
-                          if (fieldErrors.schoolCode) {
-                            if (val.trim()) {
-                              setFieldErrors((prev) => ({ ...prev, schoolCode: undefined }))
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          setTouched((prev) => ({ ...prev, schoolCode: true }))
-                          validateField('schoolCode', schoolCode)
-                        }}
-                        placeholder="e.g. sunshine"
-                        autoComplete="organization"
-                        leadingIcon={<Building2 className="w-4 h-4" />}
-                        hasError={!!fieldErrors.schoolCode}
-                        aria-invalid={!!fieldErrors.schoolCode}
-                        aria-describedby={fieldErrors.schoolCode ? 'login-school-code-error' : undefined}
-                        trailingAction={
-                          schoolCode ? (
-                            <AuthIconButton
-                              icon={<X className="w-3.5 h-3.5" />}
-                              ariaLabel="Clear school code"
-                              onClick={() => {
-                                setSchoolCode('')
-                                if (touched.schoolCode) {
-                                  setFieldErrors((prev) => ({ ...prev, schoolCode: 'School code is required.' }))
-                                }
-                              }}
-                            />
-                          ) : null
-                        }
-                      />
-                    </AuthField>
-
-                    {/* Field 2: Email or Username */}
-                    <AuthField
-                      id="login-identifier"
-                      label={useUsername ? 'Username' : 'Email or Username'}
-                      error={fieldErrors.identifier}
-                      labelAction={
-                        <AuthLink
-                          onClick={() => {
-                            const nextMode = !useUsername
-                            setUseUsername(nextMode)
-                            setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
-                            if (identifier.trim() && touched.identifier) {
-                              setTimeout(() => {
-                                validateField('identifier', identifier)
-                              }, 0)
-                            }
-                          }}
-                        >
-                          Use {useUsername ? 'Email' : 'Username'}
-                        </AuthLink>
-                      }
-                    >
-                      <AuthInput
-                        id="login-identifier"
-                        ref={identifierInputRef}
-                        type="text"
-                        value={identifier}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setIdentifier(val)
-                          if (fieldErrors.identifier) {
-                            if (val.trim()) {
-                              setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
-                            }
-                          }
-                        }}
-                        onBlur={() => {
-                          setTouched((prev) => ({ ...prev, identifier: true }))
-                          validateField('identifier', identifier)
-                        }}
-                        placeholder={useUsername ? 'e.g. meera.iyer' : 'e.g. name@school.com or username'}
-                        autoComplete="username"
-                        leadingIcon={isEmail ? <Mail className="w-4 h-4" /> : <User className="w-4 h-4" />}
-                        hasError={!!fieldErrors.identifier}
-                        aria-invalid={!!fieldErrors.identifier}
-                        aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
-                        trailingAction={
-                          identifier ? (
-                            <AuthIconButton
-                              icon={<X className="w-3.5 h-3.5" />}
-                              ariaLabel="Clear email or username"
-                              onClick={() => {
-                                setIdentifier('')
-                                identifierInputRef.current?.focus()
-                                if (touched.identifier) {
-                                  setFieldErrors((prev) => ({
-                                    ...prev,
-                                    identifier: useUsername ? 'Username is required.' : 'Email or username is required.',
-                                  }))
-                                }
-                              }}
-                            />
-                          ) : null
-                        }
-                      />
-                    </AuthField>
-
-                    {/* Field 3: Password */}
-                    <AuthField
-                      id="login-password"
-                      label="Password"
-                      error={fieldErrors.password}
-                      labelAction={
-                        <AuthLink onClick={() => setShowForgotModal(true)}>
-                          Forgot password?
-                        </AuthLink>
-                      }
-                    >
-                      <AuthPasswordInput
-                        id="login-password"
-                        value={password}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setPassword(val)
-                          if (fieldErrors.password && val) {
-                            setFieldErrors((prev) => ({ ...prev, password: undefined }))
-                          }
-                        }}
-                        onBlur={() => {
-                          setTouched((prev) => ({ ...prev, password: true }))
-                          setCapsLockActive(false)
-                          validateField('password', password)
-                        }}
-                        onKeyDown={checkCapsLock}
-                        onKeyUp={checkCapsLock}
-                        placeholder="••••••••••••"
-                        autoComplete="current-password"
-                        hasError={!!fieldErrors.password}
-                        aria-invalid={!!fieldErrors.password}
-                        aria-describedby={
-                          fieldErrors.password
-                            ? 'login-password-error'
-                            : capsLockActive
-                            ? 'login-password-caps'
-                            : undefined
-                        }
-                      />
-                    </AuthField>
-
-                    {/* CapsLock Warning */}
-                    {capsLockActive && (
-                      <div
-                        id="login-password-caps"
-                        role="status"
-                        aria-live="polite"
-                        className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150 select-none"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>Caps Lock is on</span>
+                  {/* Multi-School Disambiguation Chooser */}
+                  {availableSchools ? (
+                    <div className="space-y-3 animate-in fade-in">
+                      <div className="text-center mb-4">
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                          Select School Workspace
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Your account belongs to multiple schools. Select which workspace to open:
+                        </p>
                       </div>
-                    )}
-
-                    {/* Primary CTA Button */}
-                    <AuthActions
-                      primaryText="Sign In"
-                      loadingText="Signing in..."
-                      loading={loading}
-                      secondaryAction={
-                        <div className="pt-1">
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {availableSchools.map((school) => (
+                          <button
+                            key={school.id}
+                            type="button"
+                            onClick={() => {
+                              setAvailableSchools(null)
+                              handleLogin(undefined, school.id)
+                            }}
+                            className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-purple-400 dark:hover:border-purple-600 bg-slate-50/70 dark:bg-slate-950/40 hover:bg-purple-50/50 dark:hover:bg-purple-950/30 transition-all flex items-center justify-between group cursor-pointer text-left"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              {school.logoUrl ? (
+                                <img src={school.logoUrl} alt={school.name} className="w-8 h-8 rounded-lg object-contain bg-white shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center text-purple-700 dark:text-purple-300 font-bold text-xs shrink-0">
+                                  {school.name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                                  {school.name}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  Code: {school.code} {school.role ? `• ${school.role}` : ''}
+                                </div>
+                              </div>
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-transform group-hover:translate-x-0.5 shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                      <div className="pt-2 text-center">
+                        <AuthLink onClick={() => setAvailableSchools(null)}>
+                          Back to sign in
+                        </AuthLink>
+                      </div>
+                    </div>
+                  ) : (
+                    <AuthForm onSubmit={handleLogin}>
+                      {/* Field 1: Work Email / Username */}
+                      <AuthField
+                        id="login-identifier"
+                        label={useUsername ? 'Username' : 'Work Email / Username'}
+                        error={fieldErrors.identifier}
+                        labelAction={
                           <AuthLink
-                            onClick={async () => {
-                              setAuthMode('otp')
-                              setMfaToken(null)
-                              setMfaDestination(null)
-                              setMfaRole(null)
-                              setGeneralError(null)
-                              setFieldErrors({})
-                              if (identifier.trim()) {
-                                try {
-                                  await fetch('/api/v1/auth/otp/send', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      identifier: identifier.trim(),
-                                      schoolCode: schoolCode.trim() || undefined,
-                                    }),
-                                  })
-                                } catch {}
+                            onClick={() => {
+                              const nextMode = !useUsername
+                              setUseUsername(nextMode)
+                              setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                              if (identifier.trim() && touched.identifier) {
+                                setTimeout(() => {
+                                  validateField('identifier', identifier)
+                                }, 0)
                               }
                             }}
-                            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 font-medium no-underline hover:no-underline"
                           >
-                            <KeyRound className="w-3.5 h-3.5" />
-                            <span>Use verification code instead →</span>
+                            Use {useUsername ? 'Email' : 'Username'}
                           </AuthLink>
+                        }
+                      >
+                        <AuthInput
+                          id="login-identifier"
+                          ref={identifierInputRef}
+                          type="text"
+                          value={identifier}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setIdentifier(val)
+                            if (fieldErrors.identifier) {
+                              if (val.trim()) {
+                                setFieldErrors((prev) => ({ ...prev, identifier: undefined }))
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            setTouched((prev) => ({ ...prev, identifier: true }))
+                            validateField('identifier', identifier)
+                          }}
+                          placeholder={useUsername ? 'e.g. meera.iyer' : 'Enter your work email or username'}
+                          autoComplete="username"
+                          leadingIcon={isEmail ? <Mail className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                          hasError={!!fieldErrors.identifier}
+                          aria-invalid={!!fieldErrors.identifier}
+                          aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
+                          trailingAction={
+                            identifier ? (
+                              <AuthIconButton
+                                icon={<X className="w-3.5 h-3.5" />}
+                                ariaLabel="Clear email or username"
+                                onClick={() => {
+                                  setIdentifier('')
+                                  identifierInputRef.current?.focus()
+                                  if (touched.identifier) {
+                                    setFieldErrors((prev) => ({
+                                      ...prev,
+                                      identifier: useUsername ? 'Username is required.' : 'Email or username is required.',
+                                    }))
+                                  }
+                                }}
+                              />
+                            ) : null
+                          }
+                        />
+                      </AuthField>
+
+                      {/* Field 2: Password */}
+                      <AuthField
+                        id="login-password"
+                        label="Password"
+                        error={fieldErrors.password}
+                        labelAction={
+                          <AuthLink onClick={() => setShowForgotModal(true)}>
+                            Forgot password?
+                          </AuthLink>
+                        }
+                      >
+                        <AuthPasswordInput
+                          id="login-password"
+                          value={password}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            setPassword(val)
+                            if (fieldErrors.password && val) {
+                              setFieldErrors((prev) => ({ ...prev, password: undefined }))
+                            }
+                          }}
+                          onBlur={() => {
+                            setTouched((prev) => ({ ...prev, password: true }))
+                            setCapsLockActive(false)
+                            validateField('password', password)
+                          }}
+                          onKeyDown={checkCapsLock}
+                          onKeyUp={checkCapsLock}
+                          placeholder="Enter your password"
+                          autoComplete="current-password"
+                          hasError={!!fieldErrors.password}
+                          aria-invalid={!!fieldErrors.password}
+                          aria-describedby={
+                            fieldErrors.password
+                              ? 'login-password-error'
+                              : capsLockActive
+                              ? 'login-password-caps'
+                              : undefined
+                          }
+                        />
+                      </AuthField>
+
+                      {/* CapsLock Warning */}
+                      {capsLockActive && (
+                        <div
+                          id="login-password-caps"
+                          role="status"
+                          aria-live="polite"
+                          className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium animate-in fade-in duration-150 select-none"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span>Caps Lock is on</span>
                         </div>
-                      }
-                    />
-                  </AuthForm>
+                      )}
+
+                      {/* Primary CTA Button */}
+                      <AuthActions
+                        primaryText="Sign In"
+                        loadingText="Signing in..."
+                        loading={loading}
+                        secondaryAction={
+                          <div className="pt-1">
+                            <AuthLink
+                              onClick={async () => {
+                                setAuthMode('otp')
+                                setMfaToken(null)
+                                setMfaDestination(null)
+                                setMfaRole(null)
+                                setGeneralError(null)
+                                setFieldErrors({})
+                                if (identifier.trim()) {
+                                  try {
+                                    await fetch('/api/v1/auth/otp/send', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        identifier: identifier.trim(),
+                                      }),
+                                    })
+                                  } catch {}
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 font-medium no-underline hover:no-underline"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                              <span>Login with OTP →</span>
+                            </AuthLink>
+                          </div>
+                        }
+                      />
+                    </AuthForm>
+                  )}
                 </AuthContent>
 
                 {/* Security Reassurance Metadata */}
@@ -809,7 +846,7 @@ export default function LoginPage() {
                 aria-label="Close modal"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 

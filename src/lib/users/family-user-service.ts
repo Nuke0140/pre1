@@ -394,7 +394,7 @@ export class FamilyUserService {
 
       // Branch check if actor is branch scoped
       const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
-      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN'].includes(r as any))
 
       if (ctx.actorBranchId && targetStudent.branchId !== ctx.actorBranchId && !isInstitutionWide) {
         throw new Error('Unauthorized: Selected student belongs to another campus branch')
@@ -421,7 +421,7 @@ export class FamilyUserService {
       const childData = input.newChild!
 
       const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
-      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN'].includes(r as any))
       if (ctx.actorBranchId && childData.branchId && childData.branchId !== ctx.actorBranchId && !isInstitutionWide) {
         throw new Error('Unauthorized: Cannot create student in another campus branch')
       }
@@ -881,7 +881,7 @@ export class FamilyUserService {
 
       // Branch boundary check: Branch-scoped actor cannot link a student belonging to another campus
       const effectiveRoles = (ctx.actorRoles && ctx.actorRoles.length > 0 ? ctx.actorRoles : [ctx.actorRole]).filter(Boolean)
-      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'PRINCIPAL'].includes(r as any))
+      const isInstitutionWide = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN'].includes(r as any))
       if (ctx.actorBranchId && student.branchId !== ctx.actorBranchId && !isInstitutionWide) {
         throw new Error('Unauthorized: Cannot link student belonging to another campus branch')
       }

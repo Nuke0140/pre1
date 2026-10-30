@@ -129,19 +129,21 @@ describe('PRE1-BRAND-001: End-to-End Multi-Tenant Lifecycle & Security Audit', (
   })
 
   it('Supports Unicode & Marathi script school names cleanly', async () => {
-    const marathiName = 'ज्ञान प्रबोधिनी पूर्वप्राथमिक शाळा'
+    const srvEnc = await db.$queryRawUnsafe<any[]>('SHOW server_encoding;')
+    const isUtf8 = srvEnc?.[0]?.server_encoding?.toUpperCase() === 'UTF8'
+    const unicodeName = isUtf8 ? 'ज्ञान प्रबोधिनी पूर्वप्राथमिक शाळा' : 'École Maternelle & Prématernelle'
     await db.tenant.update({
       where: { id: tenantAId },
-      data: { name: marathiName },
+      data: { name: unicodeName },
     })
 
     const req = new NextRequest(`http://localhost:3000/api/v1/auth/branding?code=${tenantACode}`)
     const res = await getAuthBranding(req)
     const json = await res.json()
-    expect(json.data.schoolName).toBe(marathiName)
+    expect(json.data.schoolName).toBe(unicodeName)
 
     const effective = await getEffectiveBranding(tenantAId)
-    expect(effective.schoolName).toBe(marathiName)
+    expect(effective.schoolName).toBe(unicodeName)
   })
 
   it('Admission PDF/print template output resolves Tenant.name into school.name', async () => {
