@@ -181,12 +181,13 @@ export async function requireBranchAccess(
   if (!targetBranchId) return null
   if (!session.tenantId) return forbidden('Tenant context required')
 
+  // Multi-tenant boundary check: Branch must exist in the caller's tenant
   const targetBranch = await db.branch.findFirst({
     where: { id: targetBranchId, tenantId: session.tenantId, deletedAt: null },
     select: { id: true },
   })
   if (!targetBranch) {
-    return forbidden('Branch not found in this tenant or access denied')
+    return forbidden('Access denied: branch scope restricted or cross-tenant boundary')
   }
 
   const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
@@ -196,7 +197,8 @@ export async function requireBranchAccess(
   if (isOwnerOrPlatform) return null
 
   const allowedBranchIds = await getAuthorizedBranchIds(session)
-  if (!allowedBranchIds || allowedBranchIds.length === 0) {
+  if (allowedBranchIds === null) return null
+  if (allowedBranchIds.length === 0) {
     return forbidden('Access denied: branch scope restricted (no branch assignment)')
   }
 

@@ -33,19 +33,17 @@ export const GET = withApi(async (req: NextRequest) => {
     rawBranchId === '__ALL_BRANCHES__' ||
     rawBranchId.toLowerCase() === 'all'
 
-  const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
-  )
+  const isInstitutionWide =
+    effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN', 'SUPER_ADMIN'].includes(r)) ||
+    (!session.branchId && effectiveRoles.includes('PRINCIPAL'))
 
   let branchId: string | undefined = undefined
   if (!isAllBranches && rawBranchId) {
-    const branchCheck = await requireBranchAccess(session, rawBranchId)
-    if (branchCheck) return branchCheck
-  }
-  if (!isInstitutionWide && session.branchId) {
-    branchId = session.branchId
-  } else if (!isAllBranches) {
+    const branchDenial = await requireBranchAccess(session, rawBranchId)
+    if (branchDenial) return branchDenial
     branchId = rawBranchId
+  } else if (!isInstitutionWide && session.branchId) {
+    branchId = session.branchId
   }
 
   const academicSessionId = sp.get('academicSessionId') || undefined

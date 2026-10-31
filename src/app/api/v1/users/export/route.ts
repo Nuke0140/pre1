@@ -63,7 +63,7 @@ async function executeExport(req: NextRequest, params: ExportParams) {
     )
 
     const authorizedBranches = await getAuthorizedBranchIds(session)
-    const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
+    const isInstitutionWide = authorizedBranches === null
     let effectiveBranchId: string | undefined = undefined
     let effectiveBranchIds: string[] | undefined = undefined
 

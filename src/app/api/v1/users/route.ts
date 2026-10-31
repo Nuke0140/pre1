@@ -50,7 +50,7 @@ export const GET = withApi(async (req: NextRequest) => {
   const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '50')))
 
   const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
+  const isInstitutionWide = authorizedBranches === null
 
   let effectiveBranchId: string | undefined = undefined
   let effectiveBranchIds: string[] | undefined = undefined
@@ -1252,7 +1252,7 @@ export const POST = withApi(async (req: NextRequest) => {
   if (roleErr) return roleErr
 
   const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
+  const isInstitutionWide = authorizedBranches === null
 
   let resolvedBranchId = branchId
   if (!resolvedBranchId && !isInstitutionWide && Array.isArray(authorizedBranches) && authorizedBranches.length > 0) {

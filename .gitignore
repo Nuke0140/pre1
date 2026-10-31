@@ -61,4 +61,8 @@ db/pgdata*
 public/uploads/
 
 # Scratch scripts
-scratch/
+scratch/
+
+# Local binaries and tooling
+tools/
+*.exe

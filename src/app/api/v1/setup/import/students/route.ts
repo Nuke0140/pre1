@@ -41,6 +41,7 @@ async function _POST(req: NextRequest) {
   const session = await requireApi(req, 'settings:write')
   if (isResponse(session)) return session
   if (!session.tenantId) return Errors.forbidden('No tenant context')
+  const tenantId = session.tenantId
 
   try {
     const body = await req.json()
@@ -54,7 +55,7 @@ async function _POST(req: NextRequest) {
 
     // existing admission numbers in tenant
     const existing = await db.student.findMany({
-      where: { tenantId: session.tenantId },
+      where: { tenantId },
       select: { admissionNo: true },
     })
     const existingSet = new Set(existing.map((e) => e.admissionNo))
@@ -65,7 +66,7 @@ async function _POST(req: NextRequest) {
     let classroom = null as { id: string; name: string; branchId: string } | null
     if (body.classroomId) {
       const c = await db.classroom.findFirst({
-        where: { id: String(body.classroomId), tenantId: session.tenantId, isActive: true },
+        where: { id: String(body.classroomId), tenantId, isActive: true },
         select: { id: true, name: true, branchId: true },
       })
       if (c) {
@@ -75,7 +76,7 @@ async function _POST(req: NextRequest) {
     } else if (programId) {
       const c = await db.classroom.findFirst({
         where: {
-          tenantId: session.tenantId,
+          tenantId,
           programId,
           isActive: true,
           ...(targetBranchId ? { branchId: targetBranchId } : {}),
@@ -128,7 +129,7 @@ async function _POST(req: NextRequest) {
 
     if (!targetBranchId) {
       const mainBranch = await db.branch.findFirst({
-        where: { tenantId: session.tenantId, deletedAt: null },
+        where: { tenantId, deletedAt: null },
         orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
         select: { id: true },
       })
@@ -142,7 +143,7 @@ async function _POST(req: NextRequest) {
       for (const c of valid) {
         const student = await tx.student.create({
           data: {
-            tenantId: session.tenantId,
+            tenantId,
             branchId: resolvedBranchId,
             admissionNo: c.data.admissionNo,
             firstName: c.data.firstName,
@@ -154,7 +155,7 @@ async function _POST(req: NextRequest) {
         })
         let guardian = await tx.guardian.findFirst({
           where: {
-            tenantId: session.tenantId,
+            tenantId,
             phone: c.data.guardianPhone.trim(),
             fullName: c.data.guardianName.trim(),
             deletedAt: null,
@@ -163,7 +164,7 @@ async function _POST(req: NextRequest) {
         if (!guardian) {
           guardian = await tx.guardian.create({
             data: {
-              tenantId: session.tenantId,
+              tenantId,
               fullName: c.data.guardianName.trim(),
               phone: c.data.guardianPhone.trim(),
               relationship: c.data.relationship as 'FATHER' | 'MOTHER' | 'GRANDPARENT' | 'LEGAL_GUARDIAN' | 'OTHER',
@@ -186,8 +187,8 @@ async function _POST(req: NextRequest) {
     })
 
     await audit({
-      tenantId: session.tenantId, actorId: session.uid, actorName: session.name,
-      action: 'SETUP_IMPORT', entity: 'Student', entityId: session.tenantId,
+      tenantId, actorId: session.uid, actorName: session.name,
+      action: 'SETUP_IMPORT', entity: 'Student', entityId: tenantId,
       summary: `Imported ${result} students (+ guardians) from CSV — ${invalid.length} rows skipped`,
     })
     return ok({ mode, imported: result, skipped: invalid.length, message: `Imported ${result} students` }, undefined, 201)

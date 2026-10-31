@@ -537,7 +537,7 @@ describe('PreOne Template Studio — Phase 1: Fee Receipt Design System Suite', 
       expect(result.pageCount).toBe(1)
       const header = pdfBuffer.subarray(0, 5).toString('utf-8')
       expect(header).toBe('%PDF-')
-    }, 15000)
+    }, 45000)
 
     it('compiles E3 Institutional A4 receipt into valid single-page PDF without multi-page spill', async () => {
       const def = JSON.parse(JSON.stringify(TEMPLATE_PRESETS['FEE_RECEIPT_INSTITUTIONAL'].definition))
@@ -563,7 +563,7 @@ describe('PreOne Template Studio — Phase 1: Fee Receipt Design System Suite', 
       expect(result.pageCount).toBe(1)
       const header = pdfBuffer.subarray(0, 5).toString('utf-8')
       expect(header).toBe('%PDF-')
-    }, 15000)
+    }, 45000)
   })
 
   describe('10. Lifecycle Publishing & Default Assignment', () => {

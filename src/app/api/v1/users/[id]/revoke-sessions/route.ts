@@ -17,6 +17,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     if (member.role === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {

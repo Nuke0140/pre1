@@ -41,14 +41,14 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
 
   try {
     const authorizedBranches = await getAuthorizedBranchIds(session)
-    const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
+    const isInstitutionWide = authorizedBranches === null
 
     if (!targetMember && targetGuardian) {
       const g = targetGuardian
       const isSelf = session.uid === g.userId || session.uid === g.id
       const branchWhere: any = { tenantId: session.tenantId, deletedAt: null }
       if (!isInstitutionWide && !isSelf && Array.isArray(authorizedBranches)) {
-        branchWhere.id = { in: authorizedBranches }
+        branchWhere.id = { in: authorizedBranches as string[] }
       }
       const branches = await db.branch.findMany({
         where: branchWhere,
@@ -1568,7 +1568,12 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
 
       await db.$transaction(async (tx) => {
         if (guardCheck.transfers && guardCheck.transfers.length > 0) {
-          await PrimaryContactGuard.executeTransfers(tx, session.tenantId!, guardCheck.transfers)
+          await PrimaryContactGuard.applyTransfersTx(tx, guardCheck.transfers, {
+            uid: session.uid,
+            name: session.name,
+            role: session.role,
+            tenantId: session.tenantId,
+          })
         }
         await tx.guardian.update({
           where: { id: targetGuardian.id },

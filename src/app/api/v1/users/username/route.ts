@@ -2,7 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, bad } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
-import { UsernameService, UsernameType } from '@/lib/users/username-service'
+import { UsernameService, UsernameType, isValidUsername, normalizeUsername } from '@/lib/users/username-service'
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit'
 
 /**
@@ -25,7 +25,7 @@ async function _GET(req: NextRequest) {
   const url = new URL(req.url)
   const name = url.searchParams.get('name')?.trim() || ''
   const type = (url.searchParams.get('type')?.toUpperCase() || 'STAFF') as UsernameType
-  const preferred = url.searchParams.get('preferred')?.trim() || undefined
+  const preferred = url.searchParams.get('preferred')?.trim() || url.searchParams.get('username')?.trim() || undefined
 
   if (!name && !preferred) {
     return bad('name or preferred is required', 'MISSING_FIELDS')

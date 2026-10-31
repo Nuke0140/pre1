@@ -1,7 +1,7 @@
 /**
  * M00 — Setup Validation Engine (v2 Canonical 17-Area Architecture)
  *
- * 15 categories, each PASS / WARNING / BLOCKED with findings.
+ * 16 categories, each PASS / WARNING / BLOCKED with findings.
  * A validation run is persisted in SchoolSetupValidationRun for audit.
  * Go-live is blocked when ANY category has a BLOCKED finding in ANY branch.
  *
@@ -235,15 +235,15 @@ export async function runValidation(tenantId: string): Promise<ValidationResult 
       A(cfg.FINANCE?.paymentMethods).length === 0 ? W('Accepted payment methods not configured (defaults: Cash, UPI, Bank)', null, 'SchoolConfig') : null,
     ].filter((f): f is Finding => f !== null)),
 
-    // 12. Daily Operations
+    // 12. Daily Operations (advisory — the daily-operations setup step was retired, so this must not gate go-live)
     cat('daily_operations', 'Daily Operations Readiness', [
-      cfg.DAILY_OPERATIONS?.attendanceEnabled !== true ? B('Attendance is not enabled — core daily operation', null, 'SchoolConfig') : null,
+      cfg.DAILY_OPERATIONS?.attendanceEnabled !== true ? W('Attendance is not enabled — core daily operation', null, 'SchoolConfig') : null,
       A(cfg.DAILY_OPERATIONS?.recordTypes).length === 0 ? W('No daily record types (meals/nap/bathroom/mood) selected', null, 'SchoolConfig') : null,
     ].filter((f): f is Finding => f !== null)),
 
-    // 13. Health & Safety
+    // 13. Health & Safety (advisory — the health-settings setup step was retired, so this must not gate go-live)
     cat('health_safety', 'Health & Safety Settings', [
-      A(cfg.HEALTH_SAFETY?.emergencyContacts).length === 0 ? B('No emergency contacts configured', null, 'SchoolConfig') : null,
+      A(cfg.HEALTH_SAFETY?.emergencyContacts).length === 0 ? W('No emergency contacts configured', null, 'SchoolConfig') : null,
       A(cfg.HEALTH_SAFETY?.allergyCategories).length === 0 ? W('No allergy categories configured', null, 'SchoolConfig') : null,
       A(cfg.HEALTH_SAFETY?.incidentCategories).length === 0 ? W('No incident categories configured', null, 'SchoolConfig') : null,
     ].filter((f): f is Finding => f !== null)),

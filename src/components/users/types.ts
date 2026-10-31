@@ -145,6 +145,8 @@ export interface UserRecord {
   avatarUrl?: string | null
   name: string
   fullName?: string | null
+  employeeCode?: string | null
+  department?: string | null
   email: string | null
   phone: string | null
   locale?: string | null

@@ -1,6 +1,6 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, bad, forbidden, serverError } from '@/lib/api'
+import { ok, bad, notFound, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { UserLifecycleService } from '@/lib/users/user-lifecycle-service'
 
@@ -18,6 +18,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     const body = await req.json().catch(() => ({}))

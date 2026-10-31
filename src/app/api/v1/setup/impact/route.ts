@@ -76,7 +76,7 @@ async function _POST(req: NextRequest) {
 
       const [activeClassrooms, pendingApplications, activeFeePlans] = await Promise.all([
         db.classroom.count({ where: { academicSessionId: targetId, tenantId: session.tenantId, isActive: true } }),
-        db.admissionApplication.count({ where: { tenantId: session.tenantId, status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'DOCS_PENDING', 'INTERVIEW_SCHEDULED'] } } }),
+        db.admissionApplication.count({ where: { tenantId: session.tenantId, status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_PENDING', 'COUNSELLING_SCHEDULED'] } } }),
         db.feePlan.count({ where: { tenantId: session.tenantId, isActive: true } }),
       ])
 

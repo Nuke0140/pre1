@@ -124,7 +124,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
     it('produces the exact regression error for child 68 months vs Nuke program max 45 months', async () => {
       // Construct DOB that is exactly 68 completed months old today
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       const result = await ConfigurationService.validateProgramAge(
         testTenant.id,
@@ -142,7 +142,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
 
     it('recognizes program lookup by Name (case-insensitive), Code, or ID', async () => {
       const now = new Date()
-      const dobEligible = new Date(now.getFullYear(), now.getMonth() - 36, now.getDate()) // 36 months old (in 30-45 range)
+      const dobEligible = new Date(now.getFullYear(), now.getMonth() - 36, 1) // 36 months old (in 30-45 range)
 
       // By Name
       const checkByName = await ConfigurationService.validateProgramAge(
@@ -184,7 +184,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
 
     it('allows any age for programs with flexible (null) boundaries', async () => {
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       const result = await ConfigurationService.validateProgramAge(
         testTenant.id,
@@ -200,7 +200,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
 
     it('rejects children below the minimum permitted age with clear explanation', async () => {
       const now = new Date()
-      const dobYoung = new Date(now.getFullYear(), now.getMonth() - 20, now.getDate()) // 20 months old vs min 30
+      const dobYoung = new Date(now.getFullYear(), now.getMonth() - 20, 1) // 20 months old vs min 30
 
       const result = await ConfigurationService.validateProgramAge(
         testTenant.id,
@@ -236,7 +236,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
       })
 
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       // Authoritative validation now queries the updated database record
       const recheck = await ConfigurationService.validateProgramAge(
@@ -265,7 +265,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
       })
 
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       const res = await AdmissionService.createEnquiry(
         {
@@ -294,7 +294,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
 
     it('Application submission strictly blocks submission when child age violates program limits', async () => {
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       // Submitting application for child of 68 months when max is 45 must throw
       let threwError = false
@@ -336,7 +336,7 @@ describe('PreOne — Centralized Program Age Restriction & End-to-End Validation
       })
 
       const now = new Date()
-      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, now.getDate())
+      const dob68 = new Date(now.getFullYear(), now.getMonth() - 68, 1)
 
       // Now submit the application for the exact same child
       const app = await AdmissionService.submitApplication(

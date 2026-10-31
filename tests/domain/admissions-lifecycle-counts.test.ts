@@ -80,14 +80,22 @@ describe('Admissions Lifecycle Count Consistency & Synchronization', () => {
       },
     })
 
-    await db.tenantUser.create({
+    const tuAdmin = await db.tenantUser.create({
       data: {
         tenantId,
         userId: adminUser.id,
         role: 'PRINCIPAL',
         roles: ['PRINCIPAL'],
+        branchId: branchAId,
         status: 'ACTIVE',
       },
+    })
+
+    await db.tenantUserBranch.createMany({
+      data: [
+        { tenantId, tenantUserId: tuAdmin.id, branchId: branchAId, isPrimary: true },
+        { tenantId, tenantUserId: tuAdmin.id, branchId: branchBId, isPrimary: false },
+      ],
     })
 
     const token = await signSession({
@@ -144,6 +152,7 @@ describe('Admissions Lifecycle Count Consistency & Synchronization', () => {
       await Promise.allSettled([
         db.program.deleteMany({ where: { tenantId } }),
         db.academicSession.deleteMany({ where: { tenantId } }),
+        db.tenantUserBranch.deleteMany({ where: { tenantId } }),
         db.tenantUser.deleteMany({ where: { tenantId } }),
         db.branch.deleteMany({ where: { tenantId } }),
       ])

@@ -390,7 +390,7 @@ export default function RolesSetupPage() {
       <Breadcrumbs
         items={[
           { label: 'Setup', href: '/app/setup' },
-          { label: 'Roles & Permissions', active: true },
+          { label: 'Roles & Permissions' },
         ]}
       />
 

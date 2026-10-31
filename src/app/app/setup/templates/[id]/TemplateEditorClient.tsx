@@ -56,6 +56,7 @@ import {
   DocumentType,
   PageFormat,
   ElementType,
+  ElementStyles,
   PAGE_DIMENSIONS,
   DOCUMENT_TYPE_CONFIG,
 } from '@/lib/templates/types'
@@ -367,6 +368,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             width: 25,
             height: 30,
             zIndex: definition.elements.length + 1,
+            content: '',
             styles: {
               borderRadius: 4,
               borderColor: '#CBD5E1',
@@ -392,10 +394,10 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
           }
           break
 
-        case 'qr':
+        case 'qrcode':
           newElem = {
             id,
-            type: 'qr',
+            type: 'qrcode',
             name: presetOptions?.name || 'Verification QR',
             x: defaultX,
             y: defaultY,
@@ -404,6 +406,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             zIndex: definition.elements.length + 1,
             content: 'https://preone.app/verify/cert/LEPA-2026-001',
             fieldBinding: 'system.verifyUrl',
+            styles: {},
           }
           break
 
@@ -419,6 +422,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             zIndex: definition.elements.length + 1,
             content: '{{student.admissionNumber}}',
             fieldBinding: 'student.admissionNumber',
+            styles: {},
           }
           break
 
@@ -433,6 +437,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             height: 15,
             zIndex: definition.elements.length + 1,
             content: presetOptions?.content || 'Principal & Academic Director',
+            styles: {},
           }
           break
 
@@ -453,7 +458,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
               color: '#15803D',
               borderRadius: 3,
               fontSize: 9,
-              fontWeight: '700',
+              fontWeight: 'bold',
               textAlign: 'center',
             },
           }
@@ -470,6 +475,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
             width: presetOptions?.width || 50,
             height: presetOptions?.height || 20,
             zIndex: definition.elements.length + 1,
+            content: '',
             styles: {
               backgroundColor: presetOptions?.styles?.backgroundColor || '#F8FAFC',
               borderColor: presetOptions?.styles?.borderColor || '#E2E8F0',
@@ -1924,7 +1930,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
                             type="button"
                             className="btn btn-sm btn-ghost"
                             style={{ justifyContent: 'flex-start', fontSize: 11, padding: '5px 8px', gap: 6 }}
-                            onClick={() => addElement('qr')}
+                            onClick={() => addElement('qrcode')}
                           >
                             <QrCode size={13} style={{ color: '#A78BFA' }} /> Verification QR
                           </button>
@@ -2297,11 +2303,11 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: (s.objectFit as any) || 'contain',
+                          objectFit: s.objectFit || 'contain',
                         }}
                       />
                     </div>
-                  ) : el.type === 'qr' ? (
+                  ) : el.type === 'qrcode' ? (
                     <div
                       style={{
                         width: '100%',
@@ -2796,7 +2802,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
                                   value={selectedElement.styles?.fontWeight || 'normal'}
                                   onChange={(e) =>
                                     updateElement(selectedElement.id, {
-                                      styles: { fontWeight: e.target.value },
+                                      styles: { fontWeight: e.target.value as ElementStyles['fontWeight'] },
                                     })
                                   }
                                   style={{ height: 26, fontSize: 11, padding: '2px 4px' }}
@@ -3078,7 +3084,7 @@ export default function TemplateEditorClient({ templateId }: TemplateEditorProps
         templateId={templateId}
         templateName={templateName}
         documentType={templateType}
-        activeDefinition={definition}
+        initialDefinition={definition}
         publishedVersion={definition.version}
         currentDraftVersion={definition.version}
         isPublished={definition.status === 'PUBLISHED'}

@@ -953,7 +953,7 @@ export default function SetupPage() {
         open={validationOpen}
         onClose={() => setValidationOpen(false)}
         title="Operational Readiness & Health Check"
-        subtitle="Authoritative 15-category cross-module validation engine"
+        subtitle="Authoritative 16-category cross-module validation engine"
         icon={<ClipboardCheck size={22} />}
         wide
       >
@@ -962,7 +962,7 @@ export default function SetupPage() {
             <ClipboardCheck size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px' }} />
             <h4 style={{ margin: '0 0 6px', fontSize: 16 }}>No Validation Run Yet</h4>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
-              Run the full 15-category validation to verify master data integrity, cross-module links, and operational rules.
+              Run the full 16-category validation to verify master data integrity, cross-module links, and operational rules.
             </p>
             <button className="btn btn-primary" onClick={runValidation} disabled={validating}>
               <ClipboardCheck size={14} /> {validating ? 'Running Verification…' : 'Run Full Validation'}

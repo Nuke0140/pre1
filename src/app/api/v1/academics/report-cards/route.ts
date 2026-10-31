@@ -20,7 +20,12 @@ async function _GET(req: NextRequest) {
   const hasAccess =
     can(effectiveRoles, 'students:read') ||
     can(effectiveRoles, 'academics:read') ||
-    (isParent && can(effectiveRoles, 'reports:read'))
+    (isParent && (
+      can(effectiveRoles, 'reports:read') ||
+      can(effectiveRoles, 'students:read-linked') ||
+      can(effectiveRoles, 'milestones:read-linked') ||
+      can(effectiveRoles, 'documents:read-linked')
+    ))
   if (!hasAccess) {
     return Errors.forbidden('Missing permission: students:read, academics:read, or reports:read')
   }

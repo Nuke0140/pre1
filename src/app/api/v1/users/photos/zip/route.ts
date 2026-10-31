@@ -262,8 +262,8 @@ export const POST = withApi(async (req: NextRequest) => {
   const meta = getRequestMeta(req)
   await recordAudit({
     tenantId: session.tenantId,
-    actorId: session.userId,
-    actorName: session.fullName || 'Admin',
+    actorId: session.uid,
+    actorName: session.name || 'Admin',
     actorRole: session.role,
     action: 'BULK_PHOTOS_UPLOADED',
     entity: 'User',

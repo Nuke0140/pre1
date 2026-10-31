@@ -150,10 +150,7 @@ export class S3StorageService {
    */
   static resolvePublicUrl(key: string): string {
     if (!this.isS3Configured()) {
-      const parts = key.split('/')
-      const category = parts[2] || 'avatars'
-      const filename = path.basename(key)
-      return `/uploads/${category}/${filename}`
+      return `/uploads/${key}`
     }
     const cdn = this.getCdnBaseUrl()
     if (cdn) {
@@ -381,12 +378,11 @@ export class S3StorageService {
 
       // When running in local environment without AWS S3, persist buffer to public/uploads directory
       try {
-        const uploadDir = path.join(process.cwd(), 'public', 'uploads', params.category)
+        const filePath = path.join(process.cwd(), 'public', 'uploads', key)
+        const uploadDir = path.dirname(filePath)
         if (!fs.existsSync(uploadDir)) {
           fs.mkdirSync(uploadDir, { recursive: true })
         }
-        const filename = path.basename(key)
-        const filePath = path.join(uploadDir, filename)
         fs.writeFileSync(filePath, params.buffer)
       } catch (diskErr) {
         console.warn('Failed to persist uploaded asset to public/uploads disk:', diskErr)
@@ -442,6 +438,7 @@ export class S3StorageService {
 
     const key = this.extractKeyFromUrl(keyOrUrl)
     if (!key) return false
+    if (key.includes('..')) return false
 
     if (this.isS3Configured()) {
       try {
@@ -460,12 +457,17 @@ export class S3StorageService {
     } else {
       mockS3Store.delete(key)
       try {
+        const filePath = path.join(process.cwd(), 'public', 'uploads', key)
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
+        // Also cleanup legacy flat upload path
         const parts = key.split('/')
         const category = parts[2] || 'avatars'
         const filename = path.basename(key)
-        const filePath = path.join(process.cwd(), 'public', 'uploads', category, filename)
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath)
+        const legacyPath = path.join(process.cwd(), 'public', 'uploads', category, filename)
+        if (fs.existsSync(legacyPath)) {
+          fs.unlinkSync(legacyPath)
         }
       } catch {
         // Non-blocking cleanup
@@ -481,20 +483,27 @@ export class S3StorageService {
     if (!urlOrKey) return null
     if (urlOrKey.startsWith('tenants/')) return urlOrKey
 
+    if (urlOrKey.includes('tenants/')) {
+      const idx = urlOrKey.indexOf('tenants/')
+      return urlOrKey.substring(idx)
+    }
+
+    if (urlOrKey.startsWith('/uploads/') || urlOrKey.startsWith('uploads/')) {
+      return urlOrKey.replace(/^\/+/, '').replace(/^uploads\/+/, '')
+    }
+
     try {
       const parsed = new URL(urlOrKey)
-      // Path begins with /tenants/...
+      // Path begins with /tenants/... or /uploads/...
       const pathname = parsed.pathname.replace(/^\/+/, '')
       if (pathname.startsWith('tenants/')) {
         return pathname
       }
+      if (pathname.startsWith('uploads/')) {
+        return pathname.replace(/^uploads\/+/, '')
+      }
     } catch {
       // Not a full URL
-    }
-
-    if (urlOrKey.includes('tenants/')) {
-      const idx = urlOrKey.indexOf('tenants/')
-      return urlOrKey.substring(idx)
     }
 
     return null

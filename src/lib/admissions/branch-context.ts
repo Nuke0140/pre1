@@ -12,6 +12,7 @@ import { db } from '@/lib/db'
 import type { SessionPayload, Role } from '@/lib/auth'
 import { isInstitutionWide } from '@/lib/security/resource-scope'
 import { getAuthorizedBranchIds } from '@/lib/auth-api'
+import { errPermission } from '@/lib/api'
 
 export const ALL_BRANCHES_ID = '__ALL_BRANCHES__'
 
@@ -129,7 +130,7 @@ export async function resolveAuthorizedBranchScope(
   }
 
   if (cleanReq && !authorizedBranchIds.includes(cleanReq)) {
-    throw new Error('Unauthorized: requested branch does not belong to your authorized school scope')
+    throw errPermission('Unauthorized: requested branch does not belong to your authorized school scope')
   }
 
   // Default selection if no specific branch requested:

@@ -483,7 +483,7 @@ export function FamilyGroupingCard({
       {/* 5. Link Sibling Modal */}
       {isLinkModalOpen && (
         <Modal
-          isOpen={isLinkModalOpen}
+          open={isLinkModalOpen}
           onClose={() => setIsLinkModalOpen(false)}
           title="Link Sibling to Family Unit"
         >

@@ -2,6 +2,7 @@ import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
+import { can } from '@/lib/auth'
 import {
   evaluateStepDependencies,
   executePrerequisiteResolution,
@@ -28,11 +29,15 @@ async function _GET(req: NextRequest) {
       return Errors.validation('stepKey query parameter is required')
     }
 
+    const permissions = can(session.roles?.length ? session.roles : session.role, 'settings:write')
+      ? ['settings:write', 'settings:read']
+      : ['settings:read']
+
     const resolution = await evaluateStepDependencies(
       session.tenantId,
       stepKey,
       branchId,
-      session.permissions || ['settings:write', 'settings:read']
+      permissions
     )
 
     return ok(resolution)
@@ -72,11 +77,15 @@ async function _POST(req: NextRequest) {
     )
 
     // Re-evaluate the target step's dependencies immediately after creation
+    const permissions = can(session.roles?.length ? session.roles : session.role, 'settings:write')
+      ? ['settings:write', 'settings:read']
+      : ['settings:read']
+
     const updatedResolution = await evaluateStepDependencies(
       session.tenantId,
       targetStep as StepKey,
       branchId,
-      session.permissions || ['settings:write', 'settings:read']
+      permissions
     )
 
     return ok({

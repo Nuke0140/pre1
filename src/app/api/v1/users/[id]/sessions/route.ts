@@ -19,6 +19,7 @@ async function _GET(req: NextRequest, { params }: { params: Promise<{ id: string
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     const rawSessions = await SessionService.getUserSessions(member.userId)
@@ -53,6 +54,7 @@ async function _DELETE(req: NextRequest, { params }: { params: Promise<{ id: str
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     if (member.role === 'OWNER' && session.role !== 'OWNER' && session.role !== 'PLATFORM_ADMIN') {

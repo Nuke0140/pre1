@@ -57,10 +57,9 @@ export function isDemoOtpAllowed(identifier?: string): boolean {
     return false
   }
 
-  // In production, general demo OTP strictly fails closed unless explicitly allowed via environment flags
+  // In production, general demo OTP strictly fails closed under all circumstances
   if (process.env.NODE_ENV === 'production') {
-    const explicitAllow = process.env.ALLOW_DEMO_OTP === 'true' || process.env.ENABLE_DEMO_OTP === 'true'
-    return explicitAllow
+    return false
   }
 
   // In non-production or preview environments, demo codes are enabled by default

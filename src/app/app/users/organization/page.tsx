@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Network, ShieldCheck, ChevronLeft, ArrowLeft, RefreshCw, Layers } from 'lucide-react'
 import { Breadcrumbs } from '@/components/preone/Breadcrumbs'
-import { PageHead, Button } from '@/components/preone/ui'
+import { PageHead } from '@/components/preone/ui'
 import { OrgHierarchyView } from '@/components/users/OrgHierarchyView'
 import { RolesDirectoryView } from '@/components/users/RolesDirectoryView'
 import { User360Drawer } from '@/components/users/User360Drawer'
@@ -150,9 +150,9 @@ export default function OrganizationSetupPage() {
       {/* User 360 Inspection Drawer when clicking a staff member */}
       {viewingUser && (
         <User360Drawer
+          open={Boolean(viewingUser)}
           user={viewingUser}
           onClose={() => setViewingUser(null)}
-          branches={branches}
         />
       )}
     </div>

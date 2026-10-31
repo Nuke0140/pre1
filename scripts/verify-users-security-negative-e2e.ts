@@ -120,7 +120,7 @@ async function runTests() {
 
   console.log('\n--- 2. Cross-Branch Boundary Enforcement ---')
   // Coordinator A1 is branchA1. Target Teacher 2 is branchA2.
-  const crossBranchCheck = requireBranchAccess(sessionCoordA1, branchA2.id)
+  const crossBranchCheck = await requireBranchAccess(sessionCoordA1, branchA2.id)
   assert(isResponse(crossBranchCheck) && crossBranchCheck.status === 403, 'Branch-scoped operator accessing foreign branch returns 403')
 
   const crossBranchManage = await requireCanManageUser(sessionCoordA1, userTeacher2.id)
@@ -135,7 +135,7 @@ async function runTests() {
     roles: ['OWNER'],
     tenantId: tenantA.id,
   }
-  const ownerBranchCheck = requireBranchAccess(sessionOwnerA, branchA2.id)
+  const ownerBranchCheck = await requireBranchAccess(sessionOwnerA, branchA2.id)
   assert(ownerBranchCheck === null, 'Owner has unrestricted multi-branch access')
 
   console.log('\n--- 3. Privilege Escalation Protection ---')

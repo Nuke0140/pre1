@@ -2,13 +2,13 @@
  * PreOne M00 — Setup v2 Architectural & E2E Acceptance Test Suite
  *
  * Verifies:
- * 1. 17-Step & 4-Phase Canonical Structure
+ * 1. 11-Step & 3-Phase Canonical Structure
  * 2. Pure Predicates & Setup Engine DAG
  * 3. Drift Detection (status === 'COMPLETE' && changedAfterCompletion === true)
  * 4. Tenant Profile & Principal Signature Support
  * 5. Subject Master Data & Program/Classroom Mapping (M02)
  * 6. Config Domain Extension (MOOD_ENVIRONMENT, PROMOTION)
- * 7. Multi-Category Setup Readiness Validation (Calendar, Admissions, Safeguards, Subjects)
+ * 7. 16-Category Setup Readiness Validation (Calendar, Admissions, Safeguards, Subjects)
  * 8. Zero Shadow Tables & Canonical Isolation
  */
 
@@ -44,37 +44,34 @@ async function runTests() {
 
   try {
     // -------------------------------------------------------------------------
-    // TEST 1: CANONICAL 17-STEP & 4-PHASE STRUCTURE
+    // TEST 1: CANONICAL 11-STEP & 3-PHASE STRUCTURE
     // -------------------------------------------------------------------------
-    console.log('[1] Canonical 17-Step & 4-Phase Definitions')
-    assert(SETUP_STEPS.length === 17, `SETUP_STEPS count is exactly 17 (got ${SETUP_STEPS.length})`)
-    assert(PHASES.length === 4, `PHASES count is exactly 4 (got ${PHASES.length})`)
+    console.log('[1] Canonical 11-Step & 3-Phase Definitions')
+    assert(SETUP_STEPS.length === 11, `SETUP_STEPS count is exactly 11 (got ${SETUP_STEPS.length})`)
+    assert(PHASES.length === 3, `PHASES count is exactly 3 (got ${PHASES.length})`)
 
     const phases = PHASES.map((p) => p.key)
     assert(
       phases.includes('FOUNDATION') &&
       phases.includes('ACADEMIC_STRUCTURE') &&
-      phases.includes('OPERATIONS') &&
       phases.includes('BUSINESS_RULES'),
-      'Phases match canonical names (FOUNDATION, ACADEMIC_STRUCTURE, OPERATIONS, BUSINESS_RULES)'
+      'Phases match canonical names (FOUNDATION, ACADEMIC_STRUCTURE, BUSINESS_RULES)'
     )
 
     const expectedSteps = [
       'school_profile', 'branch', 'branding', 'roles',
-      'academic_year', 'curriculum', 'programs', 'classroom', 'subject',
-      'mood_environment', 'health_settings', 'daily_operations', 'observation',
-      'fees_setup', 'templates', 'communication', 'promotion'
+      'academic_year', 'programs', 'classroom', 'subject',
+      'fees_setup', 'templates', 'promotion'
     ]
     const allPresent = expectedSteps.every((s) => STEP_MAP[s] !== undefined)
-    assert(allPresent, 'All 17 canonical steps are indexed in STEP_MAP')
+    assert(allPresent, 'All 11 canonical steps are indexed in STEP_MAP')
 
     // Verify Legacy Aliases
     assert(LEGACY_KEY_MAP['classes_sections'] === 'classroom', 'Legacy alias classes_sections -> classroom')
     assert(LEGACY_KEY_MAP['infrastructure'] === 'branch', 'Legacy alias infrastructure -> branch')
     assert(LEGACY_KEY_MAP['teacher_assignment'] === 'classroom', 'Legacy alias teacher_assignment -> classroom')
-    assert(LEGACY_KEY_MAP['operating_config'] === 'daily_operations', 'Legacy alias operating_config -> daily_operations')
-    assert(LEGACY_KEY_MAP['admission_config'] === 'daily_operations', 'Legacy alias admission_config -> daily_operations')
     assert(LEGACY_KEY_MAP['fees'] === 'fees_setup', 'Legacy alias fees -> fees_setup')
+    assert(LEGACY_KEY_MAP['documents'] === 'templates', 'Legacy alias documents -> templates')
 
     // -------------------------------------------------------------------------
     // TEST 2: TENANT CREATION & PRINCIPAL SIGNATURE
@@ -103,7 +100,7 @@ async function runTests() {
     console.log('\n[3] Setup Engine Row Initialization & Evaluation')
     await ensureSetupRows(tenant.id)
     const setupRows = await db.schoolSetupStep.findMany({ where: { tenantId: tenant.id } })
-    assert(setupRows.length === 17, `ensureSetupRows initialized exactly 17 rows (got ${setupRows.length})`)
+    assert(setupRows.length === 11, `ensureSetupRows initialized exactly 11 rows (got ${setupRows.length})`)
 
     const ctxInitial = await loadContext(tenant.id)
     assert(ctxInitial !== null, 'loadContext returned tenant context')
@@ -300,7 +297,7 @@ async function runTests() {
     console.log('\n[7] Comprehensive Setup Readiness Validation (validateAndRecord)')
     const valResult = await validateAndRecord(tenant.id, 'SETUP_VALIDATION', { id: 'admin-1', name: 'Admin Test' })
     assert(valResult !== null, 'validateAndRecord returned validation result')
-    assert(valResult!.categories.length === 15, `Validation evaluated exactly 15 categories (got ${valResult!.categories.length})`)
+    assert(valResult!.categories.length === 16, `Validation evaluated exactly 16 categories (got ${valResult!.categories.length})`)
 
     const subjectCat = valResult!.categories.find((c) => c.key === 'subject')
     assert(subjectCat !== undefined, 'subject validation category evaluated')
@@ -312,6 +309,12 @@ async function runTests() {
     const safeCat = valResult!.categories.find((c) => c.key === 'students_parents')
     assert(safeCat !== undefined, 'students_parents safeguards validation category evaluated without shadow tables')
 
+    const dailyOpsCat = valResult!.categories.find((c) => c.key === 'daily_operations')
+    assert(dailyOpsCat?.status === 'WARNING', `daily_operations retired-step category is advisory only (${dailyOpsCat?.status})`)
+
+    const healthCat = valResult!.categories.find((c) => c.key === 'health_safety')
+    assert(healthCat?.status === 'WARNING', `health_safety retired-step category is advisory only (${healthCat?.status})`)
+
     // Verify validation run was persisted
     const savedRuns = await db.schoolSetupValidationRun.findMany({ where: { tenantId: tenant.id } })
     assert(savedRuns.length >= 1, `SchoolSetupValidationRun record persisted (count: ${savedRuns.length})`)
@@ -322,7 +325,7 @@ async function runTests() {
     console.log('\n[8] Setup Status Control Plane (syncSetup)')
     const statusPayload = await syncSetup(tenant.id)
     assert(statusPayload !== null, 'syncSetup returned status payload')
-    assert(statusPayload!.steps.length === 17, `syncSetup returns 17 steps (got ${statusPayload!.steps.length})`)
+    assert(statusPayload!.steps.length === 11, `syncSetup returns 11 steps (got ${statusPayload!.steps.length})`)
     assert(typeof statusPayload!.progress === 'number', `Progress percentage calculated (${statusPayload!.progress}%)`)
 
     // Verify dependencies are tracked

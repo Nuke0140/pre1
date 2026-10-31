@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   Info,
 } from 'lucide-react'
-import { toast } from 'sonner'
+import { useToast } from '@/components/preone/Toast'
 import type { DpdpPreviewResult } from '@/lib/security/dpdp-service'
 
 interface DpdpAnonymizeModalProps {
@@ -36,6 +36,7 @@ export function DpdpAnonymizeModal({
   onClose,
   onSuccess,
 }: DpdpAnonymizeModalProps) {
+  const toast = useToast()
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [executing, setExecuting] = useState(false)
   const [preview, setPreview] = useState<DpdpPreviewResult | null>(null)

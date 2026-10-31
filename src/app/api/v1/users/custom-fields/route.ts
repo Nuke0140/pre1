@@ -138,23 +138,23 @@ export const POST = withApi(async (req: NextRequest) => {
     },
     update: {
       data: currentData,
-      updatedById: session.userId,
-      updatedByName: session.fullName || 'Admin',
+      updatedById: session.uid,
+      updatedByName: session.name || 'Admin',
     },
     create: {
       tenantId: session.tenantId,
       domain: ConfigDomain.STUDENT_PARENT,
       data: currentData,
-      updatedById: session.userId,
-      updatedByName: session.fullName || 'Admin',
+      updatedById: session.uid,
+      updatedByName: session.name || 'Admin',
     },
   })
 
   const meta = getRequestMeta(req)
   await recordAudit({
     tenantId: session.tenantId,
-    actorId: session.userId,
-    actorName: session.fullName || 'Admin',
+    actorId: session.uid,
+    actorName: session.name || 'Admin',
     actorRole: session.role,
     action: 'CUSTOM_FIELDS_UPDATED',
     entity: 'SchoolConfig',

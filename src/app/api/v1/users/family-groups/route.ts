@@ -1,6 +1,6 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, bad, serverError } from '@/lib/api'
+import { ok, bad, forbidden, serverError } from '@/lib/api'
 import { requireApi, isResponse, getAuthorizedBranchIds } from '@/lib/auth-api'
 import { db } from '@/lib/db'
 import { GuardianChild, HouseholdGuardian, HouseholdCampus, FamilyHousehold } from '@/components/users/types'
@@ -51,15 +51,44 @@ async function _GET(req: NextRequest) {
 
     // If session is branch-scoped and not owner/principal, enforce branchFilter
     const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-    const isInstitutionWide = effectiveRoles.some((r) =>
-      ['OWNER', 'PRINCIPAL', 'PLATFORM_ADMIN'].includes(r)
-    )
+    const isParentOrGuardian = effectiveRoles.every((r) => r === 'PARENT' || r === 'GUARDIAN')
+    const authorizedBranches = await getAuthorizedBranchIds(session)
+    const isInstitutionWide = authorizedBranches === null
 
-    if (!isInstitutionWide && session.branchId && branchFilter && branchFilter !== session.branchId) {
-      return bad('Access denied: branch scope restricted', 'BRANCH_RESTRICTED')
+    if (!isInstitutionWide && Array.isArray(authorizedBranches)) {
+      if (branchFilter && branchFilter !== 'ALL') {
+        if (!authorizedBranches.includes(branchFilter)) {
+          return forbidden('Access denied: branch scope restricted')
+        }
+      }
     }
 
     const effectiveBranchFilter = isInstitutionWide ? branchFilter : (session.branchId || branchFilter)
+
+    const linksWhere: any = {
+      student: {
+        tenantId: session.tenantId,
+        deletedAt: null,
+      },
+      guardian: {
+        tenantId: session.tenantId,
+        deletedAt: null,
+      },
+    }
+
+    if (isParentOrGuardian) {
+      linksWhere.guardian.userId = session.uid
+    } else if (!isInstitutionWide && Array.isArray(authorizedBranches)) {
+      if (branchFilter && branchFilter !== 'ALL') {
+        linksWhere.student.branchId = branchFilter
+      } else if (authorizedBranches.length > 0) {
+        linksWhere.student.branchId = { in: authorizedBranches }
+      } else {
+        linksWhere.student.branchId = '__NO_BRANCH_ASSIGNED__'
+      }
+    } else if (branchFilter && branchFilter !== 'ALL') {
+      linksWhere.student.branchId = branchFilter
+    }
 
     const allLinks = await db.studentGuardian.findMany({
       where: linksWhere,

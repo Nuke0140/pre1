@@ -42,11 +42,14 @@ export interface RoleCapabilityCardData {
   policyType: 'security' | 'info' | 'warning' | 'success'
   highlights: {
     viewStudentFees: RoleCapabilityAccess
+    viewFeeInvoices: RoleCapabilityAccess
+    viewStudentPII: RoleCapabilityAccess
     messageParents: RoleCapabilityAccess
     editAttendance: RoleCapabilityAccess
     viewStaffSalaries: RoleCapabilityAccess
   }
   capabilities: RoleCapabilityAccess[]
+  technicalPermissions: string[]
 }
 
 /**
@@ -1082,12 +1085,19 @@ export function getRoleCardData(role: string): RoleCapabilityCardData {
     }
   }
 
+  const viewStudentFees = findCap('view_student_fees', 'View Student Fees', 'Finance')
+  const viewStudentPII = findCap('view_student_pii', 'View Student PII', 'Students & Academics')
+
   const highlights = {
-    viewStudentFees: findCap('view_student_fees', 'View Student Fees', 'Finance'),
+    viewStudentFees,
+    viewFeeInvoices: viewStudentFees,
+    viewStudentPII,
     messageParents: findCap('message_parents', 'Message Parents', 'Communication'),
     editAttendance: findCap('edit_attendance', 'Edit Attendance', 'Attendance'),
     viewStaffSalaries: findCap('view_staff_salaries', 'View Staff Salaries', 'Staff & HR'),
   }
+
+  const technicalPermissions = (ROLE_PERMISSIONS[normRole as UserRole] as string[]) || []
 
   const baseConfig = ROLE_CARD_CONFIGS[normRole] || {
     title: normRole,
@@ -1112,10 +1122,11 @@ export function getRoleCardData(role: string): RoleCapabilityCardData {
     ...baseConfig,
     highlights,
     capabilities,
+    technicalPermissions,
   }
 }
 
-const ROLE_CARD_CONFIGS: Record<string, Omit<RoleCapabilityCardData, 'role' | 'highlights' | 'capabilities'>> = {
+const ROLE_CARD_CONFIGS: Record<string, Omit<RoleCapabilityCardData, 'role' | 'highlights' | 'capabilities' | 'technicalPermissions'>> = {
   OWNER: {
     title: 'School Owner / Trustee',
     badgeText: 'Owner / Trust Head',

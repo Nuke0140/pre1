@@ -32,6 +32,7 @@ describe('Users Module Completion Audit: Staff vs Family Branch Isolation & Auth
 
   let tokenOwnerA: string
   let tokenPrincipalA: string
+  let tokenPrincipalCampusA1: string
   let tokenStaffA1: string
   let tokenStaffA2: string
 
@@ -101,7 +102,7 @@ describe('Users Module Completion Audit: Staff vs Family Branch Isolation & Auth
 
     principalA = await db.user.create({
       data: {
-        fullName: 'Principal A',
+        fullName: 'Principal A (Institution-Wide)',
         email: `principal.a.${ts}@preone.test`,
         phone: `+9198111${ts.toString().slice(-5)}`,
         passwordHash: dummyHash,
@@ -110,7 +111,7 @@ describe('Users Module Completion Audit: Staff vs Family Branch Isolation & Auth
             tenantId: tenantA.id,
             role: 'PRINCIPAL',
             roles: ['PRINCIPAL'],
-            branchId: branchA1.id,
+            branchId: null,
             status: 'ACTIVE',
           },
         },
@@ -266,6 +267,15 @@ describe('Users Module Completion Audit: Staff vs Family Branch Isolation & Auth
       email: principalA.email,
       name: principalA.fullName,
       tenantId: tenantA.id,
+      role: 'PRINCIPAL',
+      roles: ['PRINCIPAL'],
+    })
+
+    tokenPrincipalCampusA1 = await signSession({
+      uid: principalA.id,
+      email: principalA.email,
+      name: principalA.fullName,
+      tenantId: tenantA.id,
       branchId: branchA1.id,
       role: 'PRINCIPAL',
       roles: ['PRINCIPAL'],
@@ -359,6 +369,28 @@ describe('Users Module Completion Audit: Staff vs Family Branch Isolation & Auth
       const idsB2 = dataB2.data.map((g: any) => g.id)
       expect(idsB2).toContain(guardianA2.id)
       expect(idsB2).not.toContain(guardianA1.id)
+    })
+
+    it('strictly confines Campus-scoped Principal (Branch A1) to assigned branch and rejects cross-branch query', async () => {
+      const reqCampus = new NextRequest('http://localhost:3000/api/v1/users/guardians', {
+        headers: { authorization: `Bearer ${tokenPrincipalCampusA1}` },
+      })
+      const resCampus = await getGuardians(reqCampus)
+      expect(resCampus.status).toBe(200)
+      const dataCampus = await resCampus.json()
+      const idsCampus = dataCampus.data.map((g: any) => g.id)
+      expect(idsCampus).toContain(guardianA1.id)
+      expect(idsCampus).not.toContain(guardianA2.id)
+
+      // Attempting to query foreign Branch A2
+      const reqCross = new NextRequest(`http://localhost:3000/api/v1/users/guardians?branchId=${branchA2.id}`, {
+        headers: { authorization: `Bearer ${tokenPrincipalCampusA1}` },
+      })
+      const resCross = await getGuardians(reqCross)
+      expect(resCross.status).toBe(403)
+      const dataCross = await resCross.json()
+      const errorMsg = dataCross.error?.message || dataCross.error || dataCross.message || ''
+      expect(errorMsg).toContain('branch scope restricted')
     })
 
     it('restricts single-branch staff (Branch A1) to only guardians linked to Branch A1 students', async () => {

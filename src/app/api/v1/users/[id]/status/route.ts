@@ -1,6 +1,6 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
-import { ok, bad, forbidden, serverError, fail } from '@/lib/api'
+import { ok, bad, notFound, forbidden, serverError, fail } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { UserStatus } from '@prisma/client'
 import {
@@ -10,9 +10,9 @@ import {
   VALID_LIFECYCLE_TRANSITIONS,
 } from '@/lib/users/user-lifecycle-service'
 
-export type ActionType = LifecycleActionType
-export const ACTION_MAP = LIFECYCLE_ACTION_MAP
-export const VALID_TRANSITIONS = VALID_LIFECYCLE_TRANSITIONS
+type ActionType = LifecycleActionType
+const ACTION_MAP = LIFECYCLE_ACTION_MAP
+const VALID_TRANSITIONS = VALID_LIFECYCLE_TRANSITIONS
 
 /** POST /api/v1/users/[id]/status — manage user lifecycle states (UAM-E1) */
 async function _POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +24,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     const body = await req.json()

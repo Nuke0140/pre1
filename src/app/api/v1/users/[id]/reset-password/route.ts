@@ -1,7 +1,7 @@
 import { withApi } from '@/lib/with-api'
 import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
-import { ok, bad, serverError } from '@/lib/api'
+import { ok, bad, notFound, serverError } from '@/lib/api'
 import { requireApi, isResponse, requireCanManageUser } from '@/lib/auth-api'
 import { recordAudit, getRequestMeta } from '@/lib/audit'
 import bcrypt from 'bcryptjs'
@@ -42,6 +42,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
   const manageCheck = await requireCanManageUser(session, id)
   if (isResponse(manageCheck)) return manageCheck
   const { targetMember: member } = manageCheck
+  if (!member) return notFound('User not found in this school')
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -55,7 +56,7 @@ async function _POST(req: NextRequest, { params }: { params: Promise<{ id: strin
     let rawPassword = password
     if (rawPassword !== undefined) {
       if (typeof rawPassword !== 'string' || rawPassword.length < MIN_PASSWORD_LENGTH) {
-        return bad(PASSWORD_POLICY.copy, 'INVALID_PASSWORD_POLICY', 'password')
+        return bad(PASSWORD_POLICY.errorMessage, 'INVALID_PASSWORD_POLICY', 'password')
       }
     } else {
       rawPassword = generateTemporaryPassword()

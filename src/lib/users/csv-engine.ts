@@ -317,11 +317,21 @@ export class UserCsvEngine {
         actorBranchId?: string | null
         actorRole?: string
         actorRoles?: string[]
+        authorizedBranchIds?: string[]
       }
+      actorBranchId?: string | null
+      actorRole?: string
+      actorRoles?: string[]
+      authorizedBranchIds?: string[]
     }
   ): Promise<CsvPreviewResult & { invalidRows?: number; newUsers?: number; existingUsers?: number; errors?: any[] }> {
     const { rows } = parseCsvString(csvContent)
     const previewRows: CsvPreviewRow[] = []
+
+    const actorRole = options?.actorContext?.actorRole || options?.actorRole
+    const actorRoles = options?.actorContext?.actorRoles || options?.actorRoles || (actorRole ? [actorRole] : [])
+    const actorBranchId = options?.actorContext?.actorBranchId || options?.actorBranchId
+    const authorizedBranchIds = options?.actorContext?.authorizedBranchIds || options?.authorizedBranchIds || (actorBranchId ? [actorBranchId] : [])
 
     const seenEmails = new Set<string>()
     const seenPhones = new Set<string>()
@@ -462,10 +472,13 @@ export class UserCsvEngine {
         }
       }
 
-      const effectiveActorBranchId = options?.actorContext?.actorBranchId || (options)?.actorBranchId;
-      const authorizedBranches = (options)?.authorizedBranchIds || (options)?.actorAuthorizedBranchIds;
-      if ((effectiveActorBranchId && branchId && branchId !== effectiveActorBranchId) || (authorizedBranches && branchId && !authorizedBranches.includes(branchId))) {
-        errors.push(`Cannot assign staff to branch outside your authorized campus (branch: ${branchCode})`)
+      const isActorInstitutionWide = actorRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN'].includes(r as any))
+      if (!isActorInstitutionWide && branchId) {
+        if (authorizedBranchIds.length > 0 && !authorizedBranchIds.includes(branchId)) {
+          errors.push(`Branch is outside your authorized campus: cannot assign staff to branch ${branchCode}`)
+        } else if (actorBranchId && branchId !== actorBranchId) {
+          errors.push(`Branch is outside your authorized campus: cannot assign staff to branch ${branchCode}`)
+        }
       }
 
       // Check classroom assignment
@@ -659,6 +672,7 @@ export class UserCsvEngine {
       actorBranchId?: string | null
       actorRole?: string
       actorRoles?: string[]
+      authorizedBranchIds?: string[]
     }
   ): Promise<CsvPreviewResult> {
     const { rows } = parseCsvString(csvContent)
@@ -805,9 +819,16 @@ export class UserCsvEngine {
       const isExistingChild = Boolean(targetStudent)
       let isAlreadyLinked = false
 
+      const effectiveRoles = (actorContext?.actorRoles && actorContext.actorRoles.length > 0 ? actorContext.actorRoles : [actorContext?.actorRole]).filter(Boolean)
+      const isOwnerOrPlatform = effectiveRoles.some((r) => ['OWNER', 'PLATFORM_ADMIN'].includes(r as any))
+      const allowedBranches = actorContext?.authorizedBranchIds || (actorContext?.actorBranchId ? [actorContext.actorBranchId] : [])
+
       if (isExistingChild) {
-        if (actorContext?.actorBranchId && targetStudent.branchId !== actorContext.actorBranchId) {
-          errors.push('Cannot link student belonging to another campus branch')
+        // Check branch boundary for existing student
+        if (!isOwnerOrPlatform && allowedBranches.length > 0) {
+          if (targetStudent.branchId && !allowedBranches.includes(targetStudent.branchId)) {
+            errors.push('Cannot link student belonging to another campus branch')
+          }
         }
 
         // Mismatch checks — Do NOT silently overwrite existing student data!
@@ -831,15 +852,6 @@ export class UserCsvEngine {
             }
           } catch (e) {
             // invalid date in CSV
-          }
-        }
-
-        // Check branch boundary for existing student
-        const isOwnerOrPlatform = actorContext?.actorRole === 'OWNER' || actorContext?.actorRole === 'PLATFORM_ADMIN'
-        const allowedBranches = actorContext?.authorizedBranchIds || (actorContext?.actorBranchId ? [actorContext.actorBranchId] : [])
-        if (!isOwnerOrPlatform && allowedBranches.length > 0) {
-          if (targetStudent.branchId && !allowedBranches.includes(targetStudent.branchId)) {
-            errors.push(`Unauthorized: Student "${targetStudent.firstName}" belongs to another campus branch`)
           }
         }
 
@@ -895,8 +907,11 @@ export class UserCsvEngine {
         if (classInput && !classroomMap.has(classInput)) {
           errors.push(`Student class "${classInput}" not found in this school`)
         }
-        if (actorContext?.actorBranchId && branchInput && branchMap.get(branchInput) !== actorContext.actorBranchId) {
-          errors.push('Cannot create student in another campus branch')
+        const targetNewBranchId = branchInput ? branchMap.get(branchInput) : null
+        if (!isOwnerOrPlatform && targetNewBranchId) {
+          if (allowedBranches.length > 0 && !allowedBranches.includes(targetNewBranchId)) {
+            errors.push('Cannot create student in another campus branch')
+          }
         }
       }
 
@@ -1050,6 +1065,7 @@ export class UserCsvEngine {
       actorRole?: string
       actorRoles?: string[]
       actorBranchId?: string | null
+      authorizedBranchIds?: string[]
     },
     rows: CsvPreviewRow[],
     options?: {
@@ -1360,6 +1376,7 @@ export class UserCsvEngine {
       actorRole?: string
       actorRoles?: string[]
       actorBranchId?: string | null
+      authorizedBranchIds?: string[]
     },
     rows: CsvPreviewRow[],
     options?: {
@@ -1394,6 +1411,7 @@ export class UserCsvEngine {
                 actorRole: ctx.actorRole,
                 actorRoles: ctx.actorRoles,
                 actorBranchId: ctx.actorBranchId,
+                authorizedBranchIds: ctx.authorizedBranchIds,
               },
               row.data as any
             )
@@ -1454,6 +1472,7 @@ export class UserCsvEngine {
               actorRole: ctx.actorRole,
               actorRoles: ctx.actorRoles,
               actorBranchId: ctx.actorBranchId,
+              authorizedBranchIds: ctx.authorizedBranchIds,
             },
             row.data as any
           )

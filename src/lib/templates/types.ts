@@ -52,6 +52,7 @@ export interface ElementStyles {
   borderColor?: string
   borderWidth?: number
   borderRadius?: number
+  objectFit?: 'cover' | 'contain' | 'fill'
   opacity?: number
   letterSpacing?: number
   lineHeight?: number

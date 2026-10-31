@@ -14,34 +14,35 @@ export const GET = withApi(async (req: NextRequest) => {
   const url = new URL(req.url)
   const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
 
-  const effectiveRoles = session.roles && session.roles.length > 0 ? session.roles : [session.role]
-  const isInstitutionWide = effectiveRoles.some((r) =>
-    ['OWNER', 'PLATFORM_ADMIN'].includes(r)
-  )
+  const authorizedBranches = await getAuthorizedBranchIds(session)
+  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
 
-  let effectiveBranchId: string | undefined = undefined
-  if (!isInstitutionWide && session.branchId) {
-    if (branchFilter && branchFilter !== session.branchId) {
-      throw errPermission('Access denied: branch scope restricted')
+  let effectiveBranchIds: string[] | undefined = undefined
+
+  if (!isInstitutionWide && Array.isArray(authorizedBranches)) {
+    if (branchFilter && branchFilter !== 'ALL') {
+      if (!authorizedBranches.includes(branchFilter)) {
+        throw errPermission('Access denied: branch scope restricted')
+      }
+      effectiveBranchIds = [branchFilter]
+    } else {
+      effectiveBranchIds = authorizedBranches
     }
-    effectiveBranchId = session.branchId
   } else if (branchFilter && branchFilter !== 'ALL') {
-    effectiveBranchId = branchFilter
+    effectiveBranchIds = [branchFilter]
   }
-
-  const targetBranchSet = effectiveBranchId ? [effectiveBranchId] : null
 
   const whereClause: any = {
     tenantId: session.tenantId,
     deletedAt: null,
   }
 
-  if (effectiveBranchId) {
+  if (effectiveBranchIds) {
     whereClause.studentLinks = {
       some: {
         student: {
           tenantId: session.tenantId,
-          branchId: effectiveBranchId,
+          branchId: { in: effectiveBranchIds },
           deletedAt: null,
         },
       },
@@ -53,11 +54,11 @@ export const GET = withApi(async (req: NextRequest) => {
     include: {
       user: { select: { id: true, email: true, status: true } },
       studentLinks: {
-        where: effectiveBranchId
+        where: effectiveBranchIds
           ? {
               student: {
                 tenantId: session.tenantId,
-                branchId: effectiveBranchId,
+                branchId: { in: effectiveBranchIds },
                 deletedAt: null,
               },
             }
@@ -75,8 +76,8 @@ export const GET = withApi(async (req: NextRequest) => {
 
   return ok(
     guardians.map((g) => {
-      const visibleLinks = targetBranchSet
-        ? g.studentLinks.filter((sl) => targetBranchSet.includes(sl.student.branchId))
+      const visibleLinks = effectiveBranchIds
+        ? g.studentLinks.filter((sl) => effectiveBranchIds.includes(sl.student.branchId))
         : g.studentLinks
 
       return {

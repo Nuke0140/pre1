@@ -104,7 +104,7 @@ export const POST = withApi(async (req: NextRequest) => {
       actorName: session.name,
       actorRole: session.role,
       actorBranchId: session.branchId,
-      authorizedBranches: (authorizedBranches === 'ALL' || authorizedBranches === null) ? undefined : authorizedBranches,
+      authorizedBranches: authorizedBranches === null ? undefined : authorizedBranches,
       userIds,
       fieldKey: field,
       value,
@@ -214,7 +214,7 @@ export const POST = withApi(async (req: NextRequest) => {
 
       // Branch boundary check for branch-scoped operators
       if (!isActorOwnerOrPlatform) {
-        if (authorizedBranches === 'ALL' || authorizedBranches === null) {
+        if (authorizedBranches === null) {
           // Allowed
         } else if (!Array.isArray(authorizedBranches) || authorizedBranches.length === 0) {
           blocked.push({ userId: uid, reason: 'CROSS_BRANCH_FORBIDDEN' })

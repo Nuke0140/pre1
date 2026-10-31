@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { ok, Errors } from '@/lib/api'
 import { requireApi, isResponse } from '@/lib/auth-api'
 import { audit } from '@/lib/sequence'
-import type { ConfigDomain } from '@prisma/client'
+import type { ConfigDomain, Prisma } from '@prisma/client'
 
 const VALID_DOMAINS: ConfigDomain[] = [
   'OPERATING', 'ADMISSION', 'STUDENT_PARENT', 'FINANCE', 'DAILY_OPERATIONS',
@@ -154,12 +154,12 @@ async function _PUT(
         create: {
           tenantId: session.tenantId,
           domain: 'BRANDING',
-          data: configPayload,
+          data: configPayload as Prisma.InputJsonValue,
           updatedById: session.uid,
           updatedByName: session.name,
         },
         update: {
-          data: configPayload,
+          data: configPayload as Prisma.InputJsonValue,
           updatedById: session.uid,
           updatedByName: session.name,
         },

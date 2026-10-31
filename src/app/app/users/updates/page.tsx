@@ -355,9 +355,9 @@ export default function StaffUpdatesPage() {
       {/* User 360 Inspection Drawer */}
       {viewingStaff && (
         <User360Drawer
+          open={Boolean(viewingStaff)}
           user={viewingStaff}
           onClose={() => setViewingStaff(null)}
-          branches={branches}
         />
       )}
     </div>

@@ -14,7 +14,7 @@ import { SmartDependencyResolver } from '@/components/setup/SmartDependencyResol
 import { Modal } from '@/components/preone/Modal'
 import { useToast } from '@/components/preone/Toast'
 import { CONFIG_FORMS, type FormField, type DomainForm } from '@/lib/setup/step-forms'
-import { STEP_MAP } from '@/lib/setup/steps'
+import { LEGACY_KEY_MAP, STEP_MAP } from '@/lib/setup/steps'
 import { SETUP_SCOPE_REGISTRY } from '@/lib/setup/scope-model'
 import { ROLE_META, type CanonicalRole } from '@/lib/roles'
 
@@ -164,7 +164,7 @@ export default function SetupStepPage() {
   const params = useParams<{ step: string }>()
   const router = useRouter()
   const toast = useToast()
-  const stepKey = params.step
+  const stepKey = LEGACY_KEY_MAP[params.step] ?? params.step
   const def = STEP_MAP[stepKey]
 
   const [status, setStatus] = useState<StatusPayload | null>(null)
@@ -181,7 +181,7 @@ export default function SetupStepPage() {
   const [reloading, setReloading] = useState(false)
   const [reloadTrigger, setReloadTrigger] = useState(0)
 
-  const kind = useMemo(() => {
+  const kind = useMemo<string>(() => {
     if (!def) return 'unknown'
     if (def.key === 'school_profile') return 'profile'
     if (def.key === 'branding') return 'branding'
@@ -192,14 +192,8 @@ export default function SetupStepPage() {
       case 'roles': return 'roles'
       case 'academic_year': return 'years'
       case 'classroom': return 'classes'
-      case 'classes_sections': return 'classes'
       case 'subject': return 'subjects'
       case 'fees_setup': return 'fees'
-      case 'fees': return 'fees'
-      case 'staff': return 'staff'
-      case 'teacher_assignment': return 'teachers'
-      case 'calendar': return 'calendar'
-      case 'data_import': return 'import'
       default: return 'unknown'
     }
   }, [def])
@@ -617,8 +611,6 @@ export default function SetupStepPage() {
                 )}
               </>
             )}
-
-            {kind === 'infrastructure' && <InfraSection rooms={list} onDone={refreshAll} onAddFacility={() => setModal('facility')} onEditFacility={(f) => { setEditItem(f); setEditType('facility'); }} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} />}
 
             {kind === 'classes' && <ClassesSection rooms={list} onDone={refreshAll} onEditClass={(c) => { setEditItem(c); setEditType('class'); }} onAddClass={() => setModal('classroom')} />}
 
@@ -1414,7 +1406,7 @@ function StudentImportSection({
             onClick={handleCommit}
             disabled={importing}
           >
-            <CheckCircle2 size={15} /> Commit & Import {String(preview.valid)} Students to {selectedBranch?.name || 'Campus'}
+            <CheckCircle2 size={15} /> Commit & Import {String(preview.valid)} Students to {selectedBranch?.name ? String(selectedBranch.name) : 'Campus'}
           </button>
         )}
       </div>
@@ -1425,7 +1417,7 @@ function StudentImportSection({
             <span className="badge b-success">{String(preview.valid)} Valid</span>
             {Number(preview.invalid) > 0 && <span className="badge b-danger">{String(preview.invalid)} Invalid</span>}
             <span style={{ color: 'var(--text-muted)' }}>
-              Target: <strong>{selectedBranch?.name}</strong>
+              Target: <strong>{selectedBranch?.name ? String(selectedBranch.name) : '—'}</strong>
               {selectedProg ? ` · ${selectedProg.name}` : ''}
               {selectedRoom ? ` · Room: ${selectedRoom.name}` : ''}
             </span>
@@ -2953,7 +2945,7 @@ function ProgramCampusMappingSection({
                 </td>
                 {branches.map((b: any) => {
                   const m = mappings.find((item: any) => item.programId === p.id && item.branchId === b.id)
-                  const isActive = m ? m.isActive : false
+                  const isActive = m ? Boolean(m.isActive) : false
                   const cap = m?.capacity ?? p.capacity ?? 20
                   const isBusy = updating === `${p.id}-${b.id}`
 
@@ -3856,7 +3848,7 @@ function ProgramWiseSubjectSection({
                   </td>
                   <td>
                     <span className="badge b-neutral">
-                      {selectedBranchObj ? selectedBranchObj.name : 'Shared Master'}
+                      {selectedBranchObj ? String(selectedBranchObj.name) : 'Shared Master'}
                     </span>
                   </td>
                   <td>{String(s.classroomCount ?? 0)}</td>

@@ -183,8 +183,8 @@ export class UserActivityService {
     ])
 
     const items: UserActivityItem[] = rawLogs.map((log) => {
-      let oldValues = null
-      let newValues = null
+      let oldValues: any = null
+      let newValues: any = null
 
       try {
         if (log.oldValues) {
