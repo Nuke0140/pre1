@@ -15,7 +15,6 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   ...(process.env.VERCEL === "1" ? {} : { output: "standalone" }),
   experimental: {
-    turbopackFileSystemCacheForDev: true,
     optimizePackageImports: [
       'lucide-react',
       'date-fns',
