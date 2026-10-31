@@ -11,7 +11,7 @@ const VALID_DOMAINS: ConfigDomain[] = [
   'HEALTH_SAFETY', 'COMMUNICATION', 'DOCUMENT_TEMPLATES', 'CURRICULUM', 'BRANDING',
 ]
 
-import { isValidHexColor, getEffectiveBranding, resetThemeSettings } from '@/lib/branding-service'
+import { isValidHexColor, getEffectiveBranding, resetThemeSettings, invalidateBrandingCache } from '@/lib/branding-service'
 import { isDurableAssetUrl } from '@/lib/storage'
 
 /** GET /api/v1/setup/config/{domain} — read JSON config (defaults for null) */
@@ -29,6 +29,7 @@ async function _GET(
 
   try {
     if (domain === 'BRANDING') {
+      invalidateBrandingCache(session.tenantId)
       const effective = await getEffectiveBranding(session.tenantId)
       const row = await db.schoolConfig.findUnique({
         where: { tenantId_domain: { tenantId: session.tenantId, domain: 'BRANDING' } },
@@ -175,6 +176,7 @@ async function _PUT(
         summary: `Updated school branding configuration (Primary: ${configPayload.primaryColor || 'default'}, Accent: ${configPayload.accentColor || 'default'}, Layout: ${configPayload.layout || 'default'})`,
       })
 
+      invalidateBrandingCache(session.tenantId)
       const effective = await getEffectiveBranding(session.tenantId)
       return ok({ domain: 'BRANDING', data: effective, updatedAt: row.updatedAt })
     }

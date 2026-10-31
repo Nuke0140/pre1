@@ -15,18 +15,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   let tenantName = 'PreOne'
   let branchName: string | null = null
-  let branding = undefined
   let initialLocale = DEFAULT_LOCALE
 
-  let user = null
-  try {
-    user = await db.user.findUnique({
+  // Parallelized & cached resolution of user profile and school branding
+  const [user, branding] = await Promise.all([
+    db.user.findUnique({
       where: { id: session.uid },
       select: { locale: true, fullName: true, avatarUrl: true },
-    })
-  } catch (err) {
-    console.error('[AppLayout] Failed to load user:', err)
-  }
+    }).catch((err) => {
+      console.error('[AppLayout] Failed to load user:', err)
+      return null
+    }),
+    session.tenantId
+      ? getEffectiveBranding(session.tenantId, session.branchId).catch((err) => {
+          console.error('[AppLayout] Failed to load branding:', err)
+          return undefined
+        })
+      : Promise.resolve(undefined),
+  ])
 
   if (user?.locale && isSupportedLocale(user.locale)) {
     initialLocale = normalizeLocale(user.locale)
@@ -44,22 +50,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
   }
 
-  if (session.tenantId) {
-    try {
-      const tenant = await db.tenant.findUnique({ where: { id: session.tenantId } })
-      if (!tenant) {
-        redirect('/')
-      }
-      branding = await getEffectiveBranding(session.tenantId, session.branchId)
-      tenantName = branding?.schoolName || tenant.name || 'PreOne'
-
-      if (session.branchId) {
-        const branch = await db.branch.findUnique({ where: { id: session.branchId } })
-        branchName = branch?.name ?? null
-      }
-    } catch (err) {
-      console.error('[AppLayout] Failed to load tenant/branding:', err)
-    }
+  if (session.tenantId && branding) {
+    tenantName = branding.schoolName || 'PreOne'
+    branchName = branding.campusName ?? null
   }
 
   const primary = branding?.primaryColor || '#7C3AED'

@@ -108,7 +108,10 @@ async function _GET(req: NextRequest) {
             students: activeCount,
           },
         }
-      })
+      }),
+      undefined,
+      200,
+      { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=45' }
     )
   } catch (e) {
     console.warn('[GET /api/v1/classrooms] DB unreachable, returning fallback classrooms:', e)

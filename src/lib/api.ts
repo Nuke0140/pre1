@@ -15,7 +15,7 @@ export function traceId(): string {
   return getActiveTraceId()
 }
 
-export function ok<T>(data: T, meta?: Record<string, unknown>, status = 200) {
+export function ok<T>(data: T, meta?: Record<string, unknown>, status = 200, initHeaders?: Record<string, string>) {
   const currentTrace = traceId()
   return NextResponse.json(
     { success: true, data, ...(meta ? { meta } : {}), traceId: currentTrace },
@@ -24,6 +24,7 @@ export function ok<T>(data: T, meta?: Record<string, unknown>, status = 200) {
       headers: {
         'X-API-Version': '1.0.0',
         'X-Trace-Id': currentTrace,
+        ...(initHeaders || {}),
       },
     }
   )

@@ -47,6 +47,21 @@ export function parseDeviceFromUserAgent(ua?: string | null): DeviceMetadata {
 }
 
 export class SessionService {
+  private static readonly SESSION_CACHE_TTL_MS = 15_000 // 15 seconds fast in-memory validation
+  private static validationCache = new Map<string, { valid: boolean; reason?: string; session?: any; expiresAt: number }>()
+
+  /**
+   * Invalidates cached session validations for instant security revocation.
+   */
+  static invalidateCache(tokenOrHash?: string): void {
+    if (tokenOrHash) {
+      const hash = tokenOrHash.length === 64 ? tokenOrHash : SessionService.hashToken(tokenOrHash)
+      SessionService.validationCache.delete(hash)
+    } else {
+      SessionService.validationCache.clear()
+    }
+  }
+
   /**
    * Hashes a raw JWT token using SHA-256 for secure lookup without storing raw tokens.
    */
@@ -126,6 +141,9 @@ export class SessionService {
       },
     })
 
+    // Invalidate cached validations across the process on security version bump
+    SessionService.validationCache.clear()
+
     return nextVersion
   }
 
@@ -157,6 +175,10 @@ export class SessionService {
     }
 
     const tokenHash = this.hashToken(token)
+    const cached = SessionService.validationCache.get(tokenHash)
+    if (cached && cached.expiresAt > Date.now()) {
+      return { valid: cached.valid, reason: cached.reason, session: cached.session }
+    }
     try {
       const session = await db.userSession.findUnique({
         where: { tokenHash },
@@ -242,7 +264,12 @@ export class SessionService {
         }
       }
 
-      return { valid: true, session: session || undefined }
+      const result = { valid: true, session: session || undefined }
+      SessionService.validationCache.set(tokenHash, {
+        ...result,
+        expiresAt: Date.now() + SessionService.SESSION_CACHE_TTL_MS,
+      })
+      return result
     } catch (err: any) {
       logger.warn('Error verifying session in database', { error: err.message })
       return { valid: true } // Graceful degradation if DB is temporarily unreachable
@@ -287,6 +314,7 @@ export class SessionService {
         updatedAt: new Date(),
       },
     })
+    SessionService.validationCache.clear()
     return res.count > 0
   }
 
@@ -296,6 +324,7 @@ export class SessionService {
   static async revokeSessionByToken(token: string): Promise<boolean> {
     if (!token) return false
     const tokenHash = this.hashToken(token)
+    SessionService.invalidateCache(tokenHash)
     const res = await db.userSession.updateMany({
       where: { tokenHash },
       data: {
@@ -311,6 +340,7 @@ export class SessionService {
    * If tenantId is provided, revokes active sessions specifically for that tenant.
    */
   static async revokeAllUserSessions(userId: string, exceptTokenHash?: string, tenantId?: string | null): Promise<number> {
+    SessionService.validationCache.clear()
     const where: any = {
       userId,
       status: 'ACTIVE',

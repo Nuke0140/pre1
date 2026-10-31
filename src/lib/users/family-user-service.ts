@@ -45,6 +45,28 @@ export function normalizeRelationship(rel?: string): Relationship {
   return 'OTHER'
 }
 
+// High-performance in-memory TTL cache for heavy multi-table family KPI aggregations
+const KPI_CACHE_TTL_MS = 15_000 // 15 seconds TTL
+
+interface CachedFamilyKpis {
+  data: FamilyKpiAggregates
+  expiresAt: number
+}
+
+const familyKpiCache = new Map<string, CachedFamilyKpis>()
+
+export function invalidateFamilyKpiCache(tenantId?: string): void {
+  if (tenantId) {
+    for (const key of familyKpiCache.keys()) {
+      if (key.startsWith(`${tenantId}:`)) {
+        familyKpiCache.delete(key)
+      }
+    }
+  } else {
+    familyKpiCache.clear()
+  }
+}
+
 export class FamilyUserService {
   /**
    * Helper: Counts active PARENT accounts linked to a student
@@ -117,6 +139,12 @@ export class FamilyUserService {
       options.branchId !== 'null'
         ? options.branchId
         : undefined
+
+    const cacheKey = `${tenantId}:${branchId || 'ALL'}`
+    const cached = familyKpiCache.get(cacheKey)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data
+    }
 
     // 1. Total Parents: authoritative parent login accounts in tenant
     const parentWhere: any = {
@@ -337,7 +365,7 @@ export class FamilyUserService {
 
     const multiChildParents = parentLinks.filter((l) => l._count.studentId > 1).length
 
-    return {
+    const result: FamilyKpiAggregates = {
       totalParents,
       linkedStudents,
       multiChildParents,
@@ -345,6 +373,13 @@ export class FamilyUserService {
       authorizedPickupTotal,
       pinSetTotal,
     }
+
+    familyKpiCache.set(cacheKey, {
+      data: result,
+      expiresAt: Date.now() + KPI_CACHE_TTL_MS,
+    })
+
+    return result
   }
 
   /**

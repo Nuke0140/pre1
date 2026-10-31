@@ -441,7 +441,7 @@ export class OtpService {
     // Generate verification code: random when demo OTP is not allowed or OTP_RANDOM_CODE=true
     const codeLength = Number(process.env.OTP_CODE_LENGTH) || 4
     const code =
-      (!isDemoOtpAllowed() || process.env.OTP_RANDOM_CODE === 'true')
+      (!OtpService.isDemoOtpAllowed(cleanId) || process.env.OTP_RANDOM_CODE === 'true')
         ? Math.floor(Math.pow(10, codeLength - 1) + Math.random() * (Math.pow(10, codeLength) - Math.pow(10, codeLength - 1) + 1)).toString()
         : '0'.repeat(codeLength)
 

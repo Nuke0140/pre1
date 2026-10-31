@@ -16,14 +16,46 @@ import {
 
 export * from './branding'
 
+// High-performance in-memory TTL cache for branding resolution across server components & routes
+const BRANDING_CACHE_TTL_MS = 60_000 // 60 seconds
+
+interface CachedBranding {
+  value: BrandingConfig
+  expiresAt: number
+}
+
+const brandingCache = new Map<string, CachedBranding>()
+
+/**
+ * Invalidates the in-memory branding cache for a specific tenant or all tenants.
+ */
+export function invalidateBrandingCache(tenantId?: string): void {
+  if (tenantId) {
+    for (const key of brandingCache.keys()) {
+      if (key.startsWith(`${tenantId}:`)) {
+        brandingCache.delete(key)
+      }
+    }
+  } else {
+    brandingCache.clear()
+  }
+}
+
 /**
  * Single Canonical Resolver for Effective Branding across PreOne OS.
  * Reads Tenant, Branch, and SchoolConfig(domain = "BRANDING") and resolves defaults.
+ * Optimized with in-memory caching to eliminate redundant database queries on every page render.
  */
 export async function getEffectiveBranding(
   tenantId: string,
   branchId?: string | null
 ): Promise<BrandingConfig> {
+  const cacheKey = `${tenantId}:${branchId || 'default'}`
+  const cached = brandingCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value
+  }
+
   const [tenant, configRow, branch] = await Promise.all([
     db.tenant.findUnique({
       where: { id: tenantId },
@@ -71,7 +103,7 @@ export async function getEffectiveBranding(
       : null
   const footerVisible = brandData.footerVisible !== false
 
-  return {
+  const resolved: BrandingConfig = {
     primaryColor,
     accentColor,
     layout,
@@ -86,6 +118,13 @@ export async function getEffectiveBranding(
     branchId: branch?.id || null,
     schoolId: tenant?.id || null,
   }
+
+  brandingCache.set(cacheKey, {
+    value: resolved,
+    expiresAt: Date.now() + BRANDING_CACHE_TTL_MS,
+  })
+
+  return resolved
 }
 
 /**
@@ -95,6 +134,7 @@ export async function resetThemeSettings(
   tenantId: string,
   actor: { id: string; name?: string; role?: string }
 ): Promise<BrandingConfig> {
+  invalidateBrandingCache(tenantId)
   const resetData = {
     primaryColor: PREONE_BRANDING_DEFAULTS.primaryColor,
     accentColor: PREONE_BRANDING_DEFAULTS.accentColor,

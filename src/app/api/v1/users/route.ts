@@ -84,7 +84,16 @@ export const GET = withApi(async (req: NextRequest) => {
     ]
 
     if (!skipRole && roleFilter) {
-      andConditions.push({ OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] })
+      if ((roleFilter as string) === 'FAMILY') {
+        andConditions.push({
+          OR: [
+            { role: { in: ['PARENT', 'GUARDIAN'] } },
+            { roles: { hasSome: ['PARENT', 'GUARDIAN'] } },
+          ],
+        })
+      } else if (Object.values(UserRole).includes(roleFilter as UserRole)) {
+        andConditions.push({ OR: [{ role: roleFilter }, { roles: { has: roleFilter } }] })
+      }
     }
 
     if (

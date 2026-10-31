@@ -235,24 +235,45 @@ export default async function DashboardPage() {
   // Calculate standardized fee metrics (strictly excludes DRAFT, CANCELLED, and WRITTEN_OFF)
   const { billed, collected, overdue, collectRate } = calculateDashboardFeeMetrics(invoices, today)
 
-  // 7-day attendance trend
+  // 7-day attendance trend (Single aggregated database query instead of 14 roundtrips)
+  const sevenDaysAgo = new Date(today)
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  sevenDaysAgo.setHours(0, 0, 0, 0)
+
+  const attendanceGrouped = canReadAttendance
+    ? await db.attendance.groupBy({
+        by: ['date', 'status'],
+        where: {
+          tenantId,
+          date: { gte: sevenDaysAgo, lte: today },
+        },
+        _count: { _all: true },
+      })
+    : []
+
   const trend = canReadAttendance
-    ? await Promise.all(
-        Array.from({ length: 7 }).map(async (_, i) => {
-          const d = new Date(today)
-          d.setDate(d.getDate() - (6 - i))
-          const [present, total] = await Promise.all([
-            db.attendance.count({
-              where: { tenantId, date: d, status: { in: ['PRESENT', 'LATE', 'HALF_DAY'] } },
-            }),
-            db.attendance.count({ where: { tenantId, date: d } }),
-          ])
-          return {
-            label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
-            pct: total > 0 ? Math.round((present / total) * 100) : 0,
+    ? Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date(today)
+        d.setDate(d.getDate() - (6 - i))
+        d.setHours(0, 0, 0, 0)
+        const dateKey = d.toDateString()
+
+        let present = 0
+        let total = 0
+        for (const item of attendanceGrouped) {
+          if (new Date(item.date).toDateString() === dateKey) {
+            total += item._count._all
+            if (['PRESENT', 'LATE', 'HALF_DAY'].includes(item.status)) {
+              present += item._count._all
+            }
           }
-        })
-      )
+        }
+
+        return {
+          label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+          pct: total > 0 ? Math.round((present / total) * 100) : 0,
+        }
+      })
     : []
 
   return (

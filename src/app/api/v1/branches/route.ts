@@ -23,13 +23,18 @@ async function _GET(req: NextRequest) {
       include: { _count: { select: { staffProfiles: true, facilities: true, calendarEvents: true } } },
       orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
     })
-    return ok(branches.map((b) => ({
-      id: b.id, name: b.name, code: b.code, address: b.address, city: b.city,
-      state: b.state, pincode: b.pincode, phone: b.phone, email: b.email,
-      timingOpen: b.timingOpen, timingClose: b.timingClose, capacity: b.capacity,
-      isMain: b.isMain, isActive: b.isActive,
-      facilities: b._count.facilities, staff: b._count.staffProfiles,
-    })))
+    return ok(
+      branches.map((b) => ({
+        id: b.id, name: b.name, code: b.code, address: b.address, city: b.city,
+        state: b.state, pincode: b.pincode, phone: b.phone, email: b.email,
+        timingOpen: b.timingOpen, timingClose: b.timingClose, capacity: b.capacity,
+        isMain: b.isMain, isActive: b.isActive,
+        facilities: b._count.facilities, staff: b._count.staffProfiles,
+      })),
+      undefined,
+      200,
+      { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=45' }
+    )
   } catch (e) {
     return Errors.system(e)
   }
