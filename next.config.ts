@@ -5,18 +5,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
-  experimental: {
-    optimizePackageImports: [
-      'lucide-react',
-      'date-fns',
-      'recharts',
-      'framer-motion',
-      '@radix-ui/react-icons',
-      '@tanstack/react-table',
-      '@tanstack/react-query',
-    ],
-    turbopackFileSystemCacheForDev: true,
-  },
   // output: "standalone" is only used for self-hosting (Caddy/Docker/bun).
   // On Vercel it conflicts with the adapter-based Turbopack build and causes
   // ENOENT on .next/next-server.js.nft.json (next.js#96657).
@@ -27,19 +15,20 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   ...(process.env.VERCEL === "1" ? {} : { output: "standalone" }),
   experimental: {
-    webpackBuildWorker: false,
-    webpackMemoryOptimizations: true,
-    cpus: 1,
+    turbopackFileSystemCacheForDev: true,
     optimizePackageImports: [
       'lucide-react',
       'date-fns',
       'recharts',
+      'framer-motion',
       '@radix-ui/react-icons',
       '@radix-ui/react-dialog',
       '@radix-ui/react-dropdown-menu',
       '@radix-ui/react-popover',
       '@radix-ui/react-select',
       '@radix-ui/react-tooltip',
+      '@tanstack/react-table',
+      '@tanstack/react-query',
     ],
   },
   async headers() {

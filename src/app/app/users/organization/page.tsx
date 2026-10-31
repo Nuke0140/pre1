@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useTransition } from 'react'
+import React, { Suspense, useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Network, ShieldCheck, ChevronLeft, ArrowLeft, RefreshCw, Layers } from 'lucide-react'
@@ -13,7 +13,7 @@ import { BranchOption, UserRecord } from '@/components/users/types'
 import { useToast } from '@/components/preone/Toast'
 import { useI18n } from '@/lib/i18n'
 
-export default function OrganizationSetupPage() {
+function OrganizationSetupPageContent() {
   const { t } = useI18n()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -156,5 +156,13 @@ export default function OrganizationSetupPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function OrganizationSetupPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading organization...</div>}>
+      <OrganizationSetupPageContent />
+    </Suspense>
   )
 }

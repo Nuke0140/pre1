@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
@@ -58,7 +58,7 @@ import { normalizeRole } from '@/lib/roles'
 import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 
-export default function StaffUsersPage() {
+function StaffUsersPageContent() {
   const toast = useToast()
   const { t } = useI18n()
 
@@ -1039,5 +1039,13 @@ export default function StaffUsersPage() {
         onSuccess={fetchStaff}
       />
     </div>
+  )
+}
+
+export default function StaffUsersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading staff users...</div>}>
+      <StaffUsersPageContent />
+    </Suspense>
   )
 }

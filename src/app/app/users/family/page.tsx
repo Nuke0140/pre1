@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
@@ -53,7 +53,7 @@ import { timeAgo, fmtDate } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { Image as ImageIcon, Layers, MoreHorizontal } from 'lucide-react'
 
-export default function FamilyUsersPage() {
+function FamilyUsersPageContent() {
   const toast = useToast()
   const { t } = useI18n()
 
@@ -1566,5 +1566,13 @@ export default function FamilyUsersPage() {
         onSuccess={fetchFamilyUsers}
       />
     </div>
+  )
+}
+
+export default function FamilyUsersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading family users...</div>}>
+      <FamilyUsersPageContent />
+    </Suspense>
   )
 }

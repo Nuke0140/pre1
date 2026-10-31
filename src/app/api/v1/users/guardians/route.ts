@@ -15,7 +15,7 @@ export const GET = withApi(async (req: NextRequest) => {
   const branchFilter = url.searchParams.get('branchId') || url.searchParams.get('branch')
 
   const authorizedBranches = await getAuthorizedBranchIds(session)
-  const isInstitutionWide = authorizedBranches === 'ALL' || authorizedBranches === null
+  const isInstitutionWide = authorizedBranches === null
 
   let effectiveBranchIds: string[] | undefined = undefined
 

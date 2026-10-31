@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { Suspense, useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
@@ -16,7 +16,7 @@ import { UserRecord, BranchOption, ClassroomOption } from '@/components/users/ty
 import { useToast } from '@/components/preone/Toast'
 import { useI18n } from '@/lib/i18n'
 
-export default function StaffUpdatesPage() {
+function StaffUpdatesPageContent() {
   const { t } = useI18n()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -361,5 +361,13 @@ export default function StaffUpdatesPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function StaffUpdatesPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading staff updates...</div>}>
+      <StaffUpdatesPageContent />
+    </Suspense>
   )
 }

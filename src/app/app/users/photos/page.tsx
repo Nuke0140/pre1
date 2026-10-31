@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, useRef } from 'react'
+import React, { Suspense, useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
@@ -14,7 +14,7 @@ import { UserRecord, BranchOption } from '@/components/users/types'
 import { useToast } from '@/components/preone/Toast'
 import { useI18n } from '@/lib/i18n'
 
-export default function PhotoManagementPage() {
+function PhotoManagementPageContent() {
   const { t } = useI18n()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -433,5 +433,13 @@ export default function PhotoManagementPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PhotoManagementPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading photo management...</div>}>
+      <PhotoManagementPageContent />
+    </Suspense>
   )
 }
